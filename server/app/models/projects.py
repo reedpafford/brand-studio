@@ -32,6 +32,7 @@ class Project(Entity, Base):
     cast_ids: Mapped[list[int]] = mapped_column(JSON, default=list)  # library characters
     reference_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # a video
     # A reference reel to adapt: its breakdown (app/reference.py shape) and what to rebuild.
+    product_variants: Mapped[dict] = mapped_column(JSON, default=dict)  # product -> variant
     reference_breakdown: Mapped[dict | None] = mapped_column(JSON)
     reference_replace: Mapped[str] = mapped_column(Text, default="")
 

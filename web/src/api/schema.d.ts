@@ -1307,6 +1307,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Name */
             name: string;
         };
@@ -1343,6 +1348,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Id */
             id: number;
             /** Name */
@@ -1386,6 +1396,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Name */
             name?: string | null;
         };
@@ -1987,6 +2002,10 @@ export interface components {
             cast_ids?: number[] | null;
             /** Reference File Id */
             reference_file_id?: number | null;
+            /** Product Variants */
+            product_variants?: {
+                [key: string]: string;
+            } | null;
             /** Reference Breakdown */
             reference_breakdown?: {
                 [key: string]: unknown;
@@ -2023,6 +2042,10 @@ export interface components {
             cast_ids: number[];
             /** Reference File Id */
             reference_file_id: number | null;
+            /** Product Variants */
+            product_variants: {
+                [key: string]: string;
+            };
             /** Reference Breakdown */
             reference_breakdown: {
                 [key: string]: unknown;
@@ -2052,6 +2075,10 @@ export interface components {
             cast_ids?: number[] | null;
             /** Reference File Id */
             reference_file_id?: number | null;
+            /** Product Variants */
+            product_variants?: {
+                [key: string]: string;
+            } | null;
             /** Reference Breakdown */
             reference_breakdown?: {
                 [key: string]: unknown;
@@ -2151,6 +2178,16 @@ export interface components {
              * @default []
              */
             default_for: string[];
+            /**
+             * Product
+             * @default
+             */
+            product: string;
+            /**
+             * Variant
+             * @default
+             */
+            variant: string;
         };
         /** ScreenOut */
         ScreenOut: {
@@ -2168,6 +2205,16 @@ export interface components {
              * @default []
              */
             default_for: string[];
+            /**
+             * Product
+             * @default
+             */
+            product: string;
+            /**
+             * Variant
+             * @default
+             */
+            variant: string;
             /** Id */
             id: number;
             /** Brand Id */
@@ -2183,6 +2230,10 @@ export interface components {
             tags?: string[] | null;
             /** Default For */
             default_for?: string[] | null;
+            /** Product */
+            product?: string | null;
+            /** Variant */
+            variant?: string | null;
         };
         /** ScriptIn */
         ScriptIn: {
