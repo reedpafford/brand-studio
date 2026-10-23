@@ -7,11 +7,29 @@ import httpx2 as httpx
 import pytest
 from anthropic import DefaultHttpxClient
 
-from app.claude import MODEL, ClaudeError, ScriptSuggestions, ask, make_client, suggest_enhancements
+from app.claude import MODEL, ClaudeError, ask, make_client
+from app.prompts.schemas import EnhanceResult
 from app.settings import Settings
 from tests.helpers import claude_stream
 
-ANSWER = {"suggestions": [{"kind": "brand_screen", "after_line": 3, "text": "Show the buy screen"}]}
+ANSWER = {
+    "suggestions": [
+        {
+            "id": "s1",
+            "kind": "brand_screen",
+            "anchor": {"line": 3, "quote": "line 3"},
+            "placement": "after",
+            "text": "Show the buy screen",
+            "screen_id": "screen:1",
+            "reason": "Required screen.",
+        }
+    ],
+    "notes": [],
+}
+
+
+def suggest_enhancements(client, brand, script):
+    return ask(client, system=["Base rules.", brand], prompt=script, schema=EnhanceResult)
 
 
 def _reply(stop_reason="end_turn", text=json.dumps(ANSWER), **extra):
@@ -93,5 +111,5 @@ def test_long_answers_are_allowed(monkeypatch):
     """The Director's breakdowns use 32k max_tokens: the SDK refuses that without streaming."""
     seen = []
     client = _client(_reply(), seen)
-    answer = ask(client, system=["Base."], prompt="p", schema=ScriptSuggestions, max_tokens=32000)
+    answer = ask(client, system=["Base."], prompt="p", schema=EnhanceResult, max_tokens=32000)
     assert answer.parsed and json.loads(seen[0].content)["max_tokens"] == 32000
