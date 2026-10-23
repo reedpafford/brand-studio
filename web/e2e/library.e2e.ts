@@ -76,7 +76,6 @@ test("outfits and a voice sample are saved on a character", async ({ page }) => 
 
 test("archiving hides a character, and unarchiving brings it back", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Archive character" }).click();
   await expect(page.getByText("Max", { exact: true })).toHaveCount(0);
 
@@ -88,7 +87,6 @@ test("archiving hides a character, and unarchiving brings it back", async ({ pag
 
 test("archiving shows a message with Undo that puts the character back", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Archive character" }).click();
   await expect(page.getByRole("status")).toContainText("Max archived.");
   await page.getByRole("button", { name: "Undo" }).click();
@@ -98,7 +96,6 @@ test("archiving shows a message with Undo that puts the character back", async (
 test("the owner can delete an archived character for good", async ({ page }) => {
   // Rex has no image, so the card's link is named "No image" (reported to the builder).
   await page.getByRole("listitem").filter({ hasText: "Rex" }).getByRole("link").click();
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Archive character" }).click();
 
   await page.getByLabel("Show archived").check();
