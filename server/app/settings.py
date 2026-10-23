@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     session_days: int = 30
     invite_days: int = 7
     cookie_secure: bool = True  # set BS_COOKIE_SECURE=false only for local http
+    # Login throttling: this many failures within the window locks the email / IP out.
+    login_max_failures: int = 5
+    login_max_failures_per_ip: int = 20
+    login_window_minutes: int = 15
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 

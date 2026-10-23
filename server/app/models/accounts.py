@@ -52,3 +52,18 @@ class Invite(Entity, Base):
     invited_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     expires_at: Mapped[datetime]
     accepted_at: Mapped[datetime | None]
+
+
+class SetupDone(Base):
+    """At most one row (id=1). Inserting it in the setup transaction makes setup run once,
+    even if two requests arrive at the same moment."""
+
+    __tablename__ = "setup_done"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+
+
+class LoginFailure(Entity, Base):
+    """One failed login or setup attempt, keyed by email or IP. Used for throttling."""
+
+    __tablename__ = "login_failures"
+    key: Mapped[str] = mapped_column(String(300), index=True)
