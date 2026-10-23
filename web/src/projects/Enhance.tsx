@@ -25,7 +25,7 @@ export function useEnhance(projectId: number, scriptVersion: number | undefined,
   const toast = useToast();
   const path = { project_id: projectId };
   const jobs = useJobs();
-  const last = jobs.data?.filter((j) => j.kind === "write-claude" && j.project_id === projectId).sort((a, b) => b.id - a.id)[0];
+  const last = jobs.data?.filter((j) => j.kind === "write-claude" && j.step === "enhance" && j.project_id === projectId).sort((a, b) => b.id - a.id)[0];
   const running = !!last && GOING.includes(last.status);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["enhance", projectId] });
 
