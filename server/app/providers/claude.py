@@ -2,6 +2,7 @@
 `run()` instead of submit/poll. Failed calls aren't billed by Anthropic, so "busy" and server
 errors are safe to retry; a dropped connection is treated as "unsure", like other paid work."""
 
+import re
 from decimal import Decimal
 
 import anthropic
@@ -9,6 +10,20 @@ import anthropic
 from app.claude import ClaudeError, ask, make_client
 from app.prompts import SCHEMAS
 from app.providers import NetworkError, NotStarted, Result, UsageItem
+
+CONTROL = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")  # control characters except newline
+
+
+def clean(value):
+    """Stray control characters out of every string in an answer (seen: a tab and a "y" where
+    "Shot 1 | 0–1 s" had its dash). Newlines stay; nothing else changes."""
+    if isinstance(value, str):
+        return CONTROL.sub("", value)
+    if isinstance(value, dict):
+        return {k: clean(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [clean(v) for v in value]
+    return value
 
 
 class ClaudeProvider:
@@ -44,7 +59,7 @@ class ClaudeProvider:
             raise NetworkError(repr(exc)) from exc
         return Result(
             "succeeded",
-            output=answer.parsed.model_dump(),
+            output=clean(answer.parsed.model_dump()),
             usage=[UsageItem(Decimal(1), "call", answer.cost_usd)],
         )
 
