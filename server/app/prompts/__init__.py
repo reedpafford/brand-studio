@@ -70,3 +70,31 @@ def brand_block(brand: dict, screens: list[dict]) -> str:
 
 def _screen(s: dict) -> str:
     return f'- screen:{s["id"]} "{s["name"]}" ({", ".join(s.get("tags", []))})'
+
+
+def reference_block(ref: dict, replace: str = "") -> str:
+    """A reference reel's breakdown (docs/references/*/BREAKDOWN.json shape) as a <reference>
+    tag: hook, beats and the shot list with timing, framing, action, emotion and lines.
+    On-screen text is left out on purpose (never copied). `replace` says which part the
+    editor wants rebuilt (e.g. the montage)."""
+    hook = ref["hook"]
+    lines = [
+        f"<reference>\nStory: {ref['logline']}",
+        f"Length: {ref['duration_seconds']:.0f} s. "
+        f"Hook (0–{hook['seconds']} s): {hook['mechanic']}",
+        "Beats:",
+    ]
+    lines += [
+        f"- {b['start']:.1f}–{b['end']:.1f} s {b['summary']} ({b['emotion']})" for b in ref["beats"]
+    ]
+    lines.append("Shots (time, framing, camera, action, emotion, line):")
+    for s in ref["shots"]:
+        said = f' | {s["speaker"]}: "{s["line"]}"' if s.get("line") else ""
+        lines.append(
+            f"{s['n']}. {s['start']:.2f}–{s['end']:.2f} {s['framing']}; {s['camera']} | "
+            f"{s['action']} | {s['emotion']}{said}"
+        )
+    if replace:
+        lines.append(f"Replace: {replace}")
+    lines.append("</reference>")
+    return "\n".join(lines)

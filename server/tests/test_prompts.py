@@ -96,3 +96,15 @@ def test_eval_scoring_flags_a_cut_dialogue_line(tmp_path):
     mark |= {"placement": "replace", "text": "", "screen_id": None, "reason": "x"}
     answer.write_text(json.dumps({"suggestions": [mark]}))
     assert score(tmp_path, case) == ["line 8 should be left alone"]
+
+
+def test_reference_block_keeps_timing_and_lines_but_not_on_screen_text():
+    ref = {"logline": "Dumped at the altar.", "duration_seconds": 45.0,
+           "hook": {"seconds": 4.9, "mechanic": "Cold open."},
+           "beats": [{"start": 0, "end": 4.9, "summary": "HOOK", "emotion": "shock"}],
+           "shots": [{"n": 1, "start": 0, "end": 0.4, "framing": "ECU", "camera": "push-in",
+                      "action": "Bride screams", "emotion": "rage", "line": "HELL NO!",
+                      "speaker": "bride", "text_on_screen": "HELL [do not copy]"}]}  # fmt: skip
+    block = prompts.reference_block(ref, "the montage")
+    assert '1. 0.00–0.40 ECU; push-in | Bride screams | rage | bride: "HELL NO!"' in block
+    assert "do not copy" not in block and "Replace: the montage" in block

@@ -382,6 +382,56 @@
      8
     ]
    }
+  },
+  {
+   "id": "fomo-adapt-altar",
+   "brand": "fomo",
+   "steps": [
+    "script_draft",
+    "breakdown",
+    "clip_prompts"
+   ],
+   "brief": "Adapt Reed's reference reel for fomo. 9:16, about 43 s, stylized 3D animated. Keep the hook mechanic and the story; the hustle montage becomes a fomo trading montage with the real screens. Leave out the live-action tag at the end.",
+   "cast": [
+    "char:1 Nate, teen groom, backwards grey cap",
+    "char:2 The bride, blonde, veil",
+    "char:3 The rival, tall, long hair, navy suit"
+   ],
+   "places": [
+    "place:1 Floral altar by the ocean",
+    "place:2 Nate's small bedroom",
+    "place:3 Penthouse with a night-skyline balcony"
+   ],
+   "reference": {
+    "path": "docs/references/fomo-DehudnaAmce/BREAKDOWN.json",
+    "replace": "the montage, 17.4–29.2 s (shots 17–40): make it a wordless fomo trading montage with the real fomo screens; keep its length, its match cuts (same pose, bigger world) and its end on the skyline arrival before the time jump."
+   },
+   "script": null,
+   "good": [
+    "The hook mechanic survives: 'I do' answered by a screamed refusal in the first second, the ring thrown, the public betrayal, all before 5 s.",
+    "Same beat order and timing: abandonment, the wound (the 'forever' echo or an equivalent), montage, time jump, the ex's double take, the smug payoff line.",
+    "The montage is about 12 s of wordless trading: real fomo screens (chart down then chart up, desktop) in match cuts as his room grows from bedroom to penthouse, ending on the skyline.",
+    "About as little dialogue as the reference (around 30–50 words); no captions, no '2 YEARS LATER' card text, no live-action tag.",
+    "Breakdown cuts at the reference's speed (hook shots under 0.5 s, montage around 0.3–0.5 s) and keeps its light: bright wedding, dark grind, neon penthouse."
+   ],
+   "expect": {
+    "drafts": [
+     2,
+     3
+    ],
+    "words_per_draft": [
+     20,
+     70
+    ],
+    "clips": [
+     2,
+     3
+    ],
+    "min_screen_shots": 3,
+    "forbid": [
+     "BANDS > BRIDES"
+    ]
+   }
   }
  ]
 }

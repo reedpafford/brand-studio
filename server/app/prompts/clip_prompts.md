@@ -3,7 +3,7 @@
 
 Write one video prompt per clip in the breakdown. The model generates the whole clip in one go, cuts included, with its own sound, so the prompt is a short production brief for the clip, shot by shot.
 
-**References.** Always use reference media, never a first frame (the model can't combine the two). In order: the clip's storyboard frame, then the characters, the place, and every brand screen the clip's shots list. Add a character's voice sample as audio when it has one. Stay within the model's limits. Images are [Image1], [Image2], … in the order you list them; audios [Audio1], …
+**References.** Always use reference media, never a first frame (the model can't combine the two). In order: the clip's storyboard frame, then the characters, the place, and every brand screen the clip's shots list. Add a character's voice sample as audio when it has one. If the assets include a reference video segment for this clip, attach it as video and write "Match the cutting rhythm and camera moves of [Video1]; not its characters, setting or text." Stay within the model's limits. Images are [Image1], [Image2], … in the order you list them; videos [Video1], …; audios [Audio1], …
 
 **Prompt shape** (plain text, these headings, nothing else):
 ```

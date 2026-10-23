@@ -13,7 +13,7 @@ from pathlib import Path
 
 from app.catalogue import get_model
 from app.claude import ask, make_client
-from app.prompts import SCHEMAS, brand_block, number_lines, system
+from app.prompts import SCHEMAS, brand_block, number_lines, reference_block, system
 from evals.score import CASES
 
 
@@ -54,6 +54,10 @@ def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) 
     places = "<places>\n" + "\n".join(case["places"]) + "\n</places>"
     brief = f"<brief>{case['brief']}</brief>"
     script = "\n".join(case["script"] or [])
+    reference = ""
+    if ref := case.get("reference"):
+        path = Path(__file__).parents[2] / ref["path"]
+        reference = "\n" + reference_block(json.loads(path.read_text()), ref["replace"])
     answers = {}
     for step in case["steps"]:
         if sum(spent) >= cap:
@@ -61,10 +65,11 @@ def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) 
         if step == "enhance":
             prompt = f"{brief}\n{cast}\n<script>\n{number_lines(script)}\n</script>"
         elif step == "script_draft":
-            prompt = f"{brief}\n{cast}"
+            prompt = f"{brief}\n{cast}{reference}"
         elif step == "breakdown":
             (out / f"{case['id']}.script.txt").write_text(script)
-            prompt = f"{brief}\n{cast}\n{places}\n{video_model()}\n<script>\n{number_lines(script)}\n</script>"  # noqa: E501
+            prompt = f"{brief}\n{cast}\n{places}\n{video_model()}{reference}\n"
+            prompt += f"<script>\n{number_lines(script)}\n</script>"
         else:  # clip_prompts
             bd = answers["breakdown"]
             screens = [
