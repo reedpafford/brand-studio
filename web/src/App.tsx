@@ -1,11 +1,18 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth";
 import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
+import { ClipPage } from "./clip/ClipPage";
+import { ItemPage } from "./library/ItemPage";
+import { LibraryPage } from "./library/LibraryPage";
+import { KitPage } from "./brand/KitPage";
+import { ScreensPage } from "./brand/ScreensPage";
 import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
+import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
 
 export function App() {
   return (
+    <ToastProvider>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup" element={<SetupPage />} />
@@ -14,9 +21,16 @@ export function App() {
         <Route element={<Shell />}>
           <Route index element={<GoToBrand />} />
           <Route path="b/:brandId" element={<BrandHome />} />
+          <Route path="b/:brandId/kit" element={<KitPage />} />
+          <Route path="b/:brandId/screens" element={<ScreensPage />} />
+          <Route path="b/:brandId/library" element={<Navigate to="characters" replace />} />
+          <Route path="b/:brandId/library/:kindSlug" element={<LibraryPage />} />
+          <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />
+          <Route path="b/:brandId/clip" element={<ClipPage />} />
           <Route path="team" element={<TeamPage />} />
         </Route>
       </Route>
     </Routes>
+    </ToastProvider>
   );
 }
