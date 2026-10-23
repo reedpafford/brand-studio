@@ -86,6 +86,15 @@ test("archiving hides a character, and unarchiving brings it back", async ({ pag
   await expect(page.getByText("Max", { exact: true })).toBeVisible();
 });
 
+test("archiving shows a message with Undo that puts the character back", async ({ page }) => {
+  await page.getByRole("link", { name: "Max" }).click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Archive character" }).click();
+  await expect(page.getByRole("status")).toContainText("Max archived.");
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByText("Max", { exact: true })).toBeVisible();
+});
+
 test("the owner can delete an archived character for good", async ({ page }) => {
   // Rex has no image, so the card's link is named "No image" (reported to the builder).
   await page.getByRole("listitem").filter({ hasText: "Rex" }).getByRole("link").click();
