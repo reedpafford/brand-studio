@@ -30,6 +30,7 @@ Purpose: make one video clip per breakdown clip, review each one, redo what's wr
   - **✓ Looks good** approves the picked take (green border and "Approved").
   - **Needs a change** opens "What's wrong?" (required) + **[Redo · 27 credits]**. The note goes to the Director/prompt step, and the old take stays.
   - Approving is per clip. Changing the picked take removes the approval.
+- A character or place without an approved sheet blocks its frame or clip: "Mia needs an approved sheet. [Open Mia]" (see `library.md`).
 - **Make missing** generates every clip that has no take yet. Like every paid action, it shows the cost, or "Ask Reed to approve · N credits" when over budget.
 - **The video:**
   - **[Make the video]** is enabled when every clip is approved, with the reason otherwise: "Approve every clip to make the video (1 left)".
