@@ -6,6 +6,7 @@ from app.db import make_sessionmaker
 from app.routes import (
     auth,
     brands,
+    clips,
     credits,
     files,
     health,
@@ -39,6 +40,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         projects,
         credits,
         models,
+        clips,
     ):
         app.include_router(module.router)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
