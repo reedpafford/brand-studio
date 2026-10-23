@@ -20,6 +20,15 @@ from evals.score import CASES
 LONG_MAX_TOKENS = 32000
 
 
+# How the server marks an accepted suggestion in the working script (Designer's spec #69).
+TAGS = {
+    "camera": "Camera",
+    "action": "Movement",
+    "reaction": "Reaction",
+    "brand_screen": "Brand screen",
+}
+
+
 def apply_all(script: str, suggestions) -> str:
     """Accept every suggestion (what an editor clicking 'Accept all' gets)."""
     lines = script.splitlines()
@@ -28,7 +37,8 @@ def apply_all(script: str, suggestions) -> str:
         n = s.anchor.line
         if not 1 <= n <= len(lines) or s.anchor.quote not in lines[n - 1]:
             continue
-        (before if s.placement == "before" else after).setdefault(n, []).append(s.text)
+        line = f"[{TAGS[s.kind]}] {s.text}"
+        (before if s.placement == "before" else after).setdefault(n, []).append(line)
     out = []
     for n, line in enumerate(lines, 1):
         out += before.get(n, [])

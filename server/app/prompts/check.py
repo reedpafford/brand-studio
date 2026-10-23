@@ -16,6 +16,7 @@ from app.prompts.schemas import (
 
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
+TAG = re.compile(r"^\[[A-Za-z ]+\] ")  # accepted Enhance lines: "[Camera] …", "[Brand screen] ★ …"
 AUDIO_LINE = re.compile(r"^Audio: only the spoken lines and .+ No subtitles\.$")
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
 SETTINGS_WORDS = re.compile(r"\b\d+:\d+\b|\b(480|720|1080)p\b")
@@ -47,7 +48,7 @@ def breakdown(
     for n, text in enumerate(lines, 1):
         if text.strip() and not text.startswith("SCENE") and n not in covered:
             problems.append(f"line {n} is in no shot")
-        elif text.startswith(SCREEN_LINE) and n not in shown:
+        elif TAG.sub("", text).startswith(SCREEN_LINE) and n not in shown:
             problems.append(f"line {n} is a ★ screen line but no shot shows a screen")
     for shot in shots:
         source = [lines[n - 1] for n in shot.script_lines if 0 < n <= len(lines)]
