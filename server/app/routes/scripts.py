@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import current_user
+from app.credits import lock
 from app.db import get_db
 from app.docimport import DocumentError, kind_of, to_text
 from app.models.accounts import User
@@ -61,7 +62,9 @@ def latest(db: Session, project: Project) -> ScriptVersion | None:
 
 
 def save_version(db: Session, user: User, project: Project, text: str, source: str):
-    """Add a new version (the next number). Used by paste, upload, draft and enhance."""
+    """Add a new version (the next number). Used by paste, upload, draft and enhance.
+    The project row is locked first, so two saves at once get n+1 and n+2."""
+    lock(db, Project, project.id)
     number = db.scalar(
         select(func.coalesce(func.max(ScriptVersion.version), 0)).where(
             ScriptVersion.project_id == project.id
@@ -106,11 +109,9 @@ async def upload_script(
     if len(data) > MAX_DOC_BYTES:
         raise HTTPException(413, "That document is too big (10 MB max).")
     try:
-        text = to_text(data, kind_of(upload.filename or "", upload.content_type))
+        text = to_text(data, kind_of(upload.filename or "", upload.content_type), MAX_SCRIPT_CHARS)
     except DocumentError as exc:
         raise HTTPException(422, str(exc)) from None
-    if len(text) > MAX_SCRIPT_CHARS:
-        raise HTTPException(422, "That script is too long (50,000 characters max).")
     return _out(save_version(db, user, project, text, "upload"))
 
 

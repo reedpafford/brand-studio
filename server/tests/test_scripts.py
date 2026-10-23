@@ -1,4 +1,6 @@
 import io
+import threading
+import time
 import zipfile
 
 import pytest
@@ -19,27 +21,32 @@ def _docx(*paragraphs: str) -> bytes:
     return out.getvalue()
 
 
-def _pdf(text: str) -> bytes:
+def _pdf(text: str, pages: int = 1) -> bytes:
+    """A small valid PDF with `pages` pages, each showing `text`."""
     stream = f"BT /F1 24 Tf 72 700 Td ({text}) Tj ET".encode()
+    kids = " ".join(f"{5 + 2 * n} 0 R" for n in range(pages))
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R"
-        b" /Resources << /Font << /F1 5 0 R >> >> >>",
-        b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
+        b"<< /Type /Pages /Kids [%s] /Count %d >>" % (kids.encode(), pages),
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
     ]
-    out, offsets = io.BytesIO(b"%PDF-1.4\n"), []
-    out.seek(0, 2)
+    for _ in range(pages):
+        objects.append(
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R"
+            b" /Resources << /Font << /F1 3 0 R >> >> >>"
+        )
+        objects.append(b"<< >>")  # padding so page ids stay 5, 7, 9, ...
+    out, offsets = io.BytesIO(), []
+    out.write(b"%PDF-1.4\n")
     for i, obj in enumerate(objects, 1):
         offsets.append(out.tell())
         out.write(b"%d 0 obj\n" % i + obj + b"\nendobj\n")
     xref = out.tell()
     out.write(b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1))
     out.write(b"".join(b"%010d 00000 n \n" % o for o in offsets))
-    out.write(
-        b"trailer << /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF" % (len(objects) + 1, xref)
-    )
+    trailer = b"trailer << /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF"
+    out.write(trailer % (len(objects) + 1, xref))
     return out.getvalue()
 
 
@@ -142,3 +149,41 @@ def test_editor_sees_no_dollars(editor, project):
     editor.put(f"/projects/{project}/script", json={"text": "Hi"})
     url = f"/projects/{project}/script"
     assert_no_dollars(editor, [url, f"{url}/versions", f"/projects/{project}"])
+
+
+def test_huge_pdfs_are_refused_quickly(editor, project):
+    started = time.monotonic()
+    r = _upload(editor, project, "big.pdf", _pdf("x", pages=301), "application/pdf")
+    assert r.status_code == 422 and "too many pages" in r.json()["detail"]
+    long_page = "word " * 400  # ~2,000 characters a page; 30 pages pass 50,000
+    r = _upload(editor, project, "long.pdf", _pdf(long_page, pages=30), "application/pdf")
+    assert r.status_code == 422 and "too long" in r.json()["detail"]
+    assert time.monotonic() - started < 10
+
+
+def test_non_utf8_text_gets_a_helpful_hint(editor, project):
+    r = _upload(editor, project, "s.txt", "Café olé".encode("cp1252"), "text/plain")
+    assert r.status_code == 422 and "UTF-8" in r.json()["detail"]
+
+
+def test_two_saves_at_once_both_get_a_version(app, editor, project, db):
+    from app.models.accounts import User
+    from app.models.projects import Project
+    from app.routes.scripts import save_version
+
+    barrier, numbers = threading.Barrier(2), []
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+
+    def save(text):
+        with app.state.sessionmaker() as s:
+            barrier.wait()
+            numbers.append(
+                save_version(s, s.get(User, ed.id), s.get(Project, project), text, "paste").version
+            )
+
+    threads = [threading.Thread(target=save, args=(t,)) for t in ("a", "b")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sorted(numbers) == [1, 2]
