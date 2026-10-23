@@ -200,3 +200,27 @@ test("a paid button asks Reed when the call would take the project past its budg
   expect(await screen.findByRole("button", { name: "Ask Reed to approve · 6 credits" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Redo · 6 credits" })).not.toBeInTheDocument();
 });
+
+test("a breakdown run is recognised by its step, even after a reload; an Enhance run is not mistaken for it", async () => {
+  const running = (step: string) => [{ id: 3, kind: "write-claude", step, status: "running", credits: 6, project_id: 9, created_at: "2026-10-23T10:00:00Z" }];
+  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("breakdown")] });
+  open();
+  expect(await screen.findByText("Breaking down your script…")).toBeInTheDocument();
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("enhance")] });
+  open();
+  expect(await screen.findByText("No breakdown yet.")).toBeInTheDocument();
+});
+
+test("every tap target on a shot is at least 44px tall below the sm width", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: ["Shot 1.2 is a loss moment but shows no fomo screen."] })] });
+  open();
+  for (const name of ["Edit shot 1.1", "Go to: Shot 1.2 is a loss moment but shows no fomo screen."]) {
+    const el = await screen.findByRole("button", { name });
+    expect(el.className).toContain("min-h-11");
+  }
+  await userEvent.click(screen.getByRole("button", { name: "Edit shot 1.1" }));
+  const mia = screen.getByLabelText("Mia");
+  expect(mia.closest("label")?.className).toContain("min-h-11");
+});
