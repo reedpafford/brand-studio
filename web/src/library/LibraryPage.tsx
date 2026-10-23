@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, NavLink, useParams } from "react-router-dom";
-import { api, errorText } from "../api/client";
+import { api, errorText, must } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
@@ -37,18 +37,18 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
   const unarchive = useMutation({
-    mutationFn: (item_id: number) => api.POST("/library/{kind}/{item_id}/unarchive", { params: { path: { kind, item_id } } }),
+    mutationFn: (item_id: number) => must(api.POST("/library/{kind}/{item_id}/unarchive", { params: { path: { kind, item_id } } })),
     onSuccess: (_, item_id) => {
       refresh();
       const name = items.data?.find((i) => i.id === item_id)?.name ?? "Item";
       toast(`${name} is back.`, async () => {
-        await api.DELETE("/library/{kind}/{item_id}", { params: { path: { kind, item_id } } });
+        await must(api.DELETE("/library/{kind}/{item_id}", { params: { path: { kind, item_id } } }));
         refresh();
       });
     },
   });
   const purge = useMutation({
-    mutationFn: (item_id: number) => api.DELETE("/library/{kind}/{item_id}/permanent", { params: { path: { kind, item_id } } }),
+    mutationFn: (item_id: number) => must(api.DELETE("/library/{kind}/{item_id}/permanent", { params: { path: { kind, item_id } } })),
     onSuccess: refresh,
   });
   const shown = items.data?.filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase()));
@@ -72,6 +72,11 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
       </div>
       {!archived && <NewItem brandId={brandId} kind={kind} one={one} onDone={refresh} />}
       {items.isError && <p role="alert" className={errorClass}>Could not load the library. Try again.</p>}
+      {(unarchive.isError || purge.isError) && (
+        <p role="alert" className={errorClass}>
+          {(unarchive.error ?? purge.error)?.message}
+        </p>
+      )}
       {items.data?.length === 0 && (
         <div className={card}>
           <p className="text-[length:var(--text-xl)] font-semibold">{archived ? `Nothing archived.` : `No ${title.toLowerCase()} for this brand yet.`}</p>
@@ -87,7 +92,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
         {shown?.map((i) => (
           <li key={i.id} className="space-y-1 text-sm">
             {archived ? <Thumb id={i.image_file_ids?.[0]} name={i.name} faded /> : (
-              <Link to={`/b/${brandId}/library/${slug}/${i.id}`}>
+              <Link to={`/b/${brandId}/library/${slug}/${i.id}`} aria-label={i.name}>
                 <Thumb id={i.image_file_ids?.[0]} name={i.name} />
               </Link>
             )}
