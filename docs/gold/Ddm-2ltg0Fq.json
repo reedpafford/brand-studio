@@ -1,0 +1,368 @@
+{
+ "id": "Ddm-2ltg0Fq",
+ "account": "nateassets",
+ "views": "260K",
+ "url": "https://www.instagram.com/reel/Ddm-2ltg0Fq/",
+ "duration_seconds": 56.36,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A young shopper humiliated by a luxury-car saleswoman turns to reselling watches and clothing, builds a warehouse-scale business, and returns in the supercar she said he could never afford.",
+ "tags": [
+  "saleswoman",
+  "showroom",
+  "home",
+  "warehouse",
+  "car",
+  "reselling",
+  "business",
+  "public-humiliation",
+  "prove-them-wrong",
+  "rags-to-riches",
+  "revenge",
+  "savage"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.75",
+  "mechanic": "Beside a black supercar, a saleswoman abruptly dismisses a young shopper; he clutches his shoulder, and tight alternating faces turn the insult into an immediate confrontation.",
+  "first_line": "Ow, what was that for?"
+ },
+ "moment": "48.9-52.5: The saleswoman recognizes the driver as the shopper she dismissed, asking, \"Wait, is that the broke kid?\" He steps out beside the black supercar and answers, \"Broke, you say? You should have been nicer.\" The purchased car makes his reversal visible before he explains it.",
+ "stats": {
+  "shots": 43,
+  "live_shots_skipped": 4,
+  "animated_seconds": 54.53,
+  "avg_shot_seconds": 1.27,
+  "median_shot_seconds": 0.75,
+  "longest_shot_seconds": 7.3,
+  "shots_under_1s": 25,
+  "spoken_lines": 11,
+  "words_per_second_while_speaking": 3.6,
+  "speech_share_of_runtime": 0.64
+ },
+ "cut_times": [
+  0.75,
+  1.42,
+  2.75,
+  4.25,
+  6.63,
+  7.22,
+  7.63,
+  8.47,
+  10.55,
+  14.8,
+  15.42,
+  15.97,
+  16.33,
+  17.83,
+  22.47,
+  23.92,
+  26.37,
+  26.73,
+  27.27,
+  27.6,
+  27.9,
+  28.35,
+  29.18,
+  29.52,
+  29.82,
+  30.07,
+  30.35,
+  30.77,
+  31.93,
+  32.98,
+  36.18,
+  37.68,
+  38.9,
+  39.57,
+  40.07,
+  40.9,
+  41.23,
+  41.73,
+  42.43,
+  44.15,
+  45.93,
+  47.23,
+  54.53,
+  55.32,
+  55.77,
+  56.15
+ ],
+ "live_shots": [
+  44,
+  45,
+  46,
+  47
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 6.63,
+   "beat": "hook",
+   "what_happens": "A saleswoman dismisses a young shopper beside an expensive black car and tells him to look from farther away.",
+   "emotion": "He grips his shoulder with knitted brows and an open mouth; she faces him with folded arms and a dismissive expression.",
+   "camera": "Opening medium view beside the car, alternating tight facial reactions, then a full-body two-shot.",
+   "cuts": "4 cuts in 6.63 seconds; the opening reactions change every 0.67-1.5 seconds."
+  },
+  {
+   "start": 6.63,
+   "end": 10.55,
+   "beat": "low",
+   "what_happens": "He leaves through the glass doors, looks down, and later lies awake in bed replaying the insult.",
+   "emotion": "His slumped shoulders, lowered eyes, and still face carry the embarrassment into his bedroom.",
+   "camera": "Doorway wide shots, a closer frontal view outside, then an overhead view of him in bed.",
+   "cuts": "4 cuts across the passage into the bedroom, followed by a 2.08-second hold."
+  },
+  {
+   "start": 10.55,
+   "end": 17.83,
+   "beat": "turn",
+   "what_happens": "He studies a laptop, opens a package of watches, and checks his phone beside the unpacked stock.",
+   "emotion": "His forward lean and concentrated stare shift into surprise as he examines the products and phone.",
+   "camera": "Side medium shot at the laptop, frontal unpacking view, close product insert, and a phone-focused insert.",
+   "cuts": "5 cuts in 7.28 seconds, mixing a 4.25-second discovery hold with three inserts under 0.62 seconds."
+  },
+  {
+   "start": 17.83,
+   "end": 26.37,
+   "beat": "montage",
+   "what_happens": "He answers the remembered dismissal with determination, packs merchandise, and handles growing stacks of clothing and watches.",
+   "emotion": "He tightens his face in defiance, then works with urgent hand movements and wide-eyed excitement.",
+   "camera": "Frontal desk close-up, medium packing shots, and a watch held close to the lens.",
+   "cuts": "3 cuts; longer 4.64- and 2.45-second shots let the resolve and physical work register."
+  },
+  {
+   "start": 26.37,
+   "end": 30.77,
+   "beat": "montage",
+   "what_happens": "Product details give way to rooms full of boxes, stocked shelves, warehouse handling, and a loaded delivery truck.",
+   "emotion": "The swelling quantity of stock makes his astonishment feel earned and increasingly overwhelming.",
+   "camera": "Tight watch and clothing inserts expand into room and warehouse wides, ending at the open rear of a truck.",
+   "cuts": "11 cuts in 4.4 seconds; shots last 0.25-0.83 seconds."
+  },
+  {
+   "start": 30.77,
+   "end": 37.68,
+   "beat": "payoff",
+   "what_happens": "He reacts to his laptop, returns to the original showroom, rejects another dismissal, and shakes hands with a different salesperson.",
+   "emotion": "Wide-eyed disbelief becomes composed confidence; the original saleswoman watches as he takes control of the exchange.",
+   "camera": "Laptop reaction close-up, wide view across the supercar, medium confrontation, then a counter-height handshake shot.",
+   "cuts": "4 cuts in 6.91 seconds, including a 3.2-second confrontation hold."
+  },
+  {
+   "start": 37.68,
+   "end": 42.43,
+   "beat": "reveal",
+   "what_happens": "The black supercar rolls out, its exhaust spits flame, and three pedestrians recoil in surprise.",
+   "emotion": "He smiles behind the wheel while the onlookers gape and draw their bodies backward.",
+   "camera": "Rear showroom view, low moving car details, driver close-up, exhaust inserts, and a full-body pedestrian reaction.",
+   "cuts": "7 cuts in 4.75 seconds; the final exhaust and reaction shots last 0.33-0.7 seconds."
+  },
+  {
+   "start": 42.43,
+   "end": 47.23,
+   "beat": "payoff",
+   "what_happens": "He casually apologizes from the driver's seat and draws the saleswoman's attention while stopped outside the showroom.",
+   "emotion": "His relaxed smile and easy posture replace his earlier wounded expression; her reaction turns startled.",
+   "camera": "Driver medium close-up, broadside exterior of the parked car, then a close view through the open window.",
+   "cuts": "2 cuts across three shots lasting 1.3-1.78 seconds."
+  },
+  {
+   "start": 47.23,
+   "end": 54.53,
+   "beat": "callback",
+   "what_happens": "He steps out beside the car as the saleswoman recognizes him and he turns her earlier judgment back on her.",
+   "emotion": "Her surprise meets his self-satisfied confidence, completing the reversal of their first encounter.",
+   "camera": "A sustained medium-wide view keeps him, the open car, and the saleswoman in the same spatial relationship.",
+   "cuts": "One uninterrupted 7.3-second shot, the longest hold in the video."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Hero",
+   "text": "Ow, what was that for?",
+   "delivery": "Sharp, startled onset followed by a quick, indignant question; brows pinch as he holds his shoulder."
+  },
+  {
+   "t": 0.75,
+   "speaker": "Saleswoman",
+   "text": "Kid, you can't afford this car.",
+   "delivery": "Brisk, dismissive projection with a firm downward finish."
+  },
+  {
+   "t": 2.0,
+   "speaker": "Hero",
+   "text": "How do you know?",
+   "delivery": "Quick defensive challenge with rising pitch."
+  },
+  {
+   "t": 2.75,
+   "speaker": "Saleswoman",
+   "text": "It costs a million dollars. So you seriously think you're buying this?",
+   "delivery": "Fast, pointed emphasis on the price, then a mocking question; the opening exchange averages five words per second."
+  },
+  {
+   "t": 5.48,
+   "speaker": "Hero",
+   "text": "I wanted to look at it.",
+   "delivery": "Hurried, defensive explanation, squeezed into the exceptionally rapid exchange."
+  },
+  {
+   "t": 6.0,
+   "speaker": "Saleswoman",
+   "text": "Then look from over there.",
+   "delivery": "Clipped, abrupt command with a dismissive finish."
+  },
+  {
+   "t": 8.12,
+   "speaker": "Hero",
+   "text": "Damn.",
+   "delivery": "A deflated exhale after a 1.5-second speech gap."
+  },
+  {
+   "t": 8.47,
+   "speaker": "Saleswoman, remembered",
+   "text": "You seriously think you're buying this?",
+   "delivery": "The mocking challenge returns over his bedroom low point, at a more measured pace than the opening exchange."
+  },
+  {
+   "t": 10.64,
+   "speaker": "Hero",
+   "text": "How are they doing this? Wait, people actually buy this stuff? Okay.",
+   "delivery": "Conversational, questioning disbelief turns into interested resolve; short pauses separate each discovery."
+  },
+  {
+   "t": 17.08,
+   "speaker": "Saleswoman, remembered",
+   "text": "Come on, kid, you can't afford this car.",
+   "delivery": "Measured, belittling repetition after a 2.5-second speech gap."
+  },
+  {
+   "t": 18.0,
+   "speaker": "Hero",
+   "text": "Watch me.",
+   "delivery": "Forceful, compact defiance with tightened eyes; this passage reaches the strongest measured peak, about -3 dB."
+  },
+  {
+   "t": 20.0,
+   "speaker": "Hero",
+   "text": "No way.",
+   "delivery": "An astonished burst that releases the preceding tension."
+  },
+  {
+   "t": 25.26,
+   "speaker": "Hero",
+   "text": "I'm getting that car, bro.",
+   "delivery": "Confident and animated, with stronger projection around -15.9 dB mean and emphasis on the car."
+  },
+  {
+   "t": 28.04,
+   "speaker": "Hero",
+   "text": "They're still coming.",
+   "delivery": "Audibly energized disbelief, moderately paced and projected around -16 dB mean."
+  },
+  {
+   "t": 30.76,
+   "speaker": "Hero",
+   "text": "No way.",
+   "delivery": "Breathy surprise after a held beat, matching his rounded mouth and widened eyes at the laptop."
+  },
+  {
+   "t": 31.93,
+   "speaker": "Saleswoman",
+   "text": "Can I help you?",
+   "delivery": "A relatively restrained, questioning greeting."
+  },
+  {
+   "t": 32.6,
+   "speaker": "Hero",
+   "text": "Yeah.",
+   "delivery": "Short, calm acknowledgment."
+  },
+  {
+   "t": 32.98,
+   "speaker": "Saleswoman",
+   "text": "Kid, you can't afford this car.",
+   "delivery": "Firm, dismissive repetition, delivered at a conversational pace."
+  },
+  {
+   "t": 34.2,
+   "speaker": "Hero",
+   "text": "Nah, I'm buying somewhere else.",
+   "delivery": "Even, assured refusal with a decisive falling finish."
+  },
+  {
+   "t": 35.5,
+   "speaker": "Saleswoman",
+   "text": "What?",
+   "delivery": "Brief, sharply lifted disbelief."
+  },
+  {
+   "t": 36.18,
+   "speaker": "Hero",
+   "text": "Thank you.",
+   "delivery": "Controlled, polite satisfaction during the handshake."
+  },
+  {
+   "t": 42.52,
+   "speaker": "Hero",
+   "text": "My bad.",
+   "delivery": "Slow, casual apology after a 4.9-second speech gap, with an easy smile and relatively strong projection."
+  },
+  {
+   "t": 44.15,
+   "speaker": "Saleswoman",
+   "text": "Oh.",
+   "delivery": "A short surprised reaction."
+  },
+  {
+   "t": 46.34,
+   "speaker": "Hero",
+   "text": "Watch this.",
+   "delivery": "Quietly assured, compact invitation; softer at about -17.8 dB mean."
+  },
+  {
+   "t": 48.9,
+   "speaker": "Saleswoman",
+   "text": "Wait, is that the broke kid?",
+   "delivery": "Quick recognition with rising pitch and incredulous emphasis on \"broke kid.\""
+  },
+  {
+   "t": 50.3,
+   "speaker": "Hero",
+   "text": "Broke, you say? You should have been nicer.",
+   "delivery": "A teasing question becomes a firm rebuke, delivered with confident, snappy timing."
+  },
+  {
+   "t": 52.2,
+   "speaker": "Hero",
+   "text": "I made this video. Link in bio.",
+   "delivery": "Brisk direct address that maintains the closing passage's roughly 4.2-word-per-second pace."
+  },
+  {
+   "t": 53.6,
+   "speaker": "Saleswoman",
+   "text": "Still broke.",
+   "delivery": "A short, dismissive final jab."
+  }
+ ],
+ "voice_arc": "The opening is a rapid argument, with the saleswoman's dismissive certainty pushing against the hero's startled defensiveness. His delivery slows through embarrassment and questioning discovery, then sharpens into \"Watch me\" and more strongly projected excitement as the business grows. At the return visit he becomes calm and decisive; the final exchange gives her the surprised questions and him the relaxed rebuke. Individual turn timestamps within the supplied multi-speaker transcript blocks are approximate.",
+ "camera_language": "Vertical framing alternates expressive facial close-ups with full-body confrontations that keep the supercar nearby as the visible prize. Hands, watches, clothing packages, shelves, and delivery boxes turn business growth into concrete inserts, with the fastest cutting concentrated in the scale-up sequence. Low car details and driver reactions make the purchase feel substantial before a long final confrontation lets the status reversal play out.",
+ "why_it_works": "The shoulder-clutching reaction and immediate financial insult establish a visible wound within seconds, while one specific car gives the ambition a clear destination. Increasing quantities of tangible merchandise bridge the leap from bedroom curiosity to buying power. Repeating the dismissal before the purchase and reversing it beside the same kind of car makes the payoff easy to grasp.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "In the first 2 seconds, a girl physically shoves the boy and scolds him for being unable to afford a $1M supercar, sparking immediate outrage and high empathetic commitment from the viewer.",
+  "turn": "At 0:11, after staring at his ceiling in defeat, he grabs his phone and discovers e-commerce reselling, shifting the tone from humiliation to hyper-motivated revenge.",
+  "payoff": "The boy buys the supercar, shoots flames right outside her dealership, and leaves her speechless while breaking the 4th wall to plug his course link.",
+  "why_it_works": "Classic underdog / revenge narrative structure condenses a full multi-year story arc into under 60 seconds. 3D Pixar-style animation allows extreme facial expressions, fluid motion, and high visual appeal for young audiences. Rhythmic audio design (cha-chings, duct tape rips, engine revs) creates relentless momentum that keeps retention high. Clear, highly relatable antagonist gives the viewer a s",
+  "camera": [
+   "Punchy snap zooms on shocked expressions (0:01 and 0:31) heighten comic cartoon energy.",
+   "Fast tracking shots at wheel-level during driving sequence (0:38-0:41) convey high speed and luxury polish.",
+   "Dynamic push-in on laptop workspace (0:12) visually draws the viewer into the online hustle portal."
+  ],
+  "montages": [
+   "{\"start\": \"0:14\", \"end\": \"0:32\", \"cuts\": 12, \"content\": \"Box dropped on floor, store dashboard UI popup, laptop typing, notification cha-chings, box taping, box stacking, luxury watch box presentation, hoodie packaging, room filling with sh"
+  ]
+ }
+}

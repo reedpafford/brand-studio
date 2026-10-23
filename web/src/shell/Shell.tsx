@@ -1,0 +1,140 @@
+import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { NavLink, Navigate, Outlet, useMatch, useNavigate, useParams } from "react-router-dom";
+import { api } from "../api/client";
+import { useMe } from "../auth/useMe";
+import { pageTitle } from "../ui";
+import { lastBrand, rememberBrand, useBrands } from "./useBrands";
+
+const link = ({ isActive }: { isActive: boolean }) =>
+  `whitespace-nowrap rounded-sm px-3 py-2 ${isActive ? "bg-accent-soft font-medium text-accent-text" : "text-muted"}`;
+
+/** Top bar (switcher + account) over a 3px stripe in the brand's colour, then the section links. */
+export function Shell() {
+  const { data: brands, isPending } = useBrands();
+  const { brandId } = useParams();
+  const subPage = useMatch("/b/:brandId/*")?.params["*"] ?? "";
+  const navigate = useNavigate();
+  const fromUrl = Number(brandId) || null;
+  // Off brand pages (e.g. /team) you stay "in" the brand you were last in.
+  const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : null);
+  const brand = brands?.find((b) => b.id === current);
+
+  useEffect(() => {
+    if (fromUrl) rememberBrand(fromUrl);
+  }, [fromUrl]);
+
+  useEffect(() => {
+    const root = document.documentElement.style;
+    if (brand?.colours?.[0]) root.setProperty("--brand", brand.colours[0]);
+    else root.removeProperty("--brand");
+    return () => void root.removeProperty("--brand");
+  }, [brand]);
+
+  if (isPending) return <p className="p-6 text-muted">Loading…</p>;
+  if (!brands) return <p className="p-6 text-danger">Could not load brands.</p>;
+
+  return (
+    <div className="min-h-screen">
+      <header className="flex h-14 items-center gap-3 border-b-[3px] border-brand bg-surface px-4">
+        <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-brand" />
+        <label className="min-w-0 flex-1 sm:flex-none">
+          <span className="sr-only">Brand</span>
+          <select
+            aria-label="Brand"
+            className="min-h-11 w-full rounded-sm border border-border-strong bg-surface px-2 text-base text-text sm:min-h-9"
+            value={brand ? current! : ""}
+            onChange={(e) => navigate(`/b/${e.target.value}/${subPage}`)}
+          >
+            {!brand && <option value="">Choose a brand</option>}
+            {brands.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <AccountMenu />
+      </header>
+      <nav aria-label="Main" className="flex gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-1 text-sm">
+        {current && (
+          <>
+            <NavLink end to={`/b/${current}`} className={link}>
+              Brand
+            </NavLink>
+            <NavLink to={`/b/${current}/kit`} className={link}>
+              Kit
+            </NavLink>
+            <NavLink to={`/b/${current}/screens`} className={link}>
+              Screens
+            </NavLink>
+          </>
+        )}
+        <NavLink to="/team" className={link}>
+          Team
+        </NavLink>
+      </nav>
+      <Outlet />
+    </div>
+  );
+}
+
+function AccountMenu() {
+  const { data: me } = useMe();
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const signOut = useMutation({
+    mutationFn: () => api.POST("/auth/logout"),
+    onSuccess: () => {
+      queryClient.clear(); // nothing from this person stays for the next one
+      navigate("/login", { replace: true });
+    },
+  });
+  const initials = (me?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  return (
+    <div className="relative ml-auto" onKeyDown={(e) => e.key === "Escape" && setOpen(false)}>
+      <button
+        aria-label="Account menu"
+        aria-expanded={open}
+        className="grid size-11 place-items-center rounded-full bg-accent-soft text-sm font-medium text-accent-text sm:size-9"
+        onClick={() => setOpen(!open)}
+      >
+        {initials}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-10 mt-2 w-56 space-y-2 rounded-md border border-border bg-surface p-3 shadow-md">
+          <div>
+            <div className="font-medium">{me?.name}</div>
+            <div className="text-sm text-muted">{me?.role}</div>
+          </div>
+          <button className="min-h-11 w-full rounded-sm text-left text-text underline sm:min-h-9" onClick={() => signOut.mutate()}>
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** "/" goes to the brand you were last in, else the first one. */
+export function GoToBrand() {
+  const { data: brands, isPending } = useBrands();
+  if (isPending) return <p className="p-6 text-muted">Loading…</p>;
+  const last = lastBrand();
+  const target = brands?.find((b) => b.id === last) ?? brands?.[0];
+  return target ? <Navigate to={`/b/${target.id}`} replace /> : <Navigate to="/team" replace />;
+}
+
+export function BrandHome() {
+  const { brandId } = useParams();
+  const { data: brands } = useBrands();
+  const brand = brands?.find((b) => b.id === Number(brandId));
+  if (!brand) return <p className="p-6">That brand doesn't exist.</p>;
+  return (
+    <main className="p-6">
+      <h1 className={pageTitle}>{brand.name}</h1>
+      <p className="text-muted">Brand kit, screens and characters are coming next.</p>
+    </main>
+  );
+}

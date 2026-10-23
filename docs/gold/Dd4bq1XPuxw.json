@@ -1,0 +1,301 @@
+{
+ "id": "Dd4bq1XPuxw",
+ "account": "cevrico",
+ "views": "452K",
+ "url": "https://www.instagram.com/reel/Dd4bq1XPuxw/",
+ "duration_seconds": 46.25,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A young trader sells his newly bought supercar after blowing his funded account, takes a friend's lesson about earning it twice, and returns with two cars after learning to wait.",
+ "tags": [
+  "friends",
+  "mentor",
+  "car",
+  "home",
+  "trading",
+  "funded-account",
+  "money",
+  "glow-up",
+  "comeback",
+  "delayed-gratification",
+  "emotional"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-1.83",
+  "mechanic": "Beside a supercar in a showroom, a curly-haired friend confronts a young man while a suited salesman stands nearby; the immediate question makes the apparent purchase feel like a problem.",
+  "first_line": "Bro, what are you doing?"
+ },
+ "moment": "37.88-43.42: The hero holds two car keys and says, \"I waited until I could buy two.\" His friend breaks into an open-mouthed smile and exclaims, \"No way!\" A low wide view between two supercars confirms the scale of the comeback and makes the earlier advice tangible.",
+ "stats": {
+  "shots": 24,
+  "live_shots_skipped": 0,
+  "animated_seconds": 46.25,
+  "avg_shot_seconds": 1.93,
+  "median_shot_seconds": 1.75,
+  "longest_shot_seconds": 4.08,
+  "shots_under_1s": 6,
+  "spoken_lines": 18,
+  "words_per_second_while_speaking": 3.9,
+  "speech_share_of_runtime": 0.47
+ },
+ "cut_times": [
+  1.83,
+  3.29,
+  4.62,
+  6.62,
+  7.79,
+  10.92,
+  14.33,
+  16.0,
+  20.08,
+  24.12,
+  25.5,
+  27.0,
+  27.92,
+  28.79,
+  31.0,
+  31.33,
+  31.62,
+  32.12,
+  32.5,
+  36.25,
+  39.17,
+  41.58,
+  43.42
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 4.62,
+   "beat": "hook",
+   "what_happens": "A friend discovers that the hero is selling back the supercar he bought yesterday.",
+   "emotion": "The friend looks incredulous, while the hero answers with raised brows and an uneasy open mouth.",
+   "camera": "Medium group view across the car, then alternating close-ups of the hero and friend.",
+   "cuts": "Three shots across 4.62 seconds, with cuts at 1.83 and 3.29 seconds matching the conversational handoffs."
+  },
+  {
+   "start": 4.62,
+   "end": 10.92,
+   "beat": "low",
+   "what_happens": "The hero admits he blew his funded account by chasing more money after being up big.",
+   "emotion": "His eyes drop and his shoulders sag; the friend leans toward him with his mouth open in disbelief.",
+   "camera": "Hero medium close-up, a medium two-shot for the friend's challenge, then a return to the hero's face.",
+   "cuts": "Three shots lasting 2.0, 1.17, and 3.13 seconds; the final hold accommodates the two-part confession."
+  },
+  {
+   "start": 10.92,
+   "end": 16.0,
+   "beat": "doubt",
+   "what_happens": "The friend tells the hero that he tried to look rich before learning to stay profitable.",
+   "emotion": "The friend holds a stern expression while the hero bows his head with pinched brows and a tight mouth.",
+   "camera": "Medium two-shot beside the car, followed by a close reaction shot of the hero with the salesman behind him.",
+   "cuts": "A 3.41-second admonishment shot cuts to a 1.67-second silent reaction."
+  },
+  {
+   "start": 16.0,
+   "end": 20.08,
+   "beat": "low",
+   "what_happens": "Standing small in the showroom beside the supercar and salesman, the hero promises to get it back.",
+   "emotion": "The distant framing leaves him looking isolated; his quiet promise follows a long, uncomfortable beat.",
+   "camera": "Wide showroom view with the car on the left and the hero and salesman on the right.",
+   "cuts": "One uninterrupted 4.08-second shot, the longest in the video; speech resumes after a 4.68-second pause."
+  },
+  {
+   "start": 20.08,
+   "end": 24.12,
+   "beat": "turn",
+   "what_happens": "The friend rejects the immediate comeback plan and tells the hero to earn it twice.",
+   "emotion": "His level gaze and firm mouth turn the conversation from reprimand into instruction.",
+   "camera": "Sustained close-up of the friend, keeping his face and layered chains prominent.",
+   "cuts": "One 4.04-second hold gives the sharp refusal and slower advice separate space."
+  },
+  {
+   "start": 24.12,
+   "end": 28.79,
+   "beat": "setup",
+   "what_happens": "At a computer at night, the hero is asked whether he is buying the car again and answers that he is waiting.",
+   "emotion": "The hero appears relaxed and quietly pleased; the friend watches with expectant surprise.",
+   "camera": "Front-facing computer view of the hero alternates with a close-up of the friend.",
+   "cuts": "Four shots lasting 1.38, 1.5, 0.92, and 0.87 seconds create a brisk question-and-answer exchange."
+  },
+  {
+   "start": 28.79,
+   "end": 32.5,
+   "beat": "montage",
+   "what_happens": "The hero studies a thick stack of bundled cash with a focused, restrained expression.",
+   "emotion": "Lowered brows and a small, controlled smile suggest determination replacing his earlier embarrassment.",
+   "camera": "A computer close-up gives way to increasingly tight views of the hero's face behind the cash.",
+   "cuts": "A 2.21-second shot leads into four rapid shots lasting 0.33, 0.29, 0.5, and 0.38 seconds."
+  },
+  {
+   "start": 32.5,
+   "end": 36.25,
+   "beat": "reveal",
+   "what_happens": "From the doorway, the friend sees two supercars parked outside the house at dusk.",
+   "emotion": "The friend's position in the foreground makes the driveway discovery feel like his own unfolding realization.",
+   "camera": "Over-the-shoulder view past the friend's curls toward the cars, with a white supercar prominent ahead.",
+   "cuts": "One 3.75-second hold lets the cars register before the next exchange."
+  },
+  {
+   "start": 36.25,
+   "end": 39.17,
+   "beat": "payoff",
+   "what_happens": "The hero displays two keys and explains that he waited until he could afford two cars.",
+   "emotion": "The hero smiles with calm satisfaction while the friend turns toward him in surprise.",
+   "camera": "Medium doorway two-shot showing the hero's raised hands and both keys.",
+   "cuts": "One 2.92-second shot contains the end of the friend's question and the hero's quick answer."
+  },
+  {
+   "start": 39.17,
+   "end": 41.58,
+   "beat": "payoff",
+   "what_happens": "The friend responds to the hero's explanation with delighted disbelief.",
+   "emotion": "His eyes widen, his mouth opens into a grin, and he gestures outward.",
+   "camera": "Medium close-up of the friend at the doorway.",
+   "cuts": "A 2.41-second reaction hold delays his exclamation until 41.34 seconds."
+  },
+  {
+   "start": 41.58,
+   "end": 43.42,
+   "beat": "callback",
+   "what_happens": "Both men stand outside the house between the two supercars.",
+   "emotion": "Their relaxed stance turns the earlier showroom humiliation into a shared celebration.",
+   "camera": "Low wide view framed between the rear ends of the cars, with the men and illuminated house centered beyond.",
+   "cuts": "One 1.84-second confirmation shot carries the end of the friend's exclamation."
+  },
+  {
+   "start": 43.42,
+   "end": 46.25,
+   "beat": "cta",
+   "what_happens": "The hero faces the viewer and asks whether they would have bought the first car.",
+   "emotion": "A small smile and steady eye contact make the question friendly and self-assured.",
+   "camera": "Direct-to-camera close-up against the evening sky.",
+   "cuts": "One 2.83-second closing hold; the question begins just before the cut."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Friend",
+   "text": "Bro, what are you doing?",
+   "delivery": "Moderately projected, measured, incredulous, with an upward questioning finish."
+  },
+  {
+   "t": 2.2,
+   "speaker": "Hero",
+   "text": "I'm selling it back.",
+   "delivery": "Quick and relatively quiet, with an uneasy, matter-of-fact downward finish."
+  },
+  {
+   "t": 3.44,
+   "speaker": "Friend",
+   "text": "You just bought it yesterday.",
+   "delivery": "More projected and snappy, stressing the contradiction with a disbelieving expression."
+  },
+  {
+   "t": 5.06,
+   "speaker": "Hero",
+   "text": "I blew my funded account.",
+   "delivery": "Subdued, moderately paced, and embarrassed; his lowered gaze reinforces the admission."
+  },
+  {
+   "t": 7.0,
+   "speaker": "Friend",
+   "text": "How?",
+   "delivery": "Brief, pointed, and incredulous, with a questioning pitch lift."
+  },
+  {
+   "t": 8.02,
+   "speaker": "Hero",
+   "text": "I was up big.",
+   "delivery": "Fast and briefly more assertive, as if offering an explanation."
+  },
+  {
+   "t": 9.54,
+   "speaker": "Hero",
+   "text": "Then I tried to make even more.",
+   "delivery": "Rushed but quieter, with a 0.72-second hesitation beforehand and a regretful falling finish."
+  },
+  {
+   "t": 11.16,
+   "speaker": "Friend",
+   "text": "You wanted to look rich? Before you learned how to stay profitable.",
+   "delivery": "Firm and moderately projected; the first phrase challenges him, then the pace eases into a stern lesson."
+  },
+  {
+   "t": 18.86,
+   "speaker": "Hero",
+   "text": "I'm gonna get it back.",
+   "delivery": "Quiet but quick and determined, arriving after a 4.68-second silent beat."
+  },
+  {
+   "t": 20.64,
+   "speaker": "Friend",
+   "text": "No.",
+   "delivery": "Sharp, strongly projected, and decisive."
+  },
+  {
+   "t": 21.74,
+   "speaker": "Friend",
+   "text": "Next time, earn it twice.",
+   "delivery": "Quieter and deliberately slow after a 0.84-second pause, with firm emphasis on \"twice.\""
+  },
+  {
+   "t": 25.24,
+   "speaker": "Friend",
+   "text": "So, buying the car again?",
+   "delivery": "Soft, measured, and curious, with an upward finish."
+  },
+  {
+   "t": 27.44,
+   "speaker": "Hero",
+   "text": "Not yet.",
+   "delivery": "Brisk, clear, and calmly confident."
+  },
+  {
+   "t": 35.96,
+   "speaker": "Friend",
+   "text": "Bro, you bought it again?",
+   "delivery": "Relatively quiet and moderately paced, with surprised questioning pitch after an 8.12-second speech gap."
+  },
+  {
+   "t": 37.88,
+   "speaker": "Hero",
+   "text": "I waited until I could buy two.",
+   "delivery": "Fast, controlled, and quietly proud, landing the final word with a satisfied smile."
+  },
+  {
+   "t": 41.34,
+   "speaker": "Friend",
+   "text": "No way!",
+   "delivery": "The loudest line: an emphatic, delighted exclamation after a 2.2-second pause."
+  },
+  {
+   "t": 43.38,
+   "speaker": "Hero",
+   "text": "Be honest, would you have bought the first car?",
+   "delivery": "Soft, conversational, and evenly paced, with a friendly questioning finish directed at the viewer."
+  }
+ ],
+ "voice_arc": "The friend opens with projected disbelief while the hero gives quick, increasingly subdued admissions. A long silence precedes the hero's comeback promise; the friend's sharp \"No\" then drops into slow, quiet instruction. Later exchanges become relaxed and confident, building to the friend's loudest burst of delight before the hero closes with a soft conversational question.",
+ "camera_language": "The vertical compositions prioritize expressive faces, alternating hero and friend close-ups around medium two-shots. Wider views make the hero look small during his setback and establish the cars during his comeback; rapid cash-and-face inserts compress the middle passage. The final low view between two cars visually answers the opening showroom scene.",
+ "why_it_works": "Selling yesterday's supercar immediately creates a concrete contradiction, and the hero's downcast reactions make the financial mistake personal. The friend's advice plants a simple condition that the two keys and two cars later fulfill. Long pauses around shame and discovery give the fast exchanges and brief cash sequence room to land.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Opens right in the middle of dramatic conflict inside a luxury car showroom as a guy hands back key fob to sell his car.",
+  "turn": "The mentor figure sets a golden rule: 'Next time... earn it twice.' This shifts the story from defeat to a redemption arc.",
+  "payoff": "Instead of just getting his car back, he reveals TWO supercars in the driveway and tosses the keys to his shocked mentor.",
+  "why_it_works": "High emotional stakes instantly relatable to trading/hustle culture (blowing accounts, buying dream cars). Stylized 3D animation allows exaggerated expressions and dynamic cinematic camera moves. Strong narrative arc with clear lesson: discipline and delay of gratification over fast flexes. Ultimate flex ending ('I bought two') provides massive dopamine hit for viewers. Clear interactive CTA promp",
+  "camera": [
+   "Dramatic close-up push-in on key handover at 0:13 to emphasize loss.",
+   "Wide angle low-perspective driveway reveal at 0:34 to make the two supercars look massive and legendary.",
+   "Slow-motion flying key fob insert shot at 0:38 for cinematic flair during the giveaway moment.",
+   "Direct-to-camera close-up at 0:43 engaging the audience for comments."
+  ],
+  "montages": [
+   "{\"start\": \"0:28\", \"end\": \"0:33\", \"cuts\": 4, \"content\": \"Reflecting dollar signs on faces, popping payout checkmarks, stacks of cash piling up high in front of trader's face.\", \"style\": \"Fast rhythmic cuts, speed ramps, punchy visual impacts"
+  ]
+ }
+}

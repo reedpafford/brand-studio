@@ -1,0 +1,327 @@
+{
+ "id": "Dc4i0U8vOxp",
+ "account": "cevrico",
+ "views": "280K",
+ "url": "https://www.instagram.com/reel/Dc4i0U8vOxp/",
+ "duration_seconds": 43.93,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A young graduate mocked by his college-bound friends commits four years to day trading, endures solitary frustration, and returns to stun them with a single trade worth a friend's annual starting salary.",
+ "tags": [
+  "friends",
+  "school",
+  "home",
+  "trading",
+  "prove-them-wrong",
+  "public-humiliation",
+  "glow-up",
+  "money",
+  "emotional",
+  "savage",
+  "reunion"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.28",
+  "mechanic": "A casually dressed boy stands surrounded by graduates in caps and gowns; a friend's ordinary college question gets an immediate, blunt refusal.",
+  "first_line": "Yo, what college are you going to?"
+ },
+ "moment": "34.4-37.04: The graduates stare at the phone in the hero's hand, mouths open, as a friend asks, 'You made 50,000 today?' The hero answers, 'One trade,' with the strongest measured vocal projection in the reel, turning their salary benchmark into his victory.",
+ "stats": {
+  "shots": 11,
+  "live_shots_skipped": 1,
+  "animated_seconds": 43.43,
+  "avg_shot_seconds": 3.95,
+  "median_shot_seconds": 3.08,
+  "longest_shot_seconds": 10.33,
+  "shots_under_1s": 5,
+  "spoken_lines": 29,
+  "words_per_second_while_speaking": 4.3,
+  "speech_share_of_runtime": 0.67
+ },
+ "cut_times": [
+  8.5,
+  18.83,
+  19.5,
+  20.33,
+  20.83,
+  21.5,
+  22.0,
+  22.67,
+  25.75,
+  35.29,
+  40.75
+ ],
+ "live_shots": [
+  5
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 8.5,
+   "beat": "hook",
+   "what_happens": "Surrounded by graduates outside a brick school building, the hero says he is skipping college to focus on day trading.",
+   "emotion": "The graduates look incredulous while the hero holds a comparatively composed posture in his plain white shirt.",
+   "camera": "An eye-level group composition keeps the hero centered among caps, gowns and questioning faces.",
+   "cuts": "One continuous 8.5-second shot carries six short exchanges."
+  },
+  {
+   "start": 8.5,
+   "end": 18.83,
+   "beat": "doubt",
+   "what_happens": "Friends crowd around the hero at a desk, mock trading as a career, and challenge his four-year deadline for becoming profitable.",
+   "emotion": "The surrounding friends look dismissive and animated; the seated hero looks sideways at them and answers with restrained resolve.",
+   "camera": "Medium group framing places the seated hero in front of standing peers, with a laptop and books in the foreground.",
+   "cuts": "A hard cut begins a 10.33-second held shot; dialogue supplies the rhythm."
+  },
+  {
+   "start": 18.83,
+   "end": 20.33,
+   "beat": "low",
+   "what_happens": "Alone at his desk, the hero shifts from concentrated study to gripping his head in frustration.",
+   "emotion": "His lowered brows and tense hands turn determination into visible strain.",
+   "camera": "Medium desk view followed by a darker medium view of him clutching his hair.",
+   "cuts": "Two short shots lasting 0.67 and 0.83 seconds accelerate the move into solitary struggle."
+  },
+  {
+   "start": 20.33,
+   "end": 22.67,
+   "beat": "montage",
+   "what_happens": "Brief trading-interface inserts lead into a close view of the hero concentrating on his laptop.",
+   "emotion": "His narrowed eyes and tight mouth suggest effort hardening into determination.",
+   "camera": "Tight interface inserts alternate with a frontal close-up lit by the laptop.",
+   "cuts": "Four shots lasting 0.5-0.67 seconds create the fastest passage."
+  },
+  {
+   "start": 22.67,
+   "end": 25.75,
+   "beat": "turn",
+   "what_happens": "A pause separates the hero's private work from the later campus reunion.",
+   "emotion": "The held interval builds anticipation before the result is revealed.",
+   "camera": "A transition separates the desk sequence from the bright outdoor campus.",
+   "cuts": "A 3.08-second interval interrupts the rapid montage before a hard cut outdoors."
+  },
+  {
+   "start": 25.75,
+   "end": 35.29,
+   "beat": "setup",
+   "what_happens": "Back on campus, a friend announces a $50,000 salary before the returning hero is questioned about whether he continued trading and what he earns.",
+   "emotion": "The hero appears relaxed while the friends move from casual pride to curiosity and disbelief.",
+   "camera": "A medium-long campus view presents the hero against the brick building and graduation crowd.",
+   "cuts": "One 9.54-second shot lets the salary comparison and questions accumulate."
+  },
+  {
+   "start": 35.29,
+   "end": 40.75,
+   "beat": "payoff",
+   "what_happens": "The graduates react to the hero's phone as he says one trade earned their friend's entire starting salary and claims his own four-year plan.",
+   "emotion": "Wide eyes, open mouths and hands raised near faces surround the hero's calm, assured stance.",
+   "camera": "A tighter group view puts the phone between the hero and the shocked graduates.",
+   "cuts": "One 5.46-second reaction shot holds through the numerical reversal and closing callback."
+  },
+  {
+   "start": 40.75,
+   "end": 43.93,
+   "beat": "cta",
+   "what_happens": "The hero faces the viewer and asks which path they would choose.",
+   "emotion": "Direct eye contact and a confident speaking expression turn his victory into a challenge.",
+   "camera": "Frontal chest-up framing isolates the hero against the softly receding campus crowd.",
+   "cuts": "A final hard cut establishes one held 3.18-second address."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Friend",
+   "text": "Yo, what college are you going to?",
+   "delivery": "Conversational, moderately projected and brisk, with an upward questioning finish."
+  },
+  {
+   "t": 1.76,
+   "speaker": "Hero",
+   "text": "I'm not going.",
+   "delivery": "Firm, relatively loud and clipped, delivered in a quick burst."
+  },
+  {
+   "t": 2.78,
+   "speaker": "Friend",
+   "text": "What?",
+   "delivery": "Quieter, isolated disbelief after a half-second beat, with questioning emphasis."
+  },
+  {
+   "t": 3.68,
+   "speaker": "Friend",
+   "text": "You're seriously skipping college?",
+   "delivery": "Relatively quiet and deliberately paced, stretching the incredulous question."
+  },
+  {
+   "t": 5.76,
+   "speaker": "Hero",
+   "text": "I'm focusing on day trading.",
+   "delivery": "Clearly projected, steady and matter-of-fact, with firm emphasis on his chosen pursuit."
+  },
+  {
+   "t": 7.76,
+   "speaker": "Friend",
+   "text": "We'll see.",
+   "delivery": "Moderate-volume skepticism, short and dismissive after a held beat."
+  },
+  {
+   "t": 8.5,
+   "speaker": "Friend",
+   "text": "Bro thinks he's going to trade for a living.",
+   "delivery": "Fast, moderately quiet mockery, rattled off toward the surrounding group."
+  },
+  {
+   "t": 10.38,
+   "speaker": "Degree-bound friend",
+   "text": "I'm getting a real degree.",
+   "delivery": "Relatively quiet but brisk and smug, stressing 'real degree.'"
+  },
+  {
+   "t": 11.66,
+   "speaker": "Hero",
+   "text": "And I'm giving myself four years.",
+   "delivery": "Firmer and louder than the preceding friend, quick and resolved."
+  },
+  {
+   "t": 13.02,
+   "speaker": "Friend",
+   "text": "Four years to do what?",
+   "delivery": "Rapid, pointed questioning with a skeptical upward finish."
+  },
+  {
+   "t": 15.24,
+   "speaker": "Hero",
+   "text": "Become profitable.",
+   "delivery": "Measured and deliberate after a 1.38-second pause, with clear, firm projection."
+  },
+  {
+   "t": 16.7,
+   "speaker": "Friend",
+   "text": "Good luck with that.",
+   "delivery": "Moderately projected, brisk and dismissive after a short beat."
+  },
+  {
+   "t": 19.3,
+   "speaker": "Hero",
+   "text": "Four years.",
+   "delivery": "Lower-volume, slow and reflective after a long pause."
+  },
+  {
+   "t": 20.8,
+   "speaker": "Narrator",
+   "text": "Funded challenge, submit, doing the win,",
+   "delivery": "Relatively loud and rhythmically segmented at a moderate pace; the wording is unclear in the supplied transcript."
+  },
+  {
+   "t": 22.78,
+   "speaker": "Narrator",
+   "text": "And four years later.",
+   "delivery": "Brisk, clearly projected transitional narration."
+  },
+  {
+   "t": 25.46,
+   "speaker": "Degree-bound friend",
+   "text": "I got a job, 50,000 a year.",
+   "delivery": "Moderate-volume, measured and pleased, giving the salary room to register."
+  },
+  {
+   "t": 27.6,
+   "speaker": "Friend",
+   "text": "Next month, whatever happened to Aiden?",
+   "delivery": "Conversational and brisk with a questioning finish; the opening phrase is uncertain in the supplied transcript."
+  },
+  {
+   "t": 29.0,
+   "speaker": "Friend",
+   "text": "No way.",
+   "delivery": "More projected and slowed down in sudden surprise."
+  },
+  {
+   "t": 30.02,
+   "speaker": "Friend",
+   "text": "You actually stuck with trading?",
+   "delivery": "Relatively quiet but fast, with incredulous emphasis on 'actually.'"
+  },
+  {
+   "t": 31.36,
+   "speaker": "Hero",
+   "text": "Every day.",
+   "delivery": "Strongly projected, compact and certain."
+  },
+  {
+   "t": 32.14,
+   "speaker": "Friend",
+   "text": "So what do you make now?",
+   "delivery": "Very fast and relatively loud, an eager question fired off in less than a second."
+  },
+  {
+   "t": 34.4,
+   "speaker": "Degree-bound friend",
+   "text": "You made 50,000 today?",
+   "delivery": "Slower, moderately quiet disbelief after a 1.54-second pause, with questioning emphasis on 'today.'"
+  },
+  {
+   "t": 36.64,
+   "speaker": "Hero",
+   "text": "One trade.",
+   "delivery": "The loudest measured line, sharply projected and clipped with emphatic certainty."
+  },
+  {
+   "t": 37.48,
+   "speaker": "Degree-bound friend",
+   "text": "That's my whole starting salary.",
+   "delivery": "Quieter and brisk, sounding stunned as the comparison sinks in."
+  },
+  {
+   "t": 38.9,
+   "speaker": "Hero",
+   "text": "You guys had your four-year plan?",
+   "delivery": "Strongly projected and very fast, with a pointed rhetorical rise."
+  },
+  {
+   "t": 40.26,
+   "speaker": "Hero",
+   "text": "I had mine.",
+   "delivery": "Quick, firm and slightly less loud, landing as a compact closing statement."
+  },
+  {
+   "t": 41.2,
+   "speaker": "Hero",
+   "text": "Be honest.",
+   "delivery": "Loud, direct and brisk, addressing the viewer."
+  },
+  {
+   "t": 42.06,
+   "speaker": "Hero",
+   "text": "Which would you choose?",
+   "delivery": "Strongly projected and very quick, ending with a challenging question."
+  },
+  {
+   "t": 43.3,
+   "speaker": "Hero",
+   "text": "Comment below.",
+   "delivery": "Clearly projected, fast and imperative after a brief beat."
+  }
+ ],
+ "voice_arc": "The friends begin with casual questions and comparatively quiet skepticism, while the hero answers in firmer, compact statements. A long pause before 'Become profitable' gives his commitment weight; the solitary section briefly lowers the energy before the reunion restores quick exchanges. The hero's strongest projection arrives on 'Every day' and especially 'One trade,' while the friends' slower salary question and quieter response make their shock audible.",
+ "camera_language": "Held eye-level group compositions establish the hero as the white-shirted outsider among formally dressed graduates, then place him under pressure from peers surrounding his desk. The private-work passage compresses into subsecond desk views, interface inserts and a screen-lit facial close-up before returning to longer campus shots. A tighter group reaction around the phone delivers the reversal, followed by a frontal chest-up address.",
+ "why_it_works": "The same four-year deadline belongs to both sides, giving the story a clear comparison that returns in the hero's final callback. Long dialogue scenes establish the social wound, while the compressed private struggle bridges rejection and reward. The $50,000 annual salary becomes the exact measure of the reversal, and the graduates' shocked faces make the numerical claim immediately legible.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "The video instantly drops the viewer into a high-stakes social dilemma (High School Graduation) with an abrupt, unexpected statement: 'I'm not going to college.'",
+  "turn": "The turn happens at 0:24 with the dramatic '4 YEARS LATER...' time jump, shifting from the protagonist being doubted to him confronting his old doubters.",
+  "payoff": "The reveal of +$50,700 earned in a single day—matching the peer's entire annual salary—delivers an intense emotional vindication and jaw-dropping reaction from the doubters.",
+  "why_it_works": "High-relatability conflict: College vs. alternative paths resonates deeply with Gen Z and millennial audiences. Clean 3D animation style creates high visual polish that instantly looks like a high-budget Pixar film. Clear contrast & underdog arc: Mockery in scene 1 directly mirrors triumph and status reversal in scene 2. Specific numbers ($50,000/yr vs $50,700/day) make the financial victory tangi",
+  "camera": [
+   "Slow push-in during high school graduation scene to isolate Aidan from the mocking crowd (0:00-0:08)",
+   "Snap zoom into the phone screen to dramatize key financial numbers (0:18 & 0:33)",
+   "Tracking movement during the college graduation scene as Aidan steps up to his old peers (0:25-0:30)",
+   "Direct front-facing push-in on Aidan for the final audience CTA (0:41-0:43)"
+  ],
+  "montages": [
+   "{\"start\": \"0:18\", \"end\": \"0:24\", \"cuts\": 5, \"content\": \"Aidan opening his laptop -> close-up drawing chart patterns in notebook -> clicking submit on funded challenge -> glowing screen late night face shot -> studying by window late night.\""
+  ]
+ }
+}
