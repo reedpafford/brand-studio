@@ -10,9 +10,10 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import credits_used, get_limits, lock
+from app.credits import credits_used, get_limits, lock, over_cap
 from app.db import get_db
 from app.models.accounts import User
+from app.models.credits import BUDGET_MULTIPLIER
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind
 from app.models.projects import Project, ProjectStatus
@@ -110,6 +111,14 @@ def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
 
 
 def _set_length(db: Session, user: User, project: Project, seconds: int) -> None:
+    limits = get_limits(db, user.workspace_id)
+    if seconds * BUDGET_MULTIPLIER > limits.per_video_max_credits:  # budget = 2x 480p seconds
+        longest = limits.per_video_max_credits // BUDGET_MULTIPLIER
+        raise HTTPException(
+            422,
+            f"{over_cap(user, limits.per_video_max_credits).detail} "
+            f"Plan {longest} seconds or less.",
+        )
     project.planned_seconds = seconds
     if user.is_owner:
         project.status, project.approved_by_id = ProjectStatus.active, user.id
@@ -192,7 +201,8 @@ def _release_held_jobs(db: Session, owner: User, project: Project) -> None:
         .where(Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
         .order_by(Job.id)
     )
+    ceiling = min(project.budget_credits, get_limits(db, owner.workspace_id).per_video_max_credits)
     for job in held:
-        if used + job.credits <= project.budget_credits:
+        if used + job.credits <= ceiling:
             job.status, job.approved_by_id = JobStatus.queued, owner.id
             used += job.credits

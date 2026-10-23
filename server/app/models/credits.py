@@ -15,6 +15,7 @@ USD_PER_CREDIT = Decimal("0.1028")  # Seedance 2.5 480p, per second
 BUDGET_MULTIPLIER = 2
 DEFAULT_MAX_PLANNED_SECONDS = 180  # editors can plan up to this without the owner
 DEFAULT_WEEKLY_QUICK_CLIP_CREDITS = Decimal(150)  # per editor, Mon-Sun (UTC)
+DEFAULT_PER_VIDEO_MAX_CREDITS = 340  # Reed: $35 per video at most, owner included
 
 
 class CreditRate(Entity, Base):
@@ -34,3 +35,5 @@ class CreditLimits(Entity, Base):
     weekly_quick_clip_credits: Mapped[Decimal] = mapped_column(
         Numeric(12, 3), default=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS
     )
+    # Hard ceiling for one video's credits, for everyone including the owner.
+    per_video_max_credits: Mapped[int] = mapped_column(default=DEFAULT_PER_VIDEO_MAX_CREDITS)
