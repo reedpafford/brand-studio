@@ -1,0 +1,117 @@
+"""Brand screens: named images of the brand's real UI, tagged, some attached to moments
+by default (e.g. fomo's trading screens appear whenever a scene is about trading)."""
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.auth import current_user
+from app.db import get_db
+from app.models.accounts import User
+from app.models.brands import BrandScreen
+from app.routes.brands import get_brand
+from app.routes.files import get_file
+from app.schemas import Name, Slug
+
+router = APIRouter(prefix="/brands/{brand_id}/screens", tags=["brands"])
+
+# Suggested tags; others are allowed.
+COMMON_TAGS = ["trading", "chart-up", "chart-down", "desktop", "mobile"]
+
+
+class ScreenIn(BaseModel):
+    name: Name
+    file_id: int
+    tags: list[Slug] = []
+    default_for: list[Slug] = []
+
+
+class ScreenPatch(BaseModel):
+    name: Name | None = None
+    file_id: int | None = None
+    tags: list[Slug] | None = None
+    default_for: list[Slug] | None = None
+
+
+class ScreenOut(ScreenIn):
+    id: int
+    brand_id: int
+
+
+def _get_screen(db: Session, user: User, brand_id: int, screen_id: int) -> BrandScreen:
+    get_brand(db, user, brand_id)
+    screen = db.get(BrandScreen, screen_id)
+    if not screen or screen.brand_id != brand_id:
+        raise HTTPException(404, "No such screen.")
+    return screen
+
+
+def _apply(db: Session, user: User, screen: BrandScreen, values: dict) -> None:
+    values = {k: v for k, v in values.items() if v is not None}
+    if "file_id" in values:
+        get_file(db, user, values["file_id"])
+    if "name" in values:
+        clash = db.scalar(
+            select(BrandScreen).where(
+                BrandScreen.brand_id == screen.brand_id, BrandScreen.name == values["name"]
+            )
+        )
+        if clash and clash is not screen:
+            raise HTTPException(409, "This brand already has a screen with that name.")
+    for field, value in values.items():
+        setattr(screen, field, sorted(set(value)) if isinstance(value, list) else value)
+
+
+@router.get("", response_model=list[ScreenOut])
+def list_screens(
+    brand_id: int,
+    tag: str | None = None,
+    moment: str | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Filter by `tag`, or by `moment` to get the screens attached to it by default."""
+    get_brand(db, user, brand_id)
+    screens = db.scalars(
+        select(BrandScreen).where(BrandScreen.brand_id == brand_id).order_by(BrandScreen.name)
+    ).all()
+    return [
+        s
+        for s in screens
+        if (tag is None or tag in s.tags) and (moment is None or moment in s.default_for)
+    ]
+
+
+@router.post("", response_model=ScreenOut, status_code=201)
+def add_screen(
+    brand_id: int, body: ScreenIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    get_brand(db, user, brand_id)
+    screen = BrandScreen(brand_id=brand_id)
+    _apply(db, user, screen, body.model_dump())
+    db.add(screen)
+    db.commit()
+    return screen
+
+
+@router.patch("/{screen_id}", response_model=ScreenOut)
+def update_screen(
+    brand_id: int,
+    screen_id: int,
+    body: ScreenPatch,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    screen = _get_screen(db, user, brand_id, screen_id)
+    _apply(db, user, screen, body.model_dump(exclude_unset=True))
+    db.commit()
+    return screen
+
+
+@router.delete("/{screen_id}", status_code=204)
+def delete_screen(
+    brand_id: int, screen_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+) -> None:
+    db.delete(_get_screen(db, user, brand_id, screen_id))
+    db.commit()

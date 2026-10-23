@@ -18,6 +18,7 @@ from app.auth import (
 from app.db import get_db, utcnow
 from app.models.accounts import Invite, Role, User, Workspace
 from app.schemas import Email, Name, Password
+from app.seed import seed_brands
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -67,6 +68,8 @@ def setup(body: SetupIn, request: Request, response: Response, db: Session = Dep
     )
     db.add(user)
     db.commit()
+    state = request.app.state
+    seed_brands(db, workspace.id, state.storage, state.settings.fomo_screens_dir)
     start_session(db, request, response, user)
     return user
 

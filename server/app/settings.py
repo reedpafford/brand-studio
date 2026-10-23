@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # Uploaded files (local disk for now; S3-compatible later)
     storage_dir: str = "./storage"
     max_upload_mb: int = 200
+    # Folder of fomo UI screens imported on first setup (optional)
+    fomo_screens_dir: str = ""
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 
