@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { image, signIn } from "./helpers";
+import { emptyBrand, image, signIn } from "./helpers";
 
 // Runs after brand.e2e.ts and library.e2e.ts. Generation isn't switched on yet, so these cover
-// the controls only. The screen with a "buy-moment" is added to Iron Paws through the API.
+// the controls only. The screen with a "buy-moment" is added to a fresh brand through the API.
 test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }) => {
@@ -27,9 +27,7 @@ test("the credits on the button follow the quality chosen", async ({ page }) => 
 });
 
 test("a screen whose moment the prompt mentions is added, and stays out once removed", async ({ page }) => {
-  await page.getByLabel("Brand").selectOption({ label: "Iron Paws" });
-  const brands = await (await page.request.get("/api/brands")).json();
-  const brandId = brands.find((b: { name: string }) => b.name === "Iron Paws").id;
+  const brandId = await emptyBrand(page);
   const upload = await page.request.post("/api/files", { multipart: { upload: image("buy.png") } });
   const file = await upload.json();
   await page.request.post(`/api/brands/${brandId}/screens`, {
