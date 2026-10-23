@@ -9,11 +9,14 @@ x-server: &server
   image: brand-studio-server
   restart: unless-stopped
   env_file: .env
-  environment:
+  environment: &server-env
     BS_ENV: production
     BS_DATABASE_URL: postgresql+psycopg://brand:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@db:5432/brand
     BS_STORAGE_DIR: /data/storage
     BS_COOKIE_SECURE: "true"
+    # Provider keys go to the worker only (the only part that calls Replicate or Claude).
+    REPLICATE_API_TOKEN: ""
+    STUDIO_ANTHROPIC_KEY: ""
   volumes:
     - files:/data/storage
 
@@ -56,6 +59,10 @@ services:
   worker:
     <<: *server
     command: ["python", "-m", "app.worker"]
+    environment:
+      <<: *server-env
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+      STUDIO_ANTHROPIC_KEY: ${STUDIO_ANTHROPIC_KEY:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
 

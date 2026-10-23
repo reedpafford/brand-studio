@@ -33,6 +33,9 @@ worker, and Caddy, which serves the website and gets the HTTPS certificate by it
    - Leave `BS_GENERATION_ENABLED=false` until you want paid generation on.
 
    This file holds your keys. It stays on the server only; never paste it anywhere.
+   The app refuses to start while `change-me` is still in there, and says which line to fix.
+   The database keeps the password it was first started with. If you need to change it before
+   any real work exists, run `docker compose down -v` (this wipes everything) and start again.
 
 5. **Start it:**
    ```
