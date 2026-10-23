@@ -6,6 +6,7 @@ import { fileUrl, uploadFile } from "../api/upload";
 import type { components } from "../api/schema";
 import { useBrands } from "../shell/useBrands";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
+import { CharacterExtras } from "./CharacterExtras";
 import { KINDS, isKindSlug } from "./kinds";
 
 type Item = components["schemas"]["ItemOut"];
@@ -33,7 +34,10 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
   const { data: brands } = useBrands();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const start = { name: item.name, notes: item.notes ?? "", brand_ids: item.brand_ids ?? [], image_file_ids: item.image_file_ids ?? [] };
+  const start = { name: item.name, notes: item.notes ?? "", brand_ids: item.brand_ids ?? [], image_file_ids: item.image_file_ids ?? [],
+    outfits: item.outfits ?? [],
+    voice_file_id: item.voice_file_id ?? null,
+  };
   const [form, setForm] = useState(start);
   const changed = JSON.stringify(form) !== JSON.stringify(start);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
@@ -43,7 +47,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
 
   const save = useMutation({
     mutationFn: async () => {
-      const { error, response } = await api.PATCH("/library/{kind}/{item_id}", { params: { path }, body: form });
+      const { error, response } = await api.PATCH("/library/{kind}/{item_id}", { params: { path }, body: kind === "character" ? form : { name: form.name, notes: form.notes, brand_ids: form.brand_ids, image_file_ids: form.image_file_ids } });
       if (!response.ok) throw new Error(errorText(error));
     },
     onSuccess: refresh,
@@ -114,6 +118,14 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
           Notes
           <textarea className={input} rows={4} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </label>
+        {kind === "character" && (
+          <CharacterExtras
+            outfits={form.outfits}
+            voiceFileId={form.voice_file_id}
+            onOutfits={(outfits) => setForm({ ...form, outfits })}
+            onVoice={(voice_file_id) => setForm({ ...form, voice_file_id })}
+          />
+        )}
         {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
         <div className="flex flex-wrap items-center gap-3">
           <button className={btnPrimary} disabled={save.isPending || !changed || form.brand_ids.length === 0}>
