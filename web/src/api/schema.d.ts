@@ -873,6 +873,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/script/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft
+         * @description Queue a script-draft call (a paid Claude call, counted against the project budget).
+         */
+        post: operations["draft_projects__project_id__script_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/script/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Drafts
+         * @description The newest finished set of drafts (empty if none yet).
+         */
+        get: operations["list_drafts_projects__project_id__script_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/script/drafts/{job_id}/{n}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Draft
+         * @description Make draft `n` of that job the new working script (a new version, source "draft").
+         */
+        post: operations["use_draft_projects__project_id__script_drafts__job_id___n__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/estimate": {
         parameters: {
             query?: never;
@@ -1143,6 +1203,17 @@ export interface components {
              */
             skip_screen_ids: number[];
         };
+        /** DraftOut */
+        DraftOut: {
+            /** Job Id */
+            job_id: number;
+            /** N */
+            n: number;
+            /** Hook Idea */
+            hook_idea: string;
+            /** Script */
+            script: string;
+        };
         /** Duration */
         Duration: {
             /** Min */
@@ -1397,10 +1468,7 @@ export interface components {
             max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number | string;
-            /**
-             * Per Video Max Credits
-             * @default 340
-             */
+            /** Per Video Max Credits */
             per_video_max_credits: number;
         };
         /** LimitsOut */
@@ -1547,6 +1615,12 @@ export interface components {
             cast_ids?: number[] | null;
             /** Reference File Id */
             reference_file_id?: number | null;
+            /** Reference Breakdown */
+            reference_breakdown?: {
+                [key: string]: unknown;
+            } | null;
+            /** Reference Replace */
+            reference_replace?: string | null;
             /** Brand Id */
             brand_id: number;
             /** Name */
@@ -1577,6 +1651,12 @@ export interface components {
             cast_ids: number[];
             /** Reference File Id */
             reference_file_id: number | null;
+            /** Reference Breakdown */
+            reference_breakdown: {
+                [key: string]: unknown;
+            } | null;
+            /** Reference Replace */
+            reference_replace: string;
             /** Estimate Credits */
             estimate_credits: number;
             /** Budget Credits */
@@ -1600,6 +1680,12 @@ export interface components {
             cast_ids?: number[] | null;
             /** Reference File Id */
             reference_file_id?: number | null;
+            /** Reference Breakdown */
+            reference_breakdown?: {
+                [key: string]: unknown;
+            } | null;
+            /** Reference Replace */
+            reference_replace?: string | null;
             /** Name */
             name?: string | null;
             /** Planned Seconds */
@@ -3635,6 +3721,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_projects__project_id__script_draft_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_drafts_projects__project_id__script_drafts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_draft_projects__project_id__script_drafts__job_id___n__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                job_id: number;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
                 };
             };
             /** @description Validation Error */

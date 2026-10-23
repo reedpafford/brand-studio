@@ -14,10 +14,11 @@
 - Paid generation is off unless `BS_GENERATION_ENABLED=true`: Generate/Enhance answer 503, the worker leaves paid jobs queued.
 - Replicate token: `REPLICATE_API_TOKEN` if set (deployed server), else the sandbox proxy adds it. Claude key: `STUDIO_ANTHROPIC_KEY` only.
 - Rules for every resource PR: `tests/helpers.py` (`assert_hidden`, `assert_no_dollars`); attached file ids via `get_file(..., kind)`; dollar fields named `*_usd` and owner-only.
-- Credits: 1 credit = $0.1028 = 1 s of 480p. Catalogue prices give clip estimates, rates table the rest; real cost replaces estimates. Projects: budget = 2x planned length (editors ≤ 180 s without owner). Quick clips: 150 credits/editor/week. Over a limit = `needs_owner_approval`. Hard per-video cap 340 (= $35) for everyone (#38). Limits at `/credits/limits`.
+- Credits: 1 credit = $0.1028 = 1 s of 480p. Catalogue prices give clip estimates, rates table the rest; real cost replaces estimates. Projects: budget = 2x planned length (editors ≤ 170 s without owner). Quick clips: 150 credits/editor/week. Over a limit = `needs_owner_approval`. Hard per-video cap 340 (= $35) for everyone, quick clips included. Limits at `/credits/limits`.
 - Catalogue: `server/app/catalogue.json` (limits from Replicate schemas). `GET /models` (credits), `GET /models/prices` (owner).
 - Quick clips: `POST /clips`, `POST /clips/estimate`, `GET /clips/{job}/request`; moment screens auto-attached unless in `skip_screen_ids`.
 - Scripts: brief on projects; versions via paste/upload (txt/docx/pdf). Enhance: `POST .../script/enhance` (Claude via Director prompts + `check.enhance`), accept/reject, `POST .../script/apply` → new version. Enhance never changes the script's words: marks only add lines before/after a line; `notes` (problems in the words) are shown as information.
+- Script drafts: `POST .../script/draft` (2–3 drafts by Claude; adapts the project's `reference_breakdown` if set, checked against docs/references shape), `GET .../script/drafts`, `POST .../script/drafts/{job}/{n}/use` → new version.
 ## Next
 - Builder-Server: #24 next: script draft, breakdown, storyboard, clip prompts; then Quick clip "Improve prompt".
 - Director's paid evals: log each paid call in ops/SPEND.md when it runs.

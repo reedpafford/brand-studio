@@ -8,6 +8,7 @@ from app.routes import (
     brands,
     clips,
     credits,
+    drafts,
     enhance,
     files,
     health,
@@ -45,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         models,
         scripts,
         enhance,
+        drafts,
         clips,
     ):
         app.include_router(module.router)

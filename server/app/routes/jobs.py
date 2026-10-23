@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import check_video_cap, estimate, lock, needs_approval
+from app.credits import check_clip_cap, check_video_cap, estimate, lock, needs_approval
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus, Usage
@@ -116,6 +116,7 @@ def enqueue(
         check_video_cap(db, user, project, credits)
     else:
         lock(db, User, user.id)
+        check_clip_cap(db, user, credits)
     over = needs_approval(db, user, project, credits)
     job = Job(
         workspace_id=user.workspace_id,
