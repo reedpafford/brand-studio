@@ -1,7 +1,12 @@
 # Decisions (newest first; one line each, with date)
+- 2026-10-23 (Reed) Definition of done: an editor on the live site makes the fomo altar-rejection reel and Iron Paws Pitbull 1 from brief to final cut without agent help, and Reed signs off. Details in ops/MISSION.md.
+- 2026-10-23 (Reed) Live-action segments in reference reels are always removed or replaced, by default with a brand CTA (fomo: "Want to trade like me? Download fomo through the link in my bio.").
+- 2026-10-23 (Reed) Day-to-day testing uses 15–30 s excerpts at 480p inside the $15/week test cap, estimate first.
+- 2026-10-23 (Reed) Iron Paws has two bags, chicken and peanut butter. Each project picks the flavour; that bag appears exactly.
+- 2026-10-23 (Reed) Cost: the per-video hard cap is $75 (729 credits), replacing $35; it applies to everyone. The project budget stays 2x the 480p estimate. The 170 s editor limit on planned length is dropped.
 - 2026-10-23 (Reed) Seedance prompt shape B adopted (FIT rows 3, 9, 10): whole-second shot times with quick cuts grouped in one segment, "[Image1] is the first frame." for the storyboard frame, and Summary + Keep lines. Both A/B clips worked; B is the shape the guide says stays consistent across generations. The breakdown keeps its decimals; only the video prompt rounds.
 - 2026-10-23 (Reed) Script and dialogue never change in Enhance, breakdown or clips. Enhance only suggests camera shots, character movements, reactions and where brand screens/products show; problems in the words become notes, never edits.
-- 2026-10-23 Reed: per-video absolute max is $35 (340 credits). It applies to everyone and is owner-editable.
+- 2026-10-23 Reed: per-video absolute max is $35 (340 credits). It applies to everyone and is owner-editable. (Superseded: now $75.)
 - 2026-10-23 Reed: nothing from the old story-studio project carries over except fomo's real screens and logo.
 - 2026-10-23 Reed: house style and gold examples come from the top animated reels on Instagram @nateassets (Reference Analyst builds them).
 - 2026-10-23 Reed: prompting guidance comes only from the official Seedance and Google Nano Banana docs (Prompt Researcher).
