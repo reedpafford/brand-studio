@@ -74,6 +74,25 @@ test("a length past the editor limit says the owner has to approve, and the cap 
   expect(await screen.findByText("Over 60s Reed has to approve the project.")).toBeInTheDocument();
 });
 
+test("a product that comes in flavours is picked on the brief and sent with it", async () => {
+  const bag = (id: number, name: string, variant: string) => ({ id, brand_id: 1, name, tags: [], default_for: [], product: "bag", variant, file_id: id });
+  const calls = fakeServer({
+    ...base,
+    "GET /brands/1/screens": [200, [bag(1, "Chicken bag", "Chicken"), bag(2, "Peanut butter bag", "Peanut butter"), { ...bag(3, "Phone", ""), product: "" }]],
+    "POST /projects": [201, project],
+    "GET /projects/9": [200, project],
+    "GET /projects": [200, []],
+  });
+  renderAt("/b/1/projects/new");
+  await userEvent.type(await screen.findByLabelText("Title"), "Dinner");
+  await userEvent.click(await screen.findByRole("button", { name: "Peanut butter" }));
+  expect(screen.getByRole("button", { name: "Peanut butter" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryByRole("button", { name: "Phone" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+  await screen.findByRole("heading", { name: "Mia buys the dip" });
+  expect(calls.find((c) => c.key === "POST /projects")?.body).toMatchObject({ product_variants: { bag: "Peanut butter" } });
+});
+
 test("a refused brief shows the server's reason", async () => {
   fakeServer({ ...base, "POST /projects": [422, { detail: "Plan 170 seconds or less." }] });
   renderAt("/b/1/projects/new");

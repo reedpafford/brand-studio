@@ -15,6 +15,7 @@ export function NewProjectPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", goal: "", platform: PLATFORMS[0], aspect: "9:16" as (typeof ASPECTS)[number], format: "", seconds: 30 });
   const [cast, setCast] = useState<number[]>([]);
+  const [picks, setPicks] = useState<Record<string, string>>({});
   const [reference, setReference] = useState<number | null>(null);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
 
@@ -22,6 +23,13 @@ export function NewProjectPage() {
     queryKey: ["library", "character", brandId, false],
     queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "character" }, query: { brand_id: brandId } } })).data ?? [],
   });
+  const screens = useQuery({
+    queryKey: ["screens", brandId],
+    queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: brandId } } })).data ?? [],
+  });
+  // Screens that are one flavour of a product (a bag that comes in Chicken or Peanut butter) are picked here.
+  const products = new Map<string, NonNullable<typeof screens.data>>();
+  for (const s of screens.data ?? []) if (s.product && s.variant) products.set(s.product, [...(products.get(s.product) ?? []), s]);
   const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
   const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 170; // budget is 2x the 480p seconds
   const needsApproval = limits.data ? form.seconds > limits.data.max_planned_seconds : false;
@@ -40,6 +48,7 @@ export function NewProjectPage() {
           format: form.format,
           cast_ids: cast,
           reference_file_id: reference,
+          product_variants: picks,
         },
       });
       if (!data) throw new Error(errorText(error));
@@ -115,6 +124,18 @@ export function NewProjectPage() {
             </label>
           ))}
         </fieldset>
+        {[...products].map(([product, list]) => (
+          <fieldset key={product} className="space-y-1 text-sm">
+            <legend className="font-medium">Which {product}?</legend>
+            <div className="flex flex-wrap gap-2">
+              {list.map((s) => (
+                <button key={s.id} type="button" aria-pressed={picks[product] === s.variant} className={seg(picks[product] === s.variant)} onClick={() => setPicks({ ...picks, [product]: s.variant })}>
+                  {s.variant}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        ))}
         <div className="space-y-1 text-sm">
           <div className="font-medium">Reference video (optional)</div>
           {reference && <video controls src={fileUrl(reference)} className="max-h-48 rounded-sm" />}
