@@ -280,3 +280,14 @@ def test_breakdown_check_wants_the_script_to_end_on_the_brands_end_line():
     assert "the script doesn't end on the brand's end line" not in check.breakdown(
         ended, bd, FOMO, 4, 30, end_line=end
     )
+
+
+def test_sheet_prompts_are_house_style_with_no_names_or_text():
+    sheet = prompts.sheet_prompt(
+        "character", "17, red beanie, grey hoodie, headphones round his neck"
+    )
+    assert sheet.startswith("Generate a character turnaround sheet")
+    assert "three-quarter" in sheet and "face close-up" in sheet and "No text" in sheet
+    assert sheet.endswith("The character: 17, red beanie, grey hoodie, headphones round his neck")
+    place = prompts.sheet_prompt("place", "a small bedroom with a desk and one window")
+    assert "no people" in place and "{" not in place and "9:16" not in place + sheet

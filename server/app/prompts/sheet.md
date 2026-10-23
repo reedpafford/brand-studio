@@ -1,0 +1,8 @@
+# Nano Banana: character sheet and place still
+<!-- Not a Claude step: the server fills these templates (prompts.sheet_prompt) and sends them to the image model with the editor's reference pictures, if any. {description} is the library item's notes; never a name. -->
+
+## character
+Generate a character turnaround sheet of one character on a plain light grey background: the same character four times in a row: full body front view, full body three-quarter view, full body side view, and a large face close-up, all at the same scale, standing in a neutral pose with a calm expression. Stylised 3D animated feature-film look (Pixar/Disney-like CG): slightly enlarged head (about 6 heads tall), big glossy round eyes with one sharp catchlight, thick expressive brows, small nose and soft subsurface skin. One fixed outfit, simple, clean and real-world, with fine cloth detail, identical in every view, and one silhouette-defining item that reads at a glance. Even, soft studio light, no shadows on the background. No text, letters, names, labels, logos or numbers anywhere in the image. The character: {description}
+
+## place
+Generate an establishing still of one place, with no people in it. Stylised 3D animated feature-film look (Pixar/Disney-like CG), dense and specific set dressing with photoreal props, motivated cinematic light: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. Eye-level wide shot, locked off, shallow depth of field on the far background. No text, letters, signs with words, logos or numbers anywhere in the image. The place: {description}

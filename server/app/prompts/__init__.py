@@ -142,3 +142,12 @@ def reference_lines(refs: list[dict]) -> str:
             what = f"the {name}"
         lines.append(f"{tags} {verb} {what}.")
     return " ".join(lines)
+
+
+def sheet_prompt(kind: str, description: str) -> str:
+    """The Nano Banana prompt for a library item's reference picture: kind "character" (a
+    turnaround sheet) or "place" (an establishing still), in the house style. `description` is
+    the item's notes (wardrobe, defining item, look); names stay out so none is drawn."""
+    sections = (HERE / "sheet.md").read_text().split("\n## ")[1:]
+    template = dict(s.split("\n", 1) for s in sections)[kind].strip()
+    return template.format(description=description.strip())
