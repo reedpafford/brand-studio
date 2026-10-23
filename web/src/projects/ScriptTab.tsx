@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
+import { EnhanceBar, MarkLine, Notes, useEnhance } from "./Enhance";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 
 const SOURCE = { paste: "pasted", upload: "uploaded", draft: "written by Claude", enhance: "enhanced" } as Record<string, string>;
@@ -54,6 +55,8 @@ export function ScriptTab({ projectId }: { projectId: number }) {
     },
     onSuccess: saved,
   });
+
+  const enhance = useEnhance(projectId, latest.data?.version);
 
   if (latest.isPending) return <p className="text-muted">Loading…</p>;
   if (latest.isError) return <p role="alert" className={errorClass}>Could not load the script. Try again.</p>;
@@ -160,23 +163,39 @@ export function ScriptTab({ projectId }: { projectId: number }) {
           ))}
         </ul>
       )}
-      <ScriptText text={shown?.text ?? ""} />
+      {shown?.version === current.version && <EnhanceBar e={enhance} />}
+      <ScriptText
+        text={shown?.text ?? ""}
+        around={
+          shown?.version === current.version
+            ? (line, where) => enhance.marks.filter((m) => m.line === line && (m.placement === "before") === (where === "before")).map((m) => <MarkLine key={m.id} mark={m} e={enhance} />)
+            : undefined
+        }
+      />
+      {shown?.version === current.version && <Notes e={enhance} version={current.version} />}
     </section>
   );
 }
 
-/** Line-numbered, in the script font, wrapping at about 64 characters. The words are never altered. */
-export function ScriptText({ text }: { text: string }) {
+/** Line-numbered, in the script font, wrapping at about 64 characters. The words are never altered.
+ *  `around` can put other lines (Enhance direction notes) before or after a script line. */
+export function ScriptText({ text, around }: { text: string; around?: (line: number, where: "before" | "after") => ReactNode }) {
   return (
-    <ol className="max-w-[72ch] rounded-md border border-border bg-surface p-4 font-script leading-[1.6]" aria-label="Script text">
-      {text.split("\n").map((line, i) => (
-        <li key={i} className="grid grid-cols-[2.5rem_1fr] gap-2">
-          <span className="select-none text-right text-xs text-faint" aria-hidden>
-            {i + 1}
-          </span>
-          <span className="whitespace-pre-wrap break-words">{line || " "}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="max-w-[72ch] rounded-md border border-border bg-surface p-4 font-script leading-[1.6]">
+      <ol aria-label="Script text">
+        {text.split("\n").map((line, i) => (
+          <Fragment key={i}>
+            {around?.(i + 1, "before")}
+            <li className="grid grid-cols-[2.5rem_1fr] gap-2">
+              <span className="select-none text-right text-xs text-faint" aria-hidden>
+                {i + 1}
+              </span>
+              <span className="whitespace-pre-wrap break-words">{line || "\u00a0"}</span>
+            </li>
+            {around?.(i + 1, "after")}
+          </Fragment>
+        ))}
+      </ol>
+    </div>
   );
 }
