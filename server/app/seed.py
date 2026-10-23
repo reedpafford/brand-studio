@@ -1,6 +1,6 @@
-"""Launch brands (fomo, Iron Paws) and import of fomo's real UI screens from a folder.
+"""Launch brands (fomo, Iron Paws) and import of their real screens from the repo assets.
 
-Runs on first setup. To import screens later: `python -m app.seed <folder>`.
+Runs on first setup. To import screens later: `python -m app.seed <folder> [brand-slug]`.
 A folder may hold `screens.json`:
 {"file.png": {"name": "...", "tags": [...], "default_for": [...]}}.
 Without it, tags come from words in the filename (e.g. `trading-chart-up-mobile.png`).
@@ -24,7 +24,8 @@ from app.schemas import slugify
 from app.storage import Storage
 
 log = logging.getLogger(__name__)
-LAUNCH_BRANDS = ["fomo", "Iron Paws"]
+# Launch brands and their folder under assets/brands/ (screens in <folder>/screens).
+LAUNCH_BRANDS = {"fomo": "fomo", "Iron Paws": "ironpaws"}
 IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -33,7 +34,9 @@ IMAGE_TYPES = {
 }
 
 
-def seed_brands(db: Session, workspace_id: int, storage: Storage, fomo_dir: str = "") -> None:
+def seed_brands(db: Session, workspace_id: int, storage: Storage, assets_dir: str = "") -> None:
+    """Create the launch brands, then import each one's screens, logo and style board from
+    `assets_dir/<folder>/screens` when that folder exists."""
     for name in LAUNCH_BRANDS:
         slug = slugify(name)
         if not db.scalar(
@@ -41,11 +44,13 @@ def seed_brands(db: Session, workspace_id: int, storage: Storage, fomo_dir: str 
         ):
             db.add(Brand(workspace_id=workspace_id, name=name, slug=slug))
     db.commit()
-    if fomo_dir and Path(fomo_dir).is_dir():
-        fomo = db.scalar(
-            select(Brand).where(Brand.workspace_id == workspace_id, Brand.slug == "fomo")
-        )
-        import_screens(db, storage, fomo, Path(fomo_dir))
+    for name, folder in LAUNCH_BRANDS.items():
+        screens = Path(assets_dir) / folder / "screens" if assets_dir else None
+        if screens and screens.is_dir():
+            brand = db.scalar(
+                select(Brand).where(Brand.workspace_id == workspace_id, Brand.slug == slugify(name))
+            )
+            import_screens(db, storage, brand, screens)
 
 
 def _guess(stem: str) -> dict:
@@ -117,19 +122,19 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
     return added
 
 
-def main(folder: str) -> None:
+def main(folder: str, slug: str = "fomo") -> None:
     from app.db import make_sessionmaker
     from app.settings import get_settings
     from app.storage import LocalStorage
 
     settings = get_settings()
     with make_sessionmaker(settings.database_url)() as db:
-        fomo = db.scalar(select(Brand).where(Brand.slug == "fomo"))
-        if not fomo:
-            sys.exit("No fomo brand yet. Run first-time setup first.")
-        count = import_screens(db, LocalStorage(settings.storage_dir), fomo, Path(folder))
-        print(f"Imported {count} screens into fomo.")
+        brand = db.scalar(select(Brand).where(Brand.slug == slug))
+        if not brand:
+            sys.exit(f"No {slug} brand yet. Run first-time setup first.")
+        count = import_screens(db, LocalStorage(settings.storage_dir), brand, Path(folder))
+        print(f"Imported {count} screens into {slug}.")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(*sys.argv[1:3])
