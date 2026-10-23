@@ -6,6 +6,7 @@ from app.db import make_sessionmaker
 from app.routes import (
     auth,
     brands,
+    breakdown,
     clips,
     credits,
     drafts,
@@ -47,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         scripts,
         enhance,
         drafts,
+        breakdown,
         clips,
     ):
         app.include_router(module.router)
