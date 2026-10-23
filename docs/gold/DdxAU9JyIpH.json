@@ -1,0 +1,297 @@
+{
+ "id": "DdxAU9JyIpH",
+ "account": "cevrico",
+ "views": "51.8K",
+ "url": "https://www.instagram.com/reel/DdxAU9JyIpH/",
+ "duration_seconds": 55.52,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A desperate young trader tries to win back his losses until his friend imposes a week of discipline, leading to a successful trade and a lesson about following the plan.",
+ "tags": [
+  "friends",
+  "home",
+  "trading",
+  "revenge-trading",
+  "mentor",
+  "tough-love",
+  "glow-up",
+  "emotional",
+  "discipline",
+  "second-chance"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-3.92",
+  "mechanic": "A wide shot places a seated trader below his standing friend in a dark computer room; an abrupt profane challenge immediately establishes a threatened account and a confrontation.",
+  "first_line": "Bro, what the fuck?"
+ },
+ "moment": "48.8-50.42: After the trader's wide-eyed, open-mouthed 'Bro, I did it!', the friend calmly replies, 'No, you followed the plan.' His quieter delivery redirects the emotional reward from winning money to controlling behavior.",
+ "stats": {
+  "shots": 27,
+  "live_shots_skipped": 0,
+  "animated_seconds": 55.52,
+  "avg_shot_seconds": 2.06,
+  "median_shot_seconds": 1.5,
+  "longest_shot_seconds": 5.5,
+  "shots_under_1s": 7,
+  "spoken_lines": 25,
+  "words_per_second_while_speaking": 3.8,
+  "speech_share_of_runtime": 0.63
+ },
+ "cut_times": [
+  3.92,
+  5.83,
+  8.29,
+  9.5,
+  13.0,
+  14.46,
+  18.71,
+  20.25,
+  25.46,
+  26.5,
+  32.0,
+  33.33,
+  34.33,
+  35.29,
+  35.62,
+  35.96,
+  36.75,
+  37.38,
+  37.79,
+  38.54,
+  39.54,
+  41.62,
+  43.12,
+  46.96,
+  48.62,
+  50.75
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 5.83,
+   "beat": "hook",
+   "what_happens": "The standing friend challenges the seated trader about nearly blowing another funded account, and the trader insists he could recover.",
+   "emotion": "The trader leans forward with tense brows and a clenched hand while the friend confronts him from above.",
+   "camera": "Wide room two-shot, then a medium close-up of the trader across the friend's foreground shoulder.",
+   "cuts": "One cut at 3.92 seconds shifts from the confrontation to the trader's defense."
+  },
+  {
+   "start": 5.83,
+   "end": 14.46,
+   "beat": "doubt",
+   "what_happens": "The friend identifies three hours of revenge trading while the trader rejects the accusation and demands an alternative.",
+   "emotion": "The friend's knitted brows show firm concern; the trader's raised brows, sweat and rounded mouth reveal defensive panic.",
+   "camera": "Alternating close-ups tighten on both faces, with the trader's reactions framed especially large.",
+   "cuts": "Four shots lasting 1.21-3.5 seconds alternate accusation and rebuttal."
+  },
+  {
+   "start": 14.46,
+   "end": 20.25,
+   "beat": "turn",
+   "what_happens": "The friend bans real-money trading for seven days, provoking an incredulous reaction.",
+   "emotion": "The friend stands squarely and holds his ground; the trader bares his teeth with wide, alarmed eyes.",
+   "camera": "Medium standing shot of the friend, then a tight frontal reaction on the trader.",
+   "cuts": "A 4.25-second instruction shot gives way to a 1.54-second reaction."
+  },
+  {
+   "start": 20.25,
+   "end": 26.5,
+   "beat": "setup",
+   "what_happens": "The friend presents a phone and offers one final chance conditional on obeying his rules.",
+   "emotion": "The friend's steady arm and serious expression make the ultimatum concrete; the trader squints suspiciously.",
+   "camera": "Medium shot with the phone extended toward the viewer, followed by an extreme close-up of the trader.",
+   "cuts": "A 5.21-second ultimatum holds through pauses before a 1.04-second question."
+  },
+  {
+   "start": 26.5,
+   "end": 34.33,
+   "beat": "turn",
+   "what_happens": "The friend prohibits revenge trading and increasing size after losses, then tells the trader to accept missing an imperfect opportunity.",
+   "emotion": "The friend stays composed while the trader presses his lips together and then questions the restriction.",
+   "camera": "Close shot of the friend across the trader's shoulder, frontal trader reaction, then a tighter friend response.",
+   "cuts": "A 5.5-second rules shot is followed by 1.33- and 1-second exchanges."
+  },
+  {
+   "start": 34.33,
+   "end": 39.54,
+   "beat": "montage",
+   "what_happens": "After a time jump, the trader studies notes, turns notebook pages, writes beside market charts and closes his eyes to compose himself.",
+   "emotion": "His lowered gaze, concentrated brows and closed eyes replace the earlier frantic expressions.",
+   "camera": "Tight face shots alternate with notebook, pen, mouse-hand and market-screen inserts.",
+   "cuts": "Eight shots span 5.21 seconds, including six shots under one second."
+  },
+  {
+   "start": 39.54,
+   "end": 43.12,
+   "beat": "turn",
+   "what_happens": "A hand handles the power plug at a wall outlet before the friend grants the trader one shot.",
+   "emotion": "The physical control of the plug reinforces the friend's authority; his face remains serious as he grants permission.",
+   "camera": "Close insert of the hand and outlet, then a frontal close-up of the friend.",
+   "cuts": "A 2.08-second insert cuts to a 1.5-second face shot; the spoken instruction begins before that cut."
+  },
+  {
+   "start": 43.12,
+   "end": 48.62,
+   "beat": "payoff",
+   "what_happens": "A rising market chart fills the workstation monitor before the trader celebrates his result.",
+   "emotion": "The trader's eyes widen and his mouth opens into an enormous delighted smile.",
+   "camera": "Monitor-and-desk insert with a gesturing hand, then an extreme close-up of the trader.",
+   "cuts": "The result holds for 3.84 seconds before a 1.66-second celebration shot."
+  },
+  {
+   "start": 48.62,
+   "end": 50.75,
+   "beat": "reveal",
+   "what_happens": "The friend credits the successful result to following the plan.",
+   "emotion": "His relaxed eyelids and restrained expression counterbalance the trader's excitement.",
+   "camera": "Frontal close-up of the friend.",
+   "cuts": "One uninterrupted 2.13-second correction lets the lesson land."
+  },
+  {
+   "start": 50.75,
+   "end": 55.52,
+   "beat": "cta",
+   "what_happens": "The trader turns toward the viewer and asks whether they would unplug a friend's setup to stop revenge trading.",
+   "emotion": "A slight smile and lifted brows turn the earlier conflict into a conversational challenge.",
+   "camera": "Medium close-up of the trader facing the viewer with trading screens behind him.",
+   "cuts": "One 4.77-second closing shot holds the direct address."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.54,
+   "speaker": "Friend",
+   "text": "Bro, what the fuck?",
+   "delivery": "Projected, incredulous opening with a sharp stressed expletive and a brief pause afterward."
+  },
+  {
+   "t": 2.52,
+   "speaker": "Friend",
+   "text": "You were about to blow another funded account.",
+   "delivery": "Quick, firm accusation with emphasis on 'another funded account.'"
+  },
+  {
+   "t": 4.44,
+   "speaker": "Trader",
+   "text": "I was about to make it back.",
+   "delivery": "Loud, rushed defensive burst at 6.4 words per second."
+  },
+  {
+   "t": 6.0,
+   "speaker": "Friend",
+   "text": "No, you were about to lose more.",
+   "delivery": "Quieter, measured correction with a decisive opening 'No' and falling finish."
+  },
+  {
+   "t": 8.44,
+   "speaker": "Trader",
+   "text": "You don't know that.",
+   "delivery": "Louder, clipped and confrontational, fired back quickly."
+  },
+  {
+   "t": 9.6,
+   "speaker": "Friend",
+   "text": "You've been revenge trading for three hours.",
+   "delivery": "Controlled, deliberate accusation with weight on the duration."
+  },
+  {
+   "t": 12.7,
+   "speaker": "Trader",
+   "text": "Then what am I supposed to do?",
+   "delivery": "After a short held beat, a fast, frustrated question with rising pitch."
+  },
+  {
+   "t": 15.18,
+   "speaker": "Friend",
+   "text": "For the next seven days, you're not trading real money.",
+   "delivery": "Firm opening after a one-second pause, then a held internal beat before a quieter, definitive restriction."
+  },
+  {
+   "t": 18.96,
+   "speaker": "Trader",
+   "text": "Seven days?",
+   "delivery": "Projected, incredulous repetition with stretched emphasis and rising pitch."
+  },
+  {
+   "t": 20.44,
+   "speaker": "Friend",
+   "text": "You get one last shot. But if you break my rules, you're done.",
+   "delivery": "Steady ultimatum with separated clauses; a nearly one-second pause makes the quieter final warning land."
+  },
+  {
+   "t": 25.7,
+   "speaker": "Trader",
+   "text": "What rules?",
+   "delivery": "The loudest measured line, short and demanding with a sharp upward inflection."
+  },
+  {
+   "t": 26.24,
+   "speaker": "Friend",
+   "text": "No revenge trading. No sizing up after a loss. And if the setup isn't perfect, you do nothing.",
+   "delivery": "Immediate, emphatic first rule, then evenly paced instructions that grow quieter toward the final prohibition."
+  },
+  {
+   "t": 32.18,
+   "speaker": "Trader",
+   "text": "And if I miss a big move?",
+   "delivery": "Loud, anxious rush at 7.1 words per second, ending in a questioning rise."
+  },
+  {
+   "t": 33.42,
+   "speaker": "Friend",
+   "text": "Then you miss it.",
+   "delivery": "Brief, matter-of-fact dismissal with a firm falling cadence."
+  },
+  {
+   "t": 34.33,
+   "speaker": "Narrator",
+   "text": "Seven days later.",
+   "delivery": "Compact, plainly announced transition; shares the measured segment with the preceding response."
+  },
+  {
+   "t": 41.18,
+   "speaker": "Friend",
+   "text": "Now you get one shot.",
+   "delivery": "After a long speech-free stretch, restrained and deliberate, stressing the single opportunity."
+  },
+  {
+   "t": 46.78,
+   "speaker": "Trader",
+   "text": "Bro, I did it!",
+   "delivery": "After another long pause, an excited, open-voiced exclamation with rising energy rather than extreme loudness."
+  },
+  {
+   "t": 48.8,
+   "speaker": "Friend",
+   "text": "No, you followed the plan.",
+   "delivery": "Quiet, unhurried correction with a settled downward finish."
+  },
+  {
+   "t": 50.8,
+   "speaker": "Trader",
+   "text": "Be honest. Would you unplug your friend's setup or let him keep revenge trading?",
+   "delivery": "Direct, projected invitation; a pause after 'Be honest' leads into a brisk question that softens over the final alternative."
+  }
+ ],
+ "voice_arc": "The trader starts loud and defensive, repeatedly accelerating his replies, while the friend answers with slower, quieter certainty. The friend's pauses turn restrictions into an ultimatum; the trader's fastest question exposes his fear of missing out. A long speech-free practice stretch resets the energy before the trader's joyful outburst, the friend's quiet correction and the trader's conversational closing question.",
+ "camera_language": "Vertical framing moves from a wide seated-versus-standing confrontation into alternating close-ups and extreme facial reactions. Over-the-shoulder foregrounds preserve the relationship, while phone, notebook, mouse, outlet and monitor inserts make the trading conflict physical. The practice sequence compresses into rapid detail cuts before longer payoff and direct-address shots.",
+ "why_it_works": "The conflict gives an abstract trading mistake a visible human cost: a sweating, defensive trader faces a friend willing to intervene. Clear rules create a test the audience can follow, and concentrated practice supplies the bridge to the result. The final correction makes discipline the emotional payoff, while the closing question invites viewers to judge the friend's intervention.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "An immediate physical action (unplugging cords) cuts off glowing red loss screens, creating high dramatic stakes and instant visual conflict within 2 seconds.",
+  "turn": "The '7 DAYS LATER' transition (0:34) shifts the visual palette from fiery chaotic red to cool disciplined blue, signaling the character's internal transformation.",
+  "payoff": "The student executes a clean trade, exploding in excitement, while the mentor validates him by reinforcing process over outcome ('You followed the plan').",
+  "why_it_works": "Relatable emotional theme (revenge trading, FOMO, discipline) that resonates deeply with crypto/forex/day-trading culture. High-quality Pixar-style 3D animation makes character expressions exaggerated and captivating on small vertical screens. Shot pacing alternates fast-paced dialogue cuts with slow dramatic push-ins to maintain maximum watch time. Clear visual color coding: Red = loss/emotional ",
+  "camera": [
+   "High-contrast color lighting (screaming red for emotional loss vs. cool neon blue for calm discipline)",
+   "Subtle slow push-in shots during tense dialogue (0:05, 0:07, 0:18, 0:25) to heighten dramatic tension",
+   "Snap zoom at 0:46 to emphasize the sudden emotional explosion of winning the trade",
+   "Fourth-wall break push-in at 0:51 to directly engage the viewer for comments"
+  ],
+  "montages": [
+   "{\"start\": \"0:34\", \"end\": \"0:41\", \"cuts\": 7, \"content\": \"Black screen '7 DAYS LATER' -> Student reading notebook -> Pen sketching green trendline & ticking checklist -> Pen circling rule -> Hand on mouse -> Closing eyes & taking breath -> Po"
+  ]
+ }
+}

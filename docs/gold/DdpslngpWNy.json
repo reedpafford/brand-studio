@@ -1,0 +1,264 @@
+{
+ "id": "DdpslngpWNy",
+ "account": "onlyterp",
+ "views": "",
+ "url": "https://www.instagram.com/reel/DdpslngpWNy/",
+ "duration_seconds": 43.18,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "Humiliated by two women who find him mopping a restaurant, aspiring crypto trader Aiden commits to trading, makes a windfall, and reveals himself as the owner who can remove them from a glamorous party.",
+ "tags": [
+  "friends",
+  "restaurant",
+  "party",
+  "trading",
+  "crypto",
+  "public-humiliation",
+  "prove-them-wrong",
+  "revenge",
+  "glow-up",
+  "rags-to-riches",
+  "savage"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-1.32",
+  "mechanic": "A brunette spots Aiden working with a mop and yellow bucket; her foreground profile and his distant uniformed figure immediately establish an embarrassing recognition.",
+  "first_line": "Is that Aiden?"
+ },
+ "moment": "28.42-30.96: Aiden stands beside a dark-haired woman, holding a champagne flute, and quietly answers, \"Me.\" After another beat, he adds, \"Mr. Crypto Trader.\" The insult returns as his own confident introduction, reversing who controls the encounter.",
+ "stats": {
+  "shots": 21,
+  "live_shots_skipped": 7,
+  "animated_seconds": 37.14,
+  "avg_shot_seconds": 1.77,
+  "median_shot_seconds": 1.36,
+  "longest_shot_seconds": 6.16,
+  "shots_under_1s": 7,
+  "spoken_lines": 12,
+  "words_per_second_while_speaking": 3.0,
+  "speech_share_of_runtime": 0.39
+ },
+ "cut_times": [
+  1.32,
+  4.28,
+  8.36,
+  8.68,
+  9.32,
+  9.88,
+  10.48,
+  10.8,
+  11.48,
+  12.88,
+  19.04,
+  20.92,
+  22.44,
+  24.2,
+  25.44,
+  26.64,
+  31.28,
+  33.32,
+  34.68,
+  35.4,
+  35.96,
+  36.52,
+  37.4,
+  39.32,
+  40.04,
+  40.8,
+  41.44
+ ],
+ "live_shots": [
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 4.28,
+   "beat": "hook",
+   "what_happens": "Two women recognize Aiden cleaning the restaurant, and the blonde eagerly raises her phone.",
+   "emotion": "Their wide eyes and delighted smiles turn recognition into gleeful ridicule.",
+   "camera": "Over-the-shoulder restaurant view with Aiden in the background, then a medium close-up of the blonde looking down at her phone.",
+   "cuts": "One cut at 1.32s separates recognition from the phone reaction."
+  },
+  {
+   "start": 4.28,
+   "end": 8.36,
+   "beat": "doubt",
+   "what_happens": "The blonde frames herself near the uniformed Aiden and mocks his identity as a crypto trader.",
+   "emotion": "Her bright, performative smile makes the greeting feel patronizing while Aiden remains exposed in the background.",
+   "camera": "Tight selfie-style composition places her face prominently in front of Aiden, his mop and bucket.",
+   "cuts": "One uninterrupted 4.08s shot lets the taunt hang."
+  },
+  {
+   "start": 8.36,
+   "end": 11.48,
+   "beat": "low",
+   "what_happens": "A rapid sequence of laughing faces expands Aiden's humiliation into a spectacle.",
+   "emotion": "Closed eyes, hands over mouths, pointing and open-mouthed laughter amplify the cruelty.",
+   "camera": "Successive close-ups and medium close-ups crowd the frame with laughing faces.",
+   "cuts": "Six brief reaction shots last 0.32-0.68s each."
+  },
+  {
+   "start": 11.48,
+   "end": 12.88,
+   "beat": "turn",
+   "what_happens": "A black-shirted man stands over the fallen restaurant worker as the resolve to prove the doubter wrong is voiced.",
+   "emotion": "The standing man's firm posture replaces the surrounding mockery with determination.",
+   "camera": "Low full-body framing emphasizes the standing man, with the worker sprawled across the foreground.",
+   "cuts": "A single 1.4s shot follows the rapid laughter sequence; the spoken resolve begins at 10.82s before this cut."
+  },
+  {
+   "start": 12.88,
+   "end": 20.92,
+   "beat": "montage",
+   "what_happens": "Aiden studies a trading chart, reports a thirtyfold gain, and decides to take profit.",
+   "emotion": "Concentration gives way to contained satisfaction, shown through his lowered gaze and small smile.",
+   "camera": "An over-the-shoulder laptop insert holds on the chart, followed by a tight close-up of Aiden's face lit by the screen.",
+   "cuts": "A long 6.16s chart shot gives the work a pause, then a 1.88s face shot marks the result."
+  },
+  {
+   "start": 20.92,
+   "end": 24.2,
+   "beat": "setup",
+   "what_happens": "At a nighttime pool party, a black-shirted man confronts the two women and tells them the owner wants them out.",
+   "emotion": "The women initially appear socially comfortable; the man's squared stance makes the confrontation abrupt and authoritative.",
+   "camera": "A medium two-shot beside the pool cuts to a frontal medium-long view of the man surrounded by partygoers.",
+   "cuts": "Two shots last 1.52s and 1.76s."
+  },
+  {
+   "start": 24.2,
+   "end": 26.64,
+   "beat": "doubt",
+   "what_happens": "The women protest that they are pretty and demand to know who owns the venue.",
+   "emotion": "The blonde looks startled while the brunette folds her arms and challenges the decision with a pursed, indignant expression.",
+   "camera": "A view past the confronting man's shoulder cuts to a medium close-up of the brunette with crossed arms.",
+   "cuts": "Two short shots last 1.24s and 1.2s, matching the quick objections."
+  },
+  {
+   "start": 26.64,
+   "end": 31.28,
+   "beat": "reveal",
+   "what_happens": "Aiden appears with a champagne flute and a woman at his side, identifying himself as the owner and reclaiming the crypto-trader nickname.",
+   "emotion": "His relaxed eyelids and easy posture convey satisfaction without needing to raise his voice.",
+   "camera": "A sustained medium shot presents Aiden and his companion together against the warm party interior.",
+   "cuts": "One 4.64s hold gives the delayed answer and callback room to land."
+  },
+  {
+   "start": 31.28,
+   "end": 33.32,
+   "beat": "payoff",
+   "what_happens": "The two women stare back in disbelief.",
+   "emotion": "Both freeze with enlarged eyes and open mouths, visibly losing their earlier confidence.",
+   "camera": "A tight two-shot isolates their matching shocked reactions.",
+   "cuts": "A single 2.04s reaction hold follows the reveal."
+  },
+  {
+   "start": 33.32,
+   "end": 35.4,
+   "beat": "callback",
+   "what_happens": "Aiden and the black-shirted man each raise a champagne flute.",
+   "emotion": "Small, knowing smiles turn the victory into a shared celebration.",
+   "camera": "Matching medium close-ups pair the two men through the repeated raised-glass gesture.",
+   "cuts": "A 1.36s shot cuts to a shorter 0.72s answering shot."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Brunette Doubter",
+   "text": "Is that Aiden?",
+   "delivery": "Conversational volume, brisk pace, rising pitch and surprised recognition."
+  },
+  {
+   "t": 1.76,
+   "speaker": "Blonde Doubter",
+   "text": "OMG guys, look who I found.",
+   "delivery": "Bright and performative at moderate volume, evenly paced, with excited emphasis on the discovery after a 0.8s beat."
+  },
+  {
+   "t": 4.46,
+   "speaker": "Blonde Doubter",
+   "text": "What's up, Mr. Crypto Trader?",
+   "delivery": "Conversational but pointed, with a lilting greeting and mocking emphasis on the nickname."
+  },
+  {
+   "t": 10.82,
+   "speaker": "Mentor",
+   "text": "Time to prove him wrong.",
+   "delivery": "Strongly projected and emphatic, measured rather than rushed; the loudest line breaks a 4.7s gap in speech."
+  },
+  {
+   "t": 13.68,
+   "speaker": "Aiden",
+   "text": "Lock in.",
+   "delivery": "Firm, compact and deliberate, with a downward finish after a short held beat."
+  },
+  {
+   "t": 17.26,
+   "speaker": "Aiden",
+   "text": "I'm up 30x.",
+   "delivery": "Clearly projected at a measured pace, with pleased emphasis on the gain after a 2.68s pause."
+  },
+  {
+   "t": 19.84,
+   "speaker": "Aiden",
+   "text": "Time to profit.",
+   "delivery": "Quieter and brisk, with a controlled, satisfied downward cadence."
+  },
+  {
+   "t": 22.78,
+   "speaker": "Mentor",
+   "text": "Owner wants you out.",
+   "delivery": "Projected, clipped and authoritative, with firm stress on \"out.\""
+  },
+  {
+   "t": 24.38,
+   "speaker": "Blonde Doubter",
+   "text": "But we're pretty!",
+   "delivery": "Loud, rushed protest with a rising, incredulous pitch."
+  },
+  {
+   "t": 25.46,
+   "speaker": "Brunette Doubter",
+   "text": "Who is the owner anyway?",
+   "delivery": "Projected and very fast, with challenging emphasis and an impatient upward inflection."
+  },
+  {
+   "t": 28.42,
+   "speaker": "Aiden",
+   "text": "Me.",
+   "delivery": "Quiet, slow and self-assured; a 2.08s pause before the answer makes its restraint conspicuous."
+  },
+  {
+   "t": 30.0,
+   "speaker": "Aiden",
+   "text": "Mr. Crypto Trader.",
+   "delivery": "Firmer and moderately brisk after another beat, savoring the nickname with a confident downward finish."
+  }
+ ],
+ "voice_arc": "The women begin with conversational, smiling mockery. The resolve line sharply increases projection, then Aiden settles into short, focused trading statements. At the party, the removal order and rapid protests grow louder and more confrontational before Aiden takes control with the quiet, delayed \"Me\" and a firmer nickname callback.",
+ "camera_language": "The animated story repeatedly places a dominant face in the foreground while the person being judged remains behind it, then cuts into close reactions. Rapid laughter close-ups contrast with sustained holds on the trading screen and ownership reveal. The party reversal uses a challenging crossed-arm close-up, a composed medium shot of Aiden, and a matching shocked two-shot of the women.",
+ "why_it_works": "The restaurant uniform, mop and delighted phone pose make the initial status imbalance immediately legible. The trading passage supplies a simple bridge from humiliation to authority, while the party repeats the same social conflict with control reversed. Reusing \"Mr. Crypto Trader\" makes the payoff specific: Aiden turns their exact insult into his closing claim.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within the first 2 seconds, a mean girl spots a worker and initiates a live stream to mock him, creating instant social conflict and curiosity.",
+  "turn": "At 0:11, after public humiliation, a cool mentor figure steps in ('Time to prove them wrong'), shifting the genre from bullying drama to a comeback / glow-up hustle montage.",
+  "payoff": "The bullies are forced off a luxury yacht only to realize the owner they are talking down to is the very guy they publicly humiliated ('Me... Mr. Crypto Trader'), capped off with a dramatic jaw-drop shot.",
+  "why_it_works": "Universal story arc (Bullying -> Grind -> Ultimate Revenge) compressed into under 35 seconds. Highly stylized Pixar/Disney aesthetic renders characters immediately expressive and readable. Live-stream UI framing matches TikTok/Reels native format, boosting immersion. Clear contrast between rock bottom (fast food floor slip) and peak victory (luxury yacht with champagne and supermodel). Seamless br",
+  "camera": [
+   "Push-in shot on blonde girl initiating the stream at 0:02 to build intent",
+   "Handheld perspective during live-stream mock sequence (0:03 - 0:07) for social realism",
+   "Low angle tilt-down shot on mentor at 0:11 establishing status and mentorship dynamic",
+   "Extreme push-in zoom on green glowing face at 0:17 for moment of epiphany",
+   "Snap zoom onto mean girls' shocked expressions at 0:31 for dramatic comedy impact"
+  ],
+  "montages": []
+ }
+}

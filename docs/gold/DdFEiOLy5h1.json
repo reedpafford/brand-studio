@@ -1,0 +1,440 @@
+{
+ "id": "DdFEiOLy5h1",
+ "account": "cevrico",
+ "views": "361K",
+ "url": "https://www.instagram.com/reel/DdFEiOLy5h1/",
+ "duration_seconds": 57.12,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A teenage trader whose dad dismisses his ambitions gets seven days to prove himself, survives a frightening loss with his mentor's encouragement, and wins his dad's acceptance while leaving his school decision unresolved.",
+ "tags": [
+  "dad",
+  "mom",
+  "mentor",
+  "home",
+  "trading",
+  "school",
+  "prove-them-wrong",
+  "ultimatum",
+  "emotional",
+  "family-conflict",
+  "comeback"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-1.92",
+  "mechanic": "Dad storms into a dark trading room and challenges the long-haired mentor while his teenage son sits at the keyboard; the accusation immediately connects money ambitions to a family crisis.",
+  "first_line": "You told my son to drop out of high school?"
+ },
+ "moment": "39.12-41.9: Aiden opens his mouth wide and clenches his fists, yelling \"Come on!\" at the video's loudest measured level, followed by a fist insert and \"Ha! I did it!\" His physical release resolves the pressure of Dad's deadline and the earlier loss.",
+ "stats": {
+  "shots": 35,
+  "live_shots_skipped": 0,
+  "animated_seconds": 57.12,
+  "avg_shot_seconds": 1.63,
+  "median_shot_seconds": 1.17,
+  "longest_shot_seconds": 12.16,
+  "shots_under_1s": 13,
+  "spoken_lines": 45,
+  "words_per_second_while_speaking": 4.4,
+  "speech_share_of_runtime": 0.7
+ },
+ "cut_times": [
+  1.92,
+  3.83,
+  4.5,
+  7.33,
+  9.12,
+  10.38,
+  11.25,
+  12.25,
+  13.0,
+  14.46,
+  15.33,
+  16.42,
+  17.33,
+  18.79,
+  19.75,
+  21.12,
+  23.38,
+  24.25,
+  25.29,
+  25.92,
+  26.29,
+  26.71,
+  27.88,
+  30.29,
+  31.71,
+  33.42,
+  34.54,
+  36.88,
+  38.42,
+  39.12,
+  40.04,
+  40.75,
+  42.0,
+  44.96
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 7.33,
+   "beat": "hook",
+   "what_happens": "Dad confronts the mentor about encouraging Aiden to leave school and rejects his son's attempt to calm him.",
+   "emotion": "Dad leans forward with knitted brows and a pointing hand; the mentor stands with folded arms while Aiden looks up defensively.",
+   "camera": "Room-establishing medium shot, mentor medium shot, brief Aiden close-up, then a tight Dad close-up.",
+   "cuts": "3 cuts across 7.33 seconds; Aiden's 0.67-second reaction interrupts the longer adult shots."
+  },
+  {
+   "start": 7.33,
+   "end": 15.33,
+   "beat": "doubt",
+   "what_happens": "The mentor defends Aiden's choice, Dad attacks his lack of earnings, and Mom appears in the doorway.",
+   "emotion": "Aiden's raised inner brows show uncertainty; Dad bares his teeth, and Mom holds her hands together with a worried expression.",
+   "camera": "Alternating mentor, Dad and Aiden close-ups, a doorway medium shot of Mom, and a wider confrontation shot.",
+   "cuts": "7 shots over 8 seconds, mostly 0.75-1.79 seconds each, with rapid speaker-and-reaction exchanges."
+  },
+  {
+   "start": 15.33,
+   "end": 21.12,
+   "beat": "setup",
+   "what_happens": "Dad gives Aiden seven days to make $10,000 trading or lose the mentor's access to the house.",
+   "emotion": "Dad delivers the terms with a hard stare and pointed finger; Aiden looks increasingly cornered.",
+   "camera": "Wide shot beside the desk, Aiden close-up, Dad close-up, extreme close-up of Aiden's strained eyes, then Dad pointing past the mentor.",
+   "cuts": "5 shots over 5.79 seconds, including a 0.96-second eye reaction during the threat."
+  },
+  {
+   "start": 21.12,
+   "end": 24.25,
+   "beat": "low",
+   "what_happens": "The mentor expresses confidence, but Aiden admits he is running out of time and receives a sharp reminder to stop forcing trades.",
+   "emotion": "Aiden's reddened eyes and slack mouth convey exhaustion; the mentor remains composed.",
+   "camera": "Aiden close-up, a brief group view, then an extreme eye close-up.",
+   "cuts": "3 shots over 3.13 seconds; the initial 2.26-second hold gives way to two short shots."
+  },
+  {
+   "start": 24.25,
+   "end": 27.88,
+   "beat": "turn",
+   "what_happens": "The mentor identifies an entry, Aiden acts at the keyboard, and Dad declares the attempt finished.",
+   "emotion": "The mentor looks assured while Aiden concentrates; Dad closes his eyes with weary finality.",
+   "camera": "Mentor medium close-up, hand insert on the keyboard, trading-number insert, Dad close-up, then Aiden's face.",
+   "cuts": "5 shots over 3.63 seconds; three successive inserts last 0.63, 0.37 and 0.42 seconds."
+  },
+  {
+   "start": 27.88,
+   "end": 34.54,
+   "beat": "low",
+   "what_happens": "Aiden reports being down seven grand, and the mentor guides him back to his setup and his own judgment.",
+   "emotion": "Aiden looks frightened; the mentor's steady gaze and measured questions provide reassurance.",
+   "camera": "Mentor close-up, paired trading monitors, then a two-shot of the mentor beside Aiden.",
+   "cuts": "4 shots over 6.66 seconds, with longer holds of 2.41 and 1.71 seconds slowing the crisis."
+  },
+  {
+   "start": 34.54,
+   "end": 39.12,
+   "beat": "turn",
+   "what_happens": "The trade swings upward as Aiden calls out gains and Dad reacts in disbelief.",
+   "emotion": "Dad's eyebrows lift and his mouth hangs open as the room's certainty reverses.",
+   "camera": "Rising chart insert, tight Dad reaction, then another chart insert.",
+   "cuts": "3 shots over 4.58 seconds; a 2.34-second chart hold builds anticipation before the reaction."
+  },
+  {
+   "start": 39.12,
+   "end": 44.96,
+   "beat": "payoff",
+   "what_happens": "Aiden celebrates the winning trade, Dad questions the amount, and Aiden answers that it came from one trade.",
+   "emotion": "Aiden clenches both fists and grins; Dad's earlier anger becomes wide-eyed disbelief and an uneasy smile.",
+   "camera": "Aiden reaction close-up, fist insert beside the mouse, trading-screen insert, then Dad and Aiden sharing the frame.",
+   "cuts": "4 shots over 5.84 seconds; three short shots lead into a 2.96-second shared reaction."
+  },
+  {
+   "start": 44.96,
+   "end": 57.12,
+   "beat": "callback",
+   "what_happens": "The group confirms the mentor can stay, then returns to whether Aiden actually wants to leave school.",
+   "emotion": "The mentor looks questioning, Dad appears subdued, and Aiden looks upward toward the adults for an answer.",
+   "camera": "A sustained group composition places seated Aiden below the standing mentor and Dad.",
+   "cuts": "One uninterrupted 12.16-second shot lets the closing questions breathe."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Dad",
+   "text": "You told my son to drop out of high school?",
+   "delivery": "Projected, fast and accusing, with a rising challenge at the end."
+  },
+  {
+   "t": 2.06,
+   "speaker": "Mentor",
+   "text": "I told him to stop living someone else's plan.",
+   "delivery": "Quieter but brisk, controlled and firmly defensive."
+  },
+  {
+   "t": 3.9,
+   "speaker": "Aiden",
+   "text": "Dad, chill.",
+   "delivery": "Loud, clipped interruption with an irritated plea."
+  },
+  {
+   "t": 4.54,
+   "speaker": "Dad",
+   "text": "No!",
+   "delivery": "Explosive shout, sharply stressed."
+  },
+  {
+   "t": 5.06,
+   "speaker": "Dad",
+   "text": "This guy has you thinking trading is more important than graduating.",
+   "delivery": "Fast, forceful accusation, stressing the competing priorities."
+  },
+  {
+   "t": 7.4,
+   "speaker": "Mentor",
+   "text": "If Aiden wants to trade, that should be his decision.",
+   "delivery": "Rapid and assertive at a more restrained volume than Dad."
+  },
+  {
+   "t": 9.18,
+   "speaker": "Dad",
+   "text": "He hasn't even made money.",
+   "delivery": "Loud and dismissive, emphasizing the lack of results."
+  },
+  {
+   "t": 10.46,
+   "speaker": "Aiden",
+   "text": "I'm getting close.",
+   "delivery": "Quieter, quick and tentative, with a defensive upward inflection."
+  },
+  {
+   "t": 11.34,
+   "speaker": "Dad",
+   "text": "You've been getting close.",
+   "delivery": "Projected, biting repetition with skeptical emphasis."
+  },
+  {
+   "t": 12.26,
+   "speaker": "Mom",
+   "text": "What is going on?",
+   "delivery": "Relatively quiet but rushed, concerned and questioning."
+  },
+  {
+   "t": 13.14,
+   "speaker": "Dad",
+   "text": "TJR thinks Aiden should drop out.",
+   "delivery": "Loud, emphatic accusation directed toward Mom."
+  },
+  {
+   "t": 14.52,
+   "speaker": "Mentor",
+   "text": "That's not what I said.",
+   "delivery": "Extremely fast correction, controlled in volume and irritated."
+  },
+  {
+   "t": 15.46,
+   "speaker": "Dad",
+   "text": "Fine. Seven days.",
+   "delivery": "A loud, clipped concession followed by a short held beat and a slower, firm deadline."
+  },
+  {
+   "t": 16.86,
+   "speaker": "Aiden",
+   "text": "For what?",
+   "delivery": "Fast, sharp question with rising pitch."
+  },
+  {
+   "t": 17.38,
+   "speaker": "Dad",
+   "text": "Make $10,000 trading.",
+   "delivery": "Deliberate and firm, giving the amount weight."
+  },
+  {
+   "t": 18.94,
+   "speaker": "Dad",
+   "text": "If you can't, he never comes back here again.",
+   "delivery": "Steady, forceful ultimatum with a hard final cadence."
+  },
+  {
+   "t": 21.28,
+   "speaker": "Mentor",
+   "text": "Seven days is plenty.",
+   "delivery": "Brisk, assured reassurance with confident downward emphasis."
+  },
+  {
+   "t": 22.46,
+   "speaker": "Aiden",
+   "text": "I'm running out of time.",
+   "delivery": "Rushed and anxious after a brief beat, voice less forceful than Dad's."
+  },
+  {
+   "t": 23.42,
+   "speaker": "Mentor",
+   "text": "Then stop forcing it.",
+   "delivery": "Immediate, firm coaching at a controlled volume."
+  },
+  {
+   "t": 24.88,
+   "speaker": "Mentor",
+   "text": "There.",
+   "delivery": "Quiet, focused cue after a noticeable pause."
+  },
+  {
+   "t": 25.48,
+   "speaker": "Mentor",
+   "text": "Take it.",
+   "delivery": "Quick, decisive instruction, stronger than the preceding cue."
+  },
+  {
+   "t": 27.16,
+   "speaker": "Dad",
+   "text": "It's over.",
+   "delivery": "Firm, measured finality after a 1.32-second silence."
+  },
+  {
+   "t": 27.9,
+   "speaker": "Mentor",
+   "text": "Not yet.",
+   "delivery": "Sharp, projected rebuttal delivered immediately."
+  },
+  {
+   "t": 28.22,
+   "speaker": "Aiden",
+   "text": "I'm down seven grand.",
+   "delivery": "Slow and strained, the amount landing with discouraged weight."
+  },
+  {
+   "t": 30.46,
+   "speaker": "Mentor",
+   "text": "What does your setup say?",
+   "delivery": "Controlled, moderately paced question that redirects his attention."
+  },
+  {
+   "t": 32.26,
+   "speaker": "Aiden",
+   "text": "Stay in.",
+   "delivery": "Slow, firm answer after a thinking beat, with tentative resolve."
+  },
+  {
+   "t": 33.3,
+   "speaker": "Mentor",
+   "text": "Then trust yourself.",
+   "delivery": "Quiet and deliberate reassurance with gentle downward pitch."
+  },
+  {
+   "t": 34.72,
+   "speaker": "Aiden",
+   "text": "Wait.",
+   "delivery": "Very quiet, drawn-out interruption as he notices a change."
+  },
+  {
+   "t": 35.82,
+   "speaker": "Aiden",
+   "text": "Up thirty-six hundred.",
+   "delivery": "Restrained, measured readout with dawning surprise."
+  },
+  {
+   "t": 37.4,
+   "speaker": "Dad",
+   "text": "No way.",
+   "delivery": "Brief, moderately quiet disbelief with lifted pitch."
+  },
+  {
+   "t": 38.18,
+   "speaker": "Aiden",
+   "text": "Plus 19,000.",
+   "delivery": "Slower numerical readout, gaining excitement and emphasis."
+  },
+  {
+   "t": 39.28,
+   "speaker": "Aiden",
+   "text": "Come on!",
+   "delivery": "Full celebratory shout, the loudest measured line."
+  },
+  {
+   "t": 40.74,
+   "speaker": "Aiden",
+   "text": "Ha! I did it!",
+   "delivery": "A breathy triumphant burst followed by a faster, brighter declaration."
+  },
+  {
+   "t": 42.42,
+   "speaker": "Dad",
+   "text": "You made $24,000?",
+   "delivery": "Measured, audible disbelief, rising on the amount."
+  },
+  {
+   "t": 44.14,
+   "speaker": "Aiden",
+   "text": "One trade.",
+   "delivery": "Projected, compact and proud after a short dramatic beat."
+  },
+  {
+   "t": 45.16,
+   "speaker": "Mentor",
+   "text": "You gave him seven days?",
+   "delivery": "Brisk, pointed question with a lightly challenging rise."
+  },
+  {
+   "t": 46.6,
+   "speaker": "Dad",
+   "text": "I did.",
+   "delivery": "Quiet, short acknowledgment, subdued after his earlier certainty."
+  },
+  {
+   "t": 47.38,
+   "speaker": "Aiden",
+   "text": "So, TJR can stay?",
+   "delivery": "Slow, hopeful question, drawing out the request."
+  },
+  {
+   "t": 49.56,
+   "speaker": "Dad",
+   "text": "Yeah.",
+   "delivery": "Quiet, reluctant concession after a half-second beat."
+  },
+  {
+   "t": 50.4,
+   "speaker": "Mentor",
+   "text": "That wasn't the real question.",
+   "delivery": "Low-volume, controlled correction with a serious falling cadence."
+  },
+  {
+   "t": 52.12,
+   "speaker": "Aiden",
+   "text": "What?",
+   "delivery": "Quiet, brief confusion after a held beat."
+  },
+  {
+   "t": 53.06,
+   "speaker": "Mentor",
+   "text": "Do you still want to drop out?",
+   "delivery": "Quick but measured in volume, direct and probing."
+  },
+  {
+   "t": 55.14,
+   "speaker": "Aiden",
+   "text": "Should I drop out and trade full time?",
+   "delivery": "Clear, moderately projected question after a 0.8-second pause, ending with unresolved upward pitch."
+  }
+ ],
+ "voice_arc": "Dad dominates the opening through loud accusations and clipped interruptions, while the mentor answers rapidly at a lower, steadier volume. Aiden moves from defensive interjections to anxious urgency, then slows during the loss; the mentor's quiet coaching creates room for hesitation. The numerical recovery begins softly and erupts into Aiden's loudest shout, after which Dad becomes subdued and the final exchange settles into quieter questions with longer pauses.",
+ "camera_language": "Vertical medium shots establish the cramped home trading room, then hard cuts isolate faces and pointing hands to make each challenge feel personal. Tight facial reactions alternate with keyboard and trading-screen inserts; extreme eye framing makes Aiden's exhaustion visible. The rapid middle passage gives way to a sustained group shot for the unresolved family conversation.",
+ "why_it_works": "The opening makes trading a conflict over parental authority, education and access to a trusted mentor, giving the money target an immediate emotional consequence. Dad's deadline creates a clear test, and the frightening loss makes the eventual celebration feel like a reversal of both the trade and his judgment. Winning resolves the challenge while the final school question preserves the deeper conflict.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Starts in media res with an enraged father barging into a dark room shouting at a mentor while his son is actively day trading on multi-monitors.",
+  "turn": "At 0:34 when down $7,000 on the final day, Aiden refuses to panic sell, trusts his setup, and triggers a massive green reversal.",
+  "payoff": "The father's arrogance instantly vanishes into jaw-dropping shock as Aiden secures $24,800 on a single trade, forcing his dad to concede.",
+  "why_it_works": "Classic high-stakes conflict between traditional parental expectations and youth digital hustle. Stylized 3D animation (Pixar-esque) makes abstract stock market trading visually dramatic and easy to follow. Clear, quantifiable visual goal ($10k goal in 7 days vs $24k payoff) holds viewer retention to the end. Finishes with a direct fourth-wall call-to-action prompt that heavily drives comments and",
+  "camera": [
+   "Aggressive push-in on Dad's shouting face at 0:04 to heighten emotional conflict",
+   "Snap zoom on Aiden's wide eyes at 0:16 when the 7-day challenge is delivered",
+   "Extreme macro close-up on bloodshot eye at 0:24 showing exhaustion and stress",
+   "Dynamic zoom into financial screen charts at 0:35 and 0:38 matching green profit spikes",
+   "Breaking-the-fourth-wall push-in on Aiden at 0:55 to prompt audience interaction"
+  ],
+  "montages": []
+ }
+}
