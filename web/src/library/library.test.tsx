@@ -90,3 +90,36 @@ test("archived items: editors can bring them back, only the owner can delete for
   await userEvent.click(await screen.findByRole("button", { name: "Delete Mia forever" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/permanent")).toBe(true));
 });
+
+test("a character's outfits and voice are saved; places don't send them", async () => {
+  const calls = fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, brands],
+    "GET /team/members": [200, []],
+    "GET /library/character/5": [200, { ...mia, outfits: [{ name: "Gym", file_ids: [] }], voice_file_id: null }],
+    "GET /library/character/5/versions": [200, []],
+    "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe" }],
+    "GET /library/place/7/versions": [200, []],
+    "PATCH /library/character/5": [200, mia],
+    "PATCH /library/place/7": [200, mia],
+    "POST /files": [201, { id: 21, filename: "v.mp3", content_type: "audio/mpeg", size: 3, created_at: "2026-10-23T00:00:00Z" }],
+  });
+  renderAt("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "Add outfit" }));
+  await userEvent.type(screen.getByLabelText("Outfit 2 name"), "Office");
+  await userEvent.upload(screen.getByLabelText("Voice file"), new File(["x"], "v.mp3", { type: "audio/mpeg" }));
+  await screen.findByLabelText("Voice sample");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "PATCH /library/character/5")).toBe(true));
+  expect(calls.find((c) => c.key === "PATCH /library/character/5")?.body).toMatchObject({
+    outfits: [{ name: "Gym", file_ids: [] }, { name: "Office", file_ids: [] }],
+    voice_file_id: 21,
+  });
+});
+
+test("places have no outfits or voice", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe" }], "GET /library/place/7/versions": [200, []] });
+  renderAt("/b/1/library/places/7");
+  await screen.findByLabelText("Name");
+  expect(screen.queryByRole("button", { name: "Add outfit" })).not.toBeInTheDocument();
+});
