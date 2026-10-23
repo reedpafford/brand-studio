@@ -1,3 +1,4 @@
 {
-  "bag.webp": {"name": "Iron Paws bag (front)", "tags": ["product", "bag"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"]}
+  "bag.webp": {"name": "Iron Paws bag (front)", "tags": ["product", "bag"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"]},
+  "bag-peanut-butter.jpg": {"name": "Iron Paws bag, peanut butter (front)", "tags": ["product", "bag", "peanut-butter"], "default_for": []}
 }

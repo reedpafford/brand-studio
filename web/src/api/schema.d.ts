@@ -2259,7 +2259,7 @@ export interface components {
             camera: string;
             /**
              * Seconds
-             * @description Estimated length. Dialogue: words / 3.85 plus any held reaction. Silent reactions and inserts: 0.5–1.5.
+             * @description Estimated length. Dialogue: words / 4.8 plus any held reaction. Silent reactions and inserts: 0.5–1.5.
              */
             seconds: number;
             /**
@@ -2279,7 +2279,7 @@ export interface components {
             moment: string | null;
             /**
              * Screen Ids
-             * @description Brand screens shown in this shot. Required whenever `moment` is one the brand block lists a screen for.
+             * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
         };

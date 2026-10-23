@@ -35,7 +35,8 @@ class Suggestion(BaseModel):
         "the frame')."
     )
     screen_id: str | None = Field(
-        description="brand_screen only: the screen's id from the brand block. Otherwise null."
+        description="brand_screen only: the screen's or product's id from the brand block "
+        "(screen:N or product:N). Otherwise null."
     )
     reason: str = Field(
         description="One short plain sentence for the editor: what this does for the hook, "
@@ -66,7 +67,7 @@ class ScriptDraft(BaseModel):
     hook_idea: str = Field(description="The hook in a few words, e.g. 'Mom finds the wallet'.")
     script: str = Field(
         description="The full script in the house format, sized to the planned length at about "
-        "3.85 spoken words per second."
+        "4.8 spoken words per second while someone speaks, with silent beats between."
     )
 
 
@@ -98,7 +99,7 @@ class Shot(BaseModel):
         "insert of the phone screen, static'."
     )
     seconds: float = Field(
-        description="Estimated length. Dialogue: words / 3.85 plus any held reaction. Silent "
+        description="Estimated length. Dialogue: words / 4.8 plus any held reaction. Silent "
         "reactions and inserts: 0.5–1.5."
     )
     character_ids: list[str] = Field(description="Cast ids on screen in this shot.")
@@ -108,8 +109,8 @@ class Shot(BaseModel):
         "'trading', 'win', 'loss'), or null."
     )
     screen_ids: list[str] = Field(
-        description="Brand screens shown in this shot. Required whenever `moment` is one the "
-        "brand block lists a screen for."
+        description="Brand screens (screen:N) and the project's product (product:N) shown in "
+        "this shot. Required whenever `moment` is one the brand block lists them for."
     )
 
 

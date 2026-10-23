@@ -30,6 +30,7 @@ Purpose: make one video clip per breakdown clip, review each one, redo what's wr
   - **✓ Looks good** approves the picked take (green border and "Approved").
   - **Needs a change** opens "What's wrong?" (required) + **[Redo · 27 credits]**. The note goes to the Director/prompt step, and the old take stays.
   - Approving is per clip. Changing the picked take removes the approval.
+- A character or place without an approved sheet blocks its frame or clip: "Mia needs an approved sheet. [Open Mia]" (see `library.md`).
 - **Make missing** generates every clip that has no take yet. Like every paid action, it shows the cost, or "Ask Reed to approve · N credits" when over budget.
 - **The video:**
   - **[Make the video]** is enabled when every clip is approved, with the reason otherwise: "Approve every clip to make the video (1 left)".
@@ -37,6 +38,13 @@ Purpose: make one video clip per breakdown clip, review each one, redo what's wr
   - The result card shows: a player, "28 s · 9:16 · 14 MB", **[Download MP4]**, and "Made from takes c1 T2, c2 T1, …" (muted).
   - Changing any take or approval after that shows "Out of date. [Make the video again]".
 - **Download** on a single clip downloads that take: `<project>-c1-take2.mp4`. The video downloads as `<project>.mp4`.
+
+## End line (call to action)
+The end line needs nothing special on this screen: it's simply the last clip.
+- The brand kit has an **End line** text field, e.g. fomo: "Want to trade like me? Download fomo through the link in my bio."
+- Script drafts end with it.
+- The breakdown check adds a problem when the last clip doesn't carry it: "The video doesn't end with fomo's end line." The existing gate makes sure it's there before any video is made.
+- The last clip card shows a small muted tag "End line", so it's easy to find in review.
 
 ## States
 - Nothing made: "No clips yet." / "Each clip is made from its storyboard frame and the breakdown." / **[Make all · 96 credits]**.

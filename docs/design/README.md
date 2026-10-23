@@ -89,6 +89,7 @@ Self-host via `@fontsource-variable/inter` and `@fontsource/courier-prime` (400,
 | Brand kit + screens | `screens/brand-kit.md` |
 | Character / place / prop library | `screens/library.md` |
 | Quick clip | `screens/quick-clip.md` |
+| Brief (new video) | `screens/brief.md` |
 | Project workspace | `screens/project.md` |
 | Script Enhance | `screens/script-enhance.md` |
 | Breakdown | `screens/breakdown.md` |
