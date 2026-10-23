@@ -30,21 +30,23 @@ function renderAt(path: string) {
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
-test("the first brand opens, and the switcher changes brand", async () => {
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands] });
+test("the first brand opens on its Projects, and the switcher changes brand", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
   renderAt("/");
-  expect(await screen.findByRole("heading", { name: "fomo" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Brand")).toHaveValue("1");
   await userEvent.selectOptions(screen.getByLabelText("Brand"), "Iron Paws");
-  expect(await screen.findByRole("heading", { name: "Iron Paws" })).toBeInTheDocument();
+  expect(await screen.findByText("No videos for Iron Paws yet.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Brand")).toHaveValue("2");
 });
 
 test("the brand's colour is applied, and cleared for a brand without one", async () => {
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
   renderAt("/b/1");
-  await screen.findByRole("heading", { name: "fomo" });
+  await screen.findByRole("heading", { name: "Projects" });
   expect(document.documentElement.style.getPropertyValue("--brand")).toBe("#ff5500");
   await userEvent.selectOptions(screen.getByLabelText("Brand"), "Iron Paws");
-  await screen.findByRole("heading", { name: "Iron Paws" });
+  await screen.findByText("No videos for Iron Paws yet.");
   expect(document.documentElement.style.getPropertyValue("--brand")).toBe("");
 });
 
@@ -58,9 +60,9 @@ test("the team page keeps the brand you were in", async () => {
 
 test("the last brand you used opens next time", async () => {
   localStorage.setItem("bs.lastBrand", "2");
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
   renderAt("/");
-  expect(await screen.findByRole("heading", { name: "Iron Paws" })).toBeInTheDocument();
+  expect(await screen.findByText("No videos for Iron Paws yet.")).toBeInTheDocument();
 });
 
 test("the owner can invite and gets the link once", async () => {

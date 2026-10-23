@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { emptyBrand, image, signIn } from "./helpers";
+import { emptyBrand, image, onBrand, signIn } from "./helpers";
 
 // Runs after auth.e2e.ts; Reed (owner) exists. These use a brand made for them, which starts
 // empty (fomo and Iron Paws come with their real screens: see fomo.e2e.ts). Tests run in order.
@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
   await page.goto(`/b/${await emptyBrand(page)}`);
-  await expect(page.getByRole("heading", { name: "Night Owl" })).toBeVisible();
+  await onBrand(page, "Night Owl");
 });
 
 test("brand kit text is saved and still there after a reload", async ({ page }) => {
