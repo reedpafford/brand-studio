@@ -7,10 +7,27 @@ import httpx2 as httpx
 import pytest
 from anthropic import DefaultHttpxClient
 
-from app.claude import MODEL, ClaudeError, make_client, suggest_enhancements
+from app.claude import MODEL, ClaudeError, ask, make_client
+from app.prompts.schemas import EnhanceResult
 from app.settings import Settings
 
-ANSWER = {"suggestions": [{"kind": "brand_screen", "after_line": 3, "text": "Show the buy screen"}]}
+ANSWER = {
+    "suggestions": [
+        {
+            "id": "s1",
+            "kind": "brand_screen",
+            "anchor": {"line": 3, "quote": "line 3"},
+            "placement": "after",
+            "text": "Show the buy screen",
+            "screen_id": "screen:1",
+            "reason": "Required screen.",
+        }
+    ]
+}
+
+
+def suggest_enhancements(client, brand, script):
+    return ask(client, system=["Base rules.", brand], prompt=script, schema=EnhanceResult)
 
 
 def _reply(stop_reason="end_turn", text=json.dumps(ANSWER), **extra):
