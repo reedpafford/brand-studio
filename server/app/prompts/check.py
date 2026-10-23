@@ -8,12 +8,13 @@ import re
 
 from app.prompts.schemas import Breakdown, ClipPrompts, EnhanceResult
 
-DIALOGUE = re.compile(r"^[A-Z][A-Z .'-]*:\s")
+DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
 
 
 def enhance(script: str, result: EnhanceResult, screens: dict[str, list[str]]) -> list[str]:
     lines = script.splitlines()
+    spoken = spoken_lines(lines)
     problems = []
     for s in result.suggestions:
         n, quote = s.anchor.line, s.anchor.quote
@@ -22,13 +23,26 @@ def enhance(script: str, result: EnhanceResult, screens: dict[str, list[str]]) -
             continue
         if s.kind == "cut" and (s.placement != "replace" or s.text):
             problems.append(f"{s.id}: a cut must replace the quote with nothing")
-        if s.kind != "cut" and s.placement == "replace" and DIALOGUE.match(lines[n - 1]):
-            problems.append(f"{s.id}: rewrites dialogue")
+        if s.kind != "cut" and s.placement == "replace" and n in spoken:
+            problems.append(f"{s.id}: rewrites spoken words")
         if DIALOGUE.match(s.text):
             problems.append(f"{s.id}: adds dialogue")
         if s.kind == "brand_screen" and s.screen_id not in screens:
             problems.append(f"{s.id}: unknown screen {s.screen_id}")
     return problems
+
+
+def spoken_lines(lines: list[str]) -> set[int]:
+    """Line numbers whose words are spoken. A script with no `NAME:` lines is all voiceover:
+    every line but headings and ★ lines is spoken."""
+    dialogue = {n for n, text in enumerate(lines, 1) if DIALOGUE.match(text)}
+    if dialogue:
+        return dialogue
+    return {
+        n
+        for n, text in enumerate(lines, 1)
+        if text.strip() and not text.startswith(("SCENE", SCREEN_LINE))
+    }
 
 
 def breakdown(

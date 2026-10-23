@@ -1,6 +1,6 @@
 # Director evals (offline)
 
-Five cases in `cases.json` (3 fomo, 2 Iron Paws) that test the prompts in `app/prompts/` against
+Six cases in `cases.json` (3 fomo, 3 Iron Paws) that test the prompts in `app/prompts/` against
 the two creative rules: **engaging**, and **the brand's required screens featured**.
 
 Each case has:
@@ -17,8 +17,9 @@ What each case is for:
 | fomo-draft-salesman | Drafting from a brief: different hooks, right length, screens on ★ lines |
 | ironpaws-rescue | Breakdown + clips with a product (the bag) instead of app screens: shown exactly, no face, good seams |
 | ironpaws-slow-start | Enhance on a slow opening and an explaining line, and a script that never shows the bag |
+| ironpaws-pitbull-1 | Reed's real script: long dog voiceover, no names or headings; keep every word, find the pictures, show the bag, flag the flavor mismatch |
 
-Iron Paws: a dog product in a bag; the real bag is its required element, stored as a brand screen (being confirmed with Reed).
+Iron Paws: a human-grade greens powder for dogs; the real bag is its required element, stored as a brand screen.
 
 ## Running (paid; needs the Producer's go-ahead)
 ```bash
@@ -28,6 +29,5 @@ python -m evals.score <out> "v1"
 `run.py` accepts every Enhance suggestion before the next step, saves each answer to
 `<out>/<case>.<step>.json` (plus `<case>.script.txt` and `cost.json`), and stops at the cap.
 
-One full run is 11 Claude calls. Estimate at the prices in `app/claude.py` (about 3k system +
-1k user tokens in, 3–8k out with thinking per call): about $1.50 a run. Comparing two prompt
-versions: about $3.
+One full run is 14 Claude calls. Estimate at the prices in `app/claude.py` (about 3k system +
+1k user tokens in, 3–8k out with thinking per call): about $2.50 a run (the long voiceover case is most of the extra).

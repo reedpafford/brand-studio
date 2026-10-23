@@ -1,5 +1,5 @@
 """Run the eval cases through Claude and save each answer for `score.py`. PAID: one run is
-11 calls (about $1.50). Only with the Producer's go-ahead, logged in ops/SPEND.md.
+14 calls (about $2.50). Only with the Producer's go-ahead, logged in ops/SPEND.md.
 
 Usage (from server/): python -m evals.run <out dir> [--cap-usd 2]
 Key from STUDIO_ANTHROPIC_KEY. Stops before the next call once the cap is reached."""
@@ -74,7 +74,13 @@ def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) 
             assets = case["cast"] + case["places"] + screens + frames
             prompt = f"{video_model()}\n<assets>\n" + "\n".join(assets) + "\n</assets>\n"
             prompt += f"<breakdown>\n{bd.model_dump_json()}\n</breakdown>"
-        answer = ask(client, system=[system(step), brand_text], prompt=prompt, schema=SCHEMAS[step])
+        answer = ask(
+            client,
+            system=[system(step), brand_text],
+            prompt=prompt,
+            schema=SCHEMAS[step],
+            max_tokens=32000 if step in ("breakdown", "clip_prompts") else 16000,
+        )
         spent.append(answer.cost_usd)
         answers[step] = answer.parsed
         (out / f"{case['id']}.{step}.json").write_text(answer.parsed.model_dump_json(indent=1))

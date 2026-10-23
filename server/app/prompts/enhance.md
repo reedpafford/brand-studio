@@ -13,6 +13,8 @@ The kinds:
 - **brand_screen**: every moment the brand block says needs a screen and doesn't have one. Use the screen whose moments match (a loss gets the chart-down screen, a win the chart-up one) and say where it shows. Also check existing ★ lines name a real screen from the brand block; if one doesn't, suggest a `replace` with the right one. If the script never shows a required screen at all, suggest one where it fits the story best.
 - **cut**: dead air. A line or action that repeats, explains what we just saw, or delays the hook. Quote exactly what goes.
 
+Voiceover scripts: most marks are scene breaks, actions, reactions and camera ideas that show what each sentence is about, so the picture changes as fast as the words do. A brand fact that the words contradict (the bag says a different flavor) gets a mark on that line whose `reason` says so; the editor decides.
+
 Hooks: if the first 2 seconds don't grab, the fix is usually a cut (start later, at the conflict) or an action/camera mark on the first line, not new dialogue. You may not add or reword dialogue; if a line itself is the problem, say so in the `reason` of the nearest mark.
 
 Each `reason` is one plain sentence an editor understands at a glance: "Starts on the argument, so viewers stay", not film-school jargon.
