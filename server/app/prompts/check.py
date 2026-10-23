@@ -90,7 +90,9 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
             said = [_words(q) for q in QUOTED.findall(c.prompt)]
-            if shot.line and said.count(_words(shot.line)) != 1:
+            line = _words(shot.line or "")
+            times = sum(_words(shots[s].line or "") == line for s in clip.shot_ids)
+            if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         lines = c.prompt.strip().splitlines()
         if not (AUDIO_LINE.match(lines[0]) and lines[-1] == lines[0]):

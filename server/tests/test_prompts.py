@@ -158,3 +158,6 @@ def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     shot.line = "No."
     bd.scenes[1].shots[7].line = "It's 3:15."
     assert check.clip_prompts(bd, cp, 30, 10) == []
+    bd.scenes[1].shots[8].line = "No."  # a line said twice on purpose, quoted twice
+    clip.prompt = clip.prompt.replace('"Should I still go to school? Comment below."', '"No."')
+    assert check.clip_prompts(bd, cp, 30, 10) == []
