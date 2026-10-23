@@ -1,6 +1,11 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-23 22:39 · #99 Storyboard: Approve, Redo with a note, Next: Clips gate (Storyboard 2/2) merged
+- 2026-10-23 22:39 · #92 Storyboard pane: frames and stills (Storyboard 1/2) merged (includes #95's browser test)
+- 2026-10-23 22:39 · #94 Project clips: takes with Seedance, pick and approve, and the free stitched video merged
+- 2026-10-23 22:39 · #102 tests: dollar amounts that can't match a timestamp merged
+- 2026-10-23 22:35 · #100 ops: HANDOFF/LOG refresh 2026-10-23 22:32Z merged (by the Producer)
 - 2026-10-23 22:30 · #96 House style + gold references from @nateassets' top 12 animated reels merged
 - 2026-10-23 22:30 · #93 ops: HANDOFF/LOG refresh 2026-10-23 22:18Z merged (by the Producer)
 - 2026-10-23 22:29 · #97 Storyboard: approve frames on the server, Redo note, frame_id on jobs, products labelled merged
