@@ -38,11 +38,20 @@ def enhance(script: str, result: EnhanceResult, screens: dict[str, list[str]]) -
 
 
 def breakdown(
-    script: str, bd: Breakdown, screens: dict[str, list[str]], min_s: int, max_s: int
+    script: str,
+    bd: Breakdown,
+    screens: dict[str, list[str]],
+    min_s: int,
+    max_s: int,
+    end_line: str = "",
 ) -> list[str]:
     lines = script.splitlines()
     shots = [shot for scene in bd.scenes for shot in scene.shots]
     problems = []
+    said = [TAG.sub("", text) for text in lines if text.strip()]
+    said = [text for text in said if not text.startswith(("SCENE", SCREEN_LINE, "["))]
+    if end_line and not (said and _exact(end_line) in _exact(said[-1])):
+        problems.append("the script doesn't end on the brand's end line")
     covered = {n for shot in shots for n in shot.script_lines}
     shown = {n for shot in shots if shot.screen_ids for n in shot.script_lines}
     for n, text in enumerate(lines, 1):

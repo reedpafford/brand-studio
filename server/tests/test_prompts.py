@@ -228,3 +228,91 @@ def test_a_tagged_brand_screen_line_still_needs_a_screen_in_the_breakdown():
     )
     _, result = example("enhance")
     assert "[Camera] " in apply_all(script_of(example("enhance")[0]), result.suggestions)
+
+
+def test_reference_block_drops_live_action_and_brand_block_carries_the_end_line():
+    ref = json.loads(
+        (
+            Path(prompts.__file__).parents[3] / "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
+        ).read_text()
+    )
+    block = prompts.reference_block(ref)
+    assert "Shots 44–50 (42.67–45.02 s) are live action: always removed" in block
+    assert "real creator" not in block.lower()
+    end = "Want to trade like me? Download fomo through the link in my bio."
+    assert f"End line (every video ends on it, word for word): {end}" in prompts.brand_block(
+        {"name": "fomo", "end_line": end}, []
+    )
+
+
+def test_eval_scoring_checks_reference_words_and_the_end_line(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-adapt-altar")
+    case = case | {"steps": ["script_draft"]}
+    good = "NATE: I do.\nBRIDE: HELL NO!\nBRIDE: I'm marrying him!\nNATE: What?!\n" \
+        "BRIDE: I can't wait to spend forever with you.\nBRIDE (V.O.): Forever with you.\n" \
+        "BRIDE: Nate? Nate?\nBRIDE: Huh?!\nNATE: Sorry, I'm fully booked.\n" \
+        "NATE: Want to trade like me? Download fomo through the link in my bio."  # fmt: skip
+    drafts = [{"hook_idea": "x", "script": good}, {"hook_idea": "y", "script": good}]
+    (tmp_path / "fomo-adapt-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
+    assert score(tmp_path, case) == []
+    drafts[1]["script"] = good.replace("Sorry, I'm fully booked.", "Sorry, I'm booked.")
+    drafts[1]["script"] = drafts[1]["script"].rsplit("\n", 1)[0]
+    (tmp_path / "fomo-adapt-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
+    assert score(tmp_path, case) == [
+        "draft 2: 25 spoken words, expected 35–65",
+        "draft 2: the reference's line “Sorry, I'm fully booked.” isn't kept word for word",
+        "draft 2: doesn't end on the brand's end line",
+    ]
+
+
+def test_breakdown_check_wants_the_script_to_end_on_the_brands_end_line():
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    end = "Want to trade like me? Download fomo through the link in my bio."
+    assert check.breakdown(script, bd, FOMO, 4, 30, end_line=end) == [
+        "the script doesn't end on the brand's end line"
+    ]
+    ended = script.replace(
+        "★ fomo screen: Home — closing tag", f"MALIK: {end}\n★ fomo screen: Home — closing tag"
+    )
+    assert "the script doesn't end on the brand's end line" not in check.breakdown(
+        ended, bd, FOMO, 4, 30, end_line=end
+    )
+
+
+def test_sheet_prompts_are_house_style_with_no_names_or_text():
+    sheet = prompts.sheet_prompt("character", "17, red beanie, grey hoodie, headphones")
+    assert sheet.startswith("Generate a character turnaround sheet")
+    assert "front view, full body side view and full body back view" in sheet
+    assert "No text" in sheet and sheet.endswith(
+        "The character: 17, red beanie, grey hoodie, headphones"
+    )
+    photo = prompts.sheet_prompt("character", from_photo=True, change="make the beanie navy")
+    assert "Image 1 is a photo of a real person. Keep their likeness" in photo
+    assert photo.endswith("except this change from the last sheet: make the beanie navy")
+    place = prompts.sheet_prompt("place", "a small bedroom with a desk and one window")
+    assert "no people" in place and "{" not in place + photo and "9:16" not in place + sheet
+
+
+def test_the_projects_product_is_a_required_asset_like_a_screen():
+    product = {"id": 2, "name": "Peanut butter bag"}
+    block = prompts.brand_block({"name": "Iron Paws"}, [], product)
+    assert 'Required product: product:2 "Peanut butter bag"' in block
+    assert "Moments: brand-mention, end, feeding, product" in block
+    needs = prompts.required([], product)
+    assert needs == {"product:2": prompts.PRODUCT_MOMENTS}
+    script = "Bruno sniffs the bowl.\n★ Iron Paws product: Peanut butter bag — by the bowl"
+    shot = {"id": "1.1", "script_lines": [1, 2], "speaker": None, "line": None, "action": "x",
+            "reaction": None, "camera": "x", "seconds": 4.0, "character_ids": [],
+            "place_id": None, "moment": "feeding", "screen_ids": []}  # fmt: skip
+    bd = schemas.Breakdown(
+        hook="x",
+        scenes=[{"id": 1, "heading": "INT. KITCHEN", "look": "x", "shots": [shot]}],
+        clips=[{"id": "c1", "shot_ids": ["1.1"], "seconds": 4, "seam": "end"}],
+    )
+    problems = check.breakdown(script, bd, needs, 4, 30)
+    assert "shot 1.1: 'feeding' moment without its screen" in problems
+    bd.scenes[0].shots[0].screen_ids = ["product:2"]
+    assert check.breakdown(script, bd, needs, 4, 30) == []

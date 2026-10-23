@@ -40,24 +40,46 @@ def number_lines(script: str) -> str:
     return "\n".join(f"{n}| {line}" for n, line in enumerate(script.splitlines(), 1))
 
 
-def brand_block(brand: dict, screens: list[dict]) -> str:
-    """`brand`: name, tone_notes, never_say, legal_line. `screens`: id, name, tags,
-    default_for (the moments a screen is required at)."""
+# The moments the project's product (e.g. the Iron Paws bag) must be on screen.
+PRODUCT_MOMENTS = ["product", "feeding", "brand-mention", "end"]
+
+
+def required(screens: list[dict], product: dict | None = None) -> dict[str, list[str]]:
+    """Asset id -> the moments it must be shown at, as `check.*` takes it ('screens')."""
+    out = {f"screen:{s['id']}": s.get("default_for", []) for s in screens}
+    if product:
+        out[f"product:{product['id']}"] = PRODUCT_MOMENTS
+    return out
+
+
+def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -> str:
+    """`brand`: name, tone_notes, never_say, legal_line, end_line. `screens`: id, name, tags,
+    default_for (the moments a screen is required at). `product`: the one product this project
+    picked (id, name), e.g. the Iron Paws peanut butter bag."""
     lines = [f"<brand>\nBrand: {brand['name']}"]
     if brand.get("tone_notes"):
         lines.append(f"Tone: {brand['tone_notes']}")
     if brand.get("never_say"):
         lines.append("Never say: " + "; ".join(brand["never_say"]))
+    if brand.get("end_line"):
+        lines.append(f"End line (every video ends on it, word for word): {brand['end_line']}")
     if brand.get("legal_line"):
         lines.append(f"Legal line (added in post, don't write it): {brand['legal_line']}")
-    required = [s for s in screens if s.get("default_for")]
-    if required:
-        moments = sorted({m for s in required for m in s["default_for"]})
+    needed = [s for s in screens if s.get("default_for")]
+    if needed:
         lines.append(
             "Required screens. Every shot at one of these moments shows the matching screen, "
             "attached as a reference image and shown exactly:"
         )
-        lines += [_screen(s) + f" — required at: {', '.join(s['default_for'])}" for s in required]
+        lines += [_screen(s) + f" — required at: {', '.join(s['default_for'])}" for s in needed]
+    if product:
+        lines.append(
+            f'Required product: product:{product["id"]} "{product["name"]}", attached as a '
+            "reference image and shown exactly (label to camera, no face) — required at: "
+            + ", ".join(PRODUCT_MOMENTS)
+        )
+    if needed or product:
+        moments = sorted(set(sum((m for m in required(needed, product).values()), [])))
         lines.append(f"Moments: {', '.join(moments)}")
     else:
         lines.append("This brand has no required screens.")
@@ -85,20 +107,36 @@ def reference_block(ref: dict, replace: str = "") -> str:
         f"Hook (0–{hook['seconds']} s): {hook['mechanic']}",
         "Beats:",
     ]
-    lines += [
-        f"- {b['start']:.1f}–{b['end']:.1f} s {b['summary']} ({b['emotion']})" for b in ref["beats"]
-    ]
+    live = [s for s in ref["shots"] if _live_action(s)]
+    live_from = live[0]["start"] - 0.05 if live else float("inf")
+    for b in ref["beats"]:
+        what = f"{b['summary']} ({b['emotion']})"
+        if b["start"] >= live_from:
+            what = "Live-action tag: removed; the brand's end line goes here."
+        lines.append(f"- {b['start']:.1f}–{b['end']:.1f} s {what}")
     lines.append("Shots (time, framing, camera, action, emotion, line):")
     for s in ref["shots"]:
+        if _live_action(s):
+            continue
         said = f' | {s["speaker"]}: "{s["line"]}"' if s.get("line") else ""
         lines.append(
             f"{s['n']}. {s['start']:.2f}–{s['end']:.2f} {s['framing']}; {s['camera']} | "
             f"{s['action']} | {s['emotion']}{said}"
         )
+    if live:
+        lines.append(
+            f"Shots {live[0]['n']}–{live[-1]['n']} ({live[0]['start']:.2f}–{live[-1]['end']:.2f} s)"
+            " are live action: always removed; that slot becomes the brand's end line."
+        )
     if replace:
         lines.append(f"Replace: {replace}")
     lines.append("</reference>")
     return "\n".join(lines)
+
+
+def _live_action(shot: dict) -> bool:
+    style = shot.get("style", "").lower()
+    return "live action" in style or "photoreal" in style
 
 
 def reference_lines(refs: list[dict]) -> str:
@@ -124,3 +162,23 @@ def reference_lines(refs: list[dict]) -> str:
             what = f"the {name}"
         lines.append(f"{tags} {verb} {what}.")
     return " ".join(lines)
+
+
+def sheet_prompt(
+    kind: str, description: str = "", from_photo: bool = False, change: str = ""
+) -> str:
+    """The Nano Banana prompt for a library item's reference picture. kind "character": a front
+    / side / back turnaround sheet, from a description or (from_photo) an uploaded photo of a
+    real person as image 1; "place": an empty establishing still. `change` is the editor's note
+    when redoing a sheet (the last sheet goes in as the final image). `description` is the
+    item's notes; names stay out so none is drawn."""
+    sections = (HERE / "sheet.md").read_text().split("\n## ")[1:]
+    parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
+    out = [parts[kind]]
+    if kind == "character" and from_photo:
+        out.append(parts["photo"])
+    if description.strip():
+        out.append(f"The {kind}: {description.strip()}")
+    if change.strip():
+        out.append(parts["redo"].format(change=change.strip()))
+    return " ".join(out)
