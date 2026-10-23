@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 
@@ -201,6 +201,60 @@ test("a paid button asks Reed when the call would take the project past its budg
   expect(screen.queryByRole("button", { name: "Redo · 6 credits" })).not.toBeInTheDocument();
 });
 
+test("'lines 2 ◂' lights those lines in the script, and a script line lights its shot", async () => {
+  const scrolled = vi.fn();
+  Element.prototype.scrollIntoView = scrolled;
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Show line 2 in the script" }));
+  const lines = screen.getByRole("list", { name: "Script text" });
+  const second = within(lines).getAllByRole("listitem")[1];
+  expect(second).toHaveAttribute("data-hl", "true");
+  expect(within(lines).getAllByRole("listitem")[0]).not.toHaveAttribute("data-hl");
+  // The other way: pick a script line, and the shot that covers it is lit.
+  await userEvent.click(within(lines).getByRole("button", { name: "Show line 2 in the breakdown" }));
+  expect(screen.getByLabelText("Shot 1.2")).toHaveClass("bg-accent-soft");
+  expect(screen.getByLabelText("Shot 1.1")).not.toHaveClass("bg-accent-soft");
+  expect(scrolled).toHaveBeenCalled();
+});
+
+describe("on a phone", () => {
+  const original = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = ((q: string) => ({ matches: q.includes("max-width: 639px"), addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  test("problems collapse to one line that opens a sheet with Go to", async () => {
+    fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: ["Shot 1.2 is a loss moment but shows no fomo screen.", "Clip c1 is 17 s; the model allows 4–15 s."] })] });
+    open();
+    await userEvent.click(await screen.findByRole("button", { name: "Problems" }));
+    const sheet = await screen.findByRole("dialog", { name: "Problems (2)" });
+    expect(within(sheet).getByText("Clip c1 is 17 s; the model allows 4–15 s.")).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Go to: Shot 1.2 is a loss moment but shows no fomo screen." }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("Edit opens the shot in a sheet, and Split / Join live in a ⋯ menu", async () => {
+    fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()] });
+    open();
+    await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+    const sheet = await screen.findByRole("dialog", { name: "Shot 1.1" });
+    await userEvent.type(within(sheet).getByLabelText("Shot 1.1 camera"), " EXTRA");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Done" }));
+    expect(screen.getByText(/EXTRA/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Split clip c1 after shot 1.1" }));
+    expect(screen.getByText("Clip c2 · 3 s")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Join clip c1 with the next clip" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Join clip c1 with the next clip" }));
+    expect(screen.queryByText(/Clip c2/)).not.toBeInTheDocument();
+  });
+});
+
 test("a breakdown run is recognised by its step, even after a reload; an Enhance run is not mistaken for it", async () => {
   const running = (step: string) => [{ id: 3, kind: "write-claude", step, status: "running", credits: 6, project_id: 9, created_at: "2026-10-23T10:00:00Z" }];
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("breakdown")] });
@@ -216,7 +270,7 @@ test("a breakdown run is recognised by its step, even after a reload; an Enhance
 test("every tap target on a shot is at least 44px tall below the sm width", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: ["Shot 1.2 is a loss moment but shows no fomo screen."] })] });
   open();
-  for (const name of ["Edit shot 1.1", "Go to: Shot 1.2 is a loss moment but shows no fomo screen."]) {
+  for (const name of ["Edit shot 1.1", "Go to: Shot 1.2 is a loss moment but shows no fomo screen.", "Show line 2 in the script"]) {
     const el = await screen.findByRole("button", { name });
     expect(el.className).toContain("min-h-11");
   }

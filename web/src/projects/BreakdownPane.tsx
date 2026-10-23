@@ -9,7 +9,7 @@ import { BreakdownView } from "./BreakdownView";
 const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
-export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number }) {
+export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void }) {
   const { projectId, brandId, scriptVersion } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -104,5 +104,5 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
       </section>
     );
 
-  return <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} />;
+  return <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} />;
 }

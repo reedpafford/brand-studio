@@ -1,9 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useToast } from "../toast";
+import { useMedia } from "../useMedia";
+import { Sheet } from "./Sheet";
 import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } from "../ui";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
@@ -100,6 +102,8 @@ export function BreakdownView(props: {
   failed: boolean;
   problem: ReactNode;
   name: (id: string | null) => string;
+  line: number | null;
+  onShowLines: (lines: number[]) => void;
 }) {
   const { row, projectId, scriptVersion, makeButton, name } = props;
   const queryClient = useQueryClient();
@@ -108,6 +112,18 @@ export function BreakdownView(props: {
   const [draft, setDraft] = useState<Breakdown | null>(null);
   const [open, setOpen] = useState<string[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
+  const phone = useMedia("(max-width: 639px)");
+  const [problemsOpen, setProblemsOpen] = useState(false);
+  const [sheetShot, setSheetShot] = useState<string | null>(null);
+  const [menu, setMenu] = useState<string | null>(null);
+  const line = props.line;
+
+  // A line picked in the script brings its shot into view.
+  useEffect(() => {
+    if (line === null) return;
+    const shot = row.breakdown.scenes.flatMap((s) => s.shots).find((s) => s.script_lines.includes(line));
+    if (shot) document.getElementById(`shot-${shot.id}`)?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }, [line, row.breakdown]);
   const bd = draft ?? row.breakdown;
   const change = (fn: (b: Breakdown) => Breakdown) => setDraft(fn(clone(draft ?? row.breakdown)));
 
@@ -141,6 +157,32 @@ export function BreakdownView(props: {
   const dirty = draft !== null;
   const blockedBy = dirty ? "Save your changes first." : row.stale ? "Make a new breakdown first." : row.problems.length > 0 ? `Fix the ${row.problems.length} problem${row.problems.length === 1 ? "" : "s"} first.` : "Storyboard is coming soon.";
 
+  const problemList = (after?: () => void) => (
+    <ul className="space-y-1 text-sm">
+      {row.problems.map((p) => {
+        const target = problemTarget(p);
+        return (
+          <li key={p} className="flex items-start gap-2">
+            <span aria-hidden>•</span>
+            <span className="flex-1">{p}</span>
+            {target && (
+              <button
+                className={`underline ${tap}`}
+                aria-label={`Go to: ${p}`}
+                onClick={() => {
+                  after?.();
+                  goTo(target);
+                }}
+              >
+                Go to
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
   return (
     <div className="space-y-4" aria-label="Breakdown">
       {row.stale && (
@@ -157,25 +199,22 @@ export function BreakdownView(props: {
       </div>
       {props.failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
       {props.problem}
-      {row.problems.length > 0 && (
+      {row.problems.length > 0 && phone && (
+        <>
+          <button className="w-full rounded-md bg-danger-soft p-3 text-left text-sm text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
+            {row.problems.length} problem{row.problems.length === 1 ? "" : "s"} ▸
+          </button>
+          {problemsOpen && (
+            <Sheet title={`Problems (${row.problems.length})`} onClose={() => setProblemsOpen(false)}>
+              {problemList(() => setProblemsOpen(false))}
+            </Sheet>
+          )}
+        </>
+      )}
+      {row.problems.length > 0 && !phone && (
         <section className="space-y-1 rounded-md bg-danger-soft p-3 text-sm text-danger" aria-label="Problems">
           <h3 className="font-semibold">Problems ({row.problems.length})</h3>
-          <ul className="space-y-1">
-            {row.problems.map((p) => {
-              const target = problemTarget(p);
-              return (
-                <li key={p} className="flex items-start gap-2">
-                  <span aria-hidden>•</span>
-                  <span className="flex-1">{p}</span>
-                  {target && (
-                    <button className={`underline ${tap}`} aria-label={`Go to: ${p}`} onClick={() => goTo(target)}>
-                      Go to
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          {problemList()}
         </section>
       )}
       {bd.hook !== undefined && (
@@ -214,12 +253,14 @@ export function BreakdownView(props: {
                       const editing = open.includes(s.id);
                       const lastInClip = clip.shot_ids.at(-1) === s.id;
                       return (
-                        <li key={s.id} id={`shot-${s.id}`} className={`space-y-1 px-3 py-2 text-sm ${ring(`shot-${s.id}`)}`} aria-label={`Shot ${s.id}`}>
+                        <li key={s.id} id={`shot-${s.id}`} className={`space-y-1 px-3 py-2 text-sm ${ring(`shot-${s.id}`)} ${line !== null && s.script_lines.includes(line) ? "bg-accent-soft" : ""}`} aria-label={`Shot ${s.id}`}>
                           <div className="flex flex-wrap items-baseline gap-x-3">
                             <span className="font-medium">{s.id}</span>
                             <span className="text-muted">{s.seconds} s</span>
                             <span className="text-muted">{s.camera}</span>
-                            <span className="ml-auto text-xs text-muted">{lines(s.script_lines)}</span>
+                            <button type="button" className={`ml-auto text-xs text-muted underline ${tap}`} aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines(s.script_lines)}>
+                              {lines(s.script_lines)} ◂
+                            </button>
                           </div>
                           <p>{s.action}</p>
                           {s.line && (
@@ -238,15 +279,47 @@ export function BreakdownView(props: {
                               <span key={id} className="rounded-sm bg-accent-soft px-2 py-0.5 text-accent-text">★ {name(id)}</span>
                             ))}
                           </p>
-                          {editing && <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
-                          <div className="flex gap-3 text-xs">
-                            <button className={`${linkText} ${tap}`} aria-label={`${editing ? "Done with" : "Edit"} shot ${s.id}`} onClick={() => setOpen(editing ? open.filter((x) => x !== s.id) : [...open, s.id])}>
-                              {editing ? "Done" : "Edit"}
+                          {editing && !phone && <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
+                          {phone && sheetShot === s.id && (
+                            <Sheet title={`Shot ${s.id}`} onClose={() => setSheetShot(null)}>
+                              <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />
+                            </Sheet>
+                          )}
+                          <div className="relative flex gap-3 text-xs">
+                            <button
+                              className={`${linkText} ${tap}`}
+                              aria-label={`${editing && !phone ? "Done with" : "Edit"} shot ${s.id}`}
+                              onClick={() => (phone ? setSheetShot(s.id) : setOpen(editing ? open.filter((x) => x !== s.id) : [...open, s.id]))}
+                            >
+                              {editing && !phone ? "Done" : "Edit"}
                             </button>
-                            {!lastInClip && (
-                              <button className={`${linkText} ${tap}`} aria-label={`Split clip ${clip.id} after shot ${s.id}`} onClick={() => change((b) => splitAfter(b, s.id))}>
-                                Split clip after
-                              </button>
+                            {phone ? (
+                              (!lastInClip || !last) && (
+                                <>
+                                  <button className={`${linkText} ${tap}`} aria-label={`More for shot ${s.id}`} aria-expanded={menu === s.id} onClick={() => setMenu(menu === s.id ? null : s.id)}>
+                                    ⋯
+                                  </button>
+                                  {menu === s.id && (
+                                    <button
+                                      role="menuitem"
+                                      className="absolute left-0 top-full z-10 mt-1 min-h-11 rounded-md border border-border bg-surface px-3 shadow-md"
+                                      aria-label={lastInClip ? `Join clip ${clip.id} with the next clip` : `Split clip ${clip.id} after shot ${s.id}`}
+                                      onClick={() => {
+                                        setMenu(null);
+                                        change((b) => (lastInClip ? joinWithNext(b, clip.id) : splitAfter(b, s.id)));
+                                      }}
+                                    >
+                                      {lastInClip ? "Join with next clip" : "Split clip after"}
+                                    </button>
+                                  )}
+                                </>
+                              )
+                            ) : (
+                              !lastInClip && (
+                                <button className={`${linkText} ${tap}`} aria-label={`Split clip ${clip.id} after shot ${s.id}`} onClick={() => change((b) => splitAfter(b, s.id))}>
+                                  Split clip after
+                                </button>
+                              )
                             )}
                           </div>
                         </li>
@@ -257,7 +330,7 @@ export function BreakdownView(props: {
                     <EditableText value={clip.seam} label={`clip ${clip.id} seam`} onChange={(v) => change((b) => setSeam(b, clip.id, v))}>
                       {clip.seam === "end" ? "end" : `ends: ${clip.seam}`}
                     </EditableText>
-                    {!last && (
+                    {!last && !phone && (
                       <button className={`${linkText} ${tap}`} aria-label={`Join clip ${clip.id} with the next clip`} onClick={() => change((b) => joinWithNext(b, clip.id))}>
                         Join with next clip
                       </button>
