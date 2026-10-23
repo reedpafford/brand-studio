@@ -1,7 +1,7 @@
 export const KINDS = {
-  characters: { kind: "character", one: "character", title: "Characters" },
-  places: { kind: "place", one: "place", title: "Places" },
-  props: { kind: "prop", one: "prop", title: "Props" },
+  characters: { kind: "character", one: "character", them: "them", title: "Characters" },
+  places: { kind: "place", one: "place", them: "it", title: "Places" },
+  props: { kind: "prop", one: "prop", them: "it", title: "Props" },
 } as const;
 
 export type KindSlug = keyof typeof KINDS;
