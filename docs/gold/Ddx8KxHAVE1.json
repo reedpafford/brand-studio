@@ -1,0 +1,308 @@
+{
+ "id": "Ddx8KxHAVE1",
+ "account": "nateassets",
+ "views": "1.5M",
+ "url": "https://www.instagram.com/reel/Ddx8KxHAVE1/",
+ "duration_seconds": 54.71,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "An overlooked partygoer envies a handsome man's attention, rebuilds his appearance at home, and returns to become the center of the party himself.",
+ "tags": [
+  "friends",
+  "party",
+  "home",
+  "grooming",
+  "fashion",
+  "glow-up",
+  "public-humiliation",
+  "comedy",
+  "prove-them-wrong",
+  "social-status",
+  "comedic"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.1",
+  "mechanic": "A crowded party immediately establishes a status gap: a cap-wearing young man watches a sharply dressed, handsome man surrounded by admirers, then the view isolates the admired man.",
+  "first_line": "Wait, is that him?"
+ },
+ "moment": "36.76-37.5: Beside a blonde woman under pink and blue party lighting, the transformed hero fires back, \"Oh, now you see me?\" The rushed reply turns his earlier envy into the satisfaction of finally being noticed.",
+ "stats": {
+  "shots": 33,
+  "live_shots_skipped": 3,
+  "animated_seconds": 53.47,
+  "avg_shot_seconds": 1.62,
+  "median_shot_seconds": 0.92,
+  "longest_shot_seconds": 7.92,
+  "shots_under_1s": 17,
+  "spoken_lines": 17,
+  "words_per_second_while_speaking": 2.7,
+  "speech_share_of_runtime": 0.38
+ },
+ "cut_times": [
+  0.75,
+  4.45,
+  6.08,
+  6.7,
+  8.08,
+  11.08,
+  11.53,
+  13.0,
+  13.62,
+  14.08,
+  15.0,
+  15.33,
+  15.7,
+  16.37,
+  18.63,
+  19.68,
+  20.15,
+  20.62,
+  22.87,
+  23.75,
+  25.68,
+  29.07,
+  29.37,
+  29.62,
+  31.57,
+  32.45,
+  32.78,
+  33.07,
+  34.53,
+  40.98,
+  43.45,
+  51.37,
+  53.47,
+  54.12,
+  54.45
+ ],
+ "live_shots": [
+  34,
+  35,
+  36
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 4.45,
+   "beat": "hook",
+   "what_happens": "The hero watches a handsome man command attention at a crowded party and says he wants to be like him.",
+   "emotion": "The admired man looks composed while the hero's reaction conveys disbelief and envy.",
+   "camera": "Crowded medium-wide party framing cuts to a medium portrait of the admired man.",
+   "cuts": "Two shots across 4.45 seconds, with an opening cut at 0.75 seconds."
+  },
+  {
+   "start": 4.45,
+   "end": 8.08,
+   "beat": "low",
+   "what_happens": "Back home, the hero sits at a laptop and then studies himself in a mirror while holding a yellow toy mallet.",
+   "emotion": "His lowered brows and subsequent wide-eyed stare turn frustration into comic self-scrutiny.",
+   "camera": "Medium desk shot, tight frontal reaction, then a wider mirror view showing the mallet.",
+   "cuts": "Three shots lasting 1.63, 0.62 and 1.38 seconds."
+  },
+  {
+   "start": 8.08,
+   "end": 11.08,
+   "beat": "turn",
+   "what_happens": "The hero studies his face and tells himself to lock in.",
+   "emotion": "His startled expression settles into focused resolve.",
+   "camera": "A frontal close-up keeps his face dominant above the laptop.",
+   "cuts": "One three-second hold gives the decision room to register."
+  },
+  {
+   "start": 11.08,
+   "end": 16.37,
+   "beat": "montage",
+   "what_happens": "He works on his hair and face, tidies his eyebrows, selects blue contact lenses and changes into a white shirt and navy jacket.",
+   "emotion": "Concentration becomes a small, pleased smile as he checks each improvement.",
+   "camera": "Face close-ups alternate with extreme close-ups of eyebrow grooming, the lens case and a blue eye, followed by torso-level clothing shots.",
+   "cuts": "Eight shots in 5.29 seconds; seven last under one second."
+  },
+  {
+   "start": 16.37,
+   "end": 20.62,
+   "beat": "reveal",
+   "what_happens": "The hero prepares his footwear and checks the completed outfit in a full-length mirror.",
+   "emotion": "His bent, practical posture gives way to upright stillness and surprised approval.",
+   "camera": "Low footwear framing leads into repeated full-body mirror views.",
+   "cuts": "A 2.26-second preparation shot gives way to mirror shots lasting 1.05, 0.47 and 0.47 seconds."
+  },
+  {
+   "start": 20.62,
+   "end": 23.75,
+   "beat": "turn",
+   "what_happens": "The newly styled hero smiles at his reflection and announces round two.",
+   "emotion": "A relaxed smile becomes a firmer, ready expression.",
+   "camera": "Two close portraits emphasize styled hair, blue eyes and the open-collar jacket.",
+   "cuts": "A 2.25-second portrait cuts to a brisk 0.88-second resolve shot."
+  },
+  {
+   "start": 23.75,
+   "end": 29.62,
+   "beat": "payoff",
+   "what_happens": "He returns to the party, where guests react, crowd around him and raise phones.",
+   "emotion": "Guests lean forward with open mouths and smiles while the hero looks surprised by the attention.",
+   "camera": "A rear entrance view cuts to frontal group reactions and medium shots among the guests.",
+   "cuts": "Two longer shots of 1.93 and 3.39 seconds finish with 0.30- and 0.25-second flashes."
+  },
+  {
+   "start": 29.62,
+   "end": 34.53,
+   "beat": "payoff",
+   "what_happens": "Women gather on either side of the hero as he tries to understand his sudden popularity.",
+   "emotion": "His open-mouthed confusion becomes a broad smile while nearby guests beam and hold his arms.",
+   "camera": "Frontal full-body group framing keeps the hero centered between admirers.",
+   "cuts": "Five shots in 4.91 seconds, including a three-shot burst lasting 0.88, 0.33 and 0.29 seconds."
+  },
+  {
+   "start": 34.53,
+   "end": 40.98,
+   "beat": "callback",
+   "what_happens": "A blonde woman recognizes the hero, and he answers with a pointed remark about finally being seen.",
+   "emotion": "Her delighted recognition meets his knowing smile and quick, slightly resentful confidence.",
+   "camera": "A medium two-shot places them face-to-face against the colorful party crowd.",
+   "cuts": "One 6.45-second shot slows the sequence for their exchange."
+  },
+  {
+   "start": 40.98,
+   "end": 51.37,
+   "beat": "payoff",
+   "what_happens": "The original handsome guest surveys the attention around the hero, and an approving exchange turns the rivalry into camaraderie.",
+   "emotion": "Disbelief softens into amusement and mutual enthusiasm.",
+   "camera": "A rear view across the dance floor leads to a sustained medium view of the hero with the blonde woman.",
+   "cuts": "A 2.47-second shot leads into the longest hold, lasting 7.92 seconds."
+  },
+  {
+   "start": 51.37,
+   "end": 53.47,
+   "beat": "payoff",
+   "what_happens": "The two men stand shoulder-to-shoulder with their arms around each other amid smiling party guests.",
+   "emotion": "Both grin openly, resolving the comparison into shared celebration.",
+   "camera": "A frontal group shot presents both men together at equal scale.",
+   "cuts": "One 2.10-second animated closing shot."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Hero",
+   "text": "Wait, is that him?",
+   "delivery": "Projected, moderately paced question with rising pitch and startled recognition."
+  },
+  {
+   "t": 1.86,
+   "speaker": "Hero",
+   "text": "What? Yo! Bro, I wanna be like him.",
+   "delivery": "Conversational but animated, with short upward exclamations followed by an admiring, slightly quicker admission."
+  },
+  {
+   "t": 5.1,
+   "speaker": "Hero",
+   "text": "No way.",
+   "delivery": "Measured, incredulous and conversational, with emphasis on 'way' after a brief beat."
+  },
+  {
+   "t": 6.94,
+   "speaker": "Hero",
+   "text": "Yeah, no.",
+   "delivery": "Firm, evenly spaced rejection with a downward finish after nearly a second of silence."
+  },
+  {
+   "t": 8.74,
+   "speaker": "Hero",
+   "text": "Wait, lock in.",
+   "delivery": "Relatively quiet and deliberate, shifting from hesitation into self-directed resolve."
+  },
+  {
+   "t": 18.02,
+   "speaker": "Hero",
+   "text": "Hold up.",
+   "delivery": "A moderately projected, surprised interruption after a long speech-free stretch."
+  },
+  {
+   "t": 20.94,
+   "speaker": "Hero",
+   "text": "Okay.",
+   "delivery": "Quiet, slow and approving, with a relaxed downward pitch."
+  },
+  {
+   "t": 22.62,
+   "speaker": "Hero",
+   "text": "Round two.",
+   "delivery": "More strongly projected and deliberate, with confident emphasis after a short pause."
+  },
+  {
+   "t": 25.32,
+   "speaker": "Hero",
+   "text": "Wait, what?",
+   "delivery": "Spaced, moderately loud disbelief with rising pitch as the crowd reacts."
+  },
+  {
+   "t": 26.98,
+   "speaker": "Partygoer",
+   "text": "Yo!",
+   "delivery": "A clipped, bright exclamation delivered in a sudden burst."
+  },
+  {
+   "t": 29.7,
+   "speaker": "Hero",
+   "text": "Bro, what is happening?",
+   "delivery": "Brisk and incredulous, with rising pitch and an amused edge after a held beat."
+  },
+  {
+   "t": 34.86,
+   "speaker": "Blonde Woman",
+   "text": "Wait, Nate?",
+   "delivery": "Conversational, slow recognition with a lifted questioning finish after a long pause."
+  },
+  {
+   "t": 36.76,
+   "speaker": "Hero",
+   "text": "Oh, now you see me?",
+   "delivery": "Very fast and slightly more projected, with pointed emphasis on 'now' and a teasing, wounded edge."
+  },
+  {
+   "t": 39.8,
+   "speaker": "Handsome Guest",
+   "text": "Yo, what's going on?",
+   "delivery": "Brisk but relatively restrained, sounding puzzled after a noticeable pause."
+  },
+  {
+   "t": 44.22,
+   "speaker": "Handsome Guest",
+   "text": "No way.",
+   "delivery": "More projected disbelief, with a compact, emphatic finish after a long beat."
+  },
+  {
+   "t": 47.88,
+   "speaker": "Handsome Guest / Hero",
+   "text": "Yo, you lowkey mog, bro. I'm locked in.",
+   "delivery": "The approving remark lands at a conversational pace; the hero's short reply sounds assured and satisfied. The precise speaker handoff is inferred."
+  },
+  {
+   "t": 50.82,
+   "speaker": "Hero",
+   "text": "Alright, let's go!",
+   "delivery": "Fast, upbeat and celebratory, launching almost immediately after the preceding exchange."
+  }
+ ],
+ "voice_arc": "The hero begins with projected recognition and conversational envy, then becomes quieter and deliberate when he tells himself to lock in. A long speech-free grooming stretch ends with surprised approval and the more forceful 'Round two.' At the party, spaced disbelief gives way to his exceptionally rushed recognition comeback, then relaxed approval and a snappy celebratory finish; the measured levels suggest animated conversation with emphatic bursts rather than sustained shouting.",
+ "camera_language": "Vertical framing repeatedly centers a single face or full body, using frontal portraits and mirror views to make appearance changes easy to compare. Extreme close-ups isolate specific grooming choices before wider party groups demonstrate their social effect. Rapid hard cuts drive the makeover and crowd reactions, while longer holds let recognition and dialogue land.",
+ "why_it_works": "The opening makes the hero's desire visible immediately: another man receives the attention he wants. A concrete sequence of grooming and clothing changes gives the transformation a readable cause, and the return to the same party makes its effect easy to judge. The recognition comeback delivers the emotional reward, while the final embrace gives the rivalry a friendly comic resolution.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within the first 2 seconds, the video establishes a high-stakes social dynamic using viral internet slang ('MOGGED'), a dramatic party setting, and extreme character reactions that trigger instant viewer curiosity.",
+  "turn": "",
+  "payoff": "The payoff lands when Nate returns completely transformed, out-shining everyone. Instead of ending in conflict, his rival admits defeat ('You lowkey mogged, bro'), and they celebrate together, delivering high satisfaction.",
+  "why_it_works": "Taps directly into viral Gen-Z 'looksmaxxing' and 'mogging' internet culture with high-relatability tropes. Extremely fast pacing with montage cuts averaging 1 second, keeping retention exceptionally high. High visual polish featuring Pixar-style 3D animation, glowing VFX, and clean UI graphic overlays. Tactile audio design where every action (hair styling, brow trimming, shoe insoles) has sharp, ",
+  "camera": [
+   "Snap push-in on female reaction at 0:01 to establish social hierarchy",
+   "Dynamic forward tracking camera at 0:23–0:28 following Nate's grand re-entry to build protagonist momentum",
+   "Whip pan transition at 0:38 to shift perspective abruptly to the rival's shocked reaction",
+   "High-angle EWS push-in at 0:41 establishing Nate's center-stage dominance over the entire room"
+  ],
+  "montages": [
+   "{\"start\": \"0:09\", \"end\": \"0:20\", \"cuts\": 10, \"content\": \"Hair mess-up and styling, facial cream application, eyebrow trim, contact lens insertion, button-up shirt adjustment, crouching for shoes, height insole insertion, suit jacket pull, a"
+  ]
+ }
+}
