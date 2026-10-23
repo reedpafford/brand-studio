@@ -24,12 +24,12 @@ router = APIRouter(prefix="/projects/{project_id}/clips", tags=["project clips"]
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
-class ClipIn(BaseModel):
+class ProjectClipIn(BaseModel):
     prompt: LongText
     references: list[Reference] = Field(max_length=50)
 
 
-class ClipOut(BaseModel):
+class ProjectClipOut(BaseModel):
     id: int
     clip_id: str
     seconds: int
@@ -40,9 +40,9 @@ class ClipOut(BaseModel):
     stale: bool  # made from an older breakdown
 
 
-def _out(row: ProjectClip, newest: BreakdownVersion | None) -> ClipOut:
-    return ClipOut(
-        **{f: getattr(row, f) for f in ClipOut.model_fields if f != "stale"},
+def _out(row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
+    return ProjectClipOut(
+        **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f != "stale"},
         stale=not newest or row.breakdown_id != newest.id,
     )
 
@@ -71,7 +71,7 @@ def write_prompts(
     )
 
 
-@router.get("", response_model=list[ClipOut])
+@router.get("", response_model=list[ProjectClipOut])
 def list_clips(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project = get_project(db, user, project_id)
     newest = _newest_breakdown(db, project)
@@ -81,11 +81,11 @@ def list_clips(project_id: int, user: User = Depends(current_user), db: Session 
     return [_out(r, newest) for r in rows]
 
 
-@router.put("/{clip_id}", response_model=ClipOut)
+@router.put("/{clip_id}", response_model=ProjectClipOut)
 def edit_clip(
     project_id: int,
     clip_id: int,
-    body: ClipIn,
+    body: ProjectClipIn,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):

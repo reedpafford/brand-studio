@@ -1334,7 +1334,7 @@ export interface components {
             seam: string;
         };
         /** ClipIn */
-        "ClipIn-Output": {
+        ClipIn: {
             /** Brand Id */
             brand_id: number;
             /**
@@ -1395,25 +1395,6 @@ export interface components {
              * @default []
              */
             skip_screen_ids: number[];
-        };
-        /** ClipOut */
-        ClipOut: {
-            /** Id */
-            id: number;
-            /** Clip Id */
-            clip_id: string;
-            /** Seconds */
-            seconds: number;
-            /** Prompt */
-            prompt: string;
-            /** References */
-            references: components["schemas"]["Reference"][];
-            /** Problems */
-            problems: string[];
-            /** File Id */
-            file_id: number | null;
-            /** Stale */
-            stale: boolean;
         };
         /** DraftOut */
         DraftOut: {
@@ -1839,6 +1820,32 @@ export interface components {
              */
             file_ids: number[];
         };
+        /** ProjectClipIn */
+        ProjectClipIn: {
+            /** Prompt */
+            prompt: string;
+            /** References */
+            references: components["schemas"]["Reference"][];
+        };
+        /** ProjectClipOut */
+        ProjectClipOut: {
+            /** Id */
+            id: number;
+            /** Clip Id */
+            clip_id: string;
+            /** Seconds */
+            seconds: number;
+            /** Prompt */
+            prompt: string;
+            /** References */
+            references: components["schemas"]["Reference"][];
+            /** Problems */
+            problems: string[];
+            /** File Id */
+            file_id: number | null;
+            /** Stale */
+            stale: boolean;
+        };
         /** ProjectIn */
         ProjectIn: {
             /** Goal */
@@ -2213,69 +2220,6 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
-        /** ClipIn */
-        app__routes__clips__ClipIn: {
-            /** Brand Id */
-            brand_id: number;
-            /**
-             * Model Id
-             * @default seedance-2.5
-             */
-            model_id: string;
-            /** Prompt */
-            prompt: string;
-            /**
-             * Aspect Ratio
-             * @default 9:16
-             */
-            aspect_ratio: string;
-            /**
-             * Duration
-             * @description Seconds
-             * @default 5
-             */
-            duration: number;
-            /**
-             * Resolution
-             * @default 480p
-             */
-            resolution: string;
-            /**
-             * Generate Audio
-             * @default true
-             */
-            generate_audio: boolean;
-            /**
-             * Character Ids
-             * @default []
-             */
-            character_ids: number[];
-            /**
-             * Place Ids
-             * @default []
-             */
-            place_ids: number[];
-            /**
-             * Prop Ids
-             * @default []
-             */
-            prop_ids: number[];
-            /**
-             * Screen Ids
-             * @default []
-             */
-            screen_ids: number[];
-            /**
-             * File Ids
-             * @default []
-             */
-            file_ids: number[];
-            /**
-             * Skip Screen Ids
-             * @default []
-             */
-            skip_screen_ids: number[];
-        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -2288,13 +2232,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-        };
-        /** ClipIn */
-        app__routes__project_clips__ClipIn: {
-            /** Prompt */
-            prompt: string;
-            /** References */
-            references: components["schemas"]["Reference"][];
         };
         /** VersionOut */
         app__routes__scripts__VersionOut: {
@@ -4525,7 +4462,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClipOut"][];
+                    "application/json": components["schemas"]["ProjectClipOut"][];
                 };
             };
             /** @description Validation Error */
@@ -4551,7 +4488,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["app__routes__project_clips__ClipIn"];
+                "application/json": components["schemas"]["ProjectClipIn"];
             };
         };
         responses: {
@@ -4561,7 +4498,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClipOut"];
+                    "application/json": components["schemas"]["ProjectClipOut"];
                 };
             };
             /** @description Validation Error */
@@ -4584,7 +4521,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["app__routes__clips__ClipIn"];
+                "application/json": components["schemas"]["ClipIn"];
             };
         };
         responses: {
@@ -4617,7 +4554,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["app__routes__clips__ClipIn"];
+                "application/json": components["schemas"]["ClipIn"];
             };
         };
         responses: {
@@ -4658,7 +4595,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClipIn-Output"];
+                    "application/json": components["schemas"]["ClipIn"];
                 };
             };
             /** @description Validation Error */
