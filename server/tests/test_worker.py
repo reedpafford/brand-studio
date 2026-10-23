@@ -117,3 +117,70 @@ def test_unknown_provider_on_restart_fails_instead_of_crashing(db, user):
     recover(db, {"fake": FakeProvider()})
     db.refresh(job)
     assert job.status == JobStatus.failed
+
+
+def _claude(handler):
+    import httpx2 as httpx
+    from anthropic import DefaultHttpxClient
+
+    from app.claude import make_client
+    from app.providers.claude import ClaudeProvider
+
+    client = make_client("k", DefaultHttpxClient(transport=httpx.MockTransport(handler)))
+    return {"claude": ClaudeProvider("k", client)}
+
+
+def _claude_job(db, user):
+    return enqueue(
+        db,
+        user,
+        "write-claude",
+        {"step": "enhance", "system": ["Rules."], "prompt": "<script>1| Hi</script>"},
+        provider="claude",
+    )
+
+
+def test_claude_job_end_to_end_records_a_refusal_cost(db, user):
+    import httpx2 as httpx
+
+    from tests.helpers import claude_stream
+
+    def refuse(request):
+        body = claude_stream(
+            "",
+            "refusal",
+            {"type": "refusal", "category": "cyber"},
+            {"input_tokens": 1000, "output_tokens": 0},
+        )
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    job = _claude_job(db, user)
+    run_once(db, _claude(refuse))
+    db.refresh(job)
+    assert (job.status, job.provider_ref, job.error) == (JobStatus.failed, "sync", FAILED)
+    assert "declined" in job.error_detail
+    usage = db.query(Usage).one()  # refused answers are billed, so they're recorded
+    assert (usage.unit, usage.cost_usd) == ("call", Decimal("0.0040"))
+
+
+def test_claude_busy_is_retried_and_lost_contact_is_unsure(db, user):
+    import httpx2 as httpx
+
+    calls = []
+
+    def busy_then_drop(request):
+        calls.append(request)
+        if len(calls) <= 3:  # the SDK itself tries 3 times
+            busy = {"type": "error", "error": {"type": "overloaded_error"}}
+            return httpx.Response(529, json=busy)
+        raise httpx.ConnectError("dropped")
+
+    job = _claude_job(db, user)
+    providers = _claude(busy_then_drop)
+    run_once(db, providers)
+    db.refresh(job)
+    assert job.status == JobStatus.queued and job.attempts == 1  # busy: not started, retry
+    run_once(db, providers)
+    db.refresh(job)
+    assert (job.status, job.error) == (JobStatus.failed, UNSURE)
+    assert db.query(Usage).count() == 0

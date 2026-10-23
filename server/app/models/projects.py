@@ -31,6 +31,9 @@ class Project(Entity, Base):
     format: Mapped[str] = mapped_column(String(120), default="")  # optional named format
     cast_ids: Mapped[list[int]] = mapped_column(JSON, default=list)  # library characters
     reference_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # a video
+    # A reference reel to adapt: its breakdown (app/reference.py shape) and what to rebuild.
+    reference_breakdown: Mapped[dict | None] = mapped_column(JSON)
+    reference_replace: Mapped[str] = mapped_column(Text, default="")
 
     @property
     def estimate_credits(self) -> Decimal:

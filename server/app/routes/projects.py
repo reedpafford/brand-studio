@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app import reference
 from app.auth import current_user, owner_only
 from app.credits import credits_used, get_limits, lock, over_cap
 from app.db import get_db
@@ -37,6 +38,8 @@ class BriefPatch(BaseModel):
     format: ShortText | None = None
     cast_ids: list[int] | None = None  # library characters
     reference_file_id: int | None = None  # a video
+    reference_breakdown: dict | None = None  # the reel to adapt (docs/references shape)
+    reference_replace: LongText | None = None  # which part to rebuild, e.g. "the montage"
 
 
 class ProjectIn(BriefPatch):
@@ -62,6 +65,8 @@ class ProjectOut(BaseModel):
     format: str
     cast_ids: list[int]
     reference_file_id: int | None
+    reference_breakdown: dict | None
+    reference_replace: str
     estimate_credits: float
     budget_credits: float
     credits_used: float
@@ -96,9 +101,10 @@ BRIEF_FIELDS = tuple(BriefPatch.model_fields)
 
 def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
     """Apply sent brief fields. Cast must be the workspace's characters; the reference a video.
-    A null `reference_file_id` removes it; any other null means "unchanged"."""
+    A null reference file or breakdown removes it; any other null means "unchanged"."""
+    removable = ("reference_file_id", "reference_breakdown")
     for field in BRIEF_FIELDS:
-        if field not in values or (values[field] is None and field != "reference_file_id"):
+        if field not in values or (values[field] is None and field not in removable):
             continue
         value = values[field]
         if field == "cast_ids":
@@ -107,6 +113,8 @@ def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
                 get_item(db, user, Kind.character, item_id)
         elif field == "reference_file_id" and value is not None:
             get_file(db, user, value, "video")
+        elif field == "reference_breakdown" and value is not None:
+            value = reference.checked(value)
         setattr(project, field, value)
 
 
