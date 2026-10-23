@@ -405,6 +405,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/{kind}/{item_id}/sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Sheet
+         * @description Queue the picture (a paid image job). Only the editor's own pictures of this item are
+         *     attached: the photo to draw from, and the last sheet when redoing.
+         */
+        post: operations["make_sheet_library__kind___item_id__sheet_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -2213,6 +2234,25 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** SheetIn */
+        SheetIn: {
+            /**
+             * Model Id
+             * @default nano-banana-pro
+             * @enum {string}
+             */
+            model_id: "nano-banana-pro" | "nano-banana-2.1";
+            /**
+             * From Photo
+             * @default false
+             */
+            from_photo: boolean;
+            /**
+             * Change
+             * @default
+             */
+            change: string;
+        };
         /** Shot */
         Shot: {
             /**
@@ -3323,6 +3363,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_sheet_library__kind___item_id__sheet_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SheetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */
