@@ -20,11 +20,13 @@ def _prompt(screen_n: int = 2) -> str:
         [
             AUDIO,
             'References: [Image1] is Mom. [Image2] is the fomo "Buy" screen.',
+            "Summary: Mom finds the empty wallet in the kitchen; Nate is proud he bought the dip.",
             "Style: stylized 3D animated feature film, expressive faces.",
             "Setting: cold morning light.",
             "Shots (hard cuts):",
-            '1. 0.0–2.5 s. Close-up, push in. Mom (sharp): "Nate, where is all your money?"',
-            f'2. 2.5–5.0 s. Close-up. Nate (proud): "I bought the dip." Shows [Image{screen_n}].',
+            'Shot 1 | 0–2 s. Close-up, push in. Mom (sharp): "Nate, where is all your money?"',
+            f'Shot 2 | 2–5 s. Close-up. Nate (proud): "I bought the dip." Shows [Image{screen_n}].',
+            f"Keep: Mom as in [Image1], one of her; the screen exactly as [Image{screen_n}].",
             AUDIO,
         ]
     )
