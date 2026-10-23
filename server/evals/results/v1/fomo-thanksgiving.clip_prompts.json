@@ -1,0 +1,115 @@
+{
+ "clips": [
+  {
+   "clip_id": "c1",
+   "seconds": 15,
+   "references": [
+    {
+     "kind": "image",
+     "id": "frame:c1",
+     "role": "storyboard frame"
+    },
+    {
+     "kind": "image",
+     "id": "char:1",
+     "role": "Aiden's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:2",
+     "role": "Uncle Rick's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:3",
+     "role": "Mom's look"
+    },
+    {
+     "kind": "image",
+     "id": "place:1",
+     "role": "family dining room at Thanksgiving"
+    }
+   ],
+   "prompt": "References: [Image1] storyboard frame, match its look and framing. [Image2] is Aiden. [Image3] is Uncle Rick. [Image4] is Mom. [Image5] is the family dining room at Thanksgiving.\nStyle: stylized 3D animated feature film, expressive faces, 9:16.\nSetting: Thanksgiving dining room under a warm but harsh overhead chandelier; a crowded table with steam rising off the turkey, relatives packed shoulder to shoulder in the background who laugh on cue; Aiden sits at the far end in a cooler pool of shadow.\nShots (hard cuts):\n1. 0.0–1.2 s. Wide eye-level shot down the length of the table, quick drift in. Mom reaches for the potato bowl while Rick, across the packed table, already levels his fork at Aiden. Mom says, brightly: \"Pass the potatoes, please.\"\n2. 1.2–3.8 s. Medium close-up on Rick, quick push-in. Rick jabs his fork across the table, his grin stretching smug and wide. Uncle Rick booms: \"So Aiden, still doing your little internet trading?\"\n3. 3.8–5.0 s. Medium close-up on Aiden, static. Aiden calmly sets his fork down, face even. Aiden says: \"It's going well, actually.\"\n4. 5.0–7.2 s. Low-angle close-up on Rick, fast push-in. Rick leans back and spreads his arms wide to the table, playing to the crowd. Uncle Rick scoffs loudly: \"Going well? You live in your mom's basement.\"\n5. 7.2–8.2 s. Wide shot of the table, slight handheld shake. The whole table bursts out laughing; relatives throw their heads back and slap the table, Rick loudest of all, Mom caught mid-wince.\n6. 8.2–9.4 s. Close-up on Aiden, shallow focus, laughing relatives blurred around him. He is the only one not laughing; his face burns red, knuckles white around the fork, held for a beat.\n7. 9.4–10.5 s. Medium close-up on Mom, static. She shoots Rick a sharp look, brows pulled down. Mom snaps: \"Rick, leave him alone.\"\n8. 10.5–11.5 s. Tight close-up on Aiden's eyes, slow push-in. The laughter dies away; his eyes lock on Rick, unblinking.\n9. 11.5–13.2 s. Extreme close-up on Aiden, static, hold. He never breaks eye contact. Aiden says quietly: \"Give me a year.\" Hold half a second on his stare as Rick's smirk flickers in the soft background.\n10. 13.2–15.0 s. Wide shot from Rick's end of the table, static. Aiden shoves his chair back, throws his napkin onto his plate and storms out of frame; the table goes silent, every head turning to follow him.\nSound: the dialogue as written, clinking cutlery and family chatter, a roar of laughter that cuts off dead, a chair scraping hard on the floor. No music."
+  },
+  {
+   "clip_id": "c2",
+   "seconds": 9,
+   "references": [
+    {
+     "kind": "image",
+     "id": "frame:c2",
+     "role": "storyboard frame"
+    },
+    {
+     "kind": "image",
+     "id": "char:1",
+     "role": "Aiden's look"
+    },
+    {
+     "kind": "image",
+     "id": "place:2",
+     "role": "Aiden's small basement bedroom"
+    },
+    {
+     "kind": "image",
+     "id": "screen:1",
+     "role": "fomo Home screen, shown exactly"
+    },
+    {
+     "kind": "image",
+     "id": "screen:3",
+     "role": "fomo Token chart down screen, shown exactly"
+    },
+    {
+     "kind": "image",
+     "id": "screen:4",
+     "role": "fomo Desktop trading screen, shown exactly"
+    },
+    {
+     "kind": "image",
+     "id": "screen:2",
+     "role": "fomo Token chart up screen, shown exactly"
+    }
+   ],
+   "prompt": "References: [Image1] storyboard frame, match its look and framing. [Image2] is Aiden. [Image3] is Aiden's small basement bedroom. [Image4] is the fomo \"Home\" screen. [Image5] is the fomo \"Token chart down\" screen. [Image6] is the fomo \"Desktop trading\" screen. [Image7] is the fomo \"Token chart up\" screen.\nStyle: stylized 3D animated feature film, expressive faces, 9:16.\nSetting: cramped dark basement room in cold blue, lit only by phone and monitor glow on Aiden's face; energy cans on the desk; the light drains redder on the loss and flares green and warm on the win; a small window behind him shows the seasons changing.\nShots (hard cuts):\n1. 0.0–1.2 s. Macro insert, static. Aiden's thumb taps from the edge, then lifts away; the phone fills the frame, held still and flat-on, and shows [Image4] exactly: same layout, numbers, colours and logo, nothing added or changed. No glare.\n2. 1.2–2.4 s. Macro insert, static. The phone fills the frame, held still and flat-on, and shows [Image5] exactly: same layout, numbers, colours and logo, nothing added or changed. Red light spills off it.\n3. 2.4–3.4 s. High isolated wide over the desk, hard camera jolt on impact. Aiden slams his fist on the desk, an energy can rattling and tipping; his eyes squeeze shut, jaw clenched, held a beat. Screens glow from out of frame.\n4. 3.4–4.6 s. Insert, slow push-in over Aiden's hands at the keyboard onto the monitor, which fills the frame flat-on and shows [Image6] exactly: same layout, numbers, colours and logo, nothing added or changed. Hands stay below the screen, no glare on the numbers.\n5. 4.6–6.4 s. Medium close-up on Aiden facing the monitor, static time-lapse. Monitor glow lights his focused face while the window behind him shifts from snow to spring rain to summer sun; his eyes narrow, steady and determined.\n6. 6.4–7.6 s. Macro insert, static. The phone fills the frame, held still and flat-on, and shows [Image7] exactly: same layout, numbers, colours and logo, nothing added or changed. Green light blooms off it.\n7. 7.6–9.0 s. Low-angle close-up, slow push-in. Aiden leans back in his chair, green light washing over him; a slow, quiet grin spreads across his face and holds.\nSound: no dialogue; a soft phone tap, a heavy fist thud and rattling can, rapid keyboard clicks, rain then birdsong outside the window, low room hum. No music."
+  },
+  {
+   "clip_id": "c3",
+   "seconds": 9,
+   "references": [
+    {
+     "kind": "image",
+     "id": "frame:c3",
+     "role": "storyboard frame"
+    },
+    {
+     "kind": "image",
+     "id": "char:1",
+     "role": "Aiden's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:2",
+     "role": "Uncle Rick's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:3",
+     "role": "Mom's look"
+    },
+    {
+     "kind": "image",
+     "id": "place:1",
+     "role": "family dining room at Thanksgiving"
+    },
+    {
+     "kind": "image",
+     "id": "screen:2",
+     "role": "fomo Token chart up screen, shown exactly"
+    }
+   ],
+   "prompt": "References: [Image1] storyboard frame, match its look and framing. [Image2] is Aiden. [Image3] is Uncle Rick. [Image4] is Mom. [Image5] is the family dining room at Thanksgiving. [Image6] is the fomo \"Token chart up\" screen.\nStyle: stylized 3D animated feature film, expressive faces, 9:16.\nSetting: the same Thanksgiving table one year later in warm golden candlelight, richer and softer than last year; relatives in the background lean in to watch; Aiden now sits in the light.\nShots (hard cuts):\n1. 0.0–0.8 s. Close insert, static. Aiden's hand rests on his phone, face-down on the tablecloth beside his plate.\n2. 0.8–2.0 s. Medium close-up on Rick, quick push-in. Rick smirks over his plate, fork raised. Uncle Rick sneers: \"Still in the basement?\"\n3. 2.0–3.0 s. Low tracking shot along the tabletop, following the phone. Aiden calmly slides his phone across the tablecloth toward Rick, screen angled away from the lens, past candles and dishes.\n4. 3.0–4.2 s. Top-down insert, static. The phone stops in front of Rick and fills the frame, held still and flat-on, and shows [Image6] exactly: same layout, numbers, colours and logo, nothing added or changed. No hands or glare on the screen.\n5. 4.2–5.2 s. Close-up on Rick, snap zoom. His fork freezes mid-air; his eyes bulge wide, then his jaw drops, held half a second.\n6. 5.2–6.0 s. Medium close-up on Mom, static. Mom lifts her glass to hide her smile, eyes shining with pride over the rim.\n7. 6.0–7.3 s. Tight close-up on Rick, slow push-in. Rick leans down toward the phone, voice cracking. Uncle Rick croaks: \"Is that... real?\"\n8. 7.3–9.0 s. Low-angle medium close-up on Aiden, slow push-in, hold. Aiden leans back in his chair, relaxed and slow, and holds out his hand with a small, confident smile. Aiden says, calm: \"Pass the potatoes, Rick.\"\nSound: the dialogue as written, soft candlelit dinner murmur, the phone sliding across the tablecloth, a fork clinking as the room goes quiet. No music."
+  }
+ ]
+}

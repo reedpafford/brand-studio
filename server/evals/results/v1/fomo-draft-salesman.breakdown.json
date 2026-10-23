@@ -1,0 +1,596 @@
+{
+ "hook": "In the first second a salesman slaps a teen's hand off a red sports car, right in his face, and snaps 'Hands off! Kids don't touch, kids don't test drive.' The public humiliation makes viewers stop to see the kid get even.",
+ "scenes": [
+  {
+   "id": 1,
+   "heading": "INT. CAR DEALERSHIP — DAY",
+   "look": "Sterile, glossy showroom in cold white overhead glare and chrome reflections; the red sports car is the only warm colour, and Kai's hoodie looks small against all the polish.",
+   "shots": [
+    {
+     "id": "1.1",
+     "script_lines": [
+      1,
+      2,
+      3
+     ],
+     "speaker": "Car salesman",
+     "line": "Hands off! Kids don't touch, kids don't test drive.",
+     "action": "Kai lays his palm on the red hood and the salesman slaps it away, leaning right into his face.",
+     "reaction": "Kai's hand jerks back off the hood.",
+     "camera": "Close two-shot over the gleaming hood, whip-pan up from the slap to the salesman's face, fast push-in",
+     "seconds": 2.4,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.2",
+     "script_lines": [
+      4
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai flinches, then plants his feet and squares up to the salesman.",
+     "reaction": "Kai's eyes blink hard, then his jaw sets and his chin lifts.",
+     "camera": "Close-up on Kai, slight low angle, static",
+     "seconds": 0.8,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.3",
+     "script_lines": [
+      5
+     ],
+     "speaker": "Kai",
+     "line": "I'm here to buy it.",
+     "action": "Kai looks the salesman dead in the eye.",
+     "reaction": null,
+     "camera": "Medium close-up on Kai, slow push-in",
+     "seconds": 1.4,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.4",
+     "script_lines": [
+      6
+     ],
+     "speaker": "Car salesman",
+     "line": "With what? Birthday money? This car costs more than your parents' house.",
+     "action": "The salesman laughs and looks Kai up and down, from the hoodie to the backpack.",
+     "reaction": "A smug, eyebrow-raised sneer.",
+     "camera": "High-angle over the salesman's shoulder looking down on Kai, then a cut-in close-up on the salesman's sneer",
+     "seconds": 3.1,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.5",
+     "script_lines": [
+      7
+     ],
+     "speaker": "Kai",
+     "line": "Give me ten minutes.",
+     "action": "Kai hitches his backpack strap and doesn't step back.",
+     "reaction": null,
+     "camera": "Tight close-up on Kai, static",
+     "seconds": 1.2,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.6",
+     "script_lines": [
+      8
+     ],
+     "speaker": "Car salesman",
+     "line": "Take twenty. I'll be here. Selling to real customers.",
+     "action": "The salesman waves him off with the back of his hand.",
+     "reaction": "Eyes rolling as he turns away.",
+     "camera": "Medium close-up on the salesman, static",
+     "seconds": 2.3,
+     "character_ids": [
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.7",
+     "script_lines": [
+      9,
+      10
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "The salesman turns his back and polishes the hood where Kai touched it.",
+     "reaction": "Kai watches, fists tightening at his sides.",
+     "camera": "Insert of the cloth rubbing out the handprint, Kai blurred in the background",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "heading": "INT. CAR DEALERSHIP — WAITING BENCH — CONTINUOUS",
+   "look": "A cold, blue-grey corner by the showroom window with Kai's face lit only by his phone; the salesman stays bright and distant across the floor until the chart flips and warm light floods Kai's face.",
+   "shots": [
+    {
+     "id": "2.1",
+     "script_lines": [
+      11,
+      12
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai drops onto the bench by the window and pulls out his phone.",
+     "reaction": null,
+     "camera": "High, isolated wide shot, Kai small on the bench with the car gleaming far away",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "2.2",
+     "script_lines": [
+      13
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "The fomo Home screen lights up on Kai's phone.",
+     "reaction": null,
+     "camera": "Macro insert, phone fills the frame, static",
+     "seconds": 1.0,
+     "character_ids": [],
+     "place_id": "place:1",
+     "moment": "app-open",
+     "screen_ids": [
+      "screen:1"
+     ]
+    },
+    {
+     "id": "2.3",
+     "script_lines": [
+      14
+     ],
+     "speaker": "Kai",
+     "line": "Okay. Let's go.",
+     "action": "Kai exhales and leans over the phone.",
+     "reaction": null,
+     "camera": "Close-up on Kai, phone glow on his face",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "2.4",
+     "script_lines": [
+      15,
+      16
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai taps in and the line drops.",
+     "reaction": null,
+     "camera": "Macro insert, phone fills the frame, static",
+     "seconds": 1.2,
+     "character_ids": [],
+     "place_id": "place:1",
+     "moment": "loss",
+     "screen_ids": [
+      "screen:3"
+     ]
+    },
+    {
+     "id": "2.5",
+     "script_lines": [
+      17
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai's face falls and he freezes.",
+     "reaction": "His face drains and his eyes lock on the screen without blinking.",
+     "camera": "Extreme close-up on Kai, cold blue light",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "2.6",
+     "script_lines": [
+      17,
+      18
+     ],
+     "speaker": "Car salesman",
+     "line": "Bus stop's around the corner, champ.",
+     "action": "Across the floor, the salesman smirks and calls over his shoulder.",
+     "reaction": "A wide, mocking smirk.",
+     "camera": "Long-lens medium shot across the showroom, Kai's shoulder soft in the foreground",
+     "seconds": 1.8,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "2.7",
+     "script_lines": [
+      19
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai stares at the screen in silence.",
+     "reaction": "His jaw clenches.",
+     "camera": "Close-up on Kai, static, dead quiet",
+     "seconds": 0.8,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "2.8",
+     "script_lines": [
+      20
+     ],
+     "speaker": "Kai",
+     "line": "Hold. Just hold.",
+     "action": "Kai whispers to himself, gripping the phone with both hands.",
+     "reaction": null,
+     "camera": "Extreme close-up on Kai's lips and eyes, slow push-in",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "2.9",
+     "script_lines": [
+      21
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai's thumb hovers over sell on the falling chart, then pulls back.",
+     "reaction": null,
+     "camera": "Macro insert over Kai's thumb on the phone, static",
+     "seconds": 0.8,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": "trading",
+     "screen_ids": [
+      "screen:3"
+     ]
+    },
+    {
+     "id": "2.10",
+     "script_lines": [
+      21
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "The showroom wall clock's minute hand jumps.",
+     "reaction": null,
+     "camera": "Insert of the wall clock, snap zoom",
+     "seconds": 0.6,
+     "character_ids": [],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "2.11",
+     "script_lines": [
+      21
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai's knee bounces under the phone.",
+     "reaction": null,
+     "camera": "Low insert on Kai's bouncing knee, handheld",
+     "seconds": 0.5,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "2.12",
+     "script_lines": [
+      22
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "The chart rockets up on Kai's phone.",
+     "reaction": null,
+     "camera": "Macro insert, phone fills the frame, static",
+     "seconds": 1.2,
+     "character_ids": [],
+     "place_id": "place:1",
+     "moment": "win",
+     "screen_ids": [
+      "screen:2"
+     ]
+    },
+    {
+     "id": "2.13",
+     "script_lines": [
+      23,
+      24
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai looks up from the phone, now lit warm.",
+     "reaction": "His eyes go wide, then a slow grin spreads across his face.",
+     "camera": "Close-up on Kai, slow push-in as the light shifts from blue to warm",
+     "seconds": 1.2,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "heading": "INT. CAR DEALERSHIP — MOMENTS LATER",
+   "look": "Warm gold showroom spotlights and a glowing red car; customers and staff in the background stop and turn to watch the reversal.",
+   "shots": [
+    {
+     "id": "3.1",
+     "script_lines": [
+      25,
+      26,
+      27
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Kai's phone, showing the chart up, is thrust up into the salesman's face as Kai walks straight up to him.",
+     "reaction": null,
+     "camera": "Tracking insert, phone held up and filling the frame, the salesman's face blurred behind it",
+     "seconds": 1.4,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": "win",
+     "screen_ids": [
+      "screen:2"
+     ]
+    },
+    {
+     "id": "3.2",
+     "script_lines": [
+      28
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "The salesman reads the screen and freezes.",
+     "reaction": "His jaw drops and stays hanging, eyes bulging, and he holds it.",
+     "camera": "Close-up on the salesman, snap zoom",
+     "seconds": 1.2,
+     "character_ids": [
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.3",
+     "script_lines": [
+      29
+     ],
+     "speaker": "Kai",
+     "line": "Still only for real customers?",
+     "action": "Kai lowers the phone and tilts his head.",
+     "reaction": "A cool half-smile.",
+     "camera": "Low-angle medium close-up on Kai, static",
+     "seconds": 1.5,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.4",
+     "script_lines": [
+      30
+     ],
+     "speaker": "Car salesman",
+     "line": "Sir! Can I get you a coffee? A test drive?",
+     "action": "The salesman snaps upright and gestures eagerly toward the car while background customers turn to stare.",
+     "reaction": "A desperate, too-wide grin and a sweaty brow.",
+     "camera": "Medium shot on the salesman, fast push-in, onlookers soft behind",
+     "seconds": 2.6,
+     "character_ids": [
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.5",
+     "script_lines": [
+      31
+     ],
+     "speaker": "Kai",
+     "line": "Kids don't test drive.",
+     "action": "Kai throws the salesman's words back at him.",
+     "reaction": "The salesman's grin freezes and cracks.",
+     "camera": "Over-the-shoulder close-up on Kai, low angle",
+     "seconds": 1.2,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.6",
+     "script_lines": [
+      32,
+      33
+     ],
+     "speaker": "Kai",
+     "line": "Keys.",
+     "action": "Kai holds out his open palm.",
+     "reaction": null,
+     "camera": "Insert of Kai's open palm, the salesman's face soft behind it, static",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.7",
+     "script_lines": [
+      34
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "The salesman drops the keys into Kai's palm and Kai slides into the driver's seat of the red car.",
+     "reaction": "The salesman slumps with his shoulders down.",
+     "camera": "Low-angle tracking shot following Kai into the car",
+     "seconds": 1.5,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.8",
+     "script_lines": [
+      35
+     ],
+     "speaker": "Kai",
+     "line": "Your move. Find it on fomo.",
+     "action": "From the driver's seat Kai looks to camera and holds up his phone showing the fomo Home screen.",
+     "reaction": null,
+     "camera": "Slow push-in on Kai through the windshield, direct to camera, phone screen readable",
+     "seconds": 1.8,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": "fomo-mention",
+     "screen_ids": [
+      "screen:1"
+     ]
+    }
+   ]
+  }
+ ],
+ "clips": [
+  {
+   "id": "c1",
+   "shot_ids": [
+    "1.1",
+    "1.2",
+    "1.3",
+    "1.4",
+    "1.5",
+    "1.6",
+    "1.7",
+    "2.1",
+    "2.2",
+    "2.3",
+    "2.4",
+    "2.5",
+    "2.6",
+    "2.7",
+    "2.8",
+    "2.9",
+    "2.10",
+    "2.11",
+    "2.12",
+    "2.13"
+   ],
+   "seconds": 26,
+   "seam": "Hard cut to moments later as Kai confronts the salesman."
+  },
+  {
+   "id": "c2",
+   "shot_ids": [
+    "3.1",
+    "3.2",
+    "3.3",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7",
+    "3.8"
+   ],
+   "seconds": 13,
+   "seam": "end"
+  }
+ ]
+}
