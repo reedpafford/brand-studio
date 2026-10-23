@@ -10,7 +10,7 @@ from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import upload
-from tests.helpers import assert_hidden
+from tests.helpers import _usd_keys, assert_hidden, assert_no_dollars
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_project_clips import _answer, _prompt
@@ -105,6 +105,9 @@ def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F
     assert video.json()["take_ids"] == [takes[0]["id"]] and video.json()["out_of_date"] is False
     data = editor.get(f"/files/{video.json()['file_id']}").content
     assert data[4:8] == b"ftyp" or b"ftyp" in data[:64]
+    assert_no_dollars(editor, [f"{base}/clips", f"{base}/video", f"/jobs/{job.json()['id']}"])
+    for r in (picked, video.json(), job.json()):
+        assert not _usd_keys(r)
     editor.post(f"{url}/takes/{takes[1]['id']}/pick")  # a different take: the video is old
     assert editor.get(f"{base}/video").json()["out_of_date"] is True
     assert db.query(Job).filter_by(kind="video").count() == 2
@@ -158,3 +161,37 @@ def test_stale_and_replaced_clips(app, db, editor, setup, clip):  # noqa: F811
     assert editor.get(f"{base}/clips").json()[0]["stale"] is True
     r = editor.post(f"{url}/generate")
     assert r.status_code == 409 and "older breakdown" in r.json()["detail"]
+
+
+def test_money_rules(app, db, owner, editor, setup, clip):  # noqa: F811
+    base = f"/projects/{setup['project']}"
+    url = f"{base}/clips/{clip['id']}"
+    used = editor.get(base).json()["credits_used"]  # the Claude steps so far
+    job = editor.post(f"{url}/generate").json()
+    assert job["credits"] == clip["seconds"] == 5  # 1 credit per second at 480p
+    assert editor.get(base).json()["credits_used"] == pytest.approx(used + 5)
+    _work(app, db, FakeSeedance([_mp4("red")]))
+
+    limits = {"max_planned_seconds": 170, "weekly_quick_clip_credits": 150}
+    owner.put("/credits/limits", json={**limits, "per_video_max_credits": int(used) + 9})
+    over = editor.post(f"{url}/generate")  # 5 more would pass the per-video cap
+    assert (over.status_code, over.json()["detail"]) == (409, "This video would go over its limit.")
+    assert "$" not in over.json()["detail"]  # editors never see dollars
+
+
+def test_reference_without_a_picture(app, db, editor, setup, clip):  # noqa: F811
+    voiceless = editor.post("/library/character", json={"name": "Ghost"}).json()["id"]
+    project = f"/projects/{setup['project']}"
+    editor.patch(project, json={"cast_ids": [*editor.get(project).json()["cast_ids"], voiceless]})
+    refs = [*clip["references"], {"kind": "image", "id": f"char:{voiceless}", "role": "Ghost"}]
+    with_ghost = {"prompt": clip["prompt"], "references": refs}
+    from app.models.clips import ProjectClip
+
+    row = db.get(ProjectClip, clip["id"])
+    row.references, row.problems = with_ghost["references"], []  # as if Claude picked it
+    db.commit()
+    r = editor.post(f"{project}/clips/{clip['id']}/generate")
+    assert (r.status_code, r.json()["detail"]) == (
+        422,
+        f"char:{voiceless} has no picture yet. Add one in the library.",
+    )

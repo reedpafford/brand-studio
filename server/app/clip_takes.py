@@ -30,6 +30,8 @@ def take_input(db: Session, project: Project, clip: ProjectClip) -> dict:
         if ref["id"] not in known:
             raise HTTPException(409, f"{ref['id']} is no longer part of this project.")
         _, kind, file_ids = known[ref["id"]]
+        if not file_ids:
+            raise HTTPException(422, f"{ref['id']} has no picture yet. Add one in the library.")
         files[KEYS[kind]].append(file_ids[0])
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
