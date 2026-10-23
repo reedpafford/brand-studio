@@ -16,7 +16,6 @@ from app.catalogue import get_model
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.credits import (
-    DEFAULT_MAX_PLANNED_SECONDS,
     DEFAULT_PER_VIDEO_MAX_CREDITS,
     DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
     USD_PER_CREDIT,
@@ -94,7 +93,6 @@ def get_limits(db: Session, workspace_id: int) -> CreditLimits:
         select(CreditLimits).where(CreditLimits.workspace_id == workspace_id)
     ) or CreditLimits(
         workspace_id=workspace_id,
-        max_planned_seconds=DEFAULT_MAX_PLANNED_SECONDS,
         weekly_quick_clip_credits=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
         per_video_max_credits=DEFAULT_PER_VIDEO_MAX_CREDITS,
     )

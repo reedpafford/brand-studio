@@ -1715,8 +1715,6 @@ export interface components {
         Kind: "character" | "place" | "prop";
         /** LimitsIn */
         LimitsIn: {
-            /** Max Planned Seconds */
-            max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number | string;
             /** Per Video Max Credits */
@@ -1724,8 +1722,6 @@ export interface components {
         };
         /** LimitsOut */
         LimitsOut: {
-            /** Max Planned Seconds */
-            max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number;
             /** Per Video Max Credits */

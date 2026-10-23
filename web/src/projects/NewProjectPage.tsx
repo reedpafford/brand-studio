@@ -23,8 +23,7 @@ export function NewProjectPage() {
     queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "character" }, query: { brand_id: brandId } } })).data ?? [],
   });
   const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
-  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 170; // budget is 2x the 480p seconds
-  const needsApproval = limits.data ? form.seconds > limits.data.max_planned_seconds : false;
+  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 364; // budget is 2x the 480p seconds
 
   const upload = useMutation({ mutationFn: uploadFile, onSuccess: (f) => setReference(f.id) });
   const create = useMutation({
@@ -103,7 +102,6 @@ export function NewProjectPage() {
           Planned length (seconds)
           <input className={input} type="number" required min={1} max={longest} value={form.seconds} onChange={(e) => set("seconds", Number(e.target.value))} />
           <span className="block text-muted">Up to {longest}s. Budget: {form.seconds * 2} credits (twice the length).</span>
-          {needsApproval && <span className="block text-warning">Over {limits.data?.max_planned_seconds}s Reed has to approve the project.</span>}
         </label>
         <fieldset className="space-y-1 text-sm">
           <legend className="font-medium">Who's in it</legend>
