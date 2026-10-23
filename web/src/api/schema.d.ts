@@ -1612,6 +1612,8 @@ export interface components {
              * @default
              */
             prompt_summary: string;
+            /** Step */
+            step?: string | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1660,6 +1662,8 @@ export interface components {
              * @default
              */
             prompt_summary: string;
+            /** Step */
+            step?: string | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
