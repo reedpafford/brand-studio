@@ -7,27 +7,27 @@ from tests.helpers import assert_hidden, assert_no_dollars
 
 
 def test_team_sees_jobs_and_can_cancel_queued(editor, db):
-    job = enqueue(db, db.query(User).first(), "video", {"seconds": 2})
+    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 2})
     assert [j["id"] for j in editor.get("/jobs").json()] == [job.id]
     assert editor.post(f"/jobs/{job.id}/cancel").json()["status"] == "cancelled"
     assert editor.post(f"/jobs/{job.id}/cancel").status_code == 409
 
 
 def test_started_job_cannot_be_cancelled(owner, db):
-    job = enqueue(db, db.query(User).one(), "video", {})
+    job = enqueue(db, db.query(User).one(), "video-480p", {})
     run_once(db, {"fake": FakeProvider()})
     assert owner.get(f"/jobs/{job.id}").json()["status"] == JobStatus.running
     assert owner.post(f"/jobs/{job.id}/cancel").status_code == 409
 
 
 def test_other_workspace_cannot_see_job(owner, outsider, db):
-    job = enqueue(db, db.query(User).first(), "video", {})
+    job = enqueue(db, db.query(User).first(), "video-480p", {})
     assert_hidden(outsider, [("GET", f"/jobs/{job.id}"), ("POST", f"/jobs/{job.id}/cancel")])
     assert outsider.get("/jobs").json() == []
 
 
 def test_editor_sees_no_dollars_on_finished_jobs(editor, db):
-    job = enqueue(db, db.query(User).first(), "video", {"seconds": 3})
+    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 3})
     fake = FakeProvider()
     run_once(db, {"fake": fake})
     run_once(db, {"fake": fake})
@@ -35,7 +35,7 @@ def test_editor_sees_no_dollars_on_finished_jobs(editor, db):
 
 
 def test_usage_dollars_are_owner_only(owner, editor, db):
-    enqueue(db, db.query(User).first(), "video", {"seconds": 10})
+    enqueue(db, db.query(User).first(), "video-480p", {"seconds": 10})
     fake = FakeProvider()
     run_once(db, {"fake": fake})
     run_once(db, {"fake": fake})
@@ -44,7 +44,7 @@ def test_usage_dollars_are_owner_only(owner, editor, db):
 
 
 def test_editor_never_sees_raw_provider_errors(owner, editor, db):
-    job = enqueue(db, db.query(User).first(), "video", {})
+    job = enqueue(db, db.query(User).first(), "video-480p", {})
     fake = FakeProvider()
     fake.submit_error = RuntimeError("insufficient credit, balance $3.20 key=abc")
     run_once(db, {"fake": fake})
@@ -55,7 +55,7 @@ def test_editor_never_sees_raw_provider_errors(owner, editor, db):
 
 
 def test_editor_job_payload_has_no_money(editor, db):
-    job = enqueue(db, db.query(User).first(), "video", {"seconds": 4})
+    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 4})
     fake = FakeProvider()
     run_once(db, {"fake": fake})
     run_once(db, {"fake": fake})
