@@ -1,0 +1,156 @@
+{
+ "Input": {
+  "properties": {
+   "aspect_ratio": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/aspect_ratio"
+     }
+    ],
+    "default": "16:9",
+    "description": "Video aspect ratio. Set to 'adaptive' to let the model choose the best ratio based on inputs.",
+    "x-order": 8
+   },
+   "duration": {
+    "default": 5,
+    "description": "Video duration in seconds. Set to -1 for intelligent duration (model picks the best length).",
+    "maximum": 15,
+    "minimum": -1,
+    "title": "Duration",
+    "type": "integer",
+    "x-order": 6
+   },
+   "generate_audio": {
+    "default": true,
+    "description": "Generate synchronized audio with the video, including dialogue (use double quotes in prompt), sound effects, and background music.",
+    "title": "Generate Audio",
+    "type": "boolean",
+    "x-order": 9
+   },
+   "image": {
+    "default": null,
+    "description": "Input image for image-to-video generation (first frame). Cannot be combined with reference images.",
+    "format": "uri",
+    "nullable": true,
+    "title": "Image",
+    "type": "string",
+    "x-order": 1
+   },
+   "last_frame_image": {
+    "default": null,
+    "description": "Input image for last frame generation. Only works if a first frame image is also provided. Cannot be combined with reference images.",
+    "format": "uri",
+    "nullable": true,
+    "title": "Last Frame Image",
+    "type": "string",
+    "x-order": 2
+   },
+   "prompt": {
+    "description": "Text prompt for video generation. Maximum 4000 characters. BytePlus recommends keeping prompts under 600 English words for best results.",
+    "maxLength": 4000,
+    "title": "Prompt",
+    "type": "string",
+    "x-order": 0
+   },
+   "reference_audios": {
+    "default": [],
+    "description": "Reference audio files (up to 3, total duration max 15s) for audio-driven generation and lip-sync. Requires at least one reference image or video. Reference them in your prompt as [Audio1], [Audio2], etc.",
+    "items": {
+     "format": "uri",
+     "type": "string"
+    },
+    "title": "Reference Audios",
+    "type": "array",
+    "x-order": 5
+   },
+   "reference_images": {
+    "default": [],
+    "description": "Reference images (up to 9) for character consistency, style guidance, and scene composition. Cannot be used together with first/last frame images. You can reference them in your prompt as [Image1], [Image2], etc.",
+    "items": {
+     "format": "uri",
+     "type": "string"
+    },
+    "title": "Reference Images",
+    "type": "array",
+    "x-order": 3
+   },
+   "reference_videos": {
+    "default": [],
+    "description": "Reference videos (up to 3, total duration max 15s) for motion transfer, style reference, and editing. Reference them in your prompt as [Video1], [Video2], etc.",
+    "items": {
+     "format": "uri",
+     "type": "string"
+    },
+    "title": "Reference Videos",
+    "type": "array",
+    "x-order": 4
+   },
+   "resolution": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/resolution"
+     }
+    ],
+    "default": "720p",
+    "description": "Video resolution. 4K outputs 10-bit H.265/HEVC at high bitrate.",
+    "x-order": 7
+   },
+   "seed": {
+    "default": null,
+    "description": "Random seed. Set for reproducible generation.",
+    "nullable": true,
+    "title": "Seed",
+    "type": "integer",
+    "x-order": 10
+   }
+  },
+  "required": [
+   "prompt"
+  ],
+  "title": "Input",
+  "type": "object"
+ },
+ "enums": {
+  "Status": {
+   "description": "An enumeration.",
+   "enum": [
+    "starting",
+    "processing",
+    "succeeded",
+    "canceled",
+    "failed"
+   ],
+   "title": "Status",
+   "type": "string"
+  },
+  "aspect_ratio": {
+   "description": "An enumeration.",
+   "enum": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "21:9",
+    "9:21",
+    "adaptive"
+   ],
+   "title": "aspect_ratio",
+   "type": "string"
+  },
+  "resolution": {
+   "description": "An enumeration.",
+   "enum": [
+    "480p",
+    "720p",
+    "1080p",
+    "4k"
+   ],
+   "title": "resolution",
+   "type": "string"
+  }
+ },
+ "fetched": "2026-10-23",
+ "model": "bytedance/seedance-2.0",
+ "version": "9d81317f58059c832bd001ac5906824c1b2b09f8c30330a5072e201cc8bcf7ec"
+}
