@@ -51,3 +51,4 @@ class Usage(Entity, Base):
     units: Mapped[Decimal] = mapped_column(Numeric(12, 3))
     unit: Mapped[str] = mapped_column(String(20))  # e.g. second, image, token
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    estimated: Mapped[bool] = mapped_column(default=False)  # amount not reported by provider

@@ -77,3 +77,10 @@ def test_prices_are_owner_only(owner, editor):
 
 def test_unknown_model_is_404(editor):
     assert editor.get("/models/nope").status_code == 404
+
+
+def test_seeded_rates_come_from_the_catalogue(editor):
+    rates = {r["kind"]: r["credits_per_unit"] for r in editor.get("/credits/rates").json()}
+    nb = get_model("nano-banana-2.1")
+    assert rates["image-nano-banana-2.1"] == float(nb.credits_per_unit("1K"))
+    assert rates["video-720p"] == float(get_model("seedance-2.5").credits_per_unit("720p"))
