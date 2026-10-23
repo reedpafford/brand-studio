@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
+import { linkText } from "../ui";
 import { AuthForm } from "./AuthForm";
 
 export function LoginPage() {
@@ -12,11 +13,6 @@ export function LoginPage() {
         { name: "password", label: "Password", type: "password", autoComplete: "current-password" },
       ]}
       submit={(v) => api.POST("/auth/login", { body: { email: v.email, password: v.password } })}
-      footer={
-        <p className="text-sm text-neutral-600">
-          First time here? <Link className="underline" to="/setup">Set up the studio</Link>
-        </p>
-      }
     />
   );
 }
@@ -45,8 +41,8 @@ export function SetupPage() {
         })
       }
       footer={
-        <p className="text-sm text-neutral-600">
-          Already set up? <Link className="underline" to="/login">Sign in</Link>
+        <p className="text-sm text-muted">
+          Already set up? <Link className={linkText} to="/login">Sign in</Link>
         </p>
       }
     />

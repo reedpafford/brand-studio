@@ -9,8 +9,8 @@ import { fakeServer } from "../test/server";
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { ...owner, id: 2, name: "Eli", role: "editor" };
 const brands = [
-  { id: 1, name: "fomo" },
-  { id: 2, name: "Iron Paws" },
+  { id: 1, name: "fomo", colours: ["#ff5500"] },
+  { id: 2, name: "Iron Paws", colours: [] },
 ];
 const members = [
   { id: 1, email: "reed@b.co", name: "Reed", role: "owner" },
@@ -38,6 +38,24 @@ test("the first brand opens, and the switcher changes brand", async () => {
   expect(await screen.findByRole("heading", { name: "Iron Paws" })).toBeInTheDocument();
 });
 
+test("the brand's colour is applied, and cleared for a brand without one", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands] });
+  renderAt("/b/1");
+  await screen.findByRole("heading", { name: "fomo" });
+  expect(document.documentElement.style.getPropertyValue("--brand")).toBe("#ff5500");
+  await userEvent.selectOptions(screen.getByLabelText("Brand"), "Iron Paws");
+  await screen.findByRole("heading", { name: "Iron Paws" });
+  expect(document.documentElement.style.getPropertyValue("--brand")).toBe("");
+});
+
+test("the team page keeps the brand you were in", async () => {
+  localStorage.setItem("bs.lastBrand", "2");
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []] });
+  renderAt("/team");
+  expect(await screen.findByLabelText("Brand")).toHaveValue("2");
+  expect(screen.getByRole("link", { name: "Kit" })).toHaveAttribute("href", "/b/2/kit");
+});
+
 test("the last brand you used opens next time", async () => {
   localStorage.setItem("bs.lastBrand", "2");
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands] });
@@ -51,12 +69,18 @@ test("the owner can invite and gets the link once", async () => {
     "GET /brands": [200, brands],
     "GET /team/members": [200, members],
     "GET /team/invites": [200, []],
-    "POST /team/invites": [201, { id: 3, email: "new@b.co", role: "editor", expires_at: "2026-11-01T00:00:00Z", token: "tok123" }],
+    "POST /team/invites": [201, { id: 3, email: "new@b.co", role: "editor", expires_at: "2026-11-01T12:00:00Z", token: "tok123" }],
   });
   renderAt("/team");
   await userEvent.type(await screen.findByLabelText("Email to invite"), "new@b.co");
   await userEvent.click(screen.getByRole("button", { name: "Create invite link" }));
   expect(await screen.findByLabelText("Invite link")).toHaveValue(`${location.origin}/invite/tok123`);
+  expect(screen.getByText(/Works once\. Expires/)).toBeInTheDocument();
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
+  expect(writeText).toHaveBeenCalledWith(`${location.origin}/invite/tok123`);
+  expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
   expect(calls.find((c) => c.key === "POST /team/invites")?.body).toEqual({ email: "new@b.co", role: "editor" });
 });
 
@@ -72,6 +96,21 @@ test("an editor sees the team but cannot invite or remove", async () => {
 test("signing out returns to sign in", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "POST /auth/logout": [204, null] });
   renderAt("/");
-  await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
+  await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
   expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+});
+
+test("an unknown brand in the address does not pretend to be selected", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands] });
+  renderAt("/b/999");
+  expect(await screen.findByLabelText("Brand")).toHaveValue("");
+});
+
+test("a failed remove tells you", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []], "DELETE /team/members/2": [500, {}] });
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderAt("/team");
+  await userEvent.click(await screen.findByRole("button", { name: "Remove Eli" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not remove that person");
 });
