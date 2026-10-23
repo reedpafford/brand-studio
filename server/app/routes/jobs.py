@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,48 @@ class JobOut(BaseModel):
     error: str
     created_at: datetime
     finished_at: datetime | None
+    # Safe summary of what was asked, for history lists (from the job's input).
+    prompt_summary: str = ""
+    model_id: str | None = None
+    brand_id: int | None = None
+    duration: int | None = None
+    aspect_ratio: str | None = None
+    resolution: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _summary(cls, job):
+        if not isinstance(job, Job):
+            return job
+        data = {
+            f: getattr(job, f)
+            for f in (
+                "id",
+                "kind",
+                "project_id",
+                "credits",
+                "status",
+                "output",
+                "error",
+                "created_at",
+                "finished_at",
+            )
+        }
+        extra = {
+            f: getattr(job, f)
+            for f in ("provider", "provider_ref", "error_detail", "approved_by_id")
+            if hasattr(job, f)
+        }
+        given = job.input.get("input") or {}
+        prompt = str(given.get("prompt", ""))
+        return {
+            **data,
+            **extra,
+            "prompt_summary": prompt if len(prompt) <= 140 else prompt[:139] + "…",
+            "model_id": job.input.get("model"),
+            "brand_id": job.input.get("brand_id"),
+            **{k: given.get(k) for k in ("duration", "aspect_ratio", "resolution")},
+        }
 
 
 class JobDetailOut(JobOut):

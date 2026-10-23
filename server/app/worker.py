@@ -7,6 +7,7 @@ Rules
 - After a restart, running jobs with a provider reference are simply checked again.
 """
 
+import base64
 import hashlib
 import logging
 import time
@@ -170,9 +171,34 @@ def check_running(
         db.commit()
 
 
-def start_next(db: Session, providers: dict[str, Provider]) -> bool:
-    """Hand the oldest queued job to its provider. Returns False if the queue is empty."""
-    job = db.scalar(select(Job).where(Job.status == JobStatus.queued).order_by(Job.id).limit(1))
+def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
+    """The job's input with its file ids (job.input["files"]) turned into data URLs."""
+    payload = dict(job.input)
+    for key, ids in (job.input.get("files") or {}).items():
+        urls = []
+        for file_id in ids:
+            stored = db.get(StoredFile, file_id)
+            if storage is None or not stored or stored.workspace_id != job.workspace_id:
+                raise RuntimeError(f"Reference file {file_id} is missing.")
+            data = base64.b64encode(storage.get(stored.key)).decode()
+            urls.append(f"data:{stored.content_type};base64,{data}")
+        payload["input"] = {**payload["input"], key: urls}
+    return payload
+
+
+def start_next(
+    db: Session,
+    providers: dict[str, Provider],
+    storage: Storage | None = None,
+    allow_paid: bool = True,
+) -> bool:
+    """Hand the oldest queued job to its provider. Returns False if the queue is empty.
+    With `allow_paid` off (generation switched off), paid providers' jobs are left queued."""
+    query = select(Job).where(Job.status == JobStatus.queued)
+    if not allow_paid:
+        paid = [name for name, p in providers.items() if p.paid]
+        query = query.where(Job.provider.not_in(paid))
+    job = db.scalar(query.order_by(Job.id).limit(1))
     if not job:
         return False
     if not _move(
@@ -187,7 +213,7 @@ def start_next(db: Session, providers: dict[str, Provider]) -> bool:
         db.commit()
         return True
     try:
-        ref = provider.submit(job.kind, job.input)
+        ref = provider.submit(job.kind, _files_as_data(db, storage, job))
     except NotStarted as exc:
         db.refresh(job)
         if job.attempts < MAX_SUBMIT_TRIES:
@@ -210,12 +236,17 @@ def start_next(db: Session, providers: dict[str, Provider]) -> bool:
     return True
 
 
-def run_once(db: Session, providers: dict[str, Provider], storage: Storage | None = None) -> None:
+def run_once(
+    db: Session,
+    providers: dict[str, Provider],
+    storage: Storage | None = None,
+    allow_paid: bool = True,
+) -> None:
     check_running(db, providers, storage)
     # At most one start per queued job per tick, so a requeued job waits for the next tick.
     queued = db.scalar(select(func.count(Job.id)).where(Job.status == JobStatus.queued))
     for _ in range(queued):
-        if not start_next(db, providers):
+        if not start_next(db, providers, storage, allow_paid):
             break
 
 
@@ -229,10 +260,12 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
     sessions = make_sessionmaker(settings.database_url)
     with sessions() as db:
         recover(db, providers)
+    if not settings.generation_enabled:
+        log.warning("Generation is switched off (BS_GENERATION_ENABLED): paid jobs stay queued.")
     while True:
         try:
             with sessions() as db:
-                run_once(db, providers, storage)
+                run_once(db, providers, storage, settings.generation_enabled)
         except Exception:  # keep the worker alive through e.g. a database hiccup
             log.exception("worker tick failed; trying again next tick")
         time.sleep(settings.worker_poll_seconds)
