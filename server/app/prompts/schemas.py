@@ -187,3 +187,10 @@ class ClipPrompt(BaseModel):
 
 class ClipPrompts(BaseModel):
     clips: list[ClipPrompt]
+
+
+# --- Quick clip: Improve prompt ---
+
+
+class ImprovedPrompt(BaseModel):
+    prompt: str = Field(description="The video prompt, in the shape the system prompt shows.")

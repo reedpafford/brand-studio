@@ -1,12 +1,18 @@
 """Storyboard frame prompts with a mocked Claude (no paid calls)."""
 
 import copy
+import json
+
+import httpx2 as httpx
 
 from app.models.jobs import Job
-from tests.conftest import upload
+from app.providers.replicate import ReplicateProvider
+from app.worker import run_once
+from tests.conftest import PNG, upload
 from tests.helpers import assert_hidden, assert_no_dollars
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
+from tests.test_replicate import BASE
 
 
 def _frames(char: str, screen: str) -> dict:
@@ -92,3 +98,51 @@ def test_breakdown_ids_must_be_the_projects(app, db, editor, setup):  # noqa: F8
     bad["scenes"][0]["shots"][0]["place_id"] = "place:7"
     _run(app, db, FakeClaude(bad))
     assert "shot 1.1: unknown place:7" in editor.get(url).json()["problems"]
+
+
+class FakeNanoBanana:
+    """Replicate answering one image prediction: done on the first check, a PNG to fetch."""
+
+    def __init__(self):
+        self.requests = []
+
+    def __call__(self, request):
+        self.requests.append(request)
+        url = str(request.url)
+        if request.method == "POST":
+            return httpx.Response(201, json={"id": "p1", "status": "starting"})
+        if url.endswith("/predictions/p1"):
+            done = {"id": "p1", "status": "succeeded", "metrics": {"predict_time": 3.0}}
+            return httpx.Response(200, json={**done, "output": "https://replicate.delivery/a.png"})
+        if url == "https://replicate.delivery/a.png":
+            return httpx.Response(200, content=PNG, headers={"content-type": "image/png"})
+        return httpx.Response(404)
+
+
+def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
+    mom = editor.post(
+        "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
+    ).json()
+    editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom["id"]]})
+    _with_breakdown(app, db, editor, setup)
+    url = f"/projects/{setup['project']}/storyboard"
+    editor.post(url, json={})
+    screen = f"screen:{setup['screen']}"
+    _run(app, db, FakeClaude(_frames(f"char:{mom['id']}", screen)))
+    frame = editor.get(url).json()[0]
+
+    job = editor.post(f"{url}/frames/{frame['id']}/render")
+    assert job.status_code == 201 and job.json()["credits"] == 0.33  # Nano Banana 2.1
+    assert editor.post(f"{url}/frames/{frame['id']}/render").status_code == 409  # once
+    fake = FakeNanoBanana()
+    client = httpx.Client(transport=httpx.MockTransport(fake))
+    for _ in range(2):
+        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+    sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
+    assert sent["aspect_ratio"] == "9:16" and len(sent["image_input"]) == 2  # sheet, screen
+    assert db.get(Job, job.json()["id"]).status == "succeeded"
+    still = editor.get(url).json()[0]["file_id"]
+    assert still and editor.get(f"/files/{still}").content == PNG
+
+    editor.put(f"{url}/frames/{frame['id']}", json={"prompt": "x", "reference_ids": ["char:9"]})
+    assert editor.post(f"{url}/frames/{frame['id']}/render").status_code == 409  # has problems

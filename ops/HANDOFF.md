@@ -20,7 +20,7 @@
 - Scripts: brief on projects; versions via paste/upload (txt/docx/pdf). Enhance: `POST .../script/enhance` (Claude via Director prompts + `check.enhance`), accept/reject, `POST .../script/apply` → new version. Enhance never changes the script's words: marks only add lines before/after a line; `notes` (problems in the words) are shown as information.
 - Script drafts: `POST .../script/draft` (2–3 drafts by Claude; adapts the project's `reference_breakdown` if set, checked against docs/references shape), `GET .../script/drafts`, `POST .../script/drafts/{job}/{n}/use` → new version.
 - Breakdown: `POST /projects/{id}/breakdown` (Claude, 32k tokens, `check.breakdown` problems saved with it), `GET` newest (with `stale` if the script changed), `PUT` saves the editor's edit as a new row.
-- Storyboard: `POST /projects/{id}/storyboard` (Claude writes frame prompts + references from the newest breakdown; `per_shot` optional; replaces old frames), `GET` frames (problems, `stale`), `PUT .../frames/{id}` edit. Rendering stills: next PR.
+- Storyboard: `POST /projects/{id}/storyboard` (Claude writes frame prompts + references from the newest breakdown; `per_shot` optional; replaces old frames), `GET` frames (problems, `stale`), `PUT .../frames/{id}` edit; `POST .../frames/{id}/render` makes the still with Nano Banana (paid, project aspect, refused while the frame has problems).
 ## Next
 - Builder-Server: #24 next: script draft, breakdown, storyboard, clip prompts; then Quick clip "Improve prompt".
 - Director's paid evals: log each paid call in ops/SPEND.md when it runs.
