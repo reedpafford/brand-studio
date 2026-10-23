@@ -124,3 +124,15 @@ def test_sheet_rules(app, editor, outsider):
         assert editor.post(f"/library/place/{cafe['id']}/sheet", json={}).status_code == 503
     finally:
         app.state.settings.generation_enabled = True
+
+
+def test_sheet_held_for_the_owner_says_so(owner, editor):
+    owner.put(
+        "/credits/limits", json={"weekly_quick_clip_credits": 1, "per_video_max_credits": 729}
+    )
+    mia = editor.post("/library/character", json={"name": "Mia", "notes": "teen trader"}).json()
+    url = f"/library/character/{mia['id']}"
+    held = editor.post(f"{url}/sheet", json={}).json()
+    assert held["status"] == "needs_owner_approval"
+    assert editor.get(url).json()["sheet_status"] == "waiting_for_owner"
+    assert editor.post(f"{url}/sheet", json={}).status_code == 409  # still one at a time

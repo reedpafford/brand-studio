@@ -26,13 +26,18 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const [redoing, setRedoing] = useState<string | null>(null);
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const price = models.data?.find((m) => m.id === MODEL)?.credits_per_unit?.[RESOLUTION];
+  const allowance = useQuery({ queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
   const jobs = useJobs();
   const last = (jobs.data ?? []).filter((j) => j.step === "sheet" && j.library_item_id === item.id).sort((a, b) => b.id - a.id)[0];
   const status = item.sheet_status;
   const drawing = status === "drawing";
+  const held = status === "waiting_for_owner"; // over the weekly allowance: Reed has to say yes
   const failed = last?.status === "failed" && !drawing;
   const photo = item.source_photo_file_id;
   const cost = price === undefined ? "" : ` · ${credits(price)}`;
+  // Past the weekly allowance, the sheet is held for Reed instead of starting.
+  const over = price !== undefined && !!allowance.data && allowance.data.quick_clip_credits_used + price > allowance.data.quick_clip_credits_allowed;
+  const ask = over ? "Ask Reed to approve" : null;
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -79,7 +84,8 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
       </label>
       <div className="flex flex-wrap gap-2">
         <button className={`${btnPrimary} ${btn}`} disabled={make.isPending} onClick={() => make.mutate((redoing ?? "").trim())}>
-          Redo{cost}
+          {ask ?? "Redo"}
+          {cost}
         </button>
         <button className={`${btnSecondary} ${btn}`} onClick={() => setRedoing(null)}>
           Cancel
@@ -102,7 +108,11 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           {upload.isPending && <span className="text-muted"> Uploading…</span>}
         </div>
         <div className="space-y-2 text-sm">
-          {drawing ? (
+          {held ? (
+            <div className="grid min-h-40 place-items-center rounded-md bg-surface-2 text-muted" aria-label="Waiting for Reed">
+              Waiting for Reed to approve
+            </div>
+          ) : drawing ? (
             <div className="grid min-h-40 place-items-center rounded-md bg-surface-2 text-muted" aria-label="Drawing the sheet">
               Drawing… {last && <Elapsed since={last.created_at} />}
             </div>
@@ -115,22 +125,23 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           ) : null}
           {status === "approved" && <p className="font-medium text-success">✓ Approved sheet</p>}
           {status === "needs_approval" && <p className="text-warning">Needs a sheet approval. Videos only use an approved sheet.</p>}
-          {status === "none" && !failed && <p className="text-warning">Needs a sheet</p>}
+          {status === "none" && !failed && !held && <p className="text-warning">Needs a sheet</p>}
           {failed && <p className="text-danger">Didn't finish · credits returned</p>}
           {drawing && <p className="text-muted">A sheet is being made.</p>}
+          {held && <p className="text-muted">The sheet starts when Reed says yes. You can't ask for another meanwhile.</p>}
         </div>
       </div>
-      {!drawing && status === "none" && (photo || kind === "place") && (
+      {!drawing && !held && status === "none" && (photo || kind === "place") && (
         <div className="space-y-2">
           <p>{photo ? "Turn this photo into a house-style sheet?" : "Make a sheet from the notes?"}</p>
           <button className={`${btnPrimary} ${btn}`} disabled={make.isPending} onClick={() => make.mutate("")}>
-            {failed ? "Try again" : "Make house-style sheet"}
+            {ask ?? (failed ? "Try again" : "Make house-style sheet")}
             {cost}
           </button>
         </div>
       )}
-      {!drawing && status === "none" && !photo && kind === "character" && <p className="text-muted">Upload a photo to make a sheet.</p>}
-      {!drawing && (status === "needs_approval" || status === "approved") && (
+      {!drawing && !held && status === "none" && !photo && kind === "character" && <p className="text-muted">Upload a photo to make a sheet.</p>}
+      {!drawing && !held && (status === "needs_approval" || status === "approved") && (
         <div className="flex flex-wrap gap-2">
           {status === "needs_approval" && (
             <button className={`${btnPrimary} ${btn}`} disabled={approve.isPending} onClick={() => approve.mutate()}>
@@ -144,12 +155,13 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           )}
           {redoing === null && (
             <button className={`${btnSecondary} ${btn}`} onClick={() => setRedoing("")}>
-              Redo{cost}
+              {ask ?? "Redo"}
+              {cost}
             </button>
           )}
         </div>
       )}
-      {redoing !== null && !drawing && (phone ? <Sheet title="Redo the sheet" onClose={() => setRedoing(null)}>{redoForm}</Sheet> : redoForm)}
+      {redoing !== null && !drawing && !held && (phone ? <Sheet title="Redo the sheet" onClose={() => setRedoing(null)}>{redoForm}</Sheet> : redoForm)}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
     </section>
   );

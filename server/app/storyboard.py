@@ -18,7 +18,7 @@ from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
-from app.prompts.schemas import Frame, StoryboardFrames
+from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
 from app.sheets import require_cast_sheets, require_sheet, usable_files
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
@@ -75,11 +75,13 @@ def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: boo
     }
 
 
-def frame_problems(db: Session, project: Project, frame: Frame) -> list[str]:
+def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: int) -> list[str]:
+    """With the frame's breakdown, a character in the shot but not attached is flagged too."""
     m = image_model()
     known = assets(db, project)
+    bd = Breakdown.model_validate(db.get(BreakdownVersion, breakdown_id).data)
     problems = check.storyboard(
-        StoryboardFrames(frames=[frame]), m.max_reference_images, m.max_character_images
+        StoryboardFrames(frames=[frame]), m.max_reference_images, m.max_character_images, bd
     )
     problems += [
         f"{frame.clip_id}: unknown reference {r}" for r in frame.reference_ids if r not in known
@@ -102,7 +104,7 @@ def save_frames(db: Session, job: Job) -> None:
                 shot_id=f.shot_id,
                 prompt=f.prompt,
                 reference_ids=f.reference_ids,
-                problems=frame_problems(db, project, f),
+                problems=frame_problems(db, project, f, job.input["breakdown_id"]),
             )
         )
 
