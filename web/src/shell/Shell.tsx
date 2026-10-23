@@ -62,6 +62,9 @@ export function Shell() {
             <NavLink end to={`/b/${current}`} className={link}>
               Brand
             </NavLink>
+            <NavLink to={`/b/${current}/clip`} className={link}>
+              Quick clip
+            </NavLink>
             <NavLink to={`/b/${current}/library`} className={link}>
               Library
             </NavLink>
