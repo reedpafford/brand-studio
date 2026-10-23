@@ -282,6 +282,20 @@ def test_breakdown_check_wants_the_script_to_end_on_the_brands_end_line():
     )
 
 
+def test_sheet_prompts_are_house_style_with_no_names_or_text():
+    sheet = prompts.sheet_prompt("character", "17, red beanie, grey hoodie, headphones")
+    assert sheet.startswith("Generate a character turnaround sheet")
+    assert "front view, full body side view and full body back view" in sheet
+    assert "No text" in sheet and sheet.endswith(
+        "The character: 17, red beanie, grey hoodie, headphones"
+    )
+    photo = prompts.sheet_prompt("character", from_photo=True, change="make the beanie navy")
+    assert "Image 1 is a photo of a real person. Keep their likeness" in photo
+    assert photo.endswith("except this change from the last sheet: make the beanie navy")
+    place = prompts.sheet_prompt("place", "a small bedroom with a desk and one window")
+    assert "no people" in place and "{" not in place + photo and "9:16" not in place + sheet
+
+
 def test_the_projects_product_is_a_required_asset_like_a_screen():
     product = {"id": 2, "name": "Peanut butter bag"}
     block = prompts.brand_block({"name": "Iron Paws"}, [], product)
