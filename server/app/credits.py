@@ -31,8 +31,8 @@ LAUNCH_RATES = [
     ("video-720p", "second", Decimal("2.25")),
     ("image-nano-banana-2.1", "image", Decimal("0.3333")),
     ("image-nano-banana-pro", "image", Decimal("1.5")),
-    ("write-claude", "call", Decimal("0.5")),  # ~$0.05 per call
-    ("watch-gemini", "call", Decimal("0.1")),  # ~$0.01 per call
+    ("write-claude", "call", Decimal(3)),  # Opus script/breakdown call, ~$0.30
+    ("watch-gemini", "call", Decimal(1)),  # one watch pass, ~$0.10
 ]
 FALLBACK_RATE = Decimal(1)  # kinds without a rate are still allowed; estimated at 1/unit
 COUNTED = (JobStatus.queued, JobStatus.running, JobStatus.succeeded)

@@ -98,8 +98,8 @@ def upgrade() -> None:
         ("video-720p", "second", 2.25),
         ("image-nano-banana-2.1", "image", 0.3333),
         ("image-nano-banana-pro", "image", 1.5),
-        ("write-claude", "call", 0.5),
-        ("watch-gemini", "call", 0.1),
+        ("write-claude", "call", 3),
+        ("watch-gemini", "call", 1),
     ]:
         op.execute(
             sa.text(

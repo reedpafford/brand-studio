@@ -230,3 +230,16 @@ def test_weekly_allowance_is_per_editor_and_owner_can_raise_it(app, owner, ed, d
         "/credits/limits", json={"max_planned_seconds": 180, "weekly_quick_clip_credits": 180}
     )
     assert enqueue(db, ed, "video-480p", {}, units=60).status == "queued"
+
+
+def test_approving_a_project_releases_its_held_jobs_within_budget(owner, editor, ed, db):
+    fomo = owner.get("/brands").json()[0]["id"]
+    body = {"brand_id": fomo, "name": "Epic", "planned_seconds": 200}  # budget 400
+    created = editor.post("/projects", json=body).json()
+    model = db.get(Project, created["id"])
+    jobs = [enqueue(db, ed, "video-480p", {}, units=u, project=model) for u in (150, 200, 100)]
+    assert {j.status for j in jobs} == {"needs_owner_approval"}
+    owner.post(f"/projects/{created['id']}/approve")
+    for job in jobs:
+        db.refresh(job)
+    assert [j.status for j in jobs] == ["queued", "queued", "needs_owner_approval"]  # 450 > 400

@@ -8,10 +8,11 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import credits_used, get_limits
+from app.credits import credits_used, get_limits, lock
 from app.db import get_db
 from app.models.accounts import User
 from app.models.credits import Project, ProjectStatus
+from app.models.jobs import Job, JobStatus
 from app.routes.brands import get_brand
 from app.schemas import Name
 
@@ -128,6 +129,23 @@ def approve_project(
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This project isn't waiting for approval.")
-    db.commit()
     db.refresh(project)
+    _release_held_jobs(db, owner, project)
+    db.commit()
     return _out(db, project)
+
+
+def _release_held_jobs(db: Session, owner: User, project: Project) -> None:
+    """Approving a project also releases the jobs held in it, oldest first, while they fit
+    in its budget. Any that don't fit stay held for a separate decision."""
+    lock(db, Project, project.id)
+    used = credits_used(db, project)
+    held = db.scalars(
+        select(Job)
+        .where(Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
+        .order_by(Job.id)
+    )
+    for job in held:
+        if used + job.credits <= project.budget_credits:
+            job.status, job.approved_by_id = JobStatus.queued, owner.id
+            used += job.credits
