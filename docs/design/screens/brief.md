@@ -23,16 +23,16 @@ Route: `/b/:brand/projects/new`. API: `POST /projects`.
 - If the server refuses the length (the per-video cap), show its message under the field as given, in `--danger`, and keep the form filled in.
 
 ## Product picker (brands with product variants)
-For brands whose kit lists products, e.g. Iron Paws: Chicken, Peanut butter.
+Products come from the brand's **screens**. A screen can have a `product` and a `variant`, e.g. Iron Paws product "bag" with variants "Chicken" and "Peanut butter". The project stores the choice as `product_variants`, e.g. `{"bag": "Peanut butter"}`.
 ```
-Product
+Bag
 ┌──────────┐ ┌──────────┐
-│ [bag img]│ │ [bag img]│   cards 120 wide, image 1:1 on --surface-2
+│ [screen] │ │ [screen] │   one card per variant, showing that variant's screen
 │ Chicken ◉│ │ Peanut   │   radio cards; selected = 2px --accent border
 └──────────┘ │ butter ○ │
              └──────────┘
 ```
-- It's required when the brand has products. Pre-select the only one if there's just one, and hide the field when there are none.
-- The chosen product's bag image and name are passed to Claude and used as a reference, so the right bag appears. Enhance notes already flag a mismatch ("the line says peanut butter, the bag says chicken").
+- **One group per product.** The group's label is the product name with a capital first letter ("Bag"), and it holds one radio card per variant with its screen as the thumbnail (1:1 crop on `--surface-2`). When a variant has several screens, use the first.
+- A choice is required for each product the brand has. If a product has only one variant, pre-select it. Brands without products don't show the field.
+- The chosen variant's screens are used as references, so the right bag appears. Enhance notes already flag a mismatch ("the line says peanut butter, the bag says chicken").
 - Phone: two cards per row, each at least 44px tall.
-- **Data:** this needs products on the brand kit, as a list of `{name, image_file_id}` edited under Brand kit → "Products" (name + bag image), and a `product` on the project. That's a Builder-Server item.

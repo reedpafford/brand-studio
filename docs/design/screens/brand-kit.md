@@ -12,7 +12,6 @@ API: `GET/PATCH /brands/{id}`, `GET/POST/PATCH/DELETE /brands/{id}/screens`, `PO
 │ │           tints the brand stripe)│ │ Never say  [chip×][chip×][+]   │  │
 │ │ Fonts     [chip×][+]             │ │ Legal line [__________________]│  │
 │ │ End line   [__________________]│  │   e.g. "Download fomo through the link in my bio."
-│ │ Products   [Chicken ▣][Peanut butter ▣][+]   name + bag image each │
 │ │ Style board [img] End card [img] │ │                                │  │
 │ └──────────────────────────────────┘ └────────────────────────────────┘  │
 │ Brand screens (12)        [Filter: all tags ▾]          [+ Add screens] │
@@ -23,7 +22,7 @@ API: `GET/PATCH /brands/{id}`, `GET/POST/PATCH/DELETE /brands/{id}/screens`, `PO
 │ ★ Always for: buy-moment     tags: trading · mobile                     │
 ```
 - Two cards side by side (≥ 1024), stacked below.
-- **Screens are the important part for fomo.** Each tile: image, name, tag chips, and a ★ line when `default_for` is set ("Always used for: buy moment"). Click → side sheet (480) with big preview, Name, Tags, "Always use this screen for" (chips of moments), [Delete screen] (danger, confirm).
+- **Screens are the important part for fomo.** Each tile: image, name, tag chips, and a ★ line when `default_for` is set ("Always used for: buy moment"). Click → side sheet (480) with big preview, Name, Tags, Product + Variant (optional, e.g. bag / Chicken; this drives the brief's product picker), "Always use this screen for" (chips of moments), [Delete screen] (danger, confirm).
 - "+ Add screens" opens a dropzone dialog; multiple files; each upload becomes a tile with an inline name field prefilled from the filename.
 - Save bar: [Save changes] is disabled until something changed; leaving with unsaved changes asks "Leave without saving?".
 
