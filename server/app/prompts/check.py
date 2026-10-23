@@ -155,7 +155,7 @@ def storyboard(
     return problems
 
 
-SHOT_LINE = re.compile(r"^Shot \d+ \| (\d+)–(\d+) s\.", re.M)
+SHOT_LINE = re.compile(r"^Shot \d+ \| (\d+)[-–](\d+) s\.", re.M)  # hyphen or en dash
 
 
 def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
