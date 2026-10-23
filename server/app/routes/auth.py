@@ -18,6 +18,7 @@ from app.auth import (
     hash_token,
     start_session,
 )
+from app.credits import seed_rates
 from app.db import get_db, utcnow
 from app.models.accounts import Invite, Role, SetupDone, User, Workspace
 from app.schemas import Email, Name, Password
@@ -80,6 +81,7 @@ def setup(body: SetupIn, request: Request, response: Response, db: Session = Dep
         raise HTTPException(409, "Already set up.") from None
     state = request.app.state
     try:
+        seed_rates(db, workspace.id)
         seed_brands(db, workspace.id, state.storage, state.settings.fomo_screens_dir)
     except Exception:  # never leave a half-set-up server: log it; the import can be re-run
         db.rollback()
