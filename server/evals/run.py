@@ -41,8 +41,8 @@ def video_model() -> str:
     m = get_model("seedance-2.5")
     return (
         f"<video_model>{m.name}: {m.duration.min}–{m.duration.max} s per clip, up to "
-        f"{m.max_reference_images} reference images, {m.max_reference_audios} audios; 9:16, 480p"
-        "</video_model>"
+        f"{m.max_reference_images} reference images (prefer 8 or fewer), "
+        f"{m.max_reference_audios} audios</video_model>"
     )
 
 

@@ -98,3 +98,28 @@ def reference_block(ref: dict, replace: str = "") -> str:
         lines.append(f"Replace: {replace}")
     lines.append("</reference>")
     return "\n".join(lines)
+
+
+def reference_lines(refs: list[dict]) -> str:
+    """The lines the server puts before an editor's Quick clip prompt, binding each attached
+    image to what it is, in upload order. `refs`: one dict per image with `kind` (character,
+    place, prop, screen, product), `name` and, for screens and products, `brand`.
+    E.g. '[Image1] and [Image2] are Aiden. [Image3] is the fomo "Token chart up" screen,
+    shown exactly.'"""
+    groups: dict[tuple, list[int]] = {}
+    for n, ref in enumerate(refs, 1):
+        groups.setdefault((ref["kind"], ref["name"], ref.get("brand", "")), []).append(n)
+    lines = []
+    for (kind, name, brand), numbers in groups.items():
+        tags = " and ".join(f"[Image{n}]" for n in numbers)
+        verb = "are" if len(numbers) > 1 else "is"
+        if kind == "screen":
+            what = f'the {brand} "{name}" screen, shown exactly'
+        elif kind == "product":
+            what = f"the {brand} {name}, shown exactly"
+        elif kind == "character":
+            what = name
+        else:
+            what = f"the {name}"
+        lines.append(f"{tags} {verb} {what}.")
+    return " ".join(lines)

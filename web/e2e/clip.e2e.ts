@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { emptyBrand, image, signIn } from "./helpers";
 
-// Runs after brand.e2e.ts and library.e2e.ts. Generation isn't switched on yet, so these cover
-// the controls only. The screen with a "buy-moment" is added to a fresh brand through the API.
+// Runs after brand.e2e.ts and library.e2e.ts. These cover the controls only: no test presses
+// Generate (paid generation is switched off on the test server). The screen with a
+// "buy-moment" is added to a fresh brand through the API.
 test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }) => {
@@ -12,12 +13,13 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole("heading", { name: /^Quick clip/ })).toBeVisible();
 });
 
-test("Generate stays off, and says why, until the prompt is written", async ({ page }) => {
+test("Generate stays off, and says why, until the prompt is written; then it shows the server's price", async ({ page }) => {
   const generate = page.getByRole("button", { name: /^Generate/ });
   await expect(generate).toBeDisabled();
   await expect(page.getByText("Describe the clip (8+ characters)")).toBeVisible();
   await page.getByLabel("Prompt").fill("The cat buys the dip.");
-  await expect(page.getByText("Generation isn't switched on yet.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Generate · 8 credits" })).toBeEnabled();
+  // Never pressed: this server has paid generation switched off, and no test starts a clip.
 });
 
 test("the credits on the button follow the quality chosen", async ({ page }) => {

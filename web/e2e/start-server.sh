@@ -8,5 +8,6 @@ export BS_DATABASE_URL="sqlite:///$data/e2e.db"
 export BS_STORAGE_DIR="$data/files"
 export BS_SETUP_TOKEN="e2e-setup-code"
 export BS_COOKIE_SECURE=false
+export BS_GENERATION_ENABLED=false  # no test may start a paid clip
 uv run alembic upgrade head
 exec uv run uvicorn app.main:create_app --factory --port 8000
