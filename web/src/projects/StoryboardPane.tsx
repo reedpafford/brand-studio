@@ -26,9 +26,12 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
-  const writingNow = going(writing ?? undefined);
+  // What the server says is going for this project (so a reload mid-run still shows it).
+  const mineGoing = (step: string) => (jobs.data ?? []).filter((j) => j.project_id === projectId && j.step === step && GOING.includes(j.status));
+  const writingNow = going(writing ?? undefined) || mineGoing("storyboard").length > 0;
+  const stillsGoing = mineGoing("frame").length;
   const drawingNow = Object.fromEntries(Object.entries(drawing).map(([f, j]) => [f, going(j)]));
-  const anyGoing = writingNow || Object.values(drawingNow).some(Boolean);
+  const anyGoing = writingNow || stillsGoing > 0 || Object.values(drawingNow).some(Boolean);
 
   const frames = useQuery({
     queryKey: ["storyboard", projectId],
@@ -150,6 +153,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
         </span>
       </div>
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
+      {stillsGoing > 0 && <p className="text-sm text-muted" role="status">Drawing {stillsGoing} still{stillsGoing === 1 ? "" : "s"}…</p>}
       <ul className="grid gap-4 sm:grid-cols-2">
         {list.map((f) => {
           const job = drawing[f.id] !== undefined ? jobOf(drawing[f.id]) : undefined;

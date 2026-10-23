@@ -114,3 +114,15 @@ test("Storyboard stays locked until there is a breakdown", async () => {
   expect(within(steps).getByRole("button", { name: /Storyboard/ })).toBeDisabled();
   expect(within(steps).getByRole("button", { name: /Storyboard/ })).toHaveAttribute("title", "Make the breakdown first");
 });
+
+test("after a reload, runs are recognised by their step: frames being written, and stills being drawn", async () => {
+  const going = (step: string, id: number) => ({ id, kind: step === "storyboard" ? "write-claude" : "image", step, status: "running", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z" });
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, []], "GET /jobs": [200, [going("storyboard", 5)]] });
+  open();
+  expect(await screen.findByText("Writing your frames…")).toBeInTheDocument();
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2" })]], "GET /jobs": [200, [going("frame", 6), going("frame", 7)]] });
+  open();
+  expect(await screen.findByText("Drawing 2 stills…")).toBeInTheDocument();
+});

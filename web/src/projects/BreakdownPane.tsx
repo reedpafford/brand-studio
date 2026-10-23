@@ -36,7 +36,7 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   const cost = rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
 
   // Our own run: the job we started, or any job the server says is a breakdown.
-  const mine = jobs.data?.filter((j) => j.project_id === projectId && (j.id === startedJob || (j as { step?: string }).step === "breakdown")).sort((a, b) => b.id - a.id)[0];
+  const mine = jobs.data?.filter((j) => j.project_id === projectId && (j.id === startedJob || j.step === "breakdown")).sort((a, b) => b.id - a.id)[0];
   // Between pressing the button and the job showing up in the list, it is already running.
   const running = (!!mine && GOING.includes(mine.status)) || (startedJob !== null && !mine);
   const failed = mine?.status === "failed";
