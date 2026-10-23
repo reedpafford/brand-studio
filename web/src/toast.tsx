@@ -19,22 +19,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={show}>
       {children}
-      {toast && (
-        <div role="status" className="fixed inset-x-4 bottom-20 z-20 mx-auto flex max-w-md items-center gap-3 rounded-md border border-border bg-surface px-4 py-3 text-sm shadow-md sm:bottom-6">
-          <span className="flex-1">{toast.message}</span>
-          {toast.undo && (
-            <button
-              className={btnSecondary}
-              onClick={() => {
-                toast.undo?.();
-                setToast(null);
-              }}
-            >
-              Undo
-            </button>
-          )}
-        </div>
-      )}
+      {/* Always mounted so screen readers announce what appears inside it. */}
+      <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-20 z-20 mx-auto max-w-md sm:bottom-6">
+        {toast && (
+          <div className="pointer-events-auto flex items-center gap-3 rounded-md border border-border bg-surface px-4 py-3 text-sm shadow-md">
+            <span className="flex-1">{toast.message}</span>
+            {toast.undo && (
+              <button
+                className={btnSecondary}
+                onClick={() => {
+                  toast.undo?.();
+                  setToast(null);
+                }}
+              >
+                Undo
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </Ctx.Provider>
   );
 }
