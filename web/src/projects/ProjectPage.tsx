@@ -16,6 +16,8 @@ export function ProjectPage() {
   const asked = params.get("stage") ?? (params.get("tab") === "script" ? "script" : "brief");
   const stage = (STAGES.some((s) => s.id === asked) ? asked : "brief") as Stage;
   const [pane, setPane] = useState<"script" | "stage">("script");
+  const [highlight, setHighlight] = useState<number[]>([]);
+  const [line, setLine] = useState<number | null>(null);
   const project = useQuery({
     queryKey: ["project", id],
     queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
@@ -59,10 +61,32 @@ export function ProjectPage() {
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(360px,3fr)_minmax(320px,2fr)]">
         <div className={pane === "script" ? "" : "hidden lg:block"}>
-          <ScriptTab projectId={id} enhance={enhance} />
+          <ScriptTab
+            projectId={id}
+            enhance={enhance}
+            highlight={highlight}
+            onLineClick={
+              stage === "breakdown"
+                ? (n) => {
+                    setLine(n);
+                    setHighlight([n]);
+                    setPane("stage");
+                  }
+                : undefined
+            }
+          />
         </div>
         <div className={pane === "stage" ? "" : "hidden lg:block"}>
-          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} projectId={id} brandId={p.brand_id} used={p.credits_used} budget={p.budget_credits} onPick={pick} />
+          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} projectId={id} brandId={p.brand_id} used={p.credits_used}
+            budget={p.budget_credits}
+            line={line}
+            onShowLines={(lines) => {
+              setHighlight(lines);
+              setLine(null);
+              setPane("script");
+            }}
+            onPick={pick}
+          />
         </div>
       </div>
     </main>
