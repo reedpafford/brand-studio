@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -15,7 +15,7 @@ const project = {
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, brands],
-  "GET /credits/limits": [200, { max_planned_seconds: 60, weekly_quick_clip_credits: 150, per_video_max_credits: 340 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 150, per_video_max_credits: 340 }],
   "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
 };
 
@@ -63,15 +63,15 @@ test("the brief is sent with the cast and shape, then you land on the project", 
   expect(screen.getByText("412 / 660 credits · 62%")).toBeInTheDocument();
 });
 
-test("a length past the editor limit says the owner has to approve, and the cap comes from the server", async () => {
+test("the longest length comes from the server's per-video cap; there is no editor length limit", async () => {
   fakeServer({ ...base });
   renderAt("/b/1/projects/new");
   const length = await screen.findByLabelText(/Planned length/);
-  expect(length).toHaveAttribute("max", "170");
+  await waitFor(() => expect(length).toHaveAttribute("max", "170")); // 340 / 2, from the server
   expect(screen.getByText(/Budget: 60 credits/)).toBeInTheDocument();
   await userEvent.clear(length);
   await userEvent.type(length, "90");
-  expect(await screen.findByText("Over 60s Reed has to approve the project.")).toBeInTheDocument();
+  expect(screen.queryByText(/has to approve/)).not.toBeInTheDocument();
 });
 
 test("a refused brief shows the server's reason", async () => {

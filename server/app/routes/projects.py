@@ -149,8 +149,6 @@ def _set_length(db: Session, user: User, project: Project, seconds: int) -> None
     project.planned_seconds = seconds
     if user.is_owner:
         project.status, project.approved_by_id = ProjectStatus.active, user.id
-    elif seconds > get_limits(db, user.workspace_id).max_planned_seconds:
-        project.status = ProjectStatus.needs_owner_approval
 
 
 @router.get("", response_model=list[ProjectOut])
