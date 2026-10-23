@@ -30,10 +30,12 @@ test("cost is credits per second times length; moments match across spaces and d
 });
 
 test("the first reason that applies wins", () => {
-  const base = { prompt: "Mia taps buy on the app", loading: false, tooMany: false, maxRefs: 4, credits: 10, left: 100, rendering: false };
+  const base = { prompt: "Mia taps buy on the app", loading: false, tooMany: false, maxRefs: 4, rendering: false };
   expect(blockedReason({ ...base, prompt: "short" })).toBe("Describe the clip (8+ characters)");
   expect(blockedReason({ ...base, rendering: true })).toBe("A clip is already rendering");
-  expect(blockedReason({ ...base, left: 5 })).toBe("Not enough credits this week. Ask Reed.");
+  expect(blockedReason({ ...base, noEstimate: true })).toBe("Working out the cost…");
+  expect(blockedReason({ ...base, refused: "Nope." })).toBe("Nope.");
+  expect(blockedReason(base)).toBeNull();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -184,4 +186,36 @@ test("Try again on a failed clip brings back its prompt, settings and pieces wit
   expect(screen.getByRole("button", { name: "16:9" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "720p" })).toHaveAttribute("aria-pressed", "true");
   expect(calls.some((c) => c.key === "POST /clips")).toBe(false);
+});
+
+test("over the weekly allowance the button asks Reed instead of blocking, and the toast says so", async () => {
+  const calls = fakeServer({
+    ...studio,
+    "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 150 }],
+    "POST /clips/estimate": [200, { ...estimateOk, credits: 68, needs_owner_approval: true, reason: "This goes past your weekly quick-clip allowance, so Reed will need to approve it." }],
+    "POST /clips": [201, { id: 7, kind: "video", status: "needs_owner_approval", credits: 68 }],
+  });
+  open();
+  await userEvent.type(await screen.findByLabelText(/Prompt/), "A long calm shot of the city");
+  const ask = await screen.findByRole("button", { name: "Ask Reed to approve · 68 credits" });
+  await vi.waitFor(() => expect(ask).toBeEnabled());
+  await userEvent.click(ask);
+  expect(await screen.findByText("Sent to Reed for approval. It will show in History.")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "POST /clips")).toBe(true);
+});
+
+test("the button stays on while you keep typing, and a second press needs a change first", async () => {
+  const calls = fakeServer({ ...studio, "POST /clips": [201, { id: 8, kind: "video", status: "queued", credits: 9 }] });
+  open();
+  const prompt = await screen.findByLabelText(/Prompt/);
+  await userEvent.type(prompt, "A calm shot of the city at dusk");
+  const generate = await screen.findByRole("button", { name: /Generate · 9 credits/ });
+  await vi.waitFor(() => expect(generate).toBeEnabled());
+  await userEvent.type(prompt, " again");
+  expect(generate).toBeEnabled(); // keeps the last estimate while the next one is worked out
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /clips/estimate").length).toBeLessThan(10));
+  await userEvent.click(generate);
+  await screen.findByText("Clip queued. It will show in History.");
+  expect(await screen.findByText("Sent. Change something to send another.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Generate/ })).toBeDisabled();
 });

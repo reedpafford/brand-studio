@@ -49,15 +49,16 @@ export function blockedReason(a: {
   loading: boolean;
   tooMany: boolean;
   maxRefs: number;
-  credits: number;
-  left: number | null;
   rendering: boolean;
+  noEstimate?: boolean;
   refused?: string;
+  alreadySent?: boolean;
 }): string | null {
   if (a.loading) return "Loading a brand piece…";
   if (a.prompt.trim().length < 8) return "Describe the clip (8+ characters)";
   if (a.tooMany) return `This model takes up to ${a.maxRefs} brand pieces. Remove some.`;
   if (a.rendering) return "A clip is already rendering";
-  if (a.left !== null && a.credits > a.left) return "Not enough credits this week. Ask Reed.";
-  return a.refused ?? null;
+  if (a.alreadySent) return "Sent. Change something to send another.";
+  if (a.refused) return a.refused;
+  return a.noEstimate ? "Working out the cost…" : null;
 }
