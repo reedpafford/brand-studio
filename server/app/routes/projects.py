@@ -2,30 +2,50 @@
 estimate of it. Above the owner's length limit a project waits for the owner.
 Editors see credits and % of budget, never dollars."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import credits_used, get_limits, lock
+from app.credits import credits_used, get_limits, lock, over_cap
 from app.db import get_db
 from app.models.accounts import User
-from app.models.credits import Project, ProjectStatus
+from app.models.credits import BUDGET_MULTIPLIER
 from app.models.jobs import Job, JobStatus
+from app.models.library import Kind
+from app.models.projects import Project, ProjectStatus
 from app.routes.brands import get_brand
-from app.schemas import Name
+from app.routes.files import get_file
+from app.routes.library import get_item
+from app.schemas import LongText, Name, ShortText
 
 router = APIRouter(prefix="/projects", tags=["credits"])
 
 
-class ProjectIn(BaseModel):
+ASPECTS = Literal["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"]
+
+
+class BriefPatch(BaseModel):
+    """The brief. On PATCH, send only what changes."""
+
+    goal: LongText | None = None
+    platform: ShortText | None = None
+    aspect_ratio: ASPECTS | None = None
+    format: ShortText | None = None
+    cast_ids: list[int] | None = None  # library characters
+    reference_file_id: int | None = None  # a video
+
+
+class ProjectIn(BriefPatch):
     brand_id: int
     name: Name
     planned_seconds: int = Field(gt=0, le=3600)
 
 
-class ProjectPatch(BaseModel):
+class ProjectPatch(BriefPatch):
     name: Name | None = None
     planned_seconds: int | None = Field(None, gt=0, le=3600)
 
@@ -36,6 +56,12 @@ class ProjectOut(BaseModel):
     name: str
     planned_seconds: int
     status: ProjectStatus
+    goal: str
+    platform: str
+    aspect_ratio: str
+    format: str
+    cast_ids: list[int]
+    reference_file_id: int | None
     estimate_credits: float
     budget_credits: float
     credits_used: float
@@ -57,6 +83,7 @@ def _out(db: Session, project: Project) -> ProjectOut:
         name=project.name,
         planned_seconds=project.planned_seconds,
         status=project.status,
+        **{f: getattr(project, f) for f in BRIEF_FIELDS},
         estimate_credits=project.estimate_credits,
         budget_credits=project.budget_credits,
         credits_used=used,
@@ -64,7 +91,34 @@ def _out(db: Session, project: Project) -> ProjectOut:
     )
 
 
+BRIEF_FIELDS = tuple(BriefPatch.model_fields)
+
+
+def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
+    """Apply sent brief fields. Cast must be the workspace's characters; the reference a video.
+    A null `reference_file_id` removes it; any other null means "unchanged"."""
+    for field in BRIEF_FIELDS:
+        if field not in values or (values[field] is None and field != "reference_file_id"):
+            continue
+        value = values[field]
+        if field == "cast_ids":
+            value = sorted(set(value))
+            for item_id in value:
+                get_item(db, user, Kind.character, item_id)
+        elif field == "reference_file_id" and value is not None:
+            get_file(db, user, value, "video")
+        setattr(project, field, value)
+
+
 def _set_length(db: Session, user: User, project: Project, seconds: int) -> None:
+    limits = get_limits(db, user.workspace_id)
+    if seconds * BUDGET_MULTIPLIER > limits.per_video_max_credits:  # budget = 2x 480p seconds
+        longest = limits.per_video_max_credits // BUDGET_MULTIPLIER
+        raise HTTPException(
+            422,
+            f"{over_cap(user, limits.per_video_max_credits).detail} "
+            f"Plan {longest} seconds or less.",
+        )
     project.planned_seconds = seconds
     if user.is_owner:
         project.status, project.approved_by_id = ProjectStatus.active, user.id
@@ -89,6 +143,7 @@ def create_project(
     get_brand(db, user, body.brand_id)
     project = Project(workspace_id=user.workspace_id, brand_id=body.brand_id, name=body.name)
     _set_length(db, user, project, body.planned_seconds)
+    _set_brief(db, user, project, body.model_dump())
     db.add(project)
     db.commit()
     return _out(db, project)
@@ -113,6 +168,7 @@ def update_project(
         project.name = body.name
     if body.planned_seconds is not None:
         _set_length(db, user, project, body.planned_seconds)
+    _set_brief(db, user, project, body.model_dump(exclude_unset=True))
     db.commit()
     return _out(db, project)
 
@@ -145,7 +201,8 @@ def _release_held_jobs(db: Session, owner: User, project: Project) -> None:
         .where(Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
         .order_by(Job.id)
     )
+    ceiling = min(project.budget_credits, get_limits(db, owner.workspace_id).per_video_max_credits)
     for job in held:
-        if used + job.credits <= project.budget_credits:
+        if used + job.credits <= ceiling:
             job.status, job.approved_by_id = JobStatus.queued, owner.id
             used += job.credits

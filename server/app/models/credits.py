@@ -5,7 +5,6 @@ estimate when a job is queued; when it finishes, its real dollar cost is convert
 credits. A project's budget is 2x the 480p estimate of its planned length."""
 
 from decimal import Decimal
-from enum import StrEnum
 
 from sqlalchemy import ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -16,6 +15,7 @@ USD_PER_CREDIT = Decimal("0.1028")  # Seedance 2.5 480p, per second
 BUDGET_MULTIPLIER = 2
 DEFAULT_MAX_PLANNED_SECONDS = 180  # editors can plan up to this without the owner
 DEFAULT_WEEKLY_QUICK_CLIP_CREDITS = Decimal(150)  # per editor, Mon-Sun (UTC)
+DEFAULT_PER_VIDEO_MAX_CREDITS = 340  # Reed: $35 per video at most, owner included
 
 
 class CreditRate(Entity, Base):
@@ -24,29 +24,6 @@ class CreditRate(Entity, Base):
     kind: Mapped[str] = mapped_column(String(40))  # matches Job.kind, e.g. video-480p
     unit: Mapped[str] = mapped_column(String(20))  # second, image, call
     credits_per_unit: Mapped[Decimal] = mapped_column(Numeric(12, 4))
-
-
-class ProjectStatus(StrEnum):
-    active = "active"
-    needs_owner_approval = "needs_owner_approval"  # planned length over the editor limit
-
-
-class Project(Entity, Base):
-    __tablename__ = "projects"
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
-    name: Mapped[str] = mapped_column(String(120))
-    planned_seconds: Mapped[int]
-    status: Mapped[ProjectStatus] = mapped_column(String(30), default=ProjectStatus.active)
-    approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-
-    @property
-    def estimate_credits(self) -> Decimal:
-        return Decimal(self.planned_seconds)  # 480p costs 1 credit per second
-
-    @property
-    def budget_credits(self) -> Decimal:
-        return self.estimate_credits * BUDGET_MULTIPLIER
 
 
 class CreditLimits(Entity, Base):
@@ -58,3 +35,5 @@ class CreditLimits(Entity, Base):
     weekly_quick_clip_credits: Mapped[Decimal] = mapped_column(
         Numeric(12, 3), default=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS
     )
+    # Hard ceiling for one video's credits, for everyone including the owner.
+    per_video_max_credits: Mapped[int] = mapped_column(default=DEFAULT_PER_VIDEO_MAX_CREDITS)

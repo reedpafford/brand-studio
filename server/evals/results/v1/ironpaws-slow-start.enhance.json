@@ -1,0 +1,112 @@
+{
+ "suggestions": [
+  {
+   "id": "s1",
+   "kind": "cut",
+   "anchor": {
+    "line": 2,
+    "quote": "Nora makes tea. The kettle boils. She sits down."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Slow routine before anything happens; viewers scroll away before the story starts."
+  },
+  {
+   "id": "s2",
+   "kind": "cut",
+   "anchor": {
+    "line": 3,
+    "quote": "Nora reads the newspaper for a while."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Waiting on screen; the video should reach the knock in the first second."
+  },
+  {
+   "id": "s3",
+   "kind": "action",
+   "anchor": {
+    "line": 5,
+    "quote": "NORA: Biscuit, stay."
+   },
+   "placement": "after",
+   "text": "Nora, squinting without her glasses, pats the table for them and grabs at Biscuit's collar but misses.",
+   "screen_id": null,
+   "reason": "Plants her lost glasses so Biscuit's return pays off with the sound off."
+  },
+  {
+   "id": "s4",
+   "kind": "camera",
+   "anchor": {
+    "line": 6,
+    "quote": "Biscuit runs out the open door anyway."
+   },
+   "placement": "after",
+   "text": "Low, fast tracking shot behind Biscuit as he bolts past the delivery man's boots into the street.",
+   "screen_id": null,
+   "reason": "Gives the escape energy and makes it feel like a mission, not a mistake."
+  },
+  {
+   "id": "s5",
+   "kind": "cut",
+   "anchor": {
+    "line": 7,
+    "quote": "Nora is worried because Biscuit is missing."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Explains a feeling instead of showing it; her face should do this."
+  },
+  {
+   "id": "s6",
+   "kind": "reaction",
+   "anchor": {
+    "line": 6,
+    "quote": "Biscuit runs out the open door anyway."
+   },
+   "placement": "after",
+   "text": "Nora freezes in the doorway, hand over her mouth, staring at the empty street.",
+   "screen_id": null,
+   "reason": "The low point needs a held, readable face before we jump to night."
+  },
+  {
+   "id": "s7",
+   "kind": "camera",
+   "anchor": {
+    "line": 11,
+    "quote": "A muddy Biscuit trots up the steps carrying Nora's lost glasses."
+   },
+   "placement": "before",
+   "text": "Low angle on the steps as a small muddy shape appears out of the rain, porch light catching the glasses in his mouth.",
+   "screen_id": null,
+   "reason": "The dog is the hero, so his return gets a hero shot."
+  },
+  {
+   "id": "s8",
+   "kind": "reaction",
+   "anchor": {
+    "line": 11,
+    "quote": "A muddy Biscuit trots up the steps carrying Nora's lost glasses."
+   },
+   "placement": "after",
+   "text": "Nora drops to her knees, takes the glasses with shaking hands, and laughs through tears as Biscuit wags.",
+   "screen_id": null,
+   "reason": "The turn lands when we see it hit her."
+  },
+  {
+   "id": "s9",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 12,
+    "quote": "NORA: You silly, wonderful dog."
+   },
+   "placement": "after",
+   "text": "★ Iron Paws screen: Iron Paws bag — in Nora's warm kitchen as she pours a reward into Biscuit's bowl",
+   "screen_id": "screen:11",
+   "reason": "The script never shows the product; a reward feeding is the natural payoff for his loyalty."
+  }
+ ]
+}

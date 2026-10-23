@@ -72,7 +72,7 @@ def _out(item: LibraryItem) -> ItemOut:
     return ItemOut(id=item.id, kind=item.kind, version=item.version, **_snapshot(item))
 
 
-def _get_item(
+def get_item(
     db: Session, user: User, kind: Kind, item_id: int, archived: bool = False
 ) -> LibraryItem:
     """A live item (or, with archived=True, an archived one) in the caller's workspace."""
@@ -150,7 +150,7 @@ def create_item(
 def read_item(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    return _out(_get_item(db, user, kind, item_id))
+    return _out(get_item(db, user, kind, item_id))
 
 
 @router.patch("/{item_id}", response_model=ItemOut)
@@ -161,7 +161,7 @@ def update_item(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    item = _get_item(db, user, kind, item_id)
+    item = get_item(db, user, kind, item_id)
     _save_version(db, user, item)
     _apply(db, user, item, body.model_dump(exclude_unset=True))
     db.commit()
@@ -173,7 +173,7 @@ def archive_item(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> None:
     """Archive (reversible: see unarchive). Anyone on the team can do this."""
-    _get_item(db, user, kind, item_id).archived = True
+    get_item(db, user, kind, item_id).archived = True
     db.commit()
 
 
@@ -181,7 +181,7 @@ def archive_item(
 def unarchive_item(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    item = _get_item(db, user, kind, item_id, archived=True)
+    item = get_item(db, user, kind, item_id, archived=True)
     item.archived = False
     db.commit()
     return _out(item)
@@ -192,7 +192,7 @@ def delete_item_forever(
     kind: Kind, item_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)
 ) -> None:
     """Owner only, and only from the archive: removes the item and its history for good."""
-    item = _get_item(db, owner, kind, item_id, archived=True)
+    item = get_item(db, owner, kind, item_id, archived=True)
     db.execute(delete(LibraryItemVersion).where(LibraryItemVersion.item_id == item.id))
     item.brands = []
     db.delete(item)
@@ -203,7 +203,7 @@ def delete_item_forever(
 def list_versions(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    item = _get_item(db, user, kind, item_id)
+    item = get_item(db, user, kind, item_id)
     return db.scalars(
         select(LibraryItemVersion)
         .where(LibraryItemVersion.item_id == item.id)
@@ -220,7 +220,7 @@ def restore_version(
     db: Session = Depends(get_db),
 ):
     """Bring back an old version. The current state is saved first, so this can be undone too."""
-    item = _get_item(db, user, kind, item_id)
+    item = get_item(db, user, kind, item_id)
     old = db.scalar(
         select(LibraryItemVersion).where(
             LibraryItemVersion.item_id == item.id, LibraryItemVersion.version == version

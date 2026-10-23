@@ -747,6 +747,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/script": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Script */
+        get: operations["read_script_projects__project_id__script_get"];
+        /** Paste Script */
+        put: operations["paste_script_projects__project_id__script_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/script/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Script */
+        post: operations["upload_script_projects__project_id__script_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/script/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Versions */
+        get: operations["list_versions_projects__project_id__script_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/script/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Version */
+        get: operations["read_version_projects__project_id__script_versions__version__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -769,6 +838,11 @@ export interface components {
         };
         /** Body_upload_files_post */
         Body_upload_files_post: {
+            /** Upload */
+            upload: string;
+        };
+        /** Body_upload_script_projects__project_id__script_upload_post */
+        Body_upload_script_projects__project_id__script_upload_post: {
             /** Upload */
             upload: string;
         };
@@ -1204,6 +1278,11 @@ export interface components {
             max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number | string;
+            /**
+             * Per Video Max Credits
+             * @default 340
+             */
+            per_video_max_credits: number;
         };
         /** LimitsOut */
         LimitsOut: {
@@ -1211,6 +1290,8 @@ export interface components {
             max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number;
+            /** Per Video Max Credits */
+            per_video_max_credits: number;
         };
         /** LoginIn */
         LoginIn: {
@@ -1322,6 +1403,18 @@ export interface components {
         };
         /** ProjectIn */
         ProjectIn: {
+            /** Goal */
+            goal?: string | null;
+            /** Platform */
+            platform?: string | null;
+            /** Aspect Ratio */
+            aspect_ratio?: ("9:16" | "1:1" | "16:9" | "4:3" | "3:4" | "21:9") | null;
+            /** Format */
+            format?: string | null;
+            /** Cast Ids */
+            cast_ids?: number[] | null;
+            /** Reference File Id */
+            reference_file_id?: number | null;
             /** Brand Id */
             brand_id: number;
             /** Name */
@@ -1340,6 +1433,18 @@ export interface components {
             /** Planned Seconds */
             planned_seconds: number;
             status: components["schemas"]["ProjectStatus"];
+            /** Goal */
+            goal: string;
+            /** Platform */
+            platform: string;
+            /** Aspect Ratio */
+            aspect_ratio: string;
+            /** Format */
+            format: string;
+            /** Cast Ids */
+            cast_ids: number[];
+            /** Reference File Id */
+            reference_file_id: number | null;
             /** Estimate Credits */
             estimate_credits: number;
             /** Budget Credits */
@@ -1351,6 +1456,18 @@ export interface components {
         };
         /** ProjectPatch */
         ProjectPatch: {
+            /** Goal */
+            goal?: string | null;
+            /** Platform */
+            platform?: string | null;
+            /** Aspect Ratio */
+            aspect_ratio?: ("9:16" | "1:1" | "16:9" | "4:3" | "3:4" | "21:9") | null;
+            /** Format */
+            format?: string | null;
+            /** Cast Ids */
+            cast_ids?: number[] | null;
+            /** Reference File Id */
+            reference_file_id?: number | null;
             /** Name */
             name?: string | null;
             /** Planned Seconds */
@@ -1431,6 +1548,29 @@ export interface components {
             /** Default For */
             default_for?: string[] | null;
         };
+        /** ScriptIn */
+        ScriptIn: {
+            /** Text */
+            text: string;
+        };
+        /** ScriptOut */
+        ScriptOut: {
+            /** Version */
+            version: number;
+            /** Source */
+            source: string;
+            /** Words */
+            words: number;
+            /** Created By Id */
+            created_by_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Text */
+            text: string;
+        };
         /** SetupIn */
         SetupIn: {
             /** Setup Token */
@@ -1482,12 +1622,28 @@ export interface components {
             ctx?: Record<string, never>;
         };
         /** VersionOut */
-        VersionOut: {
+        app__routes__library__VersionOut: {
             /** Version */
             version: number;
             snapshot: components["schemas"]["ItemIn"];
             /** Saved By Id */
             saved_by_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** VersionOut */
+        app__routes__scripts__VersionOut: {
+            /** Version */
+            version: number;
+            /** Source */
+            source: string;
+            /** Words */
+            words: number;
+            /** Created By Id */
+            created_by_id: number | null;
             /**
              * Created At
              * Format: date-time
@@ -2388,7 +2544,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VersionOut"][];
+                    "application/json": components["schemas"]["app__routes__library__VersionOut"][];
                 };
             };
             /** @description Validation Error */
@@ -3065,6 +3221,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClipIn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_script_projects__project_id__script_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paste_script_projects__project_id__script_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_script_projects__project_id__script_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_script_projects__project_id__script_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_versions_projects__project_id__script_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__scripts__VersionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_version_projects__project_id__script_versions__version__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
                 };
             };
             /** @description Validation Error */

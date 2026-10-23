@@ -1,0 +1,208 @@
+{
+ "suggestions": [
+  {
+   "id": "s1",
+   "kind": "scene_break",
+   "anchor": {
+    "line": 1,
+    "quote": "Crusty eyes every morning."
+   },
+   "placement": "before",
+   "text": "SCENE 1 — INT. BEDROOM — MORNING",
+   "screen_id": null,
+   "reason": "Gives the opening a clear place so the first images can be staged fast."
+  },
+  {
+   "id": "s2",
+   "kind": "camera",
+   "anchor": {
+    "line": 1,
+    "quote": "Crusty eyes every morning."
+   },
+   "placement": "after",
+   "text": "Open on an extreme close-up of Bruno's crusty eyes as they blink open on his dog bed.",
+   "screen_id": null,
+   "reason": "An odd, gross close-up in the first second stops the scroll better than a wide shot."
+  },
+  {
+   "id": "s3",
+   "kind": "action",
+   "anchor": {
+    "line": 2,
+    "quote": "Paws that never stop getting licked."
+   },
+   "placement": "after",
+   "text": "Bruno licks one red, raw paw nonstop, toes splayed.",
+   "screen_id": null,
+   "reason": "Each symptom needs its own picture so the image changes as fast as the words."
+  },
+  {
+   "id": "s4",
+   "kind": "action",
+   "anchor": {
+    "line": 3,
+    "quote": "Shedding that never slows down."
+   },
+   "placement": "after",
+   "text": "Bruno shakes and a cloud of fur drifts down through a sunbeam.",
+   "screen_id": null,
+   "reason": "Shows the third symptom instead of just naming it."
+  },
+  {
+   "id": "s5",
+   "kind": "scene_break",
+   "anchor": {
+    "line": 4,
+    "quote": "Every night I would lick my paws and she would tell me to stop. I could not stop."
+   },
+   "placement": "before",
+   "text": "SCENE 2 — INT. LIVING ROOM — NIGHT",
+   "screen_id": null,
+   "reason": "The story moves to her routines with him, at a new time and place."
+  },
+  {
+   "id": "s6",
+   "kind": "reaction",
+   "anchor": {
+    "line": 4,
+    "quote": "she would tell me to stop"
+   },
+   "placement": "after",
+   "text": "She looks up from the couch and frowns; Bruno freezes mid-lick, ears flat, then can't help licking again.",
+   "screen_id": null,
+   "reason": "His guilty face shows the problem with the sound off."
+  },
+  {
+   "id": "s7",
+   "kind": "action",
+   "anchor": {
+    "line": 7,
+    "quote": "She tried sprays. She tried shampoos. She switched my food twice."
+   },
+   "placement": "after",
+   "text": "Quick montage: she sprays his paws, lathers him in the tub, pours a new kibble — all plain, unlabeled bottles and bags.",
+   "screen_id": null,
+   "reason": "A fast montage keeps the frustration moving; unlabeled products avoid showing any other brand."
+  },
+  {
+   "id": "s8",
+   "kind": "reaction",
+   "anchor": {
+    "line": 7,
+    "quote": "And I had no way to tell her it was not."
+   },
+   "placement": "after",
+   "text": "Bruno watches her from his bed, head on his paws, eyebrows lifting, sad eyes held on her.",
+   "screen_id": null,
+   "reason": "The emotional low point needs a held, readable face."
+  },
+  {
+   "id": "s9",
+   "kind": "camera",
+   "anchor": {
+    "line": 8,
+    "quote": "All three of those were coming from the same place. My gut."
+   },
+   "placement": "after",
+   "text": "Push into Bruno's belly into a stylized 3D gut: glowing good bacteria flicker out, red sparks race up to his eyes, down to his paws and across his coat.",
+   "screen_id": null,
+   "reason": "This long explanation needs a moving visual or viewers drop off."
+  },
+  {
+   "id": "s10",
+   "kind": "scene_break",
+   "anchor": {
+    "line": 9,
+    "quote": "Then one night she found something."
+   },
+   "placement": "before",
+   "text": "SCENE 3 — INT. KITCHEN — NIGHT",
+   "screen_id": null,
+   "reason": "The turn happens here; a new scene marks it."
+  },
+  {
+   "id": "s11",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 9,
+    "quote": "A greens powder called Iron Paws."
+   },
+   "placement": "after",
+   "text": "★ Iron Paws screen: Iron Paws bag (front) — in her hands under the kitchen light, label to camera",
+   "screen_id": "screen:11",
+   "reason": "The first Iron Paws mention must show the real bag."
+  },
+  {
+   "id": "s12",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 10,
+    "quote": "She mixed it into my food that Thursday night without saying much."
+   },
+   "placement": "after",
+   "text": "★ Iron Paws screen: Iron Paws bag (front) — on the counter beside his bowl as she scoops the powder in",
+   "screen_id": "screen:11",
+   "reason": "Feeding is a required brand moment, so the real bag is in shot."
+  },
+  {
+   "id": "s13",
+   "kind": "reaction",
+   "anchor": {
+    "line": 10,
+    "quote": "Peanut butter flavor."
+   },
+   "placement": "after",
+   "text": "Bruno's nose twitches, tail thumping hard as the bowl comes down.",
+   "screen_id": null,
+   "reason": "The bag label says Chicken flavor, but this spoken line says peanut butter; the editor should decide how to fix it."
+  },
+  {
+   "id": "s14",
+   "kind": "scene_break",
+   "anchor": {
+    "line": 11,
+    "quote": "A few weeks went by."
+   },
+   "placement": "before",
+   "text": "SCENE 4 — INT. LIVING ROOM — MORNING",
+   "screen_id": null,
+   "reason": "Time jumps to the payoff and should read as a new scene."
+  },
+  {
+   "id": "s15",
+   "kind": "reaction",
+   "anchor": {
+    "line": 11,
+    "quote": "There was nothing to wipe."
+   },
+   "placement": "after",
+   "text": "She freezes, cloth in midair, mouth falling open as she stares at his clear eyes.",
+   "screen_id": null,
+   "reason": "The payoff lands when we see it hit her."
+  },
+  {
+   "id": "s16",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 12,
+    "quote": "Human grade. Vet formulated."
+   },
+   "placement": "after",
+   "text": "★ Iron Paws screen: Iron Paws bag (front) — center frame on the floor, Bruno sitting proudly beside it",
+   "screen_id": "screen:11",
+   "reason": "The product claims need the real bag on screen."
+  },
+  {
+   "id": "s17",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 13,
+    "quote": "Your pup has been waiting on you."
+   },
+   "placement": "after",
+   "text": "★ Iron Paws screen: Iron Paws bag (front) — end card, fills the frame as Bruno looks into camera",
+   "screen_id": "screen:11",
+   "reason": "The end card must close on the real bag so viewers know what to buy."
+  }
+ ]
+}

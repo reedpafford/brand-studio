@@ -1,0 +1,109 @@
+"""Score saved Claude answers against the eval cases. No calls are made here.
+
+Usage (from server/): python -m evals.score <outputs dir> [prompt version label]
+The outputs dir holds `<case>.<step>.json` (each step's structured answer) and, for cases with a
+breakdown, `<case>.script.txt` (the working script the breakdown was given)."""
+
+import json
+import re
+import sys
+from pathlib import Path
+
+from app.catalogue import get_model
+from app.prompts import SCHEMAS, check
+
+CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
+
+
+def score(out: Path, case: dict) -> list[str]:
+    brand = CASES["brands"][case["brand"]]
+    screens = {f"screen:{s['id']}": s["default_for"] for s in brand["screens"]}
+    video = get_model("seedance-2.5")
+    exp, problems, answers = case["expect"], [], {}
+    for step in case["steps"]:
+        path = out / f"{case['id']}.{step}.json"
+        if not path.exists():
+            return [f"missing {path.name}"]
+        answers[step] = SCHEMAS[step].model_validate_json(path.read_text())
+    script = "\n".join(case["script"] or [])
+
+    if e := answers.get("enhance"):
+        problems += check.enhance(script, e, screens)
+        marks = {}
+        for s in e.suggestions:
+            marks.setdefault(s.anchor.line, []).append(s)
+        kinds = {n: {s.kind for s in ms} for n, ms in marks.items()}
+        replaced = {n for n, ms in marks.items() if any(s.placement == "replace" for s in ms)}
+        for n, word in exp.get("flag_lines", {}).items():
+            if not any(word in s.reason.lower() for s in marks.get(int(n), [])):
+                problems.append(f"expected a mark on line {n} that mentions '{word}'")
+        for n, sid in exp.get("screens_at", {}).items():
+            if not any(s.screen_id == sid for s in marks.get(int(n), [])):
+                problems.append(f"expected {sid} at line {n}")
+        rules = [
+            ("cut_lines", lambda n: "cut" not in kinds.get(n, ()), "expected a cut on line {}"),
+            ("not_cut", lambda n: "cut" in kinds.get(n, ()), "line {} should not be cut"),
+            ("scene_break_before", lambda n: "scene_break" not in kinds.get(n, ()),
+             "expected a scene break before line {}"),
+            ("untouched_lines", lambda n: n in replaced, "line {} should be left alone"),
+        ]  # fmt: skip
+        for key, bad, message in rules:
+            problems += [message.format(n) for n in exp.get(key, []) if bad(n)]
+        if len(e.suggestions) > exp.get("max_suggestions", 99):
+            problems.append(
+                f"{len(e.suggestions)} suggestions, expected at most {exp['max_suggestions']}"
+            )
+        if (sid := exp.get("screen_anywhere")) and sid not in {s.screen_id for s in e.suggestions}:
+            problems.append(f"expected {sid} somewhere")
+
+    if d := answers.get("script_draft"):
+        lo, hi = exp["drafts"]
+        if not lo <= len(d.drafts) <= hi:
+            problems.append(f"{len(d.drafts)} drafts, expected {lo}–{hi}")
+        lo, hi = exp["words_per_draft"]
+        for i, draft in enumerate(d.drafts, 1):
+            spoken = re.findall(r"^[A-Z][A-Z .'-]*:\s*(.*)$", draft.script, re.M)
+            words = len(" ".join(spoken).split())
+            if not lo <= words <= hi:
+                problems.append(f"draft {i}: {words} spoken words, expected {lo}–{hi}")
+
+    if bd := answers.get("breakdown"):
+        working = out / f"{case['id']}.script.txt"
+        script = working.read_text() if working.exists() else script
+        problems += check.breakdown(script, bd, screens, video.duration.min, video.duration.max)
+        if "clips" in exp and not exp["clips"][0] <= len(bd.clips) <= exp["clips"][1]:
+            problems.append(f"{len(bd.clips)} clips, expected {exp['clips']}")
+        shots = [shot for scene in bd.scenes for shot in scene.shots]
+        for n, sid in exp.get("screen_lines", {}).items():
+            if not any(int(n) in s.script_lines and sid in s.screen_ids for s in shots):
+                problems.append(f"expected {sid} in the shot for line {n}")
+        screen_shots = sum(1 for s in shots if s.screen_ids)
+        if screen_shots < exp.get("min_screen_shots", 0):
+            problems.append(
+                f"{screen_shots} shots show a screen, expected {exp['min_screen_shots']}+"
+            )
+        if cp := answers.get("clip_prompts"):
+            limits = video.max_reference_images, video.max_reference_audios
+            problems += check.clip_prompts(bd, cp, *limits)
+    saved = " ".join(a.model_dump_json() for a in answers.values()).lower()
+    problems += [
+        f"copies '{w}' from the reference" for w in exp.get("forbid", []) if w.lower() in saved
+    ]
+    return problems
+
+
+def main(out: Path, label: str = "") -> int:
+    failed = 0
+    print(f"# Eval {label}".strip())
+    for case in CASES["cases"]:
+        problems = score(out, case)
+        failed += bool(problems)
+        print(f"{'FAIL' if problems else 'ok  '} {case['id']}")
+        for p in problems:
+            print(f"     - {p}")
+    print("Now read each answer against its case's 'good' list: checks can't judge engagement.")
+    return failed
+
+
+if __name__ == "__main__":
+    sys.exit(main(Path(sys.argv[1]), *sys.argv[2:3]))
