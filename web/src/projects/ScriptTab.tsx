@@ -200,22 +200,38 @@ export function ScriptTab({ projectId }: { projectId: number }) {
 
 /** Line-numbered, in the script font, wrapping at about 64 characters. The words are never altered.
  *  `around` can put other lines (Enhance direction notes) before or after a script line. */
+const DIRECTION = /^\s*\[(Camera|Movement|Reaction|Brand screen)\]\s*/;
+
 export function ScriptText({ text, around }: { text: string; around?: (line: number, where: "before" | "after") => ReactNode }) {
   return (
     <div className="max-w-[72ch] rounded-md border border-border bg-surface p-4 font-script leading-[1.6]">
       <ol aria-label="Script text">
-        {text.split("\n").map((line, i) => (
-          <Fragment key={i}>
-            {around?.(i + 1, "before")}
-            <li className="grid grid-cols-[2.5rem_1fr] gap-2">
-              <span className="select-none text-right text-xs text-faint" aria-hidden>
-                {i + 1}
-              </span>
-              <span className="whitespace-pre-wrap break-words">{line || "\u00a0"}</span>
-            </li>
-            {around?.(i + 1, "after")}
-          </Fragment>
-        ))}
+        {text.split("\n").map((line, i) => {
+          // Directions that Enhance added are tagged lines. They never look like dialogue: indented and muted, tag as the label.
+          const tag = DIRECTION.exec(line);
+          return (
+            <Fragment key={i}>
+              {around?.(i + 1, "before")}
+              <li className="grid grid-cols-[2.5rem_1fr] items-baseline gap-2" data-direction={tag ? tag[1] : undefined}>
+                <span className="select-none text-right text-xs text-faint" aria-hidden>
+                  {i + 1}
+                </span>
+                {tag ? (
+                  <span className="ml-4 flex flex-wrap items-baseline gap-x-3 text-muted sm:ml-8">
+                    <span className="whitespace-pre-wrap break-words">
+                      {tag[1] === "Brand screen" ? "★ " : "▸ "}
+                      {line.slice(tag[0].length)}
+                    </span>
+                    <span className="font-sans text-xs">{tag[1]}</span>
+                  </span>
+                ) : (
+                  <span className="whitespace-pre-wrap break-words">{line || "\u00a0"}</span>
+                )}
+              </li>
+              {around?.(i + 1, "after")}
+            </Fragment>
+          );
+        })}
       </ol>
     </div>
   );

@@ -105,3 +105,19 @@ test("editing saves the new words as the next version", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/script")).toBe(true));
   expect(calls.find((c) => c.key === "PUT /projects/9/script")?.body).toEqual({ text: "SCENE 1 — KITCHEN\nMIA: Wait… it dipped? Extra." });
 });
+
+test("tagged direction lines look different from dialogue, and the dialogue is untouched", async () => {
+  const withDirections = { ...v2, text: "MIA: Wait… it dipped?\n[Reaction] Mia's eyes widen.\n[Brand screen] fomo screen: Chart down" };
+  fakeServer({ ...base, "GET /projects/9/script": [200, withDirections] });
+  open();
+  const list = await screen.findByRole("list", { name: "Script text" });
+  const items = within(list).getAllByRole("listitem");
+  expect(items).toHaveLength(3);
+  expect(items[0]).toHaveTextContent("MIA: Wait… it dipped?");
+  expect(items[0]).not.toHaveAttribute("data-direction");
+  expect(items[1]).toHaveAttribute("data-direction", "Reaction");
+  expect(items[1]).toHaveTextContent("▸ Mia's eyes widen.");
+  expect(items[1]).toHaveTextContent("Reaction");
+  expect(items[2]).toHaveAttribute("data-direction", "Brand screen");
+  expect(items[2]).toHaveTextContent("★ fomo screen: Chart down");
+});
