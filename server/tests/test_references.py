@@ -2,7 +2,7 @@
 
 import struct
 
-from app.references import bind_names, media_seconds, reference_lines
+from app.references import bind_names, media_seconds
 
 
 def test_webm_length_from_segment_info():
@@ -12,10 +12,7 @@ def test_webm_length_from_segment_info():
     assert media_seconds(b"\x1a\x45\xdf\xa3" + b"\0" * 20, "video/webm") is None
 
 
-def test_lines_and_names():
-    assert reference_lines([("Aiden", [1, 2]), ("the kitchen", [3])]) == (
-        "[Image1] and [Image2] are Aiden.\n[Image3] is the kitchen."
-    )
+def test_names_become_image_numbers():
     names = {"Aiden": 1, "Aiden Sr": 4}
     assert bind_names("@Aiden Sr hugs @aiden-ish @Aiden.", names) == (
         "[Image4] hugs @aiden-ish [Image1]."

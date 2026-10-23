@@ -119,10 +119,10 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
     assert r["script"]["text"].splitlines() == [
         "SCENE 1 — INT. KITCHEN — MORNING",
         "Mom storms in holding an empty wallet.",
-        "She slams it on the table.",
+        "[Movement] She slams it on the table.",
         "MOM: Nate, where is all your money?",
         "NATE: I bought the dip.",
-        "★ fomo screen: Buy — on Nate's phone",
+        "[Brand screen] ★ fomo screen: Buy — on Nate's phone",
     ]
     # Old marks belong to the old version now.
     assert editor.post(f"{url}/suggestions/{by_key['s4']}/accept").status_code == 409
@@ -149,15 +149,15 @@ def test_needs_a_script_and_an_accepted_mark(editor, setup, owner):
 def test_apply_never_edits_a_line():
     text = "SCENE 1\nMOM: Where is it?\r\nNATE: Gone.  \nEND"
 
-    def mark(key, line, placement, new):
-        return Suggestion(key=key, line=line, placement=placement, text=new, quote="x")
+    def mark(key, line, placement, new, kind="camera"):
+        return Suggestion(key=key, line=line, placement=placement, text=new, quote="x", kind=kind)
 
     marks = [
         mark("a", 2, "before", "Close on Mom."),
-        mark("b", 2, "after", "Nate shrugs."),
+        mark("b", 2, "after", "Nate shrugs.", "action"),
         mark("c", 3, "replace", "NATE: Spent it."),  # never applied
-        mark("d", 3, "before", "Beat."),
-        mark("e", 2, "before", "She waits."),
+        mark("d", 3, "before", "Beat.", "reaction"),
+        mark("e", 2, "before", "[Camera] She waits."),  # already tagged: not twice
     ]
     out = apply(text, marks)
     originals = text.splitlines(keepends=True)
@@ -165,8 +165,14 @@ def test_apply_never_edits_a_line():
     # Every original line is still there, byte for byte, in the same order.
     kept = [line for line in out.splitlines(keepends=True) if line in originals]
     assert kept == originals
-    assert [a.strip() for a in added] == ["Close on Mom.", "She waits.", "Nate shrugs.", "Beat."]
-    assert apply("A\nEND", [mark("f", 2, "after", "Fade out.")]) == "A\nEND\nFade out."
+    assert [a.strip() for a in added] == [
+        "[Camera] Close on Mom.",
+        "[Camera] She waits.",
+        "[Movement] Nate shrugs.",
+        "[Reaction] Beat.",
+    ]
+    end = apply("A\nEND", [mark("f", 2, "after", "Fade out.")])
+    assert end == "A\nEND\n[Camera] Fade out."
 
 
 def test_other_workspace_is_shut_out(outsider, setup):

@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { useJobs } from "../clip/History";
+import { useToast } from "../toast";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, linkText } from "../ui";
+import { Sheet } from "./Sheet";
 
 export type Mark = components["schemas"]["SuggestionOut"];
 
@@ -18,8 +20,9 @@ const KIND: Record<string, string> = {
 const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** Everything about Enhance for one project: the run, its marks and notes, and what you do with them. */
-export function useEnhance(projectId: number, scriptVersion: number | undefined) {
+export function useEnhance(projectId: number, scriptVersion: number | undefined, scriptText = "") {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const path = { project_id: projectId };
   const jobs = useJobs();
   const last = jobs.data?.filter((j) => j.kind === "write-claude" && j.project_id === projectId).sort((a, b) => b.id - a.id)[0];
@@ -54,16 +57,140 @@ export function useEnhance(projectId: number, scriptVersion: number | undefined)
       })),
     onSuccess: refresh,
   });
-  const apply = useMutation({
-    mutationFn: () => must(api.POST("/projects/{project_id}/script/apply", { params: { path } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["script", projectId] }),
+  // Accept many at once (one call each); the server keeps accept/reject separate from the script.
+  const acceptMany = useMutation({
+    mutationFn: async (ids: number[]) => {
+      for (const suggestion_id of ids) {
+        await must(api.POST("/projects/{project_id}/script/suggestions/{suggestion_id}/accept", { params: { path: { ...path, suggestion_id } } }));
+      }
+    },
+    onSettled: refresh,
   });
-  return { marks: marks.data ?? [], notes: notes.data ?? [], last, running, cost, start, decide, apply };
+  const putScript = async (text: string) => {
+    const { error, response } = await api.PUT("/projects/{project_id}/script", { params: { path }, body: { text } });
+    if (!response.ok) throw new Error(errorText(error));
+  };
+  // Notes you've dismissed with "Got it" stay hidden, wherever they're shown.
+  const [gone, setGone] = useState<string[]>([]);
+  const acceptedCount = (marks.data ?? []).filter((m) => m.status === "accepted").length;
+  // Apply adds the accepted directions as a new version. Undo saves the words from before as the next version.
+  const apply = useMutation({
+    mutationFn: async () => {
+      const { data } = await must(api.POST("/projects/{project_id}/script/apply", { params: { path } }));
+      return data?.script.version;
+    },
+    onSuccess: async (made) => {
+      await queryClient.invalidateQueries({ queryKey: ["script", projectId] });
+      toast(`Added ${acceptedCount} direction${acceptedCount === 1 ? "" : "s"} as v${made}.`, async () => {
+        await putScript(scriptText);
+        queryClient.invalidateQueries({ queryKey: ["script", projectId] });
+      });
+    },
+  });
+  // Which kind you're looking at (null = all) and which suggestion the keys act on.
+  const [filter, setFilter] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState<number | null>(null);
+  const shown = (marks.data ?? []).filter((m) => m.status !== "rejected" && (!filter || m.kind === filter));
+  const visibleNotes = (notes.data ?? []).filter((n) => !gone.includes(`${scriptVersion}:${n.line}:${n.text}`));
+  const dismiss = (n: { line: number; text: string }) => setGone((g) => [...g, `${scriptVersion}:${n.line}:${n.text}`]);
+  return { marks: marks.data ?? [], notes: visibleNotes, last, running, cost, start, decide, apply, acceptMany, dismiss, filter, setFilter, focusId, setFocusId, shown };
 }
 
 export type EnhanceState = ReturnType<typeof useEnhance>;
 
+function AcceptAll({ e }: { e: EnhanceState }) {
+  const [open, setOpen] = useState(false);
+  const pending = e.marks.filter((m) => m.status === "pending");
+  if (pending.length === 0) return null;
+  const kinds = [...new Set(pending.map((m) => m.kind))];
+  const run = (kind?: string) => {
+    const ids = pending.filter((m) => !kind || m.kind === kind).map((m) => m.id);
+    setOpen(false);
+    if (ids.length > 5 && !window.confirm(`Accept ${ids.length} suggestions?`)) return;
+    e.acceptMany.mutate(ids);
+  };
+  return (
+    <span className="relative">
+      <button className={btnSecondary} aria-haspopup="menu" aria-expanded={open} aria-label="Accept all options" onClick={() => setOpen(!open)}>
+        <span className="hidden sm:inline">Accept all ▾</span>
+        <span className="sm:hidden" aria-hidden>⋯</span>
+      </button>
+      {open && (
+        <ul role="menu" className="absolute left-0 z-10 mt-1 w-56 rounded-md border border-border bg-surface p-1 text-sm shadow-md">
+          <li role="none">
+            <button role="menuitem" className="min-h-11 w-full rounded-sm px-3 text-left sm:min-h-9" onClick={() => run()}>
+              Accept all ({pending.length})
+            </button>
+          </li>
+          {kinds.length > 1 &&
+            kinds.map((k) => (
+              <li key={k} role="none">
+                <button role="menuitem" className="min-h-11 w-full rounded-sm px-3 text-left sm:min-h-9" onClick={() => run(k)}>
+                  Accept all {KIND[k] ?? k} ({pending.filter((m) => m.kind === k).length})
+                </button>
+              </li>
+            ))}
+        </ul>
+      )}
+    </span>
+  );
+}
+
+/** Filter chips: All and each kind that is waiting, with counts. They scroll sideways on a phone. */
+function Chips({ e }: { e: EnhanceState }) {
+  const live = e.marks.filter((m) => m.status !== "rejected");
+  const kinds = [...new Set(live.map((m) => m.kind))];
+  if (live.length === 0 || kinds.length < 2) return null;
+  const chip = (on: boolean) => `min-h-11 shrink-0 rounded-full border px-3 text-sm sm:min-h-8 ${on ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong bg-surface"}`;
+  return (
+    <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Show">
+      <button className={chip(e.filter === null)} aria-pressed={e.filter === null} onClick={() => e.setFilter(null)}>
+        All {live.length}
+      </button>
+      {kinds.map((k) => (
+        <button key={k} className={chip(e.filter === k)} aria-pressed={e.filter === k} onClick={() => e.setFilter(e.filter === k ? null : k)}>
+          {KIND[k] ?? k} {live.filter((m) => m.kind === k).length}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** J / K move between suggestions, A accepts, R rejects, Esc lets go. Typing in a box is never hijacked. */
+function useKeys(e: EnhanceState) {
+  const latest = useRef(e);
+  useEffect(() => {
+    latest.current = e;
+  });
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      const t = ev.target as HTMLElement | null;
+      if (ev.metaKey || ev.ctrlKey || ev.altKey || t?.closest("input, textarea, select, [contenteditable], [role=dialog]")) return;
+      const { shown, focusId, setFocusId, decide } = latest.current;
+      const at = shown.findIndex((m) => m.id === focusId);
+      const key = ev.key.toLowerCase();
+      if (key === "j" || key === "k") {
+        if (shown.length === 0) return;
+        const next = key === "j" ? (at + 1) % shown.length : (at <= 0 ? shown.length : at) - 1;
+        setFocusId(shown[next].id);
+      } else if (key === "escape") setFocusId(null);
+      else if ((key === "a" || key === "r") && at >= 0) {
+        const mark = shown[at];
+        if (key === "a" && mark.status !== "pending") return;
+        decide.mutate({ id: mark.id, verb: key === "a" ? "accept" : "reject" });
+        // Carry on with the next waiting suggestion (wrapping round), so A / R can be pressed again straight away.
+        const waiting = shown.filter((m) => m.status === "pending" && m.id !== mark.id);
+        setFocusId((waiting.find((m) => shown.indexOf(m) > at) ?? waiting[0])?.id ?? null);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+}
+
 export function EnhanceBar({ e }: { e: EnhanceState }) {
+  useKeys(e);
+  const [notesOpen, setNotesOpen] = useState(false);
   const pending = e.marks.filter((m) => m.status === "pending").length;
   const accepted = e.marks.filter((m) => m.status === "accepted").length;
   const failed = e.last?.status === "failed" && e.marks.length === 0;
@@ -78,21 +205,35 @@ export function EnhanceBar({ e }: { e: EnhanceState }) {
         >
           ✦ Enhance{e.cost !== undefined && ` · ${e.cost} credits`}
         </button>
+        <AcceptAll e={e} />
         {accepted > 0 && (
           <button className={btnSecondary} disabled={e.apply.isPending} onClick={() => e.apply.mutate()}>
             Apply {accepted} accepted
           </button>
         )}
+        {e.notes.length > 0 && (
+          <button className={`${btnSecondary} sm:hidden`} onClick={() => setNotesOpen(true)}>
+            Notes ({e.notes.length})
+          </button>
+        )}
         {e.running && <span className="text-sm text-muted">{e.last?.status === "needs_owner_approval" ? "Waiting for Reed to approve" : "Reading your script…"}</span>}
         {e.marks.length > 0 && <span className="text-sm text-muted">{pending} suggestions waiting · {accepted} accepted</span>}
       </div>
-      {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Applying adds the accepted notes as a new version. Suggestions you haven't decided on are dropped.</p>}
+      <Chips e={e} />
+      {e.marks.length > 0 && <p className="hidden text-xs text-muted sm:block">Keys: J / K next and previous, A accept, R reject, Esc to let go.</p>}
+      {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Applying adds the accepted directions as a new version. Suggestions you haven't decided on are dropped.</p>}
       {failed && (
         <p role="alert" className={errorClass}>
           Enhance didn't finish. Your script is unchanged. Press Enhance to try again.
         </p>
       )}
       {problem && <p role="alert" className={errorClass}>{problem.message}</p>}
+      {e.acceptMany.isError && <p role="alert" className={errorClass}>{e.acceptMany.error.message}</p>}
+      {notesOpen && (
+        <Sheet title="Notes" onClose={() => setNotesOpen(false)}>
+          <NoteList e={e} />
+        </Sheet>
+      )}
       {!e.running && e.last?.status === "succeeded" && e.marks.length === 0 && <p className="text-sm text-muted">This script already reads well. Nothing to suggest.</p>}
     </div>
   );
@@ -100,18 +241,33 @@ export function EnhanceBar({ e }: { e: EnhanceState }) {
 
 /** One direction note, shown on its own indented line, never merged into the script's words. */
 export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
+  const [open, setOpen] = useState(false);
+  const row = useRef<HTMLLIElement>(null);
+  const focused = e.focusId === mark.id;
+  useEffect(() => {
+    if (focused) row.current?.scrollIntoView?.({ block: "nearest" });
+  }, [focused]);
   if (mark.status === "rejected") return null;
   const accepted = mark.status === "accepted";
   return (
-    <li className={`ml-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 py-0.5 text-sm sm:ml-10 ${accepted ? "text-muted" : ""}`} data-kind={mark.kind}>
+    <li ref={row} aria-current={focused ? "true" : undefined} className={`ml-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-sm py-0.5 text-sm sm:ml-10 ${accepted ? "text-muted" : ""} ${focused ? "outline outline-2 outline-accent" : ""}`} data-kind={mark.kind}>
       {/* Phone: the words first, then the kind and the buttons on a second line. */}
       <span className="basis-full sm:basis-0 sm:flex-1">
         {/* Only the suggestion's own words are marked, never the row or the buttons. */}
-        <span className={accepted ? "" : "bg-mark underline decoration-mark-line decoration-2 underline-offset-2"}>
-          {mark.kind === "brand_screen" ? "★ " : "▸ "}
-          {mark.text}
-        </span>
-        {!accepted && mark.reason && <span className="block text-xs text-muted">Why: {mark.reason}</span>}
+        <button type="button" aria-haspopup="dialog" className="text-left" onClick={() => setOpen(true)}>
+          <span className={accepted ? "" : "bg-mark underline decoration-mark-line decoration-2 underline-offset-2"}>
+            {mark.kind === "brand_screen" ? "★ " : "▸ "}
+            {mark.text}
+          </span>
+          {!accepted && mark.reason && <span className="ml-2 text-xs text-muted sm:hidden">Why?</span>}
+        </button>
+        {!accepted && mark.reason && <span className="hidden text-xs text-muted sm:block">Why: {mark.reason}</span>}
+        {open && (
+          <Sheet title={KIND[mark.kind] ?? mark.kind} onClose={() => setOpen(false)}>
+            <p>{mark.text}</p>
+            {mark.reason && <p className="text-sm text-muted">Why: {mark.reason}</p>}
+          </Sheet>
+        )}
       </span>
       <span className="text-xs text-muted">{KIND[mark.kind] ?? mark.kind}</span>
       <span className="ml-auto flex gap-3 sm:ml-0">
@@ -128,26 +284,31 @@ export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
   );
 }
 
+/** The notes themselves, with only "Got it". Used in the side card and in the phone sheet. */
+function NoteList({ e }: { e: EnhanceState }) {
+  if (e.notes.length === 0) return <p className="text-sm text-muted">No notes.</p>;
+  return (
+    <ul className="space-y-2 text-sm">
+      {e.notes.map((n) => (
+        <li key={`${n.line}:${n.text}`} className="flex items-start gap-3">
+          <span className="flex-1">Line {n.line}: {n.text}</span>
+          <button className={linkText} aria-label={`Got it: line ${n.line}`} onClick={() => e.dismiss(n)}>
+            Got it
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Things Claude noticed but must not fix. The only action is "Got it". */
-export function Notes({ e, version }: { e: EnhanceState; version: number }) {
-  const [gone, setGone] = useState<string[]>([]);
-  const key = (n: { line: number; text: string }) => `${version}:${n.line}:${n.text}`;
-  const shown = e.notes.filter((n) => !gone.includes(key(n)));
-  if (shown.length === 0) return null;
+export function Notes({ e }: { e: EnhanceState }) {
+  if (e.notes.length === 0) return null;
   return (
     <section className={`${card} space-y-2 text-sm`} aria-label="Notes">
-      <h3 className="font-semibold">Notes ({shown.length})</h3>
+      <h3 className="font-semibold">Notes ({e.notes.length})</h3>
       <p className="text-muted">Claude noticed these. Nothing here changes your script.</p>
-      <ul className="space-y-2">
-        {shown.map((n) => (
-          <li key={key(n)} className="flex items-start gap-3">
-            <span className="flex-1">Line {n.line}: {n.text}</span>
-            <button className={linkText} aria-label={`Got it: line ${n.line}`} onClick={() => setGone([...gone, key(n)])}>
-              Got it
-            </button>
-          </li>
-        ))}
-      </ul>
+      <NoteList e={e} />
     </section>
   );
 }
