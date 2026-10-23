@@ -8,7 +8,7 @@
 - Jobs: worker `python -m app.worker` polls the `jobs` table. Providers behind `app/providers` (fake only; Replicate later). Paid submits never auto-retried; restarts re-check running jobs. Usage rows hold `cost_usd`; `GET /usage` is owner-only.
 - Rule for every resource PR: use `tests/helpers.py` (`assert_hidden` for other-workspace 404s, `assert_no_dollars` for editors) and check attached file ids with `get_file(..., kind)`.
 - Rule: dollar fields are named `*_usd`; `tests/test_no_dollars_for_editors.py` fails if a non-owner route returns one.
-- Credits: 1 credit = 1 s of 480p (`video-480p` rate seeded at setup); other job kinds need a rate set by the owner (`PUT /credits/rates/{kind}`) or `enqueue` refuses them. Projects have budget = 2x estimate; editors see credits used + %; over-budget jobs wait as `needs_owner_approval` until the owner approves. Owner limits (`/credits/limits`): editor max project estimate (default 300) and max job without a project (default 60), defaults pending Producer/Reed.
+- Credits: 1 credit = $0.1028 real cost = 1 s of 480p. Rates (seeded, owner-editable) give estimates; real cost replaces them on success; kinds without a rate estimate at 1/unit. Projects: editors set planned length, budget = 2x (max 180 s without owner). Quick clips: 150 credits/editor/week. Over any limit = `needs_owner_approval`. Limits owner-editable at `/credits/limits`. Check + reserve is one locked transaction.
 ## Next
 - Builder-Server: foundation done once credits merges; next issue from the Producer.
 - Explorer maps tezu.ai once network access is granted.

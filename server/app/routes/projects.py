@@ -1,55 +1,44 @@
-"""Projects with a credit budget (2x the 480p estimate), and the credit rates per job kind.
+"""Projects and their credit budget. Editors set a planned length; the budget is 2x the 480p
+estimate of it. Above the owner's length limit a project waits for the owner.
 Editors see credits and % of budget, never dollars."""
 
-from decimal import Decimal
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import credits_used, get_limits, get_rate
+from app.credits import credits_used, get_limits
 from app.db import get_db
 from app.models.accounts import User
-from app.models.credits import CreditLimits, CreditRate, Project
+from app.models.credits import Project, ProjectStatus
 from app.routes.brands import get_brand
 from app.schemas import Name
 
-router = APIRouter(tags=["credits"])
+router = APIRouter(prefix="/projects", tags=["credits"])
 
 
 class ProjectIn(BaseModel):
     brand_id: int
     name: Name
-    estimate_credits: Decimal = Field(gt=0, le=100000)  # credits at 480p
+    planned_seconds: int = Field(gt=0, le=3600)
 
 
 class ProjectPatch(BaseModel):
     name: Name | None = None
-    estimate_credits: Decimal | None = Field(None, gt=0, le=100000)  # owner only
+    planned_seconds: int | None = Field(None, gt=0, le=3600)
 
 
 class ProjectOut(BaseModel):
     id: int
     brand_id: int
     name: str
+    planned_seconds: int
+    status: ProjectStatus
     estimate_credits: float
     budget_credits: float
     credits_used: float
     budget_pct: float
-
-
-class RateIn(BaseModel):
-    unit: Name
-    credits_per_unit: Decimal = Field(gt=0, le=10000)
-
-
-class RateOut(BaseModel):
-    kind: str
-    unit: str
-    credits_per_unit: float
 
 
 def get_project(db: Session, user: User, project_id: int) -> Project:
@@ -65,6 +54,8 @@ def _out(db: Session, project: Project) -> ProjectOut:
         id=project.id,
         brand_id=project.brand_id,
         name=project.name,
+        planned_seconds=project.planned_seconds,
+        status=project.status,
         estimate_credits=project.estimate_credits,
         budget_credits=project.budget_credits,
         credits_used=used,
@@ -72,7 +63,15 @@ def _out(db: Session, project: Project) -> ProjectOut:
     )
 
 
-@router.get("/projects", response_model=list[ProjectOut])
+def _set_length(db: Session, user: User, project: Project, seconds: int) -> None:
+    project.planned_seconds = seconds
+    if user.is_owner:
+        project.status, project.approved_by_id = ProjectStatus.active, user.id
+    elif seconds > get_limits(db, user.workspace_id).max_planned_seconds:
+        project.status = ProjectStatus.needs_owner_approval
+
+
+@router.get("", response_model=list[ProjectOut])
 def list_projects(
     brand_id: int | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
@@ -82,93 +81,53 @@ def list_projects(
     return [_out(db, p) for p in db.scalars(query.order_by(func.lower(Project.name)))]
 
 
-@router.post("/projects", response_model=ProjectOut, status_code=201)
+@router.post("", response_model=ProjectOut, status_code=201)
 def create_project(
     body: ProjectIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     get_brand(db, user, body.brand_id)
-    limit = get_limits(db, user.workspace_id).editor_max_estimate_credits
-    if not user.is_owner and body.estimate_credits > limit:
-        raise HTTPException(403, f"Estimates over {limit} credits need the owner to create.")
-    project = Project(workspace_id=user.workspace_id, **body.model_dump())
+    project = Project(workspace_id=user.workspace_id, brand_id=body.brand_id, name=body.name)
+    _set_length(db, user, project, body.planned_seconds)
     db.add(project)
     db.commit()
     return _out(db, project)
 
 
-@router.get("/projects/{project_id}", response_model=ProjectOut)
+@router.get("/{project_id}", response_model=ProjectOut)
 def read_project(
     project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     return _out(db, get_project(db, user, project_id))
 
 
-@router.patch("/projects/{project_id}", response_model=ProjectOut)
+@router.patch("/{project_id}", response_model=ProjectOut)
 def update_project(
     project_id: int,
     body: ProjectPatch,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Anyone can rename. Changing the estimate changes the budget, so only the owner can."""
     project = get_project(db, user, project_id)
-    if body.estimate_credits is not None:
-        if not user.is_owner:
-            raise HTTPException(403, "Only the owner can change a project's estimate.")
-        project.estimate_credits = body.estimate_credits
     if body.name is not None:
         project.name = body.name
+    if body.planned_seconds is not None:
+        _set_length(db, user, project, body.planned_seconds)
     db.commit()
     return _out(db, project)
 
 
-@router.get("/credits/rates", response_model=list[RateOut])
-def list_rates(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return db.scalars(
-        select(CreditRate)
-        .where(CreditRate.workspace_id == user.workspace_id)
-        .order_by(CreditRate.kind)
-    ).all()
-
-
-@router.put("/credits/rates/{kind}", response_model=RateOut)
-def set_rate(
-    kind: Annotated[str, Path(pattern=r"^[a-z0-9-]{1,40}$")],
-    body: RateIn,
-    owner: User = Depends(owner_only),
-    db: Session = Depends(get_db),
+@router.post("/{project_id}/approve", response_model=ProjectOut)
+def approve_project(
+    project_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)
 ):
-    rate = get_rate(db, owner.workspace_id, kind) or CreditRate(
-        workspace_id=owner.workspace_id, kind=kind
+    project = get_project(db, owner, project_id)
+    done = db.execute(
+        update(Project)
+        .where(Project.id == project.id, Project.status == ProjectStatus.needs_owner_approval)
+        .values(status=ProjectStatus.active, approved_by_id=owner.id)
     )
-    rate.unit, rate.credits_per_unit = body.unit, body.credits_per_unit
-    db.add(rate)
+    if done.rowcount != 1:
+        raise HTTPException(409, "This project isn't waiting for approval.")
     db.commit()
-    return rate
-
-
-class LimitsIn(BaseModel):
-    editor_max_estimate_credits: Decimal = Field(ge=0, le=100000)
-    max_job_credits_without_project: Decimal = Field(ge=0, le=100000)
-
-
-class LimitsOut(BaseModel):
-    editor_max_estimate_credits: float
-    max_job_credits_without_project: float
-
-
-@router.get("/credits/limits", response_model=LimitsOut)
-def read_limits(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return get_limits(db, user.workspace_id)
-
-
-@router.put("/credits/limits", response_model=LimitsOut)
-def set_limits(body: LimitsIn, owner: User = Depends(owner_only), db: Session = Depends(get_db)):
-    limits = db.scalar(
-        select(CreditLimits).where(CreditLimits.workspace_id == owner.workspace_id)
-    ) or CreditLimits(workspace_id=owner.workspace_id)
-    for field, value in body.model_dump().items():
-        setattr(limits, field, value)
-    db.add(limits)
-    db.commit()
-    return limits
+    db.refresh(project)
+    return _out(db, project)

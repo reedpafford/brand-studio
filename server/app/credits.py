@@ -1,23 +1,40 @@
-"""Credit maths: rates per job kind, what a project has used, and the budget check."""
+"""Credit maths: estimates from rates, real cost to credits, budgets and allowances.
 
+Reserving: a job's estimated credits are written on the job when it is queued, in the same
+transaction as the check, with the project (or, for quick clips, the editor) row locked.
+Failed and cancelled jobs stop counting; on success the real cost replaces the estimate."""
+
+import logging
+from datetime import datetime, timedelta
 from decimal import Decimal
 
-from fastapi import HTTPException
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app.db import utcnow
+from app.models.accounts import User
 from app.models.credits import (
-    DEFAULT_EDITOR_MAX_ESTIMATE,
-    DEFAULT_MAX_JOB_WITHOUT_PROJECT,
+    DEFAULT_MAX_PLANNED_SECONDS,
+    DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
+    USD_PER_CREDIT,
     CreditLimits,
     CreditRate,
     Project,
+    ProjectStatus,
 )
 from app.models.jobs import Job, JobStatus
 
-# 1 credit = 1 s of 480p video. Other kinds' rates are set by the owner (PUT /credits/rates).
-LAUNCH_RATES = [("video-480p", "second", Decimal(1))]
-# Jobs whose credits count against a budget: done, or on their way.
+log = logging.getLogger(__name__)
+# Estimates only; real cost decides the final credits. Claude/Gemini are typical-call guesses.
+LAUNCH_RATES = [
+    ("video-480p", "second", Decimal(1)),
+    ("video-720p", "second", Decimal("2.25")),
+    ("image-nano-banana-2.1", "image", Decimal("0.3333")),
+    ("image-nano-banana-pro", "image", Decimal("1.5")),
+    ("write-claude", "call", Decimal("0.5")),  # ~$0.05 per call
+    ("watch-gemini", "call", Decimal("0.1")),  # ~$0.01 per call
+]
+FALLBACK_RATE = Decimal(1)  # kinds without a rate are still allowed; estimated at 1/unit
 COUNTED = (JobStatus.queued, JobStatus.running, JobStatus.succeeded)
 
 
@@ -36,21 +53,15 @@ def get_rate(db: Session, workspace_id: int, kind: str) -> CreditRate | None:
     )
 
 
-def credits_for(db: Session, workspace_id: int, kind: str, units: Decimal) -> Decimal:
-    """Credits for `units` of a job kind. Unpriced kinds are refused, so nothing runs free."""
+def estimate(db: Session, workspace_id: int, kind: str, units: Decimal) -> Decimal:
     rate = get_rate(db, workspace_id, kind)
     if not rate:
-        raise HTTPException(422, f"No credit rate for '{kind}' yet. Ask the owner to set one.")
-    return Decimal(units) * rate.credits_per_unit
+        log.warning("No credit rate for %s; estimating %s credit per unit.", kind, FALLBACK_RATE)
+    return Decimal(units) * (rate.credits_per_unit if rate else FALLBACK_RATE)
 
 
-def credits_used(db: Session, project: Project) -> Decimal:
-    used = db.scalar(
-        select(func.coalesce(func.sum(Job.credits), 0)).where(
-            Job.project_id == project.id, Job.status.in_(COUNTED)
-        )
-    )
-    return Decimal(used)
+def usd_to_credits(usd: Decimal) -> Decimal:
+    return (Decimal(usd) / USD_PER_CREDIT).quantize(Decimal("0.001"))
 
 
 def get_limits(db: Session, workspace_id: int) -> CreditLimits:
@@ -59,19 +70,47 @@ def get_limits(db: Session, workspace_id: int) -> CreditLimits:
         select(CreditLimits).where(CreditLimits.workspace_id == workspace_id)
     ) or CreditLimits(
         workspace_id=workspace_id,
-        editor_max_estimate_credits=DEFAULT_EDITOR_MAX_ESTIMATE,
-        max_job_credits_without_project=DEFAULT_MAX_JOB_WITHOUT_PROJECT,
+        max_planned_seconds=DEFAULT_MAX_PLANNED_SECONDS,
+        weekly_quick_clip_credits=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
     )
 
 
-def lock_project(db: Session, project: Project) -> None:
-    """Hold the project's row until commit, so two jobs can't both squeeze into the last
-    credits. A no-op UPDATE locks the row on Postgres and the database on SQLite."""
-    db.execute(update(Project).where(Project.id == project.id).values(id=Project.id))
+def _sum_credits(db: Session, *where) -> Decimal:
+    total = db.scalar(
+        select(func.coalesce(func.sum(Job.credits), 0)).where(Job.status.in_(COUNTED), *where)
+    )
+    return Decimal(total)
 
 
-def needs_approval(db: Session, workspace_id: int, project: Project | None, credits: Decimal):
-    """True if a new job of `credits` must wait for the owner. Call after lock_project."""
-    if project is None:
-        return credits > get_limits(db, workspace_id).max_job_credits_without_project
-    return credits_used(db, project) + credits > project.budget_credits
+def credits_used(db: Session, project: Project) -> Decimal:
+    return _sum_credits(db, Job.project_id == project.id)
+
+
+def week_start() -> datetime:
+    now = utcnow()
+    return (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def quick_clip_used(db: Session, user: User) -> Decimal:
+    """This week's (Mon-Sun, UTC) credits on jobs outside any project, by this person."""
+    return _sum_credits(
+        db, Job.project_id.is_(None), Job.created_by_id == user.id, Job.created_at >= week_start()
+    )
+
+
+def lock(db: Session, model, row_id: int) -> None:
+    """Hold a row until commit (a no-op UPDATE: locks the row on Postgres, the database on
+    SQLite), so two jobs can't both pass the check on the last credits."""
+    db.execute(update(model).where(model.id == row_id).values(id=model.id))
+
+
+def needs_approval(db: Session, user: User, project: Project | None, credits: Decimal) -> bool:
+    """True if a new job must wait for the owner. Call with the right row locked."""
+    if user.is_owner:
+        return False
+    if project is not None:
+        if project.status != ProjectStatus.active:
+            return True
+        return credits_used(db, project) + credits > project.budget_credits
+    allowance = get_limits(db, user.workspace_id).weekly_quick_clip_credits
+    return quick_clip_used(db, user) + credits > allowance

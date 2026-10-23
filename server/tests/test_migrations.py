@@ -31,4 +31,4 @@ def test_existing_workspaces_get_the_launch_rate(tmp_path):
     command.upgrade(cfg, "head")
     with engine.connect() as conn:
         rows = conn.execute(text("SELECT workspace_id, kind FROM credit_rates")).all()
-    assert rows == [(1, "video-480p")]
+    assert (1, "video-480p") in rows and len(rows) == 6

@@ -1,27 +1,34 @@
-"""Credits and project budgets.
+"""Credits, project budgets and owner-set limits.
 
-1 credit = 1 second of 480p video. Each job kind has a rate in credits per unit (second,
-image, ...). A project's budget is 2x its 480p estimate; going over needs the owner."""
+1 credit = $0.1028 of real cost = 1 second of 480p video. Rates per job kind give the
+estimate when a job is queued; when it finishes, its real dollar cost is converted back to
+credits. A project's budget is 2x the 480p estimate of its planned length."""
 
 from decimal import Decimal
+from enum import StrEnum
 
 from sqlalchemy import ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
 
+USD_PER_CREDIT = Decimal("0.1028")  # Seedance 2.5 480p, per second
 BUDGET_MULTIPLIER = 2
-# Placeholders until the Producer/Reed confirm: 5 min and 1 min of 480p video.
-DEFAULT_EDITOR_MAX_ESTIMATE = Decimal(300)
-DEFAULT_MAX_JOB_WITHOUT_PROJECT = Decimal(60)
+DEFAULT_MAX_PLANNED_SECONDS = 180  # editors can plan up to this without the owner
+DEFAULT_WEEKLY_QUICK_CLIP_CREDITS = Decimal(150)  # per editor, Mon-Sun (UTC)
 
 
 class CreditRate(Entity, Base):
     __tablename__ = "credit_rates"
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     kind: Mapped[str] = mapped_column(String(40))  # matches Job.kind, e.g. video-480p
-    unit: Mapped[str] = mapped_column(String(20))  # second, image, ...
+    unit: Mapped[str] = mapped_column(String(20))  # second, image, call
     credits_per_unit: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+
+
+class ProjectStatus(StrEnum):
+    active = "active"
+    needs_owner_approval = "needs_owner_approval"  # planned length over the editor limit
 
 
 class Project(Entity, Base):
@@ -29,7 +36,13 @@ class Project(Entity, Base):
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
     name: Mapped[str] = mapped_column(String(120))
-    estimate_credits: Mapped[Decimal] = mapped_column(Numeric(12, 3))  # the 480p estimate
+    planned_seconds: Mapped[int]
+    status: Mapped[ProjectStatus] = mapped_column(String(30), default=ProjectStatus.active)
+    approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+    @property
+    def estimate_credits(self) -> Decimal:
+        return Decimal(self.planned_seconds)  # 480p costs 1 credit per second
 
     @property
     def budget_credits(self) -> Decimal:
@@ -41,11 +54,7 @@ class CreditLimits(Entity, Base):
 
     __tablename__ = "credit_limits"
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), unique=True)
-    # Largest estimate an editor may give a new project; above it only the owner can.
-    editor_max_estimate_credits: Mapped[Decimal] = mapped_column(
-        Numeric(12, 3), default=DEFAULT_EDITOR_MAX_ESTIMATE
-    )
-    # Largest job outside a project (e.g. a quick clip) before it waits for the owner.
-    max_job_credits_without_project: Mapped[Decimal] = mapped_column(
-        Numeric(12, 3), default=DEFAULT_MAX_JOB_WITHOUT_PROJECT
+    max_planned_seconds: Mapped[int] = mapped_column(default=DEFAULT_MAX_PLANNED_SECONDS)
+    weekly_quick_clip_credits: Mapped[Decimal] = mapped_column(
+        Numeric(12, 3), default=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS
     )

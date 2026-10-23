@@ -14,7 +14,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.credits import get_rate
+from app.credits import usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, Provider, Result, get_providers
@@ -50,11 +50,11 @@ def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
     )
 
 
-def _actual_credits(db: Session, job: Job, result: Result) -> Decimal:
-    """Credits from what the provider says it used; the queue-time estimate if it didn't say."""
-    rate = get_rate(db, job.workspace_id, job.kind)
-    units = sum((i.units for i in result.usage if rate and i.unit == rate.unit), Decimal(0))
-    return units * rate.credits_per_unit if units else job.credits
+def _actual_credits(job: Job, result: Result) -> Decimal:
+    """Real cost converted to credits; the queue-time estimate if the provider didn't say."""
+    if not result.usage:
+        return job.credits
+    return usd_to_credits(sum((i.cost_usd for i in result.usage), Decimal(0)))
 
 
 def recover(db: Session, providers: dict[str, Provider]) -> None:
@@ -96,7 +96,7 @@ def check_running(db: Session, providers: dict[str, Provider]) -> None:
             job,
             JobStatus.running,
             new,
-            credits=_actual_credits(db, job, result) if new == JobStatus.succeeded else job.credits,
+            credits=_actual_credits(job, result) if new == JobStatus.succeeded else job.credits,
             output=result.output,
             error=FAILED if new == JobStatus.failed else "",
             error_detail=result.error[:2000],

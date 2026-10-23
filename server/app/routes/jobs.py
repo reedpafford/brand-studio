@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import credits_for, lock_project, needs_approval
+from app.credits import estimate, lock, needs_approval
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.credits import Project
@@ -62,12 +62,16 @@ def enqueue(
 ) -> Job:
     """Queue a job for the worker. Feature code calls this; there is no public create route.
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. A job
-    that would take its project over budget, or a job outside a project above the owner's
-    per-job limit, waits as `needs_owner_approval`."""
-    credits = credits_for(db, user.workspace_id, kind, Decimal(units))
+    that would take its project over budget, sits in a project still waiting for approval,
+    or (outside a project) goes past the editor's weekly quick-clip allowance waits as
+    `needs_owner_approval`. The check and the reservation are one locked transaction."""
+    credits = estimate(db, user.workspace_id, kind, Decimal(units))
     if project is not None:
-        lock_project(db, project)  # check and insert happen under the same lock
-    over = needs_approval(db, user.workspace_id, project, credits)
+        lock(db, Project, project.id)
+        db.refresh(project)  # read its status after taking the lock
+    else:
+        lock(db, User, user.id)
+    over = needs_approval(db, user, project, credits)
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
@@ -77,6 +81,7 @@ def enqueue(
         project_id=project.id if project else None,
         credits=credits,
         status=JobStatus.needs_owner_approval if over else JobStatus.queued,
+        approved_by_id=user.id if user.is_owner else None,  # the owner's own jobs need no ask
     )
     db.add(job)
     db.commit()
