@@ -1,15 +1,28 @@
 import { Fragment, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
-import { EnhanceBar, MarkLine, Notes, useEnhance } from "./Enhance";
+import { EnhanceBar, MarkLine, type EnhanceState } from "./Enhance";
 import { useToast } from "../toast";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 
 const SOURCE = { paste: "pasted", upload: "uploaded", draft: "written by Claude", enhance: "enhanced" } as Record<string, string>;
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
+/** The working (newest) script, or null when there is none yet. */
+export function useLatestScript(projectId: number) {
+  return useQuery({
+    queryKey: ["script", projectId],
+    queryFn: async () => {
+      const { data, response } = await api.GET("/projects/{project_id}/script", { params: { path: { project_id: projectId } } });
+      if (response.status === 404) return null;
+      if (!data) throw new Error("load");
+      return data;
+    },
+  });
+}
+
 /** The script: paste it or upload a document. Every save is a new numbered version. */
-export function ScriptTab({ projectId }: { projectId: number }) {
+export function ScriptTab({ projectId, enhance }: { projectId: number; enhance: EnhanceState }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const path = { project_id: projectId };
@@ -17,15 +30,7 @@ export function ScriptTab({ projectId }: { projectId: number }) {
   const [viewing, setViewing] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  const latest = useQuery({
-    queryKey: ["script", projectId],
-    queryFn: async () => {
-      const { data, response } = await api.GET("/projects/{project_id}/script", { params: { path } });
-      if (response.status === 404) return null;
-      if (!data) throw new Error("load");
-      return data;
-    },
-  });
+  const latest = useLatestScript(projectId);
   const versions = useQuery({
     queryKey: ["script", projectId, "versions"],
     enabled: showHistory,
@@ -73,8 +78,6 @@ export function ScriptTab({ projectId }: { projectId: number }) {
     },
     onSuccess: saved,
   });
-
-  const enhance = useEnhance(projectId, latest.data?.version);
 
   if (latest.isPending) return <p className="text-muted">Loading…</p>;
   if (latest.isError) return <p role="alert" className={errorClass}>Could not load the script. Try again.</p>;
@@ -193,7 +196,6 @@ export function ScriptTab({ projectId }: { projectId: number }) {
             : undefined
         }
       />
-      {shown?.version === current.version && <Notes e={enhance} version={current.version} />}
     </section>
   );
 }
