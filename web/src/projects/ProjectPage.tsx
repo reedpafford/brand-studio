@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import { linkText, pageTitle } from "../ui";
 import { useEnhance } from "./Enhance";
 import { useBreakdown } from "./BreakdownPane";
+import { useFrames } from "./StoryboardPane";
 import { Meter, WaitingBadge } from "./Meter";
 import { ScriptTab, useLatestScript } from "./ScriptTab";
 import { STAGES, StagePane, Stepper, firstUnfinished, lockReason, type Stage } from "./Workspace";
@@ -26,11 +27,12 @@ export function ProjectPage() {
   const script = useLatestScript(id);
   const enhance = useEnhance(id, script.data?.version, script.data?.text);
   const breakdown = useBreakdown(id, script.data?.version ?? 0);
-  if (project.isPending || script.isPending || breakdown.isPending) return <p className="p-6 text-muted">Loading…</p>;
+  const frames = useFrames(id);
+  if (project.isPending || script.isPending || breakdown.isPending || frames.isPending) return <p className="p-6 text-muted">Loading…</p>;
   const p = project.data;
   if (!p) return <p className="p-6">That project doesn't exist.</p>;
   const hasScript = !!script.data;
-  const ready = { script: hasScript, breakdown: !!breakdown.data, breakdownOk: !!breakdown.data && !breakdown.data.stale && breakdown.data.problems.length === 0 };
+  const ready = { script: hasScript, breakdown: !!breakdown.data, breakdownOk: !!breakdown.data && !breakdown.data.stale && breakdown.data.problems.length === 0, storyboardOk: !!frames.data?.length && frames.data.every((f) => f.approved && !f.stale) };
   // A link to a stage that is locked lands on the first stage that is not finished yet.
   if (lockReason(stage, ready) !== null) return <Navigate to={`?stage=${firstUnfinished(ready)}`} replace />;
   const pick = (s: Stage) => setParams(s === "brief" ? {} : { stage: s });
@@ -81,7 +83,7 @@ export function ProjectPage() {
           />
         </div>
         <div className={pane === "stage" ? "" : "hidden lg:block"}>
-          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} projectId={id} brandId={p.brand_id} used={p.credits_used}
+          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} projectId={id} brandId={p.brand_id} name={p.name} used={p.credits_used}
             budget={p.budget_credits}
             line={line}
             onShowLines={(lines) => {

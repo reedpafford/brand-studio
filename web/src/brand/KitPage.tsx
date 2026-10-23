@@ -31,6 +31,7 @@ function KitForm({ brand }: { brand: Brand }) {
     tone_notes: brand.tone_notes ?? "",
     never_say: (brand.never_say ?? []).join("\n"),
     legal_line: brand.legal_line ?? "",
+    end_line: brand.end_line ?? "",
   };
   const [kit, setKit] = useState(start);
   const [saved, setSaved] = useState(JSON.stringify(start));
@@ -116,6 +117,11 @@ function KitForm({ brand }: { brand: Brand }) {
         <label className="block text-sm">
           Legal line
           <textarea className={box} rows={2} value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
+        </label>
+        <label className="block text-sm">
+          End line
+          <input className={box} value={kit.end_line} onChange={(e) => set("end_line", e.target.value)} />
+          <span className="block text-muted">Every video ends on it, word for word. For example, "Download fomo through the link in my bio."</span>
         </label>
         {save.isError && (
           <p role="alert" className={errorClass}>
