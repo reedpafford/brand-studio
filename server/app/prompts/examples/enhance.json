@@ -1,130 +1,126 @@
 {
- "source": "gold reel Dc1TdgvK42n (cevrico, 142K views), adapted for fomo",
- "note": "An editor's first draft with a slow opening, missing screens and an explaining line. No line changes: the marks add only what we see, and the problems in the words become notes.",
- "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image and shown exactly:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Leo, teen trader\nchar:2 Maya, his girlfriend\n</cast>\n<script>\n1| SCENE 1 — INT. SCHOOL HALLWAY — DAY\n2| Leo and Maya walk down the hallway past the lockers, chatting about their weekend.\n3| LEO: So how was your weekend?\n4| MAYA: Fine. Yours?\n5| Leo pulls out his phone to show her his trades.\n6| LEO: You should come over after school. I'll show you my setup.\n7| MAYA: Leo, you're down twenty-seven hundred dollars.\n8| LEO: It's a dip. It'll come back.\n9| MAYA: Call me when you're profitable.\n10| She walks away. Leo is sad because she left him.\n11| Leo sits at his desk in his dark bedroom and opens fomo.\n12| He trades all night.\n13| LEO: Come on… come on…\n14| The number climbs to twenty-seven thousand.\n15| LEO: No way.\n16| SCENE 3 — INT. SCHOOL HALLWAY — DAY\n17| Leo walks up to Maya at her locker.\n18| MAYA: Leo? I heard about your trade.\n19| LEO: You said call when I'm profitable.\n20| He holds up his phone.\n21| LEO: So I guess this is the call.\n</script>",
+ "source": "house-style template A \"They said I'd fail\" (docs/house-style, after nateassets DcP_aC_AoQz); new characters and lines for fomo",
+ "note": "An editor's first draft: a slow start, missing screens, a telling line, a made-up screen and a callback with no setup. No line changes; the marks add only what we see, and problems in the words become notes.",
+ "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image and shown exactly:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, backwards navy cap, white tee\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Malik eats cereal. Aunt Tasha reads the news on her tablet.\n3| TASHA: Morning.\n4| MALIK: Morning.\n5| TASHA: Malik, where's your five hundred dollars?\n6| MALIK: I put it in fomo.\n7| TASHA: That's your college money!\n8| MALIK: Give me one month.\n9| Malik goes upstairs. He is nervous because he might lose it all.\n10| He checks the app every night.\n11| ★ fomo screen: Wallet — showing his balance\n12| SCENE 3 — INT. KITCHEN — DAY\n13| Malik slides his phone across the counter.\n14| TASHA: That's… real?\n15| MALIK: Still want me bagging groceries?\n</script>",
  "output": {
   "suggestions": [
    {
     "id": "s1",
-    "kind": "brand_screen",
+    "kind": "camera",
     "anchor": {
-     "line": 7,
-     "quote": "you're down twenty-seven hundred dollars"
+     "line": 5,
+     "quote": "TASHA: Malik, where's your five hundred dollars?"
     },
-    "placement": "after",
-    "text": "★ fomo screen: Token chart down — on Leo's phone, fills the frame",
-    "screen_id": "screen:3",
-    "reason": "A loss is a fomo moment, so the real chart-down screen must show here."
+    "placement": "before",
+    "text": "Close-up on Tasha, push in, as she slams his empty piggy bank on the counter.",
+    "screen_id": null,
+    "reason": "Puts the fight and the money on screen in the first second."
    },
    {
     "id": "s2",
-    "kind": "camera",
+    "kind": "brand_screen",
     "anchor": {
-     "line": 9,
-     "quote": "MAYA: Call me when you're profitable."
+     "line": 6,
+     "quote": "MALIK: I put it in fomo."
     },
-    "placement": "before",
-    "text": "Slow push-in on Maya as she says it, Leo blurred in the foreground.",
-    "screen_id": null,
-    "reason": "This line comes back at the end, so give it weight now."
+    "placement": "after",
+    "text": "★ fomo screen: Home — on the phone Malik holds up",
+    "screen_id": "screen:1",
+    "reason": "Saying fomo is a brand moment, so the real home screen shows."
    },
    {
     "id": "s3",
     "kind": "reaction",
     "anchor": {
-     "line": 10,
-     "quote": "She walks away."
+     "line": 8,
+     "quote": "MALIK: Give me one month."
     },
     "placement": "after",
-    "text": "Leo freezes, phone still raised, eyes wet, alone in the emptying hallway.",
+    "text": "Tasha leans in nose to nose with him, one brow up; he doesn't blink.",
     "screen_id": null,
-    "reason": "The low point needs a held, visible beat."
+    "reason": "The dare needs a held face-off so the payoff has something to answer."
    },
    {
     "id": "s4",
-    "kind": "brand_screen",
+    "kind": "reaction",
     "anchor": {
-     "line": 11,
-     "quote": "opens fomo"
+     "line": 9,
+     "quote": "Malik goes upstairs."
     },
     "placement": "after",
-    "text": "★ fomo screen: Home — on Leo's phone as the app opens",
-    "screen_id": "screen:1",
-    "reason": "Opening fomo is a brand moment that needs the real home screen."
+    "text": "Alone in his dark room, Malik drops his head onto his arms in the blue phone glow.",
+    "screen_id": null,
+    "reason": "Shows the low point the next sentence only tells."
    },
    {
     "id": "s5",
     "kind": "brand_screen",
     "anchor": {
-     "line": 12,
-     "quote": "He trades all night."
+     "line": 10,
+     "quote": "He checks the app every night."
     },
     "placement": "after",
-    "text": "★ fomo screen: Desktop trading — on his monitor, cold glow on his face",
-    "screen_id": "screen:4",
-    "reason": "The all-night grind is trading at a desk, so the real desktop screen shows."
+    "text": "★ fomo screen: Token chart down — on his phone, cold blue light on his face",
+    "screen_id": "screen:3",
+    "reason": "The nights of trading are a fomo moment; the real chart-down screen is the low point."
    },
    {
     "id": "s6",
     "kind": "brand_screen",
     "anchor": {
-     "line": 14,
-     "quote": "The number climbs to twenty-seven thousand."
+     "line": 11,
+     "quote": "★ fomo screen: Wallet — showing his balance"
     },
     "placement": "after",
     "text": "★ fomo screen: Token chart up — fills the frame",
     "screen_id": "screen:2",
-    "reason": "The win must be the real chart-up screen, not an invented number."
+    "reason": "The turn is a win, and fomo's real win screen is Token chart up."
    },
    {
     "id": "s7",
-    "kind": "reaction",
+    "kind": "brand_screen",
     "anchor": {
-     "line": 15,
-     "quote": "LEO: No way."
+     "line": 13,
+     "quote": "Malik slides his phone across the counter."
     },
     "placement": "after",
-    "text": "Leo's eyes snap wide, he shoves back from the desk and grabs his head.",
-    "screen_id": null,
-    "reason": "The payoff lands when we see it hit him."
+    "text": "★ fomo screen: Token chart up — on the phone as it stops in front of Tasha",
+    "screen_id": "screen:2",
+    "reason": "The proof Tasha sees has to be the real fomo screen."
    },
    {
     "id": "s8",
-    "kind": "brand_screen",
+    "kind": "reaction",
     "anchor": {
-     "line": 20,
-     "quote": "He holds up his phone."
+     "line": 14,
+     "quote": "TASHA: That's… real?"
     },
     "placement": "after",
-    "text": "★ fomo screen: Token chart up — on the phone he holds up to Maya",
-    "screen_id": "screen:2",
-    "reason": "The callback shows the proof, and the proof is fomo."
-   },
-   {
-    "id": "s9",
-    "kind": "camera",
-    "anchor": {
-     "line": 21,
-     "quote": "LEO: So I guess this is the call."
-    },
-    "placement": "before",
-    "text": "Over Leo's shoulder onto Maya's face, her jaw dropping.",
+    "text": "Tasha grabs the phone with both hands; her eyes snap wide before she screams.",
     "screen_id": null,
-    "reason": "Her reaction is the payoff of the whole video."
+    "reason": "Her scream is the comic button the payoff needs."
    }
   ],
   "notes": [
    {
     "line": 2,
-    "text": "Lines 2–4 are small talk before the conflict; the video would hook faster if it started at line 5, Leo showing his phone."
+    "text": "Lines 2–4 are breakfast small talk before the fight; the video would hook faster if it opened on line 5."
    },
    {
-    "line": 10,
-    "text": "'Leo is sad because she left him' tells what his face should show; the reaction mark after it covers it on screen."
+    "line": 9,
+    "text": "\"He is nervous because he might lose it all\" tells what the picture should show; the reaction mark after it covers it on screen."
    },
    {
-    "line": 16,
-    "text": "The script jumps from no heading to SCENE 3; the bedroom (line 11) is a new place and time."
+    "line": 11,
+    "text": "\"Wallet\" isn't one of fomo's screens; the mark after this line uses Token chart up."
+   },
+   {
+    "line": 12,
+    "text": "The script jumps to SCENE 3 with no scene 2, and the night trading (lines 9–11) is a new place and time."
+   },
+   {
+    "line": 15,
+    "text": "\"Bagging groceries\" calls back to a threat Tasha never makes in scene 1, so the punchline has no setup."
    }
   ]
  }

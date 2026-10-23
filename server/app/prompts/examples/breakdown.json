@@ -1,14 +1,14 @@
 {
- "source": "gold reel DdFEiOLy5h1 (cevrico, 361K views), adapted for fomo",
- "note": "Every turn gets its own shot, both trading moments are screen inserts followed by a reaction, and clip 2 opens on an insert after the time jump.",
- "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image and shown exactly:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Aiden, teen trader\nchar:2 Dad\nchar:3 Jay, Aiden's mentor\n</cast>\n<places>\nplace:1 Aiden's bedroom trading setup\n</places>\n<video_model>Seedance 2.5: 4–30 s per clip, up to 30 reference images</video_model>\n<script>\n1| SCENE 1 — INT. AIDEN'S BEDROOM — NIGHT\n2| Dad storms in. Aiden is at his monitors, his mentor Jay standing behind him.\n3| DAD: You told my son to drop out of high school?\n4| JAY: I told him to bet on himself.\n5| DAD: Seven days. Ten grand. Or the computer goes.\n6| Aiden's eyes snap wide.\n7| AIDEN: Deal.\n8| SCENE 2 — INT. AIDEN'S BEDROOM — NIGHT, SEVEN DAYS LATER\n9| ★ fomo screen: Token chart down — on Aiden's phone\n10| AIDEN: I'm down seven thousand.\n11| Dad leans in the doorway, arms crossed.\n12| JAY: Don't you dare sell. Trust your setup.\n13| ★ fomo screen: Token chart up — fills the frame\n14| AIDEN: Come on… come on… Ha! I did it!\n15| DAD: Twenty-four thousand? On one trade?\n16| Dad sinks onto the bed, stunned. Then he smiles.\n17| DAD: Okay. Show me how.\n18| AIDEN: Should I still go to school? Comment below.\n</script>",
+ "source": "house-style template A \"They said I'd fail\" (docs/house-style, after nateassets DcP_aC_AoQz); new characters and lines for fomo",
+ "note": "Conflict line with a number at 0 s, the dare by 5 s, a cold low point held 2 s, the screens as the low point, the turn and the scale-up, a mirrored payoff under 8 words, a scream button, and 2 s of the real fomo screen to close. Each clip after a time jump opens on an insert.",
+ "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image and shown exactly:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, backwards navy cap, white tee\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<places>\nplace:1 Tasha's kitchen\nplace:2 Malik's small bedroom\n</places>\n<video_model>Seedance 2.5: 4–30 s per clip, up to 30 reference images (prefer 8 or fewer)</video_model>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Aunt Tasha slams Malik's empty piggy bank on the counter.\n3| TASHA: Malik! Where's your five hundred dollars?\n4| MALIK: I put it in fomo.\n5| TASHA: A phone app? That's your college money!\n6| MALIK: Give me one month.\n7| TASHA: One month. Then you're bagging groceries.\n8| SCENE 2 — INT. MALIK'S BEDROOM — NIGHT\n9| ★ fomo screen: Token chart down — on Malik's phone\n10| Malik drops his head onto his arms in the blue phone glow.\n11| MALIK: Come on. One more.\n12| ★ fomo screen: Token chart up — fills the frame\n13| Wordless montage: the same pose at his desk while the phone becomes a laptop, then a full trading desk.\n14| ★ fomo screen: Desktop trading — on his monitor\n15| SCENE 3 — INT. KITCHEN — DAY, ONE MONTH LATER\n16| Malik slides his phone across the counter.\n17| TASHA: That's… real?\n18| MALIK: Still want me bagging groceries?\n19| Tasha grabs his phone with both hands and screams.\n20| ★ fomo screen: Home — closing tag, fills the frame\n</script>",
  "output": {
-  "hook": "Dad bursts through the door shouting an accusation at the mentor in the first second; the stakes (school, ten grand, seven days) are set by second 6.",
+  "hook": "Tasha bursts in and slams Malik's empty piggy bank down at 0 s, and the money ($500) is in her first line; his dare lands by second 5.",
   "scenes": [
    {
     "id": 1,
-    "heading": "INT. AIDEN'S BEDROOM — NIGHT",
-    "look": "Dark bedroom lit by cold blue monitor glow, warm hallway light spilling in behind Dad; cables and energy cans in the foreground.",
+    "heading": "INT. KITCHEN — DAY",
+    "look": "Warm day interior: soft window key, warm bounce on faces, cool grey-blue walls; the red piggy bank is the one saturated object.",
     "shots": [
      {
       "id": "1.1",
@@ -16,15 +16,14 @@
        2,
        3
       ],
-      "speaker": "Dad",
-      "line": "You told my son to drop out of high school?",
-      "action": "Dad bursts through the door and jabs a finger at Jay.",
+      "speaker": "Tasha",
+      "line": "Malik! Where's your five hundred dollars?",
+      "action": "Tasha slams the empty piggy bank on the counter.",
       "reaction": null,
-      "camera": "Medium close-up on Dad in the doorway, fast push-in",
-      "seconds": 2.4,
+      "camera": "Close-up on Tasha, push in",
+      "seconds": 1.6,
       "character_ids": [
-       "char:2",
-       "char:3"
+       "char:2"
       ],
       "place_id": "place:1",
       "moment": null,
@@ -35,30 +34,32 @@
       "script_lines": [
        4
       ],
-      "speaker": "Jay",
-      "line": "I told him to bet on himself.",
-      "action": "Jay answers without moving.",
-      "reaction": "Jay holds Dad's stare with a slow half-smile.",
-      "camera": "Low-angle medium close-up on Jay, static",
-      "seconds": 1.8,
+      "speaker": "Malik",
+      "line": "I put it in fomo.",
+      "action": "Malik holds up his phone.",
+      "reaction": null,
+      "camera": "Low-angle close-up on Malik, static",
+      "seconds": 1.1,
       "character_ids": [
-       "char:3"
+       "char:1"
       ],
       "place_id": "place:1",
-      "moment": null,
-      "screen_ids": []
+      "moment": "fomo-mention",
+      "screen_ids": [
+       "screen:1"
+      ]
      },
      {
       "id": "1.3",
       "script_lines": [
        5
       ],
-      "speaker": "Dad",
-      "line": "Seven days. Ten grand. Or the computer goes.",
-      "action": "Dad leans over the desk at Aiden.",
-      "reaction": null,
-      "camera": "Tight close-up on Dad, brows crashed down",
-      "seconds": 2.3,
+      "speaker": "Tasha",
+      "line": "A phone app? That's your college money!",
+      "action": "Tasha jabs a finger at the phone.",
+      "reaction": "Brows crash into a hard V.",
+      "camera": "Close-up on Tasha, static",
+      "seconds": 1.8,
       "character_ids": [
        "char:2"
       ],
@@ -71,14 +72,15 @@
       "script_lines": [
        6
       ],
-      "speaker": null,
-      "line": null,
-      "action": "Aiden hears the deadline.",
-      "reaction": "Aiden's eyes snap wide.",
-      "camera": "Extreme close-up on Aiden's eyes, snap zoom",
-      "seconds": 0.8,
+      "speaker": "Malik",
+      "line": "Give me one month.",
+      "action": "Malik steps in, nose to nose with her.",
+      "reaction": null,
+      "camera": "Profile two-shot, nose to nose, static",
+      "seconds": 1.0,
       "character_ids": [
-       "char:1"
+       "char:1",
+       "char:2"
       ],
       "place_id": "place:1",
       "moment": null,
@@ -89,12 +91,30 @@
       "script_lines": [
        7
       ],
-      "speaker": "Aiden",
-      "line": "Deal.",
-      "action": "Aiden sets his jaw and turns back to the monitors.",
+      "speaker": "Tasha",
+      "line": "One month. Then you're bagging groceries.",
+      "action": "Tasha folds her arms.",
       "reaction": null,
-      "camera": "Close-up on Aiden, monitor light on his face",
-      "seconds": 0.9,
+      "camera": "Close-up on Tasha, snap zoom",
+      "seconds": 1.4,
+      "character_ids": [
+       "char:2"
+      ],
+      "place_id": "place:1",
+      "moment": null,
+      "screen_ids": []
+     },
+     {
+      "id": "1.6",
+      "script_lines": [
+       7
+      ],
+      "speaker": null,
+      "line": null,
+      "action": "Malik hears the threat.",
+      "reaction": "Malik swallows, jaw set.",
+      "camera": "Extreme close-up on Malik's eyes, static",
+      "seconds": 0.6,
       "character_ids": [
        "char:1"
       ],
@@ -106,8 +126,8 @@
    },
    {
     "id": 2,
-    "heading": "INT. AIDEN'S BEDROOM — NIGHT, SEVEN DAYS LATER",
-    "look": "Same room, colder and darker for the loss; the screens flare green on the win and warm every face.",
+    "heading": "INT. MALIK'S BEDROOM — NIGHT",
+    "look": "Night screen-glow: cold blue phone light from below is the only key, the room near black, a warm tungsten doorway behind him; it warms as the chart turns green.",
     "shots": [
      {
       "id": "2.1",
@@ -117,12 +137,12 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Aiden's phone shows the token falling.",
+      "action": "The token falls on Malik's phone.",
       "reaction": null,
-      "camera": "Macro insert of the phone screen, static",
-      "seconds": 1.2,
+      "camera": "Extreme close-up on the phone, static",
+      "seconds": 1.0,
       "character_ids": [],
-      "place_id": "place:1",
+      "place_id": "place:2",
       "moment": "loss",
       "screen_ids": [
        "screen:3"
@@ -133,16 +153,16 @@
       "script_lines": [
        10
       ],
-      "speaker": "Aiden",
-      "line": "I'm down seven thousand.",
-      "action": "Aiden stares at the screen, exhausted.",
-      "reaction": "Bloodshot eyes, lips trembling.",
-      "camera": "Extreme close-up on Aiden, cold blue light",
-      "seconds": 1.5,
+      "speaker": null,
+      "line": null,
+      "action": "Malik drops his head onto his arms.",
+      "reaction": "Shoulders sag, eyes shut.",
+      "camera": "High-angle close-up, slow push in",
+      "seconds": 2.0,
       "character_ids": [
        "char:1"
       ],
-      "place_id": "place:1",
+      "place_id": "place:2",
       "moment": null,
       "screen_ids": []
      },
@@ -151,17 +171,16 @@
       "script_lines": [
        11
       ],
-      "speaker": null,
-      "line": null,
-      "action": "Dad watches from the doorway, arms crossed.",
-      "reaction": "Dad's eyebrow arches.",
-      "camera": "High wide shot from behind Aiden, Dad small in the doorway",
-      "seconds": 1.0,
+      "speaker": "Malik",
+      "line": "Come on. One more.",
+      "action": "Malik lifts his head and taps the screen.",
+      "reaction": null,
+      "camera": "Close-up on Malik, static",
+      "seconds": 1.2,
       "character_ids": [
-       "char:1",
-       "char:2"
+       "char:1"
       ],
-      "place_id": "place:1",
+      "place_id": "place:2",
       "moment": null,
       "screen_ids": []
      },
@@ -170,19 +189,18 @@
       "script_lines": [
        12
       ],
-      "speaker": "Jay",
-      "line": "Don't you dare sell. Trust your setup.",
-      "action": "Jay leans down to Aiden's ear.",
+      "speaker": null,
+      "line": null,
+      "action": "The token rockets up.",
       "reaction": null,
-      "camera": "Medium close-up on Jay and Aiden, slow push-in",
-      "seconds": 1.8,
-      "character_ids": [
-       "char:1",
-       "char:3"
-      ],
-      "place_id": "place:1",
-      "moment": null,
-      "screen_ids": []
+      "camera": "Extreme close-up on the phone, static",
+      "seconds": 1.0,
+      "character_ids": [],
+      "place_id": "place:2",
+      "moment": "win",
+      "screen_ids": [
+       "screen:2"
+      ]
      },
      {
       "id": "2.5",
@@ -191,10 +209,93 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "The token rockets up on Aiden's phone.",
+      "action": "Same pose at the desk; the phone in his hands is now a laptop.",
       "reaction": null,
-      "camera": "Macro insert, phone fills the frame, static",
-      "seconds": 1.2,
+      "camera": "Medium shot, locked off, match cut",
+      "seconds": 0.5,
+      "character_ids": [
+       "char:1"
+      ],
+      "place_id": "place:2",
+      "moment": null,
+      "screen_ids": []
+     },
+     {
+      "id": "2.6",
+      "script_lines": [
+       13
+      ],
+      "speaker": null,
+      "line": null,
+      "action": "Same pose; the laptop is now a wide desk with two monitors.",
+      "reaction": null,
+      "camera": "Medium shot, locked off, match cut",
+      "seconds": 0.5,
+      "character_ids": [
+       "char:1"
+      ],
+      "place_id": "place:2",
+      "moment": null,
+      "screen_ids": []
+     },
+     {
+      "id": "2.7",
+      "script_lines": [
+       13,
+       14
+      ],
+      "speaker": null,
+      "line": null,
+      "action": "The monitor shows the fomo desktop trading screen.",
+      "reaction": null,
+      "camera": "Over-the-shoulder close-up on the monitor, static",
+      "seconds": 1.0,
+      "character_ids": [
+       "char:1"
+      ],
+      "place_id": "place:2",
+      "moment": "trading-desktop",
+      "screen_ids": [
+       "screen:4"
+      ]
+     },
+     {
+      "id": "2.8",
+      "script_lines": [
+       14
+      ],
+      "speaker": null,
+      "line": null,
+      "action": "Malik leans back in the green glow.",
+      "reaction": "A slow, small grin.",
+      "camera": "Low-angle close-up, static",
+      "seconds": 0.8,
+      "character_ids": [
+       "char:1"
+      ],
+      "place_id": "place:2",
+      "moment": null,
+      "screen_ids": []
+     }
+    ]
+   },
+   {
+    "id": 3,
+    "heading": "INT. KITCHEN — DAY, ONE MONTH LATER",
+    "look": "The same kitchen in golden-hour sun with a strong rim on both faces; warmer and richer than before.",
+    "shots": [
+     {
+      "id": "3.1",
+      "script_lines": [
+       15,
+       16
+      ],
+      "speaker": null,
+      "line": null,
+      "action": "Malik's phone slides across the counter and stops in front of Tasha.",
+      "reaction": null,
+      "camera": "Overhead close-up on the phone, static",
+      "seconds": 1.0,
       "character_ids": [],
       "place_id": "place:1",
       "moment": "win",
@@ -203,34 +304,16 @@
       ]
      },
      {
-      "id": "2.6",
+      "id": "3.2",
       "script_lines": [
-       14
+       17
       ],
-      "speaker": "Aiden",
-      "line": "Come on… come on… Ha! I did it!",
-      "action": "Aiden leaps up from the chair, fists clenched.",
-      "reaction": "Mouth wide open, yelling.",
-      "camera": "Low-angle close-up, tracking him up",
-      "seconds": 2.3,
-      "character_ids": [
-       "char:1"
-      ],
-      "place_id": "place:1",
-      "moment": null,
-      "screen_ids": []
-     },
-     {
-      "id": "2.7",
-      "script_lines": [
-       15
-      ],
-      "speaker": "Dad",
-      "line": "Twenty-four thousand? On one trade?",
-      "action": "Dad steps into the room.",
-      "reaction": "Dad's jaw drops, eyes wide.",
-      "camera": "Close-up on Dad, fast push-in",
-      "seconds": 2.0,
+      "speaker": "Tasha",
+      "line": "That's… real?",
+      "action": "Tasha leans over the phone.",
+      "reaction": "Her jaw drops, slowly.",
+      "camera": "Close-up on Tasha, push in",
+      "seconds": 1.2,
       "character_ids": [
        "char:2"
       ],
@@ -239,43 +322,58 @@
       "screen_ids": []
      },
      {
-      "id": "2.8",
-      "script_lines": [
-       16,
-       17
-      ],
-      "speaker": "Dad",
-      "line": "Okay. Show me how.",
-      "action": "Dad sinks onto the bed, then smiles.",
-      "reaction": "Aiden and Jay trade a look.",
-      "camera": "Medium three-shot, static",
-      "seconds": 2.2,
-      "character_ids": [
-       "char:1",
-       "char:2",
-       "char:3"
-      ],
-      "place_id": "place:1",
-      "moment": null,
-      "screen_ids": []
-     },
-     {
-      "id": "2.9",
+      "id": "3.3",
       "script_lines": [
        18
       ],
-      "speaker": "Aiden",
-      "line": "Should I still go to school? Comment below.",
-      "action": "Aiden turns to the camera.",
-      "reaction": null,
-      "camera": "Slow push-in on Aiden, direct to camera",
-      "seconds": 2.1,
+      "speaker": "Malik",
+      "line": "Still want me bagging groceries?",
+      "action": "Malik leans on the counter, calm.",
+      "reaction": "A small smirk.",
+      "camera": "Low-angle close-up on Malik, static",
+      "seconds": 1.4,
       "character_ids": [
        "char:1"
       ],
       "place_id": "place:1",
       "moment": null,
       "screen_ids": []
+     },
+     {
+      "id": "3.4",
+      "script_lines": [
+       19
+      ],
+      "speaker": null,
+      "line": null,
+      "action": "Tasha grabs the phone with both hands and screams.",
+      "reaction": "Mouth wide, eyes white all round.",
+      "camera": "Whip to an extreme close-up on Tasha's scream",
+      "seconds": 1.0,
+      "character_ids": [
+       "char:2"
+      ],
+      "place_id": "place:1",
+      "moment": null,
+      "screen_ids": []
+     },
+     {
+      "id": "3.5",
+      "script_lines": [
+       20
+      ],
+      "speaker": null,
+      "line": null,
+      "action": "The real fomo home screen fills the frame.",
+      "reaction": null,
+      "camera": "Close-up on the phone, static",
+      "seconds": 2.0,
+      "character_ids": [],
+      "place_id": "place:1",
+      "moment": "fomo-mention",
+      "screen_ids": [
+       "screen:1"
+      ]
      }
     ]
    }
@@ -288,10 +386,11 @@
      "1.2",
      "1.3",
      "1.4",
-     "1.5"
+     "1.5",
+     "1.6"
     ],
-    "seconds": 9,
-    "seam": "Hard cut to seven days later."
+    "seconds": 8,
+    "seam": "Hard cut to his bedroom that night."
    },
    {
     "id": "c2",
@@ -303,10 +402,21 @@
      "2.5",
      "2.6",
      "2.7",
-     "2.8",
-     "2.9"
+     "2.8"
     ],
-    "seconds": 16,
+    "seconds": 8,
+    "seam": "Hard cut to one month later."
+   },
+   {
+    "id": "c3",
+    "shot_ids": [
+     "3.1",
+     "3.2",
+     "3.3",
+     "3.4",
+     "3.5"
+    ],
+    "seconds": 7,
     "seam": "end"
    }
   ]

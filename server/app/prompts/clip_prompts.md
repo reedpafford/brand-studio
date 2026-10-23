@@ -10,7 +10,7 @@ Write one video prompt per clip in the breakdown. The model generates the whole 
 Audio: only the spoken lines and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
 References: [Image1] is the first frame. [Image2] is Aiden. [Image3] is Dad. [Image4] is the fomo "Token chart up" screen.
 Summary: <who does what, where, and the turn or payoff, in one sentence>.
-Style: stylized 3D animated feature film, expressive faces.
+Style: Pixar-style 3D animation, big glossy eyes, soft subsurface skin, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions.
 Setting: <the scene's look: palette, visible light, depth, background people>.
 Shots (hard cuts):
 Shot 1 | 0–2 s. Low-angle close-up, push in. Dad leans over the desk, brows crashed down. Dad (shouting): "Seven days. Ten grand."
