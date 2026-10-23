@@ -1,7 +1,7 @@
 {
  "source": "house-style template A \"They said I'd fail\" (docs/house-style, after nateassets DcP_aC_AoQz); new characters and lines for fomo",
  "note": "An editor's first draft: a slow start, missing screens, a telling line, a made-up screen and a callback with no setup. No line changes; the marks add only what we see, and problems in the words become notes.",
- "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image and shown exactly:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, backwards navy cap, white tee\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Malik eats cereal. Aunt Tasha reads the news on her tablet.\n3| TASHA: Morning.\n4| MALIK: Morning.\n5| TASHA: Malik, where's your five hundred dollars?\n6| MALIK: I put it in fomo.\n7| TASHA: That's your college money!\n8| MALIK: Give me one month.\n9| Malik goes upstairs. He is nervous because he might lose it all.\n10| He checks the app every night.\n11| ★ fomo screen: Wallet — showing his balance\n12| SCENE 3 — INT. KITCHEN — DAY\n13| Malik slides his phone across the counter.\n14| TASHA: That's… real?\n15| MALIK: Still want me bagging groceries?\n</script>",
+ "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image and shown exactly:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, red beanie, grey hoodie, headphones round his neck\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Malik eats cereal. Aunt Tasha reads the news on her tablet.\n3| TASHA: Morning.\n4| MALIK: Morning.\n5| TASHA: Five hundred dollars, Malik. Gone?\n6| MALIK: I put it in fomo.\n7| TASHA: That's your college money!\n8| MALIK: Give me one month.\n9| Malik goes upstairs. He is nervous because he might lose it all.\n10| He checks the app every night.\n11| ★ fomo screen: Wallet — showing his balance\n12| SCENE 3 — INT. KITCHEN — DAY\n13| Malik slides his phone across the counter.\n14| TASHA: That's… real?\n15| MALIK: Still want me bagging groceries?\n</script>",
  "output": {
   "suggestions": [
    {
@@ -9,7 +9,7 @@
     "kind": "camera",
     "anchor": {
      "line": 5,
-     "quote": "TASHA: Malik, where's your five hundred dollars?"
+     "quote": "TASHA: Five hundred dollars, Malik. Gone?"
     },
     "placement": "before",
     "text": "Close-up on Tasha, push in, as she slams his empty piggy bank on the counter.",
