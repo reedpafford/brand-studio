@@ -15,6 +15,7 @@ export function NewProjectPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", goal: "", platform: PLATFORMS[0], aspect: "9:16" as (typeof ASPECTS)[number], format: "", seconds: 30 });
   const [cast, setCast] = useState<number[]>([]);
+  const [picks, setPicks] = useState<Record<string, string>>({});
   const [reference, setReference] = useState<number | null>(null);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
 
@@ -22,9 +23,18 @@ export function NewProjectPage() {
     queryKey: ["library", "character", brandId, false],
     queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "character" }, query: { brand_id: brandId } } })).data ?? [],
   });
+  const screens = useQuery({
+    queryKey: ["screens", brandId],
+    queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: brandId } } })).data ?? [],
+  });
+  // Screens that are one flavour of a product (a bag that comes in Chicken or Peanut butter) are picked here.
+  const products = new Map<string, NonNullable<typeof screens.data>>();
+  for (const s of screens.data ?? []) if (s.product && s.variant) products.set(s.product, [...(products.get(s.product) ?? []), s]);
+  // A flavour has to be chosen; a product with only one is chosen for you.
+  const chosen = (product: string) => picks[product] ?? (products.get(product)?.length === 1 ? products.get(product)![0].variant : undefined);
+  const unchosen = [...products.keys()].find((p) => !chosen(p));
   const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
-  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 170; // budget is 2x the 480p seconds
-  const needsApproval = limits.data ? form.seconds > limits.data.max_planned_seconds : false;
+  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 364; // budget is 2x the 480p seconds
 
   const upload = useMutation({ mutationFn: uploadFile, onSuccess: (f) => setReference(f.id) });
   const create = useMutation({
@@ -40,6 +50,7 @@ export function NewProjectPage() {
           format: form.format,
           cast_ids: cast,
           reference_file_id: reference,
+          product_variants: Object.fromEntries([...products.keys()].map((p) => [p, chosen(p)!])),
         },
       });
       if (!data) throw new Error(errorText(error));
@@ -102,8 +113,7 @@ export function NewProjectPage() {
         <label className="block text-sm">
           Planned length (seconds)
           <input className={input} type="number" required min={1} max={longest} value={form.seconds} onChange={(e) => set("seconds", Number(e.target.value))} />
-          <span className="block text-muted">Up to {longest}s. Budget: {form.seconds * 2} credits (twice the length).</span>
-          {needsApproval && <span className="block text-warning">Over {limits.data?.max_planned_seconds}s Reed has to approve the project.</span>}
+          <span className="block text-muted">Budget: {form.seconds * 2} credits (twice the length).</span>
         </label>
         <fieldset className="space-y-1 text-sm">
           <legend className="font-medium">Who's in it</legend>
@@ -115,6 +125,28 @@ export function NewProjectPage() {
             </label>
           ))}
         </fieldset>
+        {[...products].map(([product, list]) => (
+          <fieldset key={product} className="space-y-1 text-sm">
+            <legend className="font-medium">{product.charAt(0).toUpperCase() + product.slice(1)}</legend>
+            <div className="flex flex-wrap gap-3">
+              {list.map((s) => {
+                const on = chosen(product) === s.variant;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    aria-pressed={on}
+                    className={`w-28 overflow-hidden rounded-md bg-surface text-left ${on ? "border-2 border-accent" : "border border-border-strong"}`}
+                    onClick={() => setPicks({ ...picks, [product]: s.variant })}
+                  >
+                    <img src={fileUrl(s.file_id)} alt="" className="aspect-square w-full object-cover" />
+                    <span className="block min-h-11 p-2 sm:min-h-0">{s.variant}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        ))}
         <div className="space-y-1 text-sm">
           <div className="font-medium">Reference video (optional)</div>
           {reference && <video controls src={fileUrl(reference)} className="max-h-48 rounded-sm" />}
@@ -133,9 +165,10 @@ export function NewProjectPage() {
           {upload.isError && <p role="alert" className={errorClass}>{upload.error.message}</p>}
         </div>
         {create.isError && <p role="alert" className={errorClass}>{create.error.message}</p>}
-        <button className={btnPrimary} disabled={create.isPending}>
+        <button className={btnPrimary} disabled={create.isPending || !!unchosen}>
           Create project
         </button>
+        {unchosen && <p className="text-sm text-muted">Pick which {unchosen} first.</p>}
       </form>
     </main>
   );

@@ -405,6 +405,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/{kind}/{item_id}/sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Sheet
+         * @description Queue a sheet (a paid image job). It is drawn from the source photo when there is one
+         *     (attached as image 1), else from the notes; a redo also attaches the last sheet.
+         */
+        post: operations["make_sheet_library__kind___item_id__sheet_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/{kind}/{item_id}/sheet/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve
+         * @description ✓ Approve the sheet: from now on it is what storyboards and clips use.
+         */
+        post: operations["approve_library__kind___item_id__sheet_approve_post"];
+        /** Unapprove */
+        delete: operations["unapprove_library__kind___item_id__sheet_approve_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -630,6 +672,23 @@ export interface paths {
          * @description This week's quick-clip credits used and allowed for the caller.
          */
         get: operations["my_allowance_credits_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project Estimate */
+        get: operations["project_estimate_projects__project_id__estimate_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1154,7 +1213,8 @@ export interface paths {
          * @description ✓ Looks good: approve the picked take.
          */
         post: operations["approve_projects__project_id__clips__clip_id__approve_post"];
-        delete?: never;
+        /** Unapprove */
+        delete: operations["unapprove_projects__project_id__clips__clip_id__approve_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1344,6 +1404,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Name */
             name: string;
         };
@@ -1380,6 +1445,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Id */
             id: number;
             /** Name */
@@ -1423,6 +1493,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Name */
             name?: string | null;
         };
@@ -1768,6 +1843,8 @@ export interface components {
             outfits: components["schemas"]["Outfit"][];
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Source Photo File Id */
+            source_photo_file_id?: number | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -1795,11 +1872,20 @@ export interface components {
             outfits: components["schemas"]["Outfit"][];
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Source Photo File Id */
+            source_photo_file_id?: number | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
+            /** Sheet File Id */
+            sheet_file_id: number | null;
+            /**
+             * Sheet Status
+             * @enum {string}
+             */
+            sheet_status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
         };
         /**
          * ItemPatch
@@ -1818,6 +1904,8 @@ export interface components {
             outfits?: components["schemas"]["Outfit"][] | null;
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Source Photo File Id */
+            source_photo_file_id?: number | null;
         };
         /**
          * JobDetailOut
@@ -1855,6 +1943,10 @@ export interface components {
             step?: string | null;
             /** Frame Id */
             frame_id?: number | null;
+            /** Project Clip Id */
+            project_clip_id?: number | null;
+            /** Library Item Id */
+            library_item_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1907,6 +1999,10 @@ export interface components {
             step?: string | null;
             /** Frame Id */
             frame_id?: number | null;
+            /** Project Clip Id */
+            project_clip_id?: number | null;
+            /** Library Item Id */
+            library_item_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1930,8 +2026,6 @@ export interface components {
         Kind: "character" | "place" | "prop";
         /** LimitsIn */
         LimitsIn: {
-            /** Max Planned Seconds */
-            max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number | string;
             /** Per Video Max Credits */
@@ -1939,8 +2033,6 @@ export interface components {
         };
         /** LimitsOut */
         LimitsOut: {
-            /** Max Planned Seconds */
-            max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number;
             /** Per Video Max Credits */
@@ -2096,8 +2188,21 @@ export interface components {
             picked_take_id: number | null;
             /** Approved */
             approved: boolean;
+            /** Take Credits */
+            take_credits: number;
             /** Stale */
             stale: boolean;
+        };
+        /** ProjectEstimateOut */
+        ProjectEstimateOut: {
+            /** Stages */
+            stages: components["schemas"]["StageOut"][];
+            /** Remaining Credits */
+            remaining_credits: number;
+            /** Used Credits */
+            used_credits: number;
+            /** Budget Credits */
+            budget_credits: number;
         };
         /** ProjectIn */
         ProjectIn: {
@@ -2113,6 +2218,10 @@ export interface components {
             cast_ids?: number[] | null;
             /** Reference File Id */
             reference_file_id?: number | null;
+            /** Product Variants */
+            product_variants?: {
+                [key: string]: string;
+            } | null;
             /** Reference Breakdown */
             reference_breakdown?: {
                 [key: string]: unknown;
@@ -2149,6 +2258,10 @@ export interface components {
             cast_ids: number[];
             /** Reference File Id */
             reference_file_id: number | null;
+            /** Product Variants */
+            product_variants: {
+                [key: string]: string;
+            };
             /** Reference Breakdown */
             reference_breakdown: {
                 [key: string]: unknown;
@@ -2178,6 +2291,10 @@ export interface components {
             cast_ids?: number[] | null;
             /** Reference File Id */
             reference_file_id?: number | null;
+            /** Product Variants */
+            product_variants?: {
+                [key: string]: string;
+            } | null;
             /** Reference Breakdown */
             reference_breakdown?: {
                 [key: string]: unknown;
@@ -2277,6 +2394,16 @@ export interface components {
              * @default []
              */
             default_for: string[];
+            /**
+             * Product
+             * @default
+             */
+            product: string;
+            /**
+             * Variant
+             * @default
+             */
+            variant: string;
         };
         /** ScreenOut */
         ScreenOut: {
@@ -2294,6 +2421,16 @@ export interface components {
              * @default []
              */
             default_for: string[];
+            /**
+             * Product
+             * @default
+             */
+            product: string;
+            /**
+             * Variant
+             * @default
+             */
+            variant: string;
             /** Id */
             id: number;
             /** Brand Id */
@@ -2309,6 +2446,10 @@ export interface components {
             tags?: string[] | null;
             /** Default For */
             default_for?: string[] | null;
+            /** Product */
+            product?: string | null;
+            /** Variant */
+            variant?: string | null;
         };
         /** ScriptIn */
         ScriptIn: {
@@ -2345,6 +2486,20 @@ export interface components {
             name: string;
             /** Password */
             password: string;
+        };
+        /** SheetIn */
+        SheetIn: {
+            /**
+             * Model Id
+             * @default nano-banana-pro
+             * @enum {string}
+             */
+            model_id: "nano-banana-pro" | "nano-banana-2.1";
+            /**
+             * Change
+             * @default
+             */
+            change: string;
         };
         /** Shot */
         Shot: {
@@ -2405,9 +2560,20 @@ export interface components {
             moment: string | null;
             /**
              * Screen Ids
-             * @description Brand screens shown in this shot. Required whenever `moment` is one the brand block lists a screen for.
+             * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
+        };
+        /** StageOut */
+        StageOut: {
+            /** Stage */
+            stage: string;
+            /** Done */
+            done: boolean;
+            /** Credits */
+            credits: number;
+            /** Note */
+            note: string;
         };
         /** StoryboardIn */
         StoryboardIn: {
@@ -2443,6 +2609,14 @@ export interface components {
             reason: string;
             /** Status */
             status: string;
+        };
+        /** TakeIn */
+        TakeIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** TakeOut */
         TakeOut: {
@@ -3469,6 +3643,106 @@ export interface operations {
             };
         };
     };
+    make_sheet_library__kind___item_id__sheet_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SheetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_library__kind___item_id__sheet_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unapprove_library__kind___item_id__sheet_approve_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_jobs_jobs_get: {
         parameters: {
             query?: {
@@ -3929,6 +4203,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AllowanceOut"];
+                };
+            };
+        };
+    };
+    project_estimate_projects__project_id__estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectEstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4869,7 +5174,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TakeIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -4925,6 +5234,38 @@ export interface operations {
         };
     };
     approve_projects__project_id__clips__clip_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unapprove_projects__project_id__clips__clip_id__approve_delete: {
         parameters: {
             query?: never;
             header?: never;

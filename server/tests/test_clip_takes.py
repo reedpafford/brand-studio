@@ -10,7 +10,7 @@ from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import upload
-from tests.helpers import _usd_keys, assert_hidden, assert_no_dollars
+from tests.helpers import _usd_keys, assert_hidden, assert_no_dollars, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_project_clips import _answer, _prompt
@@ -60,6 +60,7 @@ def clip(app, db, editor, setup):  # noqa: F811
     mom = editor.post(
         "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
     ).json()["id"]
+    with_sheet(db, mom)
     editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom]})
     bd = json.loads(json.dumps(BREAKDOWN))
     bd["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mom}"]
@@ -197,5 +198,23 @@ def test_reference_without_a_picture(app, db, editor, setup, clip):  # noqa: F81
     r = editor.post(f"{project}/clips/{clip['id']}/generate")
     assert (r.status_code, r.json()["detail"]) == (
         422,
-        f"char:{voiceless} has no picture yet. Add one in the library.",
+        "Approve Ghost's sheet first.",  # a character with no approved sheet
     )
+
+
+def test_clips_pane_support(app, db, editor, setup, clip):  # noqa: F811
+    base = f"/projects/{setup['project']}"
+    url = f"{base}/clips/{clip['id']}"
+    assert clip["take_credits"] == 5  # what Make clip will cost, from the server
+    job = editor.post(f"{url}/generate", json={"note": "Mom should look angrier."}).json()
+    assert job["project_clip_id"] == clip["id"] and job["step"] == "clip_take"
+    fake = FakeSeedance([_mp4("red")])
+    _work(app, db, fake)
+    sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
+    lines = sent["prompt"].splitlines()
+    assert lines[-2] == "Change from the last take: Mom should look angrier."
+    assert lines[0] == lines[-1]  # still opens and closes on the audio line
+    assert editor.get(f"{base}/clips").json()[0]["prompt"] == clip["prompt"]  # note not kept
+
+    assert editor.post(f"{url}/approve").json()["approved"] is True
+    assert editor.delete(f"{url}/approve").json()["approved"] is False

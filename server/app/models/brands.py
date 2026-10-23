@@ -24,6 +24,7 @@ class Brand(Entity, Base):
     tone_notes: Mapped[str] = mapped_column(Text, default="")
     never_say: Mapped[list[str]] = mapped_column(JSON, default=list)
     legal_line: Mapped[str] = mapped_column(Text, default="")
+    end_line: Mapped[str] = mapped_column(Text, default="")  # every video ends on it, word for word
 
 
 class BrandScreen(Entity, Base):
@@ -36,3 +37,7 @@ class BrandScreen(Entity, Base):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)  # e.g. trading, chart-up, mobile
     # Moments this screen is attached to by default, e.g. ["trading"] for fomo.
     default_for: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # A product with several versions (e.g. product "bag", variant "Chicken" / "Peanut butter"):
+    # each project picks one variant per product, and only that one is used.
+    product: Mapped[str] = mapped_column(String(60), default="")
+    variant: Mapped[str] = mapped_column(String(60), default="")

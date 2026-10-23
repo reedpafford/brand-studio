@@ -6,3 +6,4 @@ __pycache__/
 *.db
 .env
 server/storage/
+deploy/backups/

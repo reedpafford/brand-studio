@@ -31,6 +31,7 @@ from app.routes.brands import get_brand
 from app.routes.files import get_file
 from app.routes.jobs import JobOut, enqueue
 from app.routes.library import get_item
+from app.sheets import require_sheet, usable_files
 from app.storage import Storage
 
 router = APIRouter(prefix="/clips", tags=["clips"])
@@ -106,11 +107,13 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     ):
         for item_id in dict.fromkeys(ids):
             item = get_item(db, user, kind, item_id)
-            images += item.image_file_ids
-            for file_id in item.image_file_ids:
+            require_sheet(item)  # characters and places: only an approved sheet, never a photo
+            pictures = usable_files(item)
+            images += pictures
+            for file_id in pictures:
                 refs.setdefault(file_id, {"kind": str(kind), "name": item.name})
             if kind == Kind.prop:
-                exact += item.image_file_ids
+                exact += pictures
     screens = _brand_screens(db, brand)
     for screen_id in dict.fromkeys(body.screen_ids):
         if screen_id not in screens:

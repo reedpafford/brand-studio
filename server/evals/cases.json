@@ -1,5 +1,5 @@
 {
- "_note": "Offline eval set for the Director prompts (issue #24). Each case runs its steps in order; Enhance's suggestions are all accepted before the next step. 'good' is what a reviewer checks by eye; 'expect' is checked by score.py. Iron Paws: a human-grade greens powder for dogs (gut health), vet formulated. Its required element is the real bag (assets/brands/ironpaws/screens/bag.webp), stored as a brand 'screen' and shown exactly, with no face. ironpaws-pitbull-1 is Reed's real script (docs/briefs/ironpaws-scripts-2026-10-21.md), copied word for word.",
+ "_note": "Offline eval set for the Director prompts (issue #24). Each case runs its steps in order; Enhance's suggestions are all accepted before the next step. 'good' is what a reviewer checks by eye; 'expect' is checked by score.py. Iron Paws: a human-grade greens powder for dogs (gut health), vet formulated. Its required element is the real bag (assets/brands/ironpaws/screens/bag.webp), stored as a brand 'screen' and shown exactly, with no face. ironpaws-pitbull-1 is Reed's real script (docs/briefs/ironpaws-scripts-2026-10-21.md), copied word for word. Definition-of-done cases (Reed, 2026-10-23): fomo-adapt-altar and ironpaws-pitbull-1, plus two 15–30 s excerpts.",
  "brands": {
   "fomo": {
    "brand": {
@@ -7,7 +7,8 @@
     "never_say": [
      "guaranteed profit",
      "can't lose"
-    ]
+    ],
+    "end_line": "Want to trade like me? Download fomo through the link in my bio."
    },
    "screens": [
     {
@@ -66,22 +67,22 @@
     "name": "Iron Paws",
     "tone_notes": "Warm, a little funny, never preachy. The dog is the hero. Product: human-grade greens powder for dogs, vet formulated; the bag label reads 'Chicken flavor'."
    },
-   "screens": [
-    {
-     "id": 11,
-     "name": "Iron Paws bag (front)",
-     "tags": [
-      "product",
-      "bag"
-     ],
-     "default_for": [
-      "product",
-      "feeding",
-      "iron-paws-mention",
-      "end-card"
-     ]
-    }
-   ]
+   "screens": [],
+   "product": {
+    "id": 1,
+    "name": "Chicken bag"
+   }
+  },
+  "iron-paws-pb": {
+   "brand": {
+    "name": "Iron Paws",
+    "tone_notes": "Warm, a little funny, never preachy. The dog is the hero. Product: human-grade greens powder for dogs, vet formulated; this project's bag is the peanut butter one."
+   },
+   "screens": [],
+   "product": {
+    "id": 2,
+    "name": "Peanut butter bag"
+   }
   }
  },
  "cases": [
@@ -208,7 +209,8 @@
     "words_per_draft": [
      45,
      85
-    ]
+    ],
+    "end_line": "Want to trade like me? Download fomo through the link in my bio."
    }
   },
   {
@@ -236,7 +238,7 @@
     "MR. HALE: One more hole and he goes back to the shelter.",
     "Sam hugs Tank tight.",
     "That night Sam fills Tank's bowl and Tank wolfs it down.",
-    "★ Iron Paws screen: Iron Paws bag — beside the bowl, label to camera",
+    "★ Iron Paws product: Chicken bag — beside the bowl, label to camera",
     "SCENE 2 — EXT. PARK — DUSK",
     "Mr. Hale searches the bushes, panicking.",
     "MR. HALE: My ring. My wife's ring. It's gone.",
@@ -260,7 +262,7 @@
      3
     ],
     "screen_lines": {
-     "8": "screen:11"
+     "8": "product:1"
     }
    }
   },
@@ -300,12 +302,12 @@
     "The script never shows the bag: a brand_screen mark puts the Iron Paws bag where it fits (the porch call, or a reward feeding at the end)."
    ],
    "expect": {
-    "screen_anywhere": "screen:11"
+    "screen_anywhere": "product:1"
    }
   },
   {
    "id": "ironpaws-pitbull-1",
-   "brand": "iron-paws",
+   "brand": "iron-paws-pb",
    "steps": [
     "enhance",
     "breakdown",
@@ -342,17 +344,17 @@
     "The three symptoms (eyes, paws, shedding) each get a clear visual, and they come back at the end when each one is gone (no crust, no redness, a full coat).",
     "The long explanation (line 8) is covered by visuals that change every 1–3 s (inside-the-gut style shots, toxins, the eyes and paws), not a talking head.",
     "The real bag shows when she finds it (line 9), when she mixes it in (line 10), and on the closing lines (12–13), shown exactly, no face on it.",
-    "Line 10 says 'Peanut butter flavor' but the bag says Chicken flavor: a note on line 10 says so; the words stay.",
-    "Breakdown: clips end between sentences, each 4–30 s; the dog's mouth doesn't move (it's voiceover)."
+    "Breakdown: clips end between sentences, each 4–30 s; the dog's mouth doesn't move (it's voiceover).",
+    "Definition of done: the project's bag is the peanut butter one, matching the script, so there's no flavor note."
    ],
    "expect": {
     "screens_at": {
-     "9": "screen:11",
-     "10": "screen:11"
+     "9": "product:2",
+     "10": "product:2"
     },
-    "notes_mention": {
-     "10": "chicken"
-    },
+    "notes_absent": [
+     "chicken"
+    ],
     "clips": [
      5,
      8
@@ -367,10 +369,10 @@
     "breakdown",
     "clip_prompts"
    ],
-   "brief": "Adapt Reed's reference reel for fomo. 9:16, about 43 s, stylized 3D animated. Keep the hook mechanic and the story; the hustle montage becomes a fomo trading montage with the real screens. Leave out the live-action tag at the end.",
+   "brief": "Remake Reed's reference reel for fomo: the same story and the same dialogue, word for word (match the reference's words). The hustle montage becomes a wordless fomo trading montage with the real screens, shown exactly, keeping its length and match cuts. The live-action tag at the end becomes fomo's call to action. 9:16, about 45 s, stylized 3D animated.",
    "cast": [
-    "char:1 Nate, teen groom, backwards grey cap",
-    "char:2 The bride, blonde, veil",
+    "char:1 Nate, the teen groom",
+    "char:2 The bride",
     "char:3 The rival, tall, long hair, navy suit"
    ],
    "places": [
@@ -380,15 +382,14 @@
    ],
    "reference": {
     "path": "docs/references/fomo-DehudnaAmce/BREAKDOWN.json",
-    "replace": "the montage, 17.4–29.2 s (shots 17–40): make it a wordless fomo trading montage with the real fomo screens; keep its length, its match cuts (same pose, bigger world) and its end on the skyline arrival before the time jump."
+    "replace": "the montage, 17.4–29.2 s (shots 17–40): make it a wordless fomo trading montage with the real fomo screens, shown exactly; keep its length, its match cuts (same pose, bigger world) and its end on the skyline arrival before the time jump."
    },
    "script": null,
    "good": [
-    "The hook mechanic survives: 'I do' answered by a screamed refusal in the first second, the ring thrown, the public betrayal, all before 5 s.",
-    "Same beat order and timing: abandonment, the wound (the 'forever' echo or an equivalent), montage, time jump, the ex's double take, the smug payoff line.",
-    "The montage is about 12 s of wordless trading: real fomo screens (chart down then chart up, desktop) in match cuts as his room grows from bedroom to penthouse, ending on the skyline.",
-    "About as little dialogue as the reference (around 30–50 words); no captions, no '2 YEARS LATER' card text, no live-action tag.",
-    "Breakdown cuts at the reference's speed (hook shots under 0.5 s, montage around 0.3–0.5 s) and keeps its light: bright wedding, dark grind, neon penthouse."
+    "Definition of done: same story and every line of the reference word for word (I do. / HELL NO! / I'm marrying him! / What?! / the 'forever with you' echo / Nate? Nate? / Huh?! / Sorry, I'm fully booked.).",
+    "The montage is about 12 s of wordless trading in the same match-cut device: real fomo screens (chart down then up, desktop) exactly, ending on the skyline.",
+    "The live-action tag is gone; the video ends on fomo's call to action over the real fomo screen.",
+    "Same pacing as the reference: hook shots under 0.5 s, montage around 0.3–0.5 s; no captions, no '2 YEARS LATER' card text."
    ],
    "expect": {
     "drafts": [
@@ -396,9 +397,11 @@
      3
     ],
     "words_per_draft": [
-     20,
-     70
+     35,
+     65
     ],
+    "reference_words": true,
+    "end_line": "Want to trade like me? Download fomo through the link in my bio.",
     "clips": [
      2,
      3
@@ -406,6 +409,118 @@
     "min_screen_shots": 3,
     "forbid": [
      "BANDS > BRIDES"
+    ]
+   }
+  },
+  {
+   "id": "ironpaws-pb-excerpt",
+   "brand": "iron-paws-pb",
+   "steps": [
+    "breakdown",
+    "clip_prompts"
+   ],
+   "brief": "Iron Paws paid ad excerpt from Pitbull 1, about 15 s, stylized 3D animated. The pitbull narrates (voiceover).",
+   "cast": [
+    "char:1 Bruno, the pitbull (narrator)",
+    "char:2 His owner, a woman in her 30s"
+   ],
+   "places": [
+    "place:1 Her kitchen at night"
+   ],
+   "script": [
+    "She mixed it into my food that Thursday night without saying much. Peanut butter flavor. I finished the bowl before she even put it down."
+   ],
+   "good": [
+    "Every word kept, as voiceover; the dog's mouth doesn't move.",
+    "The real peanut-butter bag shows exactly as she scoops it, label to camera, no face.",
+    "The picture changes every 1–3 s: the scoop, the bowl going down, Bruno inhaling it before it lands, her surprised smile."
+   ],
+   "expect": {
+    "screen_lines": {
+     "1": "product:2"
+    },
+    "clips": [
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": "fomo-montage-excerpt",
+   "brand": "fomo",
+   "steps": [
+    "script_draft",
+    "breakdown",
+    "clip_prompts"
+   ],
+   "brief": "Only the montage of Reed's reference reel (17.4–29.2 s), about 12 s, rebuilt as a wordless fomo trading montage with the real screens, shown exactly. Keep its match cuts (same pose, bigger world) and its end on the skyline arrival.",
+   "cast": [
+    "char:1 Nate, the teen groom"
+   ],
+   "places": [
+    "place:1 Nate's small bedroom",
+    "place:2 Penthouse with a night-skyline balcony"
+   ],
+   "reference": {
+    "path": "docs/references/fomo-DehudnaAmce/BREAKDOWN.json",
+    "replace": "the montage, 17.4–29.2 s: a wordless fomo trading montage with the real fomo screens."
+   },
+   "script": null,
+   "good": [
+    "Wordless, about 12 s, shots around 0.3–0.5 s.",
+    "Same pose, bigger world: phone in a small room → laptop → desktop setup → penthouse, with the real fomo screens (chart down, chart up, desktop) shown exactly.",
+    "Ends on the skyline arrival in the black suit."
+   ],
+   "expect": {
+    "drafts": [
+     2,
+     3
+    ],
+    "words_per_draft": [
+     0,
+     6
+    ],
+    "clips": [
+     1,
+     1
+    ],
+    "min_screen_shots": 3
+   }
+  },
+  {
+   "id": "ironpaws-healed-payoff",
+   "brand": "iron-paws-pb",
+   "steps": [
+    "breakdown",
+    "clip_prompts"
+   ],
+   "brief": "Iron Paws paid ad excerpt, about 12 s, stylized 3D animated. The pitbull narrates (voiceover). The payoff: his eyes and paws are healed.",
+   "cast": [
+    "char:1 Tank, the pitbull (narrator): brindle coat, white chest blaze",
+    "char:2 Maya, his owner, a woman in her 30s"
+   ],
+   "places": [
+    "place:1 Her kitchen in the morning"
+   ],
+   "script": [
+    "Three weeks later she knelt down with a tissue, out of habit. There was nothing to wipe."
+   ],
+   "good": [
+    "Tank's eyes are clean, clear and dry; Maya can be moved, but no tears on the dog.",
+    "Tank stays brindle with the white blaze in every shot."
+   ],
+   "expect": {
+    "clips": [
+     1,
+     1
+    ],
+    "clip_absent": [
+     "tear",
+     "crust",
+     "wet"
+    ],
+    "clip_present": [
+     "brindle"
     ]
    }
   }

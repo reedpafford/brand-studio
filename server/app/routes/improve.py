@@ -7,6 +7,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import prompts
@@ -80,6 +81,10 @@ def improve(
 ):
     """Queue an Improve call (a paid Claude call, about 3 credits from the weekly allowance).
     The brand pieces are checked as for Generate, so the reference lines match."""
+    waiting = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
+    mine = db.scalars(select(Job).where(Job.created_by_id == user.id, Job.status.in_(waiting)))
+    if any(j.input.get("step") == "improve" for j in mine):  # a double press: one paid call
+        raise HTTPException(409, "Your prompt is already being improved.")
     plan = _plan(db, user, body, request.app.state.storage)
     brand = db.get(Brand, body.brand_id)
     return enqueue(
