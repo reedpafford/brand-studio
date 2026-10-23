@@ -1,6 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-23 22:21 · #87 Project clips (#24): one video prompt per clip from the breakdown merged
+- 2026-10-23 22:19 · #95 e2e: Make storyboard refused with generation off merged into #92's branch (not main yet)
 - 2026-10-23 22:15 · #83 Breakdown pane: make, redo, problems, scenes → clips → shots (Breakdown 1/2) merged (includes #86's browser test)
 - 2026-10-23 22:15 · #88 Storyboard: refuse to render a frame made for an older breakdown merged
 - 2026-10-23 22:13 · #84 JobOut: add `step` so the UI can tell Enhance from Breakdown runs merged

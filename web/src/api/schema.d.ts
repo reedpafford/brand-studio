@@ -1020,6 +1020,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Prompts
+         * @description Queue the clip-prompts call (a paid Claude call). New prompts replace the old clips.
+         */
+        post: operations["write_prompts_projects__project_id__clips_prompts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Clips */
+        get: operations["list_clips_projects__project_id__clips_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/{clip_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Clip
+         * @description Edit a clip's prompt or references; its problems are checked again.
+         */
+        put: operations["edit_clip_projects__project_id__clips__clip_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/estimate": {
         parameters: {
             query?: never;
@@ -1767,6 +1824,32 @@ export interface components {
              */
             file_ids: number[];
         };
+        /** ProjectClipIn */
+        ProjectClipIn: {
+            /** Prompt */
+            prompt: string;
+            /** References */
+            references: components["schemas"]["Reference"][];
+        };
+        /** ProjectClipOut */
+        ProjectClipOut: {
+            /** Id */
+            id: number;
+            /** Clip Id */
+            clip_id: string;
+            /** Seconds */
+            seconds: number;
+            /** Prompt */
+            prompt: string;
+            /** References */
+            references: components["schemas"]["Reference"][];
+            /** Problems */
+            problems: string[];
+            /** File Id */
+            file_id: number | null;
+            /** Stale */
+            stale: boolean;
+        };
         /** ProjectIn */
         ProjectIn: {
             /** Goal */
@@ -1877,6 +1960,24 @@ export interface components {
             unit: string;
             /** Credits Per Unit */
             credits_per_unit: number;
+        };
+        /** Reference */
+        Reference: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "image" | "video" | "audio";
+            /**
+             * Id
+             * @description Asset id from the user message, e.g. 'frame:c1', 'screen:12'.
+             */
+            id: string;
+            /**
+             * Role
+             * @description What it is for, e.g. 'storyboard frame', 'Leo's look', 'fomo Token chart up screen, shown exactly'.
+             */
+            role: string;
         };
         /**
          * Role
@@ -4304,6 +4405,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_prompts_projects__project_id__clips_prompts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_clips_projects__project_id__clips_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_clip_projects__project_id__clips__clip_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectClipIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
                 };
             };
             /** @description Validation Error */

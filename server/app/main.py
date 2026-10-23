@@ -16,6 +16,7 @@ from app.routes import (
     jobs,
     library,
     models,
+    project_clips,
     projects,
     screens,
     scripts,
@@ -51,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         drafts,
         breakdown,
         storyboard,
+        project_clips,
         clips,
     ):
         app.include_router(module.router)
