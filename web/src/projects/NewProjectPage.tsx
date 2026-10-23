@@ -108,8 +108,9 @@ export function NewProjectPage() {
           {characters.data?.length === 0 && <p className="text-muted">No characters for this brand yet. Add them in the Library.</p>}
           {characters.data?.map((c) => (
             <label key={c.id} className="mr-4 inline-flex items-center gap-2">
-              <input type="checkbox" checked={cast.includes(c.id)} onChange={() => setCast(cast.includes(c.id) ? cast.filter((x) => x !== c.id) : [...cast, c.id])} />
+              <input type="checkbox" disabled={c.sheet_status !== "approved"} checked={cast.includes(c.id)} onChange={() => setCast(cast.includes(c.id) ? cast.filter((x) => x !== c.id) : [...cast, c.id])} />
               {c.name}
+              {c.sheet_status !== "approved" && <span className="text-muted"> · Approve its sheet first</span>}
             </label>
           ))}
         </fieldset>

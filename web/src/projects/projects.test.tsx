@@ -16,7 +16,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, brands],
   "GET /credits/limits": [200, { weekly_quick_clip_credits: 150, per_video_max_credits: 340 }],
-  "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
+  "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [], sheet_status: "approved" }]],
 };
 
 function renderAt(path: string) {
