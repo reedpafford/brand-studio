@@ -14,7 +14,11 @@ export function TeamPage() {
 
   const members = useQuery({
     queryKey: ["team", "members"],
-    queryFn: async () => (await api.GET("/team/members")).data ?? [],
+    queryFn: async () => {
+      const { data } = await api.GET("/team/members");
+      if (!data) throw new Error("members");
+      return data;
+    },
   });
   const invites = useQuery({
     queryKey: ["team", "invites"],
@@ -22,7 +26,10 @@ export function TeamPage() {
     queryFn: async () => (await api.GET("/team/invites")).data ?? [],
   });
   const remove = useMutation({
-    mutationFn: (id: number) => api.DELETE("/team/members/{member_id}", { params: { path: { member_id: id } } }),
+    mutationFn: async (id: number) => {
+      const { response } = await api.DELETE("/team/members/{member_id}", { params: { path: { member_id: id } } });
+      if (!response.ok) throw new Error("remove");
+    },
     onSuccess: refresh,
   });
   const cancel = useMutation({
@@ -34,6 +41,11 @@ export function TeamPage() {
     <main className="mx-auto max-w-2xl space-y-8 p-6">
       <section>
         <h1 className={`${pageTitle} mb-3`}>Team</h1>
+        {(members.isError || remove.isError) && (
+          <p role="alert" className={errorClass}>
+            {remove.isError ? "Could not remove that person. Try again." : "Could not load the team. Try again."}
+          </p>
+        )}
         <ul className="divide-y divide-border">
           {members.data?.map((m) => (
             <li key={m.id} className="flex items-center gap-3 py-2">

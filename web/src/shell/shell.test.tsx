@@ -100,3 +100,17 @@ test("signing out returns to sign in", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
   expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
 });
+
+test("an unknown brand in the address does not pretend to be selected", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands] });
+  renderAt("/b/999");
+  expect(await screen.findByLabelText("Brand")).toHaveValue("");
+});
+
+test("a failed remove tells you", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []], "DELETE /team/members/2": [500, {}] });
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderAt("/team");
+  await userEvent.click(await screen.findByRole("button", { name: "Remove Eli" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not remove that person");
+});
