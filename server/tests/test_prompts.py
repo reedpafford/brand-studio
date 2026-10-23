@@ -89,6 +89,13 @@ def test_eval_scoring_counts_marks_and_reads_notes(tmp_path):
     assert score(tmp_path, case) == ["4 suggestions, expected at most 3"]
 
 
+def test_no_prompt_file_keeps_a_merge_conflict_marker():
+    for path in (EXAMPLES.parent).rglob("*"):
+        if path.is_file() and path.suffix in {".md", ".json", ".py"}:
+            text = path.read_text()
+            assert not re.search(r"^(<{7}|={7}|>{7})( |$)", text, re.M), path
+
+
 def test_shot_times_take_a_hyphen_or_an_en_dash():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
