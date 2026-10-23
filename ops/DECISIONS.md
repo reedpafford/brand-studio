@@ -4,7 +4,6 @@
 - 2026-10-23 Reed approved the Director's first paid eval: 22 Claude calls, cap $4.
 - 2026-10-23 Reed: Script Enhance (suggest, don't rewrite) is the default script flow.
 - 2026-10-23 Reed: 1 credit = $0.1028 real cost. Quick clips get 150 credits/week per editor.
-- 2026-10-23 Script flow: editor uploads a script, Claude "enhances" it with suggestions (scene breaks, actions, reactions, camera, where brand screens go) shown as accept/reject marks; it does not rewrite unless asked.
 - 2026-10-23 Director has no style rules beyond: be engaging, and make sure required brand screens/elements are featured. Better prompting found on tezu gets adopted.
 - 2026-10-23 Test spend cap: $15 per week (Mon–Sun) across all agents, logged in ops/SPEND.md. Above that, ask Reed.
 - 2026-10-23 Team: same people as story-studio; everyone is an editor. Editors see credits and % of budget, never dollars. Owner (Reed) sees dollars.
