@@ -9,7 +9,6 @@ test("a script is pasted, edited into a new version, and an old version is resto
   expect(made.ok()).toBeTruthy();
   await page.goto(`/b/${brandId}/projects/${(await made.json()).id}`);
 
-  await page.getByRole("tab", { name: "Script" }).click();
   await expect(page.getByText("No script yet.")).toBeVisible();
   await page.getByLabel("Your script").fill("SCENE 1 - KITCHEN\nMAX: Hello there.");
   await page.getByRole("button", { name: "Save script" }).click();
@@ -50,8 +49,8 @@ test("Enhance is refused while generation is switched off, and nothing is queued
   const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Enhance test", planned_seconds: 20 } });
   const id = (await made.json()).id;
   await page.request.put(`/api/projects/${id}/script`, { data: { text: "MAX: Hello." } });
-  await page.goto(`/b/${brandId}/projects/${id}?tab=script`);
-  await page.getByRole("button", { name: /Enhance/ }).click();
+  await page.goto(`/b/${brandId}/projects/${id}?stage=enhance`);
+  await page.getByRole("button", { name: /✦ Enhance/ }).click();
   await expect(page.getByRole("alert")).toContainText("Generation is switched off");
   const jobs = await (await page.request.get("/api/jobs")).json();
   expect(jobs.filter((j: { project_id: number }) => j.project_id === id)).toHaveLength(0);
