@@ -1,5 +1,5 @@
 """Run the eval cases through Claude and save each answer for `score.py`. PAID: one run is
-14 calls (about $2.50). Only with the Producer's go-ahead, logged in ops/SPEND.md.
+12 calls (about $2). Only with the Producer's go-ahead, logged in ops/SPEND.md.
 
 Usage (from server/): python -m evals.run <out dir> [--cap-usd 2] [--cases id ...]
 Key from STUDIO_ANTHROPIC_KEY. Stops before the next call once the cap is reached."""

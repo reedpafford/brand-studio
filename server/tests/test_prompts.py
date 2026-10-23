@@ -56,6 +56,7 @@ def test_checks_catch_a_rewrite_a_missing_screen_and_a_long_clip():
     bd.clips[1].seconds = 31
     problems = check.breakdown(script_of(example("breakdown")[0]), bd, FOMO, 4, 30)
     assert "shot 2.1: 'loss' moment without its screen" in problems
+    assert "line 9 is a ★ screen line but no shot shows a screen" in problems
     assert "clip c2: 31 s is outside 4–30 s" in problems
 
 

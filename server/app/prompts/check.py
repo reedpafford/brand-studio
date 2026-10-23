@@ -52,15 +52,16 @@ def breakdown(
     shots = [shot for scene in bd.scenes for shot in scene.shots]
     problems = []
     covered = {n for shot in shots for n in shot.script_lines}
+    shown = {n for shot in shots if shot.screen_ids for n in shot.script_lines}
     for n, text in enumerate(lines, 1):
         if text.strip() and not text.startswith("SCENE") and n not in covered:
             problems.append(f"line {n} is in no shot")
+        elif text.startswith(SCREEN_LINE) and n not in shown:
+            problems.append(f"line {n} is a ★ screen line but no shot shows a screen")
     for shot in shots:
         source = [lines[n - 1] for n in shot.script_lines if 0 < n <= len(lines)]
         if shot.line and _words(shot.line) not in _words(" ".join(source)):
             problems.append(f"shot {shot.id}: line differs from the script")
-        if any(text.startswith(SCREEN_LINE) for text in source) and not shot.screen_ids:
-            problems.append(f"shot {shot.id}: script has a ★ screen line but no screen")
         for sid in shot.screen_ids:
             if sid not in screens:
                 problems.append(f"shot {shot.id}: unknown screen {sid}")

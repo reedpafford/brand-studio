@@ -29,5 +29,5 @@ python -m evals.score <out> "v1"
 `run.py` accepts every Enhance suggestion before the next step, saves each answer to
 `<out>/<case>.<step>.json` (plus `<case>.script.txt` and `cost.json`), and stops at the cap.
 
-One full run is 14 Claude calls. Estimate at the prices in `app/claude.py` (about 3k system +
-1k user tokens in, 3–8k out with thinking per call): about $2.50 a run (the long voiceover case is most of the extra).
+One full run is 12 Claude calls. Estimate at the prices in `app/claude.py` (about 3k system +
+1k user tokens in, 3–8k out with thinking per call): about $2 a run (v1, without the long voiceover case: 9 calls, $1.02).
