@@ -43,6 +43,12 @@ def test_import_folder_uses_manifest_or_filename(app, owner, db, tmp_path):
     fomo = db.query(Brand).filter_by(slug="fomo").one()
     assert import_screens(db, app.state.storage, fomo, folder) == 2
     assert import_screens(db, app.state.storage, fomo, folder) == 0  # re-run skips existing
+    (folder / "screens.json").write_text(
+        '{"home.png": {"tags": ["desktop"], "product": "app", "variant": "Light"}}'
+    )
+    import_screens(db, app.state.storage, fomo, folder)  # a variant added later is filled in
+    home = owner.get(f"/brands/{fomo.id}/screens").json()
+    assert [(s["product"], s["variant"]) for s in home if s["name"] == "home"] == [("app", "Light")]
     screens = {s["name"]: s for s in owner.get(f"/brands/{fomo.id}/screens").json()}
     assert screens["home"]["tags"] == ["desktop"]
     assert screens["trading-chart-up-mobile"]["tags"] == ["chart-up", "mobile", "trading"]
@@ -119,11 +125,17 @@ def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
     bag = client.get(f"/brands/{brands['iron-paws']}/screens").json()
     assert len(fomo) == 4
     assert [(s["name"], s["tags"]) for s in bag] == [
-        ("Iron Paws bag (front)", ["bag", "product"]),
-        ("Iron Paws bag, peanut butter (front)", ["bag", "peanut-butter", "product"]),
+        ("Chicken bag", ["bag", "product"]),
+        ("Peanut butter bag", ["bag", "peanut-butter", "product"]),
     ]
+    end = {b["slug"]: b["end_line"] for b in client.get("/brands").json()}
+    assert end == {
+        "fomo": "Want to trade like me? Download fomo through the link in my bio.",
+        "iron-paws": "",
+    }
     assert "feeding" in bag[0]["default_for"]
+    assert (bag[0]["product"], bag[0]["variant"]) == ("bag", "Chicken")
     file = client.get(f"/files/{bag[0]['file_id']}")
     assert file.headers["content-type"] == "image/webp"
     moment = client.get(f"/brands/{brands['iron-paws']}/screens", params={"moment": "feeding"})
-    assert [s["name"] for s in moment.json()] == ["Iron Paws bag (front)"]
+    assert [s["name"] for s in moment.json()] == ["Chicken bag"]
