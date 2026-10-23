@@ -52,11 +52,12 @@ export function blockedReason(a: {
   credits: number;
   left: number | null;
   rendering: boolean;
+  refused?: string;
 }): string | null {
   if (a.loading) return "Loading a brand piece…";
   if (a.prompt.trim().length < 8) return "Describe the clip (8+ characters)";
   if (a.tooMany) return `This model takes up to ${a.maxRefs} brand pieces. Remove some.`;
   if (a.rendering) return "A clip is already rendering";
   if (a.left !== null && a.credits > a.left) return "Not enough credits this week. Ask Reed.";
-  return "Generation isn't switched on yet.";
+  return a.refused ?? null;
 }

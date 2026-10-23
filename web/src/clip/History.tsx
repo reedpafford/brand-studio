@@ -46,7 +46,7 @@ export function History({ brandName }: { brandName: string }) {
     <ul className="space-y-3">
       {clips.map((j) => {
         const fileId = (j.output as { file_ids?: number[] } | null)?.file_ids?.[0];
-        const prompt = (j.output as { prompt?: string } | null)?.prompt;
+        const detail = [j.duration && `${j.duration}s`, j.resolution, j.aspect_ratio].filter(Boolean).join(" · ");
         return (
           <li key={j.id} className={`${card} space-y-1 text-sm`}>
             <div className="flex items-center gap-2">
@@ -60,7 +60,8 @@ export function History({ brandName }: { brandName: string }) {
                 </button>
               )}
             </div>
-            {prompt && <p className="line-clamp-2">{prompt}</p>}
+            {j.prompt_summary && <p className="line-clamp-2">{j.prompt_summary}</p>}
+            {detail && <p className="text-muted">{detail}</p>}
             {j.status === "failed" && j.error && <p className="text-danger">{j.error}</p>}
             {j.status === "succeeded" && fileId && (
               <>

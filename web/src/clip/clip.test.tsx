@@ -37,6 +37,28 @@ test("the first reason that applies wins", () => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+const estimateOk = { credits: 9, needs_owner_approval: false, reason: "", auto_screen_ids: [], reference_images: 0, reference_videos: 0, reference_audios: 0 };
+const studio: Record<string, [number, unknown]> = {
+  "GET /auth/me": [200, editor],
+  "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]],
+  "GET /models": [200, [seedance, older]],
+  "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
+  "GET /library/place": [200, []],
+  "GET /library/prop": [200, []],
+  "GET /brands/1/screens": [200, [buy]],
+  "GET /credits/me": [200, { quick_clip_credits_used: 10, quick_clip_credits_allowed: 150 }],
+  "GET /jobs": [200, []],
+  "POST /clips/estimate": [200, estimateOk],
+};
+const open = () =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/clip"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
 test("a screen is added with a star when the prompt mentions its moment, and can be removed", async () => {
   fakeServer({
     "GET /auth/me": [200, editor],
@@ -48,14 +70,9 @@ test("a screen is added with a star when the prompt mentions its moment, and can
     "GET /brands/1/screens": [200, [buy]],
     "GET /credits/me": [200, { quick_clip_credits_used: 10, quick_clip_credits_allowed: 150 }],
     "GET /jobs": [200, []],
+    "POST /clips/estimate": [200, estimateOk],
   });
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/clip"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  open();
   const prompt = await screen.findByLabelText(/Prompt/);
   expect(screen.getByRole("button", { name: /Generate · 8 credits/ })).toBeDisabled();
   expect(await screen.findByText("Describe the clip (8+ characters)")).toBeInTheDocument();
@@ -66,9 +83,8 @@ test("a screen is added with a star when the prompt mentions its moment, and can
   expect(screen.getByText(/was added because your prompt mentions buy-moment/)).toBeInTheDocument();
   await userEvent.click(within(chip.closest("li")!).getByRole("button", { name: "Remove Buy BTC" }));
   expect(screen.queryByText("Buy BTC")).not.toBeInTheDocument();
-  expect(screen.getByText("Generation isn't switched on yet.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "720p" }));
-  expect(screen.getByRole("button", { name: /Generate · 20 credits/ })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Generate · 9 credits/ })).toBeEnabled();
 });
 
 test("history shows a ready clip with its video, and a failed one in plain words", async () => {
@@ -82,8 +98,8 @@ test("history shows a ready clip with its video, and a failed one in plain words
     "GET /brands/1/screens": [200, []],
     "GET /credits/me": [200, { quick_clip_credits_used: 0, quick_clip_credits_allowed: 150 }],
     "GET /jobs": [200, [
-      { id: 1, kind: "video-480p", status: "succeeded", credits: 8, error: "", output: { file_ids: [77] } },
-      { id: 2, kind: "video-480p", status: "failed", credits: 8, error: "The model could not make that clip.", output: null },
+      { id: 1, kind: "video", status: "succeeded", credits: 8, error: "", output: { file_ids: [77] }, prompt_summary: "Mia taps Buy…", duration: 8, resolution: "480p", aspect_ratio: "9:16" },
+      { id: 2, kind: "video", status: "failed", credits: 8, error: "The model could not make that clip.", output: null },
     ]],
   });
   const { container } = render(
@@ -94,7 +110,40 @@ test("history shows a ready clip with its video, and a failed one in plain words
     </QueryClientProvider>,
   );
   expect(await screen.findByText("Ready")).toBeInTheDocument();
+  expect(screen.getByText("Mia taps Buy…")).toBeInTheDocument();
+  expect(screen.getByText("8s · 480p · 9:16")).toBeInTheDocument();
   expect(container.querySelector("video")).toHaveAttribute("src", "/api/files/77");
   expect(screen.getByText("Failed · credits returned")).toBeInTheDocument();
   expect(screen.getByText("The model could not make that clip.")).toBeInTheDocument();
+});
+
+test("Generate sends the brand pieces to the server and says the clip is queued", async () => {
+  const calls = fakeServer({ ...studio, "POST /clips": [201, { id: 5, kind: "video", status: "queued", credits: 9 }] });
+  open();
+  await userEvent.type(await screen.findByLabelText(/Prompt/), "Mia hits the buy moment today");
+  await userEvent.click(await screen.findByRole("button", { name: "Add brand piece" }));
+  await userEvent.click(await screen.findByText("Mia"));
+  const generate = await screen.findByRole("button", { name: /Generate · 9 credits/ });
+  await vi.waitFor(() => expect(generate).toBeEnabled());
+  await userEvent.click(generate);
+  expect(await screen.findByText("Clip queued. It will show in History.")).toBeInTheDocument();
+  expect(calls.find((c) => c.key === "POST /clips")?.body).toMatchObject({
+    brand_id: 1, model_id: "seedance-2.5", prompt: "Mia hits the buy moment today", aspect_ratio: "9:16",
+    duration: 8, resolution: "480p", character_ids: [4], screen_ids: [3],
+  });
+});
+
+test("when the clip would need Reed's approval, say so before the click", async () => {
+  fakeServer({ ...studio, "POST /clips/estimate": [200, { ...estimateOk, needs_owner_approval: true, reason: "This goes past your weekly quick-clip allowance, so Reed will need to approve it." }] });
+  open();
+  await userEvent.type(await screen.findByLabelText(/Prompt/), "A long calm shot of the city");
+  expect(await screen.findByText(/Reed will need to approve it/)).toBeInTheDocument();
+});
+
+test("a refusal from the server is shown as the reason Generate is off", async () => {
+  fakeServer({ ...studio, "POST /clips/estimate": [422, { detail: "Seedance 2.5 makes clips from 4 to 30 seconds." }] });
+  open();
+  await userEvent.type(await screen.findByLabelText(/Prompt/), "A long calm shot of the city");
+  expect(await screen.findByText("Seedance 2.5 makes clips from 4 to 30 seconds.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Generate/ })).toBeDisabled();
 });
