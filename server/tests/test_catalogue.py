@@ -84,3 +84,8 @@ def test_seeded_rates_come_from_the_catalogue(editor):
     nb = get_model("nano-banana-2.1")
     assert rates["image-nano-banana-2.1"] == float(nb.credits_per_unit("1K"))
     assert rates["video-720p"] == float(get_model("seedance-2.5").credits_per_unit("720p"))
+
+
+def test_seedance_reference_advice(editor):
+    seedance = {m["id"]: m for m in editor.get("/models").json()}["seedance-2.5"]
+    assert seedance["recommended_reference_images"] == 8
