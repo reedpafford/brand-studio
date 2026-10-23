@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Neutral placeholders. Replaced by the Designer's tokens.css once that PR merges. */
+body {
+  @apply bg-white text-neutral-900 antialiased;
+}
