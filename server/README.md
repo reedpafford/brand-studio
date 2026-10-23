@@ -5,6 +5,7 @@ FastAPI + SQLAlchemy + Alembic. Settings come from `BS_*` environment variables 
 uv sync                                   # install
 uv run alembic upgrade head               # create/upgrade the database
 uv run uvicorn app.main:create_app --factory --reload
+uv run python -m app.worker                # background worker (separate process)
 uv run ruff check . && uv run pytest      # lint + tests
 ```
 API docs: `/docs` once running.
