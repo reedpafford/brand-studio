@@ -20,6 +20,7 @@ from app.routes import (
     projects,
     screens,
     scripts,
+    sheets,
     storyboard,
     team,
 )
@@ -44,6 +45,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         brands,
         screens,
         library,
+        sheets,
         jobs,
         projects,
         credits,
