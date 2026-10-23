@@ -11,6 +11,7 @@ from app.db import get_db
 from app.enhance import apply, job_input
 from app.models.accounts import User
 from app.models.scripts import Suggestion
+from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.scripts import ScriptOut, _out, latest, save_version
@@ -46,7 +47,9 @@ def _working(db: Session, user: User, project_id: int):
     return project, version
 
 
-@router.post("/enhance", response_model=JobOut, status_code=201)
+@router.post(
+    "/enhance", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)]
+)
 def enhance(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Queue an Enhance call (a paid Claude call, counted against the project budget)."""
     project, version = _working(db, user, project_id)

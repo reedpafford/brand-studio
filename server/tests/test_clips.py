@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 
 import httpx2 as httpx
 import pytest
@@ -130,3 +131,51 @@ def test_editor_sees_no_dollars(editor, fomo):
     editor.post("/clips", json=_clip(fomo))
     assert_no_dollars(editor, ["/jobs"])
     assert "usd" not in editor.post("/clips/estimate", json=_clip(fomo)).text.lower()
+
+
+def test_skipped_screens_are_not_re_added(editor, fomo):
+    body = _clip(fomo, skip_screen_ids=[fomo["screen"]])
+    assert editor.post("/clips/estimate", json=body).json()["auto_screen_ids"] == []
+    job = editor.post("/clips", json=body).json()
+    assert editor.get(f"/clips/{job['id']}/request").json()["skip_screen_ids"] == [fomo["screen"]]
+
+
+def test_full_request_for_try_again(editor, outsider, fomo, db):
+    body = _clip(fomo, character_ids=[fomo["character"]], generate_audio=False, duration=7)
+    job = editor.post("/clips", json=body).json()
+    again = editor.get(f"/clips/{job['id']}/request").json()
+    assert again["prompt"] == body["prompt"] and again["generate_audio"] is False
+    assert (again["duration"], again["character_ids"]) == (7, [fomo["character"]])
+    assert editor.post("/clips", json=again).status_code == 409  # a double press is refused
+    db.get(Job, job["id"]).created_at -= timedelta(minutes=1)
+    db.commit()
+    assert editor.post("/clips", json=again).status_code == 201  # "Try again" later, as is
+    assert_hidden(outsider, [("GET", f"/clips/{job['id']}/request")])
+
+
+def test_generation_switch_off_refuses_and_worker_holds_paid_jobs(app, editor, fomo, db):
+    app.state.settings.generation_enabled = False
+    assert editor.post("/clips/estimate", json=_clip(fomo)).status_code == 200  # still works
+    r = editor.post("/clips", json=_clip(fomo))
+    assert r.status_code == 503 and "switched off" in r.json()["detail"]
+    assert db.query(Job).count() == 0
+    queued = enqueue(
+        db,
+        db.query(User).first(),
+        "video",
+        {"model": "seedance-2.5", "input": {}},
+        provider="replicate",
+    )
+    fake = FakeReplicate()
+    client = httpx.Client(transport=httpx.MockTransport(fake))
+    run_once(
+        db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage, allow_paid=False
+    )
+    db.refresh(queued)
+    assert queued.status == "queued" and fake.requests == []  # nothing was sent
+
+
+def test_references_have_a_total_size_cap(editor, fomo, monkeypatch):
+    monkeypatch.setattr("app.routes.clips.MAX_REFERENCE_BYTES", 10)
+    r = editor.post("/clips/estimate", json=_clip(fomo))
+    assert r.status_code == 422 and "too big together" in r.json()["detail"]

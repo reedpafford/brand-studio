@@ -178,3 +178,9 @@ def test_editor_sees_no_dollars(app, editor, db, setup):
     editor.post(f"{url}/enhance")
     _run(app, db, FakeClaude({"suggestions": []}))
     assert_no_dollars(editor, [f"{url}/suggestions", "/jobs"])
+
+
+def test_enhance_respects_the_generation_switch(app, editor, setup, db):
+    app.state.settings.generation_enabled = False
+    r = editor.post(f"/projects/{setup['project']}/script/enhance")
+    assert r.status_code == 503 and db.query(Job).count() == 0

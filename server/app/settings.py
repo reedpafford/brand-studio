@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     max_download_mb: int = 500
     # Claude: key from STUDIO_ANTHROPIC_KEY only (never in code or logs).
     anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
+    # Paid generation (Replicate, Claude). Off by default: the owner turns it on at deploy.
+    generation_enabled: bool = False
     # Background worker
     worker_poll_seconds: float = 2.0
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
