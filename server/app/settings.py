@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,8 +24,10 @@ class Settings(BaseSettings):
     login_max_failures: int = 5
     login_max_failures_per_ip: int = 20
     login_window_minutes: int = 15
-    # Replicate. No token here: the network proxy adds credentials.
+    # Replicate. In the sandbox the network proxy adds credentials.
     replicate_base_url: str = "https://api.replicate.com/v1"
+    # Deployed servers have no proxy: set REPLICATE_API_TOKEN there. Never logged.
+    replicate_token: SecretStr = Field(SecretStr(""), validation_alias="REPLICATE_API_TOKEN")
     # Outputs are only downloaded over https from these hosts (and their subdomains).
     replicate_delivery_hosts: list[str] = ["replicate.delivery"]
     max_download_mb: int = 500

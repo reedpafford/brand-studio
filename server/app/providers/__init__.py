@@ -56,5 +56,6 @@ def get_providers(settings) -> dict[str, Provider]:
         settings.replicate_base_url,
         delivery_hosts=tuple(settings.replicate_delivery_hosts),
         max_download_mb=settings.max_download_mb,
+        token=settings.replicate_token.get_secret_value(),
     )
     return {"fake": FakeProvider(), "replicate": replicate}

@@ -1,6 +1,7 @@
 """Replicate: start predictions, check on them, download outputs, and work out real cost.
 
-Credentials come from the environment's network proxy, never from code or env vars.
+Credentials: REPLICATE_API_TOKEN if set (deployed servers), otherwise the sandbox's network
+proxy adds them. The token goes only to the API, never to download hosts, and is never logged.
 Prices come from the catalogue; amounts used come from the prediction's metrics when
 Replicate reports them (otherwise from the request, marked as an estimate)."""
 
@@ -26,15 +27,18 @@ class ReplicateProvider:
         client: httpx.Client | None = None,
         delivery_hosts: tuple[str, ...] = ("replicate.delivery",),
         max_download_mb: int = 500,
+        token: str = "",
     ):
         self.base_url = base_url.rstrip("/")
         self.client = client or httpx.Client(timeout=TIMEOUT)  # never follows redirects itself
         self.delivery_hosts = delivery_hosts
         self.max_download = max_download_mb * 1024 * 1024
+        # Only sent to the API (never to download hosts). Empty: the proxy adds credentials.
+        self._auth = {"Authorization": f"Bearer {token}"} if token else {}
 
     def _call(self, method: str, path: str, **kwargs) -> dict:
         try:
-            r = self.client.request(method, f"{self.base_url}{path}", **kwargs)
+            r = self.client.request(method, f"{self.base_url}{path}", headers=self._auth, **kwargs)
         except httpx.TransportError as exc:
             raise NetworkError(repr(exc)) from exc
         if r.status_code == 429:

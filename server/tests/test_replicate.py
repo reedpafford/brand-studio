@@ -233,3 +233,23 @@ def test_download_gives_up_after_an_hour(app, owner, db, fake):
     db.commit()
     assert _tick(app, db, fake, job).status == "failed"
     assert db.query(Usage).count() == 1
+
+
+def test_token_from_env_goes_to_the_api_only(app, owner, db, fake, monkeypatch):
+    from app.providers import get_providers
+    from app.settings import Settings
+
+    monkeypatch.setenv("REPLICATE_API_TOKEN", "r8_secret")
+    settings = Settings(replicate_base_url=BASE)
+    assert "r8_secret" not in repr(settings)
+    provider = get_providers(settings)["replicate"]
+    provider.client = httpx.Client(transport=httpx.MockTransport(fake))
+    job = _job(db)
+    for _ in range(3):
+        run_once(db, {"replicate": provider}, app.state.storage)
+    db.refresh(job)
+    assert job.status == "succeeded"
+    api = [r for r in fake.requests if str(r.url).startswith(BASE)]
+    downloads = [r for r in fake.requests if "replicate.delivery" in str(r.url)]
+    assert api and all(r.headers["authorization"] == "Bearer r8_secret" for r in api)
+    assert downloads and all("authorization" not in r.headers for r in downloads)
