@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { errorText } from "../api/client";
+import { btnPrimary, card, errorText as errorClass, input } from "../ui";
 
 export type Field = { name: string; label: string; type?: string; autoComplete?: string };
 type Me = { id: number };
@@ -35,14 +36,15 @@ export function AuthForm(props: {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 p-6">
-      <h1 className="text-2xl font-semibold">{props.title}</h1>
+    <main className="mx-auto flex min-h-screen max-w-[432px] flex-col justify-start gap-4 p-4 pt-[20vh] sm:justify-center sm:pt-4">
+      <div className={`${card} space-y-4`}>
+      <h1 className="text-xl font-semibold">{props.title}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {props.fields.map((f) => (
           <label key={f.name} className="flex flex-col gap-1 text-sm">
             {f.label}
             <input
-              className="rounded border border-neutral-300 px-3 py-2 text-base"
+              className={`${input} min-h-11`}
               type={f.type ?? "text"}
               autoComplete={f.autoComplete}
               required
@@ -52,18 +54,19 @@ export function AuthForm(props: {
           </label>
         ))}
         {mutation.isError && (
-          <p role="alert" className="text-sm text-red-700">
+          <p role="alert" className={errorClass}>
             {mutation.error.message}
           </p>
         )}
         <button
-          className="rounded bg-neutral-900 px-3 py-2 text-white disabled:opacity-50"
+          className={`${btnPrimary} min-h-11`}
           disabled={mutation.isPending}
         >
           {props.submitLabel}
         </button>
       </form>
       {props.footer}
+      </div>
     </main>
   );
 }

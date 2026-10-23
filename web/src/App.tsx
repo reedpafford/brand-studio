@@ -8,7 +8,7 @@ function Home() {
   return (
     <main className="p-6">
       <h1 className="text-2xl font-semibold">Brand Studio</h1>
-      <p className="text-neutral-600">Signed in as {me?.name}.</p>
+      <p className="text-muted">Signed in as {me?.name}.</p>
     </main>
   );
 }
