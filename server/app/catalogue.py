@@ -38,6 +38,8 @@ class CatalogueModel(BaseModel):
     max_reference_audios: int = 0
     max_reference_media_seconds: int = 0  # videos and audio each, added up (not together)
     recommended_reference_images: int = 0  # works best at or under this (0 = no advice)
+    max_character_images: int = 0  # image models: people whose likeness is kept (0 = no limit)
+    max_object_images: int = 0  # image models: objects whose likeness is kept (0 = not stated)
     first_frame: bool = False
     last_frame: bool = False
     audio: Literal["switch", "always"] | None = None

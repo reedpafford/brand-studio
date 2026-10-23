@@ -92,31 +92,3 @@ def _cost(usage) -> Decimal:
         "cache_write": usage.cache_creation_input_tokens or 0,
     }
     return sum((Decimal(n) * PRICE_PER_MTOK[k] / 1_000_000 for k, n in tokens.items()), Decimal(0))
-
-
-# --- Example call shape: script "Enhance" suggestions (real prompts come later) ---
-
-
-class Suggestion(BaseModel):
-    kind: Literal["scene_break", "action", "reaction", "camera", "brand_screen"]
-    after_line: int  # 1-based script line the suggestion attaches to
-    text: str
-
-
-class ScriptSuggestions(BaseModel):
-    suggestions: list[Suggestion]
-
-
-def suggest_enhancements(client: Anthropic, brand_system: str, script: str) -> Answer:
-    return ask(
-        client,
-        system=[ENHANCE_BASE, brand_system],
-        prompt=f"<script>\n{script}\n</script>",
-        schema=ScriptSuggestions,
-    )
-
-
-ENHANCE_BASE = (
-    "You help a video team improve a script. Suggest scene breaks, actions, reactions, "
-    "camera moves and where the brand's screens should appear. Don't rewrite the script."
-)
