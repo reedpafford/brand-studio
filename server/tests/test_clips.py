@@ -13,12 +13,12 @@ from app.providers.replicate import ReplicateProvider
 from app.routes.jobs import enqueue
 from app.worker import run_once
 from tests.conftest import PNG, png, upload
-from tests.helpers import MP3, MP4, assert_hidden, assert_no_dollars, mp4
+from tests.helpers import MP3, MP4, assert_hidden, assert_no_dollars, mp4, with_sheet
 from tests.test_replicate import BASE, FakeReplicate
 
 
 @pytest.fixture
-def fomo(owner, editor):
+def fomo(owner, editor, db):
     """fomo with one trading screen, plus a character with a sheet image."""
     brand = owner.get("/brands").json()[0]["id"]
     screen = editor.post(
@@ -27,6 +27,7 @@ def fomo(owner, editor):
     ).json()["id"]
     sheet = upload(editor)
     max_ = editor.post("/library/character", json={"name": "Max", "image_file_ids": [sheet]}).json()
+    with_sheet(db, max_["id"])
     return {"brand": brand, "screen": screen, "character": max_["id"], "sheet": sheet}
 
 
@@ -132,6 +133,7 @@ def test_prompt_says_which_picture_is_which(app, editor, fomo, db):
     kitchen = editor.post(
         "/library/place", json={"name": "kitchen", "image_file_ids": [upload(editor)]}
     ).json()["id"]
+    with_sheet(db, kitchen)
     prompt = "@max starts trading in the @Kitchen, emailing max@fomo.app"
     body = _clip(fomo, prompt=prompt, character_ids=[fomo["character"]], place_ids=[kitchen])
     assert editor.post("/clips", json=body).status_code == 201
