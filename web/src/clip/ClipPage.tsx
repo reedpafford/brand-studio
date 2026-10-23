@@ -47,11 +47,11 @@ function Studio({ models }: { models: Model[] }) {
   // "always used for" moment the prompt mentions (marked ★). Removing any of them keeps it out.
   const wantedCharacter = `character-${params.get("character")}`;
   const chosen = useMemo(() => {
-    const auto = screens
-      .filter((sc) => sc.moments.some((m) => mentionsMoment(prompt, m)))
-      .map((sc) => pieces.find((p) => p.key === sc.key))
-      .filter((p): p is Piece => !!p)
-      .map((p) => ({ ...p, auto: true }));
+    const auto = screens.flatMap((sc) => {
+      const moment = sc.moments.find((m) => mentionsMoment(prompt, m));
+      const piece = pieces.find((p) => p.key === sc.key);
+      return moment && piece ? [{ ...piece, auto: moment }] : [];
+    });
     const fromAddress = pieces.filter((p) => p.key === wantedCharacter);
     const all = [...fromAddress, ...picked, ...auto];
     return all.filter((p, i) => !dismissed.includes(p.key) && all.findIndex((x) => x.key === p.key) === i);
@@ -74,7 +74,7 @@ function Studio({ models }: { models: Model[] }) {
   return (
     <main className="mx-auto grid max-w-6xl gap-6 p-4 pb-32 sm:p-6 lg:grid-cols-[360px_1fr]">
       <h1 className={`${pageTitle} lg:col-span-2`}>Quick clip · {brand?.name}</h1>
-      <section aria-label="Clip settings" className="space-y-4">
+      <section aria-label="Clip settings" className="space-y-4 lg:self-start lg:rounded-md lg:border lg:border-border lg:bg-surface lg:p-6">
         <div className="space-y-1 text-sm">
           <div className="font-medium">Model</div>
           <ModelPicker models={models} value={model} onChange={switchModel} />

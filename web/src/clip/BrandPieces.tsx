@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { btnSecondary, linkText } from "../ui";
 
-export type Piece = { key: string; type: "character" | "place" | "prop" | "screen"; id: number; name: string; fileId?: number; auto?: boolean };
+export type Piece = { key: string; type: "character" | "place" | "prop" | "screen"; id: number; name: string; fileId?: number; auto?: string };
 
 const TABS = ["character", "place", "prop", "screen"] as const;
 const LABEL = { character: "Characters", place: "Places", prop: "Props", screen: "Screens" };
@@ -47,14 +47,19 @@ export function BrandPieces(props: { all: Piece[]; chosen: Piece[]; max: number;
         {props.chosen.map((p) => (
           <li key={p.key} className="flex items-center gap-1 rounded-sm bg-accent-soft px-2 py-1 text-sm text-accent-text">
             {p.fileId && <img src={fileUrl(p.fileId)} alt="" className="size-5 rounded-sm object-cover" />}
-            {p.auto && <span title="Added because your prompt mentions its moment">★</span>}
+            {p.auto && <span aria-hidden>★</span>}
             {p.name}
-            <button type="button" aria-label={`Remove ${p.name}`} onClick={() => props.onRemove(p.key)}>
+            <button type="button" className="grid size-6 place-items-center" aria-label={`Remove ${p.name}`} onClick={() => props.onRemove(p.key)}>
               ×
             </button>
           </li>
         ))}
       </ul>
+      {props.chosen.filter((p) => p.auto).map((p) => (
+        <p key={p.key} className="text-sm text-muted">
+          ★ {p.name} was added because your prompt mentions {p.auto}. Remove it with ×.
+        </p>
+      ))}
       <button type="button" className={btnSecondary} onClick={() => setOpen(!open)} aria-expanded={open}>
         Add brand piece
       </button>

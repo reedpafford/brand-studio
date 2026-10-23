@@ -63,6 +63,7 @@ test("a screen is added with a star when the prompt mentions its moment, and can
   await userEvent.type(prompt, "Mia hits the buy moment");
   const chip = await screen.findByText("Buy BTC");
   expect(chip.closest("li")).toHaveTextContent("★");
+  expect(screen.getByText(/was added because your prompt mentions buy-moment/)).toBeInTheDocument();
   await userEvent.click(within(chip.closest("li")!).getByRole("button", { name: "Remove Buy BTC" }));
   expect(screen.queryByText("Buy BTC")).not.toBeInTheDocument();
   expect(screen.getByText("Generation isn't switched on yet.")).toBeInTheDocument();
