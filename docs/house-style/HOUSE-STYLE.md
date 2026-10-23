@@ -23,27 +23,27 @@ A short version for tight prompt budgets: *"Pixar-style 3D animation, 9:16, big 
 | DeukYhBBTKE | 7.6M | 2026-10-20 | 44.0 s | 45 | 0.70 s | 4.25 | Status-gap underdog |
 | DbzbABRAb-G | 6.2M | 2026-08-09 | 59.8 s | 42 | 0.45 s | 3.48 | "Mom said I'd fail" |
 | DeM4aSbg1OI | 6.2M | 2026-10-07 | 39.6 s | 40 | 0.74 s | 5.42 | Ex chose money |
-| DdvU49JgfEw | 5.7M | 2026-09-26 | TBD | TBD | TBD | TBD | TBD |
+| DdvU49JgfEw | 5.7M | 2026-09-26 | 56.0 s | 48 | 0.66 s | 5.73 | "Mom said we'd fail" (collab) |
 | Ddj8JCsA6Zr | 5.5M | 2026-09-21 | 56.3 s | 42 | 0.64 s | 5.09 | "Mom said I'd fail" |
 | Dd5zmcgAj0M | 5.5M | 2026-09-30 | 56.0 s | 64 | 0.40 s | 5.37 | "Mom said I'd fail" |
 | DehudnaAmce | 4M | 2026-10-15 | 45.0 s | 50 | 0.40 s | 2.82 | Ex chose money |
-| DdsEQhNAyl4 | 3.6M | 2026-09-24 | TBD | TBD | TBD | TBD | "Dad said I'd fail" |
+| DdsEQhNAyl4 | 3.6M | 2026-09-24 | 56.0 s | 53 | 0.50 s | 5.02 | "Daddy said I'd fail" |
 | Ddcye3FAaZE | 2.8M | 2026-09-19 | 71.4 s | 59 | 0.70 s | 4.92 | "Stepmom said I'd fail" |
 | Db35MX-A_mA | 2.7M | 2026-08-10 | 89.0 s | 95 | 0.50 s | 4.72 | "Dad said I'd fail" |
 
-All 12 are 3D animated; none were skipped. Every reel ends with a 1.5–3.7 s live-action "real me" tag.
+All 12 are 3D animated; none were skipped. Every reel ends with a 1.45–3.7 s live-action "real me" tag.
 
 ---
 
 ## 1. What makes them work (the director's summary)
 
-1. **They start at the fight, not before it.** The first word is spoken at **0.0–0.35 s** in every reel. The opening line is an accusation or a rejection ("Nate! Where is all your money?", "HELL NO!", "You sold all my stuff?"). Median hook is **5.2 s**, with the stakes stated as a number ($2,000, $200, 30 days, one week).
+1. **They start at the fight, not before it.** The first word is spoken at **0.0–0.35 s** in every reel. The opening line is an accusation or a rejection ("Nate! Where is all your money?", "HELL NO!", "You sold all my stuff?"). Median hook is **5.4 s**, with the stakes stated as a number ($2,000, $200, 30 days, one week).
 2. **One underdog, one doubter, one promise.** A doubter (parent, ex, rich rival) mocks the hero. The hero answers with a short dare ("Then prove it." / "Just watch." / "One week."). The rest of the reel pays off that promise.
-3. **The middle is a wordless montage that shows proof.** In 10 of 12 reels the grind is told with no dialogue: hands, screens, packing, day/night flips, and the same pose in an ever-bigger room. Montage shots have a median of **0.3–0.4 s**.
+3. **The middle is a wordless montage that shows proof.** In 11 of 12 reels the grind is told with no dialogue: hands, screens, packing, day/night flips, and the same pose in an ever-bigger room. Montage shots have a median of **0.42 s** (pooled over 216 montage shots; per-reel 0.16–0.83 s).
 4. **There is a low point before the win.** A night scene, lit cold and blue, with the hero alone ("I can't let her down"), then a ding: the first order or sale lands on a phone screen in close-up.
 5. **The reversal mirrors the opening.** The same doubter, often in the same place, now sees the hero's success. The hero gets a short, quotable, slightly smug line ("You were busy arguing. I was busy getting paid." / "Sorry, I'm fully booked." / "No. We did.").
 6. **A comic button after the payoff.** A whip-blur into the doubter's screaming extreme close-up ("WHAT?!", "more inventory?") lands in the last 1–2 s of the CG.
-7. **A "true story" bridge at the end.** A hard cut to 2–3 s of real handheld footage. For our brands, this slot is where the **real brand element** goes (fomo's real app screens, the real Iron Paws bag), never the creator's life.
+7. **A "true story" bridge at the end.** A hard cut to about 2 s (1.45–3.7 s) of real handheld footage. For our brands, this slot is where the **real brand element** goes (fomo's real app screens, the real Iron Paws bag), never the creator's life.
 8. **It plays on mute.** Faces are huge and expressive, every line is captioned word by word, and the story shows in props (wallet, ring box, boxes of stock, supercar).
 
 ---
@@ -112,12 +112,12 @@ Measured over the CG portion of all 12 reels (2 frames per second):
 
 ## 6. Lens and camera
 
-Measured over 446 CG shots:
+Measured over 537 CG shots:
 
-- **Framing mix:** close-ups and medium close-ups **32 %**; extreme close-ups **8 %** (eyes, a screaming mouth, a phone screen, a wheel); wides and full shots **22 %**; the rest mediums and two-shots.
+- **Framing mix:** close-ups and medium close-ups **30 %**; extreme close-ups **8 %** (eyes, a screaming mouth, a phone screen, a wheel); wides and full shots **24 %**; the rest mediums and two-shots.
 - **Focal length feel:** close-ups are normal-to-long (about 50–85 mm), with flattering faces and a blurred background. Wides are slightly wide (about 24–35 mm) and often symmetrical (warehouse aisle, villa, Eiffel Tower).
 - **Angles:** mostly eye level. Slightly low for confident or arrival moments, slightly high for the hero at his low point. Arguments are a **profile two-shot, nose to nose**.
-- **Movement:** **61 % of CG shots are locked off.** About 11 % use a push-in, snap zoom or crash zoom, always on a feeling (realisation, shock, smugness). Reveals use one continuous follow or arc (up to 8–10 s, e.g. DcP_aC_AoQz 49–57 s, Db35MX-A_mA 14–25 s). There is no handheld in the CG; handheld is only used for the real-life tag.
+- **Movement:** **60 % of CG shots are locked off.** About 10 % use a push-in, snap zoom or crash zoom, always on a feeling (realisation, shock, smugness). Reveals use one continuous follow or arc (up to 8–10 s, e.g. DcP_aC_AoQz 49–57 s, Db35MX-A_mA 14–25 s). There is no handheld in the CG; handheld is only used for the real-life tag.
 - **Objects to lens:** wallets, ring boxes and phones are thrust at the camera for emphasis, and thrown objects (bags, boxes, shirts) serve as wipes.
 
 ---
@@ -133,11 +133,11 @@ Measured over 446 CG shots:
 
 ## 8. Editing rhythm
 
-Measured over all 535 shots (CG plus tags):
+Measured over all 636 shots (CG plus tags):
 
-- **Shot length:** median **0.54 s** (CG only **0.67 s**). 10th percentile 0.13 s, 25th 0.25 s, 75th 1.23 s, 90th 2.57 s. **47 % of shots are under 0.5 s**; only **8 % run over 3 s** (dialogue two-shots and continuous reveal moves).
-- **Rate:** about **1 cut per second** (median 0.98 cuts/s). A typical reel is 40–64 shots in 40–60 s.
-- **Hook:** median **5.2 s** (range 3.5–7.4 s), packing 5–7 shots, opening on the conflict line at 0 s.
+- **Shot length:** median **0.55 s** (CG only **0.67 s**). 10th percentile 0.14 s, 25th 0.26 s, 75th 1.26 s, 90th 2.56 s. **46 % of shots are under 0.5 s**; only **8 % run over 3 s** (dialogue two-shots and continuous reveal moves).
+- **Rate:** about **1 cut per second** (median 0.95 cuts/s). A typical reel is 40–64 shots in 40–60 s (median 49 shots, 56 s).
+- **Hook:** median **5.4 s** (range 3.5–10.6 s), packing 5–7 shots, opening on the conflict line at 0 s.
 - **Montage devices:**
   - Wordless macro "process" inserts (typing, packing, spraying).
   - Matched before/after frames (dirty wheel, then clean wheel).
@@ -150,13 +150,13 @@ Measured over all 535 shots (CG plus tags):
   - Snap or crash zooms into a reaction.
   - **White flash** into a time-jump card ("2 YEARS LATER…", "THREE YEARS LATER") on a hero object.
   - Cut to black before the tag.
-- **Ending:** payoff line, then a comic button (scream ECU), then a hard cut to a **2.5 s** real tag (median; range 1.5–3.7 s) with 0.1–0.4 s handheld cuts.
+- **Ending:** payoff line, then a comic button (scream ECU), then a hard cut to a **2.05 s** real tag (median; range 1.45–3.7 s) with 0.1–0.4 s handheld cuts.
 
 ---
 
 ## 9. Sound
 
-- **Dialogue-led, no narrator.** Characters speak to each other on screen in short 1–5 word lines, fired back and forth. Speech rate is **4.7 words/s while speaking** (range 2.8–5.4). Speech covers about **40 %** of runtime (range 23–60 %).
+- **Dialogue-led, no narrator.** Characters speak to each other on screen in short 1–5 word lines, fired back and forth. Speech rate is **4.8 words/s while speaking** (median; range 2.8–5.7, measured as words ÷ summed line spans, which runs slightly high on rapid back-and-forth; one clock check gave 4.8 words/s over a 10 s argument). Speech covers about **42 %** of runtime (range 23–60 %).
 - **Montages are wordless** (8–16 s gaps in dialogue), carried by music.
 - **A music bed runs the full length.** No silence was found in any reel (silencedetect −35 dB / 0.4 s). The mix sits at a constant level (about −14 LUFS momentary under dialogue, measured on DeukYhBBTKE) and **lifts 3–4 dB for the real-life tag**, where the energy drops in. Low booms hit time jumps.
 - **SFX** punctuate the beats: phone dings for each order, camera shutter and flash, whooshes on whips, engine and exhaust pops.
@@ -172,8 +172,8 @@ Every reel burns in **one word at a time**, centred at about 45–60 % of frame 
 
 ## 11. Story templates (use one per video)
 
-**A. "They said I'd fail"** (7 of 12 reels, including the 16.4M top reel)
-Doubter confronts the hero over money (0–5 s) → stakes and deadline ("one week", "every dollar") → wordless grind montage → night low point → first sale ding → scale-up montage (the doubter joins in) → shared win ("We did it." / "No. We did.") → comic button (a closet full of new stock, the doubter's scream ECU) → real tag.
+**A. "They said I'd fail"** (8 of 12 reels, including the 16.4M top reel)
+Doubter (mom, dad, stepmom) confronts the hero over money (0–5 s) → stakes and deadline ("one week", "every dollar") → wordless grind montage → night low point → first sale ding → scale-up montage (the doubter joins in) → shared win ("We did it." / "No. We did.") → comic button (a closet full of new stock, the doubter's scream ECU) → real tag.
 
 **B. "She chose money"** (3 reels: 8.2M, 6.2M, 4M)
 Public rejection at a big romantic set piece (altar, Eiffel Tower, graduation) → rival flaunts wealth → hero alone (tear ECU, slow push) → grind montage → white flash and "X YEARS LATER" card → mirrored meeting, the ex begs → hero's smug one-liner and exit → real tag.
@@ -189,12 +189,12 @@ For brands, put the brand's moment in the montage and the tag. fomo: the trading
 
 - [ ] First line spoken at 0 s; it is a conflict, with a number in the first 5 s
 - [ ] A dare or promise by about 5 s
-- [ ] A wordless montage, shots 0.3–0.4 s, using one of the "same pose, bigger world" or before/after devices
+- [ ] A wordless montage, shots about 0.4 s, using one of the "same pose, bigger world" or before/after devices
 - [ ] A cold-blue night low point with a slow push-in, then a phone-screen ding
 - [ ] Time jump via white flash and a card on a hero object (if the story spans time)
 - [ ] Payoff mirrors the opening place and people; the hero's line is under 8 words
 - [ ] Comic button: whip into the doubter's scream ECU
-- [ ] Ends on 2–3 s of the real brand element
+- [ ] Ends on about 2 s of the real brand element
 - [ ] About 1 cut per second overall; nothing over 3 s except a dialogue two-shot or a continuous reveal move
 - [ ] Characters stay the same in every shot (sheet attached); one saturated hero object per scene
 - [ ] Nothing copied: no captions, lines, characters, logos or real footage from the reference reels
