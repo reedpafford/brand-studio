@@ -1,4 +1,5 @@
 import { btnPrimary, card } from "../ui";
+import { BreakdownPane } from "./BreakdownPane";
 import { Notes, type EnhanceState } from "./Enhance";
 
 export const STAGES = [
@@ -10,12 +11,12 @@ export const STAGES = [
   { id: "clips", label: "Clips" },
 ] as const;
 export type Stage = (typeof STAGES)[number]["id"];
-const BUILT: Stage[] = ["brief", "script", "enhance"];
+const BUILT: Stage[] = ["brief", "script", "enhance", "breakdown"];
 
 /** Why a stage can't be opened right now, or null when it can. */
 export function lockReason(stage: Stage, hasScript: boolean): string | null {
   if (!BUILT.includes(stage)) return "Coming soon";
-  if (stage === "enhance" && !hasScript) return "Finish the script first";
+  if ((stage === "enhance" || stage === "breakdown") && !hasScript) return "Finish the script first";
   return null;
 }
 
@@ -76,7 +77,7 @@ export function Stepper(props: { stage: Stage; done: Stage[]; hasScript: boolean
 export type BriefInfo = { goal: string; platform: string; aspect_ratio: string; format: string; planned_seconds: number };
 
 /** The right-hand pane: what to do at the current stage. The script stays on the left. */
-export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: boolean; enhance: EnhanceState; onPick: (s: Stage) => void }) {
+export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: boolean; enhance: EnhanceState; version: number; projectId: number; brandId: number; used: number; budget: number; onPick: (s: Stage) => void }) {
   const { stage, brief } = props;
   if (stage === "brief")
     return (
@@ -110,6 +111,8 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
         <Notes e={props.enhance} />
       </div>
     );
+  if (stage === "breakdown")
+    return <BreakdownPane projectId={props.projectId} brandId={props.brandId} scriptVersion={props.version} plannedSeconds={brief.planned_seconds} used={props.used} budget={props.budget} />;
   return (
     <section className={`${card} text-sm`} aria-label="Coming soon">
       <h2 className="text-[length:var(--text-md)] font-semibold">Coming soon</h2>

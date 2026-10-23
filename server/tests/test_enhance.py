@@ -90,6 +90,7 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
     )
     job = editor.post(f"{url}/enhance")
     assert job.status_code == 201 and job.json()["credits"] == 3  # write-claude estimate
+    assert job.json()["step"] == "enhance"  # the UI tells Enhance from Breakdown by this
     _run(app, db, fake)
     done = db.get(Job, job.json()["id"])
     assert done.status == "succeeded" and done.output["kept"] == 3

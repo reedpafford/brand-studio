@@ -30,6 +30,8 @@ class JobOut(BaseModel):
     finished_at: datetime | None
     # Safe summary of what was asked, for history lists (from the job's input).
     prompt_summary: str = ""
+    step: str | None = None  # script-flow step: enhance, script_draft, breakdown, …
+    frame_id: int | None = None  # storyboard frame a still render is for
     model_id: str | None = None
     brand_id: int | None = None
     duration: int | None = None
@@ -67,6 +69,8 @@ class JobOut(BaseModel):
             **data,
             **extra,
             "prompt_summary": prompt if len(prompt) <= 140 else prompt[:139] + "…",
+            "step": job.input.get("step"),
+            "frame_id": job.input.get("frame_id"),
             "model_id": job.input.get("model"),
             "brand_id": job.input.get("brand_id"),
             **{k: given.get(k) for k in ("duration", "aspect_ratio", "resolution")},
