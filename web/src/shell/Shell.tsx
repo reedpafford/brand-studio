@@ -44,7 +44,7 @@ export function Shell() {
             aria-label="Brand"
             className="min-h-11 w-full rounded-sm border border-border-strong bg-surface px-2 text-base text-text sm:min-h-9"
             value={brand ? current! : ""}
-            onChange={(e) => navigate(`/b/${e.target.value}/${subPage}`)}
+            onChange={(e) => navigate(subPage ? `/b/${e.target.value}/${subPage}` : `/b/${e.target.value}`)}
           >
             {!brand && <option value="">Choose a brand</option>}
             {brands.map((b) => (
@@ -61,6 +61,9 @@ export function Shell() {
           <>
             <NavLink end to={`/b/${current}`} className={link}>
               Brand
+            </NavLink>
+            <NavLink to={`/b/${current}/library`} className={link}>
+              Library
             </NavLink>
             <NavLink to={`/b/${current}/kit`} className={link}>
               Kit
