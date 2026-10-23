@@ -50,8 +50,11 @@ def make_sheet(
     item = _item(db, user, kind, item_id)
     if not item.notes.strip() and not item.source_photo_file_id:
         raise HTTPException(422, "Describe it first (the notes), or add a photo.")
-    if sheet_status(item) == "drawing":
+    status = sheet_status(item)
+    if status == "drawing":
         raise HTTPException(409, "A sheet is being made.")
+    if status == "waiting_for_owner":
+        raise HTTPException(409, "A sheet is waiting for the owner's OK.")
     from_photo = bool(item.source_photo_file_id)
     redo = bool(body.change.strip()) and item.sheet_file_id is not None
     refs = [item.source_photo_file_id] if from_photo else []
