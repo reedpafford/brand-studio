@@ -4,10 +4,10 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.auth import current_user
+from app.auth import current_user, owner_only
 from app.db import get_db
 from app.models.accounts import User
 from app.models.brands import Brand
@@ -72,9 +72,17 @@ def _out(item: LibraryItem) -> ItemOut:
     return ItemOut(id=item.id, kind=item.kind, version=item.version, **_snapshot(item))
 
 
-def _get_item(db: Session, user: User, kind: Kind, item_id: int) -> LibraryItem:
+def _get_item(
+    db: Session, user: User, kind: Kind, item_id: int, archived: bool = False
+) -> LibraryItem:
+    """A live item (or, with archived=True, an archived one) in the caller's workspace."""
     item = db.get(LibraryItem, item_id)
-    if not item or item.workspace_id != user.workspace_id or item.kind != kind or item.archived:
+    if (
+        not item
+        or item.workspace_id != user.workspace_id
+        or item.kind != kind
+        or item.archived != archived
+    ):
         raise HTTPException(404, f"No such {kind}.")
     return item
 
@@ -112,13 +120,15 @@ def _save_version(db: Session, user: User, item: LibraryItem) -> None:
 def list_items(
     kind: Kind,
     brand_id: int | None = None,
+    archived: bool = False,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    """`archived=true` lists the archive instead, so items can be brought back."""
     query = select(LibraryItem).where(
         LibraryItem.workspace_id == user.workspace_id,
         LibraryItem.kind == kind,
-        LibraryItem.archived.is_(False),
+        LibraryItem.archived.is_(archived),
     )
     if brand_id is not None:
         query = query.where(LibraryItem.brands.any(id=brand_id))
@@ -162,7 +172,30 @@ def update_item(
 def archive_item(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> None:
+    """Archive (reversible: see unarchive). Anyone on the team can do this."""
     _get_item(db, user, kind, item_id).archived = True
+    db.commit()
+
+
+@router.post("/{item_id}/unarchive", response_model=ItemOut)
+def unarchive_item(
+    kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    item = _get_item(db, user, kind, item_id, archived=True)
+    item.archived = False
+    db.commit()
+    return _out(item)
+
+
+@router.delete("/{item_id}/permanent", status_code=204)
+def delete_item_forever(
+    kind: Kind, item_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)
+) -> None:
+    """Owner only, and only from the archive: removes the item and its history for good."""
+    item = _get_item(db, owner, kind, item_id, archived=True)
+    db.execute(delete(LibraryItemVersion).where(LibraryItemVersion.item_id == item.id))
+    item.brands = []
+    db.delete(item)
     db.commit()
 
 
