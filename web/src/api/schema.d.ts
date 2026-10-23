@@ -1220,6 +1220,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/inserts/{shot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Insert
+         * @description Switch "Use the real image" for one insert shot. Free: it applies when the video is
+         *     made, so the take and its approval stay.
+         */
+        put: operations["set_insert_projects__project_id__clips__clip_id__inserts__shot_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/video": {
         parameters: {
             query?: never;
@@ -1664,6 +1685,30 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InsertIn */
+        InsertIn: {
+            /** Use Real Image */
+            use_real_image: boolean;
+        };
+        /**
+         * InsertOut
+         * @description An insert shot (brand screens, no people): "Use the real image" cuts the real picture
+         *     in over this stretch of the clip when the video is made.
+         */
+        InsertOut: {
+            /** Shot Id */
+            shot_id: string;
+            /** Asset Id */
+            asset_id: string;
+            /** Name */
+            name: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Use Real Image */
+            use_real_image: boolean;
+        };
         /** InviteIn */
         InviteIn: {
             /** Email */
@@ -2059,6 +2104,8 @@ export interface components {
             take_credits: number;
             /** Stale */
             stale: boolean;
+            /** Inserts */
+            inserts: components["schemas"]["InsertOut"][];
         };
         /** ProjectEstimateOut */
         ProjectEstimateOut: {
@@ -5143,6 +5190,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_insert_projects__project_id__clips__clip_id__inserts__shot_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+                shot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsertIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
