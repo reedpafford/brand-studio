@@ -6,7 +6,7 @@ from app.models.accounts import User
 from app.models.jobs import JobStatus, Usage
 from app.providers.fake import FakeProvider
 from app.routes.jobs import enqueue
-from app.worker import UNSURE, check_running, recover, run_once
+from app.worker import FAILED, UNKNOWN, UNSURE, check_running, recover, run_once
 
 
 @pytest.fixture
@@ -36,7 +36,8 @@ def test_provider_failure_marks_job_failed_without_retry(db, user):
     job = enqueue(db, user, "video", {})
     _run(db, fake, job)
     assert _run(db, fake, job).status == JobStatus.failed
-    assert job.error == "fake failure" and len(fake.submitted) == 1
+    assert job.error == FAILED and job.error_detail == "fake failure"
+    assert len(fake.submitted) == 1
 
 
 def test_network_error_while_checking_is_retried(db, user):
@@ -97,3 +98,22 @@ def test_two_workers_record_usage_once(app, db, user):
     fake.poll = poll_while_other_worker_finishes
     check_running(db, {"fake": fake})
     assert db.query(Usage).count() == 1
+
+
+def test_unknown_provider_fails_the_job_and_others_still_run(db, user):
+    bad = enqueue(db, user, "video", {}, provider="nope")
+    good = enqueue(db, user, "video", {})
+    fake = FakeProvider()
+    _run(db, fake, bad)
+    db.refresh(good)
+    assert (bad.status, bad.error) == (JobStatus.failed, UNKNOWN)
+    assert good.status == JobStatus.running
+
+
+def test_unknown_provider_on_restart_fails_instead_of_crashing(db, user):
+    job = enqueue(db, user, "video", {}, provider="nope")
+    job.status = JobStatus.running
+    db.commit()
+    recover(db, {"fake": FakeProvider()})
+    db.refresh(job)
+    assert job.status == JobStatus.failed

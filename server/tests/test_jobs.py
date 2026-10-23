@@ -41,3 +41,24 @@ def test_usage_dollars_are_owner_only(owner, editor, db):
     run_once(db, {"fake": fake})
     assert editor.get("/usage").status_code == 403
     assert owner.get("/usage").json()[0]["cost_usd"] == "1.0280"
+
+
+def test_editor_never_sees_raw_provider_errors(owner, editor, db):
+    job = enqueue(db, db.query(User).first(), "video", {})
+    fake = FakeProvider()
+    fake.submit_error = RuntimeError("insufficient credit, balance $3.20 key=abc")
+    run_once(db, {"fake": fake})
+    text = editor.get(f"/jobs/{job.id}").text + editor.get("/jobs").text
+    assert "3.20" not in text and "abc" not in text and "usd" not in text.lower()
+    assert editor.get(f"/jobs/{job.id}/detail").status_code == 403
+    assert "$3.20" in owner.get(f"/jobs/{job.id}/detail").json()["error_detail"]
+
+
+def test_editor_job_payload_has_no_money(editor, db):
+    job = enqueue(db, db.query(User).first(), "video", {"seconds": 4})
+    fake = FakeProvider()
+    run_once(db, {"fake": fake})
+    run_once(db, {"fake": fake})
+    text = (editor.get("/jobs").text + editor.get(f"/jobs/{job.id}").text).lower()
+    assert editor.get(f"/jobs/{job.id}").json()["status"] == "succeeded"
+    assert "usd" not in text and "cost" not in text

@@ -26,6 +26,14 @@ class JobOut(BaseModel):
     finished_at: datetime | None
 
 
+class JobDetailOut(JobOut):
+    """Owner-only: includes the provider's raw error text."""
+
+    provider: str
+    provider_ref: str | None
+    error_detail: str
+
+
 class UsageOut(BaseModel):
     id: int
     job_id: int
@@ -73,6 +81,11 @@ def list_jobs(
 @router.get("/jobs/{job_id}", response_model=JobOut)
 def read_job(job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return _get_job(db, user, job_id)
+
+
+@router.get("/jobs/{job_id}/detail", response_model=JobDetailOut)
+def read_job_detail(job_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)):
+    return _get_job(db, owner, job_id)
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobOut)

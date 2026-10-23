@@ -25,6 +25,7 @@ def upgrade() -> None:
         sa.Column("provider_ref", sa.String(length=200), nullable=True),
         sa.Column("output", sa.JSON(), nullable=True),
         sa.Column("error", sa.Text(), nullable=False),
+        sa.Column("error_detail", sa.Text(), nullable=False),
         sa.Column("attempts", sa.Integer(), nullable=False),
         sa.Column("started_at", sa.DateTime(), nullable=True),
         sa.Column("finished_at", sa.DateTime(), nullable=True),

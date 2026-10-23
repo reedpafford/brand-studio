@@ -18,6 +18,9 @@ class UsageItem:
 
 @dataclass
 class Result:
+    """`output` is shown to every editor, so it must never contain prices or costs:
+    money goes in `usage` only. `error` is raw text and is kept owner-only."""
+
     state: Literal["running", "succeeded", "failed"]
     output: dict | None = None
     error: str = ""

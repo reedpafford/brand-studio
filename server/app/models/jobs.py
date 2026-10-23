@@ -28,7 +28,8 @@ class Job(Entity, Base):
     status: Mapped[JobStatus] = mapped_column(String(30), index=True, default=JobStatus.queued)
     provider_ref: Mapped[str | None] = mapped_column(String(200))  # provider's id for the work
     output: Mapped[dict | None] = mapped_column(JSON)
-    error: Mapped[str] = mapped_column(Text, default="")
+    error: Mapped[str] = mapped_column(Text, default="")  # plain message, safe for everyone
+    error_detail: Mapped[str] = mapped_column(Text, default="")  # raw provider text: owner only
     attempts: Mapped[int] = mapped_column(default=0)
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]

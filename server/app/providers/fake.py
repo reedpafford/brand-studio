@@ -15,11 +15,14 @@ class FakeProvider:
         self.fail = fail
         self.network_errors_on_submit = 0
         self.network_errors_on_poll = 0
+        self.submit_error: Exception | None = None  # raised by the next submit
         self.submitted: dict[str, dict] = {}
         self._polls: dict[str, int] = {}
         self._ids = itertools.count(1)
 
     def submit(self, kind: str, input: dict) -> str:
+        if self.submit_error:
+            raise self.submit_error
         if self.network_errors_on_submit:
             self.network_errors_on_submit -= 1
             raise NetworkError("fake network error")
