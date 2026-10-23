@@ -1,4 +1,4 @@
-as of 184361f · 2026-10-23 22:58 UTC
+as of 87e6c37 · 2026-10-23 23:15 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -7,7 +7,8 @@ as of 184361f · 2026-10-23 22:58 UTC
 - Quick clip: create/estimate/retry (#33), Generate on (#31), references (#55, #72), Improve prompt + Seedance shape B (#67).
 - Projects: list, brief, Script tab, workspace (#57, #60, #68); script drafts (#62); Script Enhance with tags, keys, Accept all (#51, #63, #74, #77, #81).
 - Breakdown pane: make, redo, problems, scenes/clips/shots (#83, with browser test #86); edit, Split/Join, Save, Go to (#85); line links to the script and phone sheets (#90). Breakdown server (#66; `JobOut.step` tells Enhance from Breakdown runs, #84; tagged directions read by #75). Storyboard prompts (#78) and stills with Nano Banana (#82); stale frames are refused (#88). Project clip prompts (#87); frames can be approved and redone with a note (#97).
-- Storyboard pane: frames, stills, Approve, Redo with a note, Next: Clips gate (#92, #99). Project clips: takes with Seedance, pick/approve, free stitched video (#94). Flaky dollar-amount test fixed (#102). Old gold examples and fomo style board removed, Iron Paws peanut butter bag added (#101); Library spec for Make sheet (#106).
+- Storyboard pane: frames, stills, Approve, Redo with a note, Next: Clips gate (#92, #99). Project clips: takes with Seedance, pick/approve, free stitched video (#94). Flaky dollar-amount test fixed (#102). Old gold examples and fomo style board removed, Iron Paws peanut butter bag added (#101); Library spec for Make sheet and photo → sheet → approve (#106, #111). Brief and end-line specs (#103). House style in the prompts (#98), live action becomes the brand CTA with definition-of-done eval cases (#107), character sheet and place still prompts (#108).
+- Clips pane: takes, pick, approve, make the video, download (#104); server support: clip on jobs, Redo note, take cost, un-approve (#113). The path brief → script → breakdown → storyboard → clips → video exists end to end.
 - Director prompts/evals (#30, #36, #41, #54, #75); Iron Paws + fomo seeds (#27, #39); browser tests (#19, #86, #49, #52, #61, #65, #71, #73, #76).
 - Design specs: Breakdown, Storyboard, Clips, Approvals (#79, #80); Prompting guides and FIT rows (#53, #70); house style and gold references from @nateassets (#96).
 - How to run: `server/README.md`. After any server API change run `npm run api` in web/ and commit `web/src/api/schema.d.ts`.
@@ -28,17 +29,21 @@ as of 184361f · 2026-10-23 22:58 UTC
 ## Definition of done (Reed, ops/MISSION.md)
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo screens exact, live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag exactly (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
-## Open PRs (6, not counting the Scribe's own)
-- #104 Clips pane: takes, pick, approve, make the video, download | Builder-Screens | Designer re-check passed (89c9875); QA passed at d7fd538, head since moved to 89c9875
-- #109 Credits: per-video cap 729 credits ($75), no editor length limit | Builder-Server | in review
-- #107 Reference reels: live action becomes the brand CTA; definition-of-done eval cases | Director | QA pass at 062a17f; contains #98; `end_line` not wired to the Brand model yet
-- #108 Character sheet and place still prompts (Nano Banana) | Director | QA pass at 178dffd; stacked on #107
-- #103 Specs: brief product picker, no length note; end line is the last clip | Designer | in review (docs only)
-- #98 House style in the prompts: new fomo worked examples, style lines, pacing | Director | QA re-check passed at b5e9c7d
+## Open PRs (9, not counting the Scribe's own)
+- #109 Credits: per-video cap 729 credits ($75), no editor length limit | Builder-Server | QA at 7e54e1c: 1 must-fix (migration so existing databases move from 340 to 729)
+- #110 Product variants (Iron Paws flavour) and the brand end line | Builder-Server | QA at 2e520e8: 2 must-fixes (end-line check not live, fomo end line not set on existing databases); migration 0017 clashes with #109's, second to merge renumbers
+- #114 Brief: pick a flavour (Iron Paws bag) | Builder-Screens | stacked on #110; QA passed (1ec22c0); Designer: 4 must-fixes (flavour cards with pictures, group label, required choice, drop the 170 s line); behind main
+- #115 Clips: server price and per-clip jobs, "Needs a change" note, undo approval | Builder-Screens | QA passed (69795af); Designer: 2 must-fixes (duplicate Redo button, 35 px Redo on phones)
+- #116 Library: make a character sheet or place still (Nano Banana) | Builder-Server | QA at fe541fe: 1 must-fix (double press makes two paid sheets)
+- #112 Deploy: Docker Compose stack for the VPS | Release | QA at c260951: 1 must-fix (placeholder `change-me` works as setup code)
+- #117 Quick clip: Improve prompt (server) | Builder-Server | in review
+- #118 Quick clip: Improve prompt (screen) | Builder-Screens | in review
+- #119 Iron Paws: full-size peanut butter bag (scoop removed) + spend log | Producer | in review
 ## Next
-- Builder-Screens: land #104 (Clips pane, the last stage).
-- Builder-Server: #109, then products on the brand kit and `product` on the project, and the brand end line (per #103, #107).
-- Director: land #98, #107, #108; paid evals only with Producer approval, logged in ops/SPEND.md.
+- Builder-Screens: Designer fixes on #114 and #115; #118 once #117 lands.
+- Builder-Server: QA fixes on #109, #110, #116; #117; renumber the second migration.
+- Director: paid evals only with Producer approval, logged in ops/SPEND.md; excerpt tests for the two definition-of-done videos.
+- Release: fix #112's setup-code check, then deploy.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
 - Replicate key for the deployed server (later). Keys stay server-side only.
