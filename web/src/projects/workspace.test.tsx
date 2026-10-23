@@ -52,9 +52,9 @@ test("done steps get a tick, and steps not built yet cannot be opened and say wh
   expect(within(steps).getByRole("button", { name: /✓ Brief/ })).toBeInTheDocument();
   expect(within(steps).getByRole("button", { name: /✓ Script/ })).toBeInTheDocument();
   expect(within(steps).getByRole("button", { name: /Enhance/ })).toHaveAttribute("aria-current", "step");
-  const storyboard = within(steps).getByRole("button", { name: "Storyboard" });
-  expect(storyboard).toBeDisabled();
-  expect(storyboard).toHaveAttribute("title", "Coming soon");
+  const clips = within(steps).getByRole("button", { name: "Clips" });
+  expect(clips).toBeDisabled();
+  expect(clips).toHaveAttribute("title", "Coming soon");
 });
 
 test("without a script the next step waits for one", async () => {
@@ -68,7 +68,7 @@ test("on a phone a Stage menu replaces the steps, and Script / stage tabs switch
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open();
   const menu = await screen.findByLabelText("Stage");
-  expect(within(menu).getByRole("option", { name: "Storyboard (coming soon)" })).toBeDisabled();
+  expect(within(menu).getByRole("option", { name: "Clips (coming soon)" })).toBeDisabled();
   await userEvent.selectOptions(menu, "Enhance");
   expect(await screen.findByLabelText("Enhance stage")).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Enhance" })).toBeInTheDocument();
@@ -85,10 +85,10 @@ test("Enhance stays locked until a script exists, and a link to it lands on the 
   expect(within(screen.getByLabelText("Stage")).getByRole("option", { name: "Enhance (finish the script first)" })).toBeDisabled();
 });
 
-test("a link to a stage that isn't built yet lands on the first unfinished one", async () => {
+test("a link to a stage that isn't open yet lands on the first unfinished one", async () => {
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open("?stage=storyboard");
-  expect(await screen.findByLabelText("Enhance stage")).toBeInTheDocument();
+  expect(await screen.findByLabelText("Breakdown")).toBeInTheDocument();
 });
 
 test("the guidance points at the script pane, not 'the left', so it reads right on a phone", async () => {
