@@ -17,7 +17,7 @@ const frames = [
   { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], file_id: 40, approved: true, stale: false },
   { id: 2, clip_id: "c2", shot_id: "2.1", prompt: "p", reference_ids: [], problems: [], file_id: 41, approved: true, stale: false },
 ];
-const clip = (o: object) => ({ id: 1, clip_id: "c1", seconds: 8, prompt: "Mia taps buy", references: [], problems: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, ...o });
+const clip = (o: object) => ({ id: 1, clip_id: "c1", seconds: 8, prompt: "Mia taps buy", references: [], problems: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, ...o });
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]],
@@ -65,10 +65,10 @@ test("with no clips it offers to write the clip prompts, with the cost", async (
   expect(await screen.findByText("Writing your clip prompts…")).toBeInTheDocument();
 });
 
-test("clip cards show their status in words, with the frame as the poster and costs from the video rate", async () => {
+test("clip cards show their status in words, with the frame as the poster and costs from the server", async () => {
   fakeServer({
     ...base,
-    "GET /projects/9/clips": [200, [clip({}), clip({ id: 2, clip_id: "c2", seconds: 6, file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]],
+    "GET /projects/9/clips": [200, [clip({}), clip({ id: 2, clip_id: "c2", seconds: 6, file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5, take_credits: 18 })]],
   });
   open();
   const first = await screen.findByLabelText("Clip c1");
@@ -81,17 +81,26 @@ test("clip cards show their status in words, with the frame as the poster and co
   expect(screen.getByRole("button", { name: "Make missing · 24 credits" })).toBeInTheDocument();
 });
 
-test("Make clip queues a take and the card says Rendering with the time", async () => {
+test("Make clip queues a take", async () => {
   const calls = fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({})]],
-    "POST /projects/9/clips/1/generate": [201, { id: 21, kind: "video", step: "clip_take", status: "running", credits: 24, project_id: 9, created_at: new Date().toISOString() }],
-    "GET /jobs": [200, [{ id: 21, kind: "video", step: "clip_take", status: "running", credits: 24, project_id: 9, created_at: new Date().toISOString() }]],
+    "POST /projects/9/clips/1/generate": [201, { id: 21, kind: "video", step: "clip_take", status: "running", credits: 24, project_id: 9, project_clip_id: 1, created_at: new Date().toISOString() }],
   });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Make clip · 24 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/generate")).toBe(true));
-  expect(await within(screen.getByLabelText("Clip c1")).findByText(/Rendering/)).toBeInTheDocument();
+});
+
+test("a take still rendering shows on its own clip after a reload, with the time", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({}), clip({ id: 2, clip_id: "c2" })]],
+    "GET /jobs": [200, [{ id: 21, kind: "video", step: "clip_take", status: "running", credits: 24, project_id: 9, project_clip_id: 2, created_at: new Date().toISOString() }]],
+  });
+  open();
+  expect(await within(await screen.findByLabelText("Clip c2")).findByText(/Rendering/)).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Clip c1")).getByText("Not made")).toBeInTheDocument();
 });
 
 test("takes can be picked, and Looks good approves the picked one", async () => {
@@ -175,4 +184,30 @@ test("a breakdown with problems also keeps Clips closed, and without a script th
   open("?stage=script");
   const steps2 = await screen.findByRole("list", { name: "Stages" });
   expect(within(steps2).getByRole("button", { name: /Clips/ })).toHaveAttribute("title", "Finish the script first");
+});
+
+test("Needs a change sends what's wrong with the next take, and the price is the server's", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5, take_credits: 30 })]],
+    "POST /projects/9/clips/1/generate": [201, { id: 22, kind: "video", step: "clip_take", status: "queued", credits: 30, project_id: 9, project_clip_id: 1, created_at: new Date().toISOString() }],
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).getByRole("button", { name: "Make another take · 30 credits" })).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Needs a change" }));
+  await userEvent.type(within(card).getByLabelText("What's wrong?"), "Hand is too big");
+  await userEvent.click(within(card).getAllByRole("button", { name: "Make another take · 30 credits" })[0]);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/1/generate")?.body).toEqual({ note: "Hand is too big" }));
+});
+
+test("an approved clip can be un-approved", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5, approved: true })]],
+    "DELETE /projects/9/clips/1/approve": [200, clip({})],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Undo approval" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /projects/9/clips/1/approve")).toBe(true));
 });
