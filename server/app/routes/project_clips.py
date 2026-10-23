@@ -59,6 +59,7 @@ class ProjectClipOut(BaseModel):
     takes: list[TakeOut]
     picked_take_id: int | None
     approved: bool
+    take_credits: float  # what one more take costs (shown on Make clip / Redo)
     stale: bool  # made from an older breakdown
 
 
@@ -79,10 +80,12 @@ def _stale(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> bo
 
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
-    computed = ("stale", "takes")
+    computed = ("stale", "takes", "take_credits")
+    project = db.get(Project, row.project_id)
     return ProjectClipOut(
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
         takes=[TakeOut(id=t.id, number=t.number, file_id=t.file_id) for t in _takes(db, row)],
+        take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
     )
 
@@ -152,6 +155,10 @@ def edit_clip(
     return _out(db, row, _newest_breakdown(db, project))
 
 
+class TakeIn(BaseModel):
+    note: str = Field("", max_length=500)  # Redo: "What's wrong?" (this take only)
+
+
 @router.post(
     "/clips/{clip_id}/generate",
     response_model=JobOut,
@@ -162,6 +169,7 @@ def generate(
     project_id: int,
     clip_id: int,
     request: Request,
+    body: TakeIn | None = None,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -177,7 +185,7 @@ def generate(
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("project_clip_id") == row.id for j in pending):
         raise HTTPException(409, "A take of this clip is already being made.")
-    job_input = clip_takes.take_input(db, project, row)
+    job_input = clip_takes.take_input(db, project, row, body.note if body else "")
     model = clip_takes.video_model()
     files = {k: job_input["files"].get(k, []) for k in clip_takes.KEYS.values()}
     _check_media_length(db, request.app.state.storage, model, files)
@@ -217,6 +225,19 @@ def approve(
     if not row.picked_take_id:
         raise HTTPException(409, "Make a take of this clip first.")
     row.approved = True
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
+
+
+@router.delete("/clips/{clip_id}/approve", response_model=ProjectClipOut)
+def unapprove(
+    project_id: int,
+    clip_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    project, row = _clip(db, user, project_id, clip_id)
+    row.approved = False
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
