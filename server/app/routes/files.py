@@ -10,23 +10,12 @@ from sqlalchemy.orm import Session
 
 from app.auth import current_user
 from app.db import get_db
+from app.filetypes import ALLOWED_TYPES, matches
 from app.models.accounts import User
 from app.models.files import StoredFile
 
 router = APIRouter(prefix="/files", tags=["files"])
-
-# No SVG or HTML: they can carry scripts.
-ALLOWED_TYPES = {
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-    "image/gif",
-    "audio/mpeg",
-    "audio/wav",
-    "audio/mp4",
-    "video/mp4",
-    "video/webm",
-}
+CHUNK = 1024 * 1024
 
 
 class FileOut(BaseModel):
@@ -55,9 +44,15 @@ async def upload(
     if upload.content_type not in ALLOWED_TYPES:
         raise HTTPException(415, "That file type isn't supported.")
     limit = request.app.state.settings.max_upload_mb * 1024 * 1024
-    data = await upload.read(limit + 1)
-    if len(data) > limit:
-        raise HTTPException(413, "That file is too big.")
+    chunks, size = [], 0
+    while chunk := await upload.read(CHUNK):
+        size += len(chunk)
+        if size > limit:
+            raise HTTPException(413, "That file is too big.")
+        chunks.append(chunk)
+    data = b"".join(chunks)
+    if not matches(upload.content_type, data[:16]):
+        raise HTTPException(415, "The file's contents don't match its type.")
     key = f"{user.workspace_id}/{uuid.uuid4().hex}"
     request.app.state.storage.put(key, data)
     stored = StoredFile(
@@ -82,8 +77,12 @@ def download(
     db: Session = Depends(get_db),
 ) -> Response:
     stored = get_file(db, user, file_id)
+    try:
+        data = request.app.state.storage.get(stored.key)
+    except FileNotFoundError:
+        raise HTTPException(404, "This file is missing from storage.") from None
     return Response(
-        request.app.state.storage.get(stored.key),
+        data,
         media_type=stored.content_type,
         headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600"},
     )
