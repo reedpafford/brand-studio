@@ -1,0 +1,6 @@
+{
+  "home.png": {"name": "Home", "tags": ["mobile", "home"], "default_for": ["fomo-mention", "app-open"]},
+  "token-up.png": {"name": "Token chart up", "tags": ["mobile", "trading", "chart-up"], "default_for": ["trading", "win"]},
+  "token-down.png": {"name": "Token chart down", "tags": ["mobile", "trading", "chart-down"], "default_for": ["trading", "loss"]},
+  "desktop.png": {"name": "Desktop trading", "tags": ["desktop", "trading"], "default_for": ["trading-desktop"]}
+}

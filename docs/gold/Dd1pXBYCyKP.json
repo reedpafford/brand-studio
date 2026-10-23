@@ -1,0 +1,249 @@
+{
+ "id": "Dd1pXBYCyKP",
+ "account": "wbj",
+ "views": "",
+ "url": "https://www.instagram.com/reel/Dd1pXBYCyKP/",
+ "duration_seconds": 36.08,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A student humiliated by his teacher over failing grades pursues meme coin trading with a mentor and returns to school in a red Ferrari, leaving his doubter speechless.",
+ "tags": [
+  "teacher",
+  "mentor",
+  "school",
+  "home",
+  "car",
+  "trading",
+  "crypto",
+  "prove-them-wrong",
+  "public-humiliation",
+  "glow-up",
+  "savage"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.07",
+  "mechanic": "A stern teacher looms over a seated student, followed by a tight insert of a paper bearing a large red F; the reprimand begins at 1.82 seconds.",
+  "first_line": "Jimmy, you need to stay after class. If you keep this up, you're going to get expelled."
+ },
+ "moment": "25.32-27.9: Jimmy calmly says, \"Yeah, you said I'd never make it, and I did,\" beside the Ferrari; the cut to his teacher's wide eyes and open mouth makes the reversal visible.",
+ "stats": {
+  "shots": 24,
+  "live_shots_skipped": 2,
+  "animated_seconds": 34.0,
+  "avg_shot_seconds": 1.42,
+  "median_shot_seconds": 0.94,
+  "longest_shot_seconds": 6.6,
+  "shots_under_1s": 14,
+  "spoken_lines": 11,
+  "words_per_second_while_speaking": 5.2,
+  "speech_share_of_runtime": 0.55
+ },
+ "cut_times": [
+  1.4,
+  2.07,
+  3.2,
+  4.13,
+  6.3,
+  8.63,
+  9.47,
+  16.07,
+  16.67,
+  17.87,
+  18.4,
+  18.67,
+  19.63,
+  20.53,
+  21.3,
+  22.57,
+  23.4,
+  24.23,
+  25.17,
+  26.9,
+  27.9,
+  28.73,
+  29.57,
+  34.0,
+  35.1
+ ],
+ "live_shots": [
+  25,
+  26
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 4.13,
+   "beat": "hook",
+   "what_happens": "The teacher confronts Jimmy at his desk over a failing paper and threatens expulsion.",
+   "emotion": "The teacher scowls and leans into Jimmy's space while Jimmy's brows tighten.",
+   "camera": "Classroom medium two-shot, paper insert, tight Jimmy reaction, then teacher close-up.",
+   "cuts": "Four shots across 4.13 seconds, with cuts at 1.4, 2.07 and 3.2."
+  },
+  {
+   "start": 4.13,
+   "end": 8.63,
+   "beat": "doubt",
+   "what_happens": "Jimmy declares his ambition to trade meme coins, and the teacher dismisses it as a fake career.",
+   "emotion": "Jimmy looks up with open defiance; the teacher answers with knitted brows and an angry stare.",
+   "camera": "Medium shot of Jimmy holding the paper opposite the standing teacher, then a tight teacher close-up.",
+   "cuts": "Two dialogue shots lasting 2.17 and 2.33 seconds."
+  },
+  {
+   "start": 8.63,
+   "end": 9.47,
+   "beat": "turn",
+   "what_happens": "Jimmy answers the dismissal with a short challenge.",
+   "emotion": "His face settles into restrained confidence and a slight smile.",
+   "camera": "Close-up on Jimmy looking toward the teacher.",
+   "cuts": "One 0.84-second reaction shot; his line carries across the next cut."
+  },
+  {
+   "start": 9.47,
+   "end": 16.07,
+   "beat": "setup",
+   "what_happens": "A young mentor finds Jimmy at a computer, questions his motive, and offers direction after Jimmy says he wants to prove himself right.",
+   "emotion": "The mentor appears curious and assertive while Jimmy turns from the desk to engage him.",
+   "camera": "Medium two-shot with the mentor standing in the doorway and Jimmy seated at the computer.",
+   "cuts": "A single 6.6-second hold gives the exchange more space than the surrounding scenes."
+  },
+  {
+   "start": 16.07,
+   "end": 18.67,
+   "beat": "montage",
+   "what_happens": "Jimmy concentrates intensely and types as trading charts fill his monitor.",
+   "emotion": "Sweat and a furrowed brow make his effort look tense and urgent.",
+   "camera": "Tight facial reaction, low keyboard insert, closer hand detail, then monitor insert.",
+   "cuts": "Four shots in 2.6 seconds, accelerating to 0.53- and 0.27-second shots."
+  },
+  {
+   "start": 18.67,
+   "end": 20.53,
+   "beat": "payoff",
+   "what_happens": "A rising trading chart gives way to Jimmy turning toward the viewer with a satisfied smile.",
+   "emotion": "His tense concentration relaxes into self-assurance.",
+   "camera": "Monitor insert followed by a close three-quarter portrait at the trading desk.",
+   "cuts": "Two brief shots lasting 0.96 and 0.9 seconds."
+  },
+  {
+   "start": 20.53,
+   "end": 24.23,
+   "beat": "reveal",
+   "what_happens": "A red Ferrari appears outside the school, students gape, and Jimmy stands beside the open car door.",
+   "emotion": "The students lean forward with open mouths while Jimmy stays composed.",
+   "camera": "Low front three-quarter car view, group reaction, wheel detail, then medium shot of Jimmy beside the door.",
+   "cuts": "Four shots in 3.7 seconds alternate the car, witnesses and owner."
+  },
+  {
+   "start": 24.23,
+   "end": 27.9,
+   "beat": "callback",
+   "what_happens": "The teacher asks whether the car belongs to Jimmy, who answers by reminding him of his doubt.",
+   "emotion": "The teacher shifts from tentative disbelief to wide-eyed shock; Jimmy speaks with relaxed certainty.",
+   "camera": "Teacher close-up, Jimmy close-up against the red car, then an even tighter teacher reaction.",
+   "cuts": "Three shots lasting 0.94, 1.73 and 1 second."
+  },
+  {
+   "start": 27.9,
+   "end": 34.0,
+   "beat": "payoff",
+   "what_happens": "Jimmy glances back from the driver's seat and drives away along a sunny, palm-lined road.",
+   "emotion": "His sideways smile makes the departure feel quietly triumphant.",
+   "camera": "Interior driver close-up, rear road view, then an exterior side view of the moving Ferrari.",
+   "cuts": "Two 0.83-second shots lead into a longer 4.43-second driving shot."
+  }
+ ],
+ "lines": [
+  {
+   "t": 1.82,
+   "speaker": "Teacher",
+   "text": "Jimmy, you need to stay after class. If you keep this up, you're going to get expelled.",
+   "delivery": "Stern and extremely rushed at 7.7 words per second, with clipped phrasing and an accusing expression; moderate volume."
+  },
+  {
+   "t": 4.22,
+   "speaker": "Jimmy",
+   "text": "I don't want to pass these exams. I want to become a meme coin trader.",
+   "delivery": "Fast and defiant at 7.4 words per second, delivered at moderate volume with a firm, direct stare."
+  },
+  {
+   "t": 6.42,
+   "speaker": "Teacher",
+   "text": "You need a real job, a real career, not some fake meme coins.",
+   "delivery": "More forcefully projected than the preceding exchange, brisk at 6.1 words per second, with a scowling, dismissive emphasis."
+  },
+  {
+   "t": 8.74,
+   "speaker": "Jimmy",
+   "text": "Okay? Watch me.",
+   "delivery": "Slower and controlled at 3.7 words per second, with a questioning lift on \"Okay?\" and a confident finish."
+  },
+  {
+   "t": 10.9,
+   "speaker": "Mentor",
+   "text": "James, what are you doing here?",
+   "delivery": "Conversational and questioning at 4.5 words per second, entering after a 1.34-second beat."
+  },
+  {
+   "t": 12.46,
+   "speaker": "Mentor",
+   "text": "Are you trying to prove your teacher wrong?",
+   "delivery": "Snappy and probing at 6.5 words per second, with a questioning rise and moderate volume."
+  },
+  {
+   "t": 13.96,
+   "speaker": "Jimmy",
+   "text": "Nah, I'm just trying to prove myself right.",
+   "delivery": "Measured and self-possessed at 4.8 words per second, slightly quieter than the mentor's opening question."
+  },
+  {
+   "t": 15.94,
+   "speaker": "Mentor",
+   "text": "Then do exactly as I say.",
+   "delivery": "Firm and directive at 4.3 words per second, maintaining conversational volume."
+  },
+  {
+   "t": 23.52,
+   "speaker": "Teacher",
+   "text": "Jimmy, wait, is that your car?",
+   "delivery": "Quieter and slower at 3.7 words per second, with a startled questioning lift after the long dialogue gap."
+  },
+  {
+   "t": 25.32,
+   "speaker": "Jimmy",
+   "text": "Yeah, you said I'd never make it, and I did.",
+   "delivery": "Quiet, evenly paced confidence at 4.4 words per second, with a settled emphasis on \"I did.\""
+  },
+  {
+   "t": 30.0,
+   "speaker": "Unidentified voice",
+   "text": "I never made it on me.",
+   "delivery": "Much louder than the character dialogue and slow at 2.8 words per second, entering after a 2.4-second pause; transcription is uncertain."
+  },
+  {
+   "t": 33.06,
+   "speaker": "Unidentified voice",
+   "text": "They can smell the legacy.",
+   "delivery": "Strongly projected and slow at 2.5 words per second, following a 0.94-second pause."
+  }
+ ],
+ "voice_arc": "The opening confrontation races through accusations and rebuttals, with the teacher delivering the strongest projection. Jimmy slows down for \"Watch me,\" and the mentor exchange settles into conversational instruction. At the car reveal, both teacher and Jimmy speak more quietly, letting disbelief and confidence carry the reversal; the final unidentified voice becomes substantially louder and slower.",
+ "camera_language": "The animated story repeatedly cuts between a dominant adult's close-up and Jimmy's facial reaction, using the failed paper, keyboard, trading monitor and Ferrari wheel as concrete inserts. The longest dialogue hold establishes the mentor relationship, then rapid hand-and-screen details compress the work before low car angles and shocked reaction close-ups establish the payoff.",
+ "why_it_works": "The failed paper and looming teacher establish a visible wound before the ambition is explained. Jimmy's claim that he wants to prove himself right gives the trading sequence a personal motive, while the return to the same school makes the Ferrari and teacher's stunned face an immediate reversal of the opening power dynamic.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "The video instantly slams a red 'F' on a desk accompanied by a aggressive teacher threat, immediately tapping into academic anxiety and revenge fantasy.",
+  "turn": "Jimmy shifts from helpless student to focused trader at 0:10 when his mentor validates him, leading into the high-intensity sweat and profit montage.",
+  "payoff": "The classic 'underdog revenge' moment: Jimmy pulls up to school in a red Ferrari, delivers a sharp line to his speechless teacher, and drives off victoriously.",
+  "why_it_works": "Relatable thematic core: Bad student turned wealthy trader (underdog revenge fantasy). Stylized 3D animation creates high visual polish and expressive facial reactions. Fast pacing with dynamic push-ins keeps retention high under 35 seconds. Seamless transition into live-action car footage adds grounded authenticity to the flex.",
+  "camera": [
+   "Snap zoom onto teacher's shocked expression at 0:23",
+   "Aggressive push-in on the 'F' grade paper at 0:00",
+   "Subtle cinematic push-in during Jimmy's locked-in sweat moment at 0:15",
+   "Low angle tracking shot of the red sports car pulling up at 0:22"
+  ],
+  "montages": [
+   "{\"start\": \"0:17\", \"end\": \"0:20\", \"cuts\": 3, \"content\": \"Chart surging green -> +40,000 PROFIT counter -> Jimmy smirking with sweat droplets\", \"style\": \"Rapid UI cuts synced with heavy bass drops\"}"
+  ]
+ }
+}

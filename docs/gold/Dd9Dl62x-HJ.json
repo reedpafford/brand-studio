@@ -1,0 +1,315 @@
+{
+ "id": "Dd9Dl62x-HJ",
+ "account": "brandentradez",
+ "views": "",
+ "url": "https://www.instagram.com/reel/Dd9Dl62x-HJ/",
+ "duration_seconds": 57.83,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A young trader humiliated by his girlfriend's father finds support from a friend, lands a sudden crypto windfall, and returns to the dinner table with proof that leaves the father speechless.",
+ "tags": [
+  "dad",
+  "girlfriend",
+  "home",
+  "trading",
+  "crypto",
+  "prove-them-wrong",
+  "public-humiliation",
+  "mentor",
+  "glow-up",
+  "savage",
+  "comedic"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-1.67",
+  "mechanic": "A black-haired girlfriend holds her nervous boyfriend's hand outside an open doorway and calls for her dad, immediately setting up a meet-the-parent test.",
+  "first_line": "Dad, we're here!"
+ },
+ "moment": "40.03-43.33: A phone lies on the dinner table, followed by the father's wide-eyed, open-mouthed reaction and the girlfriend's satisfied smile. Nobody speaks; the father's stunned face reverses his earlier forceful dismissal.",
+ "stats": {
+  "shots": 25,
+  "live_shots_skipped": 15,
+  "animated_seconds": 46.2,
+  "avg_shot_seconds": 1.85,
+  "median_shot_seconds": 1.67,
+  "longest_shot_seconds": 5.96,
+  "shots_under_1s": 5,
+  "spoken_lines": 15,
+  "words_per_second_while_speaking": 5.0,
+  "speech_share_of_runtime": 0.53
+ },
+ "cut_times": [
+  1.67,
+  3.7,
+  6.07,
+  7.83,
+  10.6,
+  12.3,
+  16.67,
+  22.63,
+  23.8,
+  25.83,
+  27.7,
+  29.23,
+  29.87,
+  31.5,
+  33.77,
+  34.43,
+  35.8,
+  36.7,
+  37.37,
+  40.03,
+  40.37,
+  42.0,
+  43.33,
+  44.5,
+  46.2,
+  46.87,
+  48.13,
+  49.93,
+  50.63,
+  51.23,
+  51.5,
+  51.8,
+  52.1,
+  52.87,
+  54.13,
+  55.93,
+  56.63,
+  57.23,
+  57.5
+ ],
+ "live_shots": [
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39,
+  40
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 6.07,
+   "beat": "hook",
+   "what_happens": "The girlfriend brings her boyfriend home, her father greets them, and the boyfriend politely introduces himself.",
+   "emotion": "The girlfriend looks comfortable while the boyfriend wears a tentative smile and the father appraises him.",
+   "camera": "Medium doorway two-shot, frontal medium shot of Dad in the hallway, then a medium greeting shot with Dad partly foregrounded.",
+   "cuts": "Three shots across 6.07 seconds, with cuts at 1.67 and 3.7 seconds separating the introductions."
+  },
+  {
+   "start": 6.07,
+   "end": 10.6,
+   "beat": "setup",
+   "what_happens": "At dinner, Dad asks about work and the boyfriend says he trades mostly full-time.",
+   "emotion": "Dad folds his arms with a skeptical stare; the boyfriend answers with a small, uncertain smile.",
+   "camera": "Opposing medium shots across the dinner table, using shoulders and tableware to establish the confrontation.",
+   "cuts": "Two shots, switching from Dad to the boyfriend at 7.83 seconds."
+  },
+  {
+   "start": 10.6,
+   "end": 16.67,
+   "beat": "doubt",
+   "what_happens": "Dad calls trading internet gambling and tells his daughter she deserves better.",
+   "emotion": "Dad's lowered brows and tense mouth make the judgment aggressive while the boyfriend sits exposed opposite him.",
+   "camera": "Tight close-up on Dad, then a wide table view placing the boyfriend's back between Dad and the girlfriend.",
+   "cuts": "A 1.7-second close-up gives way to a 4.37-second wide shot that holds through the rejection."
+  },
+  {
+   "start": 16.67,
+   "end": 22.63,
+   "beat": "low",
+   "what_happens": "The boyfriend asks to leave for a second as his face crumples with distress.",
+   "emotion": "His eyes widen, eyebrows lift inward, and mouth hangs slightly open.",
+   "camera": "An extended extreme close-up isolates his face.",
+   "cuts": "One uninterrupted 5.96-second shot, the longest hold, leaves several seconds after his rushed exit line."
+  },
+  {
+   "start": 22.63,
+   "end": 27.7,
+   "beat": "turn",
+   "what_happens": "A friend appears at the bathroom doorway and reassures the distressed boyfriend.",
+   "emotion": "The friend uses open hands and an attentive posture while the boyfriend looks startled and overwhelmed.",
+   "camera": "Medium doorway reveal, bathroom two-shot, then a close-up of the boyfriend's response.",
+   "cuts": "Three shots lasting 1.17, 2.03, and 1.87 seconds move quickly from arrival to reassurance to reaction."
+  },
+  {
+   "start": 27.7,
+   "end": 31.5,
+   "beat": "turn",
+   "what_happens": "The friend tells him to open the pump.fun app and points him toward a trade.",
+   "emotion": "The friend leans in with confidence while the boyfriend listens and follows his instructions.",
+   "camera": "Bathroom two-shot followed by over-the-shoulder phone inserts showing the app and a rising trading chart.",
+   "cuts": "Three shots across 3.8 seconds, including a brief 0.64-second app insert."
+  },
+  {
+   "start": 31.5,
+   "end": 35.8,
+   "beat": "montage",
+   "what_happens": "The friend urges an immediate purchase, the boyfriend agrees, and a finger presses the phone's trading control.",
+   "emotion": "Both young men narrow their eyes with concentrated anticipation under green phone light.",
+   "camera": "Extreme close-up of the boyfriend's eyes, macro finger-and-phone insert, then a tight two-shot over the phone.",
+   "cuts": "A 2.27-second face hold snaps to a 0.66-second action insert and a 1.37-second shared reaction."
+  },
+  {
+   "start": 35.8,
+   "end": 40.03,
+   "beat": "payoff",
+   "what_happens": "The chart surges, both friends react in disbelief, and the boyfriend brings his phone back to the table.",
+   "emotion": "Their mouths open and their bodies pitch forward with sudden excitement.",
+   "camera": "Trading-chart insert, medium bathroom reaction two-shot, then a close insert of the phone being placed on wood.",
+   "cuts": "Three shots across 4.23 seconds; the shared reaction lasts only 0.67 seconds before the phone action takes over."
+  },
+  {
+   "start": 40.03,
+   "end": 43.33,
+   "beat": "reveal",
+   "what_happens": "The phone sits before Dad, who stares in shock as the girlfriend smiles knowingly.",
+   "emotion": "Dad's eyes bulge and his jaw drops; the girlfriend's relaxed smile signals satisfaction.",
+   "camera": "Brief overhead table insert, tight frontal Dad reaction, then tight frontal girlfriend reaction.",
+   "cuts": "A 0.34-second insert leads into reaction shots of 1.63 and 1.33 seconds."
+  },
+  {
+   "start": 43.33,
+   "end": 46.2,
+   "beat": "payoff",
+   "what_happens": "A red exotic sports car sits outside the house at sunset, followed by a low rear view.",
+   "emotion": "The polished car and warm evening setting turn the victory into a luxurious visual reward.",
+   "camera": "Wide front three-quarter house-and-car composition, then a low rear beauty shot.",
+   "cuts": "Two shots lasting 1.17 and 1.7 seconds close the animated story."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.52,
+   "speaker": "Girlfriend",
+   "text": "Dad, we're here!",
+   "delivery": "Bright, moderately projected call, brisk pace and an upward welcoming lift."
+  },
+  {
+   "t": 1.94,
+   "speaker": "Dad",
+   "text": "Hey, sweetheart, and you must be the boyfriend.",
+   "delivery": "Conversational volume, snappy pace, warm opening shifting into an appraising finish."
+  },
+  {
+   "t": 4.26,
+   "speaker": "Boyfriend",
+   "text": "Hi, Mr. Whitford. Thanks for having me.",
+   "delivery": "Softer, politely brisk, with restrained nervous energy."
+  },
+  {
+   "t": 6.22,
+   "speaker": "Dad",
+   "text": "So what exactly do you do for work?",
+   "delivery": "Relatively quiet but rapid and pointed, with questioning emphasis on exactly."
+  },
+  {
+   "t": 8.42,
+   "speaker": "Boyfriend",
+   "text": "I trade. It's mostly full-time.",
+   "delivery": "Quiet, measured and hesitant after a short held beat, with a pause between the two thoughts."
+  },
+  {
+   "t": 10.78,
+   "speaker": "Dad",
+   "text": "A trader? So my daughter's future depends on internet gambling?",
+   "delivery": "Louder and projecting, deliberate incredulity turning into an accusatory question."
+  },
+  {
+   "t": 14.34,
+   "speaker": "Dad",
+   "text": "Sweetheart, you deserve so much better than this.",
+   "delivery": "Strongly projected, clipped and dismissive, with emphatic stress on better."
+  },
+  {
+   "t": 16.7,
+   "speaker": "Boyfriend",
+   "text": "Excuse me for a second.",
+   "delivery": "Soft and rushed, a compressed attempt to escape while visibly shaken."
+  },
+  {
+   "t": 23.1,
+   "speaker": "Friend",
+   "text": "Hey, hey, breathe!",
+   "delivery": "Firm, moderately loud and deliberately spaced, breaking a long silent beat with urgent reassurance."
+  },
+  {
+   "t": 24.74,
+   "speaker": "Friend",
+   "text": "It's gonna be alright, I got you.",
+   "delivery": "Quieter and very quick, soothing in intent while urgently getting the reassurance out."
+  },
+  {
+   "t": 26.1,
+   "speaker": "Boyfriend",
+   "text": "How do you always show up right when I need you?",
+   "delivery": "Breathless and extremely fast at moderate volume, with surprised gratitude and a rising question."
+  },
+  {
+   "t": 27.6,
+   "speaker": "Friend",
+   "text": "Take out your phone, open the pump.fun app right now.",
+   "delivery": "Projected, rapid and directive, immediately taking control without a pause."
+  },
+  {
+   "t": 29.3,
+   "speaker": "Friend",
+   "text": "This one's been quietly stacking volume all day, no cap, nobody's caught on yet.",
+   "delivery": "Loud, fast and conspiratorially confident, pushing through the explanation with little breathing room."
+  },
+  {
+   "t": 31.5,
+   "speaker": "Friend",
+   "text": "Size in right now, diamond hands it, don't blink.",
+   "delivery": "Firm and snappy, successive commands building urgency."
+  },
+  {
+   "t": 31.5,
+   "speaker": "Boyfriend",
+   "text": "Bet. Let's run it.",
+   "delivery": "Short, decisive agreement at the end of the same measured speech segment; his hesitation flips into commitment."
+  },
+  {
+   "t": 36.94,
+   "speaker": "Boyfriend",
+   "text": "We just made half a million in like 10 seconds!",
+   "delivery": "Loud and rapidly projected, with incredulous excitement after a held anticipation beat."
+  },
+  {
+   "t": 57.62,
+   "speaker": "Outro voice",
+   "text": "Thanks for watching!",
+   "delivery": "An extremely brief, relatively loud sign-off; the measured 0.08-second span is too short to establish a reliable speaking pace."
+  }
+ ],
+ "voice_arc": "The greeting starts bright and conversational, then Dad becomes markedly louder when he attacks the boyfriend's work. The boyfriend answers softly and rushes his exit before a long silence. The friend enters firmly, briefly softens to reassure him, then accelerates into confident instructions; the boyfriend's eventual loud celebration replaces his earlier uncertainty. The animated reversal then plays without further dialogue.",
+ "camera_language": "The dinner scene uses opposing medium shots and a tight paternal close-up to turn a social introduction into an interrogation. A long extreme close-up traps the boyfriend in embarrassment, while the bathroom sequence alternates expressive faces with phone and finger inserts. The resolution puts the evidence on the table, cuts directly to opposing facial reactions, and finishes with sunset car beauty shots.",
+ "why_it_works": "Dad attacks the boyfriend's suitability as a partner in front of the girlfriend, giving the financial conflict a personal wound. The unusually long distressed close-up makes the friend's arrival feel like relief, and the rapid instructions convert helplessness into immediate action. The payoff lands through Dad's stunned face and the girlfriend's smile, so the reversal needs no spoken rebuttal.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Opens with immediate high tension: meeting the girlfriend's intimidating dad at the front door, establishing emotional stakes and character dynamics within 2 seconds.",
+  "turn": "The bathroom scene at 0:23 where the protagonist's mentor friend appears out of nowhere to turn his breakdown into a high-stakes crypto trade opportunity.",
+  "payoff": "Sliding the phone across the dinner table displaying an instant +$500,000 profit, reducing the condescending dad to speechless disbelief while the girlfriend smirks.",
+  "why_it_works": "Relatable emotional trigger: strict/judgmental parent belittling a young guy's career. Classic status-reversal trope: from public humiliation to instant massive financial victory in under 40 seconds. Clean 3D Pixar-style animation creates high visual polish and appeal. Seamless integration of crypto/trading culture (Pump.fun UI, candlestick spikes, +$500k cash visual) that resonates strongly with ",
+  "camera": [
+   "Push-in on the nervous boyfriend at 0:07 to emphasize pressure",
+   "ECU intense push-in on eyes at 0:31 to signal focus before making the trade",
+   "Snap zoom onto BUY button at 0:33 for dramatic action",
+   "Extreme close-up static framing on dad's shocked reaction at 0:40"
+  ],
+  "montages": [
+   "{\"start\": \"0:45\", \"end\": \"0:57\", \"cuts\": 10, \"content\": \"Gold McLaren with butterfly doors, white supercar driving off gas station, nightclub DJ/crowd partying, hands on McLaren steering wheel, looping real-life supercar footage.\", \"style\":"
+  ]
+ }
+}

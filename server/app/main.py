@@ -11,6 +11,7 @@ from app.routes import (
     health,
     jobs,
     library,
+    models,
     projects,
     screens,
     team,
@@ -26,7 +27,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.sessionmaker = make_sessionmaker(settings.database_url)
     app.state.storage = LocalStorage(settings.storage_dir)
-    for module in (health, auth, team, files, brands, screens, library, jobs, projects, credits):
+    for module in (
+        health,
+        auth,
+        team,
+        files,
+        brands,
+        screens,
+        library,
+        jobs,
+        projects,
+        credits,
+        models,
+    ):
         app.include_router(module.router)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
     return app

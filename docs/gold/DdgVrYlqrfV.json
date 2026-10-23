@@ -1,0 +1,262 @@
+{
+ "id": "DdgVrYlqrfV",
+ "account": "cevrico",
+ "views": "239K",
+ "url": "https://www.instagram.com/reel/DdgVrYlqrfV/",
+ "duration_seconds": 40.52,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A young man defends his brand-building hustle when his father orders his mentor out, then wins them both acceptance by helping a brand earn $18,000 overnight.",
+ "tags": [
+  "dad",
+  "home",
+  "business",
+  "digital-marketing",
+  "mentor",
+  "ultimatum",
+  "prove-them-wrong",
+  "overnight-success",
+  "family-conflict",
+  "emotional"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-1.71",
+  "mechanic": "A huge, bald father leans over a seated young man, points at him, and opens mid-argument with a rapid accusation.",
+  "first_line": "And all you do is sit here running ads."
+ },
+ "moment": "27.38-29.96: The young man throws up a clenched fist behind the laptop and cries, “Bro, $18,000.” After the concentrated work sequence and a long gap in dialogue, his open-mouthed celebration releases the pressure of the father's deadline.",
+ "stats": {
+  "shots": 16,
+  "live_shots_skipped": 0,
+  "animated_seconds": 40.52,
+  "avg_shot_seconds": 2.53,
+  "median_shot_seconds": 1.67,
+  "longest_shot_seconds": 12.0,
+  "shots_under_1s": 4,
+  "spoken_lines": 18,
+  "words_per_second_while_speaking": 3.7,
+  "speech_share_of_runtime": 0.71
+ },
+ "cut_times": [
+  1.71,
+  5.88,
+  17.88,
+  21.21,
+  22.58,
+  22.83,
+  23.5,
+  23.83,
+  24.29,
+  27.33,
+  30.17,
+  31.38,
+  35.96,
+  37.71,
+  39.33
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 5.88,
+   "beat": "hook",
+   "what_happens": "Dad dismisses running ads while the mentor and young man defend building brands as real work.",
+   "emotion": "Dad bares his teeth and crowds the seated mentor, who looks up steadily while the young man argues back.",
+   "camera": "Tight medium shot of Dad pointing downward, then a side two-shot with the mentor seated beneath him.",
+   "cuts": "One cut at 1.71 seconds; four quick lines trade across two shots."
+  },
+  {
+   "start": 5.88,
+   "end": 12.6,
+   "beat": "doubt",
+   "what_happens": "Dad orders Brez out, and the young man says he will leave with him.",
+   "emotion": "The young man holds a firm brow and meets Dad's gaze as the argument becomes a test of loyalty.",
+   "camera": "Close confrontation framing places Dad's head and shoulder in the foreground opposite the young man's face.",
+   "cuts": "The confrontation holds without a cut through the exchange."
+  },
+  {
+   "start": 12.6,
+   "end": 17.88,
+   "beat": "setup",
+   "what_happens": "Dad demands $10,000 for one brand by tomorrow and makes Brez's return conditional on success.",
+   "emotion": "Dad's clipped conditions create pressure while the young man remains visibly resolute.",
+   "camera": "The same close confrontation framing sustains the ultimatum.",
+   "cuts": "No internal cuts; this completes the video's longest shot, lasting 12 seconds."
+  },
+  {
+   "start": 17.88,
+   "end": 22.58,
+   "beat": "low",
+   "what_happens": "At their computers in a dark room, the young man fears failure and Brez tells him to keep working.",
+   "emotion": "Cool screen light catches knitted brows and a tense mouth before Brez answers with focused composure.",
+   "camera": "Stacked close views of the two faces give way to a medium close-up of Brez beside the laptop.",
+   "cuts": "A cut at 17.88 establishes the work session, followed by another at 21.21."
+  },
+  {
+   "start": 22.58,
+   "end": 27.33,
+   "beat": "montage",
+   "what_happens": "Hands work rapidly at a laptop as storefront pages and advertising interfaces change.",
+   "emotion": "Persistent typing and concentrated screen work turn the earlier panic into sustained effort.",
+   "camera": "Close laptop inserts alternate views of the keyboard, storefronts, and a performance dashboard.",
+   "cuts": "Four short inserts last 0.25-0.67 seconds before a longer 3.04-second dashboard hold."
+  },
+  {
+   "start": 27.33,
+   "end": 31.38,
+   "beat": "payoff",
+   "what_happens": "The young man celebrates $18,000 and Brez answers with a satisfied smile.",
+   "emotion": "The young man shuts his eyes, opens his mouth wide, and pumps a fist; Brez relaxes into a knowing grin.",
+   "camera": "Medium close-up across the laptop cuts to a tight reaction on Brez.",
+   "cuts": "The celebration holds for 2.84 seconds, followed by a 1.21-second reaction."
+  },
+  {
+   "start": 31.38,
+   "end": 37.71,
+   "beat": "reveal",
+   "what_happens": "Dad acknowledges the overnight result, and Brez explains that brands pay for results.",
+   "emotion": "Dad's aggression gives way to subdued disbelief while Brez speaks with relaxed confidence.",
+   "camera": "A full-body three-shot in the warmly lit home cuts to Brez's close-up over Dad's shoulder.",
+   "cuts": "A 4.58-second group shot gives way to a 1.75-second close-up."
+  },
+  {
+   "start": 37.71,
+   "end": 40.52,
+   "beat": "callback",
+   "what_happens": "Dad lets Brez stay, and Brez thanks him.",
+   "emotion": "Dad pauses with a stern, reluctant expression; the young man smiles as the tension lifts.",
+   "camera": "Medium close-up of Dad with the young man behind him, then a medium two-shot of the young men.",
+   "cuts": "Two closing shots last 1.62 and 1.19 seconds, with the final cut during Dad's concession."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Dad",
+   "text": "And all you do is sit here running ads.",
+   "delivery": "Projected, fast and accusing, with hard emphasis as he points."
+  },
+  {
+   "t": 1.9,
+   "speaker": "Brez",
+   "text": "I'm teaching him how to grow brands.",
+   "delivery": "Quieter and very snappy, a controlled defensive answer."
+  },
+  {
+   "t": 3.12,
+   "speaker": "Dad",
+   "text": "He needs a real job.",
+   "delivery": "The loudest line by average level, forceful and dismissive, stressing 'real job.'"
+  },
+  {
+   "t": 4.38,
+   "speaker": "Young Man",
+   "text": "This can become my real job.",
+   "delivery": "Loud and emphatic at a firm, moderate pace, pushing back with conviction."
+  },
+  {
+   "t": 5.92,
+   "speaker": "Dad",
+   "text": "Brez, out, now.",
+   "delivery": "Slow, separated commands with sharp peaks and a stern downward finish."
+  },
+  {
+   "t": 8.22,
+   "speaker": "Young Man",
+   "text": "If he leaves, I'm going with him.",
+   "delivery": "Quiet but firm after a half-second beat, evenly paced and defiant."
+  },
+  {
+   "t": 10.22,
+   "speaker": "Dad",
+   "text": "You'd leave over this?",
+   "delivery": "Quick and incredulous, pitching upward on the question."
+  },
+  {
+   "t": 11.28,
+   "speaker": "Young Man",
+   "text": "I'm trying to build something.",
+   "delivery": "Projected and urgent, with quick pacing and earnest emphasis."
+  },
+  {
+   "t": 12.6,
+   "speaker": "Dad",
+   "text": "Fine, make one brand $10,000 by tomorrow.",
+   "delivery": "Deliberate and challenging, slowing down to make the amount and deadline land."
+  },
+  {
+   "t": 15.3,
+   "speaker": "Dad",
+   "text": "If you do, Brez can come back.",
+   "delivery": "Brisk, firm and transactional."
+  },
+  {
+   "t": 16.74,
+   "speaker": "Dad",
+   "text": "If you don't, you're done with this.",
+   "delivery": "Rapid and forceful, ending the ultimatum with a hard downward cadence."
+  },
+  {
+   "t": 18.5,
+   "speaker": "Young Man",
+   "text": "Bro, we're getting cooked.",
+   "delivery": "Quiet, slower and worried after a held beat, matching his strained face."
+  },
+  {
+   "t": 20.42,
+   "speaker": "Brez",
+   "text": "Keep working, focus on the brand.",
+   "delivery": "Restrained, measured and directive, steadying the young man."
+  },
+  {
+   "t": 27.38,
+   "speaker": "Young Man",
+   "text": "Bro, $18,000.",
+   "delivery": "A projected celebratory exclamation with the amount drawn out, matching his raised fist and open mouth."
+  },
+  {
+   "t": 30.5,
+   "speaker": "Dad",
+   "text": "You made a brand $18,000 overnight.",
+   "delivery": "Quiet and slow with stunned emphasis on the amount and 'overnight.'"
+  },
+  {
+   "t": 34.4,
+   "speaker": "Brez",
+   "text": "People actually pay you to do this when you get results.",
+   "delivery": "Quiet, conversational and assured, entering after a noticeable pause."
+  },
+  {
+   "t": 38.44,
+   "speaker": "Dad",
+   "text": "Fine, you can stay.",
+   "delivery": "Restrained and reluctant after a 1.48-second silence, with a short, resigned finish."
+  },
+  {
+   "t": 40.02,
+   "speaker": "Brez",
+   "text": "Appreciate it.",
+   "delivery": "Brief, clear and casually pleased."
+  }
+ ],
+ "voice_arc": "Dad initially dominates with rapid accusations and the loudest demand, while Brez answers quickly and the young man pushes back with rising conviction. The work session drops into quieter worry and steady coaching, followed by a long dialogue gap and the young man's loud celebration. Dad returns slower and quieter in disbelief; Brez stays composed, and a held silence precedes Dad's reluctant acceptance.",
+ "camera_language": "Vertical framing uses Dad's oversized torso and foreground shoulder to crowd the younger characters, then relies on tight facial reactions to carry the conflict. Cool computer-lit close-ups lead into rapid laptop inserts, followed by a fist-pump celebration and a smiling reaction. The warm final group shot brings all three characters together before closer views resolve the argument.",
+ "why_it_works": "The argument ties an abstract online business to a visible relationship cost: the young man could lose his mentor or leave home with him. A specific overnight deadline makes the work sequence purposeful, and the $18,000 result exceeds the demand. Dad's quieter disbelief and reluctant permission complete the reversal established by his opening accusation.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "An aggressive, muscular father shouting in a young creator's face immediately creates high conflict and stakes within the first 2 seconds.",
+  "turn": "The mentor (Rez) stays cool under an impossible 24-hour $10k challenge, redirecting panic into focused action.",
+  "payoff": "The dashboard reveals $18,000 in sales, forcing the arrogant father to eat his words and admit defeat.",
+  "why_it_works": "Relatable generational conflict: old-money mindset vs modern digital hustle. Clear, tangible stakes with a strict deadline ($10,000 by tomorrow). Satisfying visual transformation from tension to rapid execution and huge financial victory. Highly stylized Pixar-like 3D character animation keeps visual engagement extremely high.",
+  "camera": [
+   "Intense low-angle push-in on Dad at 0:00 to emphasize dominance.",
+   "Dynamic split-screen framing at 0:17 to show shared distress.",
+   "Glowing face CU at 0:26 to highlight emotional payoff from laptop lighting.",
+   "Symmetrical wide shot at 0:31 staging the dynamic between authority figure and the unified duo."
+  ],
+  "montages": [
+   "{\"start\": \"0:22\", \"end\": \"0:26\", \"cuts\": 2, \"content\": \"Close-up of rapid laptop keyboard typing followed by an ad dashboard UI update showing spend and sales scaling sharply upwards.\", \"style\": \"Fast match cuts with ambient digital sound e"
+  ]
+ }
+}
