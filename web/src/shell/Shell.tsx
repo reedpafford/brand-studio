@@ -4,7 +4,6 @@ import { NavLink, Navigate, Outlet, useLocation, useMatch, useNavigate, useParam
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { applyTheme, getTheme, nextTheme } from "../theme";
-import { pageTitle } from "../ui";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 const link = ({ isActive }: { isActive: boolean }) =>
@@ -60,8 +59,8 @@ export function Shell() {
       <nav aria-label="Main" className="hidden gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-1 text-sm md:flex">
         {current && (
           <>
-            <NavLink end to={`/b/${current}`} className={link}>
-              Brand
+            <NavLink to={`/b/${current}/projects`} className={link}>
+              Projects
             </NavLink>
             <NavLink to={`/b/${current}/clip`} className={link}>
               Quick clip
@@ -148,8 +147,8 @@ function TabBar({ brandId }: { brandId: number | null }) {
       <nav aria-label="Tabs" style={{ height: BAR }} className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
         {brandId && (
           <>
-            <NavLink end to={`/b/${brandId}`} className={tab} onClick={close}>
-              Brand
+            <NavLink to={`/b/${brandId}/projects`} className={tab} onClick={close}>
+              Projects
             </NavLink>
             <NavLink to={`/b/${brandId}/clip`} className={tab} onClick={close}>
               Clip
@@ -217,15 +216,10 @@ export function GoToBrand() {
   return target ? <Navigate to={`/b/${target.id}`} replace /> : <Navigate to="/team" replace />;
 }
 
+/** A brand's home is its Projects list. */
 export function BrandHome() {
   const { brandId } = useParams();
   const { data: brands } = useBrands();
-  const brand = brands?.find((b) => b.id === Number(brandId));
-  if (!brand) return <p className="p-6">That brand doesn't exist.</p>;
-  return (
-    <main className="p-6">
-      <h1 className={pageTitle}>{brand.name}</h1>
-      <p className="text-muted">Brand kit, screens and characters are coming next.</p>
-    </main>
-  );
+  if (!brands?.some((b) => b.id === Number(brandId))) return <p className="p-6">That brand doesn't exist.</p>;
+  return <Navigate to={`/b/${brandId}/projects`} replace />;
 }
