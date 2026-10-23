@@ -119,3 +119,36 @@ def edit_frame(
     db.commit()
     newest = _newest_breakdown(db, project)
     return _out(frame, newest.id if newest else None)
+
+
+@router.post(
+    "/frames/{frame_id}/render",
+    response_model=JobOut,
+    status_code=201,
+    dependencies=[Depends(generation_on)],
+)
+def render(
+    project_id: int,
+    frame_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Queue the still for one frame (a paid image job, counted against the project budget).
+    A frame with problems must be fixed first."""
+    project = get_project(db, user, project_id)
+    frame = db.get(StoryboardFrame, frame_id)
+    if not frame or frame.project_id != project.id:
+        raise HTTPException(404, "No such frame.")
+    if frame.problems:
+        raise HTTPException(409, "Fix this frame's problems first.")
+    pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
+    if any(j.input.get("frame_id") == frame.id for j in pending):
+        raise HTTPException(409, "This frame's still is already being made.")
+    return enqueue(
+        db,
+        user,
+        "image",
+        storyboard.render_input(db, project, frame),
+        project=project,
+        provider="replicate",
+    )
