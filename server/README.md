@@ -13,4 +13,5 @@ API docs: `/docs` once running.
 ## Deploy notes
 - Paid generation (Replicate, Claude) is off unless `BS_GENERATION_ENABLED=true`. While off, Generate answers "switched off" and the worker leaves paid jobs queued.
 - Behind a proxy, run uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy ip>` so login throttling sees the real client IP, not the proxy's.
+- `ffmpeg` must be installed: "Make the video" stitches the picked clips with it (free, no provider).
 - Set `BS_SETUP_TOKEN` (a long random secret) before first setup; remove it afterwards.
