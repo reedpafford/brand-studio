@@ -10,6 +10,12 @@ class Settings(BaseSettings):
 
     env: str = "dev"
     database_url: str = "sqlite:///./dev.db"
+    # Login sessions
+    session_days: int = 30
+    invite_days: int = 7
+    cookie_secure: bool = True  # set BS_COOKIE_SECURE=false only for local http
+    # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
+    setup_token: str = ""
 
 
 @lru_cache
