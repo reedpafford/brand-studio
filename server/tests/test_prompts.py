@@ -228,3 +228,41 @@ def test_a_tagged_brand_screen_line_still_needs_a_screen_in_the_breakdown():
     )
     _, result = example("enhance")
     assert "[Camera] " in apply_all(script_of(example("enhance")[0]), result.suggestions)
+
+
+def test_reference_block_drops_live_action_and_brand_block_carries_the_cta():
+    ref = json.loads(
+        (
+            Path(prompts.__file__).parents[3] / "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
+        ).read_text()
+    )
+    block = prompts.reference_block(ref)
+    assert "Shots 44–50 (42.67–45.02 s) are live action: always removed" in block
+    assert "real creator" not in block.lower()
+    cta = "Want to trade like me? Download fomo through the link in my bio."
+    assert (
+        f"Call to action (the closing line when a video ends on one): {cta}"
+        in prompts.brand_block({"name": "fomo", "cta": cta}, [])
+    )
+
+
+def test_eval_scoring_checks_reference_words_and_the_cta(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-adapt-altar")
+    case = case | {"steps": ["script_draft"]}
+    good = "NATE: I do.\nBRIDE: HELL NO!\nBRIDE: I'm marrying him!\nNATE: What?!\n" \
+        "BRIDE: I can't wait to spend forever with you.\nBRIDE (V.O.): Forever with you.\n" \
+        "BRIDE: Nate? Nate?\nBRIDE: Huh?!\nNATE: Sorry, I'm fully booked.\n" \
+        "NATE: Want to trade like me? Download fomo through the link in my bio."  # fmt: skip
+    drafts = [{"hook_idea": "x", "script": good}, {"hook_idea": "y", "script": good}]
+    (tmp_path / "fomo-adapt-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
+    assert score(tmp_path, case) == []
+    drafts[1]["script"] = good.replace("Sorry, I'm fully booked.", "Sorry, I'm booked.")
+    drafts[1]["script"] = drafts[1]["script"].rsplit("\n", 1)[0]
+    (tmp_path / "fomo-adapt-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
+    assert score(tmp_path, case) == [
+        "draft 2: 25 spoken words, expected 35–65",
+        "draft 2: the reference's line “Sorry, I'm fully booked.” isn't kept word for word",
+        "draft 2: doesn't end on the call to action",
+    ]

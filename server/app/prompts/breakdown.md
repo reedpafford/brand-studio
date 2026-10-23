@@ -13,6 +13,6 @@ Turn the working script into scenes, shots and clips that the team will storyboa
 
 **Clips.** Group consecutive shots into clips the video model generates in one go, each within its min and max seconds. End a clip only on a hard cut that changes place or time, or when the next shot would pass the max. With voiceover, end clips between sentences. A clip that starts after a time jump opens on an insert (phone, screen, hands) before the hero's face. Fewer, longer clips keep characters consistent; don't split a conversation across clips unless you must.
 
-**Reference.** When there is a <reference>, match it beat by beat: its shot lengths and cut rhythm, its framing and camera moves, how big the acting is, and its light and palette, unless the script or brand needs something else. A section marked "Replace" keeps its length and its device (e.g. match cuts: same pose, bigger world) with the brand's content and screens in it.
+**Reference.** When there is a <reference>, match it beat by beat: its shot lengths and cut rhythm, its framing and camera moves, how big the acting is, and its light and palette, unless the script or brand needs something else. A section marked "Replace" keeps its length and its device (e.g. match cuts: same pose, bigger world) with the brand's content and screens in it. Live-action segments are gone; their slot is the brand's call to action over the real brand element.
 
 Use only ids from the user message and the brand block.

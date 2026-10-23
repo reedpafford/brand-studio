@@ -41,13 +41,15 @@ def number_lines(script: str) -> str:
 
 
 def brand_block(brand: dict, screens: list[dict]) -> str:
-    """`brand`: name, tone_notes, never_say, legal_line. `screens`: id, name, tags,
+    """`brand`: name, tone_notes, never_say, legal_line, cta. `screens`: id, name, tags,
     default_for (the moments a screen is required at)."""
     lines = [f"<brand>\nBrand: {brand['name']}"]
     if brand.get("tone_notes"):
         lines.append(f"Tone: {brand['tone_notes']}")
     if brand.get("never_say"):
         lines.append("Never say: " + "; ".join(brand["never_say"]))
+    if brand.get("cta"):
+        lines.append(f"Call to action (the closing line when a video ends on one): {brand['cta']}")
     if brand.get("legal_line"):
         lines.append(f"Legal line (added in post, don't write it): {brand['legal_line']}")
     required = [s for s in screens if s.get("default_for")]
@@ -85,20 +87,36 @@ def reference_block(ref: dict, replace: str = "") -> str:
         f"Hook (0–{hook['seconds']} s): {hook['mechanic']}",
         "Beats:",
     ]
-    lines += [
-        f"- {b['start']:.1f}–{b['end']:.1f} s {b['summary']} ({b['emotion']})" for b in ref["beats"]
-    ]
+    live = [s for s in ref["shots"] if _live_action(s)]
+    live_from = live[0]["start"] - 0.05 if live else float("inf")
+    for b in ref["beats"]:
+        what = f"{b['summary']} ({b['emotion']})"
+        if b["start"] >= live_from:
+            what = "Live-action tag: removed; the brand's call to action goes here."
+        lines.append(f"- {b['start']:.1f}–{b['end']:.1f} s {what}")
     lines.append("Shots (time, framing, camera, action, emotion, line):")
     for s in ref["shots"]:
+        if _live_action(s):
+            continue
         said = f' | {s["speaker"]}: "{s["line"]}"' if s.get("line") else ""
         lines.append(
             f"{s['n']}. {s['start']:.2f}–{s['end']:.2f} {s['framing']}; {s['camera']} | "
             f"{s['action']} | {s['emotion']}{said}"
         )
+    if live:
+        lines.append(
+            f"Shots {live[0]['n']}–{live[-1]['n']} ({live[0]['start']:.2f}–{live[-1]['end']:.2f} s)"
+            " are live action: always removed; that slot becomes the brand's call to action."
+        )
     if replace:
         lines.append(f"Replace: {replace}")
     lines.append("</reference>")
     return "\n".join(lines)
+
+
+def _live_action(shot: dict) -> bool:
+    style = shot.get("style", "").lower()
+    return "live action" in style or "photoreal" in style
 
 
 def reference_lines(refs: list[dict]) -> str:
