@@ -1,0 +1,334 @@
+{
+ "id": "DdwL9paxzTq",
+ "account": "clipsey.ai",
+ "views": "",
+ "url": "https://www.instagram.com/reel/DdwL9paxzTq/",
+ "duration_seconds": 43.47,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A belittled coffee-shop worker quits to pursue trading, pushes through losses and his boss’s taunts, then returns wealthy enough to inspire the replacement worker to quit too.",
+ "tags": [
+  "boss",
+  "restaurant",
+  "home",
+  "trading",
+  "public-humiliation",
+  "prove-them-wrong",
+  "rags-to-riches",
+  "glow-up",
+  "comedy",
+  "savage"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.29",
+  "mechanic": "A customer leans across a cluttered counter demanding her latte while the young worker faces her with a cup in hand; the immediate service conflict leads into his boss berating him.",
+  "first_line": "Hello, where's my latte?"
+ },
+ "moment": "32.21-35.29: Gary points triumphantly at the returning Alex and says, “Told you you'd be back.” Alex calmly answers, “Just here for a coffee.” Gary’s assumption becomes the setup for his own humiliation.",
+ "stats": {
+  "shots": 30,
+  "live_shots_skipped": 2,
+  "animated_seconds": 40.59,
+  "avg_shot_seconds": 1.35,
+  "median_shot_seconds": 1.08,
+  "longest_shot_seconds": 2.84,
+  "shots_under_1s": 12,
+  "spoken_lines": 9,
+  "words_per_second_while_speaking": 2.8,
+  "speech_share_of_runtime": 0.87
+ },
+ "cut_times": [
+  2.29,
+  4.54,
+  6.33,
+  7.38,
+  8.17,
+  9.04,
+  9.79,
+  11.58,
+  13.25,
+  14.12,
+  14.96,
+  15.96,
+  17.83,
+  18.71,
+  20.54,
+  21.67,
+  22.62,
+  24.58,
+  27.42,
+  28.54,
+  29.88,
+  30.67,
+  32.21,
+  34.33,
+  35.29,
+  36.33,
+  37.21,
+  38.92,
+  39.21,
+  40.08,
+  41.38
+ ],
+ "live_shots": [
+  21,
+  23
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 4.54,
+   "beat": "hook",
+   "what_happens": "A customer demands her latte and Gary raises handfuls of order slips while scolding Alex for falling behind.",
+   "emotion": "The customer thrusts her face forward impatiently, while Gary throws both arms overhead with an angry, open-mouthed expression.",
+   "camera": "Medium counter-side confrontation followed by a frontal medium shot of Gary.",
+   "cuts": "One cut at 2.29 seconds separates the customer complaint from the boss’s reprimand."
+  },
+  {
+   "start": 4.54,
+   "end": 9.79,
+   "beat": "turn",
+   "what_happens": "Alex declares that he is meant for more, removes his apron and walks away as Gary predicts his return.",
+   "emotion": "Alex’s narrowed eyes and firm mouth show resolve; Gary’s raised arms and forward lean show outrage.",
+   "camera": "Tight frontal close-up on Alex, torso insert of the apron, reaction shot of Gary and rear view of Alex leaving.",
+   "cuts": "Five cuts across 5.25 seconds accelerate the exchange, with the final four shots lasting roughly a second or less."
+  },
+  {
+   "start": 9.79,
+   "end": 13.25,
+   "beat": "setup",
+   "what_happens": "Alex sits at his laptop at night and commits to trading consistently.",
+   "emotion": "He hunches toward the screen with knitted brows and clenched teeth.",
+   "camera": "Medium frontal laptop shot cuts to a tight face close-up lit by the screen.",
+   "cuts": "Two sustained shots lasting 1.79 and 1.67 seconds establish his new routine."
+  },
+  {
+   "start": 13.25,
+   "end": 17.83,
+   "beat": "low",
+   "what_happens": "A red trading chart accompanies another setback, Gary taunts Alex over the phone and Alex commits to one more day.",
+   "emotion": "Alex grips his hair in frustration before returning to a fixed, determined stare.",
+   "camera": "Laptop chart insert, close-up of Alex clutching his head, rear phone-call view and frontal laptop shot.",
+   "cuts": "Three short shots of 0.84-1 second lead into a longer 1.87-second resolve shot."
+  },
+  {
+   "start": 17.83,
+   "end": 20.54,
+   "beat": "turn",
+   "what_happens": "The laptop chart turns green and Alex rubs his eyes as he realizes success may be possible.",
+   "emotion": "His hands cover his eyes and his mouth hangs open with overwhelmed relief.",
+   "camera": "Bright laptop insert followed by an intimate face close-up.",
+   "cuts": "A 0.88-second result insert leads into a 1.83-second emotional reaction."
+  },
+  {
+   "start": 20.54,
+   "end": 24.58,
+   "beat": "montage",
+   "what_happens": "Alex works at a desk with several green trading screens and dismisses Gary’s offer of his old job.",
+   "emotion": "His upright seated posture and brief phone response convey growing confidence.",
+   "camera": "Rear wide views repeat the desk composition in daylight and darkness before a transition away from the room.",
+   "cuts": "Cuts at 21.67 and 22.62 seconds compress the passage of time."
+  },
+  {
+   "start": 24.58,
+   "end": 30.67,
+   "beat": "reveal",
+   "what_happens": "Gary pressures a new worker behind the pastry counter, then a purple supercar outside triggers his astonished, drink-spilling reaction.",
+   "emotion": "Gary shifts from pointing aggressively to staring with huge eyes and a wide-open mouth.",
+   "camera": "Wide counter view, exterior car view and exaggerated frontal reaction close-up.",
+   "cuts": "The 2.84-second shop setup gives way to shorter reveal shots; Gary’s reaction lasts 0.79 seconds."
+  },
+  {
+   "start": 30.67,
+   "end": 36.33,
+   "beat": "payoff",
+   "what_happens": "Gary assumes Alex wants his job back, but Alex says he only wants coffee and the replacement worker asks about the Bugatti.",
+   "emotion": "Gary points with misplaced confidence; Alex looks relaxed, while the young worker stares wide-eyed and points toward the car.",
+   "camera": "Frontal medium shot of Gary followed by close-ups of Alex and the worker beside the window.",
+   "cuts": "Four shots alternate accusation, calm response and amazed reaction, ranging from 0.96 to 2.12 seconds."
+  },
+  {
+   "start": 36.33,
+   "end": 41.38,
+   "beat": "callback",
+   "what_happens": "Alex says he trades and repeats his old declaration to the replacement worker, who removes his apron despite Gary’s protest.",
+   "emotion": "Alex leans in with reassuring confidence; the worker looks startled, and Gary raises both palms in alarm.",
+   "camera": "Alex close-up, counter-side two-shot, worker reaction, Gary’s stop gesture and a medium shot of the apron coming off.",
+   "cuts": "Five cuts in 5.05 seconds include a 0.29-second worker reaction before Gary’s protest."
+  },
+  {
+   "start": 41.38,
+   "end": 43.47,
+   "beat": "cta",
+   "what_happens": "Alex leans against the purple car holding a takeaway coffee and invites the viewer to learn how.",
+   "emotion": "His smile and casual crossed-leg stance sell ease and confidence.",
+   "camera": "Medium-wide frontal portrait outside the shop, with the car filling the lower background.",
+   "cuts": "One 2.09-second closing shot holds through the invitation."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Customer",
+   "text": "Hello, where's my latte?",
+   "delivery": "Projected, impatient question with a sharp upward inflection."
+  },
+  {
+   "t": 2.29,
+   "speaker": "Boss",
+   "text": "Alex, you're twelve orders behind!",
+   "delivery": "Raised, scolding voice with emphatic stress on the backlog."
+  },
+  {
+   "t": 4.54,
+   "speaker": "Hero",
+   "text": "I'm meant for more than this.",
+   "delivery": "Firm, controlled declaration, with a low, resentful intensity."
+  },
+  {
+   "t": 6.94,
+   "speaker": "Boss",
+   "text": "Where are you going?",
+   "delivery": "Loud, quick challenge with rising pitch."
+  },
+  {
+   "t": 8.17,
+   "speaker": "Hero",
+   "text": "Somewhere better.",
+   "delivery": "Clipped, confident reply."
+  },
+  {
+   "t": 9.04,
+   "speaker": "Boss",
+   "text": "You'll be back.",
+   "delivery": "Projected, dismissive prediction with a hard downward finish."
+  },
+  {
+   "t": 9.79,
+   "speaker": "Hero",
+   "text": "I'm going to stay consistent with trading, day in, day out.",
+   "delivery": "Brisk, determined self-talk, maintaining the passage’s snappy pace."
+  },
+  {
+   "t": 13.72,
+   "speaker": "Hero",
+   "text": "Red again.",
+   "delivery": "Forceful, frustrated burst."
+  },
+  {
+   "t": 14.96,
+   "speaker": "Boss",
+   "text": "Still broke? Your apron's waiting.",
+   "delivery": "Pointed, mocking question followed by a smug downward statement."
+  },
+  {
+   "t": 15.96,
+   "speaker": "Hero",
+   "text": "One more day.",
+   "delivery": "Short, firm self-encouragement through visible tension."
+  },
+  {
+   "t": 18.92,
+   "speaker": "Hero",
+   "text": "This is possible.",
+   "delivery": "Quieter and measured after a 1.24-second speech pause, sounding relieved and disbelieving."
+  },
+  {
+   "t": 21.22,
+   "speaker": "Boss",
+   "text": "Job still open.",
+   "delivery": "Brief, matter-of-fact offer with a taunting edge."
+  },
+  {
+   "t": 22.0,
+   "speaker": "Hero",
+   "text": "Keep it, Gary.",
+   "delivery": "Quick, assured dismissal."
+  },
+  {
+   "t": 24.5,
+   "speaker": "Boss",
+   "text": "Faster, Mason, faster!",
+   "delivery": "Spaced, insistent commands; relatively restrained average volume despite his aggressive pointing."
+  },
+  {
+   "t": 26.18,
+   "speaker": "Boss",
+   "text": "Is that a Bugatti?",
+   "delivery": "Louder and rushed at 3.7 words per second, with a startled upward pitch."
+  },
+  {
+   "t": 30.26,
+   "speaker": "Hero",
+   "text": "Morning, Gary. Miss me?",
+   "delivery": "Relaxed greeting followed by a playful, confident question after a three-second speech gap."
+  },
+  {
+   "t": 32.21,
+   "speaker": "Boss",
+   "text": "Alex! Told you you'd be back.",
+   "delivery": "An emphatic recognition turns into a smug, brisk declaration."
+  },
+  {
+   "t": 34.33,
+   "speaker": "Hero",
+   "text": "Just here for a coffee.",
+   "delivery": "Even, casual response with an unhurried downward finish."
+  },
+  {
+   "t": 35.29,
+   "speaker": "Replacement Worker",
+   "text": "That's your Bugatti?",
+   "delivery": "Quick, astonished question with rising pitch."
+  },
+  {
+   "t": 36.33,
+   "speaker": "Hero",
+   "text": "I trade.",
+   "delivery": "Brief, matter-of-fact answer."
+  },
+  {
+   "t": 37.21,
+   "speaker": "Hero",
+   "text": "You're meant for more than this.",
+   "delivery": "Firm encouragement, carrying the earlier declaration into direct advice."
+  },
+  {
+   "t": 38.84,
+   "speaker": "Boss",
+   "text": "Don't you dare!",
+   "delivery": "Sharp, urgent protest as his hands rise."
+  },
+  {
+   "t": 40.08,
+   "speaker": "Replacement Worker",
+   "text": "Too late.",
+   "delivery": "Clipped, decisive retort."
+  },
+  {
+   "t": 41.38,
+   "speaker": "Hero",
+   "text": "Want to learn how? Link in my bio.",
+   "delivery": "Bright, conversational invitation delivered briskly and confidently."
+  }
+ ],
+ "voice_arc": "The opening pairs the customer’s impatience with Gary’s projected reprimands and Alex’s controlled resentment. The trading stretch stays brisk and tense, then softens for “This is possible,” whose -17.9 dB average and preceding pause give the breakthrough breathing room. Gary’s Bugatti question jumps to a louder -14.2 dB and faster delivery; the return exchange contrasts Alex’s easy confidence with Gary’s smugness, then alarm.",
+ "camera_language": "Vertical compositions emphasize faces, upper bodies and large hand gestures, alternating counter-side confrontations with tight frontal reactions. Laptop inserts and repeated rear desk views compress the trading journey, while the return uses close-up exchanges to make each reversal readable. The closing car portrait gives Alex a relaxed full-body payoff after the earlier cramped workspaces.",
+ "why_it_works": "The opening makes Alex’s humiliation immediately visible through the demanding customer, accumulated orders and Gary’s oversized anger. Repeated setbacks and phone taunts keep the boss present during the climb, so the coffee-only return directly resolves the original power imbalance. Reusing “meant for more than this” to inspire the replacement worker turns Alex’s private ambition into a comic threat to Gary’s authority.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "An aggressive customer screaming in the opening frame paired with flying coffee cups creates immediate sensory chaos, stopping users from scrolling within the first second.",
+  "turn": "The turning point occurs at 0:17 when Alex opens his laptop in the morning light and the stock chart turns green, signaling his transition from failure to financial freedom.",
+  "payoff": "The payoff delivers absolute satisfaction when Alex returns in a luxury Bugatti, stuns his toxic ex-boss, and frees the next generation employee from the same dead-end job.",
+  "why_it_works": "Relatable narrative archetype: Overworked employee breaks free from toxic workplace boss. Visual contrast: High-energy 3D Pixar-style animation style makes realistic wealth themes fun and appealing. Rapid pacing: Sub-2-second cuts ensure zero dead time and sustain high dopamine levels. Full-circle narrative loop: Uses the exact same dialogue ('You're meant for more than this') to pass the torch to",
+  "camera": [
+   "Snap zoom on boss reaction shot at 0:30 creates dramatic comedic punctuation",
+   "Tight push-ins on eyes during night trading sequence amplify intensity and stress",
+   "Low-angle tilt-up reveal on Alex getting out of the Bugatti emphasizes wealth and status"
+  ],
+  "montages": [
+   "{\"start\": \"0:09\", \"end\": \"0:22\", \"cuts\": 10, \"content\": \"Alex grinding late at night -> red losing stock charts -> frustration and phone call from boss -> closing laptop -> opening laptop at sunrise -> green winning stock charts -> multi-mo"
+  ]
+ }
+}

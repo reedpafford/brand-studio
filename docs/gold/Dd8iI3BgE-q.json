@@ -1,0 +1,287 @@
+{
+ "id": "Dd8iI3BgE-q",
+ "account": "nateassets",
+ "views": "26.2K",
+ "url": "https://www.instagram.com/reel/Dd8iI3BgE-q/",
+ "duration_seconds": 58.7,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A young man pushed toward medical school, debt and an unwanted job reaches a breaking point in the rain, chooses to chase his own dreams, and rebuilds his confidence through focused trading study and a friend's encouragement.",
+ "tags": [
+  "mom",
+  "dad",
+  "girlfriend",
+  "boss",
+  "home",
+  "office",
+  "street",
+  "trading",
+  "mentor",
+  "prove-them-wrong",
+  "glow-up",
+  "emotional"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.55",
+  "mechanic": "An extreme close-up catches a terrified young man with his mouth open, then a wide shot reveals him directly in front of glaring car headlights on a rain-soaked street; he asks, \"Is this it?\"",
+  "first_line": "Is this it?"
+ },
+ "moment": "29.88-32.22: After a long stretch without dialogue, the hero's face tightens from hurt into determination and he declares, \"Chase my dreams.\" A full-body shot plants him in the rain with clenched fists, making his first clear personal choice physically visible.",
+ "stats": {
+  "shots": 48,
+  "live_shots_skipped": 3,
+  "animated_seconds": 57.3,
+  "avg_shot_seconds": 1.19,
+  "median_shot_seconds": 1.06,
+  "longest_shot_seconds": 3.26,
+  "shots_under_1s": 19,
+  "spoken_lines": 7,
+  "words_per_second_while_speaking": 2.3,
+  "speech_share_of_runtime": 0.51
+ },
+ "cut_times": [
+  1.5,
+  2.55,
+  4.42,
+  5.58,
+  6.22,
+  7.05,
+  7.8,
+  8.47,
+  9.33,
+  10.38,
+  11.58,
+  12.55,
+  14.05,
+  14.75,
+  15.55,
+  16.05,
+  17.13,
+  18.33,
+  19.5,
+  20.67,
+  22.3,
+  23.58,
+  25.22,
+  28.48,
+  29.88,
+  31.13,
+  32.22,
+  33.35,
+  33.9,
+  36.23,
+  37.23,
+  38.07,
+  39.07,
+  40.23,
+  40.9,
+  41.78,
+  42.32,
+  43.37,
+  45.12,
+  45.9,
+  47.03,
+  47.7,
+  48.62,
+  49.53,
+  50.48,
+  52.07,
+  54.28,
+  57.3,
+  57.67,
+  57.92
+ ],
+ "live_shots": [
+  49,
+  50,
+  51
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 4.42,
+   "beat": "hook",
+   "what_happens": "The frightened hero faces a car in the rain before an extreme eye close-up bridges into the pressures behind his crisis.",
+   "emotion": "Shock and vulnerability show through huge eyes, a hanging jaw and a backward-leaning stance.",
+   "camera": "Face close-up, hard cut to a full-body street view beside headlights, then an extreme close-up of one eye.",
+   "cuts": "2 cuts in 4.42 seconds; the eye insert holds for 1.87 seconds."
+  },
+  {
+   "start": 4.42,
+   "end": 8.47,
+   "beat": "doubt",
+   "what_happens": "At a dining table, his parents push medical school and a loan while his attempt to object is shut down.",
+   "emotion": "Mom points sternly, Dad sits rigidly with both fists on the table, and the hero's brows collapse into worry.",
+   "camera": "Medium singles across the table alternate with a pointing-hand insert and a tight hero reaction.",
+   "cuts": "5 internal cuts in 4.05 seconds, accelerating through shots lasting roughly 0.64-1.16 seconds."
+  },
+  {
+   "start": 8.47,
+   "end": 12.55,
+   "beat": "doubt",
+   "what_happens": "His girlfriend takes his hand and presses him to accept the job because she wants her nails done.",
+   "emotion": "She leans into him and inspects her fingers while he looks sideways, then closes his eyes in resignation.",
+   "camera": "Hand insert, seated two-shot, girlfriend close-up and hero reaction.",
+   "cuts": "3 internal cuts in 4.08 seconds, with each demand followed by a fresh angle."
+  },
+  {
+   "start": 12.55,
+   "end": 16.05,
+   "beat": "setup",
+   "what_happens": "A suited coworker interrupts the hero's sandwich lunch and summons him to a meeting.",
+   "emotion": "The hero pauses mid-bite and turns uncertainly as the suited man moves away with confidence.",
+   "camera": "Frontal medium shot, sandwich insert, tighter reaction and side view of the departing suited man.",
+   "cuts": "3 internal cuts in 3.5 seconds; shot lengths shrink from 1.5 seconds to 0.5 seconds."
+  },
+  {
+   "start": 16.05,
+   "end": 20.67,
+   "beat": "low",
+   "what_happens": "Back in the rain, the hero questions when he last chose anything for himself as a glowing suited figure appears beside the car.",
+   "emotion": "He looks down at his hands, then lifts tearful eyes toward the figure.",
+   "camera": "Street wide shot, medium frontal hero shot, wide reveal of the glowing figure and tight face reaction.",
+   "cuts": "3 internal cuts in 4.62 seconds, settling into approximately 1.1-1.2-second shots."
+  },
+  {
+   "start": 20.67,
+   "end": 28.48,
+   "beat": "turn",
+   "what_happens": "The glowing figure asks what the hero would do if this were not the end, leaving him to confront the question in silence.",
+   "emotion": "The figure stands calmly while the hero's open mouth and wet eyes convey disbelief and fear.",
+   "camera": "Frontal medium portrait of the figure followed by progressively intimate hero reactions.",
+   "cuts": "3 internal cuts in 7.81 seconds, ending on the video's longest shot at 3.26 seconds."
+  },
+  {
+   "start": 28.48,
+   "end": 33.9,
+   "beat": "turn",
+   "what_happens": "A dark-haired young man cups his ear for an answer, and the hero resolves to chase his dreams before the car pulls away.",
+   "emotion": "The listener's teasing smile meets the hero's lowered brows, firm mouth and clenched fists.",
+   "camera": "Medium listener shot, tight hero face, full-body hero stance, return to the listener and a brief departing-car view.",
+   "cuts": "4 internal cuts in 5.42 seconds; the car departure is a sharp 0.55-second punctuation."
+  },
+  {
+   "start": 33.9,
+   "end": 40.23,
+   "beat": "montage",
+   "what_happens": "The hero walks home, opens the door and immediately starts studying a rising chart on his laptop.",
+   "emotion": "His startled expression gives way to concentrated brows and a forward lean toward the screen.",
+   "camera": "Face reaction, lateral walking view, door-handle insert, over-the-shoulder laptop view and screen-lit face close-up.",
+   "cuts": "4 internal cuts in 6.33 seconds, moving from a 2.33-second reaction into roughly one-second actions."
+  },
+  {
+   "start": 40.23,
+   "end": 48.62,
+   "beat": "montage",
+   "what_happens": "He copies chart shapes into a notebook, works through fatigue and continues studying across night and daylight.",
+   "emotion": "Focused eyes alternate with a hand covering his face in exhaustion before he returns to the work.",
+   "camera": "Repeated notebook and laptop inserts alternate with frontal concentration shots and wider desk views.",
+   "cuts": "9 internal cuts in 8.39 seconds, mostly 0.54-1.16 seconds, with a 1.75-second fatigue reaction."
+  },
+  {
+   "start": 48.62,
+   "end": 57.3,
+   "beat": "payoff",
+   "what_happens": "A friend encourages him from the doorway, and the hero smiles before returning his pencil to the page.",
+   "emotion": "The friend's relaxed posture and the hero's small sideways smile replace the earlier fear with reassurance and confidence.",
+   "camera": "Desk wide shot, full-body doorway portrait, close hero reaction and shallow-focus pencil insert.",
+   "cuts": "3 internal cuts in 8.68 seconds; holds lengthen from 0.91 seconds to 3.02 seconds."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.58,
+   "speaker": "Hero",
+   "text": "Is this it?",
+   "delivery": "Moderate-volume, hesitant question with a rising finish; the frightened face supplies the panic."
+  },
+  {
+   "t": 4.42,
+   "speaker": "Mom",
+   "text": "Med school. Don't argue.",
+   "delivery": "Firm, clipped commands at moderate volume, with a downward, dismissive finish."
+  },
+  {
+   "t": 5.58,
+   "speaker": "Hero",
+   "text": "But Mom—",
+   "delivery": "Brief, tentative protest, cut short before it can develop."
+  },
+  {
+   "t": 6.22,
+   "speaker": "Dad",
+   "text": "You'll take the loan.",
+   "delivery": "Steady, authoritative statement with a firm ending; the rigid posture reinforces the pressure."
+  },
+  {
+   "t": 8.47,
+   "speaker": "Girlfriend",
+   "text": "Babe, you're taking that job, right? Please, I need my nails done.",
+   "delivery": "Quick, insistent pleading at moderate volume; the question rises before the self-focused request tumbles out."
+  },
+  {
+   "t": 12.55,
+   "speaker": "Boss",
+   "text": "Lunch is canceled. We've got a meeting. Come quick.",
+   "delivery": "Brisk, matter-of-fact instructions with little space between clauses."
+  },
+  {
+   "t": 16.05,
+   "speaker": "Hero",
+   "text": "When was the last time I chose anything?",
+   "delivery": "Measured, wounded question at moderate volume, slowing emotionally as his eyes turn upward."
+  },
+  {
+   "t": 19.5,
+   "speaker": "Mentor",
+   "text": "Tell me, what would you do if this wasn't it?",
+   "delivery": "Controlled questioning that tightens into a fast final clause, reaching about 5.3 words per second."
+  },
+  {
+   "t": 28.3,
+   "speaker": "Friend",
+   "text": "What? I didn't hear you.",
+   "delivery": "Conversational challenge after a six-second dialogue gap, with an upward question and a lightly provoking finish."
+  },
+  {
+   "t": 29.88,
+   "speaker": "Hero",
+   "text": "Chase my dreams.",
+   "delivery": "Deliberate and newly firm at moderate volume; the force comes from the set jaw and clenched fists."
+  },
+  {
+   "t": 39.02,
+   "speaker": "Hero",
+   "text": "No time to waste.",
+   "delivery": "Short, snappy self-command at about 3.8 words per second after seven seconds without speech."
+  },
+  {
+   "t": 48.9,
+   "speaker": "Friend",
+   "text": "You got this, bro.",
+   "delivery": "Unhurried, warm reassurance at about 1.4 words per second, arriving after an 8.84-second dialogue gap."
+  }
+ ],
+ "voice_arc": "The early exchanges stack clipped parental commands, a quick girlfriend request and brisk workplace instructions against the hero's hesitant objections. Measured speech levels stay close to -16 dB throughout, so the emotional shift is carried mainly by phrasing, pace and faces rather than a large loudness increase. The hero moves from frightened questioning to a firm declaration and a quick self-command, followed by the friend's slower reassurance.",
+ "camera_language": "Vertical compositions repeatedly isolate large eyes, eyebrows and mouths, then cut to hands, documents, food or chart work to make each pressure or action concrete. Frontal dialogue singles and reaction close-ups dominate the conflict; rainy street wides establish vulnerability, while repeated laptop, notebook and pencil inserts make the later effort tangible. Longer reaction holds surround the turning point and return at the calmer ending.",
+ "why_it_works": "The opening gives an immediate physical crisis, then rapidly reveals the everyday demands that have made the hero feel trapped. His decision becomes visible through fists, posture and sustained desk work, so the emotional payoff is earned through action. The final encouragement answers the earlier pattern of people telling him what to do with someone expressing belief in him.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "An extreme close-up of a terrified boy crying in rain with car headlights blaring into his face, creating an immediate life-or-death suspense hook in under 2 seconds.",
+  "turn": "The turning point occurs at 0:22-0:31 when the boy sheds a tear, looks past his doubts, and screams 'CHASE MY DREAMS!' into the storm, shifting from victim to master of his destiny.",
+  "payoff": "The payoff contrasts his former powerlessness with a high-octane study montage where he takes control, culminating in real-life footage of wealth and luxury in Dubai.",
+  "why_it_works": "High-stakes opening taps into universal fear and immediate emotional investment. Relatable emotional conflict showing oppressive figures (parents, partner, boss) imposing traditional paths. High aesthetic 3D animation style combined with dramatic lighting creates cinematic visual hook. Fast-paced technical study montage satisfies the 'hustle culture' aspiration bias. Seamless real-life end tag bri",
+  "camera": [
+   "Extreme close-up push-in at 0:00 creates instant life-or-death urgency.",
+   "Fast macro-zoom on pupil reflection at 0:02 anchors the transition into memory.",
+   "Slow emotional push-in on the protagonist's eyes at 0:22 highlights his emotional climax.",
+   "Low angle dynamic tilt-up at 0:31 amplifies the power of his shout.",
+   "Over-the-shoulder macro shots during study sequence (0:38-0:50) create intimate engagement with his technical work."
+  ],
+  "montages": [
+   "{\"start\": \"0:03\", \"end\": \"0:15\", \"cuts\": 10, \"content\": \"Rapid series of memories showing authority figures (mother, father, girlfriend, boss) controlling his choices.\", \"style\": \"Rhythmic match-cuts with warm interior lighting contrasting ",
+   "{\"start\": \"0:38\", \"end\": \"0:50\", \"cuts\": 12, \"content\": \"Hustle sequence showing trading charts, pencil calculations, desk lighting transitions from night to day, and notebook flips.\", \"style\": \"Fast insert cuts alternating between extreme "
+  ]
+ }
+}

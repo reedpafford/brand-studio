@@ -1,0 +1,269 @@
+{
+ "id": "Dd4z1ilyN4y",
+ "account": "cevrico",
+ "views": "33.4K",
+ "url": "https://www.instagram.com/reel/Dd4z1ilyN4y/",
+ "duration_seconds": 56.71,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A student publicly mocked with a 'least likely to succeed' trophy turns the humiliation into trading discipline, then returns as his school's guest speaker carrying the same trophy as proof of what drove him.",
+ "tags": [
+  "friends",
+  "teacher",
+  "school",
+  "home",
+  "trading",
+  "public-humiliation",
+  "prove-them-wrong",
+  "revenge",
+  "glow-up",
+  "emotional",
+  "savage"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.1",
+  "mechanic": "An adult holds an enormous gold trophy above a bewildered student's head; a cut to the distant auditorium stage makes the humiliation public as the award announcement begins.",
+  "first_line": "And the award for least likely to succeed goes to Aiden!"
+ },
+ "moment": "46.88-48.32: Aiden stands behind the school lectern with the old humiliation trophy and answers the money question: 'Enough to stop caring who believed me.' His composed face and quick, firm delivery make independence from his classmates' approval the real payoff.",
+ "stats": {
+  "shots": 30,
+  "live_shots_skipped": 0,
+  "animated_seconds": 56.71,
+  "avg_shot_seconds": 1.89,
+  "median_shot_seconds": 1.52,
+  "longest_shot_seconds": 5.96,
+  "shots_under_1s": 7,
+  "spoken_lines": 14,
+  "words_per_second_while_speaking": 3.6,
+  "speech_share_of_runtime": 0.43
+ },
+ "cut_times": [
+  1.29,
+  7.25,
+  7.75,
+  8.96,
+  13.25,
+  15.5,
+  16.25,
+  17.58,
+  17.83,
+  18.21,
+  19.38,
+  20.88,
+  22.96,
+  24.08,
+  26.83,
+  28.42,
+  33.42,
+  34.54,
+  36.33,
+  37.88,
+  40.29,
+  40.58,
+  40.88,
+  41.17,
+  44.71,
+  46.71,
+  48.42,
+  49.88,
+  51.96
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 7.25,
+   "beat": "hook",
+   "what_happens": "Aiden receives a humiliating school award while a student in the auditorium records the stage.",
+   "emotion": "Aiden looks exposed and confused beneath the trophy; the adult beside him looks pleased.",
+   "camera": "Medium frontal view of Aiden beneath the raised cup, then an extreme wide auditorium view with a recording phone in the foreground.",
+   "cuts": "One cut at 1.29s, followed by a 5.96s hold through the announcement and a classmate's joke."
+  },
+  {
+   "start": 7.25,
+   "end": 13.25,
+   "beat": "doubt",
+   "what_happens": "A classmate mocks Aiden's trading ambition, and Aiden quietly tells them to keep laughing.",
+   "emotion": "His wide-eyed shock tightens into a furrowed brow and a compressed, defiant mouth as he grips the trophy.",
+   "camera": "Close reaction, tighter frontal face shot, then a medium shot including the oversized trophy.",
+   "cuts": "Two cuts within 1.71s establish the reaction, followed by a 4.29s hold that gives his reply space."
+  },
+  {
+   "start": 13.25,
+   "end": 19.38,
+   "beat": "montage",
+   "what_happens": "Aiden studies trading screens, writes in a notebook, and works at his laptop with the trophy beside him.",
+   "emotion": "His hunched working posture, narrowed eyes, and red-lit face show intense concentration.",
+   "camera": "Side medium views at the desk alternate with laptop inserts and an extreme close-up of his eyes.",
+   "cuts": "Six shots in 6.13s, accelerating into 0.25s and 0.38s inserts before returning to his typing."
+  },
+  {
+   "start": 19.38,
+   "end": 22.96,
+   "beat": "turn",
+   "what_happens": "An invitation to return to school as a guest speaker arrives while Aiden continues working.",
+   "emotion": "Aiden remains absorbed and restrained, keeping the achievement understated.",
+   "camera": "Laptop insert followed by a side close view of Aiden typing beside the gold trophy.",
+   "cuts": "Two shots lasting 1.5s and 2.08s close the silent work sequence."
+  },
+  {
+   "start": 22.96,
+   "end": 28.42,
+   "beat": "setup",
+   "what_happens": "A school presenter introduces a successful young trader to the assembled students.",
+   "emotion": "The presenter smiles with welcoming confidence behind the lectern.",
+   "camera": "A spotlight detail opens into a wide auditorium stage view, then a frontal medium shot of the presenter.",
+   "cuts": "Three shots, moving from a 1.12s atmospheric detail to 2.75s and 1.59s presentation views."
+  },
+  {
+   "start": 28.42,
+   "end": 37.88,
+   "beat": "reveal",
+   "what_happens": "A sports-car arrival precedes classmates recognizing Aiden as he enters carrying a trophy.",
+   "emotion": "Students stare with rounded eyes and open mouths while Aiden strides into the bright doorway with his trophy raised.",
+   "camera": "Low car-door detail, close audience reaction, backlit entrance view, and a wide view of the seated students.",
+   "cuts": "A 5s car shot delays the identity reveal, followed by four shots lasting roughly 1.1-1.8s."
+  },
+  {
+   "start": 37.88,
+   "end": 41.17,
+   "beat": "callback",
+   "what_happens": "At the lectern, Aiden brings out the old award and asks whether his classmates remember it.",
+   "emotion": "He looks assured and challenging; the classmates lean forward with excited recognition.",
+   "camera": "Frontal medium shot at the lectern, a close group reaction, then rear views of Aiden facing the bright exit.",
+   "cuts": "A 2.41s speaking shot gives way to three rapid cuts spaced 0.29-0.30s apart."
+  },
+  {
+   "start": 41.17,
+   "end": 44.71,
+   "beat": "payoff",
+   "what_happens": "Aiden explains that he kept the trophy and used it to push through moments when he wanted to quit.",
+   "emotion": "His relaxed shoulders and steady expression turn the object of ridicule into something he controls.",
+   "camera": "Held frontal medium shot with Aiden, the trophy, and the wooden lectern together.",
+   "cuts": "One uninterrupted 3.54s shot lets the explanation land."
+  },
+  {
+   "start": 44.71,
+   "end": 48.42,
+   "beat": "payoff",
+   "what_happens": "A classmate asks how much Aiden made, and Aiden answers that he made enough to stop caring who believed him.",
+   "emotion": "The classmate looks stunned and curious; Aiden answers with calm self-possession.",
+   "camera": "Close-up of the classmate in the dark audience, then a frontal medium shot of Aiden holding the trophy at the lectern.",
+   "cuts": "A 2s question shot cuts directly to a 1.71s answer shot."
+  },
+  {
+   "start": 48.42,
+   "end": 56.71,
+   "beat": "cta",
+   "what_happens": "The film returns to the students and Aiden holding his trophy as a voice asks viewers to share the story with someone everybody doubts, then ends on black.",
+   "emotion": "The audience watches quietly while Aiden appears settled and confident.",
+   "camera": "Wide audience view, frontal medium view of Aiden with the trophy, then black.",
+   "cuts": "A 1.46s audience shot and 2.08s hero shot lead into a 4.75s black ending."
+  }
+ ],
+ "lines": [
+  {
+   "t": 1.76,
+   "speaker": "School presenter",
+   "text": "And the award for least likely to succeed goes to Aiden!",
+   "delivery": "Projected ceremonial announcement at a measured 2.8 words per second, building emphasis toward Aiden's name."
+  },
+  {
+   "t": 5.94,
+   "speaker": "Classmate",
+   "text": "Bro, put that on TikTok!",
+   "delivery": "Loud, snappy mockery at 4.7 words per second, with excited emphasis on TikTok."
+  },
+  {
+   "t": 7.66,
+   "speaker": "Classmate",
+   "text": "He still thinks day trading is going to make him rich.",
+   "delivery": "Rushed, derisive remark at 5.4 words per second, projecting the joke for others to hear."
+  },
+  {
+   "t": 11.48,
+   "speaker": "Aiden",
+   "text": "Keep laughing.",
+   "delivery": "Quieter, low and controlled at 2.2 words per second after a 1.78s beat; restrained anger matches his knitted brow."
+  },
+  {
+   "t": 23.56,
+   "speaker": "School presenter",
+   "text": "Today we have a special guest, a young trader who proved almost everyone here wrong.",
+   "delivery": "Clear public-speaking projection at 3.2 words per second, with an upbeat introduction and emphasis on the reversal."
+  },
+  {
+   "t": 28.28,
+   "speaker": "Classmate",
+   "text": "Bro, who is it?",
+   "delivery": "Quick, curious question at 4.1 words per second with a rising finish."
+  },
+  {
+   "t": 33.44,
+   "speaker": "Classmate",
+   "text": "No way!",
+   "delivery": "Louder burst of disbelief after a 4.18s speech gap, with widened eyes and an open mouth."
+  },
+  {
+   "t": 34.8,
+   "speaker": "Classmate",
+   "text": "That's Aiden!",
+   "delivery": "Projected recognition at 2.9 words per second, stressing Aiden's name."
+  },
+  {
+   "t": 38.72,
+   "speaker": "Aiden",
+   "text": "You guys remember this?",
+   "delivery": "Firm, conversational projection at 3.8 words per second, ending in a pointed question as he presents the trophy."
+  },
+  {
+   "t": 41.04,
+   "speaker": "Aiden",
+   "text": "I kept it.",
+   "delivery": "Slightly quieter and deliberate, with a short, decisive finish after a 1.26s beat."
+  },
+  {
+   "t": 42.26,
+   "speaker": "Aiden",
+   "text": "Every time I wanted to quit, I looked at this.",
+   "delivery": "Brisk and assured at 4.5 words per second, carrying personal conviction without shouting."
+  },
+  {
+   "t": 44.8,
+   "speaker": "Classmate",
+   "text": "Bro, how much did you make?",
+   "delivery": "Softer, curious delivery at 3.6 words per second, with an upward question inflection."
+  },
+  {
+   "t": 46.88,
+   "speaker": "Aiden",
+   "text": "Enough to stop caring who believed me.",
+   "delivery": "Quick, firm answer at 4.9 words per second, level confidence settling into a final downward cadence."
+  },
+  {
+   "t": 49.76,
+   "speaker": "Closing voice",
+   "text": "Share this with someone everybody doubts.",
+   "delivery": "Direct, strongly projected appeal at 3.2 words per second after a 1.44s pause, emphasizing shared experience."
+  }
+ ],
+ "voice_arc": "The opening presenter and classmates project the humiliation, with the classmates delivering the fastest early remarks. Aiden answers much more quietly after a held beat, then an extended speech-free work sequence separates wounded restraint from his confident return. His later speech becomes clear, brisk, and public-facing while the classmates shift from mockery to startled recognition and a softer money question; the closing appeal raises the projection again.",
+ "camera_language": "Frontal stage compositions make school judgment feel public, while close facial reactions expose shock, anger, and recognition. The work sequence alternates side desk views with screen inserts and an extreme eye close-up, then the return uses a car detail and backlit entrance to delay recognition. Rapid reaction cuts surround longer lectern holds, giving Aiden control of the frame when he explains the trophy and delivers his answer.",
+ "why_it_works": "The trophy gives the humiliation a physical form that can stay beside Aiden during the work sequence and return with him for the payoff. Withholding his identity during the guest introduction lets classmates' astonishment validate the reversal visually. The final answer shifts the reward from a money total to freedom from their approval, resolving the wound established in the opening.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "In the first 2 seconds, Aiden is publicly humiliated on stage under a spotlight with a 'Least Likely to Succeed' trophy while the whole crowd laughs and films him. The high stakes and intense public shame instantly provoke empathy and curiosity.",
+  "turn": "At 0:07, the snap zoom into Aiden's tightening expression transforms his dynamic from a helpless victim into a vengeful, determined protagonist, signaled by the voiceover 'Keep laughing.'",
+  "payoff": "Aiden arrives back at the school in a supercar, holds his original humiliation trophy on stage, and delivers a calm mic-drop response to his humbled bully, causing total shock and silence across the room.",
+  "why_it_works": "Universal Emotional Archetype: The classic 'zero to hero' underdog revenge arc triggers strong viewer empathy and satisfaction. High Contrast Pacing: Blends fast, high-impact edits during mocking and grinding scenes with deliberate pauses during the final speech to maximize narrative weight. Visually Clear Symbolism: The gold 'Least Likely to Succeed' trophy acts as a continuous storytelling visua",
+  "camera": [
+   "Snap zoom close-up on Aiden's eyes shifting to anger at 0:07 creates an instant emotional hook turn.",
+   "Fast tracking pan outdoor reveal as the silver supercar pulls up at 0:30.",
+   "Dramatic snap zoom onto the bully's shocked reaction shot at 0:33.",
+   "Smash flashback cut insert at 0:40 visually contrasting past chaos with present composure."
+  ],
+  "montages": []
+ }
+}

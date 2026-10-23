@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+body {
+  @apply bg-bg font-sans text-text antialiased;
+  font-size: var(--text-base);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
