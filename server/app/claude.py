@@ -1,0 +1,120 @@
+"""Claude client for Enhance and breakdowns (prompts come with the script issue).
+
+- Model claude-opus-5-5 with adaptive thinking and structured output (Pydantic) via
+  `messages.parse`.
+- The fixed system prompt (base + brand) is cached: it's identical on every call for a brand.
+- Server-side fallbacks are on: a policy decline is retried on Anthropic's recommended model.
+- Key only from STUDIO_ANTHROPIC_KEY; always https://api.anthropic.com (ANTHROPIC_BASE_URL in
+  the environment is ignored on purpose)."""
+
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Literal
+
+from anthropic import Anthropic, DefaultHttpxClient
+from pydantic import BaseModel, ValidationError
+
+MODEL = "claude-opus-5-5"
+API_URL = "https://api.anthropic.com"
+FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# Claude Opus 5.5, USD per million tokens. Cache writes (5 min) cost 1.25x input.
+PRICE_PER_MTOK = {
+    "input": Decimal(4),
+    "output": Decimal(20),
+    "cache_read": Decimal("0.20"),
+    "cache_write": Decimal(5),
+}
+
+
+class ClaudeError(Exception):
+    """Claude couldn't give a usable answer (refused, or ran out of room)."""
+
+
+@dataclass
+class Answer[T: BaseModel]:
+    parsed: T
+    model: str  # the model that answered (a fallback may have served it)
+    cost_usd: Decimal  # owner-only, like all dollar amounts
+
+
+def make_client(key: str, http_client=None) -> Anthropic:
+    if not key:
+        raise ClaudeError("STUDIO_ANTHROPIC_KEY is not set.")
+    return Anthropic(
+        api_key=key,
+        base_url=API_URL,
+        http_client=http_client or DefaultHttpxClient(),
+    )
+
+
+def ask[T: BaseModel](
+    client: Anthropic,
+    *,
+    system: list[str],
+    prompt: str,
+    schema: type[T],
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = "high",
+    max_tokens: int = 16000,
+) -> Answer[T]:
+    """One structured call. `system` is the fixed parts (base prompt, then the brand's);
+    the cache mark on the last part caches them all together."""
+    blocks = [{"type": "text", "text": text} for text in system]
+    blocks[-1]["cache_control"] = {"type": "ephemeral"}
+    try:
+        response = client.beta.messages.parse(
+            model=MODEL,
+            max_tokens=max_tokens,
+            system=blocks,
+            messages=[{"role": "user", "content": prompt}],
+            thinking={"type": "adaptive"},
+            output_config={"effort": effort},
+            output_format=schema,
+            betas=[FALLBACK_BETA],
+            fallbacks="default",
+        )
+    except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
+        raise ClaudeError("Claude's answer was cut off or unreadable.") from exc
+    if response.stop_reason == "refusal":
+        category = response.stop_details.category if response.stop_details else None
+        raise ClaudeError(f"Claude declined this request ({category or 'no category'}).")
+    if response.stop_reason == "max_tokens" or response.parsed_output is None:
+        raise ClaudeError("Claude's answer was cut off or unreadable.")
+    return Answer(response.parsed_output, response.model, _cost(response.usage))
+
+
+def _cost(usage) -> Decimal:
+    tokens = {
+        "input": usage.input_tokens,
+        "output": usage.output_tokens,
+        "cache_read": usage.cache_read_input_tokens or 0,
+        "cache_write": usage.cache_creation_input_tokens or 0,
+    }
+    return sum((Decimal(n) * PRICE_PER_MTOK[k] / 1_000_000 for k, n in tokens.items()), Decimal(0))
+
+
+# --- Example call shape: script "Enhance" suggestions (real prompts come later) ---
+
+
+class Suggestion(BaseModel):
+    kind: Literal["scene_break", "action", "reaction", "camera", "brand_screen"]
+    after_line: int  # 1-based script line the suggestion attaches to
+    text: str
+
+
+class ScriptSuggestions(BaseModel):
+    suggestions: list[Suggestion]
+
+
+def suggest_enhancements(client: Anthropic, brand_system: str, script: str) -> Answer:
+    return ask(
+        client,
+        system=[ENHANCE_BASE, brand_system],
+        prompt=f"<script>\n{script}\n</script>",
+        schema=ScriptSuggestions,
+    )
+
+
+ENHANCE_BASE = (
+    "You help a video team improve a script. Suggest scene breaks, actions, reactions, "
+    "camera moves and where the brand's screens should appear. Don't rewrite the script."
+)
