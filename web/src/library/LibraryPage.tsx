@@ -5,6 +5,7 @@ import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
+import { useBrands } from "../shell/useBrands";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 import { KINDS, isKindSlug } from "./kinds";
 
@@ -18,7 +19,8 @@ export function LibraryPage() {
 }
 
 function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS }) {
-  const { kind, one, title } = KINDS[slug];
+  const { kind, one, them, title } = KINDS[slug];
+  const { data: brands } = useBrands();
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
   const { data: me } = useMe();
@@ -73,7 +75,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
       {items.data?.length === 0 && (
         <div className={card}>
           <p className="text-[length:var(--text-xl)] font-semibold">{archived ? `Nothing archived.` : `No ${title.toLowerCase()} for this brand yet.`}</p>
-          {!archived && <p className="text-muted">Add a {one} once, use them in every video.</p>}
+          {!archived && <p className="text-muted">Add a {one} once, use {them} in every video.</p>}
         </div>
       )}
       {items.data && items.data.length > 0 && shown?.length === 0 && (
@@ -83,14 +85,21 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
       )}
       <ul className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {shown?.map((i) => (
-          <li key={i.id} className={`space-y-1 text-sm ${archived ? "opacity-60" : ""}`}>
-            {archived ? <Thumb id={i.image_file_ids?.[0]} name={i.name} /> : (
+          <li key={i.id} className="space-y-1 text-sm">
+            {archived ? <Thumb id={i.image_file_ids?.[0]} name={i.name} faded /> : (
               <Link to={`/b/${brandId}/library/${slug}/${i.id}`}>
                 <Thumb id={i.image_file_ids?.[0]} name={i.name} />
               </Link>
             )}
             <div className="text-[length:var(--text-md)] font-semibold">{i.name}</div>
-            <div className="text-muted">v{i.version}</div>
+            <div className="flex items-center gap-2 text-muted">
+              {i.brand_ids?.map((id) => {
+                const b = brands?.find((x) => x.id === id);
+                return b && <span key={id} title={b.name} className="size-2.5 rounded-full" style={{ background: b.colours?.[0] || "var(--accent)" }}><span className="sr-only">{b.name}</span></span>;
+              })}
+              v{i.version}
+              {archived && <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs">Archived</span>}
+            </div>
             {archived && (
               <div className="flex gap-3">
                 <button className={linkText} aria-label={`Unarchive ${i.name}`} onClick={() => unarchive.mutate(i.id)}>
@@ -114,11 +123,12 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
   );
 }
 
-function Thumb({ id, name }: { id?: number; name: string }) {
+function Thumb({ id, name, faded }: { id?: number; name: string; faded?: boolean }) {
+  const fade = faded ? " opacity-60" : "";
   return id ? (
-    <img src={fileUrl(id)} alt={name} className="aspect-square w-full rounded-md border border-border bg-surface-2 object-cover" />
+    <img src={fileUrl(id)} alt={name} className={`aspect-square w-full rounded-md border border-border bg-surface-2 object-cover${fade}`} />
   ) : (
-    <div className="grid aspect-square w-full place-items-center rounded-md border border-border bg-surface-2 text-muted">No image</div>
+    <div className={`grid aspect-square w-full place-items-center rounded-md border border-border bg-surface-2 text-muted${fade}`}>No image</div>
   );
 }
 
