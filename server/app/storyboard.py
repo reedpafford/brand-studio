@@ -4,12 +4,13 @@ them before any still is rendered."""
 
 import json
 
+from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, project_context, screens_of
-from app.images import image_model_block
+from app.images import image_job_input, image_model_block
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
@@ -100,3 +101,27 @@ def save_frames(db: Session, job: Job) -> None:
                 problems=frame_problems(db, project, f),
             )
         )
+
+
+def render_input(db: Session, project: Project, frame: StoryboardFrame) -> dict:
+    """The Nano Banana job for one frame's still: the project's aspect ratio (always sent),
+    character sheets first, then the place, props and screens, in the frame's order."""
+    known = assets(db, project)
+    characters, objects = [], []
+    for ref in frame.reference_ids:
+        if ref not in known:
+            raise HTTPException(409, f"{ref} is no longer part of this project. Edit the frame.")
+        files = known[ref][1][:1]  # an item's first picture is its sheet / main reference
+        (characters if ref.startswith("char:") else objects).extend(files)
+    job = image_job_input(
+        image_model(), frame.prompt, project.aspect_ratio, characters=characters, objects=objects
+    )
+    return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id}
+
+
+def save_still(db: Session, job: Job) -> None:
+    """Attach the rendered still to its frame (if the frame still exists)."""
+    frame = db.get(StoryboardFrame, job.input["frame_id"])
+    file_ids = (job.output or {}).get("file_ids") or []
+    if frame and file_ids:
+        frame.file_id = file_ids[0]
