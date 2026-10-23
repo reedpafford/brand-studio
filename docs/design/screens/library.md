@@ -35,16 +35,16 @@ Videos only ever use an **approved sheet**. Photos you upload are source materia
 
 **Flow for a character:**
 1. **Upload a photo.** It shows labelled "Source photo, not used in videos" (muted caption under the image).
-2. Straight after the upload, a card appears under it: "Turn this photo into a house-style sheet?" with **[Make house-style sheet · 3 credits]**. It's offered, not started automatically, so the cost is always seen before it's spent. Over the weekly allowance the button reads "Ask Reed to approve · 3 credits".
-3. **Drawing:** a sheet-shaped skeleton next to the photo with "Drawing…". The button is disabled with the reason "A sheet is being made."
-4. **Result:** the sheet (front · side · back, house style, 9:16) next to the photo, with **[Approve]** and **[Redo · 3 credits]**. Redo opens "What should change? (optional)", inline on desktop and in a bottom sheet on phones.
+2. Straight after the upload, a card appears under it: "Turn this photo into a house-style sheet?" with **[Make house-style sheet · 1.5 credits]**. It's offered, not started automatically, so the cost is always seen before it's spent. Over the weekly allowance the button reads "Ask Reed to approve · 1.5 credits".
+3. **Drawing:** a sheet-shaped skeleton next to the photo with "Drawing…". The button is disabled with the reason "A sheet is being made." If the sheet is waiting for Reed (past the weekly allowance), show the warning badge "Waiting for Reed to approve" instead of the skeleton.
+4. **Result:** the sheet (front · side · back, house style, 9:16) next to the photo, with **[Approve]** and **[Redo · 1.5 credits]**. Redo opens "What should change? (optional)", inline on desktop and in a bottom sheet on phones.
 5. **Approve:** the sheet gets a 2px accent border and "✓ Approved sheet". It's saved as a new version ("v4 · sheet approved") with a toast and Undo. This sheet is what storyboards and clips use. Approving a new one replaces the old one.
 
 ```
 │ ┌ Images ─────────────────────────────────────────────┐
 │ │ [photo]                 [sheet: front|side|back]    │
 │ │ Source photo,           ✓ Approved sheet            │
-│ │ not used in videos      [Redo · 3 credits]          │
+│ │ not used in videos      [Redo · 1.5 credits]        │
 │ └─────────────────────────────────────────────────────┘
 ```
 - **Without an approved sheet:**

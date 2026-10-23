@@ -11,8 +11,8 @@ Summary: <the idea in one sentence: who does what, where; add nothing that isn't
 Style: <Pixar-style 3D animation, big glossy eyes, soft subsurface skin, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions; plus a few words for the direction>.
 Setting: <the look: palette, visible light, depth, background people>.
 Shots (hard cuts):
-Shot 1 | 0–2 s. <size, angle, one camera move>. <what happens, big and readable>. <Name (how it's said): "words">
-Shot 2 | 2–3 s. <or "Two quick cuts: …; then …" for beats shorter than a second>
+Shot 1 | 0-2 s. <size, angle, one camera move>. <what happens, big and readable>. <Name (how it's said): "words">
+Shot 2 | 2-3 s. <or "Two quick cuts: …; then …" for beats shorter than a second>
 Keep: <each character as in their [ImageN], one of each; each screen or product exactly as its [ImageN]>.
 Audio: <the same line as the first>
 ```
