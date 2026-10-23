@@ -405,6 +405,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/{kind}/{item_id}/sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Sheet
+         * @description Queue a sheet (a paid image job). It is drawn from the source photo when there is one
+         *     (attached as image 1), else from the notes; a redo also attaches the last sheet.
+         */
+        post: operations["make_sheet_library__kind___item_id__sheet_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/{kind}/{item_id}/sheet/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve
+         * @description ✓ Approve the sheet: from now on it is what storyboards and clips use.
+         */
+        post: operations["approve_library__kind___item_id__sheet_approve_post"];
+        /** Unapprove */
+        delete: operations["unapprove_library__kind___item_id__sheet_approve_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -1651,6 +1693,8 @@ export interface components {
             outfits: components["schemas"]["Outfit"][];
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Source Photo File Id */
+            source_photo_file_id?: number | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -1678,11 +1722,20 @@ export interface components {
             outfits: components["schemas"]["Outfit"][];
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Source Photo File Id */
+            source_photo_file_id?: number | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
+            /** Sheet File Id */
+            sheet_file_id: number | null;
+            /**
+             * Sheet Status
+             * @enum {string}
+             */
+            sheet_status: "none" | "drawing" | "needs_approval" | "approved";
         };
         /**
          * ItemPatch
@@ -1701,6 +1754,8 @@ export interface components {
             outfits?: components["schemas"]["Outfit"][] | null;
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Source Photo File Id */
+            source_photo_file_id?: number | null;
         };
         /**
          * JobDetailOut
@@ -1740,6 +1795,8 @@ export interface components {
             frame_id?: number | null;
             /** Project Clip Id */
             project_clip_id?: number | null;
+            /** Library Item Id */
+            library_item_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1794,6 +1851,8 @@ export interface components {
             frame_id?: number | null;
             /** Project Clip Id */
             project_clip_id?: number | null;
+            /** Library Item Id */
+            library_item_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1817,8 +1876,6 @@ export interface components {
         Kind: "character" | "place" | "prop";
         /** LimitsIn */
         LimitsIn: {
-            /** Max Planned Seconds */
-            max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number | string;
             /** Per Video Max Credits */
@@ -1826,8 +1883,6 @@ export interface components {
         };
         /** LimitsOut */
         LimitsOut: {
-            /** Max Planned Seconds */
-            max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number;
             /** Per Video Max Credits */
@@ -2270,6 +2325,20 @@ export interface components {
             name: string;
             /** Password */
             password: string;
+        };
+        /** SheetIn */
+        SheetIn: {
+            /**
+             * Model Id
+             * @default nano-banana-pro
+             * @enum {string}
+             */
+            model_id: "nano-banana-pro" | "nano-banana-2.1";
+            /**
+             * Change
+             * @default
+             */
+            change: string;
         };
         /** Shot */
         Shot: {
@@ -3377,6 +3446,106 @@ export interface operations {
                 kind: components["schemas"]["Kind"];
                 item_id: number;
                 version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_sheet_library__kind___item_id__sheet_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SheetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_library__kind___item_id__sheet_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unapprove_library__kind___item_id__sheet_approve_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
             };
             cookie?: never;
         };

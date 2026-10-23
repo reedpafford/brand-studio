@@ -51,3 +51,42 @@ def test_unknown_variant_is_refused(editor):
     assert (r.status_code, r.json()["detail"]) == (422, "bag comes in: Chicken, Peanut butter.")
     r = editor.patch(f"/projects/{project}", json={"product_variants": {"can": "Chicken"}})
     assert r.status_code == 422 and r.json()["detail"] == "can comes in: none."
+
+
+FOMO_END = "Want to trade like me? Download fomo through the link in my bio."
+
+
+def test_breakdown_checks_get_the_brands_end_line(db, owner, editor, monkeypatch):
+    from app import breakdown
+    from app.prompts.schemas import Breakdown
+    from tests.test_breakdown import BREAKDOWN
+
+    fomo = owner.get("/brands").json()[0]
+    assert fomo["end_line"] == FOMO_END
+    project = editor.post(
+        "/projects", json={"brand_id": fomo["id"], "name": "Dip", "planned_seconds": 20}
+    ).json()["id"]
+    seen = {}
+
+    def check_breakdown(script, bd, screens, min_s, max_s, end_line=""):
+        seen["end_line"] = end_line
+        return ["the script doesn't end on the brand's end line"] if end_line else []
+
+    monkeypatch.setattr(breakdown.check, "breakdown", check_breakdown)
+    found = breakdown.problems(
+        db, db.get(Project, project), "A\nB", Breakdown.model_validate(BREAKDOWN)
+    )
+    assert seen["end_line"] == FOMO_END
+    assert "the script doesn't end on the brand's end line" in found
+
+
+def test_seed_fills_an_empty_end_line(app, db, owner):
+    from app.models.brands import Brand
+    from app.seed import seed_brands
+
+    fomo = db.query(Brand).filter_by(slug="fomo").one()
+    fomo.end_line = ""  # a brand made before end lines existed
+    db.commit()
+    seed_brands(db, fomo.workspace_id, app.state.storage)
+    db.refresh(fomo)
+    assert fomo.end_line == FOMO_END

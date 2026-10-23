@@ -16,6 +16,7 @@ dependencies = [
     "anthropic>=2.2.0",
     "pillow>=13.0.0",
     "mutagen>=1.48.1",
+    "psycopg[binary]>=3.2",
 ]
 
 [dependency-groups]

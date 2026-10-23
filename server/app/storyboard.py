@@ -19,6 +19,7 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Frame, StoryboardFrames
+from app.sheets import require_cast_sheets, require_sheet, usable_files
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
@@ -43,7 +44,7 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         if item.kind != Kind.character and not in_brand:
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
-        out[key] = (f"{key} | {item.kind} | {item.name} | {item.notes}", item.image_file_ids)
+        out[key] = (f"{key} | {item.kind} | {item.name} | {item.notes}", usable_files(item))
     brand = db.get(Brand, project.brand_id)
     for s in project_screens(db, project):
         product = "product" in s.tags  # e.g. the Iron Paws bag: shown as a product, no face
@@ -110,11 +111,15 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     """The Nano Banana job for one frame's still: the project's aspect ratio (always sent),
     character sheets first, then the place, props and screens, in the frame's order."""
     known = assets(db, project)
+    breakdown = db.get(BreakdownVersion, frame.breakdown_id)
+    require_cast_sheets(db, breakdown.data, [frame.shot_id])
     characters, objects = [], []
     for ref in frame.reference_ids:
         if ref not in known:
             raise HTTPException(409, f"{ref} is no longer part of this project. Edit the frame.")
-        files = known[ref][1][:1]  # an item's first picture is its sheet / main reference
+        files = known[ref][1][:1]  # the approved sheet (characters, places) or main picture
+        if not files and ref.startswith(("char:", "place:")):
+            require_sheet(db.get(LibraryItem, int(ref.split(":")[1])))
         (characters if ref.startswith("char:") else objects).extend(files)
     prompt = f"{frame.prompt}\nChange from the last still: {note}" if note else frame.prompt
     job = image_job_input(

@@ -128,13 +128,16 @@ def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
         ("Chicken bag", ["bag", "product"]),
         ("Peanut butter bag", ["bag", "peanut-butter", "product"]),
     ]
+    assert [(s["product"], s["variant"]) for s in bag] == [
+        ("bag", "Chicken"),
+        ("bag", "Peanut butter"),
+    ]
     end = {b["slug"]: b["end_line"] for b in client.get("/brands").json()}
     assert end == {
         "fomo": "Want to trade like me? Download fomo through the link in my bio.",
         "iron-paws": "",
     }
     assert "feeding" in bag[0]["default_for"]
-    assert (bag[0]["product"], bag[0]["variant"]) == ("bag", "Chicken")
     file = client.get(f"/files/{bag[0]['file_id']}")
     assert file.headers["content-type"] == "image/webp"
     moment = client.get(f"/brands/{brands['iron-paws']}/screens", params={"moment": "feeding"})

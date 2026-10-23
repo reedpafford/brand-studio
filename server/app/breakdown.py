@@ -1,12 +1,15 @@
 """Breakdown: Claude turns the working script into scenes, shots and clips. The answer is
 checked (`check.breakdown`) and saved with its problems so the editor sees what to fix."""
 
+from inspect import signature
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import prompts
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, project_context, project_screens
+from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
@@ -67,7 +70,10 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
 def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
     screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
     m = video_model()
-    found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max)
+    end_line = db.get(Brand, project.brand_id).end_line
+    # The Director's check takes the brand's end line (#107); older checks don't yet.
+    extra = {"end_line": end_line} if "end_line" in signature(check.breakdown).parameters else {}
+    found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     return found + unknown_ids(db, project, bd)
 
 

@@ -34,7 +34,7 @@ export function NewProjectPage() {
   const chosen = (product: string) => picks[product] ?? (products.get(product)?.length === 1 ? products.get(product)![0].variant : undefined);
   const unchosen = [...products.keys()].find((p) => !chosen(p));
   const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
-  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 170; // budget is 2x the 480p seconds
+  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 364; // budget is 2x the 480p seconds
 
   const upload = useMutation({ mutationFn: uploadFile, onSuccess: (f) => setReference(f.id) });
   const create = useMutation({

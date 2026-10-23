@@ -41,9 +41,12 @@ def seed_brands(db: Session, workspace_id: int, storage: Storage, assets_dir: st
     `assets_dir/<folder>/screens` when that folder exists."""
     for name in LAUNCH_BRANDS:
         slug = slugify(name)
-        if not db.scalar(
+        brand = db.scalar(
             select(Brand).where(Brand.workspace_id == workspace_id, Brand.slug == slug)
-        ):
+        )
+        if brand and not brand.end_line and END_LINES.get(name):
+            brand.end_line = END_LINES[name]  # a brand made before end lines existed
+        if not brand:
             db.add(
                 Brand(
                     workspace_id=workspace_id,
