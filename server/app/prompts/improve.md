@@ -15,7 +15,7 @@ Shots (hard cuts):
 Audio: <the same line as the first>
 ```
 
-- Use the number of shots in the brief, timed with decimals so they add up to the clip's seconds. Open on the most striking moment of the idea.
+- Use the number of shots in the brief, timed with decimals so they add up to the clip's seconds. Keep the idea's order of events; make the first shot grab with a close camera or a big reaction on the first beat.
 - Dialogue is `Name (how it's said): "words"`, word for word from the idea, each line once. In a dialogue shot with others in frame, the others keep their mouths closed. If the idea has no dialogue, don't add any.
 - Every attached screen or product is shown: the phone (or the bag) fills the frame, held still and flat-on, and shows [ImageN] exactly. Never describe its content in your own words.
 - Show emotion through face and body, never as light in the eyes; one camera move per shot, in standard terms (close-up, push in, pull out, pan, track, orbit, low angle, overhead, handheld).

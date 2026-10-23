@@ -135,8 +135,9 @@ def improve(
     lines = prompt.splitlines()
     problems = []
     said = [_words(q) for q in QUOTED.findall(prompt)]
-    for quote in QUOTED.findall(idea):
-        if said.count(_words(quote)) != 1:
+    asked = [_words(q) for q in QUOTED.findall(idea)]
+    for quote in dict.fromkeys(QUOTED.findall(idea)):
+        if said.count(_words(quote)) != asked.count(_words(quote)):
             problems.append(f"the line “{quote}” isn't there once, word for word")
     if not (AUDIO_LINE.match(lines[0]) and lines[-1] == lines[0]):
         problems.append("doesn't open and close with the same audio line")
@@ -147,6 +148,11 @@ def improve(
     times = [(float(a), float(b)) for a, b in SHOT_LINE.findall(prompt)]
     if len(times) != shots:
         problems.append(f"{len(times)} shots, the brief asks for {shots}")
+    starts = [0.0] + [end for _, end in times[:-1]]
+    if any(
+        abs(start - expected) > 0.05 for (start, _), expected in zip(times, starts, strict=False)
+    ):
+        problems.append("shot times have gaps or overlaps")
     if times and abs(times[-1][1] - seconds) > 0.05:
         problems.append(f"shots end at {times[-1][1]} s, the clip is {seconds} s")
     return problems

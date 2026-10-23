@@ -170,6 +170,15 @@ def test_improve_keeps_the_editors_words_and_the_reference_lines():
     idea = re.search(r"<idea>(.*)</idea>", ex["input"], re.S).group(1)
     refs = re.search(r"<references>(.*)</references>", ex["input"], re.S).group(1)
     assert check.improve(idea, result, refs, 4, 8) == []
+    twice = idea + ' Then again: "I bought it at six cents."'
+    callback = result.prompt.replace(
+        "holds the stare.", 'holds the stare. Leo: "I bought it at six cents."'
+    )
+    assert check.improve(twice, schemas.ImprovedPrompt(prompt=callback), refs, 4, 8) == []
+    gap = result.prompt.replace("2. 2.4–4.0 s.", "2. 2.6–4.0 s.")
+    assert check.improve(idea, schemas.ImprovedPrompt(prompt=gap), refs, 4, 8) == [
+        "shot times have gaps or overlaps"
+    ]
     result.prompt = result.prompt.replace("six cents", "6 cents").replace(refs, "[Image1] is Leo.")
     assert check.improve(idea, result, refs, 3, 8) == [
         "the line “I bought it at six cents.” isn't there once, word for word",
