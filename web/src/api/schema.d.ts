@@ -638,6 +638,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project Estimate */
+        get: operations["project_estimate_projects__project_id__estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/models": {
         parameters: {
             query?: never;
@@ -1973,6 +1990,17 @@ export interface components {
             /** Stale */
             stale: boolean;
         };
+        /** ProjectEstimateOut */
+        ProjectEstimateOut: {
+            /** Stages */
+            stages: components["schemas"]["StageOut"][];
+            /** Remaining Credits */
+            remaining_credits: number;
+            /** Used Credits */
+            used_credits: number;
+            /** Budget Credits */
+            budget_credits: number;
+        };
         /** ProjectIn */
         ProjectIn: {
             /** Goal */
@@ -2282,6 +2310,17 @@ export interface components {
              * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
+        };
+        /** StageOut */
+        StageOut: {
+            /** Stage */
+            stage: string;
+            /** Done */
+            done: boolean;
+            /** Credits */
+            credits: number;
+            /** Note */
+            note: string;
         };
         /** StoryboardIn */
         StoryboardIn: {
@@ -3811,6 +3850,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AllowanceOut"];
+                };
+            };
+        };
+    };
+    project_estimate_projects__project_id__estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectEstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
