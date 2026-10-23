@@ -1,0 +1,130 @@
+{
+ "Input": {
+  "properties": {
+   "aspect_ratio": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/aspect_ratio"
+     }
+    ],
+    "default": "match_input_image",
+    "description": "Aspect ratio of the generated image",
+    "x-order": 2
+   },
+   "google_search": {
+    "default": false,
+    "description": "Use Google Web Search grounding to generate images based on real-time information (e.g. weather, sports scores, recent events).",
+    "title": "Google Search",
+    "type": "boolean",
+    "x-order": 4
+   },
+   "image_input": {
+    "default": [],
+    "description": "Input images to transform or use as reference (supports up to 14 images)",
+    "items": {
+     "format": "uri",
+     "type": "string"
+    },
+    "title": "Image Input",
+    "type": "array",
+    "x-order": 1
+   },
+   "image_search": {
+    "default": false,
+    "description": "Use Google Image Search grounding to find web images as visual context for generation. When enabled, web search is also used automatically.",
+    "title": "Image Search",
+    "type": "boolean",
+    "x-order": 5
+   },
+   "output_format": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/output_format"
+     }
+    ],
+    "default": "jpg",
+    "description": "Format of the output image",
+    "x-order": 6
+   },
+   "prompt": {
+    "description": "A text description of the image you want to generate",
+    "title": "Prompt",
+    "type": "string",
+    "x-order": 0
+   },
+   "resolution": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/resolution"
+     }
+    ],
+    "default": "1K",
+    "description": "Resolution of the generated image. Higher resolutions take longer to generate.",
+    "x-order": 3
+   }
+  },
+  "required": [
+   "prompt"
+  ],
+  "title": "Input",
+  "type": "object"
+ },
+ "enums": {
+  "Status": {
+   "description": "An enumeration.",
+   "enum": [
+    "starting",
+    "processing",
+    "succeeded",
+    "canceled",
+    "failed"
+   ],
+   "title": "Status",
+   "type": "string"
+  },
+  "aspect_ratio": {
+   "description": "An enumeration.",
+   "enum": [
+    "match_input_image",
+    "1:1",
+    "1:4",
+    "1:8",
+    "2:3",
+    "3:2",
+    "3:4",
+    "4:1",
+    "4:3",
+    "4:5",
+    "5:4",
+    "8:1",
+    "9:16",
+    "16:9",
+    "21:9"
+   ],
+   "title": "aspect_ratio",
+   "type": "string"
+  },
+  "output_format": {
+   "description": "An enumeration.",
+   "enum": [
+    "jpg",
+    "png"
+   ],
+   "title": "output_format",
+   "type": "string"
+  },
+  "resolution": {
+   "description": "An enumeration.",
+   "enum": [
+    "1K",
+    "2K",
+    "4K"
+   ],
+   "title": "resolution",
+   "type": "string"
+  }
+ },
+ "fetched": "2026-10-23",
+ "model": "google/nano-banana-2.1",
+ "version": "157dff0de6db8f9a2613eefdcceab8767c86c1d50dcfea43e8fdf7a2a016b8cf"
+}

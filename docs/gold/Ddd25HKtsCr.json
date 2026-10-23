@@ -1,0 +1,210 @@
+{
+ "id": "Ddd25HKtsCr",
+ "account": "mussy.02",
+ "views": "",
+ "url": "https://www.instagram.com/reel/Ddd25HKtsCr/",
+ "duration_seconds": 21.33,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A young man shut out of home discovers paid streamer clipping, tries it from his bedroom, and reacts in disbelief when he says he has earned forty thousand dollars in a month.",
+ "tags": [
+  "home",
+  "bedroom",
+  "eviction",
+  "clipping",
+  "hustle",
+  "business",
+  "rags-to-riches",
+  "glow-up",
+  "emotional",
+  "comedic"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.24",
+  "mechanic": "A young man stumbles out of a house beside a tumbling bag, followed by a shut door and his stunned reaction as an unseen speaker delivers an ultimatum.",
+  "first_line": "Don't look back until you figure something out."
+ },
+ "moment": "10.67-13.84: A tight close-up catches the Hero's enormous grin before a wider view shows him gripping his hair with both hands. He exclaims, \"No way!\" and asks, \"I just made 40 grand this month?\" The jump from rejection to visibly overwhelmed disbelief delivers the payoff.",
+ "stats": {
+  "shots": 12,
+  "live_shots_skipped": 8,
+  "animated_seconds": 15.93,
+  "avg_shot_seconds": 1.33,
+  "median_shot_seconds": 1.22,
+  "longest_shot_seconds": 2.7,
+  "shots_under_1s": 6,
+  "spoken_lines": 7,
+  "words_per_second_while_speaking": 4.2,
+  "speech_share_of_runtime": 0.68
+ },
+ "cut_times": [
+  0.67,
+  1.13,
+  2.87,
+  3.4,
+  3.73,
+  6.07,
+  6.5,
+  8.03,
+  10.67,
+  12.33,
+  15.03,
+  15.93,
+  16.4,
+  17.0,
+  17.67,
+  18.5,
+  19.33,
+  19.77,
+  20.43
+ ],
+ "live_shots": [
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 1.13,
+   "beat": "hook",
+   "what_happens": "The Hero exits the house awkwardly beside a falling bag, and the next shot isolates the closed front door.",
+   "emotion": "His hunched body and startled face convey sudden rejection.",
+   "camera": "Low exterior medium-wide view, then a tight view of the door.",
+   "cuts": "Two short shots lasting 0.67s and 0.46s."
+  },
+  {
+   "start": 1.13,
+   "end": 2.87,
+   "beat": "low",
+   "what_happens": "The Hero sits outside the door and looks down toward the phone in his hand.",
+   "emotion": "Drooping eyelids, parted lips, and rounded shoulders show discouragement.",
+   "camera": "Frontal medium shot with the door directly behind him.",
+   "cuts": "One 1.74s reaction hold lets the opening ultimatum land."
+  },
+  {
+   "start": 2.87,
+   "end": 3.73,
+   "beat": "setup",
+   "what_happens": "Close views of his phone lead into an explanation of earning money from streamer clips.",
+   "emotion": "His attention shifts toward a possible solution.",
+   "camera": "Over-the-lap phone inserts framed by both hands.",
+   "cuts": "Two rapid inserts lasting 0.53s and 0.33s."
+  },
+  {
+   "start": 3.73,
+   "end": 6.5,
+   "beat": "turn",
+   "what_happens": "He watches a curly-haired presenter explain that campaigns can pay for clip views.",
+   "emotion": "The presenter looks directly toward the viewer with an approachable, matter-of-fact expression.",
+   "camera": "Landscape phone view containing a medium close-up of the presenter, followed by a tighter phone framing.",
+   "cuts": "A 2.34s explanation shot followed by a 0.43s closer view."
+  },
+  {
+   "start": 6.5,
+   "end": 8.03,
+   "beat": "reveal",
+   "what_happens": "Now seated in a blue-lit bedroom, the Hero looks at his phone and asks whether this is really possible.",
+   "emotion": "Raised brows, wide eyes, and an open mouth turn discouragement into curious disbelief.",
+   "camera": "Medium shot showing his seated posture and phone held near his chest.",
+   "cuts": "One 1.53s reaction shot carries the entire question."
+  },
+  {
+   "start": 8.03,
+   "end": 10.67,
+   "beat": "montage",
+   "what_happens": "A close insert shows an editing timeline with an oversized pair of scissors poised above it.",
+   "emotion": "The task-focused insert creates anticipation while the Hero's response is withheld.",
+   "camera": "Tight angled view of the editing workspace.",
+   "cuts": "One 2.64s process insert creates a sustained beat before the payoff."
+  },
+  {
+   "start": 10.67,
+   "end": 15.03,
+   "beat": "payoff",
+   "what_happens": "The Hero beams toward the camera, then grabs his hair as he questions his forty-thousand-dollar month.",
+   "emotion": "A huge smile gives way to wide-eyed shock, with both hands pressed against his head.",
+   "camera": "Extreme facial close-up followed by a wider seated medium shot.",
+   "cuts": "A 1.66s facial reaction cuts to a 2.7s hold on his hands-to-head disbelief."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Unseen household member",
+   "text": "Don't look back until you figure something out.",
+   "delivery": "Firm and projected at a steady conversational pace, with a dismissive, admonishing tone; louder than the explanation that follows."
+  },
+  {
+   "t": 2.4,
+   "speaker": "Phone presenter",
+   "text": "You can clip streamers and get paid for the views.",
+   "delivery": "Relatively quiet and very fast, packing the proposition into a snappy, matter-of-fact explanation."
+  },
+  {
+   "t": 4.1,
+   "speaker": "Phone presenter",
+   "text": "Some campaigns pay around $1,000 for a million views.",
+   "delivery": "Slightly stronger projection and a more measured pace, emphasizing the payment figure."
+  },
+  {
+   "t": 6.64,
+   "speaker": "Hero",
+   "text": "Wait, you can do this?",
+   "delivery": "Moderately projected, with a startled opening and rising questioning pitch matching his widened eyes."
+  },
+  {
+   "t": 10.58,
+   "speaker": "Hero",
+   "text": "No way!",
+   "delivery": "A loud, emphatic burst after a 2.64-second pause, with excited disbelief."
+  },
+  {
+   "t": 11.96,
+   "speaker": "Hero",
+   "text": "I just made 40 grand this month?",
+   "delivery": "Excited and projected, easing slightly from the preceding exclamation and rising at the end in disbelief."
+  },
+  {
+   "t": 14.58,
+   "speaker": "Offscreen voice",
+   "text": "We'll be back.",
+   "delivery": "Loud, brisk, and emphatic after a 0.74-second beat."
+  },
+  {
+   "t": 15.46,
+   "speaker": "Offscreen voice",
+   "text": "I'll tell the world they hate on me.",
+   "delivery": "Very loud and strongly projected, with a steady, assertive cadence."
+  },
+  {
+   "t": 19.24,
+   "speaker": "Offscreen voice",
+   "text": "They can smother like us.",
+   "delivery": "Loud and rhythmically measured after a 1.16-second pause; the wording is uncertain in the supplied transcript."
+  }
+ ],
+ "voice_arc": "The animated exchange begins with a firm ultimatum, drops into a quieter, especially rapid phone explanation, then shifts to the Hero's questioning surprise. A 2.64-second silence before his next line makes \"No way!\" feel explosive; his earnings question remains excited but slightly less loud. A louder offscreen voice enters near the end of the animated section.",
+ "camera_language": "The animation alternates expressive character reactions with tightly framed phone and editing inserts that make the opportunity concrete. The framing moves from exterior rejection to an intimate bedroom setting, then reserves its closest facial view for the Hero's delighted disbelief. Hard cuts compress discovery while longer holds give the explanation and payoff time to register.",
+ "why_it_works": "The opening makes the Hero's problem visible immediately through the bag, closed door, and slumped posture. Phone inserts provide a specific next action, while exaggerated eyes, mouth shapes, and hand gestures make the emotional reversal readable at a glance. The extended process insert delays the reaction just long enough for the sudden grin and loud exclamation to land.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within the first 2 seconds, the protagonist is physically thrown out of his house onto the street. High immediate conflict and sympathy draw viewers instantly.",
+  "turn": "At 0:06, the character realizes he can clip videos for $1,000/1M views, shifting instantly from hopeless victim to focused hustler.",
+  "payoff": "The character makes $40,000 in a month, surrounded by raining gold coins and modern luxury studio gear, followed by real-world luxury proof points.",
+  "why_it_works": "High-stakes emotional hook (getting kicked out creates instant tension). Clear, tangible side-hustle mechanic explained in plain English within 10 seconds. Pixar-style high-quality 3D animation makes the narrative visually appealing and universally accessible. Transition into real-life luxury proof clips bridges animated fiction with actionable real-world desire. Rapid pacing with dynamic captioni",
+  "camera": [
+   "Dynamic low-angle push-in on the opening door ejection at 0:00 to amplify dramatic stakes.",
+   "Tight CU push-in on character's eyes at 0:03 to capture emotional turn and intrigue.",
+   "Aggressive snap zoom at 0:06 when character hits his realization point.",
+   "Direct close-up hero shot at 0:10 creating intimacy during the breakthrough moment."
+  ],
+  "montages": []
+ }
+}

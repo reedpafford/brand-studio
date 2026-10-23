@@ -1,0 +1,355 @@
+{
+ "id": "Dd4sR29SBrA",
+ "account": "realjaypelle",
+ "views": "",
+ "url": "https://www.instagram.com/reel/Dd4sR29SBrA/",
+ "duration_seconds": 57.45,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A student punished for trading in class and warned by his mother that he will fail channels his frustration into relentless study, eventually becoming a confident businessman with a skyline office and waterfront home.",
+ "tags": [
+  "teacher",
+  "mom",
+  "school",
+  "home",
+  "office",
+  "trading",
+  "business",
+  "public-humiliation",
+  "prove-them-wrong",
+  "glow-up",
+  "rags-to-riches",
+  "defiant",
+  "motivational"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.2",
+  "mechanic": "A uniformed student stares at his laptop, exclaims “No way,” then throws both arms overhead with “Yes!” while a teacher stands behind him.",
+  "first_line": "No way."
+ },
+ "moment": "45.88-49.75: The school command “Office. Now.” returns as the grown hero leads a meeting beneath large financial charts, then stands confidently against floor-to-ceiling skyline windows. The repeated command makes his former place of punishment rhyme with his new position of authority.",
+ "stats": {
+  "shots": 43,
+  "live_shots_skipped": 4,
+  "animated_seconds": 54.57,
+  "avg_shot_seconds": 1.27,
+  "median_shot_seconds": 0.84,
+  "longest_shot_seconds": 4.98,
+  "shots_under_1s": 23,
+  "spoken_lines": 31,
+  "words_per_second_while_speaking": 4.6,
+  "speech_share_of_runtime": 0.37
+ },
+ "cut_times": [
+  0.38,
+  3.6,
+  6.33,
+  7.25,
+  10.78,
+  11.22,
+  11.7,
+  13.83,
+  14.63,
+  15.82,
+  18.0,
+  18.43,
+  18.68,
+  19.0,
+  19.32,
+  19.63,
+  20.47,
+  21.65,
+  23.52,
+  28.5,
+  29.1,
+  30.68,
+  31.43,
+  33.5,
+  36.63,
+  37.87,
+  39.85,
+  40.17,
+  40.42,
+  40.92,
+  41.25,
+  41.83,
+  42.17,
+  42.75,
+  43.5,
+  43.8,
+  45.88,
+  48.33,
+  49.75,
+  51.17,
+  52.55,
+  54.27,
+  54.57,
+  55.82,
+  56.58,
+  56.92
+ ],
+ "live_shots": [
+  44,
+  45,
+  46,
+  47
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 3.6,
+   "beat": "hook",
+   "what_happens": "A student celebrates something on his classroom laptop before a teacher challenges him.",
+   "emotion": "His concentrated stare bursts into wide-eyed joy, open mouth and raised arms.",
+   "camera": "Front-facing medium classroom framing with the laptop foregrounded and the teacher behind him.",
+   "cuts": "One cut at 0.38, followed by a 3.22-second hold."
+  },
+  {
+   "start": 3.6,
+   "end": 7.25,
+   "beat": "setup",
+   "what_happens": "The student turns toward the teacher with a rising chart visible on his laptop and is ordered to the office.",
+   "emotion": "He gives a tentative sideways smile, then rises from his desk under the teacher's clipped commands.",
+   "camera": "Over-the-shoulder medium shot toward the student and laptop, then a wider classroom view as he stands.",
+   "cuts": "Two shots lasting 2.73 and 0.92 seconds."
+  },
+  {
+   "start": 7.25,
+   "end": 13.83,
+   "beat": "doubt",
+   "what_happens": "The principal confronts the student about trading, rejects his claim that he made money and assigns detention.",
+   "emotion": "The principal scowls and points across the desk while the student's defensive expression hardens.",
+   "camera": "Office establishing view, alternating facial close-ups, then a desk-level two-shot with the principal pointing.",
+   "cuts": "Five shots, including two sharp reaction shots under half a second."
+  },
+  {
+   "start": 13.83,
+   "end": 21.65,
+   "beat": "low",
+   "what_happens": "The student walks in a circle with other pupils around a supervising adult until detention ends.",
+   "emotion": "His sideways glance and tightened brows show irritation; the repeated steps make the punishment feel mechanical.",
+   "camera": "High overhead courtyard views alternate with low shoe inserts and a close side view of the walking students.",
+   "cuts": "Ten shots; five consecutive shots between 18.0 and 19.63 last only 0.25-0.43 seconds."
+  },
+  {
+   "start": 21.65,
+   "end": 26.94,
+   "beat": "turn",
+   "what_happens": "The student receives his laptop back, returns to its screen and checks his phone outside.",
+   "emotion": "His bright, absorbed smile suggests that the punishment has not extinguished his interest.",
+   "camera": "Standing office two-shot, frontal laptop close-up, then an exterior medium shot with his phone.",
+   "cuts": "A 0.6-second transition leads into a 1.58-second laptop shot and the opening of a longer exterior hold."
+  },
+  {
+   "start": 26.94,
+   "end": 33.5,
+   "beat": "doubt",
+   "what_happens": "His mother confronts him about the school's call and warns that his behavior will prevent success.",
+   "emotion": "Mom's raised inner brows convey worried disapproval while he looks down at the laptop and then meets her with a stubborn frown.",
+   "camera": "The exterior phone shot carries the opening line before alternating home close-ups across the laptop.",
+   "cuts": "The 4.98-second exterior shot ends at 28.5, followed by four reaction shots lasting 0.6-2.07 seconds."
+  },
+  {
+   "start": 33.5,
+   "end": 39.85,
+   "beat": "low",
+   "what_happens": "Alone at his laptop, the student faces a trading chart and sinks into a distressed nighttime reaction.",
+   "emotion": "A subdued “Yeah” gives way to knitted brows, a tense mouth and hands planted near the computer.",
+   "camera": "Dim frontal face close-up, a tight chart insert, then a medium view of him hunched over the desk.",
+   "cuts": "Three shots lasting 3.13, 1.24 and 1.98 seconds."
+  },
+  {
+   "start": 39.85,
+   "end": 45.88,
+   "beat": "montage",
+   "what_happens": "He studies books and fills notebooks beside his laptop through changing daylight and nighttime conditions.",
+   "emotion": "His lowered head and fixed gaze turn frustration into concentration, ending with a small, confident smile.",
+   "camera": "Repeated medium close desk compositions emphasize writing hands, turning pages and his intent face.",
+   "cuts": "Nine shots; eight compressed study shots precede a 2.08-second hold on his smiling reaction."
+  },
+  {
+   "start": 45.88,
+   "end": 51.17,
+   "beat": "payoff",
+   "what_happens": "Now dressed in black, the grown hero directs a business meeting and walks through a polished modern workplace.",
+   "emotion": "Upright posture, relaxed shoulders and purposeful gestures replace his earlier defensive stiffness.",
+   "camera": "Wide boardroom view with financial displays, low-angle full-body skyline portrait, then a low shoe insert.",
+   "cuts": "Three shots lasting 2.45, 1.42 and 1.42 seconds."
+  },
+  {
+   "start": 51.17,
+   "end": 54.57,
+   "beat": "callback",
+   "what_happens": "The adult hero surveys a waterfront skyline from a furnished balcony as the earlier interrogation returns in the dialogue.",
+   "emotion": "His still, composed stance and soft smile suggest quiet satisfaction rather than another outburst.",
+   "camera": "Wide balcony profile followed by a close facial dissolve connecting his younger and older appearance, then a bright transition.",
+   "cuts": "Two held shots of 1.38 and 1.72 seconds end with a 0.3-second transition."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.82,
+   "speaker": "Hero",
+   "text": "No way.",
+   "delivery": "Clearly projected, moderately paced disbelief, pitch lifting as he looks at the laptop."
+  },
+  {
+   "t": 1.86,
+   "speaker": "Hero",
+   "text": "Yes!",
+   "delivery": "Louder, sharply punched celebration with rising pitch and an open-mouthed grin."
+  },
+  {
+   "t": 3.26,
+   "speaker": "Teacher",
+   "text": "What are you doing?",
+   "delivery": "Brisk, firm questioning after a one-second beat, with an accusatory rise."
+  },
+  {
+   "t": 4.42,
+   "speaker": "Hero",
+   "text": "Nothing.",
+   "delivery": "Extremely clipped, quick defensive denial at a clear conversational volume."
+  },
+  {
+   "t": 5.16,
+   "speaker": "Teacher",
+   "text": "Wait. Office. Now.",
+   "delivery": "Three separated commands; “Office” is quieter, then “Now” gains emphasis and speed."
+  },
+  {
+   "t": 8.5,
+   "speaker": "Principal",
+   "text": "You were trading stocks during class?",
+   "delivery": "Firm, measured accusation after nearly two seconds of silence, ending in an incredulous rise."
+  },
+  {
+   "t": 10.18,
+   "speaker": "Hero",
+   "text": "I made money.",
+   "delivery": "Loud, rushed and defensive, delivered as an immediate justification."
+  },
+  {
+   "t": 10.8,
+   "speaker": "Principal",
+   "text": "That's not the point.",
+   "delivery": "Rapid, lower-volume rebuttal with a decisive downward finish."
+  },
+  {
+   "t": 11.66,
+   "speaker": "Principal",
+   "text": "Detention. For all of it. You get this after.",
+   "delivery": "An emphatic sentence of punishment followed by two hurried clauses, with short pauses between them."
+  },
+  {
+   "t": 14.48,
+   "speaker": "Principal",
+   "text": "Step, step, step.",
+   "delivery": "Evenly spaced, rhythmic instruction at moderate volume after a held beat."
+  },
+  {
+   "t": 15.92,
+   "speaker": "Hero",
+   "text": "Do we seriously just walk?",
+   "delivery": "Fast, incredulous complaint with a questioning lift and irritated sideways look."
+  },
+  {
+   "t": 16.92,
+   "speaker": "Principal",
+   "text": "No talking.",
+   "delivery": "Sharper and louder than the complaint, clipped into a flat command."
+  },
+  {
+   "t": 21.0,
+   "speaker": "Principal",
+   "text": "Time's up.",
+   "delivery": "Measured, matter-of-fact release after a 3.66-second speech gap."
+  },
+  {
+   "t": 26.94,
+   "speaker": "Mom",
+   "text": "We got a call from school. You got detention over stocks?",
+   "delivery": "Relatively quiet, worried questioning; the first clause moves briskly and the second slows into disbelief."
+  },
+  {
+   "t": 30.04,
+   "speaker": "Hero",
+   "text": "I made money.",
+   "delivery": "Noticeably louder than Mom, rushed and insistently defensive, repeating his earlier justification."
+  },
+  {
+   "t": 30.66,
+   "speaker": "Mom",
+   "text": "That's not the point.",
+   "delivery": "Quick, firm correction with stronger projection than her opening question."
+  },
+  {
+   "t": 31.6,
+   "speaker": "Mom",
+   "text": "If you keep getting in trouble like this, you're not going to be successful.",
+   "delivery": "Rapid, admonishing warning with little space between clauses and a final downward judgment."
+  },
+  {
+   "t": 34.1,
+   "speaker": "Hero",
+   "text": "Yeah.",
+   "delivery": "Brief and quieter, a subdued acknowledgment with little pitch movement."
+  },
+  {
+   "t": 38.24,
+   "speaker": "Teacher, recalled",
+   "text": "Office.",
+   "delivery": "Deliberate, isolated command after four seconds without speech."
+  },
+  {
+   "t": 42.48,
+   "speaker": "Mom, recalled",
+   "text": "You're not going to be successful.",
+   "delivery": "Firm, evenly projected warning, slower than the original reprimand and exposed by the preceding long pause."
+  },
+  {
+   "t": 44.84,
+   "speaker": "Hero",
+   "text": "Okay.",
+   "delivery": "The quietest measured line, slow and controlled after a one-second beat, matching his small smile."
+  },
+  {
+   "t": 47.14,
+   "speaker": "Teacher, recalled",
+   "text": "Office. Now.",
+   "delivery": "A measured first word followed by a short, quick command, separated by a distinct pause."
+  },
+  {
+   "t": 51.3,
+   "speaker": "Principal, recalled",
+   "text": "Do you understand?",
+   "delivery": "Firm, clearly projected questioning at a measured pace after a 3.18-second speech gap."
+  },
+  {
+   "t": 53.32,
+   "speaker": "Hero",
+   "text": "Yeah.",
+   "delivery": "Quiet, unhurried acknowledgment after a 1.1-second beat, now carrying composed confidence."
+  }
+ ],
+ "voice_arc": "The hero starts with projected excitement and repeatedly answers criticism with a louder, rushed “I made money.” Teacher and principal use clipped commands, while Mom begins more quietly before accelerating into her warning. During the study montage, isolated recalled judgments interrupt long speech gaps; his quiet “Okay” and final measured “Yeah” replace the earlier defensive bursts.",
+ "camera_language": "Vertical compositions anchor the hero behind a laptop, then alternate authority figures with tight facial reactions so each reprimand receives a visible response. Overhead courtyard circles and low shoe inserts turn detention into a repetitive physical routine; repeated desk angles compress sustained study through changes in light. The payoff expands into boardroom wides, a low-angle skyline portrait and a waterfront balcony view, with a facial dissolve linking student and adult.",
+ "why_it_works": "The repeated “I made money” gives the hero a consistent defense that both school and home reject, making the wound clear without lengthy explanation. Mechanical walking and rapid study cuts convert punishment into visible persistence. Returning “Office. Now.” over business success gives the same words a new meaning, while his quieter final responses make the transformation feel controlled.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within the first 2 seconds, the character experiences a massive stock market win right inside a classroom setting, immediately creating high emotional stakes.",
+  "turn": "The turning point occurs at 0:33 when his mother tells him he will never be successful, shifting his emotion from seeking approval to relentless self-driven determination.",
+  "payoff": "The payoff lands at 0:47 as he transitions into a adult CEO running a high-rise trading firm, echoing the 'Office. Now.' line on his own terms.",
+  "why_it_works": "Relatable underdog story of proving authority figures and doubters wrong. Fast pacing with punchy cuts every 1-2 seconds keeping high visual dynamic. Seamless integration of voiceover callbacks ('Office. Now') that transform from a punishment into a badge of honor.",
+  "camera": [
+   "Rapid push-in on the main character's victory reaction at 0:01.",
+   "Tight push-in framing on mouth and eyes during dramatic arguments at 0:11 and 0:29.",
+   "Wide high-angle static framing during the prison-like detention sequence at 0:14.",
+   "Slow, steady push-in during the late-night study grind sequence at 0:40 to build emotional focus."
+  ],
+  "montages": [
+   "{\"start\": \"0:35\", \"end\": \"0:45\", \"cuts\": 9, \"content\": \"Late-night studying at desk, chart crashing in red, head-in-hands panic, aggressive note-taking, lighting changing from night to early morning dusk as he smiles.\", \"style\": \"Fast match"
+  ]
+ }
+}

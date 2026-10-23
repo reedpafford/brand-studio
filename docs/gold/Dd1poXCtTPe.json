@@ -1,0 +1,267 @@
+{
+ "id": "Dd1poXCtTPe",
+ "account": "legendarydrec",
+ "views": "",
+ "url": "https://www.instagram.com/reel/Dd1poXCtTPe/",
+ "duration_seconds": 40.71,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A trader facing his girlfriend's departure nearly abandons his dream, until a supernatural guide shows him a defeated future and shocks him into returning to disciplined work.",
+ "tags": [
+  "girlfriend",
+  "home",
+  "office",
+  "trading",
+  "breakup",
+  "mentor",
+  "prove-them-wrong",
+  "glow-up",
+  "emotional",
+  "supernatural",
+  "future-self"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.1",
+  "mechanic": "A trader turns from his desk toward his departing girlfriend; the next shot puts him on one knee, pleading while she stands beside her suitcase.",
+  "first_line": "I'm leaving."
+ },
+ "moment": "18.46-21.62: The guide identifies the miserable office worker as the hero ten years from now. A tight, wide-eyed reaction leads into the hero clutching his head beside the relaxed guide; the quietly delivered prediction turns an anonymous failure into a personal threat.",
+ "stats": {
+  "shots": 27,
+  "live_shots_skipped": 8,
+  "animated_seconds": 33.29,
+  "avg_shot_seconds": 1.23,
+  "median_shot_seconds": 1.04,
+  "longest_shot_seconds": 3.83,
+  "shots_under_1s": 11,
+  "spoken_lines": 7,
+  "words_per_second_while_speaking": 3.6,
+  "speech_share_of_runtime": 0.58
+ },
+ "cut_times": [
+  1.46,
+  5.29,
+  5.67,
+  6.25,
+  7.75,
+  10.17,
+  11.25,
+  12.12,
+  12.92,
+  13.71,
+  16.17,
+  17.17,
+  18.46,
+  20.0,
+  20.42,
+  21.62,
+  22.38,
+  24.04,
+  25.04,
+  26.08,
+  26.67,
+  28.04,
+  28.92,
+  29.75,
+  30.54,
+  31.96,
+  33.29,
+  35.08,
+  35.58,
+  36.25,
+  36.96,
+  37.88,
+  38.29,
+  39.83
+ ],
+ "live_shots": [
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 5.29,
+   "beat": "hook",
+   "what_happens": "The girlfriend prepares to leave while the trader kneels and begs her to tell him how to save their relationship.",
+   "emotion": "His raised face and reaching hands show desperation; her upright stance keeps him physically beneath her.",
+   "camera": "Wide view of the cramped trading room, then a full-body two-shot framing his kneeling plea and her suitcase.",
+   "cuts": "One cut at 1.46s, followed by the longest hold in the video at 3.83s."
+  },
+  {
+   "start": 5.29,
+   "end": 7.75,
+   "beat": "low",
+   "what_happens": "A falling trading chart gives way to the trader looking down and crying as he dismisses his dream.",
+   "emotion": "Pinched brows, lowered eyes and a tear make his surrender visible.",
+   "camera": "Monitor insert, close-up of his downturned face, then a tighter tearful portrait.",
+   "cuts": "Three shots in 2.46s, with brief 0.38s and 0.58s shots before a 1.5s emotional hold."
+  },
+  {
+   "start": 7.75,
+   "end": 13.71,
+   "beat": "turn",
+   "what_happens": "While the couple sleeps, a glowing guide draws the hero's translucent double away and takes him above the city.",
+   "emotion": "The hero's double looks uncertain and attentive while the guide leans toward him with composed confidence.",
+   "camera": "Wide bedside view, supernatural two-shot, close facial detail, then a rear aerial view above city buildings.",
+   "cuts": "A 2.42s bedroom hold gives way to four shots lasting roughly 0.8-1.1s."
+  },
+  {
+   "start": 13.71,
+   "end": 17.17,
+   "beat": "reveal",
+   "what_happens": "The vision shows an older man pleading beside a woman in bed, then moves to a fluorescent office where he works alone.",
+   "emotion": "His clasped hands and strained smile suggest neediness; the woman lies turned away and watches him guardedly.",
+   "camera": "Medium-wide bedside composition followed by a high, wide view across office cubicles with the glowing observers above.",
+   "cuts": "A 2.46s bedside shot is followed by a 1s office reveal."
+  },
+  {
+   "start": 17.17,
+   "end": 21.62,
+   "beat": "doubt",
+   "what_happens": "The hero asks who the unhappy worker is, and the guide tells him he is looking at his own future.",
+   "emotion": "Curiosity becomes alarm through widened eyes, a dropped mouth and both hands pressed to his head.",
+   "camera": "Two-shot peering over a cubicle, closer guide-and-hero exchange, tight hero reaction, then a full-body two-shot.",
+   "cuts": "Four shots in 4.45s, including a sharp 0.42s reaction shot."
+  },
+  {
+   "start": 21.62,
+   "end": 25.04,
+   "beat": "low",
+   "what_happens": "The guide confronts the hero above a busy city street, the vision passes a solitary cleaner, and the hero recoils before waking in bed.",
+   "emotion": "The guide's open hands press his point; the hero covers his mouth and then bolts upright with frightened eyes.",
+   "camera": "Tilted airborne two-shot, deep hallway wide shot, extreme facial close-up, then a wider bedside wake-up.",
+   "cuts": "Four shots in 3.42s, alternating brief spectacle with longer dread."
+  },
+  {
+   "start": 25.04,
+   "end": 29.75,
+   "beat": "turn",
+   "what_happens": "The sweating hero gets out of bed, lets his girlfriend leave and returns to his desk.",
+   "emotion": "His anxious sideways glance gives way to an upright stance and a firmer, more resolved expression.",
+   "camera": "Sweaty face close-up, standing medium shot, hallway two-shot with the girlfriend at the door, then a seated desk view.",
+   "cuts": "Five shots in 4.71s; the departure exchange lasts 0.88s before cutting to his response at the desk."
+  },
+  {
+   "start": 29.75,
+   "end": 33.29,
+   "beat": "montage",
+   "what_happens": "The hero studies at his trading desk, writes in a notebook and monitors a rising chart.",
+   "emotion": "His bent posture and focused writing replace panic with concentration.",
+   "camera": "Wide desk portrait, close insert of his writing hand and notebook, then a monitor close-up.",
+   "cuts": "Three shots in 3.54s, lasting 0.79s, 1.42s and 1.33s."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.66,
+   "speaker": "Girlfriend",
+   "text": "I'm leaving.",
+   "delivery": "Quiet but brisk and decisive, with a clipped ending."
+  },
+  {
+   "t": 0.66,
+   "speaker": "Hero",
+   "text": "No, babe, please, please tell me what to do.",
+   "delivery": "Soft, rushed pleading; repeated 'please' and a lifting pitch convey panic within the fast 4.6-words-per-second opening exchange."
+  },
+  {
+   "t": 0.66,
+   "speaker": "Girlfriend",
+   "text": "Promise me you're getting a safe nine-to-five job.",
+   "delivery": "Quick, firm and insistent at restrained volume, pressing the condition without a long pause."
+  },
+  {
+   "t": 5.94,
+   "speaker": "Hero",
+   "text": "It was a foolish dream anyway.",
+   "delivery": "Quiet, subdued and downward in pitch; the tearful face reinforces resignation after a 0.7s beat."
+  },
+  {
+   "t": 10.66,
+   "speaker": "Guide",
+   "text": "You want to quit, huh? Come with me.",
+   "delivery": "Low and controlled, with a questioning lift on 'huh' followed by a calm directive; enters after 3.16s without speech."
+  },
+  {
+   "t": 13.52,
+   "speaker": "Future Hero",
+   "text": "Please, babe, babe. It's been two years without me.",
+   "delivery": "Quiet, moderately paced pleading, repeating 'babe' with an imploring pitch and clasped hands."
+  },
+  {
+   "t": 17.02,
+   "speaker": "Hero",
+   "text": "Who is that poor bastard?",
+   "delivery": "Restrained, questioning and uneasy, with emphasis on 'poor bastard.'"
+  },
+  {
+   "t": 17.02,
+   "speaker": "Guide",
+   "text": "That's you ten years from now.",
+   "delivery": "Even, quiet and matter-of-fact, letting the prediction carry the force."
+  },
+  {
+   "t": 17.02,
+   "speaker": "Hero",
+   "text": "This can't be.",
+   "delivery": "Quiet disbelief with rising strain, matching his widened eyes and hands on his head."
+  },
+  {
+   "t": 17.02,
+   "speaker": "Guide",
+   "text": "It depends on you.",
+   "delivery": "Measured and firm at low volume, landing emphasis on 'you.'"
+  },
+  {
+   "t": 22.3,
+   "speaker": "Hero",
+   "text": "Oh.",
+   "delivery": "Very soft, short and breathy, an immediate stunned release."
+  },
+  {
+   "t": 26.88,
+   "speaker": "Hero",
+   "text": "Leave.",
+   "delivery": "Quiet and clipped, sounding resolved after 4.18s without speech."
+  },
+  {
+   "t": 26.88,
+   "speaker": "Girlfriend",
+   "text": "You'll regret it.",
+   "delivery": "Restrained and pointed, with a warning emphasis on 'regret.'"
+  },
+  {
+   "t": 26.88,
+   "speaker": "Hero",
+   "text": "I won't.",
+   "delivery": "Low, steady and final; the slower closing exchange makes the refusal feel deliberate."
+  }
+ ],
+ "voice_arc": "The opening is the fastest and relatively loudest exchange, though still restrained: his urgent pleading meets her firm condition. His voice drops into resignation, then the quieter guide interrupts a long silent stretch with controlled authority. The future vision alternates needy pleading, uneasy questions and calm prediction; a very soft 'Oh' marks the shock. After another extended silence, the hero returns with slower, clipped certainty. Split dialogue within shared transcript intervals uses the supplied interval start because individual turn timings are unavailable.",
+ "camera_language": "Vertical compositions repeatedly place distressed faces close to the lens, then widen to expose unequal body positions: kneeling versus standing, pleading beside a bed, or panicking beside a relaxed guide. Desk and chart inserts connect emotional reversals to trading, while blue-edged translucent bodies and aerial city views distinguish the supernatural journey. Hard cuts compress reactions into fractions of a second, with longer holds reserved for pleading and dread.",
+ "why_it_works": "The opening makes the financial struggle immediately personal through a suitcase, a kneeling plea and the threat of losing a relationship. The future-self reveal converts a vague fear into a specific face and body, giving the hero's reversal a clear emotional cause. Repeating the departure situation with a short, steady response makes his changed behavior visible before the focused work montage.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within the first 2 seconds, high dramatic stakes are established: -$50,000 loss visible on screen, a girl leaving with luggage, and a man begging on his knees.",
+  "turn": "At 0:25, after seeing the haunting vision of his future self stuck in a 9-to-5 and his mom mopping floors, he wakes up terrified and completely flips his attitude—telling his girlfriend to leave instead of begging her.",
+  "payoff": "The video transitions from 3D animation into high-status live-action footage of champagne popping on a red Lamborghini, trading on flights, and private security—proving the ultimate hustle paid off.",
+  "why_it_works": "Visceral emotional contrast: moves from utter humiliation (-$50k, kneeling, crying) to supernatural motivation, then absolute flex. Powerful fear-based leverage: showing a terrifying mediocre future (cubicle job, struggling mom) resonates deeply with young men terrified of failing. Flawless visual transition: shifting from animated story to real-life flex footage anchors the dream in reality and s",
+  "camera": [
+   "Sharp snap-zooms used at 0:24 to emphasize the sudden shock of waking up from the nightmare.",
+   "Constant slow push-ins during tragic/emotional beats (0:03, 0:05, 0:23) to increase emotional intensity.",
+   "Dynamic fly-along tracking shot at 0:13 creates cinematic grandeur during the time travel segment.",
+   "Smash cut at 0:32 transitions from animation to real-life high-energy handheld footage to make the victory feel real and tangible."
+  ],
+  "montages": [
+   "{\"start\": \"0:29\", \"end\": \"0:32\", \"cuts\": 3, \"content\": \"Writing trading journal at sunset desk -> close-up writing technical notes -> chart monitor balance skyrocketing\", \"style\": \"Fast match cuts tracking the transition from effort to fina"
+  ]
+ }
+}
