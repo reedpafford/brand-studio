@@ -456,6 +456,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs/{job_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Job
+         * @description Owner lets a job that goes over its project budget run.
+         */
+        post: operations["approve_job_jobs__job_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs/{job_id}/cancel": {
         parameters: {
             query?: never;
@@ -467,7 +487,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel Job
-         * @description Only jobs that haven't started can be cancelled.
+         * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled.
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
         delete?: never;
@@ -493,6 +513,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Projects */
+        get: operations["list_projects_projects_get"];
+        put?: never;
+        /** Create Project */
+        post: operations["create_project_projects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Project */
+        get: operations["read_project_projects__project_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Project */
+        patch: operations["update_project_projects__project_id__patch"];
+        trace?: never;
+    };
+    "/projects/{project_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Project */
+        post: operations["approve_project_projects__project_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credits/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rates */
+        get: operations["list_rates_credits_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credits/rates/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Rate */
+        put: operations["set_rate_credits_rates__kind__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credits/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Limits */
+        get: operations["read_limits_credits_limits_get"];
+        /** Set Limits */
+        put: operations["set_limits_credits_limits_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credits/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Allowance
+         * @description This week's quick-clip credits used and allowed for the caller.
+         */
+        get: operations["my_allowance_credits_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Models */
+        get: operations["list_models_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Prices */
+        get: operations["list_prices_models_prices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{model_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Model */
+        get: operations["read_model_models__model_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -505,6 +701,13 @@ export interface components {
             name: string;
             /** Password */
             password: string;
+        };
+        /** AllowanceOut */
+        AllowanceOut: {
+            /** Quick Clip Credits Used */
+            quick_clip_credits_used: number;
+            /** Quick Clip Credits Allowed */
+            quick_clip_credits_allowed: number;
         };
         /** Body_upload_files_post */
         Body_upload_files_post: {
@@ -625,6 +828,18 @@ export interface components {
             legal_line: string;
             /** Name */
             name?: string | null;
+        };
+        /** Duration */
+        Duration: {
+            /** Min */
+            min: number;
+            /** Max */
+            max: number;
+            /**
+             * Smart
+             * @default false
+             */
+            smart: boolean;
         };
         /** FileOut */
         FileOut: {
@@ -753,6 +968,10 @@ export interface components {
             id: number;
             /** Kind */
             kind: string;
+            /** Project Id */
+            project_id: number | null;
+            /** Credits */
+            credits: number;
             status: components["schemas"]["JobStatus"];
             /** Output */
             output: {
@@ -767,6 +986,8 @@ export interface components {
             created_at: string;
             /** Finished At */
             finished_at: string | null;
+            /** Approved By Id */
+            approved_by_id: number | null;
             /** Provider */
             provider: string;
             /** Provider Ref */
@@ -780,6 +1001,10 @@ export interface components {
             id: number;
             /** Kind */
             kind: string;
+            /** Project Id */
+            project_id: number | null;
+            /** Credits */
+            credits: number;
             status: components["schemas"]["JobStatus"];
             /** Output */
             output: {
@@ -799,12 +1024,26 @@ export interface components {
          * JobStatus
          * @enum {string}
          */
-        JobStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+        JobStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "needs_owner_approval";
         /**
          * Kind
          * @enum {string}
          */
         Kind: "character" | "place" | "prop";
+        /** LimitsIn */
+        LimitsIn: {
+            /** Max Planned Seconds */
+            max_planned_seconds: number;
+            /** Weekly Quick Clip Credits */
+            weekly_quick_clip_credits: number | string;
+        };
+        /** LimitsOut */
+        LimitsOut: {
+            /** Max Planned Seconds */
+            max_planned_seconds: number;
+            /** Weekly Quick Clip Credits */
+            weekly_quick_clip_credits: number;
+        };
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -834,6 +1073,60 @@ export interface components {
             name: string;
             role: components["schemas"]["Role"];
         };
+        /**
+         * ModelOut
+         * @description A catalogue entry without dollars: `credits_per_unit` is by resolution.
+         */
+        ModelOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Provider Model */
+            provider_model: string;
+            /** Default */
+            default: boolean;
+            duration: components["schemas"]["Duration"] | null;
+            /** Resolutions */
+            resolutions: string[];
+            /** Aspect Ratios */
+            aspect_ratios: string[];
+            /** Max Reference Images */
+            max_reference_images: number;
+            /** Max Reference Videos */
+            max_reference_videos: number;
+            /** Max Reference Audios */
+            max_reference_audios: number;
+            /** Max Reference Media Seconds */
+            max_reference_media_seconds: number;
+            /** First Frame */
+            first_frame: boolean;
+            /** Last Frame */
+            last_frame: boolean;
+            /** Audio */
+            audio: string | null;
+            /** Unit */
+            unit: string;
+            /** Credits Per Unit */
+            credits_per_unit: {
+                [key: string]: number;
+            };
+        };
+        /** ModelPriceOut */
+        ModelPriceOut: {
+            /** Id */
+            id: string;
+            /** Unit */
+            unit: string;
+            /** Price Per Unit Usd */
+            price_per_unit_usd: {
+                [key: string]: string;
+            };
+            /** Price Source */
+            price_source: string;
+        };
         /** NewInviteOut */
         NewInviteOut: {
             /** Id */
@@ -858,6 +1151,63 @@ export interface components {
              * @default []
              */
             file_ids: number[];
+        };
+        /** ProjectIn */
+        ProjectIn: {
+            /** Brand Id */
+            brand_id: number;
+            /** Name */
+            name: string;
+            /** Planned Seconds */
+            planned_seconds: number;
+        };
+        /** ProjectOut */
+        ProjectOut: {
+            /** Id */
+            id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Name */
+            name: string;
+            /** Planned Seconds */
+            planned_seconds: number;
+            status: components["schemas"]["ProjectStatus"];
+            /** Estimate Credits */
+            estimate_credits: number;
+            /** Budget Credits */
+            budget_credits: number;
+            /** Credits Used */
+            credits_used: number;
+            /** Budget Pct */
+            budget_pct: number;
+        };
+        /** ProjectPatch */
+        ProjectPatch: {
+            /** Name */
+            name?: string | null;
+            /** Planned Seconds */
+            planned_seconds?: number | null;
+        };
+        /**
+         * ProjectStatus
+         * @enum {string}
+         */
+        ProjectStatus: "active" | "needs_owner_approval";
+        /** RateIn */
+        RateIn: {
+            /** Unit */
+            unit: string;
+            /** Credits Per Unit */
+            credits_per_unit: number | string;
+        };
+        /** RateOut */
+        RateOut: {
+            /** Kind */
+            kind: string;
+            /** Unit */
+            unit: string;
+            /** Credits Per Unit */
+            credits_per_unit: number;
         };
         /**
          * Role
@@ -2008,6 +2358,37 @@ export interface operations {
             };
         };
     };
+    approve_job_jobs__job_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_job_jobs__job_id__cancel_post: {
         parameters: {
             query?: never;
@@ -2055,6 +2436,377 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageOut"][];
+                };
+            };
+        };
+    };
+    list_projects_projects_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_project_projects_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_project_projects__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_project_projects__project_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_project_projects__project_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rates_credits_rates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateOut"][];
+                };
+            };
+        };
+    };
+    set_rate_credits_rates__kind__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_limits_credits_limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitsOut"];
+                };
+            };
+        };
+    };
+    set_limits_credits_limits_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LimitsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_allowance_credits_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllowanceOut"];
+                };
+            };
+        };
+    };
+    list_models_models_get: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_prices_models_prices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelPriceOut"][];
+                };
+            };
+        };
+    };
+    read_model_models__model_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -35,7 +35,7 @@ test("saving the kit sends the edited fields", async () => {
   await userEvent.clear(screen.getByLabelText("Colour 2"));
   await userEvent.type(screen.getByLabelText("Colour 2"), "#000001");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Saved.");
+  expect(await screen.findByText("Saved.")).toBeInTheDocument();
   expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({
     name: "fomo",
     tone_notes: "Calm",
