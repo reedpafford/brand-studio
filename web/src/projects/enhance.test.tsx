@@ -109,3 +109,67 @@ test("a failed run says the script is unchanged; a switched-off server explains 
   await userEvent.click(screen.getByRole("button", { name: /^✦ Enhance/ }));
   expect(await screen.findByText("Generation is switched off on this server.")).toBeInTheDocument();
 });
+
+const many = (n: number, kind: string, from = 1) => Array.from({ length: n }, (_, i) => mark({ id: from + i, kind, line: 1, text: `${kind} note ${from + i}` }));
+
+test("Accept all accepts every waiting suggestion, asking first when there are more than 5", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, [...many(4, "camera"), ...many(3, "reaction", 5)]],
+    ...Object.fromEntries(Array.from({ length: 7 }, (_, i) => [`POST /projects/9/script/suggestions/${i + 1}/accept`, [200, mark({})]])),
+  });
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Accept all options" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Accept all (7)" }));
+  expect(confirm).toHaveBeenCalledWith("Accept 7 suggestions?");
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/accept"))).toHaveLength(7));
+});
+
+test("Accept all by kind accepts only that kind, with no question for 5 or fewer", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, [...many(2, "camera"), ...many(1, "reaction", 3)]],
+    "POST /projects/9/script/suggestions/1/accept": [200, mark({})],
+    "POST /projects/9/script/suggestions/2/accept": [200, mark({})],
+  });
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Accept all options" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Accept all Camera (2)" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/accept"))).toHaveLength(2));
+  expect(confirm).not.toHaveBeenCalled();
+  expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/3/accept")).toBe(false);
+});
+
+test("Apply says how many directions were added, and Undo saves the earlier words again", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, [mark({ status: "accepted" }), mark({ id: 2, status: "accepted", line: 2 })]],
+    "POST /projects/9/script/apply": [200, { script: { ...script, version: 5, source: "enhance" } }],
+    "PUT /projects/9/script": [200, { ...script, version: 6 }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Apply 2 accepted" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Added 2 directions as v5.");
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/script")?.body).toEqual({ text: script.text }));
+});
+
+test("tapping a suggestion opens a sheet with the Why, and the Notes chip opens the notes in a sheet", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, [mark({})]],
+    "GET /projects/9/script/notes": [200, [{ line: 2, text: "The brand kit has no strawberry product." }]],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /^▸ Slow push-in on her face\./ }));
+  const sheet = await screen.findByRole("dialog", { name: "Camera" });
+  expect(within(sheet).getByText("Why: Builds the hook.")).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Notes (1)" }));
+  const notes = await screen.findByRole("dialog", { name: "Notes" });
+  await userEvent.click(within(notes).getByRole("button", { name: "Got it: line 2" }));
+  expect(within(notes).getByText("No notes.")).toBeInTheDocument();
+});
