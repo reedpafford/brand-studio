@@ -7,15 +7,17 @@ Shape (plain text, these lines, nothing else; the first and last lines are the s
 ```
 Audio: only the spoken lines and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
 References: <the reference lines, copied exactly>
+Summary: <who does what, where, and the turn or payoff, in one sentence>.
 Style: <stylized 3D animated feature film, expressive faces, plus a few words for the direction>.
 Setting: <the look: palette, visible light, depth, background people>.
 Shots (hard cuts):
-1. 0.0–1.6 s. <size, angle, one camera move>. <what happens, big and readable>. <Name (how it's said): "words">
-2. …
+Shot 1 | 0–2 s. <size, angle, one camera move>. <what happens, big and readable>. <Name (how it's said): "words">
+Shot 2 | 2–3 s. <or "Two quick cuts: …; then …" for beats shorter than a second>
+Keep: <each character as in their [ImageN], one of each; each screen or product exactly as its [ImageN]>.
 Audio: <the same line as the first>
 ```
 
-- Use the number of shots in the brief, timed with decimals so they add up to the clip's seconds. Keep the idea's order of events; make the first shot grab with a close camera or a big reaction on the first beat.
+- Use the number of shots in the brief, in whole seconds, back to back from 0 to the clip's seconds; no shot is shorter than 1 s. Keep the idea's order of events; make the first shot grab with a close camera or a big reaction on the first beat.
 - Dialogue is `Name (how it's said): "words"`, word for word from the idea, each line once. In a dialogue shot with others in frame, the others keep their mouths closed. If the idea has no dialogue, don't add any.
 - Every attached screen or product is shown: the phone (or the bag) fills the frame, held still and flat-on, and shows [ImageN] exactly. Never describe its content in your own words.
 - Show emotion through face and body, never as light in the eyes; one camera move per shot, in standard terms (close-up, push in, pull out, pan, track, orbit, low angle, overhead, handheld).
