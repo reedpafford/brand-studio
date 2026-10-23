@@ -48,6 +48,8 @@ def test_improve_then_generate_as_is(app, db, editor, fomo):  # noqa: F811
     job = _ask(editor, fomo, direction="Cinematic")
     assert job.status_code == 201, job.text
     assert job.json()["credits"] == 3 and job.json()["step"] == "improve"
+    again = _ask(editor, fomo, direction="Cinematic")  # a double press makes no second call
+    assert again.status_code == 409 and "already being improved" in again.json()["detail"]
     fake = FakeClaude(_improved())
     _run(app, db, fake)
     sent = fake.requests[0]["messages"][0]["content"]
