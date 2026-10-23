@@ -15,10 +15,10 @@ What each case is for:
 | fomo-thanksgiving | Full chain on a messy draft: cut small talk but keep the callback's setup, add the missing screens, replace a made-up screen, scene break, seams |
 | fomo-tight | Restraint: a script that already works gets 3 marks or fewer |
 | fomo-draft-salesman | Drafting from a brief: different hooks, right length, screens on ★ lines |
-| ironpaws-rescue | Breakdown + clips for a brand with no screens: no invented UI, good seams |
-| ironpaws-slow-start | Enhance on a slow opening and an explaining line, no brand screens |
+| ironpaws-rescue | Breakdown + clips with a product (the bag) instead of app screens: shown exactly, no face, good seams |
+| ironpaws-slow-start | Enhance on a slow opening and an explaining line, and a script that never shows the bag |
 
-Iron Paws facts are assumed until its kit exists (see the note in `cases.json`).
+Iron Paws: a dog product in a bag; the real bag is its required element, stored as a brand screen (being confirmed with Reed).
 
 ## Running (paid; needs the Producer's go-ahead)
 No runner is checked in yet: it needs the Claude client (PR #23). A run calls each case's steps with

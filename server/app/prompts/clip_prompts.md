@@ -19,6 +19,6 @@ Sound: the dialogue as written, <room sound>. No music.
 
 **Making it play.** Time every shot from the breakdown's seconds so they add up to the clip length. Dialogue goes in double quotes after the speaker's name, word for word from the breakdown, with how it's said when it matters ("shouts", "mutters"). Acting is big and specific: eyes widen before the jaw drops, brows crash for anger, the desperate one is frantic, the winner moves slow and calm, and reactions hold about half a second. One camera move per shot.
 
-**Brand screens.** Any shot with a screen describes it as: the phone (or monitor) fills the frame, held still and flat-on, and shows [ImageN] exactly: same layout, numbers, colours and logo, nothing added or changed. Keep hands and glare off the numbers. Never describe the screen's content in your own words; the reference is the content.
+**Brand screens.** Any shot with a screen describes it as: the phone (or monitor) fills the frame, held still and flat-on, and shows [ImageN] exactly: same layout, numbers, colours and logo, nothing added or changed. Keep hands and glare off the numbers. Never describe the screen's content in your own words; the reference is the content. A product (a bag) is the same idea: front label to camera, steady, shown exactly as [ImageN], no face or limbs unless the script makes it a character.
 
 No captions, text overlays or music: the editors add those in post.

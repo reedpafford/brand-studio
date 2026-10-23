@@ -10,7 +10,7 @@ The kinds:
 - **action**: a visible beat that makes a line land or replaces explaining with showing ("He slides the phone across the table.").
 - **reaction**: who reacts and how, big enough to read on a phone, at the turns (the insult, the number, the reveal).
 - **camera**: a shot idea that adds tension or payoff (a push-in on the doubter, a macro insert of the phone, a low angle for the win). Not one per line; only where it changes how the moment feels.
-- **brand_screen**: every moment the brand block says needs a screen and doesn't have one. Use the screen whose moments match (a loss gets the chart-down screen, a win the chart-up one) and say where it shows. Also check existing ★ lines name a real screen from the brand block; if one doesn't, suggest a `replace` with the right one.
+- **brand_screen**: every moment the brand block says needs a screen and doesn't have one. Use the screen whose moments match (a loss gets the chart-down screen, a win the chart-up one) and say where it shows. Also check existing ★ lines name a real screen from the brand block; if one doesn't, suggest a `replace` with the right one. If the script never shows a required screen at all, suggest one where it fits the story best.
 - **cut**: dead air. A line or action that repeats, explains what we just saw, or delays the hook. Quote exactly what goes.
 
 Hooks: if the first 2 seconds don't grab, the fix is usually a cut (start later, at the conflict) or an action/camera mark on the first line, not new dialogue. You may not add or reword dialogue; if a line itself is the problem, say so in the `reason` of the nearest mark.

@@ -50,8 +50,8 @@ def score(out: Path, case: dict) -> list[str]:
             problems.append(
                 f"{len(e.suggestions)} suggestions, expected at most {exp['max_suggestions']}"
             )
-        if exp.get("no_screens") and "brand_screen" in {s.kind for s in e.suggestions}:
-            problems.append("suggested a brand screen for a brand without screens")
+        if (sid := exp.get("screen_anywhere")) and sid not in {s.screen_id for s in e.suggestions}:
+            problems.append(f"expected {sid} somewhere")
 
     if d := answers.get("script_draft"):
         lo, hi = exp["drafts"]
@@ -70,8 +70,10 @@ def score(out: Path, case: dict) -> list[str]:
         problems += check.breakdown(script, bd, screens, video.duration.min, video.duration.max)
         if "clips" in exp and not exp["clips"][0] <= len(bd.clips) <= exp["clips"][1]:
             problems.append(f"{len(bd.clips)} clips, expected {exp['clips']}")
-        if exp.get("no_screens") and any(s.screen_ids for sc in bd.scenes for s in sc.shots):
-            problems.append("breakdown shows screens for a brand without screens")
+        shots = [shot for scene in bd.scenes for shot in scene.shots]
+        for n, sid in exp.get("screen_lines", {}).items():
+            if not any(int(n) in s.script_lines and sid in s.screen_ids for s in shots):
+                problems.append(f"expected {sid} in the shot for line {n}")
         if cp := answers.get("clip_prompts"):
             limits = video.max_reference_images, video.max_reference_audios
             problems += check.clip_prompts(bd, cp, *limits)
