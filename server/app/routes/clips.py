@@ -5,10 +5,11 @@ their moments (e.g. fomo + "trading"). Files are passed by id; the worker sends 
 provider when the job starts."""
 
 import re
+from datetime import timedelta
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,9 +17,10 @@ from sqlalchemy.orm import Session
 from app.auth import current_user
 from app.catalogue import CatalogueModel, get_model
 from app.credits import estimate, needs_approval
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand, BrandScreen
+from app.models.files import StoredFile
 from app.models.jobs import Job
 from app.models.library import Kind
 from app.routes.brands import get_brand
@@ -27,6 +29,8 @@ from app.routes.jobs import JobOut, enqueue
 from app.routes.library import get_item
 
 router = APIRouter(prefix="/clips", tags=["clips"])
+OVER_ALLOWANCE = "This goes past your weekly quick-clip allowance, so the owner must approve it."
+MAX_REFERENCE_BYTES = 100 * 1024 * 1024
 Prompt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=4000)]
 
 
@@ -122,12 +126,24 @@ def _plan(db: Session, user: User, body: ClipIn) -> _Plan:
                 422,
                 f"{model.name} takes up to {limit} reference {label}; this has {len(files[key])}.",
             )
+    total = sum(db.get(StoredFile, i).size for ids in files.values() for i in ids)
+    if total > MAX_REFERENCE_BYTES:
+        raise HTTPException(422, "The references are too big together (100 MB max). Use fewer.")
     if files["reference_audios"] and not (files["reference_images"] or files["reference_videos"]):
         raise HTTPException(422, "Audio references need at least one image or video with them.")
     credits = estimate(
         db, user.workspace_id, "video", Decimal(body.duration), _job_input(model, body, files)
     )
     return _Plan(model=model, files=files, auto_screen_ids=auto, credits=credits)
+
+
+def _not_twice(db: Session, user: User, body: ClipIn) -> None:
+    """Stop an accidental double press: the same request by the same person in 10 s."""
+    since = utcnow() - timedelta(seconds=10)
+    recent = db.scalars(select(Job).where(Job.created_by_id == user.id, Job.created_at >= since))
+    request = body.model_dump()
+    if any(job.input.get("request") == request for job in recent):
+        raise HTTPException(409, "That clip was just started. Check your history.")
 
 
 def _brand_screens(db: Session, brand: Brand) -> dict[int, BrandScreen]:
@@ -159,17 +175,22 @@ def estimate_clip(body: ClipIn, user: User = Depends(current_user), db: Session 
     return EstimateOut(
         credits=plan.credits,
         needs_owner_approval=held,
-        reason="This goes past your weekly quick-clip allowance, so Reed will need to approve it."
-        if held
-        else "",
+        reason=OVER_ALLOWANCE if held else "",
         auto_screen_ids=plan.auto_screen_ids,
         **{k: len(v) for k, v in plan.files.items()},
     )
 
 
-@router.post("", response_model=JobOut, status_code=201)
+def generation_on(request: Request) -> None:
+    """Paid generation can be switched off per server (BS_GENERATION_ENABLED)."""
+    if not request.app.state.settings.generation_enabled:
+        raise HTTPException(503, "Generation is switched off on this server.")
+
+
+@router.post("", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)])
 def create_clip(body: ClipIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     plan = _plan(db, user, body)
+    _not_twice(db, user, body)
     return enqueue(
         db,
         user,
