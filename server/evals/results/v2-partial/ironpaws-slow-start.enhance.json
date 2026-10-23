@@ -1,0 +1,88 @@
+{
+ "suggestions": [
+  {
+   "id": "s1",
+   "kind": "cut",
+   "anchor": {
+    "line": 2,
+    "quote": "Nora makes tea. The kettle boils. She sits down. Biscuit sleeps in his basket."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Tea and kettle are a slow start; opening on the knock puts the conflict in the first second."
+  },
+  {
+   "id": "s2",
+   "kind": "cut",
+   "anchor": {
+    "line": 3,
+    "quote": "Nora reads the newspaper for a while."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Waiting with no story; viewers scroll away here."
+  },
+  {
+   "id": "s3",
+   "kind": "action",
+   "anchor": {
+    "line": 4,
+    "quote": "It is a delivery man."
+   },
+   "placement": "after",
+   "text": "Biscuit's head pops up from his basket, ears straight up, eyes locked on the open door.",
+   "screen_id": null,
+   "reason": "Shows what Biscuit wants before Nora says stay, so the dash reads with the sound off."
+  },
+  {
+   "id": "s4",
+   "kind": "reaction",
+   "anchor": {
+    "line": 6,
+    "quote": "Biscuit runs out the open door anyway."
+   },
+   "placement": "after",
+   "text": "Nora lunges for the door, hand flying to her mouth as a small white tail vanishes down the street.",
+   "screen_id": null,
+   "reason": "The turn needs a big, held face to land."
+  },
+  {
+   "id": "s5",
+   "kind": "cut",
+   "anchor": {
+    "line": 7,
+    "quote": "Nora is worried because Biscuit is missing."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Explains the feeling; her reaction and the empty porch at night already show it."
+  },
+  {
+   "id": "s6",
+   "kind": "reaction",
+   "anchor": {
+    "line": 11,
+    "quote": "A muddy Biscuit trots up the steps carrying Nora's lost glasses."
+   },
+   "placement": "after",
+   "text": "Nora drops the lead, kneels in the rain, and her face crumples into a laugh as he sets the glasses in her palm.",
+   "screen_id": null,
+   "reason": "This is the payoff of loyalty, so hold on her face before the line."
+  },
+  {
+   "id": "s7",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 12,
+    "quote": "NORA: You silly, wonderful dog."
+   },
+   "placement": "after",
+   "text": "★ Iron Paws screen: Iron Paws bag (front) — on the kitchen counter as Nora, glasses on, scoops it into Biscuit's bowl",
+   "screen_id": "screen:11",
+   "reason": "The script never shows the product; a reward feeding at the payoff brings the real bag in naturally."
+  }
+ ]
+}

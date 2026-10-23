@@ -1,0 +1,28 @@
+{
+ "suggestions": [
+  {
+   "id": "s1",
+   "kind": "action",
+   "anchor": {
+    "line": 3,
+    "quote": "Leo already has fomo open."
+   },
+   "placement": "after",
+   "text": "Without looking up, Leo tilts his phone toward Maya.",
+   "screen_id": null,
+   "reason": "Shows his calm confidence and sets up the screen reveal, even with the sound off."
+  },
+  {
+   "id": "s2",
+   "kind": "reaction",
+   "anchor": {
+    "line": 8,
+    "quote": "LEO: Six cents."
+   },
+   "placement": "after",
+   "text": "Maya grabs the phone with both hands, staring at the screen. Leo leans back, smirking. Hold.",
+   "screen_id": null,
+   "reason": "The punchline needs a visible, held reaction so the payoff lands before the video ends."
+  }
+ ]
+}
