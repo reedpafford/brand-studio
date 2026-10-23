@@ -1,12 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { image, signIn } from "./helpers";
 
-// Runs after shell.e2e.ts; Reed (owner) exists. Tests share the fomo brand and run in order.
+// Runs after auth.e2e.ts; Reed (owner) exists. These use Iron Paws, which starts empty
+// (fomo comes with its real screens: see fomo.e2e.ts). Tests run in order.
 test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("heading", { name: "fomo" })).toBeVisible();
+  await page.getByLabel("Brand").selectOption({ label: "Iron Paws" });
+  await expect(page.getByRole("heading", { name: "Iron Paws" })).toBeVisible();
 });
 
 test("brand kit text is saved and still there after a reload", async ({ page }) => {
