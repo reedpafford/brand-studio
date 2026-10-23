@@ -69,3 +69,31 @@ test("a screen is added with a star when the prompt mentions its moment, and can
   await userEvent.click(screen.getByRole("button", { name: "720p" }));
   expect(screen.getByRole("button", { name: /Generate · 20 credits/ })).toBeInTheDocument();
 });
+
+test("history shows a ready clip with its video, and a failed one in plain words", async () => {
+  fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]],
+    "GET /models": [200, [seedance]],
+    "GET /library/character": [200, []],
+    "GET /library/place": [200, []],
+    "GET /library/prop": [200, []],
+    "GET /brands/1/screens": [200, []],
+    "GET /credits/me": [200, { quick_clip_credits_used: 0, quick_clip_credits_allowed: 150 }],
+    "GET /jobs": [200, [
+      { id: 1, kind: "video-480p", status: "succeeded", credits: 8, error: "", output: { file_ids: [77] } },
+      { id: 2, kind: "video-480p", status: "failed", credits: 8, error: "The model could not make that clip.", output: null },
+    ]],
+  });
+  const { container } = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/clip"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("Ready")).toBeInTheDocument();
+  expect(container.querySelector("video")).toHaveAttribute("src", "/api/files/77");
+  expect(screen.getByText("Failed · credits returned")).toBeInTheDocument();
+  expect(screen.getByText("The model could not make that clip.")).toBeInTheDocument();
+});

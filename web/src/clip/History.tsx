@@ -45,7 +45,7 @@ export function History({ brandName }: { brandName: string }) {
   return (
     <ul className="space-y-3">
       {clips.map((j) => {
-        const output = j.output as { file_id?: number } | null;
+        const fileId = (j.output as { file_ids?: number[] } | null)?.file_ids?.[0];
         const prompt = (j.output as { prompt?: string } | null)?.prompt;
         return (
           <li key={j.id} className={`${card} space-y-1 text-sm`}>
@@ -62,10 +62,10 @@ export function History({ brandName }: { brandName: string }) {
             </div>
             {prompt && <p className="line-clamp-2">{prompt}</p>}
             {j.status === "failed" && j.error && <p className="text-danger">{j.error}</p>}
-            {j.status === "succeeded" && output?.file_id && (
+            {j.status === "succeeded" && fileId && (
               <>
-                <video controls src={fileUrl(output.file_id)} className="max-h-72 rounded-sm" />
-                <a className="underline" href={fileUrl(output.file_id)} download>
+                <video controls src={fileUrl(fileId)} className="max-h-72 rounded-sm" />
+                <a className="underline" href={fileUrl(fileId)} download>
                   Download
                 </a>
               </>
