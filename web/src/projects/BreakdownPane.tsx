@@ -9,7 +9,20 @@ import { BreakdownView } from "./BreakdownView";
 const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
-export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void }) {
+/** The newest breakdown for the project, or null when there is none (or no script). */
+export function useBreakdown(projectId: number, scriptVersion: number) {
+  return useQuery({
+    queryKey: ["breakdown", projectId, scriptVersion],
+    queryFn: async () => {
+      const { data, response } = await api.GET("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } } });
+      if (response.status === 404 || response.status === 409) return null;
+      if (!data) throw new Error("load");
+      return data;
+    },
+  });
+}
+
+export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onNext: () => void }) {
   const { projectId, brandId, scriptVersion } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -17,15 +30,7 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   const [startedJob, setStartedJob] = useState<number | null>(null);
   const [asked, setAsked] = useState(false);
 
-  const current = useQuery({
-    queryKey: ["breakdown", projectId, scriptVersion],
-    queryFn: async () => {
-      const { data, response } = await api.GET("/projects/{project_id}/breakdown", { params: { path } });
-      if (response.status === 404 || response.status === 409) return null;
-      if (!data) throw new Error("load");
-      return data;
-    },
-  });
+  const current = useBreakdown(projectId, scriptVersion);
   const jobs = useJobs();
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const cost = rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
@@ -104,5 +109,5 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
       </section>
     );
 
-  return <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} />;
+  return <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} onNext={props.onNext} />;
 }

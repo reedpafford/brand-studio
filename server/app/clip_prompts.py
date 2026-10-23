@@ -4,13 +4,13 @@ problems `check.clip_prompts` finds; the editor can edit them before generating.
 
 import json
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.breakdown import video_model, video_model_block
 from app.enhance import escape, project_context
 from app.models.breakdowns import BreakdownVersion
-from app.models.clips import ProjectClip
+from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.models.projects import Project
@@ -85,6 +85,9 @@ def save_clip_prompts(db: Session, job: Job) -> None:
     bd_row = db.get(BreakdownVersion, job.input["breakdown_id"])
     bd = Breakdown.model_validate(bd_row.data)
     result = ClipPrompts.model_validate(job.output)
+    old = select(ProjectClip.id).where(ProjectClip.project_id == project.id)
+    db.execute(update(ProjectClip).where(ProjectClip.id.in_(old)).values(picked_take_id=None))
+    db.execute(delete(ClipTake).where(ClipTake.clip_id.in_(old)))  # the files stay in storage
     db.execute(delete(ProjectClip).where(ProjectClip.project_id == project.id))
     for c in result.clips:
         db.add(
