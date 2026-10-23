@@ -1,7 +1,8 @@
 """Cut-ins at stitch time (free, ffmpeg): an insert shot's stretch of the generated clip is
 replaced by the real brand picture, so screens and products show exactly (Seedance can't
 promise exact text). An insert shot is one with brand screens and no characters. The editor
-can switch each one on or off; app screens start on, products start off.
+can switch each one on; all start off (Reed: screens and products may be generated, as long as
+the logo, layout and main text are right).
 
 The picture is fitted inside the frame over the clip itself, blurred, with a slow push in
 (about 3% over the shot). It stays up at least 1.2 s. The clip's audio is unchanged."""
@@ -52,8 +53,7 @@ def inserts(db: Session, project: Project, clip: ProjectClip) -> list[Insert]:
         if shot.get("character_ids") or first not in screens:
             continue
         screen = screens[first]
-        default = "product" not in screen.tags
-        on = (clip.real_images or {}).get(shot_id, default)
+        on = (clip.real_images or {}).get(shot_id, False)
         out.append(Insert(shot_id, first, screen_name(screen), screen.file_id, start, at, on))
     return out
 
