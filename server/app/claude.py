@@ -1,7 +1,7 @@
 """Claude client for Enhance and breakdowns (prompts come with the script issue).
 
-- Model claude-opus-5-5 with adaptive thinking and structured output (Pydantic) via
-  `messages.parse`.
+- Model claude-opus-5-5 with adaptive thinking and structured output (Pydantic), streamed
+  (so long answers don't hit the SDK's non-streaming time limit).
 - The fixed system prompt (base + brand) is cached: it's identical on every call for a brand.
 - Server-side fallbacks are on: a policy decline is retried on Anthropic's recommended model.
 - Key only from STUDIO_ANTHROPIC_KEY; always https://api.anthropic.com (ANTHROPIC_BASE_URL in
@@ -61,7 +61,8 @@ def ask[T: BaseModel](
     blocks = [{"type": "text", "text": text} for text in system]
     blocks[-1]["cache_control"] = {"type": "ephemeral"}
     try:
-        response = client.beta.messages.parse(
+        # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
+        with client.beta.messages.stream(
             model=MODEL,
             max_tokens=max_tokens,
             system=blocks,
@@ -71,7 +72,8 @@ def ask[T: BaseModel](
             output_format=schema,
             betas=[FALLBACK_BETA],
             fallbacks="default",
-        )
+        ) as stream:
+            response = stream.get_final_message()
     except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
         raise ClaudeError("Claude's answer was cut off or unreadable.") from exc
     if response.stop_reason == "refusal":
