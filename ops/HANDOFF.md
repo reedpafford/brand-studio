@@ -1,6 +1,11 @@
 # Handoff (current state, rewritten not appended; keep under 60 lines)
 ## Now
-- Foundation phase (issue #1). Foundation merged (scaffold, accounts, files, brands, libraries, jobs + usage, credits). Now: generation (issue #15); catalogue in review. How to run: `server/README.md`.
+- Foundation done (#2–#8). tezu.ai mapped (#9, docs/tezu).
+- Design system and screens merged (#11–#17, #20, #21, #26, #29).
+- Model catalogue, Claude client, Replicate adapter, fomo seed and assets merged (#18, #22, #23, #25, #27).
+- In progress: clips PR, #28 fix, Enhance, Director eval (#30), e2e (#19), Generate wiring (#31).
+- Reed's 2026-10-23 decisions are in ops/DECISIONS.md. Credits and per-video budgets follow them.
+- How to run: `server/README.md`.
 - Accounts: first owner via `POST /auth/setup` (needs `BS_SETUP_TOKEN`); login throttled; invites; roles owner/editor.
 - Files: `POST /files` (type checked by content, size cap `BS_MAX_UPLOAD_MB`), `GET /files/{id}`; storage interface `server/app/storage.py`.
 - Brands: kit + screens with tags and `default_for` moments; fomo + Iron Paws created on setup; fomo screens, logo and style board imported on setup from `assets/brands/fomo/` (override with `BS_FOMO_SCREENS_DIR`, re-run with `python -m app.seed <folder>`).
@@ -17,7 +22,9 @@
 - Quick clips (in review): `POST /clips` and `POST /clips/estimate` (same body), checked against the catalogue and brand; brand screens auto-attached when the prompt mentions their moment; references sent as data URLs by the worker. `JobOut` carries `prompt_summary`, `model_id`, `brand_id`, `duration`, `aspect_ratio`, `resolution`.
 - Enhance #24 part 2 (local, PR after #22/clips/#30): `POST /projects/{id}/script/enhance` queues a Claude job (provider `claude`, runs in the worker); suggestions saved after `app.prompts.check.enhance`; accept/reject; `POST .../script/apply` makes a new version.
 ## Next
-- Builder-Server: claude.py `output_config` follow-up, then #24 (script projects).
-- Explorer maps tezu.ai once network access is granted.
+- Builder-Server: #24 next steps: script draft, breakdown, storyboard, clip prompts; then Quick clip "Improve prompt".
+- Director's first paid eval: 22 Claude calls, cap $4 (approved). Log each paid call in ops/SPEND.md when it runs.
+- Explorer: nightly checks of test and live sites (later).
 ## Blocked
-- tezu.ai access (Reed adding it).
+- Iron Paws bag photo (from Reed). The bag must appear exactly.
+- Replicate key for the deployed server (later). Keys stay server-side only.

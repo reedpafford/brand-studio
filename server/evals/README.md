@@ -21,13 +21,13 @@ What each case is for:
 Iron Paws: a dog product in a bag; the real bag is its required element, stored as a brand screen (being confirmed with Reed).
 
 ## Running (paid; needs the Producer's go-ahead)
-No runner is checked in yet: it needs the Claude client (PR #23). A run calls each case's steps with
-`prompts.system(step)` + `prompts.brand_block(...)`, saves each answer to
-`<out>/<case>.<step>.json` (and the working script to `<case>.script.txt`), then:
-
 ```bash
+python -m evals.run <out> --cap-usd 2   # 11 Claude calls, key from STUDIO_ANTHROPIC_KEY
 python -m evals.score <out> "v1"
 ```
+`run.py` accepts every Enhance suggestion before the next step, saves each answer to
+`<out>/<case>.<step>.json` (plus `<case>.script.txt` and `cost.json`), and stops at the cap.
 
-One full run is 11 Claude calls. Estimate at the prices in `app/claude.py` (about 3k system + 1k user tokens in,
-3–8k out with thinking per call): about $1.50 a run. Comparing two prompt versions: about $3.
+One full run is 11 Claude calls. Estimate at the prices in `app/claude.py` (about 3k system +
+1k user tokens in, 3–8k out with thinking per call): about $1.50 a run. Comparing two prompt
+versions: about $3.

@@ -1,0 +1,100 @@
+{
+ "clips": [
+  {
+   "clip_id": "c1",
+   "seconds": 9,
+   "references": [
+    {
+     "kind": "image",
+     "id": "frame:c1",
+     "role": "storyboard frame"
+    },
+    {
+     "kind": "image",
+     "id": "char:1",
+     "role": "Tank's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:2",
+     "role": "Sam's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:3",
+     "role": "Mr. Hale's look"
+    },
+    {
+     "kind": "image",
+     "id": "place:1",
+     "role": "suburban back garden"
+    }
+   ],
+   "prompt": "References: [Image1] storyboard frame, match its look and framing. [Image2] is Tank. [Image3] is Sam. [Image4] is Mr. Hale. [Image5] is the suburban back garden.\nStyle: stylized 3D animated feature film, expressive faces, 9:16.\nSetting: Back garden at midday, bright but harsh sun with hard black shadows; a torn-up rose bed and scattered soil in the foreground; Mr. Hale's neat, tidy garden looms over the wooden fence behind.\nShots (hard cuts):\n1. 0.0–1.8 s. Low-angle medium close-up, fast push-in. Mr. Hale leans over the fence, face red, eyes bulging, shaking a broken rose stem at the hole in the bed. Mr. Hale yells: \"That mutt dug up my roses again!\"\n2. 1.8–2.8 s. Ground-level close-up, snap zoom. Tank freezes mid-dig, paws in the hole, soil on his nose; his eyes go huge and his ears flatten, frozen like a statue, holding the guilty look.\n3. 2.8–4.4 s. Slightly high-angle medium close-up from Hale's side, static. Sam runs in and drops to his knees beside Tank, arms flung out to shield him. Sam pleads: \"He's just looking for something.\"\n4. 4.4–7.3 s. Tight close-up, slow push-in. Mr. Hale's brows crash down as he jabs a finger down at Tank. Mr. Hale says, cold and hard: \"One more hole and he goes back to the shelter.\"\n5. 7.3–9.0 s. High wide shot, static. Sam's mouth falls open, eyes welling, then he throws his arms around Tank and hugs him tight; Tank's tail droops and he rests his chin on Sam's shoulder, boy and dog small beside the wrecked rose bed.\nSound: the dialogue as written, birdsong, a rustle of rose leaves, soil scattering. No music."
+  },
+  {
+   "clip_id": "c2",
+   "seconds": 5,
+   "references": [
+    {
+     "kind": "image",
+     "id": "frame:c2",
+     "role": "storyboard frame"
+    },
+    {
+     "kind": "image",
+     "id": "char:1",
+     "role": "Tank's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:2",
+     "role": "Sam's look"
+    },
+    {
+     "kind": "image",
+     "id": "place:1",
+     "role": "back garden at night"
+    },
+    {
+     "kind": "image",
+     "id": "screen:11",
+     "role": "Iron Paws bag, shown exactly"
+    }
+   ],
+   "prompt": "References: [Image1] storyboard frame, match its look and framing. [Image2] is Tank. [Image3] is Sam. [Image4] is the back garden. [Image5] is the Iron Paws \"Iron Paws bag\".\nStyle: stylized 3D animated feature film, expressive faces, 9:16.\nSetting: The same back garden at night, dark blue shadows everywhere; warm yellow light spills from the open kitchen door onto the back step, where the bowl and the bag glow in it.\nShots (hard cuts):\n1. 0.0–1.7 s. Close insert at step level, static. Sam's hands pour kibble from a scoop into Tank's bowl on the back step; beside the bowl the bag stands upright, front label to camera, held steady, shown exactly as [Image5]: same layout, colours, label and logo, nothing added or changed, no face or limbs. Hands and glare stay off the label.\n2. 1.7–3.4 s. Low-angle close-up, slight push-in. Tank dives in and wolfs the food down, tail wagging wildly, kibble flying; the bag stands still beside the bowl, front label to camera, shown exactly as [Image5], nothing added or changed, nothing covering it.\n3. 3.4–5.0 s. Close-up on Tank's face in the warm doorway light, static. Tank licks his lips and looks up, ears perking, eyes bright and determined, holding the look; Sam smiles back at him from the edge of frame.\nSound: kibble rattling into the bowl, happy crunching and tail thumps, crickets in the dark garden. No dialogue. No music."
+  },
+  {
+   "clip_id": "c3",
+   "seconds": 14,
+   "references": [
+    {
+     "kind": "image",
+     "id": "frame:c3",
+     "role": "storyboard frame"
+    },
+    {
+     "kind": "image",
+     "id": "char:1",
+     "role": "Tank's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:2",
+     "role": "Sam's look"
+    },
+    {
+     "kind": "image",
+     "id": "char:3",
+     "role": "Mr. Hale's look"
+    },
+    {
+     "kind": "image",
+     "id": "place:2",
+     "role": "park at dusk"
+    }
+   ],
+   "prompt": "References: [Image1] storyboard frame, match its look and framing. [Image2] is Tank. [Image3] is Sam. [Image4] is Mr. Hale. [Image5] is the park at dusk.\nStyle: stylized 3D animated feature film, expressive faces, 9:16.\nSetting: Park at dusk, cold purple-blue light and long shadows across the grass and dark bushes for the panic, turning warm orange as the last sunlight hits the ring and everyone smiles.\nShots (hard cuts):\n1. 0.0–1.0 s. Insert, handheld. Mr. Hale's shaking hands tear through a bush, a pale band of skin on his bare ring finger.\n2. 1.0–3.4 s. High-angle close-up, static, Mr. Hale isolated against the dark bushes. He straightens, staring at his empty hand, lip trembling, eyes glassy; Sam and Tank watch from the path behind. Mr. Hale whispers, breaking: \"My ring. My wife's ring. It's gone.\"\n3. 3.4–4.4 s. Macro close-up, tracking. Tank's nose presses into the grass, sniffing hard, then his ears shoot up.\n4. 4.4–5.9 s. Low wide from behind the spray of dirt, fast push-in. Tank digs like crazy, dirt flying; Sam's eyes go wide and Mr. Hale turns.\n5. 5.9–7.3 s. Low-angle close-up, tracking up. Tank pops up out of the hole with the ring glinting in his teeth, catching the sunset, tail wagging proudly.\n6. 7.3–8.6 s. Medium shot, static. Mr. Hale drops to his knees in front of Tank, falling into frame; his eyes widen, then his jaw drops and his hand flies to his mouth, holding.\n7. 8.6–10.4 s. Close two-shot, warm sunset backlight, slow push-in. Mr. Hale takes the ring from Tank's mouth and cups his face, tears and a shaky grin. Mr. Hale says, voice cracking: \"Good boy. Good, good boy.\"\n8. 10.4–11.9 s. Low-angle medium close-up, static. Sam folds his arms, eyebrow raised, cheeky smirk. Sam says: \"Still want him gone?\"\n9. 11.9–14.0 s. Low wide three-shot against the golden sky, slow tracking arc. Mr. Hale laughs and scratches Tank's ears while Tank leans into him, tongue lolling, eyes half-shut in bliss; Sam grins.\nSound: the dialogue as written, rustling leaves, frantic sniffing, dirt spraying, a soft evening breeze, Mr. Hale's laugh. No music."
+  }
+ ]
+}
