@@ -182,6 +182,11 @@ def test_improve_keeps_the_editors_words_and_the_reference_lines():
     assert check.improve(idea, schemas.ImprovedPrompt(prompt=gap), refs, 4, 8) == [
         "shot times aren't whole seconds back to back from 0"
     ]
+    for changed in ("I BOUGHT IT AT SIX CENTS.", "I bought it at six cents!!!"):
+        tweaked = result.prompt.replace("I bought it at six cents.", changed)
+        assert check.improve(idea, schemas.ImprovedPrompt(prompt=tweaked), refs, 4, 8) == [
+            "the line “I bought it at six cents.” isn't there once, word for word"
+        ]
     result.prompt = result.prompt.replace("six cents", "6 cents").replace(refs, "[Image1] is Leo.")
     assert check.improve(idea, result, refs, 3, 8) == [
         "the line “I bought it at six cents.” isn't there once, word for word",
