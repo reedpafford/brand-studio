@@ -41,6 +41,24 @@ API (#66): `POST /projects/{id}/breakdown` (paid, queues a job), `GET` (newest, 
 - **Edit** opens the shot in place. Editable: action, reaction, camera, seconds, cast, place, moment and screens. **Not editable**: the spoken line and speaker, which come from the script. Hint: "To change the words, edit the script." **Save** sends the whole breakdown (`PUT`), shows "Saved. 1 problem left." or "Saved. No problems.", and the source becomes "edited by <name>".
 - **Split clip after** / **Join with next clip** sit between shots. They recompute clip ids and seconds on the page, then the next Save re-checks them.
 
+## What PUT /breakdown may change
+The page always sends the whole `Breakdown` back. The table says what the editor can touch.
+| Field | Editable | How |
+|---|---|---|
+| `hook` | yes | Edit link next to the hook line (one-line text) |
+| `scenes[].heading`, `scenes[].look` | yes | Edit on the scene header |
+| `shots[].action`, `reaction`, `camera` | yes | text inputs in the shot editor |
+| `shots[].seconds` | yes | number input, step 0.5 |
+| `shots[].character_ids`, `place_id` | yes | pickers from this brand's library |
+| `shots[].moment`, `screen_ids` | yes | moment select (the brand's moments) and screen picker; picking a moment pre-adds its "Always used for" screen |
+| `clips[]` grouping (`shot_ids`) | yes | Split / Join only; `id` and `seconds` are recomputed (`c1…`, sum of shots rounded up) |
+| `clips[].seam` | yes | one-line text on the clip band |
+| `shots[].id`, `script_lines`, `speaker`, `line`, `scenes[].id` | **no** | they come from the script; shown read-only |
+
+## Cost button
+- The paid step uses the `write-claude` rate from `GET /credits/rates`: **"Make breakdown · 6 credits"** and **"Redo · 6 credits"**. Saving an edit is free and its button says just **Save**.
+- When the project would go over budget: **"Ask Reed to approve · 6 credits"**. The job then waits, and the pane shows the warning badge "Waiting for Reed to approve".
+
 ## States
 - No breakdown: empty card "No breakdown yet." / "Claude splits your script into scenes, shots and clips. Nothing is generated yet." / **[Make breakdown · 6 credits]**. Disabled reasons: "Add a script first", "A breakdown is already being made", "Waiting for Reed to approve".
 - Running: skeleton shot cards + "Breaking down your script…".
