@@ -50,6 +50,7 @@ Replicate's description of the `prompt` input: Seedance 2.5 "works best with det
 - **The basic unit is 1 second.** Segments must be continuous with no gaps: write "0-3 seconds…3-7 seconds…", not "0-3s… 5-6s…". Too little content in a segment lets the model improvise. Too much gives "excessive cuts" or drops plot. Don't time very fast repeated actions ("shake your head three times per second") ([Guide § Timestamps][g]).
 - Point and relative timing also work: "At the 2-second mark…", "After 3 seconds…" ([Guide][g]).
 - Don't claim half-second precision. Timestamps are event budgets, not frame-exact edit points ([Skill § Long Videos and Time Segments][skill]).
+- **Our A/B (2026-10-23, one clip each; see [FIT.md](FIT.md#ab-result-2026-10-23-206-logged-by-the-producer)):** decimal shot times were followed within about 0.3–0.7 s. Rounding to whole seconds and grouping two quick cuts into one second lost a shot and finished the dialogue early. We keep decimal shot times.
 
 ## 6. Limits
 | | Limit | Source |
@@ -61,6 +62,7 @@ Replicate's description of the `prompt` input: Seedance 2.5 "works best with det
 | All references | ≤ 50 per request | [Guide][g] |
 | Works best with | 1–8 subjects in images (9–12 may be unstable); 1–5 subjects in audio/video | [Guide § Reference asset input recommendations][g] |
 | Replicate resolutions | 480p, 720p | [schema][rep-api] |
+| Usage metrics | Replicate reported none for this model in our A/B; cost = requested seconds × price, marked estimated | FIT.md A/B result |
 | Aspect | 16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive | [schema][rep-api] |
 | Storyboard grid image | ≤ 15 panels, line art, little text; it isn't followed frame by frame | [Guide § Multi-panel storyboards][g] |
 
