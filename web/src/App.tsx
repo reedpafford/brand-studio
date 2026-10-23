@@ -1,6 +1,8 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth";
 import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
+import { ItemPage } from "./library/ItemPage";
+import { LibraryPage } from "./library/LibraryPage";
 import { KitPage } from "./brand/KitPage";
 import { ScreensPage } from "./brand/ScreensPage";
 import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
@@ -18,6 +20,9 @@ export function App() {
           <Route path="b/:brandId" element={<BrandHome />} />
           <Route path="b/:brandId/kit" element={<KitPage />} />
           <Route path="b/:brandId/screens" element={<ScreensPage />} />
+          <Route path="b/:brandId/library" element={<Navigate to="characters" replace />} />
+          <Route path="b/:brandId/library/:kindSlug" element={<LibraryPage />} />
+          <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />
           <Route path="team" element={<TeamPage />} />
         </Route>
       </Route>
