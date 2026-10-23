@@ -1,6 +1,6 @@
 # Director evals (offline)
 
-Six cases in `cases.json` (3 fomo, 3 Iron Paws) that test the prompts in `app/prompts/` against
+Eight cases in `cases.json` (4 fomo, 4 Iron Paws) that test the prompts in `app/prompts/` against
 the two creative rules: **engaging**, and **the brand's required screens featured**.
 
 Each case has:
@@ -17,7 +17,10 @@ What each case is for:
 | fomo-draft-salesman | Drafting from a brief: different hooks, right length, screens on ★ lines |
 | ironpaws-rescue | Breakdown + clips with a product (the bag) instead of app screens: shown exactly, no face, good seams |
 | ironpaws-slow-start | Enhance on a slow script: visible beats and the bag added, problems in the words only as notes |
-| ironpaws-pitbull-1 | Reed's real script: long dog voiceover, no names or headings; keep every word, find the pictures, show the bag, flag the flavor mismatch |
+| ironpaws-pitbull-1 | **Definition of done.** Reed's real script with the peanut-butter bag: long dog voiceover, keep every word, find the pictures, show the right bag (no flavor note needed) |
+| fomo-adapt-altar | **Definition of done.** Reed's altar reel remade for fomo: same story, every line word for word, the montage as fomo trading with real screens, the live tag replaced by fomo's call to action |
+| ironpaws-pb-excerpt | 15 s excerpt: "mixed it into my food… peanut butter flavor… finished the bowl" with the real bag |
+| fomo-montage-excerpt | 12 s excerpt: only the altar reel's montage, as wordless fomo trading with the real screens |
 
 Iron Paws: a human-grade greens powder for dogs; the real bag is its required element, stored as a brand screen.
 

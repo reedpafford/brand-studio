@@ -3,6 +3,7 @@ into the finished video (ffmpeg, free)."""
 
 import subprocess
 import tempfile
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.breakdown import video_model
 from app.clip_prompts import assets
+from app.credits import estimate
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
@@ -20,7 +22,7 @@ RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
 KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "reference_audios"}
 
 
-def take_input(db: Session, project: Project, clip: ProjectClip) -> dict:
+def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "") -> dict:
     """The Seedance job for one clip: its prompt as written (it already says which picture is
     which), the project's aspect ratio, and its references by file id in the clip's order."""
     known = assets(db, project)
@@ -45,7 +47,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip) -> dict:
         "fit_images_to": LONG_SIDE[RESOLUTION],
         "exact_file_ids": exact,
         "input": {
-            "prompt": clip.prompt,
+            "prompt": _with_note(clip.prompt, note),
             "duration": clip.seconds,
             "resolution": RESOLUTION,
             "aspect_ratio": project.aspect_ratio,
@@ -53,6 +55,21 @@ def take_input(db: Session, project: Project, clip: ProjectClip) -> dict:
         },
         "files": {k: v for k, v in files.items() if v},
     }
+
+
+def _with_note(prompt: str, note: str) -> str:
+    """A Redo note ("what's wrong") goes into this take only, before the closing audio line
+    so the prompt still opens and closes on the same line."""
+    if not note:
+        return prompt
+    lines = prompt.rstrip().splitlines()
+    return "\n".join([*lines[:-1], f"Change from the last take: {note}", lines[-1]])
+
+
+def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
+    """What one more take costs, the same estimate `enqueue` charges."""
+    job = {"model": video_model().id, "input": {"resolution": RESOLUTION}}
+    return estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
 
 
 def save_take(db: Session, job: Job) -> None:

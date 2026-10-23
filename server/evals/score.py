@@ -10,14 +10,14 @@ import sys
 from pathlib import Path
 
 from app.catalogue import get_model
-from app.prompts import SCHEMAS, check
+from app.prompts import SCHEMAS, check, required
 
 CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
 
 
 def score(out: Path, case: dict) -> list[str]:
     brand = CASES["brands"][case["brand"]]
-    screens = {f"screen:{s['id']}": s["default_for"] for s in brand["screens"]}
+    screens = required(brand["screens"], brand.get("product"))
     video = get_model("seedance-2.5")
     exp, problems, answers = case["expect"], [], {}
     for step in case["steps"]:
@@ -44,17 +44,31 @@ def score(out: Path, case: dict) -> list[str]:
             )
         if (sid := exp.get("screen_anywhere")) and sid not in {s.screen_id for s in e.suggestions}:
             problems.append(f"expected {sid} somewhere")
+        for word in exp.get("notes_absent", []):
+            if any(word in note.text.lower() for note in e.notes):
+                problems.append(f"a note mentions '{word}', which this case shouldn't need")
 
     if d := answers.get("script_draft"):
         lo, hi = exp["drafts"]
         if not lo <= len(d.drafts) <= hi:
             problems.append(f"{len(d.drafts)} drafts, expected {lo}–{hi}")
         lo, hi = exp["words_per_draft"]
+        ref_lines = []
+        if exp.get("reference_words"):
+            path = Path(__file__).parents[2] / case["reference"]["path"]
+            ref_lines = list(
+                dict.fromkeys(x["text"] for x in json.loads(path.read_text())["lines"])
+            )
         for i, draft in enumerate(d.drafts, 1):
-            spoken = re.findall(r"^[A-Z][A-Z .'-]*:\s*(.*)$", draft.script, re.M)
+            spoken = re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", draft.script, re.M)
             words = len(" ".join(spoken).split())
             if not lo <= words <= hi:
                 problems.append(f"draft {i}: {words} spoken words, expected {lo}–{hi}")
+            said = "\n".join(spoken)
+            problems += [f"draft {i}: the reference's line “{x}” isn't kept word for word"
+                         for x in ref_lines if x not in said]  # fmt: skip
+            if (end := exp.get("end_line")) and end not in draft.script:
+                problems.append(f"draft {i}: doesn't end on the brand's end line")
 
     if bd := answers.get("breakdown"):
         working = out / f"{case['id']}.script.txt"
