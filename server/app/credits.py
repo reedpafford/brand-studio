@@ -20,10 +20,9 @@ from app.models.credits import (
     USD_PER_CREDIT,
     CreditLimits,
     CreditRate,
-    Project,
-    ProjectStatus,
 )
 from app.models.jobs import Job, JobStatus
+from app.models.projects import Project, ProjectStatus
 
 log = logging.getLogger(__name__)
 # Estimates only; real cost decides the final credits. Generation rates come from the

@@ -11,6 +11,8 @@ dependencies = [
     "argon2-cffi>=25.1.0",
     "python-multipart>=0.0.32",
     "httpx2>=2.13",
+    "pypdf>=6.21.2",
+    "defusedxml>=0.7.1",
 ]
 
 [dependency-groups]

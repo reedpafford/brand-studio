@@ -5,7 +5,6 @@ estimate when a job is queued; when it finishes, its real dollar cost is convert
 credits. A project's budget is 2x the 480p estimate of its planned length."""
 
 from decimal import Decimal
-from enum import StrEnum
 
 from sqlalchemy import ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -24,29 +23,6 @@ class CreditRate(Entity, Base):
     kind: Mapped[str] = mapped_column(String(40))  # matches Job.kind, e.g. video-480p
     unit: Mapped[str] = mapped_column(String(20))  # second, image, call
     credits_per_unit: Mapped[Decimal] = mapped_column(Numeric(12, 4))
-
-
-class ProjectStatus(StrEnum):
-    active = "active"
-    needs_owner_approval = "needs_owner_approval"  # planned length over the editor limit
-
-
-class Project(Entity, Base):
-    __tablename__ = "projects"
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
-    name: Mapped[str] = mapped_column(String(120))
-    planned_seconds: Mapped[int]
-    status: Mapped[ProjectStatus] = mapped_column(String(30), default=ProjectStatus.active)
-    approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-
-    @property
-    def estimate_credits(self) -> Decimal:
-        return Decimal(self.planned_seconds)  # 480p costs 1 credit per second
-
-    @property
-    def budget_credits(self) -> Decimal:
-        return self.estimate_credits * BUDGET_MULTIPLIER
 
 
 class CreditLimits(Entity, Base):

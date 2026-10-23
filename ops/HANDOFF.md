@@ -11,6 +11,7 @@
 - Credits: 1 credit = $0.1028 real cost = 1 s of 480p. Rates (seeded, owner-editable) give estimates; real cost replaces them on success; kinds without a rate estimate at 1/unit. Projects: editors set planned length, budget = 2x (max 180 s without owner). Quick clips: 150 credits/editor/week. Over any limit = `needs_owner_approval`. Limits owner-editable at `/credits/limits`. Check + reserve is one locked transaction.
 - Catalogue: `server/app/catalogue.json` is the one list of models (limits from Replicate schemas, snapshots in `tests/fixtures/replicate`). `GET /models` (credits) for everyone, `GET /models/prices` (dollars) owner-only.
 - Replicate (in review): `app/providers/replicate.py`. Jobs with `provider="replicate"` and input `{"model": <catalogue id>, "input": {...}}`; the worker polls, copies outputs into our storage (`output.file_ids`), records real cost (from Replicate metrics, else marked `estimated`). No token in code: the network proxy adds it; base URL `BS_REPLICATE_BASE_URL`.
+- Script projects #24 (in review, part 1): project brief (goal, platform, aspect, format, cast, reference video) and script versions: `PUT /projects/{id}/script` (paste), `POST .../script/upload` (txt/docx/pdf to text), `GET .../script[/versions[/{n}]]`. `Project` now lives in `app/models/projects.py`.
 ## Next
 - Builder-Server: Claude client (#15 part 3).
 - Explorer maps tezu.ai once network access is granted.
