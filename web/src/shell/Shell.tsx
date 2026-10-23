@@ -54,9 +54,17 @@ export function Shell() {
         </label>
         <nav aria-label="Main" className="flex gap-4 text-sm">
           {current && (
-            <NavLink end to={`/b/${current}`} className={link}>
-              Brand
-            </NavLink>
+            <>
+              <NavLink end to={`/b/${current}`} className={link}>
+                Brand
+              </NavLink>
+              <NavLink to={`/b/${current}/kit`} className={link}>
+                Kit
+              </NavLink>
+              <NavLink to={`/b/${current}/screens`} className={link}>
+                Screens
+              </NavLink>
+            </>
           )}
           <NavLink to="/team" className={link}>
             Team
