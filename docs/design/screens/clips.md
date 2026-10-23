@@ -38,6 +38,13 @@ Purpose: make one video clip per breakdown clip, review each one, redo what's wr
   - Changing any take or approval after that shows "Out of date. [Make the video again]".
 - **Download** on a single clip downloads that take: `<project>-c1-take2.mp4`. The video downloads as `<project>.mp4`.
 
+## End line (call to action)
+The end line needs nothing special on this screen: it's simply the last clip.
+- The brand kit has an **End line** text field, e.g. fomo: "Want to trade like me? Download fomo through the link in my bio."
+- Script drafts end with it.
+- The breakdown check adds a problem when the last clip doesn't carry it: "The video doesn't end with fomo's end line." The existing gate makes sure it's there before any video is made.
+- The last clip card shows a small muted tag "End line", so it's easy to find in review.
+
 ## States
 - Nothing made: "No clips yet." / "Each clip is made from its storyboard frame and the breakdown." / **[Make all · 96 credits]**.
 - All failed, or the service is down: a banner "Clips can't be made right now. Nothing was charged." with **[Try again]**.

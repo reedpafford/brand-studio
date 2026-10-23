@@ -11,6 +11,8 @@ API: `GET/PATCH /brands/{id}`, `GET/POST/PATCH/DELETE /brands/{id}/screens`, `PO
 │ │ Colours   ■ ■ ■ [+]  (first one  │ │ [textarea, 6 rows]             │  │
 │ │           tints the brand stripe)│ │ Never say  [chip×][chip×][+]   │  │
 │ │ Fonts     [chip×][+]             │ │ Legal line [__________________]│  │
+│ │ End line   [__________________]│  │   e.g. "Download fomo through the link in my bio."
+│ │ Products   [Chicken ▣][Peanut butter ▣][+]   name + bag image each │
 │ │ Style board [img] End card [img] │ │                                │  │
 │ └──────────────────────────────────┘ └────────────────────────────────┘  │
 │ Brand screens (12)        [Filter: all tags ▾]          [+ Add screens] │
