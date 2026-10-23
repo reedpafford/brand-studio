@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useBrands } from "../shell/useBrands";
 import { btnPrimary, card, pageTitle } from "../ui";
-import { Meter } from "./Meter";
+import { Meter, WaitingBadge } from "./Meter";
 
 export function ProjectsPage() {
   const brandId = Number(useParams().brandId);
@@ -48,8 +48,8 @@ export function ProjectsPage() {
               <span className="block text-[length:var(--text-md)] font-semibold">{p.name}</span>
               <span className="block text-sm text-muted">
                 {p.planned_seconds}s · {p.aspect_ratio || "9:16"}
-                {p.status === "needs_owner_approval" && " · Waiting for the owner to approve"}
               </span>
+              {p.status === "needs_owner_approval" && <WaitingBadge />}
               <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
             </Link>
           </li>

@@ -102,8 +102,8 @@ export function NewProjectPage() {
         <label className="block text-sm">
           Planned length (seconds)
           <input className={input} type="number" required min={1} max={longest} value={form.seconds} onChange={(e) => set("seconds", Number(e.target.value))} />
-          <span className="text-muted">Up to {longest}s. The credit budget is set from this.</span>
-          {needsApproval && <span className="block text-warning">Over {limits.data?.max_planned_seconds}s the owner has to approve the project.</span>}
+          <span className="block text-muted">Up to {longest}s. Budget: {form.seconds * 2} credits (twice the length).</span>
+          {needsApproval && <span className="block text-warning">Over {limits.data?.max_planned_seconds}s Reed has to approve the project.</span>}
         </label>
         <fieldset className="space-y-1 text-sm">
           <legend className="font-medium">Who's in it</legend>

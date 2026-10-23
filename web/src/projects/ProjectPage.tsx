@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { card, linkText, pageTitle } from "../ui";
-import { Meter } from "./Meter";
+import { Meter, WaitingBadge } from "./Meter";
 
 /** The project workspace. The script tabs build on this page next. */
 export function ProjectPage() {
@@ -21,9 +21,11 @@ export function ProjectPage() {
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className={pageTitle}>{p.name}</h1>
-        <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+        <div className="w-full sm:w-72">
+          <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+        </div>
       </div>
-      {p.status === "needs_owner_approval" && <p className="text-warning">Waiting for the owner to approve this project.</p>}
+      {p.status === "needs_owner_approval" && <WaitingBadge />}
       <section className={`${card} space-y-1 text-sm`} aria-label="Brief">
         <h2 className="text-[length:var(--text-md)] font-semibold">Brief</h2>
         {p.goal && <p>{p.goal}</p>}

@@ -31,12 +31,13 @@ function renderAt(path: string) {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("the list shows each video with its credits, never dollars, and flags one waiting for approval", async () => {
+test("the list shows each video with its credits, says when it is nearly or over budget, and flags one waiting for approval", async () => {
   fakeServer({ ...base, "GET /projects": [200, [project, { ...project, id: 10, name: "Long one", status: "needs_owner_approval", budget_pct: 110 }]] });
   renderAt("/b/1/projects");
   expect(await screen.findByText("Mia buys the dip")).toBeInTheDocument();
   expect(screen.getByText("412 / 660 credits · 62%")).toBeInTheDocument();
-  expect(screen.getByText(/Waiting for the owner to approve/)).toBeInTheDocument();
+  expect(screen.getByText(/110% · Over budget/)).toBeInTheDocument();
+  expect(screen.getByText("Waiting for Reed to approve")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 
@@ -67,9 +68,10 @@ test("a length past the editor limit says the owner has to approve, and the cap 
   renderAt("/b/1/projects/new");
   const length = await screen.findByLabelText(/Planned length/);
   expect(length).toHaveAttribute("max", "170");
+  expect(screen.getByText(/Budget: 60 credits/)).toBeInTheDocument();
   await userEvent.clear(length);
   await userEvent.type(length, "90");
-  expect(await screen.findByText("Over 60s the owner has to approve the project.")).toBeInTheDocument();
+  expect(await screen.findByText("Over 60s Reed has to approve the project.")).toBeInTheDocument();
 });
 
 test("a refused brief shows the server's reason", async () => {
@@ -78,4 +80,10 @@ test("a refused brief shows the server's reason", async () => {
   await userEvent.type(await screen.findByLabelText("Title"), "Too long");
   await userEvent.click(screen.getByRole("button", { name: "Create project" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Plan 170 seconds or less.");
+});
+
+test("the meter says 'Almost at budget' from 75% and has a bar", async () => {
+  fakeServer({ ...base, "GET /projects": [200, [{ ...project, budget_pct: 81, credits_used: 620, budget_credits: 765 }]] });
+  renderAt("/b/1/projects");
+  expect(await screen.findByText("620 / 765 credits · 81% · Almost at budget")).toBeInTheDocument();
 });
