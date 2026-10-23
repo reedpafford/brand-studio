@@ -1,8 +1,10 @@
 """Quick clips: one video from a prompt, inside a brand, checked against the model's limits.
 
 The brand's default screens are attached automatically when the prompt mentions one of
-their moments (e.g. fomo + "trading"). Files are passed by id; the worker sends them to the
-provider when the job starts."""
+their moments (e.g. fomo + "trading"). The prompt sent to the model starts with one line per
+picture ("[Image1] is Aiden.") and '@Name' becomes its [ImageN]; the editor's words stay as
+written. Files are passed by id; the worker sends them (images scaled to the video's size)
+when the job starts."""
 
 import re
 from datetime import timedelta
@@ -23,10 +25,12 @@ from app.models.brands import Brand, BrandScreen
 from app.models.files import StoredFile
 from app.models.jobs import Job
 from app.models.library import Kind
+from app.references import LONG_SIDE, bind_names, media_seconds, reference_lines
 from app.routes.brands import get_brand
 from app.routes.files import get_file
 from app.routes.jobs import JobOut, enqueue
 from app.routes.library import get_item
+from app.storage import Storage
 
 router = APIRouter(prefix="/clips", tags=["clips"])
 OVER_ALLOWANCE = "This goes past your weekly quick-clip allowance, so the owner must approve it."
@@ -65,6 +69,7 @@ class _Plan(BaseModel):
     model: CatalogueModel
     files: dict[str, list[int]]
     auto_screen_ids: list[int]
+    prompt: str  # what the model gets: reference lines + the editor's words
     credits: Decimal
 
 
@@ -73,7 +78,7 @@ def _mentions(prompt: str, moment: str) -> bool:
     return re.search(rf"\b{words}\b", prompt, re.IGNORECASE) is not None
 
 
-def _plan(db: Session, user: User, body: ClipIn) -> _Plan:
+def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     """Check everything against the catalogue and the brand; plain-language errors (422)."""
     brand = get_brand(db, user, body.brand_id)
     model = get_model(body.model_id)
@@ -88,13 +93,17 @@ def _plan(db: Session, user: User, body: ClipIn) -> _Plan:
         raise HTTPException(422, f"{model.name} makes clips from {lo} to {hi} seconds.")
 
     images: list[int] = []
+    labels: list[tuple[str, str, list[int]]] = []  # (name, what it is, its file ids)
     for kind, ids in (
         (Kind.character, body.character_ids),
         (Kind.place, body.place_ids),
         (Kind.prop, body.prop_ids),
     ):
         for item_id in dict.fromkeys(ids):
-            images += get_item(db, user, kind, item_id).image_file_ids
+            item = get_item(db, user, kind, item_id)
+            images += item.image_file_ids
+            label = item.name if kind == Kind.character else f"the {item.name}"
+            labels.append((item.name, label, item.image_file_ids))
     screens = _brand_screens(db, brand)
     for screen_id in dict.fromkeys(body.screen_ids):
         if screen_id not in screens:
@@ -106,7 +115,10 @@ def _plan(db: Session, user: User, body: ClipIn) -> _Plan:
         and s.id not in body.skip_screen_ids
         and any(_mentions(body.prompt, m) for m in s.default_for)
     ]
-    images += [screens[i].file_id for i in [*dict.fromkeys(body.screen_ids), *auto]]
+    for i in [*dict.fromkeys(body.screen_ids), *auto]:
+        s = screens[i]
+        images.append(s.file_id)
+        labels.append((s.name, f'the {brand.name} "{s.name}" screen, shown exactly', [s.file_id]))
 
     files = {"reference_images": [], "reference_videos": [], "reference_audios": []}
     for file_id in images + list(dict.fromkeys(body.file_ids)):
@@ -131,10 +143,48 @@ def _plan(db: Session, user: User, body: ClipIn) -> _Plan:
         raise HTTPException(422, "The references are too big together (100 MB max). Use fewer.")
     if files["reference_audios"] and not (files["reference_images"] or files["reference_videos"]):
         raise HTTPException(422, "Audio references need at least one image or video with them.")
+    _check_media_length(db, storage, model, files)
+    prompt = _prompt(body.prompt, labels, files["reference_images"])
     credits = estimate(
-        db, user.workspace_id, "video", Decimal(body.duration), _job_input(model, body, files)
+        db,
+        user.workspace_id,
+        "video",
+        Decimal(body.duration),
+        _job_input(model, body, files, prompt),
     )
-    return _Plan(model=model, files=files, auto_screen_ids=auto, credits=credits)
+    return _Plan(model=model, files=files, auto_screen_ids=auto, prompt=prompt, credits=credits)
+
+
+def _prompt(text: str, labels: list[tuple[str, str, list[int]]], images: list[int]) -> str:
+    """Say which picture is which (FIT row 4): Seedance only knows them by upload number."""
+    number = {file_id: n for n, file_id in enumerate(images, 1)}
+    found = [
+        (name, label, sorted({number[f] for f in ids if f in number}))
+        for name, label, ids in labels
+    ]
+    lines = [(label, numbers) for _, label, numbers in found if numbers]
+    names = {name: numbers[0] for name, _, numbers in found if numbers}
+    head = reference_lines(lines)
+    return f"{head}\n{bind_names(text, names)}" if head else bind_names(text, names)
+
+
+def _check_media_length(db: Session, storage: Storage, model: CatalogueModel, files) -> None:
+    """Reference videos and audio each add up to at most the model's limit (FIT row 15)."""
+    limit = model.max_reference_media_seconds
+    for key, label in (("reference_videos", "videos"), ("reference_audios", "audio")):
+        total = 0.0
+        for file_id in files[key]:
+            stored = db.get(StoredFile, file_id)
+            seconds = media_seconds(storage.get(stored.key), stored.content_type)
+            if seconds is None:
+                raise HTTPException(
+                    422, f"We couldn't tell how long {stored.filename} is. Try an MP4 or MP3."
+                )
+            total += seconds
+        if limit and total > limit:
+            raise HTTPException(
+                422, f"Reference {label} add up to {total:.0f} s; {model.name} takes {limit} s."
+            )
 
 
 def _not_twice(db: Session, user: User, body: ClipIn) -> None:
@@ -151,12 +201,13 @@ def _brand_screens(db: Session, brand: Brand) -> dict[int, BrandScreen]:
     return {s.id: s for s in rows}
 
 
-def _job_input(model: CatalogueModel, body: ClipIn, files: dict) -> dict:
+def _job_input(model: CatalogueModel, body: ClipIn, files: dict, prompt: str) -> dict:
     return {
         "model": model.id,
         "brand_id": body.brand_id,
+        "fit_images_to": LONG_SIDE[body.resolution],  # long side in px; never scaled up
         "input": {
-            "prompt": body.prompt,
+            "prompt": prompt,
             "duration": body.duration,
             "resolution": body.resolution,
             "aspect_ratio": body.aspect_ratio,
@@ -168,9 +219,14 @@ def _job_input(model: CatalogueModel, body: ClipIn, files: dict) -> dict:
 
 
 @router.post("/estimate", response_model=EstimateOut)
-def estimate_clip(body: ClipIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def estimate_clip(
+    body: ClipIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
     """What Generate would cost, and whether it would wait for the owner. Nothing is queued."""
-    plan = _plan(db, user, body)
+    plan = _plan(db, user, body, request.app.state.storage)
     held = needs_approval(db, user, None, plan.credits)
     return EstimateOut(
         credits=plan.credits,
@@ -188,14 +244,19 @@ def generation_on(request: Request) -> None:
 
 
 @router.post("", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)])
-def create_clip(body: ClipIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    plan = _plan(db, user, body)
+def create_clip(
+    body: ClipIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    plan = _plan(db, user, body, request.app.state.storage)
     _not_twice(db, user, body)
     return enqueue(
         db,
         user,
         "video",
-        _job_input(plan.model, body, plan.files),
+        _job_input(plan.model, body, plan.files, plan.prompt),
         units=body.duration,
         provider="replicate",
     )

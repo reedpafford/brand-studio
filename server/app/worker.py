@@ -24,6 +24,7 @@ from app.filetypes import ALLOWED_TYPES, matches
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
+from app.references import fit_image
 from app.storage import LocalStorage, Storage
 
 log = logging.getLogger("worker")
@@ -172,16 +173,20 @@ def check_running(
 
 
 def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
-    """The job's input with its file ids (job.input["files"]) turned into data URLs."""
+    """The job's input with its file ids (job.input["files"]) turned into data URLs. With
+    `fit_images_to`, reference images are scaled down to that long side and re-encoded."""
     payload = dict(job.input)
+    max_side = job.input.get("fit_images_to")
     for key, ids in (job.input.get("files") or {}).items():
         urls = []
         for file_id in ids:
             stored = db.get(StoredFile, file_id)
             if storage is None or not stored or stored.workspace_id != job.workspace_id:
                 raise RuntimeError(f"Reference file {file_id} is missing.")
-            data = base64.b64encode(storage.get(stored.key)).decode()
-            urls.append(f"data:{stored.content_type};base64,{data}")
+            data, content_type = storage.get(stored.key), stored.content_type
+            if max_side and key == "reference_images":
+                data, content_type = fit_image(data, max_side)
+            urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
         payload["input"] = {**payload["input"], key: urls}
     return payload
 

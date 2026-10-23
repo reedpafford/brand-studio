@@ -15,6 +15,7 @@
    "max_reference_videos": 10,
    "max_reference_audios": 10,
    "max_reference_media_seconds": 30,
+   "recommended_reference_images": 8,
    "first_frame": true,
    "last_frame": true,
    "audio": "switch",

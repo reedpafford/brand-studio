@@ -1350,6 +1350,8 @@ export interface components {
             max_reference_audios: number;
             /** Max Reference Media Seconds */
             max_reference_media_seconds: number;
+            /** Recommended Reference Images */
+            recommended_reference_images: number;
             /** First Frame */
             first_frame: boolean;
             /** Last Frame */

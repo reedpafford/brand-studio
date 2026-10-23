@@ -1,16 +1,19 @@
+import base64
+import io
 import json
 from datetime import timedelta
 
 import httpx2 as httpx
 import pytest
+from PIL import Image
 
 from app.models.accounts import Role, User
 from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.routes.jobs import enqueue
 from app.worker import run_once
-from tests.conftest import upload
-from tests.helpers import MP3, MP4, assert_hidden, assert_no_dollars
+from tests.conftest import png, upload
+from tests.helpers import MP3, MP4, assert_hidden, assert_no_dollars, mp4
 from tests.test_replicate import BASE, FakeReplicate
 
 
@@ -111,11 +114,61 @@ def test_worker_sends_references_as_data_urls(app, editor, fomo, db):
     for _ in range(3):
         run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
-    assert sent["prompt"].startswith("A cat starts trading")
-    assert sent["reference_images"][0].startswith("data:image/png;base64,")
+    assert sent["prompt"].endswith("\nA cat starts trading at sunrise")
+    assert sent["reference_images"][0].startswith("data:image/jpeg;base64,")
     assert sent["reference_videos"][0].startswith("data:video/mp4;base64,")
     assert "files" not in sent
     assert db.get(Job, r.json()["id"]).status == "succeeded"
+
+
+def _sent(app, db) -> dict:
+    fake = FakeReplicate()
+    client = httpx.Client(transport=httpx.MockTransport(fake))
+    run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+    return json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
+
+
+def test_prompt_says_which_picture_is_which(app, editor, fomo, db):
+    kitchen = editor.post(
+        "/library/place", json={"name": "kitchen", "image_file_ids": [upload(editor)]}
+    ).json()["id"]
+    prompt = "@max starts trading in the @Kitchen, emailing max@fomo.app"
+    body = _clip(fomo, prompt=prompt, character_ids=[fomo["character"]], place_ids=[kitchen])
+    assert editor.post("/clips", json=body).status_code == 201
+    assert _sent(app, db)["prompt"] == (
+        "[Image1] is Max.\n[Image2] is the kitchen.\n"
+        '[Image3] is the fomo "Buy" screen, shown exactly.\n'
+        "[Image1] starts trading in the [Image2], emailing max@fomo.app"
+    )
+    job = db.query(Job).one().id
+    assert editor.get(f"/clips/{job}/request").json()["prompt"] == prompt  # for Try again
+    assert editor.get(f"/jobs/{job}").json()["prompt_summary"] == prompt
+
+
+def test_reference_images_are_shrunk_to_the_video_size(app, editor, fomo, db):
+    big, clear = (
+        upload(editor, data=png(3000, 1000)),
+        upload(editor, data=png(10, 10, (0, 0, 0, 0))),
+    )
+    body = _clip(fomo, prompt="A quiet beach at dawn", file_ids=[big, clear], resolution="720p")
+    assert editor.post("/clips", json=body).status_code == 201
+    images = _sent(app, db)["reference_images"]
+    sizes = []
+    for url in images:
+        kind, data = url.removeprefix("data:").split(";base64,")
+        sizes.append((kind, Image.open(io.BytesIO(base64.b64decode(data))).size))
+    assert sizes == [("image/jpeg", (1280, 427)), ("image/png", (10, 10))]  # never scaled up
+
+
+def test_reference_media_is_limited_per_type(editor, fomo):
+    long = [upload(editor, f"{n}.mp4", mp4(20), "video/mp4") for n in range(2)]
+    r = editor.post("/clips/estimate", json=_clip(fomo, file_ids=long))
+    assert r.json()["detail"] == "Reference videos add up to 40 s; Seedance 2.5 takes 30 s."
+    broken = upload(editor, "b.mp4", b"\0\0\0\x18ftypmp42" + b"0" * 32, "video/mp4")
+    r = editor.post("/clips/estimate", json=_clip(fomo, file_ids=[broken]))
+    assert r.status_code == 422 and "couldn't tell how long b.mp4" in r.json()["detail"]
+    ok = editor.post("/clips/estimate", json=_clip(fomo, file_ids=[long[0]]))
+    assert ok.status_code == 200
 
 
 def test_other_workspace_is_shut_out(outsider, fomo):

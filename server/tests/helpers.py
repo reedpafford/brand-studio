@@ -4,9 +4,23 @@
 """
 
 import json
+import struct
 
 MP3 = b"ID3" + b"0" * 32
-MP4 = b"\0\0\0\x18ftypmp42" + b"0" * 32
+
+
+def _box(kind: bytes, body: bytes) -> bytes:
+    return struct.pack(">I", 8 + len(body)) + kind + body
+
+
+def mp4(seconds: float) -> bytes:
+    """A tiny MP4 that says how long it is (enough for length checks)."""
+    times = struct.pack(">IIII", 0, 0, 1000, int(seconds * 1000))
+    mvhd = _box(b"mvhd", bytes(4) + times + bytes(80))
+    return _box(b"ftyp", b"mp42" + bytes(4) + b"mp42") + _box(b"moov", mvhd)
+
+
+MP4 = mp4(5)
 
 
 def assert_hidden(client, calls: list[tuple]) -> None:

@@ -36,7 +36,8 @@ class CatalogueModel(BaseModel):
     max_reference_images: int = 0
     max_reference_videos: int = 0
     max_reference_audios: int = 0
-    max_reference_media_seconds: int = 0
+    max_reference_media_seconds: int = 0  # videos and audio each, added up (not together)
+    recommended_reference_images: int = 0  # works best at or under this (0 = no advice)
     first_frame: bool = False
     last_frame: bool = False
     audio: Literal["switch", "always"] | None = None
