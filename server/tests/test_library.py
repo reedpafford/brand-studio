@@ -80,6 +80,8 @@ def test_other_workspace_cannot_touch_items(owner, outsider):
             ("DELETE", url),
         ],
     )
+    owner.delete(url)  # archived: the archive routes must hide it from outsiders too
+    assert_hidden(outsider, [("POST", f"{url}/unarchive"), ("DELETE", f"{url}/permanent")])
 
 
 def test_cannot_attach_another_workspaces_brand_or_file(owner, outsider):

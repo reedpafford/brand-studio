@@ -22,7 +22,7 @@ def _run(db, provider, job):
 
 def test_job_runs_to_success_and_records_usage(db, user):
     fake = FakeProvider(polls_until_done=1)
-    job = enqueue(db, user, "video", {"seconds": 5})
+    job = enqueue(db, user, "video-480p", {"seconds": 5})
     assert _run(db, fake, job).status == JobStatus.running  # submitted
     assert _run(db, fake, job).status == JobStatus.running  # still working
     assert _run(db, fake, job).status == JobStatus.succeeded
@@ -33,7 +33,7 @@ def test_job_runs_to_success_and_records_usage(db, user):
 
 def test_provider_failure_marks_job_failed_without_retry(db, user):
     fake = FakeProvider(fail=True)
-    job = enqueue(db, user, "video", {})
+    job = enqueue(db, user, "video-480p", {})
     _run(db, fake, job)
     assert _run(db, fake, job).status == JobStatus.failed
     assert job.error == FAILED and job.error_detail == "fake failure"
@@ -42,7 +42,7 @@ def test_provider_failure_marks_job_failed_without_retry(db, user):
 
 def test_network_error_while_checking_is_retried(db, user):
     fake = FakeProvider()
-    job = enqueue(db, user, "video", {})
+    job = enqueue(db, user, "video-480p", {})
     _run(db, fake, job)
     fake.network_errors_on_poll = 1
     assert _run(db, fake, job).status == JobStatus.running
@@ -52,7 +52,7 @@ def test_network_error_while_checking_is_retried(db, user):
 def test_paid_submit_is_never_retried(db, user):
     fake = FakeProvider(paid=True)
     fake.network_errors_on_submit = 1
-    job = enqueue(db, user, "video", {})
+    job = enqueue(db, user, "video-480p", {})
     assert _run(db, fake, job).status == JobStatus.failed
     assert job.error == UNSURE
     _run(db, fake, job)
@@ -62,7 +62,7 @@ def test_paid_submit_is_never_retried(db, user):
 def test_free_submit_retries_network_errors_on_later_ticks(db, user):
     fake = FakeProvider(paid=False)
     fake.network_errors_on_submit = 2
-    job = enqueue(db, user, "write", {})
+    job = enqueue(db, user, "video-480p", {})
     assert _run(db, fake, job).status == JobStatus.queued
     assert _run(db, fake, job).status == JobStatus.queued
     assert _run(db, fake, job).status == JobStatus.running
@@ -71,9 +71,9 @@ def test_free_submit_retries_network_errors_on_later_ticks(db, user):
 
 def test_restart_rechecks_running_jobs_and_fails_unsure_paid_ones(db, user):
     fake = FakeProvider()
-    handed_over = enqueue(db, user, "video", {})
+    handed_over = enqueue(db, user, "video-480p", {})
     _run(db, fake, handed_over)
-    crashed = enqueue(db, user, "video", {})
+    crashed = enqueue(db, user, "video-480p", {})
     crashed.status = JobStatus.running  # crash between marking running and submitting
     db.commit()
     recover(db, {"fake": fake})
@@ -84,7 +84,7 @@ def test_restart_rechecks_running_jobs_and_fails_unsure_paid_ones(db, user):
 
 def test_two_workers_record_usage_once(app, db, user):
     fake = FakeProvider()
-    job = enqueue(db, user, "video", {})
+    job = enqueue(db, user, "video-480p", {})
     _run(db, fake, job)
     real_poll = fake.poll
 
@@ -101,8 +101,8 @@ def test_two_workers_record_usage_once(app, db, user):
 
 
 def test_unknown_provider_fails_the_job_and_others_still_run(db, user):
-    bad = enqueue(db, user, "video", {}, provider="nope")
-    good = enqueue(db, user, "video", {})
+    bad = enqueue(db, user, "video-480p", {}, provider="nope")
+    good = enqueue(db, user, "video-480p", {})
     fake = FakeProvider()
     _run(db, fake, bad)
     db.refresh(good)
@@ -111,7 +111,7 @@ def test_unknown_provider_fails_the_job_and_others_still_run(db, user):
 
 
 def test_unknown_provider_on_restart_fails_instead_of_crashing(db, user):
-    job = enqueue(db, user, "video", {}, provider="nope")
+    job = enqueue(db, user, "video-480p", {}, provider="nope")
     job.status = JobStatus.running
     db.commit()
     recover(db, {"fake": FakeProvider()})
