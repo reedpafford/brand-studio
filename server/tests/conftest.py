@@ -13,7 +13,10 @@ PASSWORD = "correct horse battery"
 @pytest.fixture
 def app(tmp_path):
     settings = Settings(
-        database_url=f"sqlite:///{tmp_path}/test.db", cookie_secure=False, setup_token=SETUP_TOKEN
+        database_url=f"sqlite:///{tmp_path}/test.db",
+        storage_dir=str(tmp_path / "files"),
+        cookie_secure=False,
+        setup_token=SETUP_TOKEN,
     )
     application = create_app(settings)
     Base.metadata.create_all(application.state.sessionmaker.kw["bind"])
@@ -57,3 +60,12 @@ def editor(app, owner):
         r = c.post("/auth/accept-invite", json={"token": token, "name": "Ed", "password": PASSWORD})
         assert r.status_code == 201, r.text
         yield c
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+
+
+def upload(client, name="a.png", data=PNG, content_type="image/png") -> int:
+    r = client.post("/files", files={"upload": (name, data, content_type)})
+    assert r.status_code == 201, r.text
+    return r.json()["id"]

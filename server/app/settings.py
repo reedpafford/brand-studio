@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     session_days: int = 30
     invite_days: int = 7
     cookie_secure: bool = True  # set BS_COOKIE_SECURE=false only for local http
+    # Uploaded files (local disk for now; S3-compatible later)
+    storage_dir: str = "./storage"
+    max_upload_mb: int = 200
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 
