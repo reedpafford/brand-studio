@@ -125,7 +125,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
       <section className={`${card} space-y-3`} aria-label="Clips">
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
-        <button className={btnPrimary} disabled={write.isPending} onClick={() => write.mutate()}>
+        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending} onClick={() => write.mutate()}>
           {over(writeCost) ? "Ask Reed to approve" : "Write clip prompts"}
           {price(writeCost)}
         </button>
@@ -143,7 +143,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
         </h2>
         {missing.length > 0 && (
           <button
-            className={btnPrimary}
+            className={`${btnPrimary} min-h-11 sm:min-h-9`}
             disabled={generate.isPending}
             onClick={async () => {
               for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
@@ -193,7 +193,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
           <p className="text-muted">{left > 0 ? `${approved} of ${list.length} clips approved. Approve every clip to make the video (${left} left).` : "Every clip is approved."}</p>
         )}
         {(!v || v.out_of_date) && (
-          <button className={btnPrimary} disabled={left > 0 || stitch.isPending} onClick={() => stitch.mutate()}>
+          <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={left > 0 || stitch.isPending} onClick={() => stitch.mutate()}>
             {stitch.isPending ? "Putting your clips together…" : v ? "Make the video again" : "Make the video"}
           </button>
         )}
@@ -273,17 +273,22 @@ function ClipCard(props: {
             What's wrong?
             <textarea className={input} rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
-          <button
-            className={btnPrimary}
-            disabled={props.busy || !note.trim()}
-            onClick={() => {
-              props.onGenerate(note.trim());
-              setNote(null);
-            }}
-          >
-            {props.over ? "Ask Reed to approve" : "Make another take"}
-            {price}
-          </button>
+          <div className="flex gap-2">
+            <button
+              className={`${btnPrimary} min-h-11 sm:min-h-9`}
+              disabled={props.busy || !note.trim()}
+              onClick={() => {
+                props.onGenerate(note.trim());
+                setNote(null);
+              }}
+            >
+              {props.over ? "Ask Reed to approve" : "Redo"}
+              {price}
+            </button>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={() => setNote(null)}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
       {editing !== null ? (
@@ -314,8 +319,8 @@ function ClipCard(props: {
             {verb}
             {price}
           </button>
-          {c.takes.length > 0 && (
-            <button className={`${linkText} min-h-11 sm:min-h-9`} onClick={() => setNote(note === null ? "" : null)}>
+          {c.takes.length > 0 && note === null && (
+            <button className={`${linkText} min-h-11 sm:min-h-9`} onClick={() => setNote("")}>
               Needs a change
             </button>
           )}

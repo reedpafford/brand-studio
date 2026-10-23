@@ -197,8 +197,22 @@ test("Needs a change sends what's wrong with the next take, and the price is the
   expect(within(card).getByRole("button", { name: "Make another take · 30 credits" })).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: "Needs a change" }));
   await userEvent.type(within(card).getByLabelText("What's wrong?"), "Hand is too big");
-  await userEvent.click(within(card).getAllByRole("button", { name: "Make another take · 30 credits" })[0]);
+  expect(within(card).queryByRole("button", { name: "Needs a change" })).not.toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Redo · 30 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/1/generate")?.body).toEqual({ note: "Hand is too big" }));
+});
+
+test("Cancel closes the Needs a change form and brings the link back", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]],
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  await userEvent.click(within(card).getByRole("button", { name: "Needs a change" }));
+  await userEvent.click(within(card).getByRole("button", { name: "Cancel" }));
+  expect(within(card).queryByLabelText("What's wrong?")).not.toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Needs a change" })).toBeInTheDocument();
 });
 
 test("an approved clip can be un-approved", async () => {
