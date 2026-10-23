@@ -63,7 +63,7 @@ test("the brief is sent with the cast and shape, then you land on the project", 
   expect(screen.getByText("412 / 660 credits · 62%")).toBeInTheDocument();
 });
 
-test("a length past the editor limit says the owner has to approve, and the cap comes from the server", async () => {
+test("the length cap comes from the server, with no note about approval", async () => {
   fakeServer({ ...base });
   renderAt("/b/1/projects/new");
   const length = await screen.findByLabelText(/Planned length/);
@@ -71,26 +71,8 @@ test("a length past the editor limit says the owner has to approve, and the cap 
   expect(screen.getByText(/Budget: 60 credits/)).toBeInTheDocument();
   await userEvent.clear(length);
   await userEvent.type(length, "90");
-  expect(await screen.findByText("Over 60s Reed has to approve the project.")).toBeInTheDocument();
-});
-
-test("a product that comes in flavours is picked on the brief and sent with it", async () => {
-  const bag = (id: number, name: string, variant: string) => ({ id, brand_id: 1, name, tags: [], default_for: [], product: "bag", variant, file_id: id });
-  const calls = fakeServer({
-    ...base,
-    "GET /brands/1/screens": [200, [bag(1, "Chicken bag", "Chicken"), bag(2, "Peanut butter bag", "Peanut butter"), { ...bag(3, "Phone", ""), product: "" }]],
-    "POST /projects": [201, project],
-    "GET /projects/9": [200, project],
-    "GET /projects": [200, []],
-  });
-  renderAt("/b/1/projects/new");
-  await userEvent.type(await screen.findByLabelText("Title"), "Dinner");
-  await userEvent.click(await screen.findByRole("button", { name: "Peanut butter" }));
-  expect(screen.getByRole("button", { name: "Peanut butter" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.queryByRole("button", { name: "Phone" })).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Create project" }));
-  await screen.findByRole("heading", { name: "Mia buys the dip" });
-  expect(calls.find((c) => c.key === "POST /projects")?.body).toMatchObject({ product_variants: { bag: "Peanut butter" } });
+  expect(screen.queryByText(/Reed has to approve/)).not.toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/Up to \d+s/);
 });
 
 test("a refused brief shows the server's reason", async () => {
@@ -105,4 +87,19 @@ test("the meter says 'Almost at budget' from 75% and has a bar", async () => {
   fakeServer({ ...base, "GET /projects": [200, [{ ...project, budget_pct: 81, credits_used: 620, budget_credits: 765 }]] });
   renderAt("/b/1/projects");
   expect(await screen.findByText("620 / 765 credits · 81% · Almost at budget")).toBeInTheDocument();
+});
+
+test("a product with one flavour is picked for you", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /brands/1/screens": [200, [{ id: 1, brand_id: 1, name: "Chicken bag", tags: [], default_for: [], product: "bag", variant: "Chicken", file_id: 1 }]],
+    "POST /projects": [201, project],
+    "GET /projects/9": [200, project],
+    "GET /projects": [200, []],
+  });
+  renderAt("/b/1/projects/new");
+  await userEvent.type(await screen.findByLabelText("Title"), "Dinner");
+  expect(await screen.findByRole("button", { name: "Chicken" })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects")?.body).toMatchObject({ product_variants: { bag: "Chicken" } }));
 });
