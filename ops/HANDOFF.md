@@ -2,8 +2,8 @@
 ## Now
 - Foundation done (#2–#8). tezu.ai mapped (#9, docs/tezu).
 - Design system and screens merged (#11–#17, #20, #21, #26, #29).
-- Catalogue, Claude client, Replicate adapter, fomo assets, Director prompts, project brief + scripts merged (#18, #22, #23, #25, #27, #28, #30).
-- In review: Quick clips (#33), per-video $35 cap (#38), Iron Paws seed (#39), Generate wiring (#31). Enhance (#24 part 2) opens after #33.
+- Merged: catalogue, Claude client (streaming), Replicate adapter, brand assets, Director prompts, project brief + scripts, $35 cap, Iron Paws seed, Quick clips (#18, #22, #23, #25, #27, #28, #30, #33, #34, #38, #39, #44, #45).
+- In review: Generate wiring (#31), Enhance (#24 part 2).
 - Reed's 2026-10-23 decisions are in ops/DECISIONS.md. Credits and per-video budgets follow them.
 - How to run: `server/README.md`. Any server API change: run `npm run api` in web/ and commit `web/src/api/schema.d.ts`.
 - Accounts: first owner via `POST /auth/setup` (needs `BS_SETUP_TOKEN`); login throttled; invites; roles owner/editor.
@@ -17,7 +17,7 @@
 - Credits: 1 credit = $0.1028 = 1 s of 480p. Catalogue prices give clip estimates, rates table the rest; real cost replaces estimates. Projects: budget = 2x planned length (editors ≤ 180 s without owner). Quick clips: 150 credits/editor/week. Over a limit = `needs_owner_approval`. Hard per-video cap 340 (= $35) for everyone (#38). Limits at `/credits/limits`.
 - Catalogue: `server/app/catalogue.json` (limits from Replicate schemas). `GET /models` (credits), `GET /models/prices` (owner).
 - Quick clips: `POST /clips`, `POST /clips/estimate`, `GET /clips/{job}/request`; moment screens auto-attached unless in `skip_screen_ids`.
-- Scripts: brief on projects; versions via paste/upload (txt/docx/pdf). Enhance: `POST .../script/enhance` (Claude via Director prompts + `check.enhance`), accept/reject, `POST .../script/apply` → new version.
+- Scripts: brief on projects; versions via paste/upload (txt/docx/pdf). Enhance: `POST .../script/enhance` (Claude via Director prompts + `check.enhance`), accept/reject, `POST .../script/apply` → new version. Enhance never changes the script's words: marks only add lines before/after a line; `notes` (problems in the words) are shown as information.
 ## Next
 - Builder-Server: #24 next: script draft, breakdown, storyboard, clip prompts; then Quick clip "Improve prompt".
 - Director's paid evals: log each paid call in ops/SPEND.md when it runs.

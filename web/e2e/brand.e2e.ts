@@ -1,14 +1,22 @@
-import { expect, test } from "@playwright/test";
-import { image, signIn } from "./helpers";
+import { expect, test, type Page } from "@playwright/test";
+import { emptyBrand, image, signIn } from "./helpers";
 
-// Runs after auth.e2e.ts; Reed (owner) exists. These use Iron Paws, which starts empty
-// (fomo comes with its real screens: see fomo.e2e.ts). Tests run in order.
+// Runs after auth.e2e.ts; Reed (owner) exists. These use a brand made for them, which starts
+// empty (fomo and Iron Paws come with their real screens: see fomo.e2e.ts). Tests run in order.
 test.describe.configure({ mode: "serial" });
+
+async function saveKit(page: Page) {
+  const saved = page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().includes("/api/brands/"));
+  await page.getByRole("button", { name: "Save changes" }).click();
+  expect((await saved).ok()).toBe(true);
+  await expect(page.getByText("Saved.")).toBeVisible();
+}
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await page.getByLabel("Brand").selectOption({ label: "Iron Paws" });
-  await expect(page.getByRole("heading", { name: "Iron Paws" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await page.goto(`/b/${await emptyBrand(page)}`);
+  await expect(page.getByRole("heading", { name: "Night Owl" })).toBeVisible();
 });
 
 test("brand kit text is saved and still there after a reload", async ({ page }) => {
@@ -16,8 +24,7 @@ test("brand kit text is saved and still there after a reload", async ({ page }) 
   await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
   await page.getByLabel("Tone of voice").fill("Calm, confident, never hype.");
   await page.getByLabel("Never say (one per line)").fill("guaranteed returns\nget rich quick");
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
+  await saveKit(page);
 
   await page.reload();
   await expect(page.getByLabel("Tone of voice")).toHaveValue("Calm, confident, never hype.");
@@ -28,8 +35,7 @@ test("an uploaded logo shows and survives a reload", async ({ page }) => {
   await page.getByRole("link", { name: "Kit" }).click();
   await page.getByLabel("Logo file").setInputFiles(image("logo.png"));
   await expect(page.getByRole("img", { name: "Logo" })).toBeVisible();
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
+  await saveKit(page);
 
   await page.reload();
   await expect(page.getByRole("img", { name: "Logo" })).toBeVisible();
