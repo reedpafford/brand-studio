@@ -173,3 +173,10 @@ test("tapping a suggestion opens a sheet with the Why, and the Notes chip opens 
   await userEvent.click(within(notes).getByRole("button", { name: "Got it: line 2" }));
   expect(within(notes).getByText("No notes.")).toBeInTheDocument();
 });
+
+test("the helper says 'directions', and phones get a 'Why?' hint after a suggestion that has a reason", async () => {
+  fakeServer({ ...base, "GET /projects/9/script/suggestions": [200, [mark({ status: "accepted" }), mark({ id: 2, line: 2 })]] });
+  open();
+  expect(await screen.findByText(/Applying adds the accepted directions as a new version\./)).toBeInTheDocument();
+  expect(screen.getByText("Why?")).toBeInTheDocument();
+});

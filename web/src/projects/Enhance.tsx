@@ -162,7 +162,7 @@ export function EnhanceBar({ e }: { e: EnhanceState }) {
         {e.running && <span className="text-sm text-muted">{e.last?.status === "needs_owner_approval" ? "Waiting for Reed to approve" : "Reading your script…"}</span>}
         {e.marks.length > 0 && <span className="text-sm text-muted">{pending} suggestions waiting · {accepted} accepted</span>}
       </div>
-      {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Applying adds the accepted notes as a new version. Suggestions you haven't decided on are dropped.</p>}
+      {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Applying adds the accepted directions as a new version. Suggestions you haven't decided on are dropped.</p>}
       {failed && (
         <p role="alert" className={errorClass}>
           Enhance didn't finish. Your script is unchanged. Press Enhance to try again.
@@ -195,6 +195,7 @@ export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
             {mark.kind === "brand_screen" ? "★ " : "▸ "}
             {mark.text}
           </span>
+          {!accepted && mark.reason && <span className="ml-2 text-xs text-muted sm:hidden">Why?</span>}
         </button>
         {!accepted && mark.reason && <span className="hidden text-xs text-muted sm:block">Why: {mark.reason}</span>}
         {open && (
