@@ -54,7 +54,7 @@ test("done steps get a tick, and locked steps cannot be opened and say why", asy
   expect(within(steps).getByRole("button", { name: /Enhance/ })).toHaveAttribute("aria-current", "step");
   const clips = within(steps).getByRole("button", { name: "Clips" });
   expect(clips).toBeDisabled();
-  expect(clips).toHaveAttribute("title", "Approve every storyboard frame first");
+  expect(clips).toHaveAttribute("title", "Fix the breakdown first");
 });
 
 test("without a script the next step waits for one", async () => {
@@ -68,7 +68,7 @@ test("on a phone a Stage menu replaces the steps, and Script / stage tabs switch
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open();
   const menu = await screen.findByLabelText("Stage");
-  expect(within(menu).getByRole("option", { name: "Clips (approve every storyboard frame first)" })).toBeDisabled();
+  expect(within(menu).getByRole("option", { name: "Clips (fix the breakdown first)" })).toBeDisabled();
   await userEvent.selectOptions(menu, "Enhance");
   expect(await screen.findByLabelText("Enhance stage")).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Enhance" })).toBeInTheDocument();

@@ -154,3 +154,25 @@ test("the storyboard's Next: Clips opens this step once every frame is approved"
   await userEvent.click(next);
   expect(await screen.findByText("No clips yet.")).toBeInTheDocument();
 });
+
+test("an edited script makes the breakdown stale, which closes Clips again even with every frame approved", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, { ...breakdown, stale: true, script_version: 3 }], "GET /projects/9/clips": [200, []] });
+  open("?stage=clips");
+  expect(await screen.findByLabelText("Breakdown")).toBeInTheDocument(); // landed on the first unfinished step
+  const steps = screen.getByRole("list", { name: "Stages" });
+  expect(within(steps).getByRole("button", { name: /Clips/ })).toBeDisabled();
+  expect(within(steps).getByRole("button", { name: /Clips/ })).toHaveAttribute("title", "Fix the breakdown first");
+});
+
+test("a breakdown with problems also keeps Clips closed, and without a script the reason is the script", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, { ...breakdown, problems: ["Shot 1.2 shows no fomo screen."] }] });
+  open("?stage=script");
+  const steps = await screen.findByRole("list", { name: "Stages" });
+  expect(within(steps).getByRole("button", { name: /Clips/ })).toHaveAttribute("title", "Fix the breakdown first");
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  fakeServer({ ...base, "GET /projects/9/script": [404, { detail: "none" }], "GET /projects/9/breakdown": [409, { detail: "Add a script first." }] });
+  open("?stage=script");
+  const steps2 = await screen.findByRole("list", { name: "Stages" });
+  expect(within(steps2).getByRole("button", { name: /Clips/ })).toHaveAttribute("title", "Finish the script first");
+});

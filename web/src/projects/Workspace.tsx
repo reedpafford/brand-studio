@@ -25,6 +25,9 @@ export function lockReason(stage: Stage, ready: Ready): string | null {
   // Required brand screens are enforced here: the storyboard waits for a breakdown that is current and has no problems.
   if (stage === "storyboard" && !ready.breakdown) return "Make the breakdown first";
   if (stage === "storyboard" && !ready.breakdownOk) return "Fix the breakdown first";
+  // Clips need everything before them to be current: a script, a clean breakdown, an approved storyboard.
+  if (stage === "clips" && !ready.script) return "Finish the script first";
+  if (stage === "clips" && !ready.breakdownOk) return "Fix the breakdown first";
   if (stage === "clips" && !ready.storyboardOk) return "Approve every storyboard frame first";
   return null;
 }
