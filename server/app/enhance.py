@@ -29,13 +29,33 @@ def screens_of(db: Session, brand: Brand) -> list[BrandScreen]:
     return list(db.scalars(select(BrandScreen).where(BrandScreen.brand_id == brand.id)))
 
 
+def project_screens(db: Session, project: Project) -> list[BrandScreen]:
+    """The brand's screens this project uses: for a product with variants, only the variant
+    the brief picked (the first one if none is picked yet)."""
+    screens = screens_of(db, db.get(Brand, project.brand_id))
+    chosen = project.product_variants or {}
+    first: dict[str, str] = {}
+    for s in sorted(screens, key=lambda s: s.id):
+        if s.product and s.variant:
+            first.setdefault(s.product, s.variant)
+    return [
+        s
+        for s in screens
+        if not (s.product and s.variant) or s.variant == chosen.get(s.product, first[s.product])
+    ]
+
+
+def screen_name(s: BrandScreen) -> str:
+    return f"{s.name} ({s.variant})" if s.variant else s.name
+
+
 def project_context(db: Session, project: Project, step: str) -> tuple[list[str], str]:
     """What every script-flow call starts with: the fixed system parts (step rules, then the
     brand; cached together) and the <brief> and <cast> for the user message."""
     brand = db.get(Brand, project.brand_id)
     screens = [
-        {"id": s.id, "name": s.name, "tags": s.tags, "default_for": s.default_for}
-        for s in screens_of(db, brand)
+        {"id": s.id, "name": screen_name(s), "tags": s.tags, "default_for": s.default_for}
+        for s in project_screens(db, project)
     ]
     brand_dict = {
         "name": brand.name,
@@ -78,7 +98,7 @@ def save_suggestions(db: Session, job: Job) -> None:
         )
     )
     result = EnhanceResult.model_validate(job.output)
-    brand_screens = {f"screen:{s.id}": s for s in screens_of(db, db.get(Brand, project.brand_id))}
+    brand_screens = {f"screen:{s.id}": s for s in project_screens(db, project)}
     problems = check.enhance(
         version.text, result, {k: s.default_for for k, s in brand_screens.items()}
     )

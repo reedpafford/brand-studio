@@ -36,3 +36,7 @@ class BrandScreen(Entity, Base):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)  # e.g. trading, chart-up, mobile
     # Moments this screen is attached to by default, e.g. ["trading"] for fomo.
     default_for: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # A product with several versions (e.g. product "bag", variant "Chicken" / "Peanut butter"):
+    # each project picks one variant per product, and only that one is used.
+    product: Mapped[str] = mapped_column(String(60), default="")
+    variant: Mapped[str] = mapped_column(String(60), default="")

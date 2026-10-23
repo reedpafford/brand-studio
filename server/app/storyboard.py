@@ -9,7 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.catalogue import CatalogueModel, catalogue
-from app.enhance import escape, project_context, screens_of
+from app.enhance import escape, project_context, project_screens, screen_name
 from app.images import image_job_input, image_model_block
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
@@ -45,10 +45,11 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         key = f"{PREFIX[item.kind]}:{item.id}"
         out[key] = (f"{key} | {item.kind} | {item.name} | {item.notes}", item.image_file_ids)
     brand = db.get(Brand, project.brand_id)
-    for s in screens_of(db, brand):
+    for s in project_screens(db, project):
         product = "product" in s.tags  # e.g. the Iron Paws bag: shown as a product, no face
         kind, what = ("product", "product") if product else ("screen", "app screen")
-        line = f"screen:{s.id} | {kind} | {s.name} | {brand.name} {what}, {', '.join(s.tags)}"
+        name = screen_name(s)
+        line = f"screen:{s.id} | {kind} | {name} | {brand.name} {what}, {', '.join(s.tags)}"
         out[f"screen:{s.id}"] = (line, [s.file_id])
     return out
 

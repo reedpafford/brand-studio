@@ -1,3 +1,3 @@
 {
-  "bag.webp": {"name": "Iron Paws bag (front)", "tags": ["product", "bag"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"]}
+  "bag.webp": {"name": "Iron Paws bag (front)", "tags": ["product", "bag"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"], "product": "bag", "variant": "Chicken"}
 }

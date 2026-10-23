@@ -92,6 +92,7 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
         meta = manifest.get(path.name) or _guess(path.stem)
         name = meta.get("name") or path.stem
         if name in existing:
+            _set_variant(db, brand, name, meta)  # a product version added to the manifest later
             continue
         stored = _store(storage, brand.workspace_id, path)
         if stored is None:
@@ -103,6 +104,8 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
                 file=stored,
                 tags=sorted(set(meta.get("tags", []))),
                 default_for=sorted(set(meta.get("default_for", []))),
+                product=meta.get("product", ""),
+                variant=meta.get("variant", ""),
             )
         )
         existing.add(name)
@@ -120,6 +123,14 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
                 setattr(brand, field, stored.id)
     db.commit()
     return added
+
+
+def _set_variant(db: Session, brand: Brand, name: str, meta: dict) -> None:
+    screen = db.scalar(
+        select(BrandScreen).where(BrandScreen.brand_id == brand.id, BrandScreen.name == name)
+    )
+    if screen and not screen.variant and meta.get("variant"):
+        screen.product, screen.variant = meta.get("product", ""), meta["variant"]
 
 
 def main(folder: str, slug: str = "fomo") -> None:

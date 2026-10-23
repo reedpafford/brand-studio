@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import prompts
 from app.catalogue import CatalogueModel, catalogue
-from app.enhance import escape, project_context, screens_of
-from app.models.brands import Brand
+from app.enhance import escape, project_context, project_screens
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
@@ -66,9 +65,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
 
 
 def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
-    screens = {
-        f"screen:{s.id}": s.default_for for s in screens_of(db, db.get(Brand, project.brand_id))
-    }
+    screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
     m = video_model()
     found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max)
     return found + unknown_ids(db, project, bd)
