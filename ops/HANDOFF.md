@@ -1,29 +1,36 @@
-# Handoff (current state, rewritten not appended; keep under 60 lines)
-## Now
-- Foundation done (#2–#8). tezu.ai mapped (#9, docs/tezu).
-- Design system and screens merged (#11–#17, #20, #21, #26, #29).
-- Merged: catalogue, Claude client (streaming), Replicate adapter, brand assets, Director prompts, project brief + scripts, $35 cap, Iron Paws seed, Quick clips (#18, #22, #23, #25, #27, #28, #30, #33, #34, #38, #39, #44, #45).
-- In review: Generate wiring (#31), Enhance (#24 part 2).
-- Reed's 2026-10-23 decisions are in ops/DECISIONS.md. Credits and per-video budgets follow them.
-- How to run: `server/README.md`. Any server API change: run `npm run api` in web/ and commit `web/src/api/schema.d.ts`.
-- Accounts: first owner via `POST /auth/setup` (needs `BS_SETUP_TOKEN`); login throttled; invites; roles owner/editor.
-- Files: `POST /files` (type checked by content, size cap `BS_MAX_UPLOAD_MB`), `GET /files/{id}`; storage interface `server/app/storage.py`.
-- Brands: kit + screens with tags and `default_for` moments; fomo + Iron Paws created on setup with screens, logo and style board from `assets/brands/` (`BS_BRAND_ASSETS_DIR`; re-run `python -m app.seed <folder> [brand-slug]`).
-- Libraries: `/library/{character|place|prop}?brand_id=`, multi-brand, version history + restore; reversible archive; permanent delete owner-only.
-- Jobs: worker `python -m app.worker`. Providers in `app/providers`: `replicate` (polled; outputs copied to storage), `claude` (runs in the worker), `fake` (tests). Paid submits never auto-retried. Usage rows hold `cost_usd`; `GET /usage` owner-only.
-- Paid generation is off unless `BS_GENERATION_ENABLED=true`: Generate/Enhance answer 503, the worker leaves paid jobs queued.
-- Replicate token: `REPLICATE_API_TOKEN` if set (deployed server), else the sandbox proxy adds it. Claude key: `STUDIO_ANTHROPIC_KEY` only.
-- Rules for every resource PR: `tests/helpers.py` (`assert_hidden`, `assert_no_dollars`); attached file ids via `get_file(..., kind)`; dollar fields named `*_usd` and owner-only.
-- Credits: 1 credit = $0.1028 = 1 s of 480p. Catalogue prices give clip estimates, rates table the rest; real cost replaces estimates. Projects: budget = 2x planned length (editors ≤ 170 s without owner). Quick clips: 150 credits/editor/week. Over a limit = `needs_owner_approval`. Hard per-video cap 340 (= $35) for everyone, quick clips included. Limits at `/credits/limits`.
-- Catalogue: `server/app/catalogue.json` (limits from Replicate schemas). `GET /models` (credits), `GET /models/prices` (owner).
-- Quick clips: `POST /clips`, `POST /clips/estimate`, `GET /clips/{job}/request`; moment screens auto-attached unless in `skip_screen_ids`.
-- Scripts: brief on projects; versions via paste/upload (txt/docx/pdf). Enhance: `POST .../script/enhance` (Claude via Director prompts + `check.enhance`), accept/reject, `POST .../script/apply` → new version. Enhance never changes the script's words: marks only add lines before/after a line; `notes` (problems in the words) are shown as information.
-- Script drafts: `POST .../script/draft` (2–3 drafts by Claude; adapts the project's `reference_breakdown` if set, checked against docs/references shape), `GET .../script/drafts`, `POST .../script/drafts/{job}/{n}/use` → new version.
-- Breakdown: `POST /projects/{id}/breakdown` (Claude, 32k tokens, `check.breakdown` problems saved with it), `GET` newest (with `stale` if the script changed), `PUT` saves the editor's edit as a new row.
-- Storyboard: `POST /projects/{id}/storyboard` (Claude writes frame prompts + references from the newest breakdown; `per_shot` optional; replaces old frames), `GET` frames (problems, `stale`), `PUT .../frames/{id}` edit; `POST .../frames/{id}/render` makes the still with Nano Banana (paid, project aspect, refused while the frame has problems).
+as of fe32381 · 2026-10-23 22:18 UTC
+# Handoff (rewritten each refresh by the Scribe; under 80 lines)
+## Built (on main)
+- Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
+- Screens: design system, web scaffold, shell, brand kit, library, toasts, phone tab bar (#11–#17, #20, #21, #26, #29).
+- Generation: catalogue, Replicate adapter, Claude client + streaming (#18, #22, #23, #44); Nano Banana rules (#56); per-video cap (#38, #45).
+- Quick clip: create/estimate/retry (#33), Generate on (#31), references (#55, #72), Improve prompt + Seedance shape B (#67).
+- Projects: list, brief, Script tab, workspace (#57, #60, #68); script drafts (#62); Script Enhance with tags, keys, Accept all (#51, #63, #74, #77, #81).
+- Breakdown pane: make, redo, problems, scenes/clips/shots (#83, with browser test #86). Breakdown server (#66; `JobOut.step` tells Enhance from Breakdown runs, #84; tagged directions read by #75). Storyboard prompts (#78) and stills with Nano Banana (#82); stale frames are refused (#88).
+- Director prompts/evals (#30, #36, #41, #54, #75); Iron Paws + fomo seeds (#27, #39); browser tests (#19, #86, #49, #52, #61, #65, #71, #73, #76).
+- Design specs: Breakdown, Storyboard, Clips, Approvals (#79, #80); Prompting guides and FIT rows (#53, #70).
+- How to run: `server/README.md`. After any server API change run `npm run api` in web/ and commit `web/src/api/schema.d.ts`.
+- Accounts: first owner `POST /auth/setup` (needs `BS_SETUP_TOKEN`); roles owner/editor; invites; login throttled.
+- Files: `POST /files` (type by content, cap `BS_MAX_UPLOAD_MB`), `GET /files/{id}`; storage `server/app/storage.py`.
+- Brands/libraries: kit, screens (tags, `default_for` moments); fomo + Iron Paws seeded from `assets/brands/` (`BS_BRAND_ASSETS_DIR`; `python -m app.seed <folder> [slug]`). `/library/{character|place|prop}?brand_id=`: versions, restore, reversible archive, owner-only delete.
+- Jobs: worker `python -m app.worker`; providers `replicate`, `claude`, `fake` (tests). Paid submits never auto-retried. `GET /usage` owner-only.
+- Paid generation off unless `BS_GENERATION_ENABLED=true` (Generate/Enhance/Make answer 503). Replicate: `REPLICATE_API_TOKEN` or sandbox proxy. Claude: `STUDIO_ANTHROPIC_KEY` only.
+- Rules for resource PRs: `tests/helpers.py` (`assert_hidden`, `assert_no_dollars`); `get_file(..., kind)`; dollar fields `*_usd`, owner-only.
+- Credits: 1 credit = $0.1028. Project budget = 2x planned length (editors ≤ 170 s without owner). Quick clips 150 credits/editor/week. Hard per-video cap 340 credits ($35). Over a limit = `needs_owner_approval`. `/credits/limits`.
+- Catalogue `server/app/catalogue.json`; `GET /models`, `GET /models/prices` (owner).
+- Quick clips: `POST /clips`, `/clips/estimate`, `GET /clips/{job}/request`.
+- Scripts: versions by paste/upload; Enhance `POST .../script/enhance`, accept/reject, `.../script/apply`; drafts `.../script/draft`. Script words never change; marks only add direction lines.
+- Breakdown: `POST/GET/PUT /projects/{id}/breakdown` (`stale` flag, problems saved).
+- Storyboard: `POST/GET /projects/{id}/storyboard`, `PUT .../frames/{id}`, `POST .../frames/{id}/render` (paid, refused while frame has problems).
+## Open PRs (4, not counting the Scribe's own)
+- #85 Breakdown edit/Split/Join (2/3) | Builder-Screens | QA passed (054c960); Designer: 1 must-fix (44px phone tap targets)
+- #90 Breakdown line links + phone sheets (3/3) | Builder-Screens | stacked on #85; QA passed (88f545f); waiting on Designer
+- #87 Project clips prompts (#24) | Builder-Server | QA passed at ca24f6c; head since moved to 3673cbc
+- #92 Storyboard pane: frames and stills (1/2) | Builder-Screens | in review
 ## Next
-- Builder-Server: #24 next: script draft, breakdown, storyboard, clip prompts; then Quick clip "Improve prompt".
-- Director's paid evals: log each paid call in ops/SPEND.md when it runs.
+- Builder-Screens: fix #85 tap targets; switch the Breakdown running/failed check to `JobOut.step` (#84 is on main); Storyboard 2/2 after #92.
+- Builder-Server: generate clips with Seedance and the free final stitch (after #87); before it, re-check clip reference ids at generation time and handle stale clips (QA note on #87).
+- Director: paid evals only with Producer approval; log each paid call in ops/SPEND.md.
 - Explorer: nightly checks of test and live sites (later).
-## Blocked
+## Blocked / needs Reed
 - Replicate key for the deployed server (later). Keys stay server-side only.

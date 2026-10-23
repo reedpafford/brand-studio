@@ -1,4 +1,64 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
+- 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-23 22:15 · #83 Breakdown pane: make, redo, problems, scenes → clips → shots (Breakdown 1/2) merged (includes #86's browser test)
+- 2026-10-23 22:15 · #88 Storyboard: refuse to render a frame made for an older breakdown merged
+- 2026-10-23 22:13 · #84 JobOut: add `step` so the UI can tell Enhance from Breakdown runs merged
+- 2026-10-23 22:07 · #86 e2e: Make breakdown refused with generation off merged into #83's branch (reached main with #83)
+- 2026-10-23 22:04 · #75 Tagged Enhance lines: breakdown reads them as directions; ★ check sees through the tag merged
+- 2026-10-23 22:04 · #82 Storyboard: render a frame's still with Nano Banana merged
+- 2026-10-23 22:04 · #81 Enhance: filter chips and J/K/A/R keys merged
+- 2026-10-23 22:04 · #67 Seedance prompt shape B + Quick clip "Improve prompt" merged
+- 2026-10-23 21:58 · #79 Design specs: Breakdown, Storyboard, Clips, owner Approvals merged
+- 2026-10-23 21:57 · #74 Enhance: tag inserted directions ([Camera], [Movement], [Reaction], [Brand screen]) merged
+- 2026-10-23 21:57 · #77 Enhance: Accept all, Apply toast with Undo, phone sheets (Projects 5/5) merged
+- 2026-10-23 21:57 · #78 Storyboard prompts: frame prompts and references from the breakdown merged
+- 2026-10-23 21:57 · #72 Quick clip follow-up: Director's [ImageN] lines; 40 MP picture limit at upload merged
+- 2026-10-23 21:53 · #80 Breakdown screen spec merged
+- 2026-10-23 21:50 · #68 Project workspace: stage steps, script on the left (Projects 4/5) merged
+- 2026-10-23 21:50 · #63 Script Enhance: suggestions as direction notes (Projects 3/3) merged
+- 2026-10-23 21:50 · #66 Breakdown step: scenes, shots and clips from the working script merged
+- 2026-10-23 21:49 · #60 Project Script tab: paste or upload, versions (Projects 2/3) merged
+- 2026-10-23 21:47 · #73 e2e: script tests follow the project workspace (for #68) merged
+- 2026-10-23 21:45 · #76 e2e: script test follows #60's new toolbar merged
+- 2026-10-23 21:43 · #57 Projects: list, new video brief, project page (Projects 1/3) merged
+- 2026-10-23 21:40 · #70 FIT: Seedance A/B recorded; rows 3, 9 and 10 adopted (Reed) merged
+- 2026-10-23 21:40 · #69 Script Enhance spec: Apply writes tagged direction lines merged
+- 2026-10-23 21:38 · #59 Follow-up: QA's notes on Enhance (#51) and Nano Banana jobs (#56) merged
+- 2026-10-23 21:38 · #62 Script drafts from the brief, optionally adapting a reference reel merged
+- 2026-10-23 21:38 · #71 e2e: script tests follow the new toolbar; Enhance refused with generation off merged
+- 2026-10-23 21:34 · #65 e2e: script paste, new version, restore and upload (for #60) merged
+- 2026-10-23 21:31 · #45 Cap follow-up: quick clips, required cap field, 170 s editor default merged
+- 2026-10-23 21:28 · #64 ops: log Seedance A/B spend ($2.06) merged
+- 2026-10-23 21:28 · #61 e2e: follow the Projects home, add the new-video flow (for #57) merged
+- 2026-10-23 21:23 · #55 Quick clip references: which picture is which, sized to the video merged
+- 2026-10-23 21:16 · #51 Enhance: Claude suggests direction marks, editor accepts, script words never change merged
+- 2026-10-23 21:13 · #56 Nano Banana jobs: always send aspect, never the Pro fallback, likeness limits merged
+- 2026-10-23 21:06 · #54 Director: apply FIT.md (official Seedance 2.5 / Nano Banana guidance) merged
+- 2026-10-23 20:59 · #52 Browser tests for the quick clip Generate button merged
+- 2026-10-23 20:58 · #53 Prompting guides: Seedance 2.5 and Nano Banana, and where they fit our flow merged
+- 2026-10-23 20:57 · #31 Quick clip: turn Generate on (clips routes, server cost estimate) merged
+- 2026-10-23 20:56 · #50 ops: daily notes 2026-10-23 (decisions, second set) merged
+- 2026-10-23 20:54 · #43 Enhance never edits the script (Reed's rule); reference lines are guidance merged
+- 2026-10-23 20:53 · #33 Quick clips: create, estimate, Try again merged
+- 2026-10-23 20:53 · #49 Browser tests: fresh brand for empty-state tests merged
+- 2026-10-23 20:50 · #47 Script Enhance spec: never change script words; Notes instead of cuts merged
+- 2026-10-23 20:50 · #48 Remove old-project prompting skills merged
+- 2026-10-23 20:48 · #46 Docs: Seedance 2.5 + Nano Banana prompting skills (reference) merged
+- 2026-10-23 20:47 · #44 Claude client: stream calls so long answers work merged
+- 2026-10-23 20:44 · #41 Director v3: adapt a reference reel merged
+- 2026-10-23 20:43 · #42 Eval v2 partial results merged
+- 2026-10-23 20:41 · #39 Seed Iron Paws (product bag) from repo assets merged
+- 2026-10-23 20:41 · #38 Per-video hard cap: $35 (340 credits) for everyone merged
+- 2026-10-23 20:39 · #40 ops: log eval v2 spend ($0.36) merged
+- 2026-10-23 20:37 · #36 Director v2 prompts: voiceover scripts, Enhance restraint, v1 verdict merged
+- 2026-10-23 20:37 · #37 Docs: breakdown of Reed's fomo reference reel merged
+- 2026-10-23 20:33 · #28 Projects: brief + script versions with document import merged
+- 2026-10-23 20:32 · #35 Eval v1 results + spend log ($1.02) merged
+- 2026-10-23 20:30 · #34 Assets: Iron Paws bag + Reed's Iron Paws scripts merged
+- 2026-10-23 20:27 · #19 Browser tests (Playwright) and e2e CI job merged
+- 2026-10-23 20:25 · #30 Director prompts for script-guided projects + offline eval set merged
+- 2026-10-23 20:25 · #32 ops: daily notes 2026-10-23 merged
 - 2026-10-23 Producer sent five more Reed decisions (script words fixed, $35 per-video max, story-studio carry-over limit, @nateassets house style, official-docs prompting). Logged in ops/DECISIONS.md.
 - 2026-10-23 Merged #22 Replicate adapter (Generation #15, part 2/3).
 - 2026-10-23 Merged #29 Phone bottom tab bar (Brand, Clip, Library, More).
