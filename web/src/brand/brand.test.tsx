@@ -32,7 +32,7 @@ test("saving the kit sends the edited fields", async () => {
   await userEvent.clear(tone);
   await userEvent.type(tone, "Calm");
   await userEvent.click(screen.getByRole("button", { name: "Add colour" }));
-  await userEvent.click(screen.getByRole("button", { name: "Save kit" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Saved.");
   expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({
     name: "fomo",
@@ -40,6 +40,15 @@ test("saving the kit sends the edited fields", async () => {
     fonts: ["Inter"],
     colours: ["#112233", "#000000"],
   });
+});
+
+test("save is disabled until something changes", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]] });
+  renderAt("/b/1/kit");
+  const save = await screen.findByRole("button", { name: "Save changes" });
+  expect(save).toBeDisabled();
+  await userEvent.type(screen.getByLabelText("Legal line"), "Not advice");
+  expect(save).toBeEnabled();
 });
 
 test("adding a screen uploads the picture, then saves it with its tags", async () => {

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
+import { btnPrimary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 
 const slugs = (s: string) => s.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
 
@@ -22,18 +23,21 @@ export function ScreensPage() {
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">Screens</h1>
+      <h1 className={pageTitle}>Brand screens{screens.data ? ` (${screens.data.length})` : ""}</h1>
       <AddScreen brandId={brand_id} onDone={() => queryClient.invalidateQueries({ queryKey: key })} />
-      {screens.data?.length === 0 && <p className="text-neutral-600">No screens yet. Add the real app screens that must appear in videos.</p>}
-      <ul className="grid grid-cols-2 gap-4 md:grid-cols-3">
+      {screens.data?.length === 0 && <div className={card}>
+          <p className="text-[length:var(--text-xl)] font-semibold">No brand screens yet.</p>
+          <p className="text-muted">Add real app screens so videos show them exactly.</p>
+        </div>}
+      <ul className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6">
         {screens.data?.map((s) => (
           <li key={s.id} className="space-y-1 text-sm">
-            <img src={fileUrl(s.file_id)} alt={s.name} className="aspect-[9/16] w-full rounded border border-neutral-200 object-cover" />
+            <img src={fileUrl(s.file_id)} alt={s.name} className="aspect-[9/16] w-full rounded border border-border bg-surface-2 object-cover" />
             <div className="font-medium">{s.name}</div>
-            {s.tags.length > 0 && <div className="text-neutral-600">Shows: {s.tags.join(", ")}</div>}
-            {s.default_for.length > 0 && <div className="text-neutral-600">Used for: {s.default_for.join(", ")}</div>}
+            {s.default_for.length > 0 && <div className="text-accent-text">★ Always used for: {s.default_for.join(", ")}</div>}
+            {s.tags.length > 0 && <div className="text-muted">{s.tags.join(" · ")}</div>}
             <button
-              className="underline"
+              className={linkText}
               aria-label={`Delete ${s.name}`}
               onClick={() => window.confirm(`Delete the screen "${s.name}"?`) && remove.mutate(s.id)}
             >
@@ -73,10 +77,10 @@ function AddScreen({ brandId, onDone }: { brandId: number; onDone: () => void })
     e.preventDefault();
     add.mutate();
   };
-  const box = "w-full rounded border border-neutral-300 px-3 py-2 text-base";
+  const box = input;
   return (
-    <form onSubmit={submit} className="space-y-3 rounded border border-neutral-200 p-4">
-      <h2 className="font-semibold">Add a screen</h2>
+    <form onSubmit={submit} className={`${card} space-y-3`}>
+      <h2 className="text-[length:var(--text-md)] font-semibold">Add a screen</h2>
       <label className="block text-sm">
         Screen image
         <input
@@ -103,11 +107,11 @@ function AddScreen({ brandId, onDone }: { brandId: number; onDone: () => void })
         <input className={box} value={moments} onChange={(e) => setMoments(e.target.value)} />
       </label>
       {add.isError && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className={errorClass}>
           {add.error.message}
         </p>
       )}
-      <button className="rounded bg-neutral-900 px-4 py-2 text-white disabled:opacity-50" disabled={add.isPending}>
+      <button className={btnPrimary} disabled={add.isPending}>
         Add screen
       </button>
     </form>

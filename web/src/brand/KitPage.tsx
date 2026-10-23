@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrands } from "../shell/useBrands";
+import { btnPrimary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 import { ImagePicker } from "./ImagePicker";
 
 type Brand = components["schemas"]["BrandOut"];
@@ -19,7 +20,7 @@ export function KitPage() {
 }
 
 function KitForm({ brand }: { brand: Brand }) {
-  const [kit, setKit] = useState({
+  const start = {
     name: brand.name,
     logo_file_id: brand.logo_file_id ?? null,
     style_board_file_id: brand.style_board_file_id ?? null,
@@ -29,7 +30,9 @@ function KitForm({ brand }: { brand: Brand }) {
     tone_notes: brand.tone_notes ?? "",
     never_say: (brand.never_say ?? []).join("\n"),
     legal_line: brand.legal_line ?? "",
-  });
+  };
+  const [kit, setKit] = useState(start);
+  const [saved, setSaved] = useState(JSON.stringify(start));
   const set = <K extends keyof typeof kit>(k: K, v: (typeof kit)[K]) => setKit({ ...kit, [k]: v });
   const queryClient = useQueryClient();
   const save = useMutation({
@@ -40,18 +43,22 @@ function KitForm({ brand }: { brand: Brand }) {
       });
       if (!response.ok) throw new Error(errorText(error));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["brands"] }),
+    onSuccess: () => {
+      setSaved(JSON.stringify(kit));
+      return queryClient.invalidateQueries({ queryKey: ["brands"] });
+    },
   });
   const submit = (e: FormEvent) => {
     e.preventDefault();
     save.mutate();
   };
-  const box = "w-full rounded border border-neutral-300 px-3 py-2 text-base";
+  const box = input;
+  const changed = JSON.stringify(kit) !== saved;
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-4 text-2xl font-semibold">Brand kit</h1>
-      <form onSubmit={submit} className="space-y-5">
+      <h1 className={`${pageTitle} mb-4`}>Brand kit · {brand.name}</h1>
+      <form onSubmit={submit} className={`${card} space-y-5`}>
         <label className="block text-sm">
           Name
           <input className={box} required value={kit.name} onChange={(e) => set("name", e.target.value)} />
@@ -72,13 +79,13 @@ function KitForm({ brand }: { brand: Brand }) {
                   value={c}
                   onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
                 />
-                <button type="button" className="text-sm underline" aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
+                <button type="button" className={`text-sm ${linkText}`} aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
                   Remove
                 </button>
               </span>
             ))}
           </div>
-          <button type="button" className="text-sm underline" onClick={() => set("colours", [...kit.colours, "#000000"])}>
+          <button type="button" className={`text-sm ${linkText}`} onClick={() => set("colours", [...kit.colours, "#000000"])}>
             Add colour
           </button>
         </fieldset>
@@ -99,15 +106,15 @@ function KitForm({ brand }: { brand: Brand }) {
           <textarea className={box} rows={2} value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
         </label>
         {save.isError && (
-          <p role="alert" className="text-sm text-red-700">
+          <p role="alert" className={errorClass}>
             {save.error.message}
           </p>
         )}
         <div className="flex items-center gap-3">
-          <button className="rounded bg-neutral-900 px-4 py-2 text-white disabled:opacity-50" disabled={save.isPending}>
-            Save kit
+          <button className={btnPrimary} disabled={save.isPending || !changed}>
+            Save changes
           </button>
-          {save.isSuccess && <span role="status" className="text-sm text-neutral-600">Saved.</span>}
+          {save.isSuccess && !changed && <span role="status" className="text-sm text-muted">Saved.</span>}
         </div>
       </form>
     </main>

@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { fileUrl, uploadFile } from "../api/upload";
+import { errorText, linkText } from "../ui";
 
 /** A labelled image slot: shows the current image, picks and uploads a new one. */
 export function ImagePicker(props: { label: string; fileId: number | null; onChange: (id: number | null) => void }) {
@@ -10,9 +11,9 @@ export function ImagePicker(props: { label: string; fileId: number | null; onCha
   return (
     <div className="space-y-1 text-sm">
       <div className="font-medium">{props.label}</div>
-      {props.fileId && <img src={fileUrl(props.fileId)} alt={props.label} className="h-24 rounded border border-neutral-200 object-contain" />}
+      {props.fileId && <img src={fileUrl(props.fileId)} alt={props.label} className="h-24 rounded border border-border bg-surface-2 object-contain" />}
       <div className="flex items-center gap-3">
-        <label className="cursor-pointer underline">
+        <label className={`cursor-pointer ${linkText}`}>
           {props.fileId ? "Replace" : "Upload"}
           <input
             type="file"
@@ -23,14 +24,14 @@ export function ImagePicker(props: { label: string; fileId: number | null; onCha
           />
         </label>
         {props.fileId && (
-          <button type="button" className="underline" onClick={() => props.onChange(null)}>
+          <button type="button" className={linkText} onClick={() => props.onChange(null)}>
             Remove
           </button>
         )}
-        {upload.isPending && <span className="text-neutral-600">Uploading…</span>}
+        {upload.isPending && <span className="text-muted">Uploading…</span>}
       </div>
       {upload.isError && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className={errorText}>
           {upload.error.message}
         </p>
       )}
