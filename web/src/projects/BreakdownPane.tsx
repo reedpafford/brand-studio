@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
-import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useJobs } from "../clip/History";
 import { btnPrimary, btnSecondary, card, errorText as errorClass } from "../ui";
+import { BreakdownView } from "./BreakdownView";
 
-type Shot = components["schemas"]["Shot"];
-type Clip = components["schemas"]["Clip"];
 const GOING = ["queued", "running", "needs_owner_approval"];
-
-const lines = (n: number[]) => (n.length === 0 ? "" : n.length === 1 ? `line ${n[0]}` : `lines ${Math.min(...n)}–${Math.max(...n)}`);
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
 export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number }) {
@@ -106,98 +102,5 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
       </section>
     );
 
-  const bd = row.breakdown;
-  const shots = bd.scenes.flatMap((s) => s.shots);
-  const total = Math.round(bd.clips.reduce((sum, c) => sum + c.seconds, 0));
-  const blockedBy = row.stale ? "Make a new breakdown first." : row.problems.length > 0 ? `Fix the ${row.problems.length} problem${row.problems.length === 1 ? "" : "s"} first.` : "Storyboard is coming soon.";
-
-  return (
-    <div className="space-y-4" aria-label="Breakdown">
-      {row.stale && (
-        <div className="space-y-2 rounded-md bg-warning-soft p-3 text-sm text-warning" role="status">
-          <p>Made for script v{row.script_version}. The script is now v{scriptVersion}.</p>
-          {makeButton("Make a new breakdown")}
-        </div>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[length:var(--text-md)] font-semibold">
-          Breakdown <span className="font-normal text-muted">· {row.source === "edit" ? "edited" : "made by Claude"} for script v{row.script_version}</span>
-        </h2>
-        {!row.stale && makeButton("Redo", row.source === "edit" ? "Replace this breakdown? Your edits are kept in History." : undefined)}
-      </div>
-      {failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
-      {problem}
-      {row.problems.length > 0 && (
-        <section className="space-y-1 rounded-md bg-danger-soft p-3 text-sm text-danger" aria-label="Problems">
-          <h3 className="font-semibold">Problems ({row.problems.length})</h3>
-          <ul className="list-disc pl-5">
-            {row.problems.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {bd.hook && <p className="text-sm">Hook: “{bd.hook}”</p>}
-      <p className="text-sm text-muted">
-        {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s (planned {props.plannedSeconds} s)
-      </p>
-      {bd.scenes.map((scene) => (
-        <section key={scene.id} className="space-y-2" aria-label={`Scene ${scene.id}`}>
-          <h3 className="font-semibold">Scene {scene.id} — {scene.heading}</h3>
-          {scene.look && <p className="text-sm text-muted">{scene.look}</p>}
-          {bd.clips
-            .filter((c) => c.shot_ids.some((id) => scene.shots.some((s) => s.id === id)))
-            .map((clip) => (
-              <ClipBand key={clip.id} clip={clip} shots={scene.shots.filter((s) => clip.shot_ids.includes(s.id))} name={name} />
-            ))}
-        </section>
-      ))}
-      <div className="space-y-1">
-        <button className={btnPrimary} disabled>
-          Next: Storyboard →
-        </button>
-        <p className="text-sm text-muted">{blockedBy}</p>
-      </div>
-    </div>
-  );
-}
-
-function ClipBand({ clip, shots, name }: { clip: Clip; shots: Shot[]; name: (id: string | null) => string }) {
-  return (
-    <div className="rounded-md border border-border bg-surface" aria-label={`Clip ${clip.id}`}>
-      <div className="border-b border-border px-3 py-1 text-xs font-medium text-muted">
-        Clip {clip.id} · {clip.seconds} s
-      </div>
-      <ul className="divide-y divide-border">
-        {shots.map((s) => (
-          <li key={s.id} className="space-y-1 px-3 py-2 text-sm" aria-label={`Shot ${s.id}`}>
-            <div className="flex flex-wrap items-baseline gap-x-3">
-              <span className="font-medium">{s.id}</span>
-              <span className="text-muted">{s.seconds} s</span>
-              <span className="text-muted">{s.camera}</span>
-              <span className="ml-auto text-xs text-muted">{lines(s.script_lines)}</span>
-            </div>
-            <p>{s.action}</p>
-            {s.line && (
-              <p className="font-script">
-                {s.speaker ? `${s.speaker.toUpperCase()}: ` : ""}“{s.line}”
-              </p>
-            )}
-            {s.reaction && <p className="text-muted">Reaction: {s.reaction}</p>}
-            <p className="flex flex-wrap gap-2 text-xs">
-              {s.character_ids.map((id) => (
-                <span key={id} className="rounded-sm bg-surface-2 px-2 py-0.5">● {name(id)}</span>
-              ))}
-              {s.place_id && <span className="rounded-sm bg-surface-2 px-2 py-0.5">⌂ {name(s.place_id)}</span>}
-              {s.moment && <span className="rounded-sm bg-accent-soft px-2 py-0.5 text-accent-text">{s.moment}</span>}
-              {s.screen_ids.map((id) => (
-                <span key={id} className="rounded-sm bg-accent-soft px-2 py-0.5 text-accent-text">★ {name(id)}</span>
-              ))}
-            </p>
-          </li>
-        ))}
-      </ul>
-      <div className="border-t border-border px-3 py-1 text-xs text-muted">{clip.seam === "end" ? "end" : `ends: ${clip.seam}`}</div>
-    </div>
-  );
+  return <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} />;
 }
