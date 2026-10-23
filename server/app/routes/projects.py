@@ -10,10 +10,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import credits_used, get_rate
+from app.credits import credits_used, get_limits, get_rate
 from app.db import get_db
 from app.models.accounts import User
-from app.models.credits import CreditRate, Project
+from app.models.credits import CreditLimits, CreditRate, Project
 from app.routes.brands import get_brand
 from app.schemas import Name
 
@@ -87,6 +87,9 @@ def create_project(
     body: ProjectIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     get_brand(db, user, body.brand_id)
+    limit = get_limits(db, user.workspace_id).editor_max_estimate_credits
+    if not user.is_owner and body.estimate_credits > limit:
+        raise HTTPException(403, f"Estimates over {limit} credits need the owner to create.")
     project = Project(workspace_id=user.workspace_id, **body.model_dump())
     db.add(project)
     db.commit()
@@ -142,3 +145,30 @@ def set_rate(
     db.add(rate)
     db.commit()
     return rate
+
+
+class LimitsIn(BaseModel):
+    editor_max_estimate_credits: Decimal = Field(ge=0, le=100000)
+    max_job_credits_without_project: Decimal = Field(ge=0, le=100000)
+
+
+class LimitsOut(BaseModel):
+    editor_max_estimate_credits: float
+    max_job_credits_without_project: float
+
+
+@router.get("/credits/limits", response_model=LimitsOut)
+def read_limits(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return get_limits(db, user.workspace_id)
+
+
+@router.put("/credits/limits", response_model=LimitsOut)
+def set_limits(body: LimitsIn, owner: User = Depends(owner_only), db: Session = Depends(get_db)):
+    limits = db.scalar(
+        select(CreditLimits).where(CreditLimits.workspace_id == owner.workspace_id)
+    ) or CreditLimits(workspace_id=owner.workspace_id)
+    for field, value in body.model_dump().items():
+        setattr(limits, field, value)
+    db.add(limits)
+    db.commit()
+    return limits

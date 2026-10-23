@@ -11,6 +11,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base, Entity
 
 BUDGET_MULTIPLIER = 2
+# Placeholders until the Producer/Reed confirm: 5 min and 1 min of 480p video.
+DEFAULT_EDITOR_MAX_ESTIMATE = Decimal(300)
+DEFAULT_MAX_JOB_WITHOUT_PROJECT = Decimal(60)
 
 
 class CreditRate(Entity, Base):
@@ -31,3 +34,18 @@ class Project(Entity, Base):
     @property
     def budget_credits(self) -> Decimal:
         return self.estimate_credits * BUDGET_MULTIPLIER
+
+
+class CreditLimits(Entity, Base):
+    """Owner-set limits, one row per workspace (defaults apply until the owner saves one)."""
+
+    __tablename__ = "credit_limits"
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), unique=True)
+    # Largest estimate an editor may give a new project; above it only the owner can.
+    editor_max_estimate_credits: Mapped[Decimal] = mapped_column(
+        Numeric(12, 3), default=DEFAULT_EDITOR_MAX_ESTIMATE
+    )
+    # Largest job outside a project (e.g. a quick clip) before it waits for the owner.
+    max_job_credits_without_project: Mapped[Decimal] = mapped_column(
+        Numeric(12, 3), default=DEFAULT_MAX_JOB_WITHOUT_PROJECT
+    )

@@ -1,8 +1,11 @@
+import threading
+import time
 from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException
 
+from app import credits as credits_module
 from app.models.accounts import Role, User
 from app.models.credits import Project
 from app.models.jobs import Job
@@ -114,3 +117,56 @@ def test_editor_sees_no_dollars(setup, editor, db):
     assert_no_dollars(
         editor, ["/projects", f"/projects/{project['id']}", "/credits/rates", "/jobs"]
     )
+
+
+def test_two_jobs_at_once_cannot_both_squeeze_into_the_budget(app, setup, monkeypatch):
+    """15 of 20 credits used; two 5-credit jobs arrive together: exactly one is held."""
+    _, model, ed = setup
+    with app.state.sessionmaker() as s:
+        enqueue(s, s.get(User, ed.id), "video-480p", {}, units=15, project=s.get(Project, model.id))
+    real = credits_module.credits_used
+
+    def slow_credits_used(db, project):  # widen the race window
+        used = real(db, project)
+        time.sleep(0.3)
+        return used
+
+    monkeypatch.setattr(credits_module, "credits_used", slow_credits_used)
+    barrier = threading.Barrier(2)
+    statuses = []
+
+    def queue_one():
+        with app.state.sessionmaker() as s:
+            barrier.wait()
+            job = enqueue(
+                s, s.get(User, ed.id), "video-480p", {}, units=5, project=s.get(Project, model.id)
+            )
+            statuses.append(job.status)
+
+    threads = [threading.Thread(target=queue_one) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sorted(statuses) == ["needs_owner_approval", "queued"]
+
+
+def test_editor_estimate_above_owner_limit_needs_owner(owner, editor):
+    fomo = owner.get("/brands").json()[0]["id"]
+    big = {"brand_id": fomo, "name": "Epic", "estimate_credits": 301}
+    assert editor.post("/projects", json=big).status_code == 403
+    assert owner.post("/projects", json=big).status_code == 201
+    limits = {"editor_max_estimate_credits": 500, "max_job_credits_without_project": 60}
+    assert editor.put("/credits/limits", json=limits).status_code == 403
+    assert owner.put("/credits/limits", json=limits).status_code == 200
+    assert editor.post("/projects", json={**big, "name": "Epic 2"}).status_code == 201
+
+
+def test_job_without_project_above_limit_waits_for_owner(owner, editor, db):
+    ed = db.query(User).filter_by(role=Role.editor).one()
+    assert enqueue(db, ed, "video-480p", {}, units=60).status == "queued"
+    held = enqueue(db, ed, "video-480p", {}, units=61)
+    assert held.status == "needs_owner_approval"
+    owner.post(f"/jobs/{held.id}/approve")
+    detail = owner.get(f"/jobs/{held.id}/detail").json()
+    assert detail["approved_by_id"] == owner.get("/auth/me").json()["id"]

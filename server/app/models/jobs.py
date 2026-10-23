@@ -35,6 +35,7 @@ class Job(Entity, Base):
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
     # Estimated at queue time; replaced by the real amount when the job succeeds.
     credits: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
+    approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # over budget
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
 

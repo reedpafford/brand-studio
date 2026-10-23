@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import credits_for, fits_budget
+from app.credits import credits_for, lock_project, needs_approval
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.credits import Project
@@ -33,6 +33,7 @@ class JobOut(BaseModel):
 class JobDetailOut(JobOut):
     """Owner-only: includes the provider's raw error text."""
 
+    approved_by_id: int | None
     provider: str
     provider_ref: str | None
     error_detail: str
@@ -61,9 +62,12 @@ def enqueue(
 ) -> Job:
     """Queue a job for the worker. Feature code calls this; there is no public create route.
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. A job
-    that would take its project over budget waits as `needs_owner_approval`."""
+    that would take its project over budget, or a job outside a project above the owner's
+    per-job limit, waits as `needs_owner_approval`."""
     credits = credits_for(db, user.workspace_id, kind, Decimal(units))
-    over = project is not None and not fits_budget(db, project, credits)
+    if project is not None:
+        lock_project(db, project)  # check and insert happen under the same lock
+    over = needs_approval(db, user.workspace_id, project, credits)
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
@@ -115,7 +119,7 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
     done = db.execute(
         update(Job)
         .where(Job.id == job.id, Job.status == JobStatus.needs_owner_approval)
-        .values(status=JobStatus.queued)
+        .values(status=JobStatus.queued, approved_by_id=owner.id)
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job isn't waiting for approval.")
