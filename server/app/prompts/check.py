@@ -17,7 +17,7 @@ from app.prompts.schemas import (
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
 AUDIO_LINE = re.compile(r"^Audio: only the spoken lines and .+ No subtitles\.$")
-QUOTED = re.compile(r'"([^"]*)"')
+QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
 SETTINGS_WORDS = re.compile(r"\b\d+:\d+\b|\b(480|720|1080)p\b")
 
 
