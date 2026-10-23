@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +24,8 @@ class Settings(BaseSettings):
     login_max_failures: int = 5
     login_max_failures_per_ip: int = 20
     login_window_minutes: int = 15
+    # Claude: key from STUDIO_ANTHROPIC_KEY only (never in code or logs).
+    anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
     # Background worker
     worker_poll_seconds: float = 2.0
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
