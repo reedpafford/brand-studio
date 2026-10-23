@@ -1,0 +1,167 @@
+{
+ "_note": "Offline eval set for the Director prompts (issue #24). Each case runs its steps in order; Enhance's suggestions are all accepted before the next step. 'good' is what a reviewer checks by eye; 'expect' is checked by score.py. Iron Paws facts are ASSUMED (no kit yet): a dog brand with character-led stories and no required screens. Replace when its kit exists.",
+ "brands": {
+  "fomo": {
+   "brand": {"name": "fomo", "never_say": ["guaranteed profit", "can't lose"]},
+   "screens": [
+    {"id": 1, "name": "Home", "tags": ["mobile", "home"], "default_for": ["fomo-mention", "app-open"]},
+    {"id": 2, "name": "Token chart up", "tags": ["mobile", "trading", "chart-up"], "default_for": ["trading", "win"]},
+    {"id": 3, "name": "Token chart down", "tags": ["mobile", "trading", "chart-down"], "default_for": ["trading", "loss"]},
+    {"id": 4, "name": "Desktop trading", "tags": ["desktop", "trading"], "default_for": ["trading-desktop"]}
+   ]
+  },
+  "iron-paws": {
+   "brand": {"name": "Iron Paws", "tone_notes": "Warm, funny, loyal. The dog is the hero."},
+   "screens": []
+  }
+ },
+ "cases": [
+  {
+   "id": "fomo-thanksgiving",
+   "brand": "fomo",
+   "steps": ["enhance", "breakdown", "clip_prompts"],
+   "brief": "Goal: show that anyone can trade on fomo. Audience: 18–25, TikTok. 9:16, 45 s.",
+   "cast": ["char:1 Aiden, 19, trader", "char:2 Uncle Rick, loud, sure of himself", "char:3 Mom"],
+   "places": ["place:1 Family dining room at Thanksgiving", "place:2 Aiden's small bedroom"],
+   "script": [
+    "SCENE 1 — INT. DINING ROOM — THANKSGIVING",
+    "The family sits around the table. Everyone is eating and talking about school and work.",
+    "MOM: Pass the potatoes, please.",
+    "UNCLE RICK: So Aiden, still doing your little internet trading?",
+    "AIDEN: It's going well, actually.",
+    "UNCLE RICK: Going well? You live in your mom's basement.",
+    "The whole table laughs.",
+    "MOM: Rick, leave him alone.",
+    "AIDEN: Give me a year.",
+    "Aiden goes to his room. He is angry and wants to prove Rick wrong.",
+    "Aiden opens fomo on his phone.",
+    "He loses a trade and slams the desk.",
+    "He keeps trading at his desk every night for months.",
+    "★ fomo screen: Wallet — showing his balance",
+    "SCENE 3 — INT. DINING ROOM — THANKSGIVING, ONE YEAR LATER",
+    "UNCLE RICK: Still in the basement?",
+    "Aiden slides his phone across the table.",
+    "UNCLE RICK: Is that... real?",
+    "AIDEN: Pass the potatoes, Rick."
+   ],
+   "good": [
+    "Enhance cuts the table small talk (line 2) and the explaining half of line 10. It keeps line 3: 'Pass the potatoes' is the setup for the last line's callback.",
+    "Enhance adds a scene break before line 11 (the script skips scene 2).",
+    "Line 11 gets the Home screen, line 12 the chart-down screen, line 13 the desktop screen, line 17 the chart-up screen.",
+    "Line 14 names a screen fomo doesn't have ('Wallet'): Enhance suggests replacing it with a real one (Token chart up).",
+    "No dialogue is reworded; 'Pass the potatoes, Rick.' callback is untouched.",
+    "Breakdown: 2 clips, seam at the one-year jump, clip 2 opens on an insert; the table laugh and Rick's 'Is that... real?' get big reaction shots.",
+    "Clip prompts: every screen shot names its [ImageN] and says 'exactly'; no screen content described in words."
+   ],
+   "expect": {
+    "screens_at": {"11": "screen:1", "12": "screen:3", "13": "screen:4", "17": "screen:2"},
+    "cut_lines": [2],
+    "not_cut": [3],
+    "scene_break_before": [11],
+    "untouched_lines": [19]
+   }
+  },
+  {
+   "id": "fomo-tight",
+   "brand": "fomo",
+   "steps": ["enhance"],
+   "brief": "Goal: fomo is the fastest way to catch a coin early. 9:16, 20 s.",
+   "cast": ["char:1 Leo, teen trader", "char:2 Maya, his friend"],
+   "places": ["place:1 School bus, back row"],
+   "script": [
+    "SCENE 1 — INT. SCHOOL BUS — MORNING",
+    "MAYA: Did you see STONK? It's flying.",
+    "Leo already has fomo open.",
+    "★ fomo screen: Token chart up — on Leo's phone, fills the frame",
+    "LEO: I bought it at six.",
+    "Maya's jaw drops.",
+    "MAYA: Six AM?",
+    "LEO: Six cents."
+   ],
+   "good": [
+    "Restraint: the script already works. At most 3 marks, none of them cuts.",
+    "A sensible mark is a reaction or camera beat on 'Six cents.' (the punchline) or a Home screen for line 3 (app-open moment).",
+    "No dialogue touched."
+   ],
+   "expect": {"max_suggestions": 3, "cut_lines": [], "untouched_lines": [2, 5, 7, 8]}
+  },
+  {
+   "id": "fomo-draft-salesman",
+   "brand": "fomo",
+   "steps": ["script_draft", "breakdown"],
+   "brief": "Goal: show a trade on fomo paying off in public. Audience: 18–25, Reels. 9:16, 30 s. Format: status reversal (someone judges the hero, the hero proves them wrong).",
+   "cast": ["char:1 Kai, 18, hoodie and backpack", "char:2 Car salesman, sharp suit"],
+   "places": ["place:1 Luxury car showroom"],
+   "script": null,
+   "good": [
+    "2–3 drafts whose hooks are clearly different (e.g. the salesman's insult, Kai already holding the keys, a shocking number).",
+    "Each draft is 70–90 spoken words, opens on conflict in the first line, and ends on a callback plus a one-line call to action.",
+    "The trade is shown with real screens on ★ lines (chart up for the win; chart down only if there's a dip).",
+    "Uses only Kai and the salesman; no narrator; no captions or music."
+   ],
+   "expect": {"drafts": [2, 3], "words_per_draft": [60, 100]}
+  },
+  {
+   "id": "ironpaws-rescue",
+   "brand": "iron-paws",
+   "steps": ["breakdown", "clip_prompts"],
+   "brief": "Goal: Iron Paws dogs never give up. 9:16, 40 s.",
+   "cast": ["char:1 Tank, a scruffy rescue dog", "char:2 Sam, 10, his owner", "char:3 Mr. Hale, grumpy neighbour"],
+   "places": ["place:1 Suburban back garden", "place:2 Park at dusk"],
+   "script": [
+    "SCENE 1 — EXT. BACK GARDEN — DAY",
+    "MR. HALE: That mutt dug up my roses again!",
+    "Tank freezes mid-dig, soil on his nose.",
+    "SAM: He's just looking for something.",
+    "MR. HALE: One more hole and he goes back to the shelter.",
+    "Sam hugs Tank tight.",
+    "SCENE 2 — EXT. PARK — DUSK",
+    "Mr. Hale searches the bushes, panicking.",
+    "MR. HALE: My ring. My wife's ring. It's gone.",
+    "Tank sniffs the ground, then digs like crazy.",
+    "He pops up with the ring in his teeth.",
+    "Mr. Hale drops to his knees.",
+    "MR. HALE: Good boy. Good, good boy.",
+    "SAM: Still want him gone?",
+    "Mr. Hale scratches Tank's ears and laughs."
+   ],
+   "good": [
+    "Hook is Mr. Hale's shout with Tank frozen mid-dig in the first 2 s.",
+    "Every line covered, dialogue unchanged; the threat and the ring reveal get their own reaction shots.",
+    "Two clips with the seam at the garden→park jump; scene looks move from bright day to dusk.",
+    "No brand screens invented (Iron Paws has none); no product placement the script doesn't ask for.",
+    "Clip prompts give Tank big readable dog acting (ears, tail, head tilt) and never exceed the model's limits."
+   ],
+   "expect": {"clips": [2, 2], "no_screens": true}
+  },
+  {
+   "id": "ironpaws-slow-start",
+   "brand": "iron-paws",
+   "steps": ["enhance"],
+   "brief": "Goal: Iron Paws dogs are loyal. 9:16, 30 s.",
+   "cast": ["char:1 Biscuit, small terrier", "char:2 Nora, 70"],
+   "places": ["place:1 Nora's kitchen", "place:2 Front porch in the rain"],
+   "script": [
+    "SCENE 1 — INT. KITCHEN — MORNING",
+    "Nora makes tea. The kettle boils. She sits down. Biscuit sleeps in his basket.",
+    "Nora reads the newspaper for a while.",
+    "There is a knock at the door. It is a delivery man.",
+    "NORA: Biscuit, stay.",
+    "Biscuit runs out the open door anyway.",
+    "Nora is worried because Biscuit is missing.",
+    "SCENE 2 — EXT. FRONT PORCH — NIGHT",
+    "Rain. Nora waits on the porch with his lead.",
+    "NORA: Come home, little one.",
+    "A muddy Biscuit trots up the steps carrying Nora's lost glasses.",
+    "NORA: You silly, wonderful dog."
+   ],
+   "good": [
+    "Enhance cuts the slow opening (lines 2–3) so it starts at the knock or the escape.",
+    "Line 7's explanation is cut in favour of a visible reaction (Nora at the door, calling).",
+    "A reaction or camera mark on the return (line 11) makes the payoff land.",
+    "No brand_screen suggestions (Iron Paws has no screens); no dialogue changes."
+   ],
+   "expect": {"cut_lines": [2, 3, 7], "no_screens": true, "untouched_lines": [12]}
+  }
+ ]
+}
