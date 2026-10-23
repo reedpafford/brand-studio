@@ -58,7 +58,7 @@ test("a document upload becomes a new version, and a refused one shows the reaso
   expect(calls.some((c) => c.key === "POST /projects/9/script/upload")).toBe(true);
 });
 
-test("history lists versions; you can look at an old one and restore it as a new version", async () => {
+test("history lists versions; looking at an old one swaps Edit for Restore, and restoring can be undone", async () => {
   const calls = fakeServer({
     ...base,
     "GET /projects/9/script": [200, v2],
@@ -71,8 +71,28 @@ test("history lists versions; you can look at an old one and restore it as a new
   await userEvent.click(await screen.findByRole("button", { name: "View v1" }));
   expect(await screen.findByText("First draft line")).toBeInTheDocument();
   expect(screen.getByText(/You are looking at version 1/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Restore v1" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/script")?.body).toEqual({ text: "First draft line" }));
+  expect(screen.getByText("Viewing")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Restore this version" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Restored v1 as v3.");
+  expect(calls.filter((c) => c.key === "PUT /projects/9/script").at(-1)?.body).toEqual({ text: "First draft line" });
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /projects/9/script")).toHaveLength(2));
+  expect(calls.filter((c) => c.key === "PUT /projects/9/script").at(-1)?.body).toEqual({ text: v2.text });
+});
+
+test("Back to the latest returns to the newest version", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/script": [200, v2],
+    "GET /projects/9/script/versions": [200, [v2, v1].map((v) => ({ ...v, text: undefined }))],
+    "GET /projects/9/script/versions/1": [200, v1],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "History" }));
+  await userEvent.click(await screen.findByRole("button", { name: "View v1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Back to the latest" }));
+  expect(await screen.findByRole("button", { name: "Edit" })).toBeInTheDocument();
 });
 
 test("editing saves the new words as the next version", async () => {
