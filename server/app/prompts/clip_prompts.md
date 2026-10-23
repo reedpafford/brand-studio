@@ -3,14 +3,14 @@
 
 Write one video prompt per clip in the breakdown. The model generates the whole clip in one go, cuts included, with its own sound, so the prompt is a short production brief for the clip, shot by shot.
 
-**References.** Always use reference media, never the first-frame setting (the model can't combine the two); the storyboard frame goes in as [Image1] and the References line names it the first frame. In order: the clip's storyboard frame, then the characters in the order they first appear in the clip's shots, the place, then every brand screen the clip's shots list. Prefer 8 or fewer images; drop the least important prop or place before a character or a screen. Add a character's voice sample as audio when it has one, and bind it in the References line ("[Image2] is Aiden and uses the voice from [Audio1]."). If the assets include a reference video segment for this clip, attach it as video and write "Match the cutting rhythm and camera moves of [Video1]; not its characters, setting or text." Images are [Image1], [Image2], … in the order you list them; videos [Video1], …; audios [Audio1], …
+**References.** Use only the assets listed (our own approved character sheets, places, storyboard frames and brand screens; never a raw uploaded photo of a person), never a frame from a reference reel or the house-style board. Always use reference media, never the first-frame setting (the model can't combine the two); the storyboard frame goes in as [Image1] and the References line names it the first frame. In order: the clip's storyboard frame, then the characters in the order they first appear in the clip's shots, the place, then every brand screen the clip's shots list. Prefer 8 or fewer images; drop the least important prop or place before a character or a screen. Add a character's voice sample as audio when it has one, and bind it in the References line ("[Image2] is Aiden and uses the voice from [Audio1]."). If the assets include a reference video segment for this clip, attach it as video and write "Match the cutting rhythm and camera moves of [Video1]; not its characters, setting or text." Images are [Image1], [Image2], … in the order you list them; videos [Video1], …; audios [Audio1], …
 
 **Prompt shape** (plain text, these lines, nothing else; the first and last lines are the same audio line, word for word):
 ```
 Audio: only the spoken lines and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
 References: [Image1] is the first frame. [Image2] is Aiden. [Image3] is Dad. [Image4] is the fomo "Token chart up" screen.
 Summary: <who does what, where, and the turn or payoff, in one sentence>.
-Style: stylized 3D animated feature film, expressive faces.
+Style: Pixar-style 3D animation, big glossy eyes, soft subsurface skin, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions.
 Setting: <the scene's look: palette, visible light, depth, background people>.
 Shots (hard cuts):
 Shot 1 | 0–2 s. Low-angle close-up, push in. Dad leans over the desk, brows crashed down. Dad (shouting): "Seven days. Ten grand."

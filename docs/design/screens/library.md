@@ -30,23 +30,35 @@ Click a card → detail page, two columns:
 - Saving creates a new version; History shows who and when; [Restore] makes a new version from the old one (toast "Restored v2 as v4. Undo").
 - Archive: toast "Mia archived. Undo". Archived items appear only with "Show archived", greyed, with [Unarchive] and (owner) [Delete forever] → confirm "Delete Mia forever? This removes all versions and can't be undone." [Keep] [Delete forever].
 
-## Make sheet (characters and places)
-A paid Nano Banana image that sits beside Upload in the **Images** box. It isn't offered for props.
+## House-style sheet (characters; places work the same way)
+Videos only ever use an **approved sheet**. Photos you upload are source material, not what appears on screen.
+
+**Flow for a character:**
+1. **Upload a photo.** It shows labelled "Source photo, not used in videos" (muted caption under the image).
+2. Straight after the upload, a card appears under it: "Turn this photo into a house-style sheet?" with **[Make house-style sheet · 3 credits]**. It's offered, not started automatically, so the cost is always seen before it's spent. Over the weekly allowance the button reads "Ask Reed to approve · 3 credits".
+3. **Drawing:** a sheet-shaped skeleton next to the photo with "Drawing…". The button is disabled with the reason "A sheet is being made."
+4. **Result:** the sheet (front · side · back, house style, 9:16) next to the photo, with **[Approve]** and **[Redo · 3 credits]**. Redo opens "What should change? (optional)", inline on desktop and in a bottom sheet on phones.
+5. **Approve:** the sheet gets a 2px accent border and "✓ Approved sheet". It's saved as a new version ("v4 · sheet approved") with a toast and Undo. This sheet is what storyboards and clips use. Approving a new one replaces the old one.
+
 ```
-│ ┌ Images ───────────────┐
-│ │ [sheet] [thumb] [+ Add]│
-│ │ [Make sheet · 3 credits]  Upload image │
+│ ┌ Images ─────────────────────────────────────────────┐
+│ │ [photo]                 [sheet: front|side|back]    │
+│ │ Source photo,           ✓ Approved sheet            │
+│ │ not used in videos      [Redo · 3 credits]          │
+│ └─────────────────────────────────────────────────────┘
 ```
-- **What it makes:**
-  - Character: one 9:16 turnaround (front, ¾ left, side, ¾ right, back) on a plain neutral background.
-  - Place: one 16:9 sheet with a wide view and two closer angles.
-  - Both are built from the name, the notes, the existing images (as references) and the brand's style board.
-- **Button text:** "Make sheet · N credits" (the `image` rate), or "Make a new sheet · N credits" once a sheet exists. When it would go past the weekly allowance: "Ask Reed to approve · N credits", the same rule as Quick clip.
-- **Drawing:** a skeleton tile appears first in the images row with "Drawing…", and the button is disabled with the reason "A sheet is being made."
-- **Done:** the sheet becomes the **first** image, since the first image is what storyboards and clips use. It's saved as a **new version**, and History reads "v4 · sheet made by Claude". There's a toast "Sheet added as v4. Undo", where Undo restores v3.
-- **Failed:** the tile reads "Didn't finish · credits returned" with **[Try again]**, and nothing else changes.
-- **Unsaved edits** on the page are saved first, as their own version, before the sheet is made, so nothing is lost. The confirm reads: "Save your changes and make a sheet?"
-- **Phone:** the button sits full width under the images carousel and is 44px tall.
+- **Without an approved sheet:**
+  - The character's library card and page show a warning badge "Needs a sheet".
+  - The page also offers **[Make house-style sheet · N credits]** when there's a photo, or "Upload a photo to make a sheet" when there isn't.
+- **Places:** same flow, with a 16:9 sheet (a wide view + two angles) and the caption "Source photo, not used in videos". Props don't get sheets.
+- **Failed:** "Didn't finish · credits returned" with **[Try again]**. The photo is untouched.
+- **Unsaved edits** are saved first, as their own version.
+- **Phone:** the photo and sheet stack vertically, and the buttons are full width and 44px tall.
+
+**Where it blocks:** Storyboard and Clips can't make anything with a character or place that has no approved sheet.
+- Storyboard: the frame card shows a warning "Mia needs an approved sheet. [Open Mia]". Make still / Make all skip that frame, and **Make all stills** says "2 frames wait for a sheet."
+- Clips: same wording on the clip card. **Make missing** skips those clips and says which character blocks them.
+- **[Open Mia]** goes to the character's page and comes back to the same stage afterwards (a `?back=` link).
 
 ## Phone (390)
 Tabs become a segmented control under the title. Grid: 2 columns. "+ New" is a 56px round button bottom-right above the tab bar (the only floating button in the app). Detail page is one column: images carousel, details, history collapsed in a disclosure.
