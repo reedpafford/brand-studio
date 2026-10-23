@@ -219,3 +219,13 @@ test("the button stays on while you keep typing, and a second press needs a chan
   expect(await screen.findByText("Sent. Change something to send another.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Generate/ })).toBeDisabled();
 });
+
+test("when generation is switched off on the server, its message is shown by the button", async () => {
+  fakeServer({ ...studio, "POST /clips": [503, { detail: "Generation is switched off on this server." }] });
+  open();
+  await userEvent.type(await screen.findByLabelText(/Prompt/), "A long calm shot of the city");
+  const generate = await screen.findByRole("button", { name: /Generate · 9 credits/ });
+  await vi.waitFor(() => expect(generate).toBeEnabled());
+  await userEvent.click(generate);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Generation is switched off on this server.");
+});
