@@ -1,2 +1,26 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-23 Merged #22 Replicate adapter (Generation #15, part 2/3).
+- 2026-10-23 Merged #29 Phone bottom tab bar (Brand, Clip, Library, More).
+- 2026-10-23 Merged #26 Quick clip studio: controls, brand pieces, history (Generate not wired yet).
+- 2026-10-23 Merged #21 Toasts with Undo for archive, unarchive and restore.
+- 2026-10-23 Merged #20 Library: character outfits and voice sample.
+- 2026-10-23 Merged #17 Character, place and prop library (Screens 5/5).
+- 2026-10-23 Merged #23 Claude client (Generation #15, part 3/3).
+- 2026-10-23 Merged #27 Seed fomo from repo assets (screens, logo, style board).
+- 2026-10-23 Merged #16 Brand kit and brand screens upload (Screens 4/5).
+- 2026-10-23 Merged #25 Assets: fomo brand kit files and gold reel breakdowns.
+- 2026-10-23 Merged #18 Model catalogue (Generation #15, part 1/3).
+- 2026-10-23 Merged #14 App shell, brand switcher and team page (Screens 3/5).
+- 2026-10-23 Merged #12 Typed API client, login, first-owner setup, invite accept (Screens 2/5).
+- 2026-10-23 Merged #8 Credits, project budgets and owner approval (Foundation 6/6).
+- 2026-10-23 Merged #13 Design system: tokens, screen specs, phone layouts (#10).
+- 2026-10-23 Merged #11 Web scaffold: Vite, React, TS, Router, Query, Tailwind, Vitest and CI (Screens 1/5).
+- 2026-10-23 Merged #9 Docs: tezu.ai product map for reference.
+- 2026-10-23 Merged #7 Jobs, worker and usage (Foundation 5/6).
+- 2026-10-23 Merged #6 Libraries: characters, places, props (Foundation 4/6).
+- 2026-10-23 Merged #5 Brands, brand kit and screens (Foundation 3b/6).
+- 2026-10-23 Merged #4 File storage and uploads (Foundation 3a/6).
+- 2026-10-23 Merged #3 Accounts: login, roles, invites (Foundation 2/6).
+- 2026-10-23 Merged #2 Server scaffold (Foundation 1/6).
+- 2026-10-23 Producer sent Reed's decisions (monthly cap removed, Iron Paws product, first Director eval approved, Script Enhance default, credit value). Logged in ops/DECISIONS.md.
 - 2026-10-23 Repo created. Agent team defined. Waiting on tezu.ai network access for the Explorer.
