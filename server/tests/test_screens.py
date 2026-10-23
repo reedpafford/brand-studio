@@ -1,6 +1,6 @@
 from app.models.brands import Brand
 from app.seed import import_screens
-from tests.conftest import PNG, upload
+from tests.conftest import PASSWORD, PNG, SETUP_TOKEN, upload
 
 
 def _fomo(client) -> int:
@@ -46,3 +46,35 @@ def test_import_folder_uses_manifest_or_filename(app, owner, db, tmp_path):
     assert screens["trading-chart-up-mobile"]["tags"] == ["chart-up", "mobile", "trading"]
     assert screens["trading-chart-up-mobile"]["default_for"] == ["trading"]
     assert owner.get(f"/files/{screens['home']['file_id']}").content == PNG
+
+
+def _setup_with_screens_dir(app, client, folder):
+    app.state.settings.fomo_screens_dir = str(folder)
+    r = client.post(
+        "/auth/setup",
+        json={
+            "setup_token": SETUP_TOKEN,
+            "workspace_name": "S",
+            "email": "reed@example.com",
+            "name": "Reed",
+            "password": PASSWORD,
+        },
+    )
+    assert r.status_code == 201, r.text
+    assert client.get("/auth/me").status_code == 200
+    fomo = client.get("/brands").json()[0]
+    assert fomo["slug"] == "fomo"
+    return client.get(f"/brands/{fomo['id']}/screens").json()
+
+
+def test_setup_imports_fomo_screens_from_folder(app, client, tmp_path):
+    (tmp_path / "trading-mobile.png").write_bytes(PNG)
+    (tmp_path / "fake.png").write_bytes(b"<html>")  # wrong contents: skipped
+    screens = _setup_with_screens_dir(app, client, tmp_path)
+    assert [s["name"] for s in screens] == ["trading-mobile"]
+
+
+def test_setup_still_works_when_screen_import_breaks(app, client, tmp_path):
+    (tmp_path / "a.png").write_bytes(PNG)
+    (tmp_path / "screens.json").write_text("{not json")
+    assert _setup_with_screens_dir(app, client, tmp_path) == []

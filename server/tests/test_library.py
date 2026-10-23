@@ -1,4 +1,5 @@
 from tests.conftest import upload
+from tests.helpers import MP4, assert_hidden, assert_no_dollars
 
 
 def _brands(client) -> dict[str, int]:
@@ -62,3 +63,66 @@ def test_archive_hides_item(owner):
     item = owner.post("/library/place", json={"name": "Gym"}).json()
     assert owner.delete(f"/library/place/{item['id']}").status_code == 204
     assert owner.get("/library/place").json() == []
+
+
+def test_other_workspace_cannot_touch_items(owner, outsider):
+    item = owner.post("/library/character", json={"name": "Max", "notes": "v1"}).json()
+    url = f"/library/character/{item['id']}"
+    owner.patch(url, json={"notes": "v2"})
+    assert outsider.get("/library/character").json() == []
+    assert_hidden(
+        outsider,
+        [
+            ("GET", url),
+            ("PATCH", url, {"notes": "x"}),
+            ("GET", f"{url}/versions"),
+            ("POST", f"{url}/versions/1/restore"),
+            ("DELETE", url),
+        ],
+    )
+
+
+def test_cannot_attach_another_workspaces_brand_or_file(owner, outsider):
+    brand = owner.get("/brands").json()[0]["id"]
+    r = outsider.post("/library/prop", json={"name": "A", "brand_ids": [brand]})
+    assert r.status_code == 404
+    r = outsider.post("/library/prop", json={"name": "A", "image_file_ids": [upload(owner)]})
+    assert r.status_code == 404
+
+
+def test_file_kinds_are_checked(owner):
+    video = upload(owner, "v.mp4", MP4, "video/mp4")
+    image = upload(owner)
+    r = owner.post("/library/prop", json={"name": "A", "image_file_ids": [video]})
+    assert r.status_code == 422
+    r = owner.post("/library/character", json={"name": "A", "voice_file_id": image})
+    assert r.status_code == 422
+    outfit = {"name": "Kit", "file_ids": [video]}
+    assert (
+        owner.post("/library/character", json={"name": "A", "outfits": [outfit]}).status_code == 422
+    )
+
+
+def test_restore_skips_brands_archived_since(owner):
+    b = _brands(owner)
+    item = owner.post(
+        "/library/prop", json={"name": "Cup", "brand_ids": [b["fomo"], b["iron-paws"]]}
+    )
+    url = f"/library/prop/{item.json()['id']}"
+    owner.patch(url, json={"notes": "edited"})
+    owner.delete(f"/brands/{b['iron-paws']}")
+    r = owner.post(f"{url}/versions/1/restore")
+    assert r.status_code == 200 and r.json()["brand_ids"] == [b["fomo"]]
+
+
+def test_null_brand_ids_leaves_brands_and_empty_list_clears(owner):
+    b = _brands(owner)
+    item = owner.post("/library/prop", json={"name": "Cup", "brand_ids": [b["fomo"]]}).json()
+    url = f"/library/prop/{item['id']}"
+    assert owner.patch(url, json={"brand_ids": None}).json()["brand_ids"] == [b["fomo"]]
+    assert owner.patch(url, json={"brand_ids": []}).json()["brand_ids"] == []
+
+
+def test_editor_sees_no_dollars(editor):
+    item = editor.post("/library/place", json={"name": "Gym"}).json()
+    assert_no_dollars(editor, ["/library/place", f"/library/place/{item['id']}"])

@@ -57,7 +57,7 @@ def _apply(db: Session, user: User, brand: Brand, values: dict) -> None:
         values.pop("name", None)
     for field in FILE_FIELDS:
         if values.get(field) is not None:
-            get_file(db, user, values[field])
+            get_file(db, user, values[field], "image")
     if "name" in values:
         slug = slugify(values["name"])
         clash = db.scalar(

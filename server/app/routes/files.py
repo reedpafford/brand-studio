@@ -3,6 +3,7 @@
 import hashlib
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
@@ -26,11 +27,18 @@ class FileOut(BaseModel):
     created_at: datetime
 
 
-def get_file(db: Session, user: User, file_id: int) -> StoredFile:
-    """Fetch a file in the caller's workspace, or 404. Other routes use this to check ids."""
+def get_file(
+    db: Session, user: User, file_id: int, kind: Literal["image", "audio", "video"] | None = None
+) -> StoredFile:
+    """Fetch a file in the caller's workspace, or 404. With `kind`, it must also be that kind
+    of file (422 otherwise). Every route that stores a file id checks it through here."""
     stored = db.get(StoredFile, file_id)
     if not stored or stored.workspace_id != user.workspace_id:
-        raise HTTPException(404, "No such file.")
+        raise HTTPException(404, f"No such file: {file_id}.")
+    if kind and not stored.content_type.startswith(f"{kind}/"):
+        raise HTTPException(
+            422, f"File {file_id} must be {'an' if kind == 'image' else 'a'} {kind}."
+        )
     return stored
 
 
