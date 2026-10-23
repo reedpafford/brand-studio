@@ -91,6 +91,10 @@ Self-host via `@fontsource-variable/inter` and `@fontsource/courier-prime` (400,
 | Quick clip | `screens/quick-clip.md` |
 | Project workspace | `screens/project.md` |
 | Script Enhance | `screens/script-enhance.md` |
+| Breakdown | `screens/breakdown.md` |
+| Storyboard | `screens/storyboard.md` |
+| Clips, review, finished video | `screens/clips.md` |
+| Approvals (owner) | `screens/approvals.md` |
 | Usage (owner) and credits (editor) | `screens/usage.md` |
 
 Each spec has: purpose, desktop wireframe (1440), phone wireframe (390), states, copy. Wireframes are layout only; spacing and colour come from the tokens.
