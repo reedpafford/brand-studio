@@ -291,3 +291,25 @@ def test_sheet_prompts_are_house_style_with_no_names_or_text():
     assert sheet.endswith("The character: 17, red beanie, grey hoodie, headphones round his neck")
     place = prompts.sheet_prompt("place", "a small bedroom with a desk and one window")
     assert "no people" in place and "{" not in place and "9:16" not in place + sheet
+
+
+def test_the_projects_product_is_a_required_asset_like_a_screen():
+    product = {"id": 2, "name": "Peanut butter bag"}
+    block = prompts.brand_block({"name": "Iron Paws"}, [], product)
+    assert 'Required product: product:2 "Peanut butter bag"' in block
+    assert "Moments: brand-mention, end, feeding, product" in block
+    needs = prompts.required([], product)
+    assert needs == {"product:2": prompts.PRODUCT_MOMENTS}
+    script = "Bruno sniffs the bowl.\n★ Iron Paws product: Peanut butter bag — by the bowl"
+    shot = {"id": "1.1", "script_lines": [1, 2], "speaker": None, "line": None, "action": "x",
+            "reaction": None, "camera": "x", "seconds": 4.0, "character_ids": [],
+            "place_id": None, "moment": "feeding", "screen_ids": []}  # fmt: skip
+    bd = schemas.Breakdown(
+        hook="x",
+        scenes=[{"id": 1, "heading": "INT. KITCHEN", "look": "x", "shots": [shot]}],
+        clips=[{"id": "c1", "shot_ids": ["1.1"], "seconds": 4, "seam": "end"}],
+    )
+    problems = check.breakdown(script, bd, needs, 4, 30)
+    assert "shot 1.1: 'feeding' moment without its screen" in problems
+    bd.scenes[0].shots[0].screen_ids = ["product:2"]
+    assert check.breakdown(script, bd, needs, 4, 30) == []

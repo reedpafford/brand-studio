@@ -58,7 +58,7 @@ def video_model() -> str:
 
 def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) -> None:
     brand = CASES["brands"][case["brand"]]
-    brand_text = brand_block(brand["brand"], brand["screens"])
+    brand_text = brand_block(brand["brand"], brand["screens"], brand.get("product"))
     cast = "<cast>\n" + "\n".join(case["cast"]) + "\n</cast>"
     places = "<places>\n" + "\n".join(case["places"]) + "\n</places>"
     brief = f"<brief>{case['brief']}</brief>"
@@ -84,6 +84,8 @@ def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) 
             screens = [
                 f'screen:{s["id"]} {brand["brand"]["name"]} "{s["name"]}"' for s in brand["screens"]
             ]  # noqa: E501
+            if p := brand.get("product"):
+                screens.append(f'product:{p["id"]} {brand["brand"]["name"]} product "{p["name"]}"')
             frames = [f"frame:{c.id} storyboard frame for clip {c.id}" for c in bd.clips]
             assets = case["cast"] + case["places"] + screens + frames
             prompt = f"{video_model()}\n<assets>\n" + "\n".join(assets) + "\n</assets>\n"

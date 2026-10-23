@@ -10,14 +10,14 @@ import sys
 from pathlib import Path
 
 from app.catalogue import get_model
-from app.prompts import SCHEMAS, check
+from app.prompts import SCHEMAS, check, required
 
 CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
 
 
 def score(out: Path, case: dict) -> list[str]:
     brand = CASES["brands"][case["brand"]]
-    screens = {f"screen:{s['id']}": s["default_for"] for s in brand["screens"]}
+    screens = required(brand["screens"], brand.get("product"))
     video = get_model("seedance-2.5")
     exp, problems, answers = case["expect"], [], {}
     for step in case["steps"]:

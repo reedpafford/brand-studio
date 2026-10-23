@@ -35,7 +35,8 @@ class Suggestion(BaseModel):
         "the frame')."
     )
     screen_id: str | None = Field(
-        description="brand_screen only: the screen's id from the brand block. Otherwise null."
+        description="brand_screen only: the screen's or product's id from the brand block "
+        "(screen:N or product:N). Otherwise null."
     )
     reason: str = Field(
         description="One short plain sentence for the editor: what this does for the hook, "
@@ -108,8 +109,8 @@ class Shot(BaseModel):
         "'trading', 'win', 'loss'), or null."
     )
     screen_ids: list[str] = Field(
-        description="Brand screens shown in this shot. Required whenever `moment` is one the "
-        "brand block lists a screen for."
+        description="Brand screens (screen:N) and the project's product (product:N) shown in "
+        "this shot. Required whenever `moment` is one the brand block lists them for."
     )
 
 
