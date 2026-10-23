@@ -82,6 +82,8 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
                 _mark("s3", "camera", 3, "not in the script", "after", "Push in."),
                 _mark("s4", "camera", 1, "SCENE 1", "before", "Wide on the kitchen."),
                 _mark("s5", "action", 3, "all your money", "after", 'NATE: "Spent it."'),
+                _mark("s6", "camera", 2, "empty wallet", "after", "SCENE 2 — EXT. STREET"),
+                _mark("s7", "action", 2, "empty wallet", "after", "She sighs.\nShe sits."),
             ],
             "notes": [{"line": 4, "text": "The dip line lands better if Nate smiles."}],
         }
@@ -93,6 +95,8 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
     assert done.status == "succeeded" and done.output["kept"] == 3
     assert "s3: quote not found on line 3" in done.output["dropped"]
     assert "s5: adds spoken words" in done.output["dropped"]
+    for key in ("s6", "s7"):
+        assert f"{key}: not a single direction line" in done.output["dropped"]
     notes = editor.get(f"{url}/notes").json()
     assert notes == [{"line": 4, "text": "The dip line lands better if Nate smiles."}]
     assert db.query(Usage).one().unit == "call"
@@ -190,3 +194,12 @@ def test_enhance_respects_the_generation_switch(app, editor, setup, db):
     app.state.settings.generation_enabled = False
     r = editor.post(f"/projects/{setup['project']}/script/enhance")
     assert r.status_code == 503 and db.query(Job).count() == 0
+
+
+def test_one_enhance_at_a_time_per_version(editor, setup):
+    url = f"/projects/{setup['project']}/script"
+    assert editor.post(f"{url}/enhance").status_code == 201
+    second = editor.post(f"{url}/enhance")
+    assert second.status_code == 409 and "already" in second.json()["detail"]
+    editor.put(url, json={"text": SCRIPT + "\nMOM: Fine."})  # a new version may be enhanced
+    assert editor.post(f"{url}/enhance").status_code == 201
