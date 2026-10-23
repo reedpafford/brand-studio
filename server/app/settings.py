@@ -1,8 +1,11 @@
 """Settings read from environment variables (prefix BS_). Never hard-code secrets."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -17,8 +20,9 @@ class Settings(BaseSettings):
     # Uploaded files (local disk for now; S3-compatible later)
     storage_dir: str = "./storage"
     max_upload_mb: int = 200
-    # Folder of fomo UI screens imported on first setup (optional)
-    fomo_screens_dir: str = ""
+    # Folder of fomo UI screens imported on first setup ("" to skip). Defaults to the
+    # real screens in the repo (assets/brands/fomo/screens, from story-studio).
+    fomo_screens_dir: str = str(REPO_ROOT / "assets" / "brands" / "fomo" / "screens")
     # Login throttling: this many failures within the window locks the email / IP out.
     login_max_failures: int = 5
     login_max_failures_per_ip: int = 20

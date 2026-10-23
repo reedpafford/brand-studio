@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.models.brands import Brand
 from app.seed import import_screens
 from tests.conftest import PASSWORD, PNG, SETUP_TOKEN, upload
@@ -78,3 +80,17 @@ def test_setup_still_works_when_screen_import_breaks(app, client, tmp_path):
     (tmp_path / "a.png").write_bytes(PNG)
     (tmp_path / "screens.json").write_text("{not json")
     assert _setup_with_screens_dir(app, client, tmp_path) == []
+
+
+def test_real_fomo_assets_import_with_names_moments_logo_and_style_board(app, owner, db):
+    from app.settings import Settings
+
+    folder = Path(Settings().fomo_screens_dir)
+    fomo = db.query(Brand).filter_by(slug="fomo").one()
+    assert import_screens(db, app.state.storage, fomo, folder) == 4
+    screens = {s["name"]: s for s in owner.get(f"/brands/{fomo.id}/screens").json()}
+    assert screens["Token chart up"]["default_for"] == ["trading", "win"]
+    assert screens["Home"]["tags"] == ["home", "mobile"]
+    kit = owner.get(f"/brands/{fomo.id}").json()
+    assert kit["logo_file_id"] and kit["style_board_file_id"]
+    assert owner.get(f"/files/{kit['logo_file_id']}").headers["content-type"] == "image/png"
