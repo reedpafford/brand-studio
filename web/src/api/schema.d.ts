@@ -1306,6 +1306,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Name */
             name: string;
         };
@@ -1342,6 +1347,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Id */
             id: number;
             /** Name */
@@ -1385,6 +1395,11 @@ export interface components {
              * @default
              */
             legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
             /** Name */
             name?: string | null;
         };

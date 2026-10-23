@@ -24,6 +24,7 @@ class Brand(Entity, Base):
     tone_notes: Mapped[str] = mapped_column(Text, default="")
     never_say: Mapped[list[str]] = mapped_column(JSON, default=list)
     legal_line: Mapped[str] = mapped_column(Text, default="")
+    end_line: Mapped[str] = mapped_column(Text, default="")  # every video ends on it, word for word
 
 
 class BrandScreen(Entity, Base):

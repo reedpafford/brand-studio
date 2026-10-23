@@ -33,13 +33,15 @@ def _lines(db, project):
 def test_project_uses_only_its_chosen_variant(db, editor):
     _, ids, project = _bags(editor)
     first = _lines(db, project)  # nothing picked yet: the first variant
-    assert any(f"screen:{ids['Chicken']} | product | Bag Chicken (Chicken)" in x for x in first)
+    assert any(f"screen:{ids['Chicken']} | product | Bag Chicken |" in x for x in first)
     assert not any(f"screen:{ids['Peanut butter']}" in x for x in first)
 
     r = editor.patch(f"/projects/{project}", json={"product_variants": {"bag": "Peanut butter"}})
     assert r.json()["product_variants"] == {"bag": "Peanut butter"}
     picked = _lines(db, project)
-    assert any("(Peanut butter)" in x for x in picked)
+    assert any(
+        f"screen:{ids['Peanut butter']} | product | Bag Peanut butter |" in x for x in picked
+    )
     assert not any(f"screen:{ids['Chicken']}" in x for x in picked)
 
 

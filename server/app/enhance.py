@@ -46,7 +46,8 @@ def project_screens(db: Session, project: Project) -> list[BrandScreen]:
 
 
 def screen_name(s: BrandScreen) -> str:
-    return f"{s.name} ({s.variant})" if s.variant else s.name
+    """'Chicken bag' as is; a name that doesn't say its variant gets it: 'Bag (Chicken)'."""
+    return f"{s.name} ({s.variant})" if s.variant.lower() not in s.name.lower() else s.name
 
 
 def project_context(db: Session, project: Project, step: str) -> tuple[list[str], str]:
@@ -62,6 +63,7 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
         "tone_notes": brand.tone_notes,
         "never_say": brand.never_say,
         "legal_line": brand.legal_line,
+        "end_line": brand.end_line,
     }
     cast = [db.get(LibraryItem, i) for i in project.cast_ids]
     brief = (
