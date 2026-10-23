@@ -103,20 +103,24 @@ export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
   if (mark.status === "rejected") return null;
   const accepted = mark.status === "accepted";
   return (
-    <li className={`ml-10 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm ${accepted ? "text-muted" : "bg-mark underline decoration-mark-line decoration-2"}`} data-kind={mark.kind}>
-      <span className="flex-1 no-underline">
-        {mark.kind === "brand_screen" ? "★ " : "▸ "}
-        {mark.text}
-        {!accepted && mark.reason && <span className="block text-xs text-muted no-underline">Why: {mark.reason}</span>}
+    <li className={`ml-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 py-0.5 text-sm sm:ml-10 ${accepted ? "text-muted" : ""}`} data-kind={mark.kind}>
+      {/* Phone: the words first, then the kind and the buttons on a second line. */}
+      <span className="basis-full sm:basis-0 sm:flex-1">
+        {/* Only the suggestion's own words are marked, never the row or the buttons. */}
+        <span className={accepted ? "" : "bg-mark underline decoration-mark-line decoration-2 underline-offset-2"}>
+          {mark.kind === "brand_screen" ? "★ " : "▸ "}
+          {mark.text}
+        </span>
+        {!accepted && mark.reason && <span className="block text-xs text-muted">Why: {mark.reason}</span>}
       </span>
-      <span className="text-xs text-muted no-underline">{KIND[mark.kind] ?? mark.kind}</span>
-      <span className="flex gap-2 no-underline">
+      <span className="text-xs text-muted">{KIND[mark.kind] ?? mark.kind}</span>
+      <span className="ml-auto flex gap-3 sm:ml-0">
         {!accepted && (
-          <button className={linkText} aria-label={`Accept: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "accept" })}>
+          <button className={`${linkText} min-h-8`} aria-label={`Accept: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "accept" })}>
             Accept
           </button>
         )}
-        <button className={linkText} aria-label={`${accepted ? "Remove" : "Reject"}: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "reject" })}>
+        <button className={`${linkText} min-h-8`} aria-label={`${accepted ? "Remove" : "Reject"}: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "reject" })}>
           {accepted ? "Remove" : "Reject"}
         </button>
       </span>

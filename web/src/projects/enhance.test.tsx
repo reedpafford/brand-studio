@@ -68,6 +68,11 @@ test("suggestions sit under their lines as direction notes, and the script's own
   expect(within(items[1]).getByText("Camera")).toBeInTheDocument();
   expect(within(items[3]).getByText("Brand screen")).toBeInTheDocument();
   expect(screen.getByText("Why: Builds the hook.")).toBeInTheDocument();
+  // Only the suggestion's words carry the marker underline; the row and its buttons do not.
+  const marked = screen.getByText(/Slow push-in on her face\./);
+  expect(marked).toHaveClass("underline");
+  expect(items[1]).not.toHaveClass("underline");
+  expect(within(items[1]).getByRole("button", { name: /Accept/ }).parentElement?.closest(".underline")).toBeNull();
 });
 
 test("accept and reject are sent; apply shows once something is accepted", async () => {
