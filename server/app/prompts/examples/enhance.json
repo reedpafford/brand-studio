@@ -1,0 +1,177 @@
+{
+ "source": "gold reel Dc1TdgvK42n (cevrico, 142K views), adapted for fomo",
+ "note": "An editor's first draft with slow opening, missing screens and an explaining line. Note what is NOT suggested: no dialogue rewrites, no marks on lines that already work.",
+ "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image and shown exactly:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Leo, teen trader\nchar:2 Maya, his girlfriend\n</cast>\n<script>\n1| SCENE 1 — INT. SCHOOL HALLWAY — DAY\n2| Leo and Maya walk down the hallway past the lockers, chatting about their weekend.\n3| LEO: So how was your weekend?\n4| MAYA: Fine. Yours?\n5| Leo pulls out his phone to show her his trades.\n6| LEO: You should come over after school. I'll show you my setup.\n7| MAYA: Leo, you're down twenty-seven hundred dollars.\n8| LEO: It's a dip. It'll come back.\n9| MAYA: Call me when you're profitable.\n10| She walks away. Leo is sad because she left him.\n11| Leo sits at his desk in his dark bedroom and opens fomo.\n12| He trades all night.\n13| LEO: Come on… come on…\n14| The number climbs to twenty-seven thousand.\n15| LEO: No way.\n16| SCENE 3 — INT. SCHOOL HALLWAY — DAY\n17| Leo walks up to Maya at her locker.\n18| MAYA: Leo? I heard about your trade.\n19| LEO: You said call when I'm profitable.\n20| He holds up his phone.\n21| LEO: So I guess this is the call.\n</script>",
+ "output": {
+  "suggestions": [
+   {
+    "id": "s1",
+    "kind": "cut",
+    "anchor": {
+     "line": 2,
+     "quote": "Leo and Maya walk down the hallway past the lockers, chatting about their weekend."
+    },
+    "placement": "replace",
+    "text": "",
+    "screen_id": null,
+    "reason": "Small talk before the conflict; starting later hooks viewers in the first second."
+   },
+   {
+    "id": "s2",
+    "kind": "cut",
+    "anchor": {
+     "line": 3,
+     "quote": "LEO: So how was your weekend?"
+    },
+    "placement": "replace",
+    "text": "",
+    "screen_id": null,
+    "reason": "Same: the video should open on Leo showing his phone."
+   },
+   {
+    "id": "s3",
+    "kind": "cut",
+    "anchor": {
+     "line": 4,
+     "quote": "MAYA: Fine. Yours?"
+    },
+    "placement": "replace",
+    "text": "",
+    "screen_id": null,
+    "reason": "Same: no story happens in this line."
+   },
+   {
+    "id": "s4",
+    "kind": "brand_screen",
+    "anchor": {
+     "line": 7,
+     "quote": "you're down twenty-seven hundred dollars"
+    },
+    "placement": "after",
+    "text": "★ fomo screen: Token chart down — on Leo's phone, fills the frame",
+    "screen_id": "screen:3",
+    "reason": "A loss is a fomo moment, so the real chart-down screen must show here."
+   },
+   {
+    "id": "s5",
+    "kind": "camera",
+    "anchor": {
+     "line": 9,
+     "quote": "MAYA: Call me when you're profitable."
+    },
+    "placement": "before",
+    "text": "Slow push-in on Maya as she says it, Leo blurred in the foreground.",
+    "screen_id": null,
+    "reason": "This line comes back at the end, so give it weight now."
+   },
+   {
+    "id": "s6",
+    "kind": "cut",
+    "anchor": {
+     "line": 10,
+     "quote": " Leo is sad because she left him."
+    },
+    "placement": "replace",
+    "text": "",
+    "screen_id": null,
+    "reason": "Explains what the next shot should show; let his face do it."
+   },
+   {
+    "id": "s7",
+    "kind": "reaction",
+    "anchor": {
+     "line": 10,
+     "quote": "She walks away."
+    },
+    "placement": "after",
+    "text": "Leo freezes, phone still raised, eyes wet, alone in the emptying hallway.",
+    "screen_id": null,
+    "reason": "The low point needs a held, visible beat."
+   },
+   {
+    "id": "s8",
+    "kind": "scene_break",
+    "anchor": {
+     "line": 11,
+     "quote": "Leo sits at his desk in his dark bedroom and opens fomo."
+    },
+    "placement": "before",
+    "text": "SCENE 2 — INT. LEO'S BEDROOM — NIGHT",
+    "screen_id": null,
+    "reason": "Place and time change here; the script jumps from scene 1 to 3."
+   },
+   {
+    "id": "s9",
+    "kind": "brand_screen",
+    "anchor": {
+     "line": 11,
+     "quote": "opens fomo"
+    },
+    "placement": "after",
+    "text": "★ fomo screen: Home — on Leo's phone as the app opens",
+    "screen_id": "screen:1",
+    "reason": "Opening fomo is a brand moment that needs the real home screen."
+   },
+   {
+    "id": "s10",
+    "kind": "brand_screen",
+    "anchor": {
+     "line": 12,
+     "quote": "He trades all night."
+    },
+    "placement": "after",
+    "text": "★ fomo screen: Desktop trading — on his monitor, cold glow on his face",
+    "screen_id": "screen:4",
+    "reason": "The all-night grind is trading at a desk, so the real desktop screen shows."
+   },
+   {
+    "id": "s11",
+    "kind": "brand_screen",
+    "anchor": {
+     "line": 14,
+     "quote": "The number climbs to twenty-seven thousand."
+    },
+    "placement": "after",
+    "text": "★ fomo screen: Token chart up — fills the frame",
+    "screen_id": "screen:2",
+    "reason": "The win must be the real chart-up screen, not an invented number."
+   },
+   {
+    "id": "s12",
+    "kind": "reaction",
+    "anchor": {
+     "line": 15,
+     "quote": "LEO: No way."
+    },
+    "placement": "after",
+    "text": "Leo's eyes snap wide, he shoves back from the desk and grabs his head.",
+    "screen_id": null,
+    "reason": "The payoff lands when we see it hit him."
+   },
+   {
+    "id": "s13",
+    "kind": "brand_screen",
+    "anchor": {
+     "line": 20,
+     "quote": "He holds up his phone."
+    },
+    "placement": "after",
+    "text": "★ fomo screen: Token chart up — on the phone he holds up to Maya",
+    "screen_id": "screen:2",
+    "reason": "The callback shows the proof, and the proof is fomo."
+   },
+   {
+    "id": "s14",
+    "kind": "camera",
+    "anchor": {
+     "line": 21,
+     "quote": "LEO: So I guess this is the call."
+    },
+    "placement": "before",
+    "text": "Over Leo's shoulder onto Maya's face, her jaw dropping.",
+    "screen_id": null,
+    "reason": "Her reaction is the payoff of the whole video."
+   }
+  ]
+ }
+}
