@@ -1,4 +1,5 @@
 # Decisions (newest first; one line each, with date)
+- 2026-10-23 (Reed) Script and dialogue never change in Enhance, breakdown or clips. Enhance only suggests camera shots, character movements, reactions and where brand screens/products show; problems in the words become notes, never edits.
 - 2026-10-23 Reed: no monthly workspace cap. The per-video cap is the project budget (2x the 480p estimate), max 180 s planned without owner approval.
 - 2026-10-23 Reed: Iron Paws is a dog gut-health product. Its real bag must appear exactly, like fomo's screens.
 - 2026-10-23 Reed approved the Director's first paid eval: 22 Claude calls, cap $4.

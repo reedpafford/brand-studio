@@ -12,14 +12,16 @@ Each case has:
 What each case is for:
 | Case | Tests |
 |---|---|
-| fomo-thanksgiving | Full chain on a messy draft: cut small talk but keep the callback's setup, add the missing screens, replace a made-up screen, scene break, seams |
+| fomo-thanksgiving | Full chain on a messy draft: no line changes, add the missing screens, a note on the made-up screen, a visible hook, seams |
 | fomo-tight | Restraint: a script that already works gets 3 marks or fewer |
 | fomo-draft-salesman | Drafting from a brief: different hooks, right length, screens on ★ lines |
 | ironpaws-rescue | Breakdown + clips with a product (the bag) instead of app screens: shown exactly, no face, good seams |
-| ironpaws-slow-start | Enhance on a slow opening and an explaining line, and a script that never shows the bag |
+| ironpaws-slow-start | Enhance on a slow script: visible beats and the bag added, problems in the words only as notes |
 | ironpaws-pitbull-1 | Reed's real script: long dog voiceover, no names or headings; keep every word, find the pictures, show the bag, flag the flavor mismatch |
 
 Iron Paws: a human-grade greens powder for dogs; the real bag is its required element, stored as a brand screen.
+
+Answers in `results/v1` and `results/v2-partial` predate Reed's no-edit rule (they have cut and scene-break marks and no notes), so the current scorer can't read them; the verdict files keep what they showed.
 
 ## Running (paid; needs the Producer's go-ahead)
 ```bash
