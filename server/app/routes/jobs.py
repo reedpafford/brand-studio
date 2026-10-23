@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import check_video_cap, estimate, lock, needs_approval
+from app.credits import check_clip_cap, check_video_cap, estimate, lock, needs_approval
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus, Usage
@@ -30,6 +30,7 @@ class JobOut(BaseModel):
     finished_at: datetime | None
     # Safe summary of what was asked, for history lists (from the job's input).
     prompt_summary: str = ""
+    step: str | None = None  # script-flow step: enhance, script_draft, breakdown, …
     model_id: str | None = None
     brand_id: int | None = None
     duration: int | None = None
@@ -67,6 +68,7 @@ class JobOut(BaseModel):
             **data,
             **extra,
             "prompt_summary": prompt if len(prompt) <= 140 else prompt[:139] + "…",
+            "step": job.input.get("step"),
             "model_id": job.input.get("model"),
             "brand_id": job.input.get("brand_id"),
             **{k: given.get(k) for k in ("duration", "aspect_ratio", "resolution")},
@@ -116,6 +118,7 @@ def enqueue(
         check_video_cap(db, user, project, credits)
     else:
         lock(db, User, user.id)
+        check_clip_cap(db, user, credits)
     over = needs_approval(db, user, project, credits)
     job = Job(
         workspace_id=user.workspace_id,

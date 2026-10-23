@@ -58,6 +58,13 @@ def _working(db: Session, user: User, project_id: int):
 def enhance(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Queue an Enhance call (a paid Claude call, counted against the project budget)."""
     project, version = _working(db, user, project_id)
+    waiting = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
+    pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(waiting)))
+    if any(
+        j.input.get("step") == "enhance" and j.input["script_version"] == version.version
+        for j in pending
+    ):
+        raise HTTPException(409, "Enhance is already working on this script.")
     return enqueue(
         db,
         user,

@@ -3,6 +3,8 @@ anchored by line + exact quote; we compute the offsets, drop any we can't place 
 add spoken words, and later add the accepted ones as direction lines. The schema allows only
 before/after marks, so the script's own words never change."""
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,8 @@ from app.models.scripts import ScriptVersion, Suggestion
 from app.prompts import check
 from app.prompts.schemas import EnhanceResult
 
+HEADING = re.compile(r"(SCENE\b|INT\.|EXT\.|INT/EXT\b)")  # scene headings (uppercase)
+
 
 def escape(text: str) -> str:
     """Keep user text from closing our tags early."""
@@ -25,8 +29,9 @@ def screens_of(db: Session, brand: Brand) -> list[BrandScreen]:
     return list(db.scalars(select(BrandScreen).where(BrandScreen.brand_id == brand.id)))
 
 
-def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
-    """The Claude call for Enhance: fixed system parts (cached) + this project's message."""
+def project_context(db: Session, project: Project, step: str) -> tuple[list[str], str]:
+    """What every script-flow call starts with: the fixed system parts (step rules, then the
+    brand; cached together) and the <brief> and <cast> for the user message."""
     brand = db.get(Brand, project.brand_id)
     screens = [
         {"id": s.id, "name": s.name, "tags": s.tags, "default_for": s.default_for}
@@ -45,16 +50,20 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         f"Format: {project.format or '-'}"
     )
     cast_lines = "\n".join(f"char:{c.id} | {c.name} | {c.notes}" for c in cast if c)
-    message = (
-        f"<brief>\n{escape(brief)}\n</brief>\n<cast>\n{escape(cast_lines)}\n</cast>\n"
-        f"<script>\n{escape(prompts.number_lines(version.text))}\n</script>"
-    )
+    message = f"<brief>\n{escape(brief)}\n</brief>\n<cast>\n{escape(cast_lines)}\n</cast>"
+    return [prompts.system(step), prompts.brand_block(brand_dict, screens)], message
+
+
+def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
+    """The Claude call for Enhance: fixed system parts (cached) + this project's message."""
+    system, context = project_context(db, project, "enhance")
+    script = escape(prompts.number_lines(version.text))
     return {
         "step": "enhance",
         "project_id": project.id,
         "script_version": version.version,
-        "system": [prompts.system("enhance"), prompts.brand_block(brand_dict, screens)],
-        "prompt": message,
+        "system": system,
+        "prompt": f"{context}\n<script>\n{script}\n</script>",
     }
 
 
@@ -73,6 +82,11 @@ def save_suggestions(db: Session, job: Job) -> None:
     problems = check.enhance(
         version.text, result, {k: s.default_for for k, s in brand_screens.items()}
     )
+    problems += [
+        f"{s.id}: not a single direction line"
+        for s in result.suggestions
+        if "\n" in s.text.strip() or not s.text.strip() or HEADING.match(s.text.strip())
+    ]
     bad = {p.split(":", 1)[0] for p in problems}
     starts = _line_starts(version.text)
     lines = version.text.splitlines()
@@ -112,15 +126,32 @@ def _line_starts(text: str) -> list[int]:
     return starts or [0]
 
 
+# How each inserted direction line starts (Designer's spec, #69), so later steps read it as a
+# shot direction, never as spoken or on-screen words.
+TAGS = {
+    "camera": "Camera",
+    "action": "Movement",
+    "reaction": "Reaction",
+    "brand_screen": "Brand screen",
+}
+
+
+def tagged(kind: str, text: str) -> str:
+    tag = f"[{TAGS[kind]}]" if kind in TAGS else ""
+    return f"{tag} {text}" if tag and not text.startswith(tag) else text
+
+
 def apply(text: str, marks: list[Suggestion]) -> str:
-    """Apply accepted marks as new lines before/after the quote's line. The script's own
-    lines are never edited (endings included); any other placement is ignored."""
+    """Apply accepted marks as new tagged lines ("[Camera] Push in.") before/after the quote's
+    line. The script's own lines are never edited (endings included); any other placement is
+    ignored."""
     lines = text.splitlines(keepends=True) or [""]
     before: dict[int, list[str]] = {}
     after: dict[int, list[str]] = {}
     for m in marks:
         if m.placement in ("before", "after"):
-            (before if m.placement == "before" else after).setdefault(m.line - 1, []).append(m.text)
+            side = before if m.placement == "before" else after
+            side.setdefault(m.line - 1, []).append(tagged(m.kind, m.text))
     out = []
     for n, line in enumerate(lines):
         out += [f"{t}\n" for t in before.get(n, [])]

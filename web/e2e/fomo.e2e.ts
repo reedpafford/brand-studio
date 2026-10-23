@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { onBrand, signIn } from "./helpers";
 
 // fomo is set up with its real screens, logo and style board when the studio is first set up.
 test("fomo comes with its real screens, logo and style board", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("heading", { name: "fomo" })).toBeVisible();
+  await onBrand(page, "fomo");
 
   await page.getByRole("link", { name: "Screens" }).click();
   await expect(page.getByRole("heading", { name: "Brand screens (4)" })).toBeVisible();

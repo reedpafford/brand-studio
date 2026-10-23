@@ -20,7 +20,7 @@ class ClaudeProvider:
         self._key, self._client = key, client
 
     def run(self, kind: str, input: dict) -> Result:
-        """`input`: {"step", "system": [parts], "prompt", "effort"?}."""
+        """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}."""
         client = self._client or make_client(self._key)
         try:
             answer = ask(
@@ -29,10 +29,16 @@ class ClaudeProvider:
                 prompt=input["prompt"],
                 schema=SCHEMAS[input["step"]],
                 effort=input.get("effort", "high"),
+                **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
-        except ClaudeError as exc:
-            return Result("failed", error=str(exc))
-        except (anthropic.RateLimitError, anthropic.InternalServerError) as exc:
+        except ClaudeError as exc:  # refused or cut off: still billed, so record the cost
+            usage = [UsageItem(Decimal(1), "call", exc.cost_usd)] if exc.cost_usd else []
+            return Result("failed", error=str(exc), usage=usage)
+        except (
+            anthropic.RateLimitError,
+            anthropic.InternalServerError,
+            anthropic.OverloadedError,
+        ) as exc:
             raise NotStarted(repr(exc)) from exc
         except anthropic.APIConnectionError as exc:
             raise NetworkError(repr(exc)) from exc

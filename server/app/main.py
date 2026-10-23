@@ -6,17 +6,21 @@ from app.db import make_sessionmaker
 from app.routes import (
     auth,
     brands,
+    breakdown,
     clips,
     credits,
+    drafts,
     enhance,
     files,
     health,
     jobs,
     library,
     models,
+    project_clips,
     projects,
     screens,
     scripts,
+    storyboard,
     team,
 )
 from app.routes.scripts import MAX_DOC_BYTES
@@ -45,6 +49,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         models,
         scripts,
         enhance,
+        drafts,
+        breakdown,
+        storyboard,
+        project_clips,
         clips,
     ):
         app.include_router(module.router)

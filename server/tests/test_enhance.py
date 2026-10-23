@@ -82,17 +82,22 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
                 _mark("s3", "camera", 3, "not in the script", "after", "Push in."),
                 _mark("s4", "camera", 1, "SCENE 1", "before", "Wide on the kitchen."),
                 _mark("s5", "action", 3, "all your money", "after", 'NATE: "Spent it."'),
+                _mark("s6", "camera", 2, "empty wallet", "after", "SCENE 2 — EXT. STREET"),
+                _mark("s7", "action", 2, "empty wallet", "after", "She sighs.\nShe sits."),
             ],
             "notes": [{"line": 4, "text": "The dip line lands better if Nate smiles."}],
         }
     )
     job = editor.post(f"{url}/enhance")
     assert job.status_code == 201 and job.json()["credits"] == 3  # write-claude estimate
+    assert job.json()["step"] == "enhance"  # the UI tells Enhance from Breakdown by this
     _run(app, db, fake)
     done = db.get(Job, job.json()["id"])
     assert done.status == "succeeded" and done.output["kept"] == 3
     assert "s3: quote not found on line 3" in done.output["dropped"]
     assert "s5: adds spoken words" in done.output["dropped"]
+    for key in ("s6", "s7"):
+        assert f"{key}: not a single direction line" in done.output["dropped"]
     notes = editor.get(f"{url}/notes").json()
     assert notes == [{"line": 4, "text": "The dip line lands better if Nate smiles."}]
     assert db.query(Usage).one().unit == "call"
@@ -115,10 +120,10 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
     assert r["script"]["text"].splitlines() == [
         "SCENE 1 — INT. KITCHEN — MORNING",
         "Mom storms in holding an empty wallet.",
-        "She slams it on the table.",
+        "[Movement] She slams it on the table.",
         "MOM: Nate, where is all your money?",
         "NATE: I bought the dip.",
-        "★ fomo screen: Buy — on Nate's phone",
+        "[Brand screen] ★ fomo screen: Buy — on Nate's phone",
     ]
     # Old marks belong to the old version now.
     assert editor.post(f"{url}/suggestions/{by_key['s4']}/accept").status_code == 409
@@ -145,15 +150,15 @@ def test_needs_a_script_and_an_accepted_mark(editor, setup, owner):
 def test_apply_never_edits_a_line():
     text = "SCENE 1\nMOM: Where is it?\r\nNATE: Gone.  \nEND"
 
-    def mark(key, line, placement, new):
-        return Suggestion(key=key, line=line, placement=placement, text=new, quote="x")
+    def mark(key, line, placement, new, kind="camera"):
+        return Suggestion(key=key, line=line, placement=placement, text=new, quote="x", kind=kind)
 
     marks = [
         mark("a", 2, "before", "Close on Mom."),
-        mark("b", 2, "after", "Nate shrugs."),
+        mark("b", 2, "after", "Nate shrugs.", "action"),
         mark("c", 3, "replace", "NATE: Spent it."),  # never applied
-        mark("d", 3, "before", "Beat."),
-        mark("e", 2, "before", "She waits."),
+        mark("d", 3, "before", "Beat.", "reaction"),
+        mark("e", 2, "before", "[Camera] She waits."),  # already tagged: not twice
     ]
     out = apply(text, marks)
     originals = text.splitlines(keepends=True)
@@ -161,8 +166,14 @@ def test_apply_never_edits_a_line():
     # Every original line is still there, byte for byte, in the same order.
     kept = [line for line in out.splitlines(keepends=True) if line in originals]
     assert kept == originals
-    assert [a.strip() for a in added] == ["Close on Mom.", "She waits.", "Nate shrugs.", "Beat."]
-    assert apply("A\nEND", [mark("f", 2, "after", "Fade out.")]) == "A\nEND\nFade out."
+    assert [a.strip() for a in added] == [
+        "[Camera] Close on Mom.",
+        "[Camera] She waits.",
+        "[Movement] Nate shrugs.",
+        "[Reaction] Beat.",
+    ]
+    end = apply("A\nEND", [mark("f", 2, "after", "Fade out.")])
+    assert end == "A\nEND\n[Camera] Fade out."
 
 
 def test_other_workspace_is_shut_out(outsider, setup):
@@ -190,3 +201,12 @@ def test_enhance_respects_the_generation_switch(app, editor, setup, db):
     app.state.settings.generation_enabled = False
     r = editor.post(f"/projects/{setup['project']}/script/enhance")
     assert r.status_code == 503 and db.query(Job).count() == 0
+
+
+def test_one_enhance_at_a_time_per_version(editor, setup):
+    url = f"/projects/{setup['project']}/script"
+    assert editor.post(f"{url}/enhance").status_code == 201
+    second = editor.post(f"{url}/enhance")
+    assert second.status_code == 409 and "already" in second.json()["detail"]
+    editor.put(url, json={"text": SCRIPT + "\nMOM: Fine."})  # a new version may be enhanced
+    assert editor.post(f"{url}/enhance").status_code == 201

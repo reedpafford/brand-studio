@@ -1,5 +1,6 @@
-"""Reference files for video models (docs/prompting/FIT.md rows 4, 13, 15): which picture is
-which in the prompt, how long reference media runs, and shrinking images to the video's size."""
+"""Reference files for video models (docs/prompting/FIT.md rows 4, 13, 15): '@Name' to its
+[ImageN], how long reference media runs, and shrinking images to the video's size. The
+"[ImageN] is …" lines themselves are the Director's (`prompts.reference_lines`)."""
 
 import io
 import re
@@ -11,19 +12,10 @@ from PIL import Image, ImageOps
 # Long side of the output video, by resolution. References bigger than this cause
 # fingerprint-like textures, so images are scaled down to it (never up).
 LONG_SIDE = {"480p": 854, "720p": 1280, "1080p": 1920, "4k": 3840}
-# Decompression-bomb guard: refuse images over 50 megapixels (Pillow errors at twice this).
-MAX_PIXELS = 50_000_000
+# Decompression-bomb guard: refuse images over 40 megapixels (Pillow errors at twice this).
+# A 13,000 x 13,000 PNG can be under 1 MB yet need over 1 GB once decoded.
+MAX_PIXELS = 40_000_000
 Image.MAX_IMAGE_PIXELS = MAX_PIXELS
-
-
-def reference_lines(labels: list[tuple[str, list[int]]]) -> str:
-    """'[Image1] and [Image2] are Aiden.' One line per labelled asset, in upload order."""
-    lines = []
-    for label, numbers in labels:
-        refs = [f"[Image{n}]" for n in numbers]
-        names = refs[0] if len(refs) == 1 else f"{', '.join(refs[:-1])} and {refs[-1]}"
-        lines.append(f"{names} {'is' if len(refs) == 1 else 'are'} {label}.")
-    return "\n".join(lines)
 
 
 def bind_names(prompt: str, names: dict[str, int]) -> str:
@@ -58,6 +50,19 @@ def _webm_seconds(data: bytes) -> float | None:
         n = head[s + 3] & 0x0F
         scale = int.from_bytes(head[s + 4 : s + 4 + n], "big")
     return duration * scale / 1e9
+
+
+def too_many_pixels(data: bytes) -> str | None:
+    """A plain reason if the image is too large to decode safely (read from its header only),
+    or unreadable; None if it's fine."""
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            w, h = img.size
+    except Exception:  # noqa: BLE001 - any unreadable picture gets the same plain answer
+        return "We couldn't read that picture."
+    if w * h > MAX_PIXELS:
+        return f"That picture is {w}×{h}. Use one under {MAX_PIXELS // 1_000_000} megapixels."
+    return None
 
 
 def fit_image(data: bytes, content_type: str, max_side: int, exact: bool) -> tuple[bytes, str]:
