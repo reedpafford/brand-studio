@@ -123,3 +123,38 @@ def test_clip_with_problems_and_other_workspace(app, editor, outsider, setup, cl
     finally:
         app.state.settings.generation_enabled = True
     assert editor.get(f"{base}/video").status_code == 404
+
+
+def test_stale_and_replaced_clips(app, db, editor, setup, clip):  # noqa: F811
+    base = f"/projects/{setup['project']}"
+    url = f"{base}/clips/{clip['id']}"
+    editor.post(f"{url}/generate")
+    r = editor.post(f"{base}/clips/prompts")  # a take is on its way: don't replace the clips
+    assert r.status_code == 409 and "Wait for the clips" in r.json()["detail"]
+    _work(app, db, FakeSeedance([_mp4("red")]))
+    assert len(editor.get(f"{base}/clips").json()[0]["takes"]) == 1
+    old = editor.get(f"{base}/clips").json()[0]
+    assert editor.post(f"{base}/clips/prompts").status_code == 201  # now new prompts may replace
+    _run(
+        app,
+        db,
+        FakeClaude(
+            {
+                "clips": [
+                    {
+                        **{k: old[k] for k in ("clip_id", "seconds", "prompt")},
+                        "references": old["references"],
+                    }
+                ]
+            }
+        ),
+    )
+    new = editor.get(f"{base}/clips").json()[0]
+    assert new["takes"] == [] and new["picked_take_id"] is None  # old takes went with it
+    url = f"{base}/clips/{new['id']}"
+
+    script = editor.get(f"{base}/script").json()["text"]
+    editor.put(f"{base}/script", json={"text": script + "\nMOM: Fine."})
+    assert editor.get(f"{base}/clips").json()[0]["stale"] is True
+    r = editor.post(f"{url}/generate")
+    assert r.status_code == 409 and "older breakdown" in r.json()["detail"]

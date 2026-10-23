@@ -18,10 +18,12 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
+from app.models.projects import Project
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
+from app.routes.scripts import latest
 from app.routes.storyboard import _newest_breakdown
 from app.schemas import LongText
 
@@ -66,12 +68,22 @@ def _takes(db: Session, row: ProjectClip) -> list[ClipTake]:
     )
 
 
+def _stale(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> bool:
+    """Made from an older breakdown, or the breakdown is for an older script version."""
+    working = latest(db, db.get(Project, row.project_id))
+    return (
+        not newest
+        or row.breakdown_id != newest.id
+        or bool(working and newest.script_version != working.version)
+    )
+
+
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes")
     return ProjectClipOut(
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
         takes=[TakeOut(id=t.id, number=t.number, file_id=t.file_id) for t in _takes(db, row)],
-        stale=not newest or row.breakdown_id != newest.id,
+        stale=_stale(db, row, newest),
     )
 
 
@@ -100,7 +112,10 @@ def write_prompts(
     if not bd:
         raise HTTPException(409, "Make a breakdown first.")
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
-    if any(j.input.get("step") == "clip_prompts" for j in pending):
+    steps = {j.input.get("step") for j in pending}
+    if "clip_take" in steps:  # new prompts replace the clips; a take on its way would be lost
+        raise HTTPException(409, "Wait for the clips being made to finish first.")
+    if "clip_prompts" in steps:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
     return enqueue(
         db,
@@ -155,6 +170,10 @@ def generate(
     project, row = _clip(db, user, project_id, clip_id)
     if row.problems:
         raise HTTPException(409, "Fix this clip's problems first.")
+    if _stale(db, row, _newest_breakdown(db, project)):
+        raise HTTPException(
+            409, "This clip was made for an older breakdown. Write the clip prompts again first."
+        )
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("project_clip_id") == row.id for j in pending):
         raise HTTPException(409, "A take of this clip is already being made.")
