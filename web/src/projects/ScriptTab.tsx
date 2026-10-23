@@ -192,7 +192,7 @@ export function ScriptTab({ projectId, enhance }: { projectId: number; enhance: 
         text={shown?.text ?? ""}
         around={
           shown?.version === current.version
-            ? (line, where) => enhance.marks.filter((m) => m.line === line && (m.placement === "before") === (where === "before")).map((m) => <MarkLine key={m.id} mark={m} e={enhance} />)
+            ? (line, where) => enhance.shown.filter((m) => m.line === line && (m.placement === "before") === (where === "before")).map((m) => <MarkLine key={m.id} mark={m} e={enhance} />)
             : undefined
         }
       />

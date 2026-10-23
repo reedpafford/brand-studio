@@ -18,6 +18,7 @@ SCHEMAS = {
     "breakdown": schemas.Breakdown,
     "storyboard": schemas.StoryboardFrames,
     "clip_prompts": schemas.ClipPrompts,
+    "improve": schemas.ImprovedPrompt,
 }
 
 

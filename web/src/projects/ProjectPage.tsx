@@ -21,7 +21,7 @@ export function ProjectPage() {
     queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
   });
   const script = useLatestScript(id);
-  const enhance = useEnhance(id, script.data?.version);
+  const enhance = useEnhance(id, script.data?.version, script.data?.text);
   if (project.isPending || script.isPending) return <p className="p-6 text-muted">Loading…</p>;
   const p = project.data;
   if (!p) return <p className="p-6">That project doesn't exist.</p>;
@@ -62,7 +62,7 @@ export function ProjectPage() {
           <ScriptTab projectId={id} enhance={enhance} />
         </div>
         <div className={pane === "stage" ? "" : "hidden lg:block"}>
-          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} onPick={pick} />
+          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} onPick={pick} />
         </div>
       </div>
     </main>

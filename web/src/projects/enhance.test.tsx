@@ -109,3 +109,142 @@ test("a failed run says the script is unchanged; a switched-off server explains 
   await userEvent.click(screen.getByRole("button", { name: /^✦ Enhance/ }));
   expect(await screen.findByText("Generation is switched off on this server.")).toBeInTheDocument();
 });
+
+const many = (n: number, kind: string, from = 1) => Array.from({ length: n }, (_, i) => mark({ id: from + i, kind, line: 1, text: `${kind} note ${from + i}` }));
+
+test("Accept all accepts every waiting suggestion, asking first when there are more than 5", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, [...many(4, "camera"), ...many(3, "reaction", 5)]],
+    ...Object.fromEntries(Array.from({ length: 7 }, (_, i) => [`POST /projects/9/script/suggestions/${i + 1}/accept`, [200, mark({})]])),
+  });
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Accept all options" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Accept all (7)" }));
+  expect(confirm).toHaveBeenCalledWith("Accept 7 suggestions?");
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/accept"))).toHaveLength(7));
+});
+
+test("Accept all by kind accepts only that kind, with no question for 5 or fewer", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, [...many(2, "camera"), ...many(1, "reaction", 3)]],
+    "POST /projects/9/script/suggestions/1/accept": [200, mark({})],
+    "POST /projects/9/script/suggestions/2/accept": [200, mark({})],
+  });
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Accept all options" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Accept all Camera (2)" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/accept"))).toHaveLength(2));
+  expect(confirm).not.toHaveBeenCalled();
+  expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/3/accept")).toBe(false);
+});
+
+test("Apply says how many directions were added, and Undo saves the earlier words again", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, [mark({ status: "accepted" }), mark({ id: 2, status: "accepted", line: 2 })]],
+    "POST /projects/9/script/apply": [200, { script: { ...script, version: 5, source: "enhance" } }],
+    "PUT /projects/9/script": [200, { ...script, version: 6 }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Apply 2 accepted" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Added 2 directions as v5.");
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/script")?.body).toEqual({ text: script.text }));
+});
+
+test("tapping a suggestion opens a sheet with the Why, and the Notes chip opens the notes in a sheet", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, [mark({})]],
+    "GET /projects/9/script/notes": [200, [{ line: 2, text: "The brand kit has no strawberry product." }]],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /^▸ Slow push-in on her face\./ }));
+  const sheet = await screen.findByRole("dialog", { name: "Camera" });
+  expect(within(sheet).getByText("Why: Builds the hook.")).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Notes (1)" }));
+  const notes = await screen.findByRole("dialog", { name: "Notes" });
+  await userEvent.click(within(notes).getByRole("button", { name: "Got it: line 2" }));
+  expect(within(notes).getByText("No notes.")).toBeInTheDocument();
+});
+
+test("the helper says 'directions', and phones get a 'Why?' hint after a suggestion that has a reason", async () => {
+  fakeServer({ ...base, "GET /projects/9/script/suggestions": [200, [mark({ status: "accepted" }), mark({ id: 2, line: 2 })]] });
+  open();
+  expect(await screen.findByText(/Applying adds the accepted directions as a new version\./)).toBeInTheDocument();
+  expect(screen.getByText("Why?")).toBeInTheDocument();
+});
+
+const three = [mark({ id: 1, kind: "camera", text: "Camera one", line: 1 }), mark({ id: 2, kind: "reaction", text: "Reaction two", line: 1 }), mark({ id: 3, kind: "camera", text: "Camera three", line: 2 })];
+
+test("filter chips show a kind at a time, with counts", async () => {
+  fakeServer({ ...base, "GET /projects/9/script/suggestions": [200, three] });
+  open();
+  const chips = await screen.findByRole("group", { name: "Show" });
+  expect(within(chips).getByRole("button", { name: "All 3" })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(within(chips).getByRole("button", { name: "Camera 2" }));
+  expect(screen.queryByText(/Reaction two/)).not.toBeInTheDocument();
+  expect(screen.getAllByText(/Camera (one|three)/)).toHaveLength(2);
+  await userEvent.click(within(chips).getByRole("button", { name: "All 3" }));
+  expect(await screen.findByText(/Reaction two/)).toBeInTheDocument();
+});
+
+test("J and K move between suggestions, A accepts and R rejects the focused one, Esc lets go", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, three],
+    "POST /projects/9/script/suggestions/1/accept": [200, mark({})],
+    "POST /projects/9/script/suggestions/2/reject": [200, mark({})],
+  });
+  open();
+  await screen.findByText(/Camera one/);
+  const focusedText = () => document.querySelector("[aria-current=true]")?.textContent ?? "";
+  await userEvent.keyboard("j");
+  expect(focusedText()).toContain("Camera one");
+  await userEvent.keyboard("a");
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/1/accept")).toBe(true));
+  expect(focusedText()).toContain("Reaction two"); // accepting moved on to the next waiting one
+  await userEvent.keyboard("r");
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/2/reject")).toBe(true));
+  expect(focusedText()).toContain("Camera three");
+  await userEvent.keyboard("k");
+  expect(focusedText()).toContain("Reaction two");
+  await userEvent.keyboard("{Escape}");
+  expect(document.querySelector("[aria-current=true]")).toBeNull();
+});
+
+test("the keys never act while you are typing in a box", async () => {
+  const calls = fakeServer({ ...base, "GET /projects/9/script/suggestions": [200, three] });
+  open();
+  await screen.findByText(/Camera one/);
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  await userEvent.type(screen.getByLabelText("Your script"), "jjjaaarrr");
+  expect(document.querySelector("[aria-current=true]")).toBeNull();
+  expect(calls.some((c) => c.key.endsWith("/accept") || c.key.endsWith("/reject"))).toBe(false);
+});
+
+test("after A or R the keys move to the next waiting suggestion, so they can be pressed again", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, three],
+    "POST /projects/9/script/suggestions/1/accept": [200, mark({})],
+    "POST /projects/9/script/suggestions/2/reject": [200, mark({})],
+    "POST /projects/9/script/suggestions/3/accept": [200, mark({})],
+  });
+  open();
+  await screen.findByText(/Camera one/);
+  const focusedText = () => document.querySelector("[aria-current=true]")?.textContent ?? "";
+  await userEvent.keyboard("j");
+  await userEvent.keyboard("a"); // accepts Camera one, moves on
+  expect(focusedText()).toContain("Reaction two");
+  await userEvent.keyboard("r"); // rejects Reaction two, moves on
+  expect(focusedText()).toContain("Camera three");
+  await userEvent.keyboard("a");
+  await vi.waitFor(() => expect(calls.filter((c) => /\/(accept|reject)$/.test(c.key))).toHaveLength(3));
+});
