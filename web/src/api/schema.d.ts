@@ -1020,6 +1020,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Prompts
+         * @description Queue the clip-prompts call (a paid Claude call). New prompts replace the old clips.
+         */
+        post: operations["write_prompts_projects__project_id__clips_prompts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Clips */
+        get: operations["list_clips_projects__project_id__clips_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/{clip_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Clip
+         * @description Edit a clip's prompt or references; its problems are checked again.
+         */
+        put: operations["edit_clip_projects__project_id__clips__clip_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/estimate": {
         parameters: {
             query?: never;
@@ -1277,7 +1334,7 @@ export interface components {
             seam: string;
         };
         /** ClipIn */
-        ClipIn: {
+        "ClipIn-Output": {
             /** Brand Id */
             brand_id: number;
             /**
@@ -1338,6 +1395,25 @@ export interface components {
              * @default []
              */
             skip_screen_ids: number[];
+        };
+        /** ClipOut */
+        ClipOut: {
+            /** Id */
+            id: number;
+            /** Clip Id */
+            clip_id: string;
+            /** Seconds */
+            seconds: number;
+            /** Prompt */
+            prompt: string;
+            /** References */
+            references: components["schemas"]["Reference"][];
+            /** Problems */
+            problems: string[];
+            /** File Id */
+            file_id: number | null;
+            /** Stale */
+            stale: boolean;
         };
         /** DraftOut */
         DraftOut: {
@@ -1874,6 +1950,24 @@ export interface components {
             /** Credits Per Unit */
             credits_per_unit: number;
         };
+        /** Reference */
+        Reference: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "image" | "video" | "audio";
+            /**
+             * Id
+             * @description Asset id from the user message, e.g. 'frame:c1', 'screen:12'.
+             */
+            id: string;
+            /**
+             * Role
+             * @description What it is for, e.g. 'storyboard frame', 'Leo's look', 'fomo Token chart up screen, shown exactly'.
+             */
+            role: string;
+        };
         /**
          * Role
          * @enum {string}
@@ -2119,6 +2213,69 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** ClipIn */
+        app__routes__clips__ClipIn: {
+            /** Brand Id */
+            brand_id: number;
+            /**
+             * Model Id
+             * @default seedance-2.5
+             */
+            model_id: string;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Aspect Ratio
+             * @default 9:16
+             */
+            aspect_ratio: string;
+            /**
+             * Duration
+             * @description Seconds
+             * @default 5
+             */
+            duration: number;
+            /**
+             * Resolution
+             * @default 480p
+             */
+            resolution: string;
+            /**
+             * Generate Audio
+             * @default true
+             */
+            generate_audio: boolean;
+            /**
+             * Character Ids
+             * @default []
+             */
+            character_ids: number[];
+            /**
+             * Place Ids
+             * @default []
+             */
+            place_ids: number[];
+            /**
+             * Prop Ids
+             * @default []
+             */
+            prop_ids: number[];
+            /**
+             * Screen Ids
+             * @default []
+             */
+            screen_ids: number[];
+            /**
+             * File Ids
+             * @default []
+             */
+            file_ids: number[];
+            /**
+             * Skip Screen Ids
+             * @default []
+             */
+            skip_screen_ids: number[];
+        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -2131,6 +2288,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ClipIn */
+        app__routes__project_clips__ClipIn: {
+            /** Prompt */
+            prompt: string;
+            /** References */
+            references: components["schemas"]["Reference"][];
         };
         /** VersionOut */
         app__routes__scripts__VersionOut: {
@@ -4313,6 +4477,104 @@ export interface operations {
             };
         };
     };
+    write_prompts_projects__project_id__clips_prompts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_clips_projects__project_id__clips_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_clip_projects__project_id__clips__clip_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__routes__project_clips__ClipIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     estimate_clip_clips_estimate_post: {
         parameters: {
             query?: never;
@@ -4322,7 +4584,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ClipIn"];
+                "application/json": components["schemas"]["app__routes__clips__ClipIn"];
             };
         };
         responses: {
@@ -4355,7 +4617,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ClipIn"];
+                "application/json": components["schemas"]["app__routes__clips__ClipIn"];
             };
         };
         responses: {
@@ -4396,7 +4658,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClipIn"];
+                    "application/json": components["schemas"]["ClipIn-Output"];
                 };
             };
             /** @description Validation Error */
