@@ -83,6 +83,8 @@ test("adding a screen uploads the picture, then saves it with its tags", async (
     file_id: 9,
     tags: ["trading"],
     default_for: ["fomo-moment"],
+    product: "",
+    variant: "",
   });
 });
 
