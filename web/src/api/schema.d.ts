@@ -689,6 +689,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clips/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Estimate Clip
+         * @description What Generate would cost, and whether it would wait for the owner. Nothing is queued.
+         */
+        post: operations["estimate_clip_clips_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Clip */
+        post: operations["create_clip_clips_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clips/{job_id}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Clip Request
+         * @description The full request a clip was made from (prompt, settings, brand pieces), for "Try again"
+         *     and "Reuse prompt". Same visibility as the job itself: the caller's workspace.
+         */
+        get: operations["clip_request_clips__job_id__request_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -829,6 +887,69 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** ClipIn */
+        ClipIn: {
+            /** Brand Id */
+            brand_id: number;
+            /**
+             * Model Id
+             * @default seedance-2.5
+             */
+            model_id: string;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Aspect Ratio
+             * @default 9:16
+             */
+            aspect_ratio: string;
+            /**
+             * Duration
+             * @description Seconds
+             * @default 5
+             */
+            duration: number;
+            /**
+             * Resolution
+             * @default 480p
+             */
+            resolution: string;
+            /**
+             * Generate Audio
+             * @default true
+             */
+            generate_audio: boolean;
+            /**
+             * Character Ids
+             * @default []
+             */
+            character_ids: number[];
+            /**
+             * Place Ids
+             * @default []
+             */
+            place_ids: number[];
+            /**
+             * Prop Ids
+             * @default []
+             */
+            prop_ids: number[];
+            /**
+             * Screen Ids
+             * @default []
+             */
+            screen_ids: number[];
+            /**
+             * File Ids
+             * @default []
+             */
+            file_ids: number[];
+            /**
+             * Skip Screen Ids
+             * @default []
+             */
+            skip_screen_ids: number[];
+        };
         /** Duration */
         Duration: {
             /** Min */
@@ -840,6 +961,23 @@ export interface components {
              * @default false
              */
             smart: boolean;
+        };
+        /** EstimateOut */
+        EstimateOut: {
+            /** Credits */
+            credits: number;
+            /** Needs Owner Approval */
+            needs_owner_approval: boolean;
+            /** Reason */
+            reason: string;
+            /** Auto Screen Ids */
+            auto_screen_ids: number[];
+            /** Reference Images */
+            reference_images: number;
+            /** Reference Videos */
+            reference_videos: number;
+            /** Reference Audios */
+            reference_audios: number;
         };
         /** FileOut */
         FileOut: {
@@ -986,6 +1124,21 @@ export interface components {
             created_at: string;
             /** Finished At */
             finished_at: string | null;
+            /**
+             * Prompt Summary
+             * @default
+             */
+            prompt_summary: string;
+            /** Model Id */
+            model_id?: string | null;
+            /** Brand Id */
+            brand_id?: number | null;
+            /** Duration */
+            duration?: number | null;
+            /** Aspect Ratio */
+            aspect_ratio?: string | null;
+            /** Resolution */
+            resolution?: string | null;
             /** Approved By Id */
             approved_by_id: number | null;
             /** Provider */
@@ -1019,6 +1172,21 @@ export interface components {
             created_at: string;
             /** Finished At */
             finished_at: string | null;
+            /**
+             * Prompt Summary
+             * @default
+             */
+            prompt_summary: string;
+            /** Model Id */
+            model_id?: string | null;
+            /** Brand Id */
+            brand_id?: number | null;
+            /** Duration */
+            duration?: number | null;
+            /** Aspect Ratio */
+            aspect_ratio?: string | null;
+            /** Resolution */
+            resolution?: string | null;
         };
         /**
          * JobStatus
@@ -1292,6 +1460,8 @@ export interface components {
             unit: string;
             /** Cost Usd */
             cost_usd: string;
+            /** Estimated */
+            estimated: boolean;
             /**
              * Created At
              * Format: date-time
@@ -2798,6 +2968,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_clip_clips_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClipIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_clip_clips_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClipIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clip_request_clips__job_id__request_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipIn"];
                 };
             };
             /** @description Validation Error */
