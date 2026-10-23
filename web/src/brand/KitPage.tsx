@@ -9,6 +9,7 @@ import { ImagePicker } from "./ImagePicker";
 
 type Brand = components["schemas"]["BrandOut"];
 
+const HEX = /^#[0-9a-fA-F]{6}$/;
 const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 
 export function KitPage() {
@@ -70,22 +71,33 @@ function KitForm({ brand }: { brand: Brand }) {
         </div>
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Colours</legend>
+          <p className="text-sm text-muted">The first colour marks this brand across the app.</p>
           <div className="flex flex-wrap gap-3">
             {kit.colours.map((c, i) => (
-              <span key={i} className="flex items-center gap-1">
-                <input
-                  type="color"
-                  aria-label={`Colour ${i + 1}`}
-                  value={c}
-                  onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
-                />
-                <button type="button" className={`text-sm ${linkText}`} aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
-                  Remove
-                </button>
+              <span key={i} className="flex flex-col gap-1">
+                <span className="flex items-center gap-1">
+                  <input
+                    type="color"
+                    aria-label={`Colour ${i + 1} picker`}
+                    value={HEX.test(c) ? c : "#000000"}
+                    onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
+                  />
+                  <input
+                    className={`${input} w-28 font-mono`}
+                    aria-label={`Colour ${i + 1}`}
+                    placeholder="#12A150"
+                    value={c}
+                    onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
+                  />
+                  <button type="button" className={`text-sm ${linkText}`} aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
+                    Remove
+                  </button>
+                </span>
+                {c !== "" && !HEX.test(c) && <span className={errorClass}>Use a colour like #12A150.</span>}
               </span>
             ))}
           </div>
-          <button type="button" className={`text-sm ${linkText}`} onClick={() => set("colours", [...kit.colours, "#000000"])}>
+          <button type="button" className={`text-sm ${linkText}`} onClick={() => set("colours", [...kit.colours, kit.colours.at(-1) ?? ""])}>
             Add colour
           </button>
         </fieldset>
@@ -111,7 +123,7 @@ function KitForm({ brand }: { brand: Brand }) {
           </p>
         )}
         <div className="flex items-center gap-3">
-          <button className={btnPrimary} disabled={save.isPending || !changed}>
+          <button className={btnPrimary} disabled={save.isPending || !changed || !kit.colours.every((c) => HEX.test(c))}>
             Save changes
           </button>
           {save.isSuccess && !changed && <span role="status" className="text-sm text-muted">Saved.</span>}

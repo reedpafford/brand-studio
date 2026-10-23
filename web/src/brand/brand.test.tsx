@@ -32,14 +32,26 @@ test("saving the kit sends the edited fields", async () => {
   await userEvent.clear(tone);
   await userEvent.type(tone, "Calm");
   await userEvent.click(screen.getByRole("button", { name: "Add colour" }));
+  await userEvent.clear(screen.getByLabelText("Colour 2"));
+  await userEvent.type(screen.getByLabelText("Colour 2"), "#000001");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Saved.");
   expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({
     name: "fomo",
     tone_notes: "Calm",
     fonts: ["Inter"],
-    colours: ["#112233", "#000000"],
+    colours: ["#112233", "#000001"],
   });
+});
+
+test("a bad colour code is explained and blocks saving", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]] });
+  renderAt("/b/1/kit");
+  const hex = await screen.findByLabelText("Colour 1");
+  await userEvent.clear(hex);
+  await userEvent.type(hex, "red");
+  expect(screen.getByText("Use a colour like #12A150.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
 });
 
 test("save is disabled until something changes", async () => {
@@ -60,10 +72,11 @@ test("adding a screen uploads the picture, then saves it with its tags", async (
     "POST /brands/1/screens": [201, { id: 4, name: "home", file_id: 9, tags: ["trading"], default_for: ["fomo-moment"], brand_id: 1 }],
   });
   renderAt("/b/1/screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Add screen" }));
   await userEvent.upload(await screen.findByLabelText("Screen image"), new File(["x"], "home.png", { type: "image/png" }));
   await userEvent.type(screen.getByLabelText(/What it shows/), "Trading");
-  await userEvent.type(screen.getByLabelText(/moments/), "fomo-moment");
-  await userEvent.click(screen.getByRole("button", { name: "Add screen" }));
+  await userEvent.type(screen.getByLabelText(/moments/), "Fomo Moment");
+  await userEvent.click(screen.getByRole("button", { name: "Save screen" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/screens")).toBe(true));
   expect(calls.find((c) => c.key === "POST /brands/1/screens")?.body).toEqual({
     name: "home",
@@ -81,7 +94,8 @@ test("a refused upload shows the server's reason", async () => {
     "POST /files": [415, { detail: "That file type isn't supported." }],
   });
   renderAt("/b/1/screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Add screen" }));
   await userEvent.upload(await screen.findByLabelText("Screen image"), new File(["x"], "a.png", { type: "image/png" }));
-  await userEvent.click(screen.getByRole("button", { name: "Add screen" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save screen" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("That file type isn't supported.");
 });
