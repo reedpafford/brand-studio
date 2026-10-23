@@ -66,6 +66,7 @@ test("saving a character sends its changes, and history can restore an old versi
   expect(calls.find((c) => c.key === "PATCH /library/character/5")?.body).toMatchObject({ name: "Mia R", brand_ids: [1, 2] });
   await userEvent.click(await screen.findByRole("button", { name: "Restore v2" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/versions/2/restore")).toBe(true));
+  expect(await screen.findByRole("status")).toHaveTextContent("Restored v2 as v4.");
 });
 
 test("archived items: editors can bring them back, only the owner can delete forever", async () => {
@@ -122,4 +123,23 @@ test("places have no outfits or voice", async () => {
   renderAt("/b/1/library/places/7");
   await screen.findByLabelText("Name");
   expect(screen.queryByRole("button", { name: "Add outfit" })).not.toBeInTheDocument();
+});
+
+test("archiving shows a toast, and Undo brings the item back", async () => {
+  const calls = fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, brands],
+    "GET /team/members": [200, []],
+    "GET /library/character": [200, []],
+    "GET /library/character/5": [200, mia],
+    "GET /library/character/5/versions": [200, []],
+    "DELETE /library/character/5": [204, null],
+    "POST /library/character/5/unarchive": [200, mia],
+  });
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderAt("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "Archive character" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Mia archived.");
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/unarchive")).toBe(true));
 });
