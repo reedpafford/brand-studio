@@ -163,3 +163,16 @@ def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     bd.scenes[1].shots[8].line = "No."  # a line said twice on purpose, quoted twice
     clip.prompt = clip.prompt.replace('"Should I still go to school? Comment below."', '"No."')
     assert check.clip_prompts(bd, cp, 30, 10) == []
+
+
+def test_improve_keeps_the_editors_words_and_the_reference_lines():
+    ex, result = example("improve")
+    idea = re.search(r"<idea>(.*)</idea>", ex["input"], re.S).group(1)
+    refs = re.search(r"<references>(.*)</references>", ex["input"], re.S).group(1)
+    assert check.improve(idea, result, refs, 4, 8) == []
+    result.prompt = result.prompt.replace("six cents", "6 cents").replace(refs, "[Image1] is Leo.")
+    assert check.improve(idea, result, refs, 3, 8) == [
+        "the line “I bought it at six cents.” isn't there once, word for word",
+        "the reference lines aren't copied exactly",
+        "4 shots, the brief asks for 3",
+    ]

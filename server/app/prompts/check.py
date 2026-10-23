@@ -6,7 +6,13 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 
 import re
 
-from app.prompts.schemas import Breakdown, ClipPrompts, EnhanceResult, StoryboardFrames
+from app.prompts.schemas import (
+    Breakdown,
+    ClipPrompts,
+    EnhanceResult,
+    ImprovedPrompt,
+    StoryboardFrames,
+)
 
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
@@ -114,6 +120,35 @@ def storyboard(frames: StoryboardFrames, max_images: int, max_characters: int) -
         characters = [r for r in f.reference_ids if r.startswith("char:")]
         if len(f.reference_ids) > max_images or len(characters) > max_characters:
             problems.append(f"{f.clip_id}: more references than the image model keeps")
+    return problems
+
+
+SHOT_LINE = re.compile(r"^\d+\. (\d+(?:\.\d+)?)–(\d+(?:\.\d+)?) s\.", re.M)
+
+
+def improve(
+    idea: str, result: ImprovedPrompt, references: str, shots: int, seconds: float
+) -> list[str]:
+    """Quick clip Improve prompt: the editor's quoted words survive exactly, the server's
+    reference lines are copied, the shape and timing match the brief."""
+    prompt = result.prompt.strip()
+    lines = prompt.splitlines()
+    problems = []
+    said = [_words(q) for q in QUOTED.findall(prompt)]
+    for quote in QUOTED.findall(idea):
+        if said.count(_words(quote)) != 1:
+            problems.append(f"the line “{quote}” isn't there once, word for word")
+    if not (AUDIO_LINE.match(lines[0]) and lines[-1] == lines[0]):
+        problems.append("doesn't open and close with the same audio line")
+    if references and f"References: {references}" not in lines:
+        problems.append("the reference lines aren't copied exactly")
+    if SETTINGS_WORDS.search(QUOTED.sub("", prompt)):
+        problems.append("writes aspect or resolution (those are settings)")
+    times = [(float(a), float(b)) for a, b in SHOT_LINE.findall(prompt)]
+    if len(times) != shots:
+        problems.append(f"{len(times)} shots, the brief asks for {shots}")
+    if times and abs(times[-1][1] - seconds) > 0.05:
+        problems.append(f"shots end at {times[-1][1]} s, the clip is {seconds} s")
     return problems
 
 
