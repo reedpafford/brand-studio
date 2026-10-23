@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     login_max_failures: int = 5
     login_max_failures_per_ip: int = 20
     login_window_minutes: int = 15
+    # Background worker
+    worker_poll_seconds: float = 2.0
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 

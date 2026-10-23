@@ -126,3 +126,24 @@ def test_null_brand_ids_leaves_brands_and_empty_list_clears(owner):
 def test_editor_sees_no_dollars(editor):
     item = editor.post("/library/place", json={"name": "Gym"}).json()
     assert_no_dollars(editor, ["/library/place", f"/library/place/{item['id']}"])
+
+
+def test_archive_is_reversible_by_editors(editor):
+    item = editor.post("/library/place", json={"name": "Gym"}).json()
+    url = f"/library/place/{item['id']}"
+    editor.delete(url)
+    archived = editor.get("/library/place", params={"archived": True}).json()
+    assert [i["name"] for i in archived] == ["Gym"]
+    assert editor.post(f"{url}/unarchive").json()["name"] == "Gym"
+    assert [i["name"] for i in editor.get("/library/place").json()] == ["Gym"]
+
+
+def test_permanent_delete_is_owner_only_and_needs_archive_first(owner, editor):
+    item = editor.post("/library/prop", json={"name": "Cup"}).json()
+    url = f"/library/prop/{item['id']}"
+    editor.patch(url, json={"notes": "v2"})
+    assert owner.delete(f"{url}/permanent").status_code == 404  # not archived yet
+    editor.delete(url)
+    assert editor.delete(f"{url}/permanent").status_code == 403
+    assert owner.delete(f"{url}/permanent").status_code == 204
+    assert owner.post(f"{url}/unarchive").status_code == 404
