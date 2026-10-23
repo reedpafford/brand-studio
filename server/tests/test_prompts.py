@@ -138,6 +138,19 @@ def test_storyboard_check_keeps_character_sheets_within_the_model_limit():
     assert check.storyboard(frames, 14, 2) == ["c1: more references than the image model keeps"]
 
 
+def test_storyboard_check_warns_on_words_the_image_model_refuses():
+    def frames(prompt):
+        f = {"clip_id": "c1", "shot_id": "1.1", "prompt": prompt, "reference_ids": []}
+        return schemas.StoryboardFrames(frames=[f])
+
+    refused = "His chin on her lap, in black leggings, crusty eyes and a bloody paw."
+    assert check.storyboard(frames(refused), 14, 4) == [
+        "c1: the image model may refuse “bloody, crusty, lap, leggings”; say it gently"
+    ]
+    fine = "Beside her on a wet street: faint tear stains, a pink sore paw; she drops to her knees."
+    assert check.storyboard(frames(fine), 14, 4) == []
+
+
 def test_reference_lines_bind_each_image_in_upload_order():
     refs = [
         {"kind": "character", "name": "Aiden"},
