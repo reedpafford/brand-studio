@@ -1,0 +1,78 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../api/client";
+import { fileUrl } from "../api/upload";
+import { btnSecondary, card } from "../ui";
+
+const WORDS = {
+  queued: "Queued",
+  running: "Rendering",
+  succeeded: "Ready",
+  failed: "Failed · credits returned",
+  cancelled: "Cancelled",
+  needs_owner_approval: "Waiting for Reed to approve",
+} as const;
+const ACTIVE = ["queued", "running", "needs_owner_approval"];
+
+/** The caller's jobs. Polls while anything is still going. */
+export function useJobs() {
+  return useQuery({
+    queryKey: ["jobs"],
+    queryFn: async () => (await api.GET("/jobs")).data ?? [],
+    refetchInterval: (q) => (q.state.data?.some((j) => ACTIVE.includes(j.status)) ? 3000 : false),
+  });
+}
+
+export const isRendering = (jobs: { kind: string; status: string }[] = []) =>
+  jobs.some((j) => j.kind.startsWith("video") && (j.status === "queued" || j.status === "running"));
+
+export function History({ brandName }: { brandName: string }) {
+  const queryClient = useQueryClient();
+  const jobs = useJobs();
+  const cancel = useMutation({
+    mutationFn: (job_id: number) => api.POST("/jobs/{job_id}/cancel", { params: { path: { job_id } } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+  });
+  const clips = jobs.data?.filter((j) => j.kind.startsWith("video")) ?? [];
+
+  if (jobs.isError) return <p role="alert" className="text-danger">Could not load your clips. Try again.</p>;
+  if (jobs.data && clips.length === 0)
+    return (
+      <div className={card}>
+        <p className="text-[length:var(--text-xl)] font-semibold">Your first {brandName} clip starts here.</p>
+        <p className="text-muted">Describe a moment, add a brand piece, press Generate.</p>
+      </div>
+    );
+  return (
+    <ul className="space-y-3">
+      {clips.map((j) => {
+        const output = j.output as { file_id?: number } | null;
+        const prompt = (j.output as { prompt?: string } | null)?.prompt;
+        return (
+          <li key={j.id} className={`${card} space-y-1 text-sm`}>
+            <div className="flex items-center gap-2">
+              <span className={`rounded-sm px-2 py-0.5 text-xs ${j.status === "succeeded" ? "bg-success-soft text-success" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-surface-2"}`}>
+                {WORDS[j.status]}
+              </span>
+              <span className="text-muted">{j.credits} credits</span>
+              {ACTIVE.includes(j.status) && (
+                <button className={`${btnSecondary} ml-auto`} aria-label={`Cancel clip ${j.id}`} onClick={() => cancel.mutate(j.id)}>
+                  Cancel
+                </button>
+              )}
+            </div>
+            {prompt && <p className="line-clamp-2">{prompt}</p>}
+            {j.status === "failed" && j.error && <p className="text-danger">{j.error}</p>}
+            {j.status === "succeeded" && output?.file_id && (
+              <>
+                <video controls src={fileUrl(output.file_id)} className="max-h-72 rounded-sm" />
+                <a className="underline" href={fileUrl(output.file_id)} download>
+                  Download
+                </a>
+              </>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
