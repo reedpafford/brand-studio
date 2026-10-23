@@ -43,10 +43,10 @@ export function Shell() {
           <select
             aria-label="Brand"
             className="min-h-11 w-full rounded-sm border border-border-strong bg-surface px-2 text-base text-text sm:min-h-9"
-            value={current ?? ""}
+            value={brand ? current! : ""}
             onChange={(e) => navigate(`/b/${e.target.value}/${subPage}`)}
           >
-            {current === null && <option value="">Choose a brand</option>}
+            {!brand && <option value="">Choose a brand</option>}
             {brands.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
