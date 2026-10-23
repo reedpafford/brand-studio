@@ -5,8 +5,10 @@ from pathlib import Path
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PLACEHOLDER = "change-me"  # the example value in deploy/.env.example
 
 
 class Settings(BaseSettings):
@@ -51,3 +53,20 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def check_production(settings: Settings) -> None:
+    """Refuse to start a live server that still has example secrets from deploy/.env.example."""
+    if settings.env != "production":
+        return
+    problems = []
+    token = settings.setup_token
+    if token and (token == PLACEHOLDER or len(token) < 24):
+        problems.append(
+            "BS_SETUP_TOKEN is the example value or under 24 characters: "
+            "use `openssl rand -hex 32`, or remove the line once setup is done."
+        )
+    if make_url(settings.database_url).password == PLACEHOLDER:
+        problems.append("POSTGRES_PASSWORD is the example value: use `openssl rand -hex 24`.")
+    if problems:
+        raise RuntimeError("Not starting. Fix deploy/.env: " + " ".join(problems))
