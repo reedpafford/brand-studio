@@ -3,6 +3,8 @@ anchored by line + exact quote; we compute the offsets, drop any we can't place 
 add spoken words, and later add the accepted ones as direction lines. The schema allows only
 before/after marks, so the script's own words never change."""
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,8 @@ from app.models.projects import Project
 from app.models.scripts import ScriptVersion, Suggestion
 from app.prompts import check
 from app.prompts.schemas import EnhanceResult
+
+HEADING = re.compile(r"(SCENE\b|INT\.|EXT\.|INT/EXT\b)")  # scene headings (uppercase)
 
 
 def escape(text: str) -> str:
@@ -78,6 +82,11 @@ def save_suggestions(db: Session, job: Job) -> None:
     problems = check.enhance(
         version.text, result, {k: s.default_for for k, s in brand_screens.items()}
     )
+    problems += [
+        f"{s.id}: not a single direction line"
+        for s in result.suggestions
+        if "\n" in s.text.strip() or not s.text.strip() or HEADING.match(s.text.strip())
+    ]
     bad = {p.split(":", 1)[0] for p in problems}
     starts = _line_starts(version.text)
     lines = version.text.splitlines()

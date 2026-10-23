@@ -26,8 +26,16 @@ PRICE_PER_MTOK = {
 }
 
 
+CUT_OFF = "Claude's answer was cut off or unreadable."
+
+
 class ClaudeError(Exception):
-    """Claude couldn't give a usable answer (refused, or ran out of room)."""
+    """Claude couldn't give a usable answer (refused, or ran out of room). `cost_usd` is what
+    the call still cost (None if unknown), so it can be recorded as usage."""
+
+    def __init__(self, message: str, cost_usd: Decimal | None = None):
+        super().__init__(message)
+        self.cost_usd = cost_usd
 
 
 @dataclass
@@ -60,28 +68,36 @@ def ask[T: BaseModel](
     the cache mark on the last part caches them all together."""
     blocks = [{"type": "text", "text": text} for text in system]
     blocks[-1]["cache_control"] = {"type": "ephemeral"}
-    try:
-        # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
-        with client.beta.messages.stream(
-            model=MODEL,
-            max_tokens=max_tokens,
-            system=blocks,
-            messages=[{"role": "user", "content": prompt}],
-            thinking={"type": "adaptive"},
-            output_config={"effort": effort},
-            output_format=schema,
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
-        ) as stream:
+    # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
+    with client.beta.messages.stream(
+        model=MODEL,
+        max_tokens=max_tokens,
+        system=blocks,
+        messages=[{"role": "user", "content": prompt}],
+        thinking={"type": "adaptive"},
+        output_config={"effort": effort},
+        output_format=schema,
+        betas=[FALLBACK_BETA],
+        fallbacks="default",
+    ) as stream:
+        try:
             response = stream.get_final_message()
-    except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
-        raise ClaudeError("Claude's answer was cut off or unreadable.") from exc
+        except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
+            raise ClaudeError(CUT_OFF, _cost_so_far(stream)) from exc
+    cost = _cost(response.usage)
     if response.stop_reason == "refusal":
         category = response.stop_details.category if response.stop_details else None
-        raise ClaudeError(f"Claude declined this request ({category or 'no category'}).")
+        raise ClaudeError(f"Claude declined this request ({category or 'no category'}).", cost)
     if response.stop_reason == "max_tokens" or response.parsed_output is None:
-        raise ClaudeError("Claude's answer was cut off or unreadable.")
-    return Answer(response.parsed_output, response.model, _cost(response.usage))
+        raise ClaudeError(CUT_OFF, cost)
+    return Answer(response.parsed_output, response.model, cost)
+
+
+def _cost_so_far(stream) -> Decimal | None:
+    try:
+        return _cost(stream.current_message_snapshot.usage)
+    except AssertionError:  # nothing received yet
+        return None
 
 
 def _cost(usage) -> Decimal:

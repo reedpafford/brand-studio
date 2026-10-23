@@ -151,7 +151,7 @@ def test_last_weeks_quick_clips_do_not_count(ed, db):
 
 def test_owner_jobs_are_never_held(owner, db):
     me = db.query(User).filter_by(role=Role.owner).one()
-    assert enqueue(db, me, "video-480p", {}, units=1000).status == "queued"
+    assert enqueue(db, me, "video-480p", {}, units=300).status == "queued"
 
 
 def _race(app, monkeypatch, make_job):
@@ -240,7 +240,12 @@ def test_weekly_allowance_is_per_editor_and_owner_can_raise_it(app, owner, ed, d
     assert clips == ["queued", "queued", "needs_owner_approval"]
     assert enqueue(db, second, "video-480p", {}, units=60).status == "queued"
     owner.put(
-        "/credits/limits", json={"max_planned_seconds": 180, "weekly_quick_clip_credits": 180}
+        "/credits/limits",
+        json={
+            "max_planned_seconds": 170,
+            "weekly_quick_clip_credits": 180,
+            "per_video_max_credits": 340,
+        },
     )
     assert enqueue(db, ed, "video-480p", {}, units=60).status == "queued"
 
@@ -300,3 +305,27 @@ def test_owner_cannot_approve_past_the_cap(owner, editor, ed, db):
     _raise_video_cap(owner, 250)  # the owner lowers the cap meanwhile
     r = owner.post(f"/jobs/{held.id}/approve")
     assert r.status_code == 409 and "limit" in r.json()["detail"]
+
+
+def test_limits_put_needs_the_cap_so_it_is_never_reset_by_omission(owner):
+    r = owner.put(
+        "/credits/limits", json={"max_planned_seconds": 170, "weekly_quick_clip_credits": 150}
+    )
+    assert r.status_code == 422
+    assert owner.get("/credits/limits").json()["per_video_max_credits"] == 340
+
+
+def test_editor_length_limit_defaults_to_half_the_cap(editor):
+    assert editor.get("/credits/limits").json()["max_planned_seconds"] == 170
+
+
+def test_a_single_quick_clip_cannot_pass_the_cap(owner, ed, db):
+    _raise_video_cap(owner, 50)
+    me = db.query(User).filter_by(role=Role.owner).one()
+    with pytest.raises(HTTPException) as err:
+        enqueue(db, me, "video-480p", {}, units=51)  # the owner too
+    assert "$5 limit" in err.value.detail
+    with pytest.raises(HTTPException) as err:
+        enqueue(db, ed, "video-480p", {}, units=51)
+    assert err.value.detail == "This video would go over its limit."
+    assert enqueue(db, me, "video-480p", {}, units=50).status == "queued"
