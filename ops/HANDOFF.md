@@ -10,6 +10,7 @@
 - Rule: dollar fields are named `*_usd`; `tests/test_no_dollars_for_editors.py` fails if a non-owner route returns one.
 - Credits: 1 credit = $0.1028 real cost = 1 s of 480p. Rates (seeded, owner-editable) give estimates; real cost replaces them on success; kinds without a rate estimate at 1/unit. Projects: editors set planned length, budget = 2x (max 180 s without owner). Quick clips: 150 credits/editor/week. Over any limit = `needs_owner_approval`. Limits owner-editable at `/credits/limits`. Check + reserve is one locked transaction.
 - Catalogue: `server/app/catalogue.json` is the one list of models (limits from Replicate schemas, snapshots in `tests/fixtures/replicate`). `GET /models` (credits) for everyone, `GET /models/prices` (dollars) owner-only.
+- Claude client (in review): `server/app/claude.py` `ask()` = claude-opus-5-5, adaptive thinking, Pydantic structured output, cached system prompt (base + brand), server-side fallbacks. Key from `STUDIO_ANTHROPIC_KEY` only; always api.anthropic.com.
 ## Next
 - Builder-Server: Replicate adapter, then Claude client (#15).
 - Explorer maps tezu.ai once network access is granted.
