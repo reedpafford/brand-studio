@@ -144,5 +144,12 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     still = editor.get(url).json()[0]["file_id"]
     assert still and editor.get(f"/files/{still}").content == PNG
 
+    stale = f"/projects/{setup['project']}/script"
+    editor.put(stale, json={"text": editor.get(stale).json()["text"] + "\nMOM: Fine."})
+    r = editor.post(f"{url}/frames/{frame['id']}/render")  # its breakdown is for an old script
+    assert r.status_code == 409 and "older breakdown" in r.json()["detail"]
+    editor.put(f"/projects/{setup['project']}/breakdown", json=BREAKDOWN)  # newer breakdown
+    r = editor.post(f"{url}/frames/{frame['id']}/render")
+    assert r.status_code == 409 and "older breakdown" in r.json()["detail"]
     editor.put(f"{url}/frames/{frame['id']}", json={"prompt": "x", "reference_ids": ["char:9"]})
     assert editor.post(f"{url}/frames/{frame['id']}/render").status_code == 409  # has problems
