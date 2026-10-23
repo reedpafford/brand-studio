@@ -1,6 +1,12 @@
 @import "tailwindcss";
+@import "./tokens.css";
 
-/* Neutral placeholders. Replaced by the Designer's tokens.css once that PR merges. */
 body {
-  @apply bg-white text-neutral-900 antialiased;
+  @apply bg-bg font-sans text-text antialiased;
+  font-size: var(--text-base);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }

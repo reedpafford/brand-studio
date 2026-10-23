@@ -2,6 +2,9 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
+import { btnPrimary, btnSecondary, card, errorText as errorClass, input, pageTitle } from "../ui";
+
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 export function TeamPage() {
   const { data: me } = useMe();
@@ -30,12 +33,12 @@ export function TeamPage() {
   return (
     <main className="mx-auto max-w-2xl space-y-8 p-6">
       <section>
-        <h1 className="mb-3 text-2xl font-semibold">Team</h1>
-        <ul className="divide-y divide-neutral-200">
+        <h1 className={`${pageTitle} mb-3`}>Team</h1>
+        <ul className="divide-y divide-border">
           {members.data?.map((m) => (
             <li key={m.id} className="flex items-center gap-3 py-2">
               <span className="flex-1">
-                {m.name} <span className="text-sm text-neutral-600">{m.email} · {m.role}</span>
+                {m.name} <span className="text-sm text-muted">{m.email} · {m.role}</span>
               </span>
               {isOwner && m.id !== me?.id && (
                 <button
@@ -51,15 +54,15 @@ export function TeamPage() {
         </ul>
       </section>
       {isOwner && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Invite someone</h2>
+        <section className={`${card} space-y-4`}>
+          <h2 className="text-[length:var(--text-md)] font-semibold">Invite someone</h2>
           <InviteForm onDone={refresh} />
           {invites.data && invites.data.length > 0 && (
-            <ul className="divide-y divide-neutral-200">
+            <ul className="divide-y divide-border">
               {invites.data.map((i) => (
                 <li key={i.id} className="flex items-center gap-3 py-2 text-sm">
                   <span className="flex-1">
-                    {i.email} · {i.role} · waiting
+                    {i.email} · {i.role} · waiting, expires {day(i.expires_at)}
                   </span>
                   <button className="underline" aria-label={`Cancel invite for ${i.email}`} onClick={() => cancel.mutate(i.id)}>
                     Cancel
@@ -77,6 +80,7 @@ export function TeamPage() {
 function InviteForm({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"editor" | "owner">("editor");
+  const [copied, setCopied] = useState(false);
   const invite = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/team/invites", { body: { email, role } });
@@ -85,6 +89,7 @@ function InviteForm({ onDone }: { onDone: () => void }) {
     },
     onSuccess: () => {
       setEmail("");
+      setCopied(false);
       onDone();
     },
   });
@@ -94,44 +99,59 @@ function InviteForm({ onDone }: { onDone: () => void }) {
     invite.mutate();
   };
 
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link!);
+      setCopied(true);
+    } catch {
+      /* clipboard blocked: the link is selectable below */
+    }
+  };
+
   return (
     <form onSubmit={submit} className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        <label className="flex-1 text-sm">
-          <span className="sr-only">Email to invite</span>
-          <input
-            className="w-full rounded border border-neutral-300 px-3 py-2 text-base"
-            type="email"
-            required
-            placeholder="Email"
-            aria-label="Email to invite"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        <select
-          aria-label="Role"
-          className="rounded border border-neutral-300 px-2 py-2"
-          value={role}
-          onChange={(e) => setRole(e.target.value as "editor" | "owner")}
-        >
-          <option value="editor">Editor</option>
-          <option value="owner">Owner</option>
-        </select>
-        <button className="rounded bg-neutral-900 px-3 py-2 text-white disabled:opacity-50" disabled={invite.isPending}>
-          Create invite link
-        </button>
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+        <input
+          className={`${input} min-h-11 sm:min-h-9`}
+          type="email"
+          required
+          placeholder="Email"
+          aria-label="Email to invite"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <div className="grid grid-cols-[auto_1fr] gap-2 sm:contents">
+          <select
+            aria-label="Role"
+            className={`${input} min-h-11 w-auto sm:min-h-9`}
+            value={role}
+            onChange={(e) => setRole(e.target.value as "editor" | "owner")}
+          >
+            <option value="editor">Editor</option>
+            <option value="owner">Owner</option>
+          </select>
+          <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={invite.isPending}>
+            Create invite link
+          </button>
+        </div>
       </div>
       {invite.isError && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className={errorClass}>
           {invite.error.message}
         </p>
       )}
       {link && (
-        <p className="text-sm">
-          Send this link to {invite.data.email}. It is shown only once:
-          <input readOnly aria-label="Invite link" className="mt-1 w-full rounded bg-neutral-100 px-2 py-1" value={link} onFocus={(e) => e.target.select()} />
-        </p>
+        <div className="space-y-2 text-sm">
+          <p>
+            Send this link to {invite.data.email}. Works once. Expires {day(invite.data.expires_at)}.
+          </p>
+          <div className="flex gap-2">
+            <input readOnly aria-label="Invite link" className={`${input} min-w-0 bg-surface-2`} value={link} onFocus={(e) => e.target.select()} />
+            <button type="button" className={`${btnSecondary} shrink-0`} onClick={copy}>
+              {copied ? "Copied" : "Copy link"}
+            </button>
+          </div>
+        </div>
       )}
     </form>
   );
