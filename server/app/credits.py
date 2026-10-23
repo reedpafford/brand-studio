@@ -108,6 +108,13 @@ def over_cap(user: User, cap: int) -> HTTPException:
     return HTTPException(409, "This video would go over its limit.")
 
 
+def check_clip_cap(db: Session, user: User, credits: Decimal) -> None:
+    """A single job outside a project (a quick clip) is one video too: same hard cap."""
+    cap = get_limits(db, user.workspace_id).per_video_max_credits
+    if credits > cap:
+        raise over_cap(user, cap)
+
+
 def check_video_cap(db: Session, user: User, project: Project, credits: Decimal) -> None:
     """Refuse (for everyone) a job that would take the project past the per-video maximum.
     Call with the project row locked."""
