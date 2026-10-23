@@ -12,7 +12,7 @@ from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.routes.jobs import enqueue
 from app.worker import run_once
-from tests.conftest import png, upload
+from tests.conftest import PNG, png, upload
 from tests.helpers import MP3, MP4, assert_hidden, assert_no_dollars, mp4
 from tests.test_replicate import BASE, FakeReplicate
 
@@ -115,7 +115,7 @@ def test_worker_sends_references_as_data_urls(app, editor, fomo, db):
         run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
     assert sent["prompt"].endswith("\nA cat starts trading at sunrise")
-    assert sent["reference_images"][0].startswith("data:image/jpeg;base64,")
+    assert sent["reference_images"][0] == f"data:image/png;base64,{base64.b64encode(PNG).decode()}"
     assert sent["reference_videos"][0].startswith("data:video/mp4;base64,")
     assert "files" not in sent
     assert db.get(Job, r.json()["id"]).status == "succeeded"
@@ -153,11 +153,41 @@ def test_reference_images_are_shrunk_to_the_video_size(app, editor, fomo, db):
     body = _clip(fomo, prompt="A quiet beach at dawn", file_ids=[big, clear], resolution="720p")
     assert editor.post("/clips", json=body).status_code == 201
     images = _sent(app, db)["reference_images"]
-    sizes = []
-    for url in images:
-        kind, data = url.removeprefix("data:").split(";base64,")
-        sizes.append((kind, Image.open(io.BytesIO(base64.b64decode(data))).size))
-    assert sizes == [("image/jpeg", (1280, 427)), ("image/png", (10, 10))]  # never scaled up
+    assert [_decoded(u) for u in images] == [
+        ("image/jpeg", (1280, 427)),
+        ("image/png", (10, 10)),
+    ]  # never scaled up
+
+
+def _decoded(url: str) -> tuple[str, tuple[int, int]]:
+    kind, data = url.removeprefix("data:").split(";base64,")
+    return kind, Image.open(io.BytesIO(base64.b64decode(data))).size
+
+
+def test_brand_screens_and_products_stay_lossless(app, editor, fomo, db):
+    big_screen = editor.post(
+        f"/brands/{fomo['brand']}/screens",
+        json={"name": "Chart", "file_id": upload(editor, data=png(2000, 1000))},
+    ).json()["id"]
+    bag = editor.post(
+        "/library/prop",
+        json={"name": "bag", "image_file_ids": [upload(editor, data=png(900, 900))]},
+    ).json()["id"]
+    body = _clip(fomo, prompt="A quiet beach at dawn", screen_ids=[big_screen], prop_ids=[bag])
+    assert editor.post("/clips", json=body).status_code == 201
+    images = _sent(app, db)["reference_images"]
+    assert [_decoded(u) for u in images] == [("image/png", (854, 854)), ("image/png", (854, 427))]
+
+
+def test_huge_images_fail_before_any_paid_call(app, editor, fomo, db, monkeypatch):
+    monkeypatch.setattr("app.references.MAX_PIXELS", 100)
+    big = upload(editor, data=png(20, 20))
+    body = _clip(fomo, prompt="A quiet beach at dawn", file_ids=[big])
+    job = editor.post("/clips", json=body).json()["id"]
+    fake = FakeReplicate()
+    client = httpx.Client(transport=httpx.MockTransport(fake))
+    run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+    assert db.get(Job, job).status == "failed" and not fake.requests
 
 
 def test_reference_media_is_limited_per_type(editor, fomo):

@@ -11,6 +11,9 @@ from PIL import Image, ImageOps
 # Long side of the output video, by resolution. References bigger than this cause
 # fingerprint-like textures, so images are scaled down to it (never up).
 LONG_SIDE = {"480p": 854, "720p": 1280, "1080p": 1920, "4k": 3840}
+# Decompression-bomb guard: refuse images over 50 megapixels (Pillow errors at twice this).
+MAX_PIXELS = 50_000_000
+Image.MAX_IMAGE_PIXELS = MAX_PIXELS
 
 
 def reference_lines(labels: list[tuple[str, list[int]]]) -> str:
@@ -57,15 +60,20 @@ def _webm_seconds(data: bytes) -> float | None:
     return duration * scale / 1e9
 
 
-def fit_image(data: bytes, max_side: int) -> tuple[bytes, str]:
-    """Scale an image down so its long side is at most `max_side`, and re-encode it as a
-    standard JPEG (or PNG if it has transparency), which also avoids Seedance's JPG 400s."""
+def fit_image(data: bytes, content_type: str, max_side: int, exact: bool) -> tuple[bytes, str]:
+    """Scale an image down so its long side is at most `max_side`. `exact` images (brand
+    screens, products) stay lossless: the original if it already fits, else PNG. Others are
+    re-encoded as standard JPEG (PNG if see-through), which also avoids Seedance's JPG 400s."""
     with Image.open(io.BytesIO(data)) as img:
+        if img.width * img.height > MAX_PIXELS:  # checked before decoding any pixels
+            raise ValueError(f"Image is {img.width}x{img.height}; too large to process.")
+        if exact and max(img.size) <= max_side:
+            return data, content_type
         img = ImageOps.exif_transpose(img)
         img.thumbnail((max_side, max_side))
         out = io.BytesIO()
         rgba = img.convert("RGBA")
-        if rgba.getextrema()[3][0] < 255:  # some see-through pixels
+        if exact or rgba.getextrema()[3][0] < 255:  # lossless, or some see-through pixels
             rgba.save(out, "PNG")
             return out.getvalue(), "image/png"
         rgba.convert("RGB").save(out, "JPEG", quality=92)

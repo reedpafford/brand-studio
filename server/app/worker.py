@@ -174,9 +174,11 @@ def check_running(
 
 def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
     """The job's input with its file ids (job.input["files"]) turned into data URLs. With
-    `fit_images_to`, reference images are scaled down to that long side and re-encoded."""
+    `fit_images_to`, reference images are scaled down to that long side; `exact_file_ids`
+    (brand screens, products) stay lossless."""
     payload = dict(job.input)
     max_side = job.input.get("fit_images_to")
+    exact = set(job.input.get("exact_file_ids") or [])
     for key, ids in (job.input.get("files") or {}).items():
         urls = []
         for file_id in ids:
@@ -185,7 +187,7 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
                 raise RuntimeError(f"Reference file {file_id} is missing.")
             data, content_type = storage.get(stored.key), stored.content_type
             if max_side and key == "reference_images":
-                data, content_type = fit_image(data, max_side)
+                data, content_type = fit_image(data, content_type, max_side, file_id in exact)
             urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
         payload["input"] = {**payload["input"], key: urls}
     return payload

@@ -70,6 +70,7 @@ class _Plan(BaseModel):
     files: dict[str, list[int]]
     auto_screen_ids: list[int]
     prompt: str  # what the model gets: reference lines + the editor's words
+    exact: list[int]  # brand screens and props (products): never lossy
     credits: Decimal
 
 
@@ -94,6 +95,7 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
 
     images: list[int] = []
     labels: list[tuple[str, str, list[int]]] = []  # (name, what it is, its file ids)
+    exact: list[int] = []
     for kind, ids in (
         (Kind.character, body.character_ids),
         (Kind.place, body.place_ids),
@@ -104,6 +106,8 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
             images += item.image_file_ids
             label = item.name if kind == Kind.character else f"the {item.name}"
             labels.append((item.name, label, item.image_file_ids))
+            if kind == Kind.prop:
+                exact += item.image_file_ids
     screens = _brand_screens(db, brand)
     for screen_id in dict.fromkeys(body.screen_ids):
         if screen_id not in screens:
@@ -118,6 +122,7 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     for i in [*dict.fromkeys(body.screen_ids), *auto]:
         s = screens[i]
         images.append(s.file_id)
+        exact.append(s.file_id)
         labels.append((s.name, f'the {brand.name} "{s.name}" screen, shown exactly', [s.file_id]))
 
     files = {"reference_images": [], "reference_videos": [], "reference_audios": []}
@@ -150,9 +155,11 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
         user.workspace_id,
         "video",
         Decimal(body.duration),
-        _job_input(model, body, files, prompt),
+        _job_input(model, body, files, prompt, exact),
     )
-    return _Plan(model=model, files=files, auto_screen_ids=auto, prompt=prompt, credits=credits)
+    return _Plan(
+        model=model, files=files, auto_screen_ids=auto, prompt=prompt, exact=exact, credits=credits
+    )
 
 
 def _prompt(text: str, labels: list[tuple[str, str, list[int]]], images: list[int]) -> str:
@@ -201,11 +208,14 @@ def _brand_screens(db: Session, brand: Brand) -> dict[int, BrandScreen]:
     return {s.id: s for s in rows}
 
 
-def _job_input(model: CatalogueModel, body: ClipIn, files: dict, prompt: str) -> dict:
+def _job_input(
+    model: CatalogueModel, body: ClipIn, files: dict, prompt: str, exact: list[int]
+) -> dict:
     return {
         "model": model.id,
         "brand_id": body.brand_id,
         "fit_images_to": LONG_SIDE[body.resolution],  # long side in px; never scaled up
+        "exact_file_ids": sorted(set(exact)),  # kept lossless (Reed: screens show exactly)
         "input": {
             "prompt": prompt,
             "duration": body.duration,
@@ -256,7 +266,7 @@ def create_clip(
         db,
         user,
         "video",
-        _job_input(plan.model, body, plan.files, plan.prompt),
+        _job_input(plan.model, body, plan.files, plan.prompt, plan.exact),
         units=body.duration,
         provider="replicate",
     )
