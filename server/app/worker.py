@@ -24,6 +24,8 @@ from app.filetypes import ALLOWED_TYPES, matches
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
+from app.references import fit_image
+from app.steps import save_step_result
 from app.storage import LocalStorage, Storage
 
 log = logging.getLogger("worker")
@@ -103,6 +105,62 @@ def _download(job: Job, provider: Provider, urls: list[str], storage: Storage) -
     return files
 
 
+def _finish(
+    db: Session, job: Job, provider: Provider, result: Result, storage: Storage | None
+) -> bool:
+    """Record a finished job: outputs, status, real credits and usage, then the step's own
+    saving (e.g. Enhance suggestions). Returns False to try again on the next tick."""
+    files: list[StoredFile] = []
+    if result.state == "succeeded" and result.files:
+        try:
+            files = _download(job, provider, result.files, storage)
+        except NetworkError as exc:
+            if utcnow() - (job.started_at or utcnow()) < DOWNLOAD_GIVE_UP:
+                log.warning("job %s: download failed; will retry", job.id)
+                return False
+            result.state, result.error = "failed", f"Gave up downloading: {exc!r}"
+        except Exception as exc:  # noqa: BLE001 - paid work is done: keep its usage
+            result.state, result.error = "failed", f"Saving the output failed: {exc!r}"
+    new = JobStatus.succeeded if result.state == "succeeded" else JobStatus.failed
+    moved = _move(
+        db,
+        job,
+        JobStatus.running,
+        new,
+        credits=_actual_credits(job, result) if new == JobStatus.succeeded else job.credits,
+        output=result.output,
+        error=FAILED if new == JobStatus.failed else "",
+        error_detail=result.error[:2000],
+        finished_at=utcnow(),
+    )
+    if result.error:
+        log.warning("job %s: provider said: %s", job.id, result.error)
+    if moved:  # record usage once, in the same transaction as the status change
+        db.add_all(files)
+        if files:
+            db.flush()
+            output = {**(result.output or {}), "file_ids": [f.id for f in files]}
+            db.execute(update(Job).where(Job.id == job.id).values(output=output))
+        db.add_all(
+            Usage(
+                workspace_id=job.workspace_id,
+                job_id=job.id,
+                provider=job.provider,
+                kind=job.kind,
+                units=item.units,
+                unit=item.unit,
+                cost_usd=item.cost_usd,
+                estimated=item.estimated,
+            )
+            for item in result.usage
+        )
+        if new == JobStatus.succeeded and job.input.get("step"):
+            db.refresh(job)
+            save_step_result(db, job)
+    db.commit()
+    return True
+
+
 def check_running(
     db: Session, providers: dict[str, Provider], storage: Storage | None = None
 ) -> None:
@@ -124,64 +182,27 @@ def check_running(
             continue
         if result.state == "running":
             continue
-        files: list[StoredFile] = []
-        if result.state == "succeeded" and result.files:
-            try:
-                files = _download(job, providers[job.provider], result.files, storage)
-            except NetworkError as exc:
-                if utcnow() - (job.started_at or utcnow()) < DOWNLOAD_GIVE_UP:
-                    log.warning("job %s: download failed; will retry", job.id)
-                    continue
-                result.state, result.error = "failed", f"Gave up downloading: {exc!r}"
-            except Exception as exc:  # noqa: BLE001 - paid work is done: keep its usage
-                result.state, result.error = "failed", f"Saving the output failed: {exc!r}"
-        new = JobStatus.succeeded if result.state == "succeeded" else JobStatus.failed
-        moved = _move(
-            db,
-            job,
-            JobStatus.running,
-            new,
-            credits=_actual_credits(job, result) if new == JobStatus.succeeded else job.credits,
-            output=result.output,
-            error=FAILED if new == JobStatus.failed else "",
-            error_detail=result.error[:2000],
-            finished_at=utcnow(),
-        )
-        if result.error:
-            log.warning("job %s: provider said: %s", job.id, result.error)
-        if moved:  # record usage once, in the same transaction as the status change
-            db.add_all(files)
-            if files:
-                db.flush()
-                output = {**(result.output or {}), "file_ids": [f.id for f in files]}
-                db.execute(update(Job).where(Job.id == job.id).values(output=output))
-            db.add_all(
-                Usage(
-                    workspace_id=job.workspace_id,
-                    job_id=job.id,
-                    provider=job.provider,
-                    kind=job.kind,
-                    units=item.units,
-                    unit=item.unit,
-                    cost_usd=item.cost_usd,
-                    estimated=item.estimated,
-                )
-                for item in result.usage
-            )
-        db.commit()
+        if not _finish(db, job, providers[job.provider], result, storage):
+            continue
 
 
 def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
-    """The job's input with its file ids (job.input["files"]) turned into data URLs."""
+    """The job's input with its file ids (job.input["files"]) turned into data URLs. With
+    `fit_images_to`, reference images are scaled down to that long side; `exact_file_ids`
+    (brand screens, products) stay lossless."""
     payload = dict(job.input)
+    max_side = job.input.get("fit_images_to")
+    exact = set(job.input.get("exact_file_ids") or [])
     for key, ids in (job.input.get("files") or {}).items():
         urls = []
         for file_id in ids:
             stored = db.get(StoredFile, file_id)
             if storage is None or not stored or stored.workspace_id != job.workspace_id:
                 raise RuntimeError(f"Reference file {file_id} is missing.")
-            data = base64.b64encode(storage.get(stored.key)).decode()
-            urls.append(f"data:{stored.content_type};base64,{data}")
+            data, content_type = storage.get(stored.key), stored.content_type
+            if max_side and key == "reference_images":
+                data, content_type = fit_image(data, content_type, max_side, file_id in exact)
+            urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
         payload["input"] = {**payload["input"], key: urls}
     return payload
 
@@ -212,6 +233,8 @@ def start_next(
         _fail(db, job, UNKNOWN, job.provider)
         db.commit()
         return True
+    if getattr(provider, "sync", False):  # answers in the same call (e.g. Claude)
+        return _run_sync(db, job, provider, storage)
     try:
         ref = provider.submit(job.kind, _files_as_data(db, storage, job))
     except NotStarted as exc:
@@ -233,6 +256,30 @@ def start_next(
     else:
         db.execute(update(Job).where(Job.id == job.id).values(provider_ref=ref))
     db.commit()
+    return True
+
+
+def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None) -> bool:
+    try:
+        result = provider.run(job.kind, job.input)
+    except NotStarted as exc:
+        db.refresh(job)
+        if job.attempts < MAX_SUBMIT_TRIES:
+            _move(db, job, JobStatus.running, JobStatus.queued)
+        else:
+            _fail(db, job, FAILED, repr(exc))
+        db.commit()
+        return True
+    except NetworkError:
+        _fail(db, job, UNSURE)
+        db.commit()
+        return True
+    except Exception as exc:  # noqa: BLE001 - any other provider error fails the job
+        _fail(db, job, FAILED, repr(exc))
+        db.commit()
+        return True
+    db.execute(update(Job).where(Job.id == job.id).values(provider_ref="sync"))
+    _finish(db, job, provider, result, storage)
     return True
 
 

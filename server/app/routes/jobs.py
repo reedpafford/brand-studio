@@ -61,7 +61,8 @@ class JobOut(BaseModel):
             if hasattr(job, f)
         }
         given = job.input.get("input") or {}
-        prompt = str(given.get("prompt", ""))
+        # The editor's own words, not the [ImageN] lines added for the model.
+        prompt = str((job.input.get("request") or given).get("prompt", ""))
         return {
             **data,
             **extra,

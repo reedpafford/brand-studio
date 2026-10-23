@@ -1,5 +1,8 @@
+import io
+
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 import app.models  # noqa: F401
 from app.auth import hash_password
@@ -66,7 +69,15 @@ def editor(app, owner):
         yield c
 
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+def png(width: int = 2, height: int = 2, color: str | tuple = "orange") -> bytes:
+    out = io.BytesIO()
+    Image.new("RGBA" if isinstance(color, tuple) else "RGB", (width, height), color).save(
+        out, "PNG"
+    )
+    return out.getvalue()
+
+
+PNG = png()
 
 
 def upload(client, name="a.png", data=PNG, content_type="image/png") -> int:

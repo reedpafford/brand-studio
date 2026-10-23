@@ -8,6 +8,7 @@ from app.routes import (
     brands,
     clips,
     credits,
+    enhance,
     files,
     health,
     jobs,
@@ -42,8 +43,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         projects,
         credits,
         models,
-        clips,
         scripts,
+        enhance,
+        clips,
     ):
         app.include_router(module.router)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
