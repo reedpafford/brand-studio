@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import { EnhanceBar, MarkLine, type EnhanceState } from "./Enhance";
@@ -22,7 +22,7 @@ export function useLatestScript(projectId: number) {
 }
 
 /** The script: paste it or upload a document. Every save is a new numbered version. */
-export function ScriptTab({ projectId, enhance }: { projectId: number; enhance: EnhanceState }) {
+export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { projectId: number; enhance: EnhanceState; highlight?: number[]; onLineClick?: (line: number) => void }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const path = { project_id: projectId };
@@ -190,6 +190,8 @@ export function ScriptTab({ projectId, enhance }: { projectId: number; enhance: 
       {shown?.version === current.version && <EnhanceBar e={enhance} />}
       <ScriptText
         text={shown?.text ?? ""}
+        highlight={shown?.version === current.version ? highlight : undefined}
+        onLineClick={shown?.version === current.version ? onLineClick : undefined}
         around={
           shown?.version === current.version
             ? (line, where) => enhance.shown.filter((m) => m.line === line && (m.placement === "before") === (where === "before")).map((m) => <MarkLine key={m.id} mark={m} e={enhance} />)
@@ -204,7 +206,12 @@ export function ScriptTab({ projectId, enhance }: { projectId: number; enhance: 
  *  `around` can put other lines (Enhance direction notes) before or after a script line. */
 const DIRECTION = /^\s*\[(Camera|Movement|Reaction|Brand screen)\]\s*/;
 
-export function ScriptText({ text, around }: { text: string; around?: (line: number, where: "before" | "after") => ReactNode }) {
+export function ScriptText({ text, around, highlight = [], onLineClick }: { text: string; around?: (line: number, where: "before" | "after") => ReactNode; highlight?: number[]; onLineClick?: (line: number) => void }) {
+  // Bring the first highlighted line into view when the highlight changes.
+  const marked = highlight.join(",");
+  useEffect(() => {
+    document.querySelector("[data-hl=true]")?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [marked]);
   return (
     <div className="max-w-[72ch] rounded-md border border-border bg-surface p-4 font-script leading-[1.6]">
       <ol aria-label="Script text">
@@ -214,10 +221,16 @@ export function ScriptText({ text, around }: { text: string; around?: (line: num
           return (
             <Fragment key={i}>
               {around?.(i + 1, "before")}
-              <li className="grid grid-cols-[2.5rem_1fr] items-baseline gap-2" data-direction={tag ? tag[1] : undefined}>
-                <span className="select-none text-right text-xs text-faint" aria-hidden>
-                  {i + 1}
-                </span>
+              <li className={`grid grid-cols-[2.5rem_1fr] items-baseline gap-2 ${highlight.includes(i + 1) ? "bg-accent-soft" : ""}`} data-direction={tag ? tag[1] : undefined} data-hl={highlight.includes(i + 1) || undefined}>
+                {onLineClick ? (
+                  <button type="button" className="text-right text-xs text-faint underline" aria-label={`Show line ${i + 1} in the breakdown`} onClick={() => onLineClick(i + 1)}>
+                    {i + 1}
+                  </button>
+                ) : (
+                  <span className="select-none text-right text-xs text-faint" aria-hidden>
+                    {i + 1}
+                  </span>
+                )}
                 {tag ? (
                   <span className="ml-4 flex flex-wrap items-baseline gap-x-3 text-muted sm:ml-8">
                     <span className="whitespace-pre-wrap break-words">
