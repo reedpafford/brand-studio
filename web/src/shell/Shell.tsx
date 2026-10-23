@@ -35,7 +35,7 @@ export function Shell() {
   if (!brands) return <p className="p-6 text-danger">Could not load brands.</p>;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-16 md:pb-0">
       <header className="flex h-14 items-center gap-3 border-b-[3px] border-brand bg-surface px-4">
         <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-brand" />
         <label className="min-w-0 flex-1 sm:flex-none">
@@ -56,7 +56,7 @@ export function Shell() {
         </label>
         <AccountMenu />
       </header>
-      <nav aria-label="Main" className="flex gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-1 text-sm">
+      <nav aria-label="Main" className="hidden gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-1 text-sm md:flex">
         {current && (
           <>
             <NavLink end to={`/b/${current}`} className={link}>
@@ -81,7 +81,56 @@ export function Shell() {
         </NavLink>
       </nav>
       <Outlet />
+      <TabBar brandId={current} />
     </div>
+  );
+}
+
+const tab = ({ isActive }: { isActive: boolean }) =>
+  `grid min-h-16 flex-1 place-items-center text-sm ${isActive ? "font-medium text-accent-text" : "text-muted"}`;
+
+/** Phone navigation: four tabs along the bottom; "More" holds the rest. */
+function TabBar({ brandId }: { brandId: number | null }) {
+  const [more, setMore] = useState(false);
+  const close = () => setMore(false);
+  return (
+    <>
+      {more && (
+        <div className="fixed inset-x-0 bottom-16 z-20 space-y-1 border-t border-border bg-surface p-3 shadow-md md:hidden">
+          {brandId && (
+            <>
+              <NavLink to={`/b/${brandId}/kit`} onClick={close} className={link}>
+                Brand kit
+              </NavLink>
+              <NavLink to={`/b/${brandId}/screens`} onClick={close} className={link}>
+                Brand screens
+              </NavLink>
+            </>
+          )}
+          <NavLink to="/team" onClick={close} className={link}>
+            Team
+          </NavLink>
+        </div>
+      )}
+      <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-20 flex h-16 border-t border-border bg-surface md:hidden">
+        {brandId && (
+          <>
+            <NavLink end to={`/b/${brandId}`} className={tab} onClick={close}>
+              Brand
+            </NavLink>
+            <NavLink to={`/b/${brandId}/clip`} className={tab} onClick={close}>
+              Clip
+            </NavLink>
+            <NavLink to={`/b/${brandId}/library`} className={tab} onClick={close}>
+              Library
+            </NavLink>
+          </>
+        )}
+        <button type="button" aria-expanded={more} className="grid min-h-16 flex-1 place-items-center text-sm text-muted" onClick={() => setMore(!more)}>
+          More
+        </button>
+      </nav>
+    </>
   );
 }
 

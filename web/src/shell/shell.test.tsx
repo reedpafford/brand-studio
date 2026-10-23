@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -113,4 +113,15 @@ test("a failed remove tells you", async () => {
   renderAt("/team");
   await userEvent.click(await screen.findByRole("button", { name: "Remove Eli" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not remove that person");
+});
+
+test("on a phone the tab bar reaches every section through More", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands] });
+  renderAt("/b/1");
+  const tabs = await screen.findByRole("navigation", { name: "Tabs" });
+  expect(within(tabs).getByRole("link", { name: "Clip" })).toHaveAttribute("href", "/b/1/clip");
+  expect(within(tabs).getByRole("link", { name: "Library" })).toHaveAttribute("href", "/b/1/library");
+  await userEvent.click(within(tabs).getByRole("button", { name: "More" }));
+  expect(screen.getByRole("link", { name: "Brand kit" })).toHaveAttribute("href", "/b/1/kit");
+  expect(screen.getAllByRole("link", { name: "Team" }).length).toBeGreaterThan(0);
 });
