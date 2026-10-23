@@ -106,7 +106,9 @@ def test_accepting_every_suggestion_leaves_the_script_text_identical():
 
     ex, result = example("enhance")
     script = script_of(ex)
-    added = {s.text for s in result.suggestions}
+    added = {line for line in apply_all(script, []).splitlines()} ^ set(
+        apply_all(script, result.suggestions).splitlines()
+    )
     kept = [
         line for line in apply_all(script, result.suggestions).splitlines() if line not in added
     ]
@@ -200,3 +202,18 @@ def test_clip_prompt_check_wants_first_frame_summary_and_whole_seconds():
         "c2: shot times aren't whole seconds back to back from 0",
         "c2: doesn't name [Image1] the first frame",
     ]
+
+
+def test_a_tagged_brand_screen_line_still_needs_a_screen_in_the_breakdown():
+    from evals.run import apply_all
+
+    ex, bd = example("breakdown")
+    script = script_of(ex).replace(
+        "★ fomo screen: Token chart down", "[Brand screen] ★ fomo screen: Token chart down"
+    )
+    bd.scenes[1].shots[0].screen_ids = []
+    assert "line 9 is a ★ screen line but no shot shows a screen" in check.breakdown(
+        script, bd, FOMO, 4, 30
+    )
+    _, result = example("enhance")
+    assert "[Camera] " in apply_all(script_of(example("enhance")[0]), result.suggestions)
