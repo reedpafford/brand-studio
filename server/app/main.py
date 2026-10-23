@@ -14,8 +14,10 @@ from app.routes import (
     models,
     projects,
     screens,
+    scripts,
     team,
 )
+from app.routes.scripts import MAX_DOC_BYTES
 from app.settings import Settings, get_settings
 from app.storage import LocalStorage
 from app.upload_limit import UploadLimit
@@ -39,7 +41,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         projects,
         credits,
         models,
+        scripts,
     ):
         app.include_router(module.router)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
+    app.add_middleware(UploadLimit, path=r"/projects/\d+/script/upload", max_bytes=MAX_DOC_BYTES)
     return app
