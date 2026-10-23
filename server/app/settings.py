@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     login_window_minutes: int = 15
     # Replicate. No token here: the network proxy adds credentials.
     replicate_base_url: str = "https://api.replicate.com/v1"
+    # Outputs are only downloaded over https from these hosts (and their subdomains).
+    replicate_delivery_hosts: list[str] = ["replicate.delivery"]
+    max_download_mb: int = 500
     # Background worker
     worker_poll_seconds: float = 2.0
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.

@@ -11,6 +11,7 @@ import hashlib
 import logging
 import time
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select, update
@@ -31,6 +32,8 @@ MAX_SUBMIT_TRIES = 3
 UNSURE = "Lost contact while starting paid work. Check the provider before retrying."
 FAILED = "The service couldn't finish this. Ask the owner for details."
 EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
+# Provider output links expire (Replicate: 1 hour); stop retrying downloads after that.
+DOWNLOAD_GIVE_UP = timedelta(hours=1)
 UNKNOWN = "This job names a service we don't have."
 
 
@@ -124,9 +127,11 @@ def check_running(
         if result.state == "succeeded" and result.files:
             try:
                 files = _download(job, providers[job.provider], result.files, storage)
-            except NetworkError:
-                log.warning("job %s: download failed; will retry", job.id)
-                continue
+            except NetworkError as exc:
+                if utcnow() - (job.started_at or utcnow()) < DOWNLOAD_GIVE_UP:
+                    log.warning("job %s: download failed; will retry", job.id)
+                    continue
+                result.state, result.error = "failed", f"Gave up downloading: {exc!r}"
             except Exception as exc:  # noqa: BLE001 - paid work is done: keep its usage
                 result.state, result.error = "failed", f"Saving the output failed: {exc!r}"
         new = JobStatus.succeeded if result.state == "succeeded" else JobStatus.failed
