@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
+from app.models.brands import Brand
 from app.models.library import Kind, LibraryItem, LibraryItemVersion
 from app.routes.brands import get_brand
 from app.routes.files import get_file
@@ -79,17 +80,20 @@ def _get_item(db: Session, user: User, kind: Kind, item_id: int) -> LibraryItem:
 
 
 def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
-    if values.get("name") is None:
-        values.pop("name", None)
+    """Null means "leave as is" for every field except `voice_file_id` (null removes it)."""
+    for field in ("name", "brand_ids"):
+        if values.get(field) is None:
+            values.pop(field, None)
     if item.kind != Kind.character and (values.get("outfits") or values.get("voice_file_id")):
         raise HTTPException(422, "Only characters have outfits and a voice.")
-    file_ids = list(values.get("image_file_ids") or [])
-    file_ids += [f for o in values.get("outfits") or [] for f in o["file_ids"]]
-    file_ids += [values["voice_file_id"]] if values.get("voice_file_id") else []
-    for file_id in file_ids:
-        get_file(db, user, file_id)
+    images = list(values.get("image_file_ids") or [])
+    images += [f for o in values.get("outfits") or [] for f in o["file_ids"]]
+    for file_id in images:
+        get_file(db, user, file_id, "image")
+    if values.get("voice_file_id"):
+        get_file(db, user, values["voice_file_id"], "audio")
     if "brand_ids" in values:
-        item.brands = [get_brand(db, user, b) for b in sorted(set(values.pop("brand_ids") or []))]
+        item.brands = [get_brand(db, user, b) for b in sorted(set(values.pop("brand_ids")))]
     for field, value in values.items():
         if value is not None or field == "voice_file_id":
             setattr(item, field, value)
@@ -191,7 +195,15 @@ def restore_version(
     )
     if not old:
         raise HTTPException(404, "No such version.")
+    snapshot = dict(old.snapshot)
+    # Brands archived since that version are left out, so old versions stay restorable.
+    live = {
+        b.id
+        for b in db.scalars(select(Brand).where(Brand.id.in_(snapshot["brand_ids"])))
+        if b.workspace_id == user.workspace_id and not b.archived
+    }
+    snapshot["brand_ids"] = [b for b in snapshot["brand_ids"] if b in live]
     _save_version(db, user, item)
-    _apply(db, user, item, dict(old.snapshot))
+    _apply(db, user, item, snapshot)
     db.commit()
     return _out(item)
