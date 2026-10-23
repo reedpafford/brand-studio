@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -100,4 +100,56 @@ test("a refused upload shows the server's reason", async () => {
   await userEvent.upload(await screen.findByLabelText("Screen image"), new File(["x"], "a.png", { type: "image/png" }));
   await userEvent.click(screen.getByRole("button", { name: "Save screen" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("That file type isn't supported.");
+});
+
+test("a screen can be a flavour of a product, and its product and variant are sent", async () => {
+  const calls = fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, [brand]],
+    "GET /brands/1/screens": [200, []],
+    "POST /files": [201, { id: 9, filename: "bag.png", content_type: "image/png", size: 3, created_at: "2026-10-23T00:00:00Z" }],
+    "POST /brands/1/screens": [201, { id: 4, name: "bag", file_id: 9, tags: [], default_for: [], product: "bag", variant: "Chicken", brand_id: 1 }],
+  });
+  renderAt("/b/1/screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Add screen" }));
+  await userEvent.upload(await screen.findByLabelText("Screen image"), new File(["x"], "bag.png", { type: "image/png" }));
+  await userEvent.type(screen.getByLabelText(/Product/), "bag");
+  await userEvent.type(screen.getByLabelText(/Variant/), "Chicken");
+  await userEvent.click(screen.getByRole("button", { name: "Save screen" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/screens")?.body).toMatchObject({ product: "bag", variant: "Chicken" }));
+});
+
+test("Edit opens a sheet with the screen's words and saves the changes, product and variant included", async () => {
+  const bag = { id: 4, name: "Chicken bag", file_id: 9, tags: ["bag"], default_for: [], product: "bag", variant: "Chicken", brand_id: 1 };
+  const calls = fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, [brand]],
+    "GET /brands/1/screens": [200, [bag]],
+    "PATCH /brands/1/screens/4": [200, bag],
+  });
+  renderAt("/b/1/screens");
+  expect(await screen.findByText("bag · Chicken")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Edit Chicken bag" }));
+  const dialog = await screen.findByRole("dialog", { name: "Edit Chicken bag" });
+  const variant = within(dialog).getByLabelText(/Variant/);
+  expect(variant).toHaveValue("Chicken");
+  await userEvent.clear(variant);
+  await userEvent.type(variant, "Peanut butter");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1/screens/4")?.body).toMatchObject({ product: "bag", variant: "Peanut butter", tags: ["bag"] }));
+});
+
+test("the End line is shown and saved with the kit", async () => {
+  const calls = fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, [{ ...brand, end_line: "Download fomo through the link in my bio." }]],
+    "PATCH /brands/1": [200, brand],
+  });
+  renderAt("/b/1/kit");
+  const end = await screen.findByLabelText(/End line/);
+  expect(end).toHaveValue("Download fomo through the link in my bio.");
+  await userEvent.clear(end);
+  await userEvent.type(end, "Link in bio.");
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({ end_line: "Link in bio." }));
 });
