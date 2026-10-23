@@ -6,3 +6,4 @@ export const btnSecondary = "rounded-md border border-border-strong bg-surface p
 export const card = "rounded-md border border-border bg-surface p-4 sm:p-6";
 export const linkText = "text-accent underline";
 export const errorText = "text-sm text-danger";
+export const pageTitle = "text-[length:var(--text-lg)] font-semibold";
