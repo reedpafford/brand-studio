@@ -177,6 +177,10 @@ def test_money_rules(app, db, owner, editor, setup, clip):  # noqa: F811
     over = editor.post(f"{url}/generate")  # 5 more would pass the per-video cap
     assert (over.status_code, over.json()["detail"]) == (409, "This video would go over its limit.")
     assert "$" not in over.json()["detail"]  # editors never see dollars
+    mine = owner.post(f"{url}/generate")  # the cap holds for the owner too, in dollars
+    assert mine.status_code == 409 and mine.json()["detail"].startswith(
+        "This video would go over its $"
+    )
 
 
 def test_reference_without_a_picture(app, db, editor, setup, clip):  # noqa: F811
