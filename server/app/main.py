@@ -25,13 +25,14 @@ from app.routes import (
     team,
 )
 from app.routes.scripts import MAX_DOC_BYTES
-from app.settings import Settings, get_settings
+from app.settings import Settings, check_production, get_settings
 from app.storage import LocalStorage
 from app.upload_limit import UploadLimit
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    check_production(settings)
     app = FastAPI(title="Brand Studio API", version="0.1.0")
     app.state.settings = settings
     app.state.sessionmaker = make_sessionmaker(settings.database_url)

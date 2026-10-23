@@ -153,6 +153,22 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     r = editor.post(f"{url}/frames/{frame['id']}/render")
     assert (r.status_code, r.json()["detail"]) == (422, "Approve Mom's sheet first.")
     with_sheet(db, mom["id"])
+    # A place named in the frame's shot needs an approved sheet too, even if the frame
+    # doesn't attach it: editors find out here, before spending on stills.
+    from app.models.breakdowns import BreakdownVersion
+
+    kitchen = editor.post(
+        "/library/place",
+        json={"name": "Kitchen", "image_file_ids": [upload(editor)]},
+    ).json()["id"]
+    bd = db.get(BreakdownVersion, frame_breakdown(db, frame["id"]))
+    data = copy.deepcopy(bd.data)
+    data["scenes"][0]["shots"][0]["place_id"] = f"place:{kitchen}"
+    bd.data = data
+    db.commit()
+    r = editor.post(f"{url}/frames/{frame['id']}/render")
+    assert (r.status_code, r.json()["detail"]) == (422, "Approve Kitchen's sheet first.")
+    with_sheet(db, kitchen)
     fid = frame["id"]
     assert editor.post(f"{url}/frames/{fid}/approve").json()["approved"] is True
     assert editor.delete(f"{url}/frames/{fid}/approve").json()["approved"] is False
@@ -194,3 +210,9 @@ def test_products_are_labelled_as_products(app, db, editor, setup):  # noqa: F81
     lines = {k: line for k, (line, _) in assets(db, db.get(Project, setup["project"])).items()}
     assert lines[f"screen:{bag}"].startswith(f"screen:{bag} | product | Bag | fomo product,")
     assert "fomo app screen" in lines[f"screen:{setup['screen']}"]
+
+
+def frame_breakdown(db, frame_id):
+    from app.models.storyboards import StoryboardFrame
+
+    return db.get(StoryboardFrame, frame_id).breakdown_id

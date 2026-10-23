@@ -298,10 +298,11 @@ def run_once(
 
 
 def main() -> None:  # pragma: no cover - the loop itself is trivial
-    from app.settings import get_settings
+    from app.settings import check_production, get_settings
 
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
+    check_production(settings)
     providers = get_providers(settings)
     storage = LocalStorage(settings.storage_dir)
     sessions = make_sessionmaker(settings.database_url)

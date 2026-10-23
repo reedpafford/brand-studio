@@ -19,3 +19,17 @@ def require_sheet(item: LibraryItem) -> None:
     """A plain 422 when a character or place has no approved sheet yet."""
     if item.kind in SHEET_KINDS and not usable_files(item):
         raise HTTPException(422, f"Approve {item.name}'s sheet first.")
+
+
+def require_cast_sheets(db, breakdown_data: dict, shot_ids: list[str]) -> None:
+    """Every character and place a shot names needs an approved sheet, whether or not the
+    frame or clip attaches it, so editors find out before spending on anything."""
+    ids = []
+    for scene in breakdown_data.get("scenes", []):
+        for shot in scene.get("shots", []):
+            if shot["id"] in shot_ids:
+                ids += [*shot.get("character_ids", []), shot.get("place_id")]
+    for ref in dict.fromkeys(i for i in ids if i and i.startswith(("char:", "place:"))):
+        item = db.get(LibraryItem, int(ref.split(":")[1]))
+        if item:
+            require_sheet(item)
