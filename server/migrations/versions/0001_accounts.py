@@ -15,6 +15,21 @@ depends_on = None
 
 def upgrade() -> None:
     op.create_table(
+        "login_failures",
+        sa.Column("key", sa.String(length=300), nullable=False),
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_login_failures")),
+    )
+    with op.batch_alter_table("login_failures", schema=None) as batch_op:
+        batch_op.create_index(batch_op.f("ix_login_failures_key"), ["key"], unique=False)
+
+    op.create_table(
+        "setup_done",
+        sa.Column("id", sa.Integer(), autoincrement=False, nullable=False),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_setup_done")),
+    )
+    op.create_table(
         "workspaces",
         sa.Column("name", sa.String(length=120), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
@@ -97,3 +112,8 @@ def downgrade() -> None:
 
     op.drop_table("users")
     op.drop_table("workspaces")
+    op.drop_table("setup_done")
+    with op.batch_alter_table("login_failures", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_login_failures_key"))
+
+    op.drop_table("login_failures")

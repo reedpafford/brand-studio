@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # Uploaded files (local disk for now; S3-compatible later)
     storage_dir: str = "./storage"
     max_upload_mb: int = 200
+    # Login throttling: this many failures within the window locks the email / IP out.
+    login_max_failures: int = 5
+    login_max_failures_per_ip: int = 20
+    login_window_minutes: int = 15
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 

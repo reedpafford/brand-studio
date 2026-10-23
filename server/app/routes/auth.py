@@ -4,9 +4,11 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import throttle
 from app.auth import (
     check_password,
     current_user,
@@ -16,7 +18,7 @@ from app.auth import (
     start_session,
 )
 from app.db import get_db, utcnow
-from app.models.accounts import Invite, Role, User, Workspace
+from app.models.accounts import Invite, Role, SetupDone, User, Workspace
 from app.schemas import Email, Name, Password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -52,10 +54,12 @@ class AcceptIn(BaseModel):
 @router.post("/setup", response_model=Me, status_code=201)
 def setup(body: SetupIn, request: Request, response: Response, db: Session = Depends(get_db)):
     """Create the workspace and its owner. Works once, and only with the server's setup token."""
+    throttle.check(db, request, "setup")
     expected = request.app.state.settings.setup_token
     if not expected or not secrets.compare_digest(body.setup_token, expected):
+        throttle.failed(db, request, "setup")
         raise HTTPException(403, "Setup is not allowed.")
-    if db.scalar(select(func.count(User.id))):
+    if db.get(SetupDone, 1):
         raise HTTPException(409, "Already set up.")
     workspace = Workspace(name=body.workspace_name)
     user = User(
@@ -65,17 +69,24 @@ def setup(body: SetupIn, request: Request, response: Response, db: Session = Dep
         password_hash=hash_password(body.password),
         role=Role.owner,
     )
-    db.add(user)
-    db.commit()
+    db.add_all([SetupDone(id=1), user])
+    try:
+        db.commit()
+    except IntegrityError:  # another setup request won the race
+        db.rollback()
+        raise HTTPException(409, "Already set up.") from None
     start_session(db, request, response, user)
     return user
 
 
 @router.post("/login", response_model=Me)
 def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
+    throttle.check(db, request, "login", body.email)
     user = db.scalar(select(User).where(User.email == body.email, User.active))
     if not check_password(user, body.password):
+        throttle.failed(db, request, "login", body.email)
         raise HTTPException(401, "Wrong email or password.")
+    throttle.succeeded(db, "login", body.email)
     start_session(db, request, response, user)
     return user
 
@@ -103,15 +114,16 @@ def accept_invite(
     )
     if not invite:
         raise HTTPException(400, "This invite link is not valid any more.")
-    if db.scalar(select(User).where(User.email == invite.email)):
+    user = db.scalar(select(User).where(User.email == invite.email))
+    if user and user.active:
         raise HTTPException(409, "That email already has an account.")
-    user = User(
-        workspace_id=invite.workspace_id,
-        email=invite.email,
-        name=body.name,
-        password_hash=hash_password(body.password),
-        role=invite.role,
-    )
+    # A removed member who is invited again comes back with the new name, password and role.
+    user = user or User(email=invite.email)
+    user.workspace_id = invite.workspace_id
+    user.name = body.name
+    user.password_hash = hash_password(body.password)
+    user.role = invite.role
+    user.active = True
     invite.accepted_at = utcnow()
     db.add(user)
     db.commit()
