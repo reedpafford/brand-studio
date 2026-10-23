@@ -16,6 +16,7 @@ class JobStatus(StrEnum):
     succeeded = "succeeded"
     failed = "failed"
     cancelled = "cancelled"
+    needs_owner_approval = "needs_owner_approval"  # would go over the project budget
 
 
 class Job(Entity, Base):
@@ -31,6 +32,9 @@ class Job(Entity, Base):
     error: Mapped[str] = mapped_column(Text, default="")  # plain message, safe for everyone
     error_detail: Mapped[str] = mapped_column(Text, default="")  # raw provider text: owner only
     attempts: Mapped[int] = mapped_column(default=0)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
+    # Estimated at queue time; replaced by the real amount when the job succeeds.
+    credits: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
 
