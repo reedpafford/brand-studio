@@ -85,10 +85,10 @@ test("Enhance stays locked until a script exists, and a link to it lands on the 
   expect(within(screen.getByLabelText("Stage")).getByRole("option", { name: "Enhance (finish the script first)" })).toBeDisabled();
 });
 
-test("a link to a stage that isn't built yet lands on the first unfinished one", async () => {
+test("a link to a stage that isn't open yet lands on the first unfinished one", async () => {
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open("?stage=storyboard");
-  expect(await screen.findByLabelText("Enhance stage")).toBeInTheDocument();
+  expect(await screen.findByLabelText("Breakdown")).toBeInTheDocument();
 });
 
 test("the guidance points at the script pane, not 'the left', so it reads right on a phone", async () => {

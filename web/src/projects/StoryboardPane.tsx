@@ -101,7 +101,9 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
       className={list.length ? btnSecondary : btnPrimary}
       disabled={writingNow || make.isPending}
       onClick={() => {
-        if (list.length && !window.confirm("Replace these frames? New ones are written from the current breakdown.")) return;
+        const made = list.filter((f) => f.file_id !== null).length;
+        const ask = made > 0 ? `Replace these frames? The ${made} still${made === 1 ? "" : "s"} you've made will be dropped.` : "Replace these frames? New ones are written from the current breakdown.";
+        if (list.length && !window.confirm(ask)) return;
         make.mutate();
       }}
     >

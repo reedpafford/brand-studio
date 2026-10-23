@@ -30,7 +30,7 @@ export function ProjectPage() {
   const p = project.data;
   if (!p) return <p className="p-6">That project doesn't exist.</p>;
   const hasScript = !!script.data;
-  const ready = { script: hasScript, breakdown: !!breakdown.data };
+  const ready = { script: hasScript, breakdown: !!breakdown.data, breakdownOk: !!breakdown.data && !breakdown.data.stale && breakdown.data.problems.length === 0 };
   // A link to a stage that is locked lands on the first stage that is not finished yet.
   if (lockReason(stage, ready) !== null) return <Navigate to={`?stage=${firstUnfinished(ready)}`} replace />;
   const pick = (s: Stage) => setParams(s === "brief" ? {} : { stage: s });

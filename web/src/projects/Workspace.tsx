@@ -15,18 +15,20 @@ export type Stage = (typeof STAGES)[number]["id"];
 const BUILT: Stage[] = ["brief", "script", "enhance", "breakdown", "storyboard"];
 
 /** What exists so far; later stages wait for it. */
-export type Ready = { script: boolean; breakdown: boolean };
+export type Ready = { script: boolean; breakdown: boolean; breakdownOk: boolean };
 
 /** Why a stage can't be opened right now, or null when it can. */
 export function lockReason(stage: Stage, ready: Ready): string | null {
   if (!BUILT.includes(stage)) return "Coming soon";
   if ((stage === "enhance" || stage === "breakdown") && !ready.script) return "Finish the script first";
+  // Required brand screens are enforced here: the storyboard waits for a breakdown that is current and has no problems.
   if (stage === "storyboard" && !ready.breakdown) return "Make the breakdown first";
+  if (stage === "storyboard" && !ready.breakdownOk) return "Fix the breakdown first";
   return null;
 }
 
 /** Where a link to a locked stage should land: the first stage not finished yet. */
-export const firstUnfinished = (ready: Ready): Stage => (!ready.script ? "script" : ready.breakdown ? "storyboard" : "enhance");
+export const firstUnfinished = (ready: Ready): Stage => (!ready.script ? "script" : !ready.breakdownOk ? "breakdown" : "storyboard");
 
 /** Done steps get a tick, the current one is filled, the ones not built yet say why they can't be opened. */
 export function Stepper(props: { stage: Stage; done: Stage[]; ready: Ready; onPick: (s: Stage) => void }) {

@@ -126,3 +126,28 @@ test("after a reload, runs are recognised by their step: frames being written, a
   open();
   expect(await screen.findByText("Drawing 2 stills…")).toBeInTheDocument();
 });
+
+test("the storyboard stays locked while the breakdown has problems or is out of date, and a link to it lands on the breakdown", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, { ...breakdown, problems: ["Shot 1.2 is a loss moment but shows no fomo screen."] }] });
+  open();
+  expect(await screen.findByLabelText("Problems")).toBeInTheDocument(); // landed on the Breakdown step
+  const steps = screen.getByRole("list", { name: "Stages" });
+  expect(within(steps).getByRole("button", { name: /Storyboard/ })).toBeDisabled();
+  expect(within(steps).getByRole("button", { name: /Storyboard/ })).toHaveAttribute("title", "Fix the breakdown first");
+  expect(screen.getByRole("button", { name: "Next: Storyboard →" })).toBeDisabled();
+});
+
+test("a breakdown made for an older script also keeps the storyboard locked", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, { ...breakdown, stale: true, script_version: 3 }] });
+  open("?stage=breakdown");
+  const steps = await screen.findByRole("list", { name: "Stages" });
+  expect(within(steps).getByRole("button", { name: /Storyboard/ })).toHaveAttribute("title", "Fix the breakdown first");
+});
+
+test("Redo storyboard says the stills already made will be dropped", async () => {
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2", file_id: 41 }), frame({ id: 3, clip_id: "c3" })]] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Redo storyboard · 6 credits" }));
+  expect(confirm).toHaveBeenCalledWith("Replace these frames? The 2 stills you've made will be dropped.");
+});
