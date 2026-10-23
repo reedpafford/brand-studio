@@ -7,6 +7,9 @@ from fastapi import HTTPException
 
 from app.catalogue import CatalogueModel
 
+# Models whose input has `allow_fallback_model`: we always send it, set to false.
+HAS_FALLBACK_SWITCH = {"nano-banana-pro"}
+
 
 def image_job_input(
     model: CatalogueModel,
@@ -18,12 +21,15 @@ def image_job_input(
     resolution: str = "1K",
 ) -> dict:
     """Job input for an image model. Always sends `aspect_ratio` (the default follows the
-    first reference's shape) and never `allow_fallback_model` (another model can't hold
-    brand screens exactly). Reference files go by id, characters first."""
+    first reference's shape) and `allow_fallback_model` false where the model has it
+    (another model can't hold brand screens exactly). Reference files go by id, characters
+    first."""
     if model.kind != "image":
         raise ValueError(f"{model.id} isn't an image model.")
     if aspect_ratio not in model.aspect_ratios or aspect_ratio == "match_input_image":
         raise HTTPException(422, f"{model.name} doesn't do {aspect_ratio}.")
+    if resolution not in model.resolutions:
+        raise HTTPException(422, f"{model.name} offers {', '.join(model.resolutions)}.")
     for ids, limit, label in (
         (characters, model.max_character_images, "character sheets"),
         (objects, model.max_object_images, "other references"),
@@ -34,9 +40,12 @@ def image_job_input(
                 422, f"{model.name} keeps likeness for up to {limit} {label}; this has {len(ids)}."
             )
     files = [*characters, *objects]
+    settings = {"prompt": prompt, "aspect_ratio": aspect_ratio, "resolution": resolution}
+    if model.id in HAS_FALLBACK_SWITCH:
+        settings["allow_fallback_model"] = False
     return {
         "model": model.id,
-        "input": {"prompt": prompt, "aspect_ratio": aspect_ratio, "resolution": resolution},
+        "input": settings,
         "files": {"image_input": files} if files else {},
     }
 
