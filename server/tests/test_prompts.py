@@ -111,3 +111,39 @@ def test_accepting_every_suggestion_leaves_the_script_text_identical():
         line for line in apply_all(script, result.suggestions).splitlines() if line not in added
     ]
     assert kept == script.splitlines()
+
+
+def test_clip_prompt_checks_catch_music_aspect_and_cast_order():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    clip = cp.clips[0]
+    clip.prompt = clip.prompt.split("\n", 1)[1] + "\nStyle: 9:16."
+    clip.references[1], clip.references[2] = clip.references[2], clip.references[1]
+    assert check.clip_prompts(bd, cp, 30, 10) == [
+        "c2: doesn't open and close with the same audio line",
+        "c2: writes aspect or resolution (those are settings)",
+        "c2: characters aren't attached in the order they appear",
+    ]
+
+
+def test_storyboard_check_keeps_character_sheets_within_the_model_limit():
+    frame = {"clip_id": "c1", "shot_id": "1.1", "prompt": "x"}
+    frames = schemas.StoryboardFrames(
+        frames=[frame | {"reference_ids": ["char:1", "char:2", "char:3", "place:1"]}]
+    )
+    assert check.storyboard(frames, 14, 4) == []
+    assert check.storyboard(frames, 14, 2) == ["c1: more references than the image model keeps"]
+
+
+def test_reference_lines_bind_each_image_in_upload_order():
+    refs = [
+        {"kind": "character", "name": "Aiden"},
+        {"kind": "character", "name": "Aiden"},
+        {"kind": "place", "name": "kitchen"},
+        {"kind": "screen", "name": "Token chart up", "brand": "fomo"},
+        {"kind": "product", "name": "bag", "brand": "Iron Paws"},
+    ]
+    assert prompts.reference_lines(refs) == (
+        "[Image1] and [Image2] are Aiden. [Image3] is the kitchen. [Image4] is the fomo "
+        '"Token chart up" screen, shown exactly. [Image5] is the Iron Paws bag, shown exactly.'
+    )
