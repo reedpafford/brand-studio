@@ -8,9 +8,11 @@ What this is: the default look, sound and storytelling for every Brand Studio vi
 
 ## Visual style line (first line of every image/video prompt)
 
-> Stylised 3D animated feature-film look (Pixar/Disney-like CG), vertical 9:16. Characters have slightly enlarged heads (about 6 heads tall), big glossy round eyes with one sharp catchlight, thick expressive brows, small noses and soft subsurface skin. Wardrobe is simple, clean and real-world, with fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The frame is mostly locked off at eye level with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off.
+> Stylised 3D animated feature-film look (Pixar/Disney-like CG). Characters have slightly enlarged heads (about 6 heads tall), big glossy round eyes with one sharp catchlight, thick expressive brows, small noses and soft subsurface skin. Wardrobe is simple, clean and real-world, with fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The frame is mostly locked off at eye level with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off.
 
-A short version for tight prompt budgets: *"Pixar-style 3D animation, 9:16, big glossy eyes, soft subsurface skin, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions."*
+A short version for tight prompt budgets: *"Pixar-style 3D animation, big glossy eyes, soft subsurface skin, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions."*
+
+All reels are vertical 9:16. Set the aspect ratio as the generation setting, never in the prompt text (our prompt checks reject ratios in prompts).
 
 ---
 
