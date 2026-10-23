@@ -1,0 +1,176 @@
+{
+ "Input": {
+  "properties": {
+   "aspect_ratio": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/aspect_ratio"
+     }
+    ],
+    "default": "16:9",
+    "description": "Video aspect ratio. Set to 'adaptive' to let the model choose the best ratio based on inputs. First/last-frame, editing, and extension modes require 'adaptive'.",
+    "x-order": 8
+   },
+   "duration": {
+    "default": 5,
+    "description": "Video duration in seconds. Set to -1 for intelligent duration (the model picks the best length). Editing mode requires -1.",
+    "maximum": 30,
+    "minimum": -1,
+    "title": "Duration",
+    "type": "integer",
+    "x-order": 6
+   },
+   "generate_audio": {
+    "default": true,
+    "description": "Generate synchronized audio with the video, including dialogue (use double quotes in prompt), sound effects, and background music.",
+    "title": "Generate Audio",
+    "type": "boolean",
+    "x-order": 9
+   },
+   "image": {
+    "default": null,
+    "description": "First-frame image for image-to-video or first/last-frame generation. Cannot be combined with reference images, videos, or audios.",
+    "format": "uri",
+    "nullable": true,
+    "title": "Image",
+    "type": "string",
+    "x-order": 1
+   },
+   "last_frame_image": {
+    "default": null,
+    "description": "Last-frame image. Requires a first-frame image. Cannot be combined with reference images, videos, or audios.",
+    "format": "uri",
+    "nullable": true,
+    "title": "Last Frame Image",
+    "type": "string",
+    "x-order": 2
+   },
+   "output_format": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/output_format"
+     }
+    ],
+    "default": "mp4",
+    "description": "Output video container format.",
+    "x-order": 11
+   },
+   "prompt": {
+    "default": "",
+    "description": "Text prompt for video generation. Optional when a media input (image, reference images/videos/audios) is supplied. Seedance 2.5 works best with detailed, structured 'production brief' style prompts.",
+    "title": "Prompt",
+    "type": "string",
+    "x-order": 0
+   },
+   "reference_audios": {
+    "default": [],
+    "description": "Reference audio files (up to 10, combined duration max 30s) for audio-driven generation and lip-sync. Requires at least one reference image or video. Reference them in your prompt as [Audio1], [Audio2], etc.",
+    "items": {
+     "format": "uri",
+     "type": "string"
+    },
+    "title": "Reference Audios",
+    "type": "array",
+    "x-order": 5
+   },
+   "reference_images": {
+    "default": [],
+    "description": "Reference images (up to 30) for character consistency, style guidance, and scene composition. Cannot be combined with first/last frame images. Reference them in your prompt as [Image1], [Image2], etc.",
+    "items": {
+     "format": "uri",
+     "type": "string"
+    },
+    "title": "Reference Images",
+    "type": "array",
+    "x-order": 3
+   },
+   "reference_videos": {
+    "default": [],
+    "description": "Reference videos (up to 10, combined duration max 30s) for motion transfer, style reference, editing, and extension. Reference them in your prompt as [Video1], [Video2], etc.",
+    "items": {
+     "format": "uri",
+     "type": "string"
+    },
+    "title": "Reference Videos",
+    "type": "array",
+    "x-order": 4
+   },
+   "resolution": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/resolution"
+     }
+    ],
+    "default": "720p",
+    "description": "Video resolution.",
+    "x-order": 7
+   },
+   "seed": {
+    "default": null,
+    "description": "Random seed. Set for reproducible generation. Reproducibility is not guaranteed.",
+    "nullable": true,
+    "title": "Seed",
+    "type": "integer",
+    "x-order": 12
+   },
+   "watermark": {
+    "default": false,
+    "description": "Add a watermark to the generated video.",
+    "title": "Watermark",
+    "type": "boolean",
+    "x-order": 10
+   }
+  },
+  "title": "Input",
+  "type": "object"
+ },
+ "enums": {
+  "Status": {
+   "description": "An enumeration.",
+   "enum": [
+    "starting",
+    "processing",
+    "succeeded",
+    "canceled",
+    "failed"
+   ],
+   "title": "Status",
+   "type": "string"
+  },
+  "aspect_ratio": {
+   "description": "An enumeration.",
+   "enum": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "21:9",
+    "adaptive"
+   ],
+   "title": "aspect_ratio",
+   "type": "string"
+  },
+  "output_format": {
+   "description": "An enumeration.",
+   "enum": [
+    "mp4",
+    "mov"
+   ],
+   "title": "output_format",
+   "type": "string"
+  },
+  "resolution": {
+   "description": "An enumeration.",
+   "enum": [
+    "480p",
+    "720p"
+   ],
+   "title": "resolution",
+   "type": "string"
+  }
+ },
+ "fetched": "2026-10-23",
+ "model": "bytedance/seedance-2.5",
+ "version": "0000635f6659d0b53dc4ab407a0abd1ab8f152fe7fa4dc50d291571be31a7d0a"
+}
