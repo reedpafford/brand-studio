@@ -49,14 +49,25 @@ def test_checks_catch_a_rewrite_a_missing_screen_and_a_long_clip():
     mark = {"id": "s1", "kind": "action", "anchor": {"line": 2, "quote": "I'm down."}}
     mark |= {"placement": "replace", "text": "He groans.", "screen_id": None, "reason": "x"}
     rewrite = schemas.EnhanceResult(suggestions=[mark])
-    assert check.enhance(script, rewrite, FOMO) == ["s1: rewrites dialogue"]
+    assert check.enhance(script, rewrite, FOMO) == ["s1: rewrites spoken words"]
     _, bd = example("breakdown")
     shot = bd.scenes[1].shots[0]
     shot.screen_ids = []
     bd.clips[1].seconds = 31
     problems = check.breakdown(script_of(example("breakdown")[0]), bd, FOMO, 4, 30)
     assert "shot 2.1: 'loss' moment without its screen" in problems
+    assert "line 9 is a ★ screen line but no shot shows a screen" in problems
     assert "clip c2: 31 s is outside 4–30 s" in problems
+
+
+def test_a_script_without_names_is_all_voiceover():
+    lines = [
+        "SCENE 1 — INT. KITCHEN — DAY",
+        "Crusty eyes every morning.",
+        "★ Iron Paws screen: bag",
+    ]
+    assert check.spoken_lines(lines) == {2}
+    assert check.spoken_lines(["Mia waves.", "MIA: Hi."]) == {2}
 
 
 def test_brand_block_lists_required_screens_and_their_moments():

@@ -1,7 +1,7 @@
 """Run the eval cases through Claude and save each answer for `score.py`. PAID: one run is
-11 calls (about $1.50). Only with the Producer's go-ahead, logged in ops/SPEND.md.
+12 calls (about $2). Only with the Producer's go-ahead, logged in ops/SPEND.md.
 
-Usage (from server/): python -m evals.run <out dir> [--cap-usd 2]
+Usage (from server/): python -m evals.run <out dir> [--cap-usd 2] [--cases id ...]
 Key from STUDIO_ANTHROPIC_KEY. Stops before the next call once the cap is reached."""
 
 import argparse
@@ -74,7 +74,13 @@ def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) 
             assets = case["cast"] + case["places"] + screens + frames
             prompt = f"{video_model()}\n<assets>\n" + "\n".join(assets) + "\n</assets>\n"
             prompt += f"<breakdown>\n{bd.model_dump_json()}\n</breakdown>"
-        answer = ask(client, system=[system(step), brand_text], prompt=prompt, schema=SCHEMAS[step])
+        answer = ask(
+            client,
+            system=[system(step), brand_text],
+            prompt=prompt,
+            schema=SCHEMAS[step],
+            max_tokens=32000 if step in ("breakdown", "clip_prompts") else 16000,
+        )
         spent.append(answer.cost_usd)
         answers[step] = answer.parsed
         (out / f"{case['id']}.{step}.json").write_text(answer.parsed.model_dump_json(indent=1))
@@ -89,11 +95,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("out", type=Path)
     parser.add_argument("--cap-usd", type=Decimal, default=Decimal(2))
+    parser.add_argument("--cases", nargs="*", help="only these case ids (default: all)")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     client = make_client(os.environ.get("STUDIO_ANTHROPIC_KEY", ""))
     spent: list[Decimal] = []
     for case in CASES["cases"]:
+        if args.cases and case["id"] not in args.cases:
+            continue
         try:
             run_case(client, case, args.out, spent, args.cap_usd)
         except Exception as exc:  # noqa: BLE001 - keep going; a failed case is a result
