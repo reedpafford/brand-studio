@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { NavLink, Navigate, Outlet, useMatch, useNavigate, useParams } from "react-router-dom";
+import { NavLink, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
+import { applyTheme, getTheme, nextTheme } from "../theme";
 import { pageTitle } from "../ui";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
@@ -35,7 +36,7 @@ export function Shell() {
   if (!brands) return <p className="p-6 text-danger">Could not load brands.</p>;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       <header className="flex h-14 items-center gap-3 border-b-[3px] border-brand bg-surface px-4">
         <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-brand" />
         <label className="min-w-0 flex-1 sm:flex-none">
@@ -56,7 +57,7 @@ export function Shell() {
         </label>
         <AccountMenu />
       </header>
-      <nav aria-label="Main" className="flex gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-1 text-sm">
+      <nav aria-label="Main" className="hidden gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-1 text-sm md:flex">
         {current && (
           <>
             <NavLink end to={`/b/${current}`} className={link}>
@@ -81,22 +82,106 @@ export function Shell() {
         </NavLink>
       </nav>
       <Outlet />
+      <TabBar brandId={current} />
     </div>
   );
 }
 
-function AccountMenu() {
-  const { data: me } = useMe();
-  const [open, setOpen] = useState(false);
+const tab = ({ isActive }: { isActive: boolean }) =>
+  `grid min-h-16 flex-1 place-items-center text-sm ${isActive ? "font-medium text-accent-text" : "text-muted"}`;
+const row = ({ isActive }: { isActive: boolean }) =>
+  `flex min-h-12 items-center rounded-sm px-3 ${isActive ? "bg-accent-soft font-medium text-accent-text" : ""}`;
+const BAR = "calc(4rem + env(safe-area-inset-bottom))"; // tab bar height plus the phone's home-bar space
+
+/** Phone navigation: four tabs along the bottom; "More" holds the rest. */
+function TabBar({ brandId }: { brandId: number | null }) {
+  const [more, setMore] = useState(false);
+  const [theme, setTheme] = useState(getTheme);
+  const signOut = useSignOut();
+  const { pathname } = useLocation();
+  const inMore = /\/(kit|screens)$|^\/team/.test(pathname);
+  const close = () => setMore(false);
+
+  useEffect(() => {
+    if (!more) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMore(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [more]);
+
+  return (
+    <>
+      {more && (
+        <>
+          <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 bg-[var(--scrim)] md:hidden" onClick={close} />
+          <div style={{ bottom: BAR }} className="fixed inset-x-0 z-20 border-t border-border bg-surface p-2 shadow-md md:hidden">
+            {brandId && (
+              <>
+                <NavLink to={`/b/${brandId}/kit`} onClick={close} className={row}>
+                  Brand kit
+                </NavLink>
+                <NavLink to={`/b/${brandId}/screens`} onClick={close} className={row}>
+                  Brand screens
+                </NavLink>
+              </>
+            )}
+            <NavLink to="/team" onClick={close} className={row}>
+              Team
+            </NavLink>
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center px-3 text-left"
+              onClick={() => {
+                const next = nextTheme(theme);
+                applyTheme(next);
+                setTheme(next);
+              }}
+            >
+              Theme: {theme[0].toUpperCase() + theme.slice(1)}
+            </button>
+            <button type="button" className="flex min-h-12 w-full items-center px-3 text-left" onClick={() => signOut.mutate()}>
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
+      <nav aria-label="Tabs" style={{ height: BAR }} className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
+        {brandId && (
+          <>
+            <NavLink end to={`/b/${brandId}`} className={tab} onClick={close}>
+              Brand
+            </NavLink>
+            <NavLink to={`/b/${brandId}/clip`} className={tab} onClick={close}>
+              Clip
+            </NavLink>
+            <NavLink to={`/b/${brandId}/library`} className={tab} onClick={close}>
+              Library
+            </NavLink>
+          </>
+        )}
+        <button type="button" aria-expanded={more} className={`grid min-h-16 flex-1 place-items-center text-sm ${more || inMore ? "font-medium text-accent-text" : "text-muted"}`} onClick={() => setMore(!more)}>
+          More
+        </button>
+      </nav>
+    </>
+  );
+}
+function useSignOut() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const signOut = useMutation({
+  return useMutation({
     mutationFn: () => api.POST("/auth/logout"),
     onSuccess: () => {
       queryClient.clear(); // nothing from this person stays for the next one
       navigate("/login", { replace: true });
     },
   });
+}
+
+function AccountMenu() {
+  const { data: me } = useMe();
+  const [open, setOpen] = useState(false);
+  const signOut = useSignOut();
   const initials = (me?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   return (
     <div className="relative ml-auto" onKeyDown={(e) => e.key === "Escape" && setOpen(false)}>

@@ -126,7 +126,7 @@ function Studio({ models }: { models: Model[] }) {
           </div>
         </fieldset>
         {left !== null && <p className="text-sm text-muted">Quick clips this week: {allowance.data?.quick_clip_credits_used} of {allowance.data?.quick_clip_credits_allowed} credits used.</p>}
-        <div className="fixed inset-x-0 bottom-0 z-10 space-y-1 border-t border-border bg-surface p-4 shadow-md lg:sticky lg:bottom-0 lg:border-0 lg:p-0 lg:shadow-none">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 space-y-1 md:bottom-0 border-t border-border bg-surface p-4 shadow-md lg:sticky lg:bottom-0 lg:border-0 lg:p-0 lg:shadow-none">
           <button className={`${btnPrimary} min-h-11 w-full`} disabled={reason !== null}>
             Generate · {credits} credits
           </button>
