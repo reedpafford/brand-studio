@@ -96,6 +96,27 @@ def test_no_prompt_file_keeps_a_merge_conflict_marker():
             assert not re.search(r"^(<{7}|={7}|>{7})( |$)", text, re.M), path
 
 
+def test_nobody_speaks_unless_the_script_says_so():
+    _, cp = example("clip_prompts")
+    prompt = cp.clips[0].prompt
+    assert check._silence(prompt, True) == []
+    assert check._silence(prompt, False) == ["the audio line doesn't match whether anyone speaks"]
+    montage = prompt.replace(
+        "Shot 2 | 1-3 s. High-angle close-up, slow push in. Malik drops his head onto his arms "
+        "in the blue glow, shoulders sagging, eyes shut. No one speaks.",
+        "Shot 2 | 1-3 s. High-angle close-up. Malik stares at the loss and does not sell.",
+    )
+    assert check._silence(montage, True) == [
+        "shot 2 has no line but doesn't say no one speaks",
+        "shot 2: 'does not' reads like a line; show what the body does",
+    ]
+    _, result = example("improve")
+    quiet = result.prompt.replace("Audio: only the spoken lines and", check.SILENT.rstrip())
+    assert check.AUDIO_LINE.match(quiet.splitlines()[0])
+    assert check._silence(quiet, False) == []
+    assert check._silence(quiet, True) == ["the audio line doesn't match whether anyone speaks"]
+
+
 def test_shot_times_take_a_hyphen_or_an_en_dash():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
