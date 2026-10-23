@@ -19,7 +19,7 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Frame, StoryboardFrames
-from app.sheets import require_sheet, usable_files
+from app.sheets import require_cast_sheets, require_sheet, usable_files
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
@@ -111,6 +111,8 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     """The Nano Banana job for one frame's still: the project's aspect ratio (always sent),
     character sheets first, then the place, props and screens, in the frame's order."""
     known = assets(db, project)
+    breakdown = db.get(BreakdownVersion, frame.breakdown_id)
+    require_cast_sheets(db, breakdown.data, [frame.shot_id])
     characters, objects = [], []
     for ref in frame.reference_ids:
         if ref not in known:
