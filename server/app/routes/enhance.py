@@ -36,7 +36,6 @@ class SuggestionOut(BaseModel):
 
 class ApplyOut(BaseModel):
     script: ScriptOut
-    skipped: list[str]  # keys of accepted marks that overlapped another and weren't applied
 
 
 def _working(db: Session, user: User, project_id: int):
@@ -123,5 +122,5 @@ def apply_accepted(
     ).all()
     if not marks:
         raise HTTPException(409, "Accept at least one suggestion first.")
-    text, skipped = apply(version.text, list(marks))
-    return ApplyOut(script=_out(save_version(db, user, project, text, "enhance")), skipped=skipped)
+    text = apply(version.text, list(marks))
+    return ApplyOut(script=_out(save_version(db, user, project, text, "enhance")))

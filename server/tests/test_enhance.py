@@ -81,6 +81,8 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
                 ),
                 _mark("s3", "camera", 3, "not in the script", "after", "Push in."),
                 _mark("s4", "scene_break", 1, "SCENE 1", "before", "COLD OPEN"),
+                _mark("s5", "camera", 3, "all your money", "replace", "all your cash"),
+                _mark("s6", "cut", 4, "I bought the dip.", "replace", ""),
             ]
         }
     )
@@ -90,6 +92,8 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
     done = db.get(Job, job.json()["id"])
     assert done.status == "succeeded" and done.output["kept"] == 3
     assert "s3: quote not found on line 3" in done.output["dropped"]
+    for key in ("s5", "s6"):  # Enhance never changes the script's words
+        assert f"{key}: changes the script's words" in done.output["dropped"]
     assert db.query(Usage).one().unit == "call"
     sent = fake.requests[0]
     assert (
@@ -106,7 +110,7 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
     editor.post(f"{url}/suggestions/{by_key['s2']}/accept")
     editor.post(f"{url}/suggestions/{by_key['s4']}/reject")
     r = editor.post(f"{url}/apply").json()
-    assert r["skipped"] == [] and r["script"]["source"] == "enhance"
+    assert r["script"]["source"] == "enhance"
     assert r["script"]["text"].splitlines() == [
         "SCENE 1 — INT. KITCHEN — MORNING",
         "Mom storms in holding an empty wallet.",
@@ -137,18 +141,27 @@ def test_needs_a_script_and_an_accepted_mark(editor, setup, owner):
     assert editor.post(f"/projects/{setup['project']}/script/apply").status_code == 409
 
 
-def test_apply_cuts_whole_lines_and_skips_overlaps():
-    text = "A\nB repeated\nC"
+def test_apply_never_edits_a_line():
+    text = "SCENE 1\nMOM: Where is it?\r\nNATE: Gone.  \nEND"
 
-    def mark(key, line, start, end, placement, new, quote):
-        return Suggestion(
-            key=key, line=line, start=start, end=end, placement=placement, text=new, quote=quote
-        )
+    def mark(key, line, placement, new):
+        return Suggestion(key=key, line=line, placement=placement, text=new, quote="x")
 
-    cut = mark("s1", 2, 2, 12, "replace", "", "B repeated")
-    clash = mark("s2", 2, 4, 12, "replace", "again", "repeated")
-    out, skipped = apply(text, [cut, clash])
-    assert out == "A\nC" and skipped == ["s2"]
+    marks = [
+        mark("a", 2, "before", "Close on Mom."),
+        mark("b", 2, "after", "Nate shrugs."),
+        mark("c", 3, "replace", "NATE: Spent it."),  # never applied
+        mark("d", 3, "before", "Beat."),
+        mark("e", 2, "before", "She waits."),
+    ]
+    out = apply(text, marks)
+    originals = text.splitlines(keepends=True)
+    added = [line for line in out.splitlines(keepends=True) if line not in originals]
+    # Every original line is still there, byte for byte, in the same order.
+    kept = [line for line in out.splitlines(keepends=True) if line in originals]
+    assert kept == originals
+    assert [a.strip() for a in added] == ["Close on Mom.", "She waits.", "Nate shrugs.", "Beat."]
+    assert apply("A\nEND", [mark("f", 2, "after", "Fade out.")]) == "A\nEND\nFade out."
 
 
 def test_other_workspace_is_shut_out(outsider, setup):

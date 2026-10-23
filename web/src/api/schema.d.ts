@@ -933,8 +933,6 @@ export interface components {
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["ScriptOut"];
-            /** Skipped */
-            skipped: string[];
         };
         /** Body_upload_files_post */
         Body_upload_files_post: {

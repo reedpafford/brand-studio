@@ -1,6 +1,6 @@
 """Enhance: Claude suggests marks on the editor's script (it never rewrites it). Marks are
-anchored by line + exact quote; we compute the offsets, drop any we can't place, and later
-apply the accepted ones to make a new version."""
+anchored by line + exact quote; we compute the offsets, drop any we can't place or that
+would change the script's words, and later add the accepted ones as direction lines."""
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -72,6 +72,12 @@ def save_suggestions(db: Session, job: Job) -> None:
     problems = check.enhance(
         version.text, result, {k: s.default_for for k, s in brand_screens.items()}
     )
+    # Reed's rule: Enhance never changes the script's words, only adds direction around lines.
+    problems += [
+        f"{s.id}: changes the script's words"
+        for s in result.suggestions
+        if s.kind == "cut" or s.placement not in ("before", "after")
+    ]
     bad = {p.split(":", 1)[0] for p in problems}
     starts = _line_starts(version.text)
     lines = version.text.splitlines()
@@ -111,38 +117,22 @@ def _line_starts(text: str) -> list[int]:
     return starts or [0]
 
 
-def apply(text: str, marks: list[Suggestion]) -> tuple[str, list[str]]:
-    """Apply accepted marks. Lines are added before/after the quote's line; `replace` swaps
-    the quote (a cut removes it, and the line if nothing is left). Marks whose spans overlap
-    an earlier-applied one are skipped and reported."""
-    edits = []  # (position, end, new text, key)
-    lines_end = _line_ends(text)
-    starts = _line_starts(text)
+def apply(text: str, marks: list[Suggestion]) -> str:
+    """Apply accepted marks as new lines before/after the quote's line. The script's own
+    lines are never edited (endings included); any other placement is ignored."""
+    lines = text.splitlines(keepends=True) or [""]
+    before: dict[int, list[str]] = {}
+    after: dict[int, list[str]] = {}
     for m in marks:
-        line_start, line_end = starts[m.line - 1], lines_end[m.line - 1]
-        if m.placement == "before":
-            edits.append((line_start, line_start, f"{m.text}\n", m.key))
-        elif m.placement == "after":
-            edits.append((line_end, line_end, f"\n{m.text}", m.key))
-        else:
-            start, end = m.start, m.end
-            if not m.text and text[line_start:line_end].strip() == m.quote.strip():
-                start, end = line_start, min(line_end + 1, len(text))  # drop the whole line
-            edits.append((start, end, m.text, m.key))
-    skipped, taken = [], []
-    for edit in sorted(edits, key=lambda e: (e[0], e[1])):
-        if any(edit[0] < t[1] and t[0] < edit[1] for t in taken):
-            skipped.append(edit[3])
-        else:
-            taken.append(edit)
-    for start, end, new, _ in sorted(taken, key=lambda e: (e[0], e[1]), reverse=True):
-        text = text[:start] + new + text[end:]
-    return text, skipped
-
-
-def _line_ends(text: str) -> list[int]:
-    ends, pos = [], 0
-    for line in text.splitlines(keepends=True):
-        pos += len(line)
-        ends.append(pos - (len(line) - len(line.rstrip("\r\n"))))
-    return ends or [0]
+        if m.placement in ("before", "after"):
+            (before if m.placement == "before" else after).setdefault(m.line - 1, []).append(m.text)
+    out = []
+    for n, line in enumerate(lines):
+        out += [f"{t}\n" for t in before.get(n, [])]
+        out.append(line)
+        added = after.get(n, [])
+        if added and not line.endswith(("\n", "\r")):
+            out.append("\n")  # last line without an ending: start a new one
+        out += [f"{t}\n" for t in added]
+    result = "".join(out)
+    return result[:-1] if after.get(len(lines) - 1) and not text.endswith("\n") else result
