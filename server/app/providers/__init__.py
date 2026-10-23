@@ -1,4 +1,4 @@
-"""Model providers behind one interface. Real Replicate adapters come later; tests use the fake."""
+"""Model providers behind one interface: Replicate for real work, a fake for tests."""
 
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -9,11 +9,17 @@ class NetworkError(Exception):
     """The provider couldn't be reached. The only kind of error that is retried."""
 
 
+class NotStarted(Exception):
+    """The provider certainly did not start the work (e.g. it said "too busy").
+    Safe to try again later, even for paid work."""
+
+
 @dataclass
 class UsageItem:
     units: Decimal
     unit: str
     cost_usd: Decimal
+    estimated: bool = False  # True when the provider didn't report the amount used
 
 
 @dataclass
@@ -25,6 +31,7 @@ class Result:
     output: dict | None = None
     error: str = ""
     usage: list[UsageItem] = field(default_factory=list)
+    files: list[str] = field(default_factory=list)  # provider URLs to copy into our storage
 
 
 class Provider(Protocol):
@@ -37,8 +44,12 @@ class Provider(Protocol):
     def poll(self, ref: str) -> Result:
         """Check on work started earlier."""
 
+    def fetch(self, url: str) -> tuple[bytes, str]:
+        """Download one output file: (bytes, content type)."""
 
-def get_providers() -> dict[str, Provider]:
+
+def get_providers(settings) -> dict[str, Provider]:
     from app.providers.fake import FakeProvider
+    from app.providers.replicate import ReplicateProvider
 
-    return {"fake": FakeProvider()}
+    return {"fake": FakeProvider(), "replicate": ReplicateProvider(settings.replicate_base_url)}

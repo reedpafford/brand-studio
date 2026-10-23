@@ -114,6 +114,7 @@ dependencies = [
     { name = "alembic" },
     { name = "argon2-cffi" },
     { name = "fastapi" },
+    { name = "httpx2" },
     { name = "pydantic-settings" },
     { name = "python-multipart" },
     { name = "sqlalchemy" },
@@ -122,7 +123,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx2" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -132,6 +132,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.20" },
     { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "fastapi", specifier = ">=0.162" },
+    { name = "httpx2", specifier = ">=2.13" },
     { name = "pydantic-settings", specifier = ">=2.16" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "sqlalchemy", specifier = ">=2.1" },
@@ -140,7 +141,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx2", specifier = ">=2.13" },
     { name = "pytest", specifier = ">=9.1" },
     { name = "ruff", specifier = ">=0.17" },
 ]

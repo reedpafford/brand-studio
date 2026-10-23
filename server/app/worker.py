@@ -7,8 +7,10 @@ Rules
 - After a restart, running jobs with a provider reference are simply checked again.
 """
 
+import hashlib
 import logging
 import time
+import uuid
 from decimal import Decimal
 
 from sqlalchemy import func, select, update
@@ -16,8 +18,11 @@ from sqlalchemy.orm import Session
 
 from app.credits import usd_to_credits
 from app.db import make_sessionmaker, utcnow
+from app.filetypes import ALLOWED_TYPES, matches
+from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
-from app.providers import NetworkError, Provider, Result, get_providers
+from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
+from app.storage import LocalStorage, Storage
 
 log = logging.getLogger("worker")
 MAX_SUBMIT_TRIES = 3
@@ -25,6 +30,7 @@ MAX_SUBMIT_TRIES = 3
 # into `error_detail` (owner-only) and the log.
 UNSURE = "Lost contact while starting paid work. Check the provider before retrying."
 FAILED = "The service couldn't finish this. Ask the owner for details."
+EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 UNKNOWN = "This job names a service we don't have."
 
 
@@ -71,7 +77,31 @@ def recover(db: Session, providers: dict[str, Provider]) -> None:
     db.commit()
 
 
-def check_running(db: Session, providers: dict[str, Provider]) -> None:
+def _download(job: Job, provider: Provider, urls: list[str], storage: Storage) -> list[StoredFile]:
+    """Copy the provider's output files into our storage (they expire on the provider)."""
+    files = []
+    for url in urls:
+        data, content_type = provider.fetch(url)
+        if content_type not in ALLOWED_TYPES or not matches(content_type, data[:16]):
+            raise RuntimeError(f"Output {url} isn't an allowed file ({content_type!r}).")
+        key = f"{job.workspace_id}/{uuid.uuid4().hex}"
+        storage.put(key, data)
+        files.append(
+            StoredFile(
+                workspace_id=job.workspace_id,
+                key=key,
+                filename=f"job-{job.id}-{len(files) + 1}{EXTENSIONS.get(content_type, '')}",
+                content_type=content_type,
+                size=len(data),
+                sha256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    return files
+
+
+def check_running(
+    db: Session, providers: dict[str, Provider], storage: Storage | None = None
+) -> None:
     for job in db.scalars(
         select(Job).where(Job.status == JobStatus.running, Job.provider_ref.is_not(None))
     ).all():
@@ -90,6 +120,15 @@ def check_running(db: Session, providers: dict[str, Provider]) -> None:
             continue
         if result.state == "running":
             continue
+        files: list[StoredFile] = []
+        if result.state == "succeeded" and result.files:
+            try:
+                files = _download(job, providers[job.provider], result.files, storage)
+            except NetworkError:
+                log.warning("job %s: download failed; will retry", job.id)
+                continue
+            except Exception as exc:  # noqa: BLE001 - paid work is done: keep its usage
+                result.state, result.error = "failed", f"Saving the output failed: {exc!r}"
         new = JobStatus.succeeded if result.state == "succeeded" else JobStatus.failed
         moved = _move(
             db,
@@ -105,6 +144,11 @@ def check_running(db: Session, providers: dict[str, Provider]) -> None:
         if result.error:
             log.warning("job %s: provider said: %s", job.id, result.error)
         if moved:  # record usage once, in the same transaction as the status change
+            db.add_all(files)
+            if files:
+                db.flush()
+                output = {**(result.output or {}), "file_ids": [f.id for f in files]}
+                db.execute(update(Job).where(Job.id == job.id).values(output=output))
             db.add_all(
                 Usage(
                     workspace_id=job.workspace_id,
@@ -114,6 +158,7 @@ def check_running(db: Session, providers: dict[str, Provider]) -> None:
                     units=item.units,
                     unit=item.unit,
                     cost_usd=item.cost_usd,
+                    estimated=item.estimated,
                 )
                 for item in result.usage
             )
@@ -138,6 +183,12 @@ def start_next(db: Session, providers: dict[str, Provider]) -> bool:
         return True
     try:
         ref = provider.submit(job.kind, job.input)
+    except NotStarted as exc:
+        db.refresh(job)
+        if job.attempts < MAX_SUBMIT_TRIES:
+            _move(db, job, JobStatus.running, JobStatus.queued)
+        else:
+            _fail(db, job, FAILED, repr(exc))
     except NetworkError:
         db.refresh(job)
         if provider.paid:
@@ -154,8 +205,8 @@ def start_next(db: Session, providers: dict[str, Provider]) -> bool:
     return True
 
 
-def run_once(db: Session, providers: dict[str, Provider]) -> None:
-    check_running(db, providers)
+def run_once(db: Session, providers: dict[str, Provider], storage: Storage | None = None) -> None:
+    check_running(db, providers, storage)
     # At most one start per queued job per tick, so a requeued job waits for the next tick.
     queued = db.scalar(select(func.count(Job.id)).where(Job.status == JobStatus.queued))
     for _ in range(queued):
@@ -168,14 +219,15 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
 
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
-    providers = get_providers()
+    providers = get_providers(settings)
+    storage = LocalStorage(settings.storage_dir)
     sessions = make_sessionmaker(settings.database_url)
     with sessions() as db:
         recover(db, providers)
     while True:
         try:
             with sessions() as db:
-                run_once(db, providers)
+                run_once(db, providers, storage)
         except Exception:  # keep the worker alive through e.g. a database hiccup
             log.exception("worker tick failed; trying again next tick")
         time.sleep(settings.worker_poll_seconds)
