@@ -52,4 +52,9 @@ def get_providers(settings) -> dict[str, Provider]:
     from app.providers.fake import FakeProvider
     from app.providers.replicate import ReplicateProvider
 
-    return {"fake": FakeProvider(), "replicate": ReplicateProvider(settings.replicate_base_url)}
+    replicate = ReplicateProvider(
+        settings.replicate_base_url,
+        delivery_hosts=tuple(settings.replicate_delivery_hosts),
+        max_download_mb=settings.max_download_mb,
+    )
+    return {"fake": FakeProvider(), "replicate": replicate}

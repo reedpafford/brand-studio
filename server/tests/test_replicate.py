@@ -1,6 +1,7 @@
 """Replicate adapter against a mocked Replicate API (no real or paid calls)."""
 
 import json
+from datetime import timedelta
 from decimal import Decimal
 
 import httpx2 as httpx
@@ -52,6 +53,10 @@ class FakeReplicate:
             return httpx.Response(200, json={**done, **self.final})
         if url == "https://replicate.delivery/page.html":  # claims video, is a web page
             return httpx.Response(200, content=b"<html>", headers={"content-type": "video/mp4"})
+        if url == "https://replicate.delivery/redirect":
+            return httpx.Response(302, headers={"location": "http://169.254.169.254/x"})
+        if url == "https://replicate.delivery/flaky.mp4":
+            return httpx.Response(503)
         if url == "https://replicate.delivery/out.mp4":
             return httpx.Response(200, content=MP4, headers={"content-type": "video/mp4"})
         return httpx.Response(404)
@@ -171,3 +176,60 @@ def test_watch_model_text_output_and_call_price():
     result = provider.poll("g1")
     assert result.output == {"text": "A cat buys the dip."} and result.files == []
     assert (result.usage[0].unit, result.usage[0].estimated) == ("call", True)
+
+
+def test_plain_text_string_output_is_text_not_a_file():
+    gemini = get_model("gemini-3.5-flash")
+    reply = {"id": "g", "status": "succeeded", "version": gemini.provider_version, "input": {}}
+
+    def handler(request):
+        return httpx.Response(200, json={**reply, "output": "The video shows a cat."})
+
+    provider = ReplicateProvider(BASE, httpx.Client(transport=httpx.MockTransport(handler)))
+    result = provider.poll("g")
+    assert (result.output, result.files) == ({"text": "The video shows a cat."}, [])
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://169.254.169.254/latest/meta-data",
+        "https://api.replicate.com/v1/predictions",
+        "http://replicate.delivery/out.mp4",
+        "https://replicate.delivery.evil.com/out.mp4",
+        "https://localhost/out.mp4",
+    ],
+)
+def test_downloads_only_from_replicate_delivery_over_https(app, owner, db, url):
+    fake = FakeReplicate(final={"output": url})
+    job = _tick(app, db, fake, _job(db), 3)
+    assert job.status == "failed" and "Refusing" in job.error_detail
+    assert all(str(r.url) != url for r in fake.requests)  # never contacted
+    assert db.query(Usage).count() == 1  # the generation's cost is kept
+
+
+def test_redirect_off_the_delivery_hosts_is_refused(app, owner, db, fake):
+    fake.final = {"output": "https://replicate.delivery/redirect"}
+    job = _tick(app, db, fake, _job(db), 3)
+    assert job.status == "failed" and "Refusing" in job.error_detail
+    assert all("169.254" not in str(r.url) for r in fake.requests)
+
+
+def test_oversize_output_is_refused(app, owner, db, fake):
+    providers = _providers(fake)
+    providers["replicate"].max_download = 10
+    job = _job(db)
+    for _ in range(3):
+        run_once(db, providers, app.state.storage)
+    db.refresh(job)
+    assert job.status == "failed" and "download cap" in job.error_detail
+
+
+def test_download_gives_up_after_an_hour(app, owner, db, fake):
+    fake.final = {"output": "https://replicate.delivery/flaky.mp4"}
+    job = _tick(app, db, fake, _job(db), 3)
+    assert job.status == "running"  # still retrying
+    job.started_at = job.started_at - timedelta(hours=2)
+    db.commit()
+    assert _tick(app, db, fake, job).status == "failed"
+    assert db.query(Usage).count() == 1

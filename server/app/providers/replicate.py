@@ -20,9 +20,17 @@ class ReplicateProvider:
     name = "replicate"
     paid = True
 
-    def __init__(self, base_url: str, client: httpx.Client | None = None):
+    def __init__(
+        self,
+        base_url: str,
+        client: httpx.Client | None = None,
+        delivery_hosts: tuple[str, ...] = ("replicate.delivery",),
+        max_download_mb: int = 500,
+    ):
         self.base_url = base_url.rstrip("/")
-        self.client = client or httpx.Client(timeout=TIMEOUT, follow_redirects=True)
+        self.client = client or httpx.Client(timeout=TIMEOUT)  # never follows redirects itself
+        self.delivery_hosts = delivery_hosts
+        self.max_download = max_download_mb * 1024 * 1024
 
     def _call(self, method: str, path: str, **kwargs) -> dict:
         try:
@@ -52,10 +60,10 @@ class ReplicateProvider:
             return Result("failed", error=str(p.get("error") or status))
         output = p.get("output")
         model = get_model(_model_id_from_version(p))
-        files = [output] if isinstance(output, str) else []
-        if isinstance(output, list) and all(_is_url(o) for o in output):
-            files = output
-        text = "".join(output) if isinstance(output, list) and not files else None
+        parts = [output] if isinstance(output, str) else output if isinstance(output, list) else []
+        is_files = bool(parts) and all(_is_url(o) for o in parts)
+        files = parts if is_files else []
+        text = None if is_files or not parts else "".join(str(o) for o in parts)
         return Result(
             "succeeded",
             output={"text": text} if text is not None else {},
@@ -63,15 +71,37 @@ class ReplicateProvider:
             usage=[_usage(model, p, len(files))] if model else [],
         )
 
+    def _allowed(self, url: str) -> bool:
+        """Only https on Replicate's delivery hosts: never internal addresses or the API."""
+        parsed = httpx.URL(url)
+        host = parsed.host.lower()
+        on_delivery = any(host == h or host.endswith(f".{h}") for h in self.delivery_hosts)
+        return parsed.scheme == "https" and on_delivery
+
     def fetch(self, url: str) -> tuple[bytes, str]:
-        try:
-            r = self.client.get(url)
-        except httpx.TransportError as exc:
-            raise NetworkError(repr(exc)) from exc
-        if r.status_code >= 500:
-            raise NetworkError(f"Download failed: {r.status_code}")
-        r.raise_for_status()
-        return r.content, r.headers.get("content-type", "").split(";")[0].strip()
+        """Download one output, following up to 3 redirects that stay on delivery hosts,
+        and stopping past the size cap."""
+        for _ in range(4):
+            if not self._allowed(url):
+                raise RuntimeError(f"Refusing to download from {url!r}.")
+            try:
+                with self.client.stream("GET", url) as r:
+                    if r.is_redirect:
+                        url = str(r.url.join(r.headers.get("location", "")))
+                        continue
+                    if r.status_code >= 500:
+                        raise NetworkError(f"Download failed: {r.status_code}")
+                    r.raise_for_status()
+                    data = bytearray()
+                    for chunk in r.iter_bytes():
+                        data += chunk
+                        if len(data) > self.max_download:
+                            raise RuntimeError("Output file is larger than the download cap.")
+                    content_type = r.headers.get("content-type", "").split(";")[0].strip()
+                    return bytes(data), content_type
+            except httpx.TransportError as exc:
+                raise NetworkError(repr(exc)) from exc
+        raise RuntimeError("Too many redirects downloading the output.")
 
 
 def _model(input: dict) -> CatalogueModel:
