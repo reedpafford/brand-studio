@@ -94,7 +94,7 @@ export function BreakdownView(props: {
   brandId: number;
   scriptVersion: number;
   plannedSeconds: number;
-  makeButton: (label: string, ask?: string) => ReactNode;
+  makeButton: (label: string, opts?: { ask?: string; primary?: boolean }) => ReactNode;
   failed: boolean;
   problem: ReactNode;
   name: (id: string | null) => string;
@@ -151,7 +151,7 @@ export function BreakdownView(props: {
         <h2 className="text-[length:var(--text-md)] font-semibold">
           Breakdown <span className="font-normal text-muted">· {row.source === "edit" ? "edited" : "made by Claude"} for script v{row.script_version}</span>
         </h2>
-        {!row.stale && makeButton("Redo", row.source === "edit" || dirty ? "Replace this breakdown? Your edits are kept in History." : undefined)}
+        {!row.stale && makeButton("Redo", { ask: row.source === "edit" || dirty ? "Replace this breakdown? Your edits are kept in History." : undefined })}
       </div>
       {props.failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
       {props.problem}

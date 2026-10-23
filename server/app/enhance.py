@@ -126,15 +126,32 @@ def _line_starts(text: str) -> list[int]:
     return starts or [0]
 
 
+# How each inserted direction line starts (Designer's spec, #69), so later steps read it as a
+# shot direction, never as spoken or on-screen words.
+TAGS = {
+    "camera": "Camera",
+    "action": "Movement",
+    "reaction": "Reaction",
+    "brand_screen": "Brand screen",
+}
+
+
+def tagged(kind: str, text: str) -> str:
+    tag = f"[{TAGS[kind]}]" if kind in TAGS else ""
+    return f"{tag} {text}" if tag and not text.startswith(tag) else text
+
+
 def apply(text: str, marks: list[Suggestion]) -> str:
-    """Apply accepted marks as new lines before/after the quote's line. The script's own
-    lines are never edited (endings included); any other placement is ignored."""
+    """Apply accepted marks as new tagged lines ("[Camera] Push in.") before/after the quote's
+    line. The script's own lines are never edited (endings included); any other placement is
+    ignored."""
     lines = text.splitlines(keepends=True) or [""]
     before: dict[int, list[str]] = {}
     after: dict[int, list[str]] = {}
     for m in marks:
         if m.placement in ("before", "after"):
-            (before if m.placement == "before" else after).setdefault(m.line - 1, []).append(m.text)
+            side = before if m.placement == "before" else after
+            side.setdefault(m.line - 1, []).append(tagged(m.kind, m.text))
     out = []
     for n, line in enumerate(lines):
         out += [f"{t}\n" for t in before.get(n, [])]

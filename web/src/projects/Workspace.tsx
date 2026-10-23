@@ -77,7 +77,7 @@ export function Stepper(props: { stage: Stage; done: Stage[]; hasScript: boolean
 export type BriefInfo = { goal: string; platform: string; aspect_ratio: string; format: string; planned_seconds: number };
 
 /** The right-hand pane: what to do at the current stage. The script stays on the left. */
-export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: boolean; enhance: EnhanceState; version: number; projectId: number; brandId: number; onPick: (s: Stage) => void }) {
+export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: boolean; enhance: EnhanceState; version: number; projectId: number; brandId: number; used: number; budget: number; onPick: (s: Stage) => void }) {
   const { stage, brief } = props;
   if (stage === "brief")
     return (
@@ -108,11 +108,11 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
           <h2 className="text-[length:var(--text-md)] font-semibold">Enhance</h2>
           <p className="text-muted">Claude suggests camera, movement, reactions and where brand screens show. It never changes your words. Nothing happens until you press Enhance in the script pane.</p>
         </section>
-        <Notes e={props.enhance} version={props.version} />
+        <Notes e={props.enhance} />
       </div>
     );
   if (stage === "breakdown")
-    return <BreakdownPane projectId={props.projectId} brandId={props.brandId} scriptVersion={props.version} plannedSeconds={brief.planned_seconds} />;
+    return <BreakdownPane projectId={props.projectId} brandId={props.brandId} scriptVersion={props.version} plannedSeconds={brief.planned_seconds} used={props.used} budget={props.budget} />;
   return (
     <section className={`${card} text-sm`} aria-label="Coming soon">
       <h2 className="text-[length:var(--text-md)] font-semibold">Coming soon</h2>

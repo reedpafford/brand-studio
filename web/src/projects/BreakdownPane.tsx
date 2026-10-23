@@ -9,7 +9,7 @@ import { BreakdownView } from "./BreakdownView";
 const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
-export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number }) {
+export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number }) {
   const { projectId, brandId, scriptVersion } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -65,17 +65,19 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   if (current.isError) return <p role="alert" className={errorClass}>Could not load the breakdown. Try again.</p>;
   const row = current.data;
 
-  const makeButton = (label: string, ask?: string) => (
+  // Paid buttons say so when this call would take the project past its budget; the server then holds it for approval.
+  const overBudget = cost !== undefined && props.used + cost > props.budget;
+  const makeButton = (label: string, opts: { ask?: string; primary?: boolean } = {}) => (
     <button
-      className={ask ? btnSecondary : btnPrimary}
+      className={opts.primary ? btnPrimary : btnSecondary}
       disabled={running || make.isPending || asked}
       onClick={() => {
-        if (ask && !window.confirm(ask)) return;
+        if (opts.ask && !window.confirm(opts.ask)) return;
         setAsked(false);
         make.mutate();
       }}
     >
-      {label}
+      {overBudget ? "Ask Reed to approve" : label}
       {price}
     </button>
   );
@@ -97,7 +99,7 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
         <p className="text-[length:var(--text-xl)] font-semibold">No breakdown yet.</p>
         <p className="text-muted">Claude splits your script into scenes, shots and clips. Nothing is generated yet.</p>
         {failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
-        {makeButton(failed ? "Try again" : "Make breakdown")}
+        {makeButton(failed ? "Try again" : "Make breakdown", { primary: true })}
         {problem}
       </section>
     );
