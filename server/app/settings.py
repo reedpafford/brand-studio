@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     login_max_failures: int = 5
     login_max_failures_per_ip: int = 20
     login_window_minutes: int = 15
+    # Replicate. In the sandbox the network proxy adds credentials.
+    replicate_base_url: str = "https://api.replicate.com/v1"
+    # Deployed servers have no proxy: set REPLICATE_API_TOKEN there. Never logged.
+    replicate_token: SecretStr = Field(SecretStr(""), validation_alias="REPLICATE_API_TOKEN")
+    # Outputs are only downloaded over https from these hosts (and their subdomains).
+    replicate_delivery_hosts: list[str] = ["replicate.delivery"]
+    max_download_mb: int = 500
     # Claude: key from STUDIO_ANTHROPIC_KEY only (never in code or logs).
     anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
     # Background worker

@@ -11,6 +11,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app.catalogue import get_model
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.credits import (
@@ -25,21 +26,32 @@ from app.models.credits import (
 from app.models.jobs import Job, JobStatus
 
 log = logging.getLogger(__name__)
-# Estimates only; real cost decides the final credits. Claude/Gemini are typical-call guesses.
-LAUNCH_RATES = [
-    ("video-480p", "second", Decimal(1)),
-    ("video-720p", "second", Decimal("2.25")),
-    ("image-nano-banana-2.1", "image", Decimal("0.3333")),
-    ("image-nano-banana-pro", "image", Decimal("1.5")),
-    ("write-claude", "call", Decimal(3)),  # Opus script/breakdown call, ~$0.30
-    ("watch-gemini", "call", Decimal(1)),  # one watch pass, ~$0.10
+# Estimates only; real cost decides the final credits. Generation rates come from the
+# catalogue's default models so the two can't drift; a Claude call is a typical-call guess.
+CATALOGUE_RATES = [  # (rate kind, unit, catalogue model, resolution)
+    ("video-480p", "second", "seedance-2.5", "480p"),
+    ("video-720p", "second", "seedance-2.5", "720p"),
+    ("image-nano-banana-2.1", "image", "nano-banana-2.1", "1K"),
+    ("image-nano-banana-pro", "image", "nano-banana-pro", "1K"),
+    ("watch-gemini", "call", "gemini-3.5-flash", None),
 ]
+OTHER_RATES = [("write-claude", "call", Decimal(3))]  # Opus script/breakdown call, ~$0.30
+
+
+def launch_rates() -> list[tuple[str, str, Decimal]]:
+    from_catalogue = [
+        (kind, unit, get_model(model).credits_per_unit(res))
+        for kind, unit, model, res in CATALOGUE_RATES
+    ]
+    return from_catalogue + OTHER_RATES
+
+
 FALLBACK_RATE = Decimal(1)  # kinds without a rate are still allowed; estimated at 1/unit
 COUNTED = (JobStatus.queued, JobStatus.running, JobStatus.succeeded)
 
 
 def seed_rates(db: Session, workspace_id: int) -> None:
-    for kind, unit, rate in LAUNCH_RATES:
+    for kind, unit, rate in launch_rates():
         if not get_rate(db, workspace_id, kind):
             db.add(
                 CreditRate(workspace_id=workspace_id, kind=kind, unit=unit, credits_per_unit=rate)
@@ -53,7 +65,18 @@ def get_rate(db: Session, workspace_id: int, kind: str) -> CreditRate | None:
     )
 
 
-def estimate(db: Session, workspace_id: int, kind: str, units: Decimal) -> Decimal:
+def estimate(
+    db: Session, workspace_id: int, kind: str, units: Decimal, input: dict | None = None
+) -> Decimal:
+    """Catalogue models (input names a "model") are priced from the catalogue; other job
+    kinds from the rates table."""
+    model = get_model((input or {}).get("model", ""))
+    if model:
+        resolution = (input.get("input") or {}).get("resolution")
+        try:
+            return Decimal(units) * model.credits_per_unit(resolution)
+        except ValueError:  # resolution left to the model: assume the dearest
+            return Decimal(units) * max(model.credits_per_unit(r) for r in model.price.usd)
     rate = get_rate(db, workspace_id, kind)
     if not rate:
         log.warning("No credit rate for %s; estimating %s credit per unit.", kind, FALLBACK_RATE)

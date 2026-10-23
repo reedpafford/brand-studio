@@ -47,6 +47,7 @@ class UsageOut(BaseModel):
     units: Decimal
     unit: str
     cost_usd: Decimal
+    estimated: bool
     created_at: datetime
 
 
@@ -65,7 +66,7 @@ def enqueue(
     that would take its project over budget, sits in a project still waiting for approval,
     or (outside a project) goes past the editor's weekly quick-clip allowance waits as
     `needs_owner_approval`. The check and the reservation are one locked transaction."""
-    credits = estimate(db, user.workspace_id, kind, Decimal(units))
+    credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if project is not None:
         lock(db, Project, project.id)
         db.refresh(project)  # read its status after taking the lock

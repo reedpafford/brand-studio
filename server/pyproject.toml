@@ -10,11 +10,12 @@ dependencies = [
     "uvicorn>=0.54",
     "argon2-cffi>=25.1.0",
     "python-multipart>=0.0.32",
+    "httpx2>=2.13",
     "anthropic>=2.2.0",
 ]
 
 [dependency-groups]
-dev = ["pytest>=9.1", "ruff>=0.17", "httpx2>=2.13"]
+dev = ["pytest>=9.1", "ruff>=0.17"]
 
 [tool.uv]
 package = false
