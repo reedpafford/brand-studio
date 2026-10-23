@@ -1752,7 +1752,7 @@ export interface components {
              * Sheet Status
              * @enum {string}
              */
-            sheet_status: "none" | "drawing" | "needs_approval" | "approved";
+            sheet_status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
         };
         /**
          * ItemPatch
