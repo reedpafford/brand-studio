@@ -9,7 +9,7 @@ from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import PNG, upload
-from tests.helpers import assert_hidden, assert_no_dollars
+from tests.helpers import assert_hidden, assert_no_dollars, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_replicate import BASE
@@ -39,6 +39,7 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     mom = editor.post(
         "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
     ).json()["id"]
+    with_sheet(db, mom)
     editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom]})
     _with_breakdown(app, db, editor, setup)
 
@@ -123,6 +124,7 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     mom = editor.post(
         "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
     ).json()
+    with_sheet(db, mom["id"])
     editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom["id"]]})
     _with_breakdown(app, db, editor, setup)
     url = f"/projects/{setup['project']}/storyboard"
@@ -144,6 +146,13 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     still = editor.get(url).json()[0]["file_id"]
     assert still and editor.get(f"/files/{still}").content == PNG
     assert job.json()["frame_id"] == frame["id"] and job.json()["step"] == "frame"
+    from app.models.library import LibraryItem
+
+    db.get(LibraryItem, mom["id"]).sheet_approved = False  # e.g. Mom was edited since
+    db.commit()
+    r = editor.post(f"{url}/frames/{frame['id']}/render")
+    assert (r.status_code, r.json()["detail"]) == (422, "Approve Mom's sheet first.")
+    with_sheet(db, mom["id"])
     fid = frame["id"]
     assert editor.post(f"{url}/frames/{fid}/approve").json()["approved"] is True
     assert editor.delete(f"{url}/frames/{fid}/approve").json()["approved"] is False
