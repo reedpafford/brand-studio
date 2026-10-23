@@ -1,6 +1,7 @@
 """Enhance: Claude suggests marks on the editor's script (it never rewrites it). Marks are
 anchored by line + exact quote; we compute the offsets, drop any we can't place or that
-would change the script's words, and later add the accepted ones as direction lines."""
+add spoken words, and later add the accepted ones as direction lines. The schema allows only
+before/after marks, so the script's own words never change."""
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -72,12 +73,6 @@ def save_suggestions(db: Session, job: Job) -> None:
     problems = check.enhance(
         version.text, result, {k: s.default_for for k, s in brand_screens.items()}
     )
-    # Reed's rule: Enhance never changes the script's words, only adds direction around lines.
-    problems += [
-        f"{s.id}: changes the script's words"
-        for s in result.suggestions
-        if s.kind == "cut" or s.placement not in ("before", "after")
-    ]
     bad = {p.split(":", 1)[0] for p in problems}
     starts = _line_starts(version.text)
     lines = version.text.splitlines()

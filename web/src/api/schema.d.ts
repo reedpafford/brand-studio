@@ -798,6 +798,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/script/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notes
+         * @description Claude's notes on the words of the working version (newest Enhance), for information:
+         *     only the editor changes the words.
+         */
+        get: operations["list_notes_projects__project_id__script_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/script/suggestions/{suggestion_id}/accept": {
         parameters: {
             query?: never;
@@ -1488,6 +1509,13 @@ export interface components {
             expires_at: string;
             /** Token */
             token: string;
+        };
+        /** NoteOut */
+        NoteOut: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
         };
         /** Outfit */
         Outfit: {
@@ -3475,6 +3503,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuggestionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notes_projects__project_id__script_notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"][];
                 };
             };
             /** @description Validation Error */

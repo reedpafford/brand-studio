@@ -80,10 +80,10 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
                     f"screen:{setup['screen']}",
                 ),
                 _mark("s3", "camera", 3, "not in the script", "after", "Push in."),
-                _mark("s4", "scene_break", 1, "SCENE 1", "before", "COLD OPEN"),
-                _mark("s5", "camera", 3, "all your money", "replace", "all your cash"),
-                _mark("s6", "cut", 4, "I bought the dip.", "replace", ""),
-            ]
+                _mark("s4", "camera", 1, "SCENE 1", "before", "Wide on the kitchen."),
+                _mark("s5", "action", 3, "all your money", "after", 'NATE: "Spent it."'),
+            ],
+            "notes": [{"line": 4, "text": "The dip line lands better if Nate smiles."}],
         }
     )
     job = editor.post(f"{url}/enhance")
@@ -92,8 +92,9 @@ def test_enhance_suggest_accept_apply(app, editor, db, setup):
     done = db.get(Job, job.json()["id"])
     assert done.status == "succeeded" and done.output["kept"] == 3
     assert "s3: quote not found on line 3" in done.output["dropped"]
-    for key in ("s5", "s6"):  # Enhance never changes the script's words
-        assert f"{key}: changes the script's words" in done.output["dropped"]
+    assert "s5: adds spoken words" in done.output["dropped"]
+    notes = editor.get(f"{url}/notes").json()
+    assert notes == [{"line": 4, "text": "The dip line lands better if Nate smiles."}]
     assert db.query(Usage).one().unit == "call"
     sent = fake.requests[0]
     assert (
@@ -171,6 +172,7 @@ def test_other_workspace_is_shut_out(outsider, setup):
         [
             ("POST", f"{url}/enhance"),
             ("GET", f"{url}/suggestions"),
+            ("GET", f"{url}/notes"),
             ("POST", f"{url}/apply"),
             ("POST", f"{url}/suggestions/1/accept"),
         ],

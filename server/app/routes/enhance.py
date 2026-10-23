@@ -10,6 +10,7 @@ from app.auth import current_user
 from app.db import get_db
 from app.enhance import apply, job_input
 from app.models.accounts import User
+from app.models.jobs import Job, JobStatus
 from app.models.scripts import Suggestion
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
@@ -32,6 +33,11 @@ class SuggestionOut(BaseModel):
     screen_id: int | None
     reason: str
     status: str
+
+
+class NoteOut(BaseModel):
+    line: int
+    text: str
 
 
 class ApplyOut(BaseModel):
@@ -73,6 +79,22 @@ def list_suggestions(
         .where(Suggestion.project_id == project.id, Suggestion.script_version == version.version)
         .order_by(Suggestion.start, Suggestion.id)
     ).all()
+
+
+@router.get("/notes", response_model=list[NoteOut])
+def list_notes(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Claude's notes on the words of the working version (newest Enhance), for information:
+    only the editor changes the words."""
+    project, version = _working(db, user, project_id)
+    jobs = db.scalars(
+        select(Job)
+        .where(Job.project_id == project.id, Job.status == JobStatus.succeeded)
+        .order_by(Job.id.desc())
+    )
+    for job in jobs:
+        if job.input.get("step") == "enhance" and job.input["script_version"] == version.version:
+            return (job.output or {}).get("notes", [])
+    return []
 
 
 def _decide(db: Session, user: User, project_id: int, suggestion_id: int, status: str):

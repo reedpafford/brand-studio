@@ -23,7 +23,8 @@ ANSWER = {
             "screen_id": "screen:1",
             "reason": "Required screen.",
         }
-    ]
+    ],
+    "notes": [],
 }
 
 
