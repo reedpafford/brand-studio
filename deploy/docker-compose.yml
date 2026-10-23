@@ -1,0 +1,89 @@
+# Brand Studio on one server. Run from this folder: docker compose up -d --build
+# Settings and keys live in deploy/.env (copy .env.example). Never commit .env.
+name: brand-studio
+
+x-server: &server
+  build:
+    context: ..
+    dockerfile: deploy/server.Dockerfile
+  image: brand-studio-server
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    BS_ENV: production
+    BS_DATABASE_URL: postgresql+psycopg://brand:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@db:5432/brand
+    BS_STORAGE_DIR: /data/storage
+    BS_COOKIE_SECURE: "true"
+  volumes:
+    - files:/data/storage
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: brand
+      POSTGRES_DB: brand
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "brand", "-d", "brand"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Runs once per deploy: brings the database up to date, then exits.
+  migrate:
+    <<: *server
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    <<: *server
+    # No published port: only Caddy can reach it, so trusting its forwarded headers is safe.
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  worker:
+    <<: *server
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    image: brand-studio-web
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db:
+  files:
+  caddy_data:
+  caddy_config:

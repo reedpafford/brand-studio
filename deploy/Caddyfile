@@ -1,0 +1,15 @@
+# DOMAIN comes from deploy/.env. Caddy gets and renews the HTTPS certificate itself.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# The API lives under /api; the prefix is removed before it reaches the server.
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
