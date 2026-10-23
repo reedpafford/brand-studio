@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { image, signIn } from "./helpers";
 
+const MP3 = { name: "voice.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("ID3" + "0".repeat(32)) };
+
 // Runs after brand.e2e.ts, in order, on the fomo brand. Characters Max and Rex are made in the first tests.
 test.describe.configure({ mode: "serial" });
 
@@ -47,6 +49,29 @@ test("editing keeps history, and an old version can be restored", async ({ page 
   await page.getByRole("button", { name: "Restore v1" }).click();
   await expect(page.getByLabel("Notes")).toHaveValue("");
   await expect(page.getByRole("button", { name: "Restore v2" })).toBeVisible();
+});
+
+test("a character always keeps at least one brand", async ({ page }) => {
+  await page.getByRole("link", { name: "Max" }).click();
+  await page.getByLabel("fomo").uncheck();
+  await expect(page.getByText("Pick at least one brand.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
+});
+
+test("outfits and a voice sample are saved on a character", async ({ page }) => {
+  await page.getByRole("link", { name: "Max" }).click();
+  await page.getByRole("button", { name: "Add outfit" }).click();
+  await page.getByLabel("Outfit 1 name").fill("Gym kit");
+  await page.getByLabel("Add picture to outfit 1").setInputFiles(image("gym.png"));
+  await expect(page.getByRole("img", { name: "Gym kit" })).toBeVisible();
+  await page.getByLabel("Voice file").setInputFiles(MP3);
+  await expect(page.getByLabel("Voice sample")).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await page.reload();
+  await expect(page.getByLabel("Outfit 1 name")).toHaveValue("Gym kit");
+  await expect(page.getByRole("img", { name: "Gym kit" })).toBeVisible();
+  await expect(page.getByLabel("Voice sample")).toBeVisible();
 });
 
 test("archiving hides a character, and unarchiving brings it back", async ({ page }) => {
