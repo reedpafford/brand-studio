@@ -1,0 +1,386 @@
+{
+ "hook": "Second one: a furious neighbour storms the fence waving a dug-up rose and yells 'That mutt dug up my roses again!' while Tank freezes mid-dig with soil on his nose. An angry adult against a guilty-looking dog is instant conflict, and the shelter threat lands by second 6.",
+ "scenes": [
+  {
+   "id": 1,
+   "heading": "EXT. BACK GARDEN — DAY",
+   "look": "Bright but harsh midday sun with hard shadows; torn-up rose bed and scattered soil in the foreground; Mr. Hale's tidy garden looms over the fence.",
+   "shots": [
+    {
+     "id": "1.1",
+     "script_lines": [
+      1,
+      2
+     ],
+     "speaker": "Mr. Hale",
+     "line": "That mutt dug up my roses again!",
+     "action": "Mr. Hale leans over the fence, shaking a broken rose stem at the hole in the bed.",
+     "reaction": "Face red, eyes bulging.",
+     "camera": "Low-angle medium close-up on Mr. Hale over the fence, fast push-in",
+     "seconds": 1.8,
+     "character_ids": [
+      "char:3"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.2",
+     "script_lines": [
+      3
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Tank stops mid-dig, paws in the hole, soil on his nose.",
+     "reaction": "Tank's eyes go huge and his ears flatten, frozen like a statue.",
+     "camera": "Close-up on Tank at ground level, snap zoom",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.3",
+     "script_lines": [
+      4
+     ],
+     "speaker": "Sam",
+     "line": "He's just looking for something.",
+     "action": "Sam runs in and kneels beside Tank, arms out to shield him.",
+     "reaction": null,
+     "camera": "Medium close-up on Sam, slightly high angle looking down from Hale's side",
+     "seconds": 1.5,
+     "character_ids": [
+      "char:2",
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.4",
+     "script_lines": [
+      5
+     ],
+     "speaker": "Mr. Hale",
+     "line": "One more hole and he goes back to the shelter.",
+     "action": "Mr. Hale jabs a finger down at Tank.",
+     "reaction": "Sam's mouth falls open, eyes welling.",
+     "camera": "Tight close-up on Mr. Hale, slow push-in, brows crashed down",
+     "seconds": 2.8,
+     "character_ids": [
+      "char:3"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "1.5",
+     "script_lines": [
+      6
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Sam throws his arms around Tank and hugs him tight.",
+     "reaction": "Tank's tail droops, he rests his chin on Sam's shoulder.",
+     "camera": "High wide shot, boy and dog small beside the wrecked rose bed",
+     "seconds": 1.5,
+     "character_ids": [
+      "char:2",
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "heading": "EXT. BACK GARDEN — NIGHT",
+   "look": "Dark blue garden lit by warm yellow light spilling from the kitchen door onto the back step, bowl and bag glowing in it.",
+   "shots": [
+    {
+     "id": "2.1",
+     "script_lines": [
+      7,
+      8
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Sam's hands pour kibble into Tank's bowl on the back step, the Iron Paws bag beside it with its label to camera.",
+     "reaction": null,
+     "camera": "Close insert on the bowl and bag at step level, static",
+     "seconds": 1.5,
+     "character_ids": [],
+     "place_id": "place:1",
+     "moment": "feeding",
+     "screen_ids": [
+      "screen:11"
+     ]
+    },
+    {
+     "id": "2.2",
+     "script_lines": [
+      7
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Tank dives in and wolfs the food down, the Iron Paws bag standing beside the bowl.",
+     "reaction": "Tail wagging wildly, kibble flying.",
+     "camera": "Low-angle close-up on Tank eating, bag in frame, slight push-in",
+     "seconds": 1.5,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:1",
+     "moment": "feeding",
+     "screen_ids": [
+      "screen:11"
+     ]
+    },
+    {
+     "id": "2.3",
+     "script_lines": [
+      7
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Tank licks his lips and looks up at Sam.",
+     "reaction": "Tank's ears perk up, eyes bright and determined; Sam smiles back.",
+     "camera": "Close-up on Tank's face, warm doorway light, static",
+     "seconds": 1.2,
+     "character_ids": [
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:1",
+     "moment": null,
+     "screen_ids": []
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "heading": "EXT. PARK — DUSK",
+   "look": "Cold purple-blue dusk with long shadows for the panic, turning warm orange as the last sunlight hits the ring and everyone smiles.",
+   "shots": [
+    {
+     "id": "3.1",
+     "script_lines": [
+      9,
+      10
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Mr. Hale's shaking hands tear through a bush, a pale band of skin on his bare ring finger.",
+     "reaction": null,
+     "camera": "Insert on his hands in the leaves, handheld",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:3"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.2",
+     "script_lines": [
+      11
+     ],
+     "speaker": "Mr. Hale",
+     "line": "My ring. My wife's ring. It's gone.",
+     "action": "Mr. Hale straightens up, staring at his empty hand.",
+     "reaction": "Lip trembling, eyes glassy; Sam and Tank watch from the path.",
+     "camera": "High-angle close-up on Mr. Hale, isolated against the dark bushes",
+     "seconds": 2.2,
+     "character_ids": [
+      "char:3"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.3",
+     "script_lines": [
+      12
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Tank puts his nose to the grass and sniffs hard.",
+     "reaction": "Ears shoot up.",
+     "camera": "Macro close-up on Tank's nose in the grass, tracking",
+     "seconds": 1.0,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.4",
+     "script_lines": [
+      12
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Tank digs like crazy, dirt flying behind him.",
+     "reaction": "Sam's eyes go wide, Mr. Hale turns.",
+     "camera": "Low wide from behind the spray of dirt, fast push-in",
+     "seconds": 1.5,
+     "character_ids": [
+      "char:1",
+      "char:2",
+      "char:3"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.5",
+     "script_lines": [
+      13
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Tank pops up out of the hole with the ring glinting in his teeth.",
+     "reaction": "Tank's tail wags proudly.",
+     "camera": "Low-angle close-up, tracking him up, ring catching the sunset",
+     "seconds": 1.2,
+     "character_ids": [
+      "char:1"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.6",
+     "script_lines": [
+      14
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Mr. Hale drops to his knees in front of Tank.",
+     "reaction": "Jaw drops, hand over his mouth.",
+     "camera": "Medium shot on Mr. Hale, falling into frame, static",
+     "seconds": 1.2,
+     "character_ids": [
+      "char:3",
+      "char:1"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.7",
+     "script_lines": [
+      15
+     ],
+     "speaker": "Mr. Hale",
+     "line": "Good boy. Good, good boy.",
+     "action": "Mr. Hale takes the ring from Tank's mouth and cups his face.",
+     "reaction": "Tears and a shaky grin.",
+     "camera": "Close two-shot, warm sunset backlight, slow push-in",
+     "seconds": 1.8,
+     "character_ids": [
+      "char:3",
+      "char:1"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.8",
+     "script_lines": [
+      16
+     ],
+     "speaker": "Sam",
+     "line": "Still want him gone?",
+     "action": "Sam folds his arms with a cheeky look.",
+     "reaction": "Eyebrow raised, smirk.",
+     "camera": "Low-angle medium close-up on Sam, static",
+     "seconds": 1.4,
+     "character_ids": [
+      "char:2"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    },
+    {
+     "id": "3.9",
+     "script_lines": [
+      17
+     ],
+     "speaker": null,
+     "line": null,
+     "action": "Mr. Hale scratches Tank's ears and laughs while Tank leans into him.",
+     "reaction": "Tank's tongue lolls, eyes half-shut in bliss; Sam grins.",
+     "camera": "Low wide three-shot against the golden sky, slow tracking arc",
+     "seconds": 2.0,
+     "character_ids": [
+      "char:3",
+      "char:1",
+      "char:2"
+     ],
+     "place_id": "place:2",
+     "moment": null,
+     "screen_ids": []
+    }
+   ]
+  }
+ ],
+ "clips": [
+  {
+   "id": "c1",
+   "shot_ids": [
+    "1.1",
+    "1.2",
+    "1.3",
+    "1.4",
+    "1.5"
+   ],
+   "seconds": 9,
+   "seam": "Hard cut to that night."
+  },
+  {
+   "id": "c2",
+   "shot_ids": [
+    "2.1",
+    "2.2",
+    "2.3"
+   ],
+   "seconds": 5,
+   "seam": "Hard cut to the park at dusk."
+  },
+  {
+   "id": "c3",
+   "shot_ids": [
+    "3.1",
+    "3.2",
+    "3.3",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7",
+    "3.8",
+    "3.9"
+   ],
+   "seconds": 14,
+   "seam": "end"
+  }
+ ]
+}

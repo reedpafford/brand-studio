@@ -51,7 +51,11 @@ def test_import_folder_uses_manifest_or_filename(app, owner, db, tmp_path):
 
 
 def _setup_with_screens_dir(app, client, folder):
-    app.state.settings.fomo_screens_dir = str(folder)
+    """`folder` plays fomo's screens folder: <assets>/fomo/screens."""
+    assets = folder / "_assets"  # inside the test's own tmp folder
+    (assets / "fomo").mkdir(parents=True)
+    (assets / "fomo" / "screens").symlink_to(folder, target_is_directory=True)
+    app.state.settings.brand_assets_dir = str(assets)
     r = client.post(
         "/auth/setup",
         json={
@@ -85,7 +89,7 @@ def test_setup_still_works_when_screen_import_breaks(app, client, tmp_path):
 def test_real_fomo_assets_import_with_names_moments_logo_and_style_board(app, owner, db):
     from app.settings import Settings
 
-    folder = Path(Settings().fomo_screens_dir)
+    folder = Path(Settings().brand_assets_dir) / "fomo" / "screens"
     fomo = db.query(Brand).filter_by(slug="fomo").one()
     assert import_screens(db, app.state.storage, fomo, folder) == 4
     screens = {s["name"]: s for s in owner.get(f"/brands/{fomo.id}/screens").json()}
@@ -94,3 +98,29 @@ def test_real_fomo_assets_import_with_names_moments_logo_and_style_board(app, ow
     kit = owner.get(f"/brands/{fomo.id}").json()
     assert kit["logo_file_id"] and kit["style_board_file_id"]
     assert owner.get(f"/files/{kit['logo_file_id']}").headers["content-type"] == "image/png"
+
+
+def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
+    from app.settings import Settings
+
+    app.state.settings.brand_assets_dir = Settings().brand_assets_dir
+    client.post(
+        "/auth/setup",
+        json={
+            "setup_token": SETUP_TOKEN,
+            "workspace_name": "S",
+            "email": "reed@example.com",
+            "name": "Reed",
+            "password": PASSWORD,
+        },
+    )
+    brands = {b["slug"]: b["id"] for b in client.get("/brands").json()}
+    fomo = client.get(f"/brands/{brands['fomo']}/screens").json()
+    bag = client.get(f"/brands/{brands['iron-paws']}/screens").json()
+    assert len(fomo) == 4
+    assert [(s["name"], s["tags"]) for s in bag] == [("Iron Paws bag (front)", ["bag", "product"])]
+    assert "feeding" in bag[0]["default_for"]
+    file = client.get(f"/files/{bag[0]['file_id']}")
+    assert file.headers["content-type"] == "image/webp"
+    moment = client.get(f"/brands/{brands['iron-paws']}/screens", params={"moment": "feeding"})
+    assert [s["name"] for s in moment.json()] == ["Iron Paws bag (front)"]

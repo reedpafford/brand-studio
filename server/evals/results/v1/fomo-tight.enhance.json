@@ -1,0 +1,64 @@
+{
+ "suggestions": [
+  {
+   "id": "s1",
+   "kind": "action",
+   "anchor": {
+    "line": 2,
+    "quote": "MAYA: Did you see STONK? It's flying."
+   },
+   "placement": "before",
+   "text": "Maya drops into the seat next to Leo, phone thrust in his face, breathless.",
+   "screen_id": null,
+   "reason": "Gives the first second visible urgency, so the hook lands even with the sound off."
+  },
+  {
+   "id": "s2",
+   "kind": "action",
+   "anchor": {
+    "line": 3,
+    "quote": "Leo already has fomo open."
+   },
+   "placement": "after",
+   "text": "Without looking up, Leo calmly tilts his phone toward her, half a smirk.",
+   "screen_id": null,
+   "reason": "Shows he was already ahead of her, which sets up the twist."
+  },
+  {
+   "id": "s3",
+   "kind": "camera",
+   "anchor": {
+    "line": 8,
+    "quote": "LEO: Six cents."
+   },
+   "placement": "before",
+   "text": "Quick push-in on Leo's face as he delivers it, deadpan.",
+   "screen_id": null,
+   "reason": "The punchline is the payoff of the video, so give it a beat of weight."
+  },
+  {
+   "id": "s4",
+   "kind": "reaction",
+   "anchor": {
+    "line": 8,
+    "quote": "LEO: Six cents."
+   },
+   "placement": "after",
+   "text": "Maya snatches the phone and stares at it, mouth open, then slowly looks up at Leo; hold.",
+   "screen_id": null,
+   "reason": "A held, readable reaction lets the win sink in before the cut."
+  },
+  {
+   "id": "s5",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 8,
+    "quote": "LEO: Six cents."
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Token chart up — on the phone in Maya's hands, fills the frame",
+   "screen_id": "screen:2",
+   "reason": "The final shot proves he caught it early, which is the brief's message, on the real fomo screen."
+  }
+ ]
+}

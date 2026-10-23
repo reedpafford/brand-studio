@@ -9,11 +9,11 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import estimate, lock, needs_approval
+from app.credits import check_video_cap, estimate, lock, needs_approval
 from app.db import get_db, utcnow
 from app.models.accounts import User
-from app.models.credits import Project
 from app.models.jobs import Job, JobStatus, Usage
+from app.models.projects import Project
 
 router = APIRouter(tags=["jobs"])
 
@@ -112,6 +112,7 @@ def enqueue(
     if project is not None:
         lock(db, Project, project.id)
         db.refresh(project)  # read its status after taking the lock
+        check_video_cap(db, user, project, credits)
     else:
         lock(db, User, user.id)
     over = needs_approval(db, user, project, credits)
@@ -164,6 +165,10 @@ def read_job_detail(job_id: int, owner: User = Depends(owner_only), db: Session 
 def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)):
     """Owner lets a job that goes over its project budget run."""
     job = _get_job(db, owner, job_id)
+    if job.project_id is not None and job.status == JobStatus.needs_owner_approval:
+        project = db.get(Project, job.project_id)
+        lock(db, Project, project.id)
+        check_video_cap(db, owner, project, job.credits)  # not even the owner goes past it
     done = db.execute(
         update(Job)
         .where(Job.id == job.id, Job.status == JobStatus.needs_owner_approval)

@@ -34,6 +34,9 @@ def score(out: Path, case: dict) -> list[str]:
             marks.setdefault(s.anchor.line, []).append(s)
         kinds = {n: {s.kind for s in ms} for n, ms in marks.items()}
         replaced = {n for n, ms in marks.items() if any(s.placement == "replace" for s in ms)}
+        for n, word in exp.get("flag_lines", {}).items():
+            if not any(word in s.reason.lower() for s in marks.get(int(n), [])):
+                problems.append(f"expected a mark on line {n} that mentions '{word}'")
         for n, sid in exp.get("screens_at", {}).items():
             if not any(s.screen_id == sid for s in marks.get(int(n), [])):
                 problems.append(f"expected {sid} at line {n}")

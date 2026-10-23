@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from fastapi import HTTPException
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
@@ -16,14 +17,14 @@ from app.db import utcnow
 from app.models.accounts import User
 from app.models.credits import (
     DEFAULT_MAX_PLANNED_SECONDS,
+    DEFAULT_PER_VIDEO_MAX_CREDITS,
     DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
     USD_PER_CREDIT,
     CreditLimits,
     CreditRate,
-    Project,
-    ProjectStatus,
 )
 from app.models.jobs import Job, JobStatus
+from app.models.projects import Project, ProjectStatus
 
 log = logging.getLogger(__name__)
 # Estimates only; real cost decides the final credits. Generation rates come from the
@@ -95,7 +96,24 @@ def get_limits(db: Session, workspace_id: int) -> CreditLimits:
         workspace_id=workspace_id,
         max_planned_seconds=DEFAULT_MAX_PLANNED_SECONDS,
         weekly_quick_clip_credits=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
+        per_video_max_credits=DEFAULT_PER_VIDEO_MAX_CREDITS,
     )
+
+
+def over_cap(user: User, cap: int) -> HTTPException:
+    """The per-video hard limit. The owner sees dollars; editors never do."""
+    if user.is_owner:
+        dollars = (cap * USD_PER_CREDIT).quantize(Decimal(1))
+        return HTTPException(409, f"This video would go over its ${dollars} limit.")
+    return HTTPException(409, "This video would go over its limit.")
+
+
+def check_video_cap(db: Session, user: User, project: Project, credits: Decimal) -> None:
+    """Refuse (for everyone) a job that would take the project past the per-video maximum.
+    Call with the project row locked."""
+    cap = get_limits(db, project.workspace_id).per_video_max_credits
+    if credits_used(db, project) + credits > cap:
+        raise over_cap(user, cap)
 
 
 def _sum_credits(db: Session, *where) -> Decimal:
