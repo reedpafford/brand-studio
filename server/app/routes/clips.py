@@ -36,13 +36,14 @@ from app.storage import Storage
 router = APIRouter(prefix="/clips", tags=["clips"])
 OVER_ALLOWANCE = "This goes past your weekly quick-clip allowance, so the owner must approve it."
 MAX_REFERENCE_BYTES = 100 * 1024 * 1024
-Prompt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=4000)]
+Prompt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=6000)]
 
 
 class ClipIn(BaseModel):
     brand_id: int
     model_id: str = "seedance-2.5"
     prompt: Prompt
+    improved: bool = False  # the prompt came from Improve: it already says which picture is which
     aspect_ratio: str = "9:16"
     duration: int = Field(5, description="Seconds")
     resolution: str = "480p"
@@ -71,6 +72,7 @@ class _Plan(BaseModel):
     files: dict[str, list[int]]
     auto_screen_ids: list[int]
     prompt: str  # what the model gets: reference lines + the editor's words
+    references: str  # the reference lines alone (Improve copies them into its prompt)
     exact: list[int]  # brand screens and props (products): never lossy
     credits: Decimal
 
@@ -150,7 +152,15 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     if files["reference_audios"] and not (files["reference_images"] or files["reference_videos"]):
         raise HTTPException(422, "Audio references need at least one image or video with them.")
     _check_media_length(db, storage, model, files)
-    prompt = _prompt(body.prompt, refs, files["reference_images"])
+    references, text = _references(body.prompt, refs, files["reference_images"])
+    if body.improved:  # sent as written; its References line must match today's pieces
+        if references and f"References: {references}" not in body.prompt.splitlines():
+            raise HTTPException(
+                422, "The brand pieces changed since Improve prompt. Improve it again."
+            )
+        prompt = body.prompt
+    else:
+        prompt = f"{references}\n{text}" if references else text
     credits = estimate(
         db,
         user.workspace_id,
@@ -159,13 +169,20 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
         _job_input(model, body, files, prompt, exact),
     )
     return _Plan(
-        model=model, files=files, auto_screen_ids=auto, prompt=prompt, exact=exact, credits=credits
+        model=model,
+        files=files,
+        auto_screen_ids=auto,
+        prompt=prompt,
+        references=references,
+        exact=exact,
+        credits=credits,
     )
 
 
-def _prompt(text: str, refs: dict[int, dict], images: list[int]) -> str:
+def _references(text: str, refs: dict[int, dict], images: list[int]) -> tuple[str, str]:
     """Say which picture is which (FIT row 4): Seedance only knows them by upload number.
-    The words are the Director's (`prompts.reference_lines`); '@Name' becomes its [ImageN]."""
+    Returns the reference lines (the Director's `prompts.reference_lines`) and the editor's
+    text with '@Name' turned into its [ImageN]."""
     extra = (f for f in images if f not in refs)
     refs = {
         **refs,
@@ -176,8 +193,7 @@ def _prompt(text: str, refs: dict[int, dict], images: list[int]) -> str:
     for n, file_id in enumerate(images, 1):
         if refs[file_id]["kind"] != "upload":
             names.setdefault(refs[file_id]["name"], n)
-    text = bind_names(text, names)
-    return f"{head}\n{text}" if head else text
+    return head, bind_names(text, names)
 
 
 def _check_media_length(db: Session, storage: Storage, model: CatalogueModel, files) -> None:

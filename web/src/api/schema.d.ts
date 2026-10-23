@@ -1181,6 +1181,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clips/improve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Improve
+         * @description Queue an Improve call (a paid Claude call, about 3 credits from the weekly allowance).
+         *     The brand pieces are checked as for Generate, so the reference lines match.
+         */
+        post: operations["improve_clips_improve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clips/improve/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Result */
+        get: operations["result_clips_improve__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/estimate": {
         parameters: {
             query?: never;
@@ -1449,6 +1487,11 @@ export interface components {
             /** Prompt */
             prompt: string;
             /**
+             * Improved
+             * @default false
+             */
+            improved: boolean;
+            /**
              * Aspect Ratio
              * @default 9:16
              */
@@ -1588,6 +1631,96 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImproveIn */
+        ImproveIn: {
+            /** Brand Id */
+            brand_id: number;
+            /**
+             * Model Id
+             * @default seedance-2.5
+             */
+            model_id: string;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Improved
+             * @default false
+             */
+            improved: boolean;
+            /**
+             * Aspect Ratio
+             * @default 9:16
+             */
+            aspect_ratio: string;
+            /**
+             * Duration
+             * @description Seconds
+             * @default 5
+             */
+            duration: number;
+            /**
+             * Resolution
+             * @default 480p
+             */
+            resolution: string;
+            /**
+             * Generate Audio
+             * @default true
+             */
+            generate_audio: boolean;
+            /**
+             * Character Ids
+             * @default []
+             */
+            character_ids: number[];
+            /**
+             * Place Ids
+             * @default []
+             */
+            place_ids: number[];
+            /**
+             * Prop Ids
+             * @default []
+             */
+            prop_ids: number[];
+            /**
+             * Screen Ids
+             * @default []
+             */
+            screen_ids: number[];
+            /**
+             * File Ids
+             * @default []
+             */
+            file_ids: number[];
+            /**
+             * Skip Screen Ids
+             * @default []
+             */
+            skip_screen_ids: number[];
+            /**
+             * Direction
+             * @default Cinematic
+             * @enum {string}
+             */
+            direction: "Cinematic" | "Realistic" | "Funny" | "Product ad";
+            /**
+             * Shots
+             * @default 2
+             */
+            shots: number;
+        };
+        /** ImproveOut */
+        ImproveOut: {
+            /** Status */
+            status: string;
+            /** Prompt */
+            prompt: string | null;
+            /** Problems */
+            problems: string[];
+            /** Error */
+            error: string;
         };
         /** InviteIn */
         InviteIn: {
@@ -4872,6 +5005,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    improve_clips_improve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImproveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    result_clips_improve__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImproveOut"];
                 };
             };
             /** @description Validation Error */

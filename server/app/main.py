@@ -13,6 +13,7 @@ from app.routes import (
     enhance,
     files,
     health,
+    improve,
     jobs,
     library,
     models,
@@ -53,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         breakdown,
         storyboard,
         project_clips,
+        improve,
         clips,
     ):
         app.include_router(module.router)
