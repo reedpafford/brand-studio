@@ -12,13 +12,24 @@ export const STAGES = [
 export type Stage = (typeof STAGES)[number]["id"];
 const BUILT: Stage[] = ["brief", "script", "enhance"];
 
+/** Why a stage can't be opened right now, or null when it can. */
+export function lockReason(stage: Stage, hasScript: boolean): string | null {
+  if (!BUILT.includes(stage)) return "Coming soon";
+  if (stage === "enhance" && !hasScript) return "Finish the script first";
+  return null;
+}
+
+/** Where a link to a locked stage should land: the first stage not finished yet. */
+export const firstUnfinished = (hasScript: boolean): Stage => (hasScript ? "enhance" : "script");
+
 /** Done steps get a tick, the current one is filled, the ones not built yet say why they can't be opened. */
-export function Stepper(props: { stage: Stage; done: Stage[]; onPick: (s: Stage) => void }) {
+export function Stepper(props: { stage: Stage; done: Stage[]; hasScript: boolean; onPick: (s: Stage) => void }) {
   return (
     <>
       <ol className="hidden flex-wrap items-center gap-x-2 gap-y-1 text-sm lg:flex" aria-label="Stages">
         {STAGES.map((s, i) => {
-          const open = BUILT.includes(s.id);
+          const why = lockReason(s.id, props.hasScript);
+          const open = why === null;
           const current = s.id === props.stage;
           const done = props.done.includes(s.id);
           return (
@@ -28,7 +39,7 @@ export function Stepper(props: { stage: Stage; done: Stage[]; onPick: (s: Stage)
                 type="button"
                 disabled={!open}
                 aria-current={current ? "step" : undefined}
-                title={open ? undefined : "Coming soon"}
+                title={why ?? undefined}
                 className={`rounded-sm px-2 py-1 ${current ? "bg-accent-soft font-medium text-accent-text" : open ? "text-text" : "text-faint"}`}
                 onClick={() => props.onPick(s.id)}
               >
@@ -47,12 +58,15 @@ export function Stepper(props: { stage: Stage; done: Stage[]; onPick: (s: Stage)
           value={props.stage}
           onChange={(e) => props.onPick(e.target.value as Stage)}
         >
-          {STAGES.map((s) => (
-            <option key={s.id} value={s.id} disabled={!BUILT.includes(s.id)}>
-              {s.label}
-              {BUILT.includes(s.id) ? "" : " (coming soon)"}
-            </option>
-          ))}
+          {STAGES.map((s) => {
+            const why = lockReason(s.id, props.hasScript);
+            return (
+              <option key={s.id} value={s.id} disabled={why !== null}>
+                {s.label}
+                {why ? ` (${why.toLowerCase()})` : ""}
+              </option>
+            );
+          })}
         </select>
       </label>
     </>
@@ -79,7 +93,7 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
     return (
       <section className={`${card} space-y-2 text-sm`} aria-label="Script stage">
         <h2 className="text-[length:var(--text-md)] font-semibold">Script</h2>
-        <p className="text-muted">Paste your script or upload a document on the left. Every save is kept as a version, and you can come back to any of them from History.</p>
+        <p className="text-muted">Paste your script or upload a document in the script pane. Every save is kept as a version, and you can come back to any of them from History.</p>
         <button className={btnPrimary} disabled={!props.hasScript} onClick={() => props.onPick("enhance")}>
           Next: Enhance →
         </button>
@@ -91,7 +105,7 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
       <div className="space-y-4">
         <section className={`${card} space-y-2 text-sm`} aria-label="Enhance stage">
           <h2 className="text-[length:var(--text-md)] font-semibold">Enhance</h2>
-          <p className="text-muted">Claude suggests camera, movement, reactions and where brand screens show. It never changes your words. Nothing happens until you press Enhance on the left.</p>
+          <p className="text-muted">Claude suggests camera, movement, reactions and where brand screens show. It never changes your words. Nothing happens until you press Enhance in the script pane.</p>
         </section>
         <Notes e={props.enhance} version={props.version} />
       </div>

@@ -73,3 +73,27 @@ test("on a phone a Stage menu replaces the steps, and Script / stage tabs switch
   expect(await screen.findByLabelText("Enhance stage")).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Enhance" })).toBeInTheDocument();
 });
+
+test("Enhance stays locked until a script exists, and a link to it lands on the Script step", async () => {
+  fakeServer({ ...base, "GET /projects/9/script": [404, { detail: "This project has no script yet." }] });
+  open("?stage=enhance");
+  expect(await screen.findByLabelText("Script stage")).toBeInTheDocument();
+  const steps = screen.getByRole("list", { name: "Stages" });
+  const enhance = within(steps).getByRole("button", { name: /Enhance/ });
+  expect(enhance).toBeDisabled();
+  expect(enhance).toHaveAttribute("title", "Finish the script first");
+  expect(within(screen.getByLabelText("Stage")).getByRole("option", { name: "Enhance (finish the script first)" })).toBeDisabled();
+});
+
+test("a link to a stage that isn't built yet lands on the first unfinished one", async () => {
+  fakeServer({ ...base, "GET /projects/9/script": [200, script] });
+  open("?stage=storyboard");
+  expect(await screen.findByLabelText("Enhance stage")).toBeInTheDocument();
+});
+
+test("the guidance points at the script pane, not 'the left', so it reads right on a phone", async () => {
+  fakeServer({ ...base, "GET /projects/9/script": [200, script] });
+  open("?stage=script");
+  expect(await screen.findByLabelText("Script stage")).toHaveTextContent("in the script pane");
+  expect(document.body.textContent).not.toMatch(/on the left/);
+});

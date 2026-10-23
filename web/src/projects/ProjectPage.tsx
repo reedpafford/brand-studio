@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { linkText, pageTitle } from "../ui";
 import { useEnhance } from "./Enhance";
 import { Meter, WaitingBadge } from "./Meter";
 import { ScriptTab, useLatestScript } from "./ScriptTab";
-import { STAGES, StagePane, Stepper, type Stage } from "./Workspace";
+import { STAGES, StagePane, Stepper, firstUnfinished, lockReason, type Stage } from "./Workspace";
 
 /** One video: the stage steps along the top, the script always on the left, what to do next on the right. */
 export function ProjectPage() {
@@ -22,9 +22,12 @@ export function ProjectPage() {
   });
   const script = useLatestScript(id);
   const enhance = useEnhance(id, script.data?.version);
-  if (project.isPending) return <p className="p-6 text-muted">Loading…</p>;
+  if (project.isPending || script.isPending) return <p className="p-6 text-muted">Loading…</p>;
   const p = project.data;
   if (!p) return <p className="p-6">That project doesn't exist.</p>;
+  const hasScript = !!script.data;
+  // A link to a stage that is locked lands on the first stage that is not finished yet.
+  if (lockReason(stage, hasScript) !== null) return <Navigate to={`?stage=${firstUnfinished(hasScript)}`} replace />;
   const pick = (s: Stage) => setParams(s === "brief" ? {} : { stage: s });
   const done: Stage[] = ["brief", ...(script.data ? (["script"] as Stage[]) : [])];
 
@@ -40,7 +43,7 @@ export function ProjectPage() {
         </div>
       </div>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
-      <Stepper stage={stage} done={done} onPick={pick} />
+      <Stepper stage={stage} done={done} hasScript={hasScript} onPick={pick} />
       <div role="tablist" className="flex gap-1 text-sm lg:hidden">
         {(["script", "stage"] as const).map((t) => (
           <button
@@ -59,7 +62,7 @@ export function ProjectPage() {
           <ScriptTab projectId={id} enhance={enhance} />
         </div>
         <div className={pane === "stage" ? "" : "hidden lg:block"}>
-          <StagePane stage={stage} brief={p} hasScript={!!script.data} enhance={enhance} version={script.data?.version ?? 0} onPick={pick} />
+          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} onPick={pick} />
         </div>
       </div>
     </main>
