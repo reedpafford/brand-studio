@@ -33,7 +33,7 @@ export function elapsed(ms: number) {
 }
 
 /** How long a clip has been going. Ticks every second while it is on screen. */
-function Elapsed({ since }: { since: string }) {
+export function Elapsed({ since }: { since: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);

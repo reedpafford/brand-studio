@@ -1,4 +1,4 @@
-as of dd4e004 · 2026-10-23 22:32 UTC
+as of 184361f · 2026-10-23 22:58 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -7,6 +7,7 @@ as of dd4e004 · 2026-10-23 22:32 UTC
 - Quick clip: create/estimate/retry (#33), Generate on (#31), references (#55, #72), Improve prompt + Seedance shape B (#67).
 - Projects: list, brief, Script tab, workspace (#57, #60, #68); script drafts (#62); Script Enhance with tags, keys, Accept all (#51, #63, #74, #77, #81).
 - Breakdown pane: make, redo, problems, scenes/clips/shots (#83, with browser test #86); edit, Split/Join, Save, Go to (#85); line links to the script and phone sheets (#90). Breakdown server (#66; `JobOut.step` tells Enhance from Breakdown runs, #84; tagged directions read by #75). Storyboard prompts (#78) and stills with Nano Banana (#82); stale frames are refused (#88). Project clip prompts (#87); frames can be approved and redone with a note (#97).
+- Storyboard pane: frames, stills, Approve, Redo with a note, Next: Clips gate (#92, #99). Project clips: takes with Seedance, pick/approve, free stitched video (#94). Flaky dollar-amount test fixed (#102). Old gold examples and fomo style board removed, Iron Paws peanut butter bag added (#101); Library spec for Make sheet (#106).
 - Director prompts/evals (#30, #36, #41, #54, #75); Iron Paws + fomo seeds (#27, #39); browser tests (#19, #86, #49, #52, #61, #65, #71, #73, #76).
 - Design specs: Breakdown, Storyboard, Clips, Approvals (#79, #80); Prompting guides and FIT rows (#53, #70); house style and gold references from @nateassets (#96).
 - How to run: `server/README.md`. After any server API change run `npm run api` in web/ and commit `web/src/api/schema.d.ts`.
@@ -22,16 +23,23 @@ as of dd4e004 · 2026-10-23 22:32 UTC
 - Scripts: versions by paste/upload; Enhance `POST .../script/enhance`, accept/reject, `.../script/apply`; drafts `.../script/draft`. Script words never change; marks only add direction lines.
 - Breakdown: `POST/GET/PUT /projects/{id}/breakdown` (`stale` flag, problems saved).
 - Project clips: `POST /projects/{id}/clips/prompts` (Claude writes one Seedance prompt + references per clip of the newest breakdown; replaces old clips), `GET /projects/{id}/clips` (problems, `stale`), `PUT .../clips/{id}` edit.
+- Clip takes and video (`server/app/routes/project_clips.py`): `POST .../clips/{id}/takes/{take}/pick`, `POST .../clips/{id}/approve`, `POST/GET .../video` (free stitch once every clip is approved); a take is started by the generate route (paid).
 - Storyboard: `POST/GET /projects/{id}/storyboard`, `PUT .../frames/{id}`, `POST .../frames/{id}/render` (paid, refused while frame has problems).
-## Open PRs (4, not counting the Scribe's own)
-- #92 Storyboard pane: frames and stills (1/2) | Builder-Screens | Designer re-check passed (f18c4e1); QA passed at fcb82e3, head since moved to 48e392c
-- #99 Storyboard: Approve, Redo with a note, Next: Clips gate (2/2) | Builder-Screens | Designer passed (c035519); waiting on QA
-- #94 Project clips: takes with Seedance, pick/approve, stitched video | Builder-Server | QA re-check at a083545: stale-clip block done; still open: reference with no picture gives a 500, no test of the money rules; head since moved to cc32c0f
-- #98 House style in the prompts: new fomo worked examples, style lines, pacing | Director | in review
+## Definition of done (Reed, ops/MISSION.md)
+- An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo screens exact, live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag exactly (project picks the flavour).
+- Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
+## Open PRs (6, not counting the Scribe's own)
+- #104 Clips pane: takes, pick, approve, make the video, download | Builder-Screens | Designer re-check passed (89c9875); QA passed at d7fd538, head since moved to 89c9875
+- #109 Credits: per-video cap 729 credits ($75), no editor length limit | Builder-Server | in review
+- #107 Reference reels: live action becomes the brand CTA; definition-of-done eval cases | Director | QA pass at 062a17f; contains #98; `end_line` not wired to the Brand model yet
+- #108 Character sheet and place still prompts (Nano Banana) | Director | QA pass at 178dffd; stacked on #107
+- #103 Specs: brief product picker, no length note; end line is the last clip | Designer | in review (docs only)
+- #98 House style in the prompts: new fomo worked examples, style lines, pacing | Director | QA re-check passed at b5e9c7d
 ## Next
-- Builder-Screens: land #92, then #99 (Storyboard 2/2); then the Clips pane.
-- Builder-Server: finish #94's two open must-fixes before its first real take.
-- Director: #98 house style; paid evals only with Producer approval, logged in ops/SPEND.md.
+- Builder-Screens: land #104 (Clips pane, the last stage).
+- Builder-Server: #109, then products on the brand kit and `product` on the project, and the brand end line (per #103, #107).
+- Director: land #98, #107, #108; paid evals only with Producer approval, logged in ops/SPEND.md.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
 - Replicate key for the deployed server (later). Keys stay server-side only.
+- Reed's sign-off on videos A and B is the finish line.

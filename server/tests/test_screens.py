@@ -92,7 +92,7 @@ def test_setup_still_works_when_screen_import_breaks(app, client, tmp_path):
     assert _setup_with_screens_dir(app, client, tmp_path) == []
 
 
-def test_real_fomo_assets_import_with_names_moments_logo_and_style_board(app, owner, db):
+def test_real_fomo_assets_import_with_names_moments_and_logo(app, owner, db):
     from app.settings import Settings
 
     folder = Path(Settings().brand_assets_dir) / "fomo" / "screens"
@@ -102,7 +102,7 @@ def test_real_fomo_assets_import_with_names_moments_logo_and_style_board(app, ow
     assert screens["Token chart up"]["default_for"] == ["trading", "win"]
     assert screens["Home"]["tags"] == ["home", "mobile"]
     kit = owner.get(f"/brands/{fomo.id}").json()
-    assert kit["logo_file_id"] and kit["style_board_file_id"]
+    assert kit["logo_file_id"] and kit["style_board_file_id"] is None
     assert owner.get(f"/files/{kit['logo_file_id']}").headers["content-type"] == "image/png"
 
 
@@ -124,14 +124,20 @@ def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
     fomo = client.get(f"/brands/{brands['fomo']}/screens").json()
     bag = client.get(f"/brands/{brands['iron-paws']}/screens").json()
     assert len(fomo) == 4
-    assert [(s["name"], s["tags"]) for s in bag] == [("Chicken bag", ["bag", "product"])]
+    assert [(s["name"], s["tags"]) for s in bag] == [
+        ("Chicken bag", ["bag", "product"]),
+        ("Peanut butter bag", ["bag", "peanut-butter", "product"]),
+    ]
+    assert [(s["product"], s["variant"]) for s in bag] == [
+        ("bag", "Chicken"),
+        ("bag", "Peanut butter"),
+    ]
     end = {b["slug"]: b["end_line"] for b in client.get("/brands").json()}
     assert end == {
         "fomo": "Want to trade like me? Download fomo through the link in my bio.",
         "iron-paws": "",
     }
     assert "feeding" in bag[0]["default_for"]
-    assert (bag[0]["product"], bag[0]["variant"]) == ("bag", "Chicken")
     file = client.get(f"/files/{bag[0]['file_id']}")
     assert file.headers["content-type"] == "image/webp"
     moment = client.get(f"/brands/{brands['iron-paws']}/screens", params={"moment": "feeding"})

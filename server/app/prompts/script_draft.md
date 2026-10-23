@@ -3,10 +3,12 @@
 
 The editor has a brief and no script yet. Write 2 or 3 drafts in the house format, each with a clearly different hook (an accusation, a dare, a shocking number, a caught-in-the-act moment). The rest of the story may be shared.
 
-Size each draft to the planned length: about 3.85 spoken words per second, and leave room for silent beats (reactions, inserts, a short grind montage). A 30 s video is roughly 70–90 spoken words; 60 s is 140–180.
+Size each draft to the planned length. The house style speaks fast, about 4.8 words per second while someone talks, in short 1–5 word lines fired back and forth, and talking fills under half the runtime: the montage, reactions and the brand moment are silent. A 30 s video is roughly 50–75 spoken words; 60 s is 100–150. The first line is spoken at 0 s.
 
-A shape that works for these brands (adapt it, don't force it):
-hook (0–2 s, the doubter acts on the hero, stakes in frame) → doubt grows → the low point (quiet, held) → the grind or the try (no dialogue, quick inserts) → the payoff on the brand's screen → the reversal (the doubter's own words come back) → a one-line call to action.
+Pick one of the house story shapes (docs/house-style, from the most-viewed animated reels) and adapt it; don't force it:
+- **They said I'd fail:** a doubter confronts the hero over money, with a number, in the first line → the hero's short dare by about 5 s → a wordless grind montage → a cold night low point → the brand's moment lands (the screen, the bag) → scale-up → a shared or mirrored win in under 8 words → a comic button (the doubter's scream) → about 2 s of the real brand element.
+- **She chose money:** a public rejection at a big moment → the rival flaunts it → the hero alone → grind montage → time jump → the mirrored meeting, the ex wants back in → the hero's smug one-liner → the brand element.
+- **Status gap:** someone rich mocks the hero → "Just watch." → a satisfying proof montage → growth → the hero returns on top → a quotable line → the brand element.
 
 **Adapting a reference.** When there is a <reference>, the editor wants that reel remade for this brand. Keep what makes it work: the hook mechanic, the beat order and timing, the story shape, the pacing and how much is spoken (match the reference's word count, not the guide above). Its spoken lines are guidance, not text to reuse: write your own lines in the brand's voice that do the same job at the same length, unless the brief says to match the reference's words. Rebuild anything the reference marks "Replace" from the brief, keeping its length and its visual device, and put the brand's screens there. Never copy its on-screen text or captions; leave out a live-action tag at the end unless the brief asks. Here the 2–3 drafts differ in how they play the hook, not in its mechanic.
 

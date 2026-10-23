@@ -1,5 +1,6 @@
 import { btnPrimary, card } from "../ui";
 import { BreakdownPane } from "./BreakdownPane";
+import { ClipsPane } from "./ClipsPane";
 import { StoryboardPane } from "./StoryboardPane";
 import { Notes, type EnhanceState } from "./Enhance";
 
@@ -12,10 +13,10 @@ export const STAGES = [
   { id: "clips", label: "Clips" },
 ] as const;
 export type Stage = (typeof STAGES)[number]["id"];
-const BUILT: Stage[] = ["brief", "script", "enhance", "breakdown", "storyboard"];
+const BUILT: Stage[] = ["brief", "script", "enhance", "breakdown", "storyboard", "clips"];
 
 /** What exists so far; later stages wait for it. */
-export type Ready = { script: boolean; breakdown: boolean; breakdownOk: boolean };
+export type Ready = { script: boolean; breakdown: boolean; breakdownOk: boolean; storyboardOk: boolean };
 
 /** Why a stage can't be opened right now, or null when it can. */
 export function lockReason(stage: Stage, ready: Ready): string | null {
@@ -24,11 +25,15 @@ export function lockReason(stage: Stage, ready: Ready): string | null {
   // Required brand screens are enforced here: the storyboard waits for a breakdown that is current and has no problems.
   if (stage === "storyboard" && !ready.breakdown) return "Make the breakdown first";
   if (stage === "storyboard" && !ready.breakdownOk) return "Fix the breakdown first";
+  // Clips need everything before them to be current: a script, a clean breakdown, an approved storyboard.
+  if (stage === "clips" && !ready.script) return "Finish the script first";
+  if (stage === "clips" && !ready.breakdownOk) return "Fix the breakdown first";
+  if (stage === "clips" && !ready.storyboardOk) return "Approve every storyboard frame first";
   return null;
 }
 
 /** Where a link to a locked stage should land: the first stage not finished yet. */
-export const firstUnfinished = (ready: Ready): Stage => (!ready.script ? "script" : !ready.breakdownOk ? "breakdown" : "storyboard");
+export const firstUnfinished = (ready: Ready): Stage => (!ready.script ? "script" : !ready.breakdownOk ? "breakdown" : !ready.storyboardOk ? "storyboard" : "clips");
 
 /** Done steps get a tick, the current one is filled, the ones not built yet say why they can't be opened. */
 export function Stepper(props: { stage: Stage; done: Stage[]; ready: Ready; onPick: (s: Stage) => void }) {
@@ -84,7 +89,7 @@ export function Stepper(props: { stage: Stage; done: Stage[]; ready: Ready; onPi
 export type BriefInfo = { goal: string; platform: string; aspect_ratio: string; format: string; planned_seconds: number };
 
 /** The right-hand pane: what to do at the current stage. The script stays on the left. */
-export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: boolean; enhance: EnhanceState; version: number; projectId: number; brandId: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onPick: (s: Stage) => void }) {
+export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: boolean; enhance: EnhanceState; version: number; projectId: number; brandId: number; name: string; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onPick: (s: Stage) => void }) {
   const { stage, brief } = props;
   if (stage === "brief")
     return (
@@ -133,11 +138,8 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
       />
     );
   if (stage === "storyboard")
-    return <StoryboardPane projectId={props.projectId} brandId={props.brandId} aspect={brief.aspect_ratio} used={props.used} budget={props.budget} />;
-  return (
-    <section className={`${card} text-sm`} aria-label="Coming soon">
-      <h2 className="text-[length:var(--text-md)] font-semibold">Coming soon</h2>
-      <p className="text-muted">This stage arrives with the next server release.</p>
-    </section>
-  );
+    return <StoryboardPane projectId={props.projectId} brandId={props.brandId} aspect={brief.aspect_ratio} used={props.used} budget={props.budget} onNext={() => props.onPick("clips")} />;
+  if (stage === "clips")
+    return <ClipsPane projectId={props.projectId} brandId={props.brandId} aspect={brief.aspect_ratio} projectName={props.name} used={props.used} budget={props.budget} />;
+  return null;
 }
