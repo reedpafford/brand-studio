@@ -933,6 +933,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_projects__project_id__breakdown_get"];
+        /**
+         * Save
+         * @description Save the editor's edited breakdown for the working script (a new row).
+         */
+        put: operations["save_projects__project_id__breakdown_put"];
+        /**
+         * Make
+         * @description Queue a breakdown call (a paid Claude call, counted against the project budget).
+         */
+        post: operations["make_projects__project_id__breakdown_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/estimate": {
         parameters: {
             query?: never;
@@ -1139,6 +1164,55 @@ export interface components {
             legal_line: string;
             /** Name */
             name?: string | null;
+        };
+        /** Breakdown */
+        Breakdown: {
+            /**
+             * Hook
+             * @description What the first 2 seconds show and say, and why a scrolling viewer stops.
+             */
+            hook: string;
+            /** Scenes */
+            scenes: components["schemas"]["Scene"][];
+            /** Clips */
+            clips: components["schemas"]["Clip"][];
+        };
+        /** BreakdownOut */
+        BreakdownOut: {
+            /** Id */
+            id: number;
+            /** Script Version */
+            script_version: number;
+            /** Source */
+            source: string;
+            breakdown: components["schemas"]["Breakdown"];
+            /** Problems */
+            problems: string[];
+            /** Stale */
+            stale: boolean;
+        };
+        /** Clip */
+        Clip: {
+            /**
+             * Id
+             * @description c1, c2, … in order.
+             */
+            id: string;
+            /**
+             * Shot Ids
+             * @description Consecutive shots generated together as one clip.
+             */
+            shot_ids: string[];
+            /**
+             * Seconds
+             * @description Sum of its shots, rounded up, within the video model's min and max length.
+             */
+            seconds: number;
+            /**
+             * Seam
+             * @description Why the clip ends here: a hard cut that changes place or time, or the model's length limit. 'end' for the last clip.
+             */
+            seam: string;
         };
         /** ClipIn */
         ClipIn: {
@@ -1717,6 +1791,26 @@ export interface components {
          * @enum {string}
          */
         Role: "owner" | "editor";
+        /** Scene */
+        Scene: {
+            /**
+             * Id
+             * @description 1, 2, 3, …
+             */
+            id: number;
+            /**
+             * Heading
+             * @description 'INT. BEDROOM — NIGHT' style.
+             */
+            heading: string;
+            /**
+             * Look
+             * @description One sentence: palette, visible light, depth and background people, chosen to show the story state (cold and dark for the low point, warm or neon for the win).
+             */
+            look: string;
+            /** Shots */
+            shots: components["schemas"]["Shot"][];
+        };
         /** ScreenIn */
         ScreenIn: {
             /** Name */
@@ -1801,6 +1895,69 @@ export interface components {
             name: string;
             /** Password */
             password: string;
+        };
+        /** Shot */
+        Shot: {
+            /**
+             * Id
+             * @description '<scene>.<shot>', e.g. '1.1', '1.2', '2.1'.
+             */
+            id: string;
+            /**
+             * Script Lines
+             * @description Numbered script lines this shot covers.
+             */
+            script_lines: number[];
+            /**
+             * Speaker
+             * @description Who speaks in this shot (cast name), or null.
+             */
+            speaker: string | null;
+            /**
+             * Line
+             * @description The exact spoken words from the script, unchanged; null if nobody speaks. One speaker's line per shot.
+             */
+            line: string | null;
+            /**
+             * Action
+             * @description What we see happen, concretely, in one sentence.
+             */
+            action: string;
+            /**
+             * Reaction
+             * @description Who reacts and how, readable at phone size (eyes snap wide, jaw drops), or null.
+             */
+            reaction: string | null;
+            /**
+             * Camera
+             * @description Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or 'Macro insert of the phone screen, static'.
+             */
+            camera: string;
+            /**
+             * Seconds
+             * @description Estimated length. Dialogue: words / 3.85 plus any held reaction. Silent reactions and inserts: 0.5–1.5.
+             */
+            seconds: number;
+            /**
+             * Character Ids
+             * @description Cast ids on screen in this shot.
+             */
+            character_ids: string[];
+            /**
+             * Place Id
+             * @description Place id from the user message, or null.
+             */
+            place_id: string | null;
+            /**
+             * Moment
+             * @description The brand moment this shot is, from the brand block's moments (e.g. 'trading', 'win', 'loss'), or null.
+             */
+            moment: string | null;
+            /**
+             * Screen Ids
+             * @description Brand screens shown in this shot. Required whenever `moment` is one the brand block lists a screen for.
+             */
+            screen_ids: string[];
         };
         /** SuggestionOut */
         SuggestionOut: {
@@ -3816,6 +3973,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__breakdown_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_projects__project_id__breakdown_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Breakdown"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_projects__project_id__breakdown_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */
