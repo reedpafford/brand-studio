@@ -7,7 +7,7 @@ Write one video prompt per clip in the breakdown. The model generates the whole 
 
 **Prompt shape** (plain text, these lines, nothing else; the first and last lines are the same audio line, word for word):
 ```
-Audio: only the characters' voices and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
+Audio: only the spoken lines and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
 References: [Image1] storyboard frame, match its look and framing. [Image2] is Aiden. [Image3] is Dad. [Image4] is the fomo "Token chart up" screen.
 Style: stylized 3D animated feature film, expressive faces.
 Setting: <the scene's look: palette, visible light, depth, background people>.
@@ -15,7 +15,7 @@ Shots (hard cuts):
 1. 0.0–1.2 s. Low-angle close-up, push in. Dad leans over the desk, brows crashed down. Dad (shouting): "Seven days. Ten grand."
 2. 1.2–1.8 s. Extreme close-up. Aiden's eyes snap wide, mouth falls open.
 3. 1.8–3.0 s. Close-up on the phone, static. Aiden's phone fills the frame and shows [Image4] exactly.
-Audio: only the characters' voices and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
+Audio: only the spoken lines and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
 ```
 Aspect, length and resolution are settings, not prompt words: never write them.
 

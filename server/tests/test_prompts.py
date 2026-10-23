@@ -147,3 +147,14 @@ def test_reference_lines_bind_each_image_in_upload_order():
         "[Image1] and [Image2] are Aiden. [Image3] is the kitchen. [Image4] is the fomo "
         '"Token chart up" screen, shown exactly. [Image5] is the Iron Paws bag, shown exactly.'
     )
+
+
+def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    shot = bd.scenes[1].shots[1]
+    clip = cp.clips[0]
+    clip.prompt = clip.prompt.replace(shot.line, "No.").replace("Okay. Show me how.", "It's 3:15.")
+    shot.line = "No."
+    bd.scenes[1].shots[7].line = "It's 3:15."
+    assert check.clip_prompts(bd, cp, 30, 10) == []

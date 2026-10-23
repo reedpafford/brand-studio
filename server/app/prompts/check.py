@@ -10,7 +10,8 @@ from app.prompts.schemas import Breakdown, ClipPrompts, EnhanceResult, Storyboar
 
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
-AUDIO_LINE = re.compile(r"^Audio: only the characters' voices and .+ No subtitles\.$")
+AUDIO_LINE = re.compile(r"^Audio: only the spoken lines and .+ No subtitles\.$")
+QUOTED = re.compile(r'"([^"]*)"')
 SETTINGS_WORDS = re.compile(r"\b\d+:\d+\b|\b(480|720|1080)p\b")
 
 
@@ -88,12 +89,13 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                     problems.append(f"{c.clip_id}: shot {sid}'s screen {screen} isn't attached")
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
-            if shot.line and _words(c.prompt).count(_words(shot.line)) != 1:
+            said = [_words(q) for q in QUOTED.findall(c.prompt)]
+            if shot.line and said.count(_words(shot.line)) != 1:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         lines = c.prompt.strip().splitlines()
         if not (AUDIO_LINE.match(lines[0]) and lines[-1] == lines[0]):
             problems.append(f"{c.clip_id}: doesn't open and close with the same audio line")
-        if SETTINGS_WORDS.search(c.prompt):
+        if SETTINGS_WORDS.search(QUOTED.sub("", c.prompt)):
             problems.append(f"{c.clip_id}: writes aspect or resolution (those are settings)")
         cast = [r.id for r in c.references if r.id.startswith("char:")]
         first_seen = list(dict.fromkeys(i for s in clip.shot_ids for i in shots[s].character_ids))
