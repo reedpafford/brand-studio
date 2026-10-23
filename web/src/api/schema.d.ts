@@ -1011,10 +1011,32 @@ export interface paths {
         /**
          * Render
          * @description Queue the still for one frame (a paid image job, counted against the project budget).
-         *     A frame with problems must be fixed first.
+         *     A frame with problems must be fixed first. An optional Redo note goes into this render's
+         *     prompt only.
          */
         post: operations["render_projects__project_id__storyboard_frames__frame_id__render_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/frames/{frame_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve
+         * @description Approve the frame's still (Next: Clips needs every frame approved).
+         */
+        post: operations["approve_projects__project_id__storyboard_frames__frame_id__approve_post"];
+        /** Unapprove */
+        delete: operations["unapprove_projects__project_id__storyboard_frames__frame_id__approve_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1475,6 +1497,8 @@ export interface components {
             problems: string[];
             /** File Id */
             file_id: number | null;
+            /** Approved */
+            approved: boolean;
             /** Stale */
             stale: boolean;
         };
@@ -1614,6 +1638,8 @@ export interface components {
             prompt_summary: string;
             /** Step */
             step?: string | null;
+            /** Frame Id */
+            frame_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1664,6 +1690,8 @@ export interface components {
             prompt_summary: string;
             /** Step */
             step?: string | null;
+            /** Frame Id */
+            frame_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1978,6 +2006,14 @@ export interface components {
              * @description What it is for, e.g. 'storyboard frame', 'Leo's look', 'fomo Token chart up screen, shown exactly'.
              */
             role: string;
+        };
+        /** RenderIn */
+        RenderIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /**
          * Role
@@ -4396,7 +4432,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RenderIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -4405,6 +4445,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_projects__project_id__storyboard_frames__frame_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unapprove_projects__project_id__storyboard_frames__frame_id__approve_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
                 };
             };
             /** @description Validation Error */

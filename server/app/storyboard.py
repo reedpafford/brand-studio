@@ -46,8 +46,10 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         out[key] = (f"{key} | {item.kind} | {item.name} | {item.notes}", item.image_file_ids)
     brand = db.get(Brand, project.brand_id)
     for s in screens_of(db, brand):
-        what = f"{brand.name} app screen, {', '.join(s.tags)}"
-        out[f"screen:{s.id}"] = (f"screen:{s.id} | screen | {s.name} | {what}", [s.file_id])
+        product = "product" in s.tags  # e.g. the Iron Paws bag: shown as a product, no face
+        kind, what = ("product", "product") if product else ("screen", "app screen")
+        line = f"screen:{s.id} | {kind} | {s.name} | {brand.name} {what}, {', '.join(s.tags)}"
+        out[f"screen:{s.id}"] = (line, [s.file_id])
     return out
 
 
@@ -103,7 +105,7 @@ def save_frames(db: Session, job: Job) -> None:
         )
 
 
-def render_input(db: Session, project: Project, frame: StoryboardFrame) -> dict:
+def render_input(db: Session, project: Project, frame: StoryboardFrame, note: str = "") -> dict:
     """The Nano Banana job for one frame's still: the project's aspect ratio (always sent),
     character sheets first, then the place, props and screens, in the frame's order."""
     known = assets(db, project)
@@ -113,8 +115,9 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame) -> dict:
             raise HTTPException(409, f"{ref} is no longer part of this project. Edit the frame.")
         files = known[ref][1][:1]  # an item's first picture is its sheet / main reference
         (characters if ref.startswith("char:") else objects).extend(files)
+    prompt = f"{frame.prompt}\nChange from the last still: {note}" if note else frame.prompt
     job = image_job_input(
-        image_model(), frame.prompt, project.aspect_ratio, characters=characters, objects=objects
+        image_model(), prompt, project.aspect_ratio, characters=characters, objects=objects
     )
     return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id}
 
@@ -124,4 +127,4 @@ def save_still(db: Session, job: Job) -> None:
     frame = db.get(StoryboardFrame, job.input["frame_id"])
     file_ids = (job.output or {}).get("file_ids") or []
     if frame and file_ids:
-        frame.file_id = file_ids[0]
+        frame.file_id, frame.approved = file_ids[0], False
