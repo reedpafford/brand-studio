@@ -3,6 +3,7 @@ import time
 from decimal import Decimal
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app import credits as credits_module
 from app.models.accounts import Role, User
@@ -11,6 +12,7 @@ from app.models.jobs import Job
 from app.providers.fake import FakeProvider
 from app.routes.jobs import enqueue
 from app.worker import run_once
+from tests.conftest import PASSWORD
 from tests.helpers import assert_hidden, assert_no_dollars
 
 
@@ -214,3 +216,17 @@ def test_editor_sees_no_dollars(project, editor, ed, db):
     assert db.query(Job).one().status == "succeeded"
     paths = ["/projects", f"/projects/{body['id']}", "/credits/rates", "/credits/limits"]
     assert_no_dollars(editor, [*paths, "/credits/me", "/jobs"])
+
+
+def test_weekly_allowance_is_per_editor_and_owner_can_raise_it(app, owner, ed, db):
+    token = owner.post("/team/invites", json={"email": "two@example.com"}).json()["token"]
+    with TestClient(app) as c:
+        c.post("/auth/accept-invite", json={"token": token, "name": "Two", "password": PASSWORD})
+    second = db.query(User).filter_by(email="two@example.com").one()
+    clips = [enqueue(db, ed, "video-480p", {}, units=60).status for _ in range(3)]
+    assert clips == ["queued", "queued", "needs_owner_approval"]
+    assert enqueue(db, second, "video-480p", {}, units=60).status == "queued"
+    owner.put(
+        "/credits/limits", json={"max_planned_seconds": 180, "weekly_quick_clip_credits": 180}
+    )
+    assert enqueue(db, ed, "video-480p", {}, units=60).status == "queued"
