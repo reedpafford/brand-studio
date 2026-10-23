@@ -18,6 +18,7 @@ from app.prompts.schemas import Frame
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
+from app.routes.scripts import latest
 from app.schemas import LongText
 
 router = APIRouter(prefix="/projects/{project_id}/storyboard", tags=["storyboard"])
@@ -141,6 +142,16 @@ def render(
         raise HTTPException(404, "No such frame.")
     if frame.problems:
         raise HTTPException(409, "Fix this frame's problems first.")
+    newest = _newest_breakdown(db, project)
+    working = latest(db, project)
+    if (
+        not newest
+        or frame.breakdown_id != newest.id
+        or (working and newest.script_version != working.version)
+    ):
+        raise HTTPException(
+            409, "This frame was made for an older breakdown. Make the storyboard again first."
+        )
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("frame_id") == frame.id for j in pending):
         raise HTTPException(409, "This frame's still is already being made.")
