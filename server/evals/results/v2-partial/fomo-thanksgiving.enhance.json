@@ -1,0 +1,124 @@
+{
+ "suggestions": [
+  {
+   "id": "s1",
+   "kind": "cut",
+   "anchor": {
+    "line": 2,
+    "quote": "The family sits around the table. Everyone is eating and talking about school and work."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Small talk before the conflict; open straight on the table so Rick's jab lands in the first seconds."
+  },
+  {
+   "id": "s2",
+   "kind": "reaction",
+   "anchor": {
+    "line": 7,
+    "quote": "The whole table laughs."
+   },
+   "placement": "after",
+   "text": "Aiden's ears go red, fork frozen mid-air, as Rick leans back wheezing with laughter.",
+   "screen_id": null,
+   "reason": "The insult needs a held, visible hit on Aiden's face so viewers want him to win."
+  },
+  {
+   "id": "s3",
+   "kind": "cut",
+   "anchor": {
+    "line": 10,
+    "quote": " He is angry and wants to prove Rick wrong."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Explains what his face and the slammed desk already show."
+  },
+  {
+   "id": "s4",
+   "kind": "scene_break",
+   "anchor": {
+    "line": 11,
+    "quote": "Aiden opens fomo on his phone."
+   },
+   "placement": "before",
+   "text": "SCENE 2 — INT. AIDEN'S BASEMENT ROOM — NIGHT",
+   "screen_id": null,
+   "reason": "Place and time change here; the script jumps from scene 1 to 3."
+  },
+  {
+   "id": "s5",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 11,
+    "quote": "Aiden opens fomo on his phone."
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Home — on Aiden's phone as the app opens, fills the frame",
+   "screen_id": "screen:1",
+   "reason": "Opening fomo is a brand moment that needs the real home screen."
+  },
+  {
+   "id": "s6",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 12,
+    "quote": "He loses a trade"
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Token chart down — on his phone, red line dropping",
+   "screen_id": "screen:3",
+   "reason": "A loss is a fomo moment, so the real chart-down screen must show before he slams the desk."
+  },
+  {
+   "id": "s7",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 13,
+    "quote": "He keeps trading at his desk every night for months."
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Desktop trading — on his monitor, glow on his tired face as nights pass",
+   "screen_id": "screen:4",
+   "reason": "The months of grinding at a desk are desktop trading, so the real desktop screen shows."
+  },
+  {
+   "id": "s8",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 14,
+    "quote": "★ fomo screen: Wallet — showing his balance"
+   },
+   "placement": "replace",
+   "text": "★ fomo screen: Token chart up — on Aiden's phone, fills the frame",
+   "screen_id": "screen:2",
+   "reason": "There is no Wallet screen in the brand kit; the turn to winning should use the real chart-up screen."
+  },
+  {
+   "id": "s9",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 17,
+    "quote": "Aiden slides his phone across the table."
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Token chart up — on the phone in front of Rick's plate",
+   "screen_id": "screen:2",
+   "reason": "The proof Rick sees is the payoff, and the proof must be the real fomo screen."
+  },
+  {
+   "id": "s10",
+   "kind": "reaction",
+   "anchor": {
+    "line": 18,
+    "quote": "UNCLE RICK: Is that... real?"
+   },
+   "placement": "after",
+   "text": "Rick's jaw drops, his fork clatters onto the plate, Mom hides a grin behind her napkin.",
+   "screen_id": null,
+   "reason": "Rick's face collapsing is the whole payoff; hold it before Aiden's callback line."
+  }
+ ]
+}
