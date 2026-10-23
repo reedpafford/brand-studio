@@ -2184,7 +2184,7 @@ export interface components {
             moment: string | null;
             /**
              * Screen Ids
-             * @description Brand screens shown in this shot. Required whenever `moment` is one the brand block lists a screen for.
+             * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
         };
