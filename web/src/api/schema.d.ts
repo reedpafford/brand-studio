@@ -1350,6 +1350,10 @@ export interface components {
             max_reference_audios: number;
             /** Max Reference Media Seconds */
             max_reference_media_seconds: number;
+            /** Max Character Images */
+            max_character_images: number;
+            /** Max Object Images */
+            max_object_images: number;
             /** First Frame */
             first_frame: boolean;
             /** Last Frame */

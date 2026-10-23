@@ -30,6 +30,8 @@ class ModelOut(BaseModel):
     max_reference_videos: int
     max_reference_audios: int
     max_reference_media_seconds: int
+    max_character_images: int
+    max_object_images: int
     first_frame: bool
     last_frame: bool
     audio: str | None
