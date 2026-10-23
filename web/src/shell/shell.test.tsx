@@ -125,3 +125,30 @@ test("on a phone the tab bar reaches every section through More", async () => {
   expect(screen.getByRole("link", { name: "Brand kit" })).toHaveAttribute("href", "/b/1/kit");
   expect(screen.getAllByRole("link", { name: "Team" }).length).toBeGreaterThan(0);
 });
+
+test("the More menu closes on Escape or a tap outside, and can switch theme and sign out", async () => {
+  localStorage.removeItem("bs.theme");
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "POST /auth/logout": [204, null] });
+  renderAt("/b/1");
+  const tabs = await screen.findByRole("navigation", { name: "Tabs" });
+  const more = within(tabs).getByRole("button", { name: "More" });
+  await userEvent.click(more);
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("link", { name: "Brand kit" })).not.toBeInTheDocument();
+  await userEvent.click(more);
+  await userEvent.click(screen.getByRole("button", { name: "Close menu" }));
+  expect(screen.queryByRole("link", { name: "Brand kit" })).not.toBeInTheDocument();
+  await userEvent.click(more);
+  await userEvent.click(screen.getByRole("button", { name: "Theme: System" }));
+  expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+  expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  document.documentElement.removeAttribute("data-theme");
+});
+
+test("More is highlighted on a page it holds", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []] });
+  renderAt("/team");
+  const tabs = await screen.findByRole("navigation", { name: "Tabs" });
+  expect(within(tabs).getByRole("button", { name: "More" })).toHaveClass("text-accent-text");
+});
