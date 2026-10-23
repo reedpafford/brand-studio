@@ -115,16 +115,21 @@ test("Storyboard stays locked until there is a breakdown", async () => {
   expect(within(steps).getByRole("button", { name: /Storyboard/ })).toHaveAttribute("title", "Make the breakdown first");
 });
 
-test("after a reload, runs are recognised by their step: frames being written, and stills being drawn", async () => {
-  const going = (step: string, id: number) => ({ id, kind: step === "storyboard" ? "write-claude" : "image", step, status: "running", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z" });
-  fakeServer({ ...base, "GET /projects/9/storyboard": [200, []], "GET /jobs": [200, [going("storyboard", 5)]] });
+test("after a reload, runs are recognised by their step and frame: frames being written, a still being drawn, one that failed", async () => {
+  const job = (step: string, id: number, over: object = {}) => ({ id, kind: step === "storyboard" ? "write-claude" : "image", step, status: "running", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z", ...over });
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, []], "GET /jobs": [200, [job("storyboard", 5)]] });
   open();
   expect(await screen.findByText("Writing your frames…")).toBeInTheDocument();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
-  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2" })]], "GET /jobs": [200, [going("frame", 6), going("frame", 7)]] });
+  fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2" })]],
+    "GET /jobs": [200, [job("frame", 6, { frame_id: 1 }), job("frame", 7, { frame_id: 2, status: "failed" })]],
+  });
   open();
-  expect(await screen.findByText("Drawing 2 stills…")).toBeInTheDocument();
+  expect(await within(await screen.findByLabelText("Frame c1")).findByText("Drawing…")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Frame c2")).getByText("Didn't finish · credits returned")).toBeInTheDocument();
 });
 
 test("the storyboard stays locked while the breakdown has problems or is out of date, and a link to it lands on the breakdown", async () => {
@@ -150,4 +155,50 @@ test("Redo storyboard says the stills already made will be dropped", async () =>
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Redo storyboard · 6 credits" }));
   expect(confirm).toHaveBeenCalledWith("Replace these frames? The 2 stills you've made will be dropped.");
+});
+
+const withStill = (o: object = {}) => frame({ file_id: 40, ...o });
+
+test("Approve marks a frame with a tick and a border; Undo approve takes it back; the header counts", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [withStill({ approved: true }), withStill({ id: 2, clip_id: "c2" })]],
+    "POST /projects/9/storyboard/frames/2/approve": [200, withStill({ id: 2 })],
+    "DELETE /projects/9/storyboard/frames/1/approve": [204, null],
+  });
+  open();
+  expect(await screen.findByText(/2 frames · 1 approved/)).toBeInTheDocument();
+  const first = screen.getByLabelText("Frame c1");
+  expect(within(first).getByText("✓ Approved")).toBeInTheDocument();
+  await userEvent.click(within(first).getByRole("button", { name: "Undo approve" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /projects/9/storyboard/frames/1/approve")).toBe(true));
+  await userEvent.click(within(screen.getByLabelText("Frame c2")).getByRole("button", { name: "Approve" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/2/approve")).toBe(true));
+});
+
+test("a frame can't be approved while its breakdown has changed", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ stale: true })]] });
+  open();
+  expect(await within(await screen.findByLabelText("Frame c1")).findByRole("button", { name: "Approve" })).toBeDisabled();
+});
+
+test("Next: Clips waits until every frame is approved and says how many are left", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ approved: true }), withStill({ id: 2, clip_id: "c2" }), withStill({ id: 3, clip_id: "c3" })]] });
+  open();
+  expect(await screen.findByText("Approve all 3 frames first (2 left).")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Clips →" })).toBeDisabled();
+});
+
+test("Redo asks what should change and sends it as the note for that render only", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [withStill({})]],
+    "POST /projects/9/storyboard/frames/1/render": [201, { id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9 }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Redo · 3 credits" }));
+  await userEvent.type(screen.getByLabelText("What should change? (optional)"), "Warmer light");
+  const redoButtons = screen.getAllByRole("button", { name: "Redo · 3 credits" }); // the opener, then the form's button
+  await userEvent.click(redoButtons[1]);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/render")?.body).toEqual({ note: "Warmer light" }));
 });

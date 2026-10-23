@@ -6,6 +6,7 @@ import { useBrandPieces } from "../clip/BrandPieces";
 import { useJobs } from "../clip/History";
 import { fileUrl } from "../api/upload";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
+import { useMedia } from "../useMedia";
 import { Sheet } from "./Sheet";
 
 type Frame = components["schemas"]["FrameOut"];
@@ -62,8 +63,8 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
     },
   });
   const render = useMutation({
-    mutationFn: async (frame: Frame) => {
-      const { data, error } = await api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/render", { params: { path: { ...path, frame_id: frame.id } } });
+    mutationFn: async ({ frame, note = "" }: { frame: Frame; note?: string }) => {
+      const { data, error } = await api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/render", { params: { path: { ...path, frame_id: frame.id } }, body: { note } });
       if (!data) throw new Error(errorText(error));
       return { frame, job: data };
     },
@@ -76,6 +77,17 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
     mutationFn: async ({ frame, prompt }: { frame: Frame; prompt: string }) => {
       const { data, error } = await api.PUT("/projects/{project_id}/storyboard/frames/{frame_id}", { params: { path: { ...path, frame_id: frame.id } }, body: { prompt, reference_ids: frame.reference_ids } });
       if (!data) throw new Error(errorText(error));
+    },
+    onSuccess: refresh,
+  });
+
+  const approve = useMutation({
+    mutationFn: async ({ frame, yes }: { frame: Frame; yes: boolean }) => {
+      const args = { params: { path: { ...path, frame_id: frame.id } } };
+      const { error, response } = yes
+        ? await api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/approve", args)
+        : await api.DELETE("/projects/{project_id}/storyboard/frames/{frame_id}/approve", args);
+      if (!response.ok) throw new Error(errorText(error));
     },
     onSuccess: refresh,
   });
@@ -94,7 +106,9 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${n} credits`);
   const makeLabel = over(writeCost) ? "Ask Reed to approve" : list.length ? "Redo storyboard" : "Make storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
-  const err = make.error ?? render.error ?? edit.error;
+  const err = make.error ?? render.error ?? edit.error ?? approve.error;
+  const approvedCount = list.filter((f) => f.approved).length;
+  const waiting = list.length - approvedCount;
 
   const makeButton = (
     <button
@@ -136,7 +150,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
     <div className="space-y-4" aria-label="Storyboard">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[length:var(--text-md)] font-semibold">
-          Storyboard <span className="font-normal text-muted">· {list.length} frame{list.length === 1 ? "" : "s"}</span>
+          Storyboard <span className="font-normal text-muted">· {list.length} frame{list.length === 1 ? "" : "s"} · {approvedCount} approved</span>
         </h2>
         <span className="flex gap-2">
           {missing.length > 0 && (
@@ -144,7 +158,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
               className={btnPrimary}
               disabled={render.isPending}
               onClick={async () => {
-                for (const f of missing) await render.mutateAsync(f).catch(() => undefined);
+                for (const f of missing) await render.mutateAsync({ frame: f }).catch(() => undefined);
               }}
             >
               {over(allCost) ? "Ask Reed to approve" : "Make all stills"}
@@ -155,11 +169,12 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
         </span>
       </div>
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
-      {stillsGoing > 0 && <p className="text-sm text-muted" role="status">Drawing {stillsGoing} still{stillsGoing === 1 ? "" : "s"}…</p>}
       <ul className="grid gap-4 sm:grid-cols-2">
         {list.map((f) => {
-          const job = drawing[f.id] !== undefined ? jobOf(drawing[f.id]) : undefined;
-          const busy = !!drawingNow[f.id];
+          const frameJobs = (jobs.data ?? []).filter((j) => j.step === "frame" && j.frame_id === f.id).sort((a, b) => b.id - a.id);
+          const mine = drawing[f.id] !== undefined ? jobOf(drawing[f.id]) : undefined;
+          const job = mine ?? frameJobs[0];
+          const busy = !!drawingNow[f.id] || frameJobs.some((j) => GOING.includes(j.status));
           return (
             <FrameCard
               key={f.id}
@@ -170,13 +185,22 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
               nameOf={nameOf}
               cost={imageCost}
               over={over(imageCost)}
-              onRender={() => render.mutate(f)}
+              onRender={(note) => render.mutate({ frame: f, note })}
+              onApprove={(yes) => approve.mutate({ frame: f, yes })}
               onSave={(prompt) => edit.mutate({ frame: f, prompt })}
               onOpen={() => setLightbox(f)}
             />
           );
         })}
       </ul>
+      <div className="space-y-1">
+        <button className={btnPrimary} disabled>
+          Next: Clips →
+        </button>
+        <p className="text-sm text-muted">
+          {waiting > 0 ? `Approve all ${list.length} frame${list.length === 1 ? "" : "s"} first (${waiting} left).` : "Clips are coming soon."}
+        </p>
+      </div>
       {lightbox && lightbox.file_id !== null && (
         <Sheet title={`Clip ${lightbox.clip_id} · shot ${lightbox.shot_id}`} onClose={() => setLightbox(null)}>
           <img src={fileUrl(lightbox.file_id)} alt={`Still for clip ${lightbox.clip_id}`} className="w-full rounded-md" />
@@ -198,16 +222,39 @@ function FrameCard(props: {
   nameOf: (id: string) => string;
   cost: number | undefined;
   over: boolean;
-  onRender: () => void;
+  onRender: (note?: string) => void;
+  onApprove: (yes: boolean) => void;
   onSave: (prompt: string) => void;
   onOpen: () => void;
 }) {
   const { frame: f } = props;
   const [editing, setEditing] = useState<string | null>(null);
-  const label = props.over ? "Ask Reed to approve" : f.file_id === null ? "Make still" : "Redo still";
+  const [redo, setRedo] = useState<string | null>(null);
+  const phone = useMedia("(max-width: 639px)");
+  const verb = props.over ? "Ask Reed to approve" : f.file_id === null ? "Make still" : "Redo";
+  const price = props.cost !== undefined ? ` · ${props.cost} credits` : "";
+  const redoForm = (
+    <div className="space-y-2">
+      <label className="block text-sm">
+        What should change? (optional)
+        <textarea className={input} rows={3} maxLength={500} value={redo ?? ""} onChange={(e) => setRedo(e.target.value)} />
+      </label>
+      <button
+        className={`${btnPrimary} min-h-11 sm:min-h-9`}
+        onClick={() => {
+          props.onRender((redo ?? "").trim());
+          setRedo(null);
+        }}
+      >
+        {props.over ? "Ask Reed to approve" : "Redo"}
+        {price}
+      </button>
+    </div>
+  );
   return (
     <li className="space-y-2 text-sm" aria-label={`Frame ${f.clip_id}`}>
-      <div className="grid place-items-center overflow-hidden rounded-md border border-border bg-surface-2" style={{ aspectRatio: ratio(props.aspect) }}>
+      <div className={`relative grid place-items-center overflow-hidden rounded-md bg-surface-2 ${f.approved ? "border-2 border-accent" : "border border-border"}`} style={{ aspectRatio: ratio(props.aspect) }}>
+        {f.approved && <span className="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-on-accent">✓ Approved</span>}
         {props.busy ? (
           <span className="text-muted">Drawing…</span>
         ) : f.file_id !== null ? (
@@ -251,18 +298,38 @@ function FrameCard(props: {
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <button
-            className={`${btnSecondary} min-h-11 sm:min-h-9`}
-            disabled={props.busy || f.problems.length > 0}
-            onClick={props.onRender}
-          >
-            {label}
-            {props.cost !== undefined && ` · ${props.cost} credits`}
-          </button>
-          <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>
-            Edit prompt
-          </button>
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {f.file_id === null ? (
+              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || f.problems.length > 0} onClick={() => props.onRender()}>
+                {verb}
+                {price}
+              </button>
+            ) : (
+              <>
+                <button
+                  className={`${btnSecondary} min-h-11 sm:min-h-9`}
+                  disabled={props.busy || (!f.approved && (f.stale || f.problems.length > 0))}
+                  onClick={() => props.onApprove(!f.approved)}
+                >
+                  {f.approved ? "Undo approve" : "Approve"}
+                </button>
+                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || f.problems.length > 0} onClick={() => setRedo(redo === null ? "" : null)} aria-expanded={redo !== null}>
+                  {verb}
+                  {price}
+                </button>
+              </>
+            )}
+            <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>
+              Edit prompt
+            </button>
+          </div>
+          {redo !== null && !phone && redoForm}
+          {redo !== null && phone && (
+            <Sheet title={`Redo clip ${f.clip_id}`} onClose={() => setRedo(null)}>
+              {redoForm}
+            </Sheet>
+          )}
         </div>
       )}
     </li>
