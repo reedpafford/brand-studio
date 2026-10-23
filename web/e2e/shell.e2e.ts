@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectSignedInAs, fill, PASSWORD, signIn } from "./helpers";
+import { expectSignedInAs, fill, openAccountMenu, PASSWORD, signIn } from "./helpers";
 
 // Runs after auth.e2e.ts, which created the owner (Reed). Ed is invited in the first team test and removed in the last.
 test.describe.configure({ mode: "serial" });
@@ -19,6 +19,7 @@ test("the brand switcher changes brand and is remembered", async ({ page }) => {
 test("signing out ends the session", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await expectSignedInAs(page, "Reed");
+  await openAccountMenu(page);
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/team");
@@ -63,6 +64,7 @@ test("the owner removes a member, who can no longer sign in", async ({ page }) =
   await page.getByRole("button", { name: "Remove Ed" }).click();
   await expect(page.getByRole("button", { name: "Remove Ed" })).toHaveCount(0);
 
+  await openAccountMenu(page);
   await page.getByRole("button", { name: "Sign out" }).click();
   await signIn(page, "ed@example.com");
   await expect(page.getByRole("alert")).toHaveText("Wrong email or password.");
