@@ -2,6 +2,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import { EnhanceBar, MarkLine, Notes, useEnhance } from "./Enhance";
+import { useToast } from "../toast";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 
 const SOURCE = { paste: "pasted", upload: "uploaded", draft: "written by Claude", enhance: "enhanced" } as Record<string, string>;
@@ -10,6 +11,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 
 /** The script: paste it or upload a document. Every save is a new numbered version. */
 export function ScriptTab({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const path = { project_id: projectId };
   const [editing, setEditing] = useState<string | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
@@ -40,12 +42,28 @@ export function ScriptTab({ projectId }: { projectId: number }) {
     setViewing(null);
     return queryClient.invalidateQueries({ queryKey: ["script", projectId] });
   };
-  const save = useMutation({
-    mutationFn: async (text: string) => {
-      const { error, response } = await api.PUT("/projects/{project_id}/script", { params: { path }, body: { text } });
-      if (!response.ok) throw new Error(errorText(error));
+  const put = async (text: string) => {
+    const { data, error } = await api.PUT("/projects/{project_id}/script", { params: { path }, body: { text } });
+    if (!data) throw new Error(errorText(error));
+    return data;
+  };
+  const save = useMutation({ mutationFn: put, onSuccess: saved });
+  // Restoring an old version saves its words as the next version; Undo saves the words we had before.
+  const restore = useMutation({
+    mutationFn: async (version: number) => {
+      const { data } = await api.GET("/projects/{project_id}/script/versions/{version}", { params: { path: { ...path, version } } });
+      if (!data) throw new Error("Could not load that version.");
+      const before = latest.data?.text ?? "";
+      const made = await put(data.text);
+      return { version, made: made.version, before };
     },
-    onSuccess: saved,
+    onSuccess: async ({ version, made, before }) => {
+      await saved();
+      toast(`Restored v${version} as v${made}.`, async () => {
+        await put(before);
+        await saved();
+      });
+    },
   });
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -62,14 +80,15 @@ export function ScriptTab({ projectId }: { projectId: number }) {
   if (latest.isError) return <p role="alert" className={errorClass}>Could not load the script. Try again.</p>;
 
   const current = latest.data;
-  const shown = viewing !== null && viewing !== current?.version ? old.data : current;
+  const viewingOld = viewing !== null && viewing !== current?.version;
+  const shown = viewingOld ? old.data : current;
   const uploadButton = (
     <label className={`inline-block cursor-pointer ${btnSecondary}`}>
       {current ? "Upload a new version" : "Upload a document"}
       <input type="file" accept=".txt,.docx,.pdf" className="sr-only" aria-label="Script file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
     </label>
   );
-  const problem = save.error ?? upload.error;
+  const problem = save.error ?? upload.error ?? restore.error;
 
   if (!current || editing !== null) {
     return (
@@ -116,49 +135,51 @@ export function ScriptTab({ projectId }: { projectId: number }) {
           {shown && shown.version === current.version && " · saved"}
         </span>
         <span className="ml-auto flex flex-wrap gap-2">
-          <button className={btnSecondary} onClick={() => setEditing(current.text)}>
-            Edit
-          </button>
-          {uploadButton}
+          {viewingOld ? (
+            <>
+              <button className={btnPrimary} disabled={restore.isPending} onClick={() => restore.mutate(viewing!)}>
+                Restore this version
+              </button>
+              <button className={btnSecondary} onClick={() => setViewing(null)}>
+                Back to the latest
+              </button>
+            </>
+          ) : (
+            <>
+              <button className={btnSecondary} onClick={() => setEditing(current.text)}>
+                Edit
+              </button>
+              {uploadButton}
+            </>
+          )}
           <button className={btnSecondary} aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
             History
           </button>
         </span>
       </div>
-      {viewing !== null && viewing !== current.version && (
-        <p className="text-sm text-warning">
-          You are looking at version {viewing}.{" "}
-          <button className={linkText} onClick={() => setViewing(null)}>
-            Back to the latest
-          </button>
-        </p>
-      )}
+      {viewingOld && <p className="text-sm text-warning">You are looking at version {viewing}, not the latest.</p>}
       {problem && <p role="alert" className={errorClass}>{problem.message}</p>}
       {upload.isPending && <p className="text-sm text-muted">Reading the document…</p>}
       {showHistory && (
         <ul className="divide-y divide-border rounded-md border border-border bg-surface text-sm" aria-label="Script versions">
           {versions.data?.map((v) => (
-            <li key={v.version} className="flex flex-wrap items-center gap-3 px-3 py-2">
+            <li key={v.version} className={`flex flex-wrap items-center gap-3 px-3 py-2 ${viewing === v.version ? "bg-accent-soft" : ""}`}>
               <span className="flex-1">
                 v{v.version} · {day(v.created_at)} · {SOURCE[v.source] ?? v.source} · {v.words} words
               </span>
-              {v.version !== current.version && (
-                <>
-                  <button className={linkText} aria-label={`View v${v.version}`} onClick={() => setViewing(v.version)}>
-                    View
-                  </button>
-                  <button
-                    className={linkText}
-                    aria-label={`Restore v${v.version}`}
-                    onClick={async () => {
-                      const { data } = await api.GET("/projects/{project_id}/script/versions/{version}", { params: { path: { ...path, version: v.version } } });
-                      if (data) save.mutate(data.text);
-                    }}
-                  >
-                    Restore
-                  </button>
-                </>
-              )}
+              {v.version !== current.version &&
+                (viewing === v.version ? (
+                  <span className="font-medium text-accent-text">Viewing</span>
+                ) : (
+                  <>
+                    <button className={linkText} aria-label={`View v${v.version}`} onClick={() => setViewing(v.version)}>
+                      View
+                    </button>
+                    <button className={linkText} aria-label={`Restore v${v.version}`} disabled={restore.isPending} onClick={() => restore.mutate(v.version)}>
+                      Restore
+                    </button>
+                  </>
+                ))}
             </li>
           ))}
         </ul>
