@@ -109,7 +109,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
         </div>
         <div className="space-y-2 text-sm">
           {held ? (
-            <div className="grid min-h-40 place-items-center rounded-md bg-surface-2 text-muted" aria-label="Waiting for Reed">
+            <div className="grid min-h-40 place-items-center rounded-md bg-warning-soft font-medium text-warning" aria-label="Waiting for Reed">
               Waiting for Reed to approve
             </div>
           ) : drawing ? (
@@ -128,7 +128,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           {status === "none" && !failed && !held && <p className="text-warning">Needs a sheet</p>}
           {failed && <p className="text-danger">Didn't finish · credits returned</p>}
           {drawing && <p className="text-muted">A sheet is being made.</p>}
-          {held && <p className="text-muted">The sheet starts when Reed says yes. You can't ask for another meanwhile.</p>}
+          {held && <p className="text-warning">The sheet starts when Reed says yes. You can't ask for another meanwhile.</p>}
         </div>
       </div>
       {!drawing && !held && status === "none" && (photo || kind === "place") && (
