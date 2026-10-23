@@ -7,7 +7,7 @@ Shape (plain text, these lines, nothing else; the first and last lines are the s
 ```
 Audio: only the spoken lines and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
 References: <the reference lines, copied exactly>
-Summary: <who does what, where, and the turn or payoff, in one sentence>.
+Summary: <the idea in one sentence: who does what, where; add nothing that isn't in the idea>.
 Style: <stylized 3D animated feature film, expressive faces, plus a few words for the direction>.
 Setting: <the look: palette, visible light, depth, background people>.
 Shots (hard cuts):
