@@ -15,3 +15,4 @@ API docs: `/docs` once running.
 - Behind a proxy, run uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy ip>` so login throttling sees the real client IP, not the proxy's.
 - `ffmpeg` must be installed: "Make the video" stitches the picked clips with it (free, no provider).
 - Set `BS_SETUP_TOKEN` (a long random secret) before first setup; remove it afterwards.
+- Production runs with Docker Compose and Postgres: see `deploy/README.md`.
