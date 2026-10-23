@@ -23,7 +23,7 @@ as of 71bf8e2 · 2026-10-23 22:41 UTC
 - Scripts: versions by paste/upload; Enhance `POST .../script/enhance`, accept/reject, `.../script/apply`; drafts `.../script/draft`. Script words never change; marks only add direction lines.
 - Breakdown: `POST/GET/PUT /projects/{id}/breakdown` (`stale` flag, problems saved).
 - Project clips: `POST /projects/{id}/clips/prompts` (Claude writes one Seedance prompt + references per clip of the newest breakdown; replaces old clips), `GET /projects/{id}/clips` (problems, `stale`), `PUT .../clips/{id}` edit.
-- Clip takes and the stitched video: routes in `server/app/routes/` from #94 (generate, pick, approve, video); see its tests in `server/tests/test_clip_takes.py`.
+- Clip takes and video (`server/app/routes/project_clips.py`): `POST .../clips/{id}/takes/{take}/pick`, `POST .../clips/{id}/approve`, `POST/GET .../video` (free stitch once every clip is approved); a take is started by the generate route (paid).
 - Storyboard: `POST/GET /projects/{id}/storyboard`, `PUT .../frames/{id}`, `POST .../frames/{id}/render` (paid, refused while frame has problems).
 ## Open PRs (4, not counting the Scribe's own)
 - #104 Clips pane: takes, pick, approve, make the video, download | Builder-Screens | in review (its base #99 and #94 are merged)
