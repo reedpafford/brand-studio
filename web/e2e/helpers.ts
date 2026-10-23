@@ -43,3 +43,9 @@ export async function emptyBrand(page: Page, name = "Night Owl"): Promise<number
   const brands = await (await page.request.get("/api/brands")).json();
   return brands.find((b: { name: string }) => b.name === name).id;
 }
+
+/** A brand's home is its Projects list; the brand name only shows in the Brand select. */
+export async function onBrand(page: Page, name: string) {
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await expect(page.getByLabel("Brand").locator("option:checked")).toHaveText(name);
+}
