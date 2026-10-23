@@ -9,7 +9,7 @@ The kinds:
 - **camera**: a shot that adds tension or payoff (an extreme close-up to open on the problem, a push-in on the doubter, a close-up insert of the phone, a low angle for the win). Only where it changes how the moment feels. Use standard camera terms (close-up, push in, pull out, pan, track, orbit, low angle, overhead, handheld); write anything rarer as "term: what you see".
 - **action**: a character movement that makes a line land or shows what the words describe ("He slides the phone across the table.").
 - **reaction**: who reacts and how, big enough to read on a phone, at the turns (the insult, the number, the reveal).
-- **brand_screen**: every moment the brand block says needs a screen and doesn't have one. Use the screen whose moments match (a loss gets the chart-down screen, a win the chart-up one) and say where it shows. If the script never shows a required screen, suggest one where it fits the story best.
+- **brand_screen**: every moment the brand block says needs a screen or the product and doesn't have one. Use the screen whose moments match (a loss gets the chart-down screen, a win the chart-up one) and say where it shows. If the script never shows a required screen, suggest one where it fits the story best.
 
 Voiceover scripts: every sentence is spoken. Your marks show what each sentence is about, so the picture changes as fast as the words do.
 

@@ -40,9 +40,22 @@ def number_lines(script: str) -> str:
     return "\n".join(f"{n}| {line}" for n, line in enumerate(script.splitlines(), 1))
 
 
-def brand_block(brand: dict, screens: list[dict]) -> str:
+# The moments the project's product (e.g. the Iron Paws bag) must be on screen.
+PRODUCT_MOMENTS = ["product", "feeding", "brand-mention", "end"]
+
+
+def required(screens: list[dict], product: dict | None = None) -> dict[str, list[str]]:
+    """Asset id -> the moments it must be shown at, as `check.*` takes it ('screens')."""
+    out = {f"screen:{s['id']}": s.get("default_for", []) for s in screens}
+    if product:
+        out[f"product:{product['id']}"] = PRODUCT_MOMENTS
+    return out
+
+
+def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -> str:
     """`brand`: name, tone_notes, never_say, legal_line, end_line. `screens`: id, name, tags,
-    default_for (the moments a screen is required at)."""
+    default_for (the moments a screen is required at). `product`: the one product this project
+    picked (id, name), e.g. the Iron Paws peanut butter bag."""
     lines = [f"<brand>\nBrand: {brand['name']}"]
     if brand.get("tone_notes"):
         lines.append(f"Tone: {brand['tone_notes']}")
@@ -52,14 +65,21 @@ def brand_block(brand: dict, screens: list[dict]) -> str:
         lines.append(f"End line (every video ends on it, word for word): {brand['end_line']}")
     if brand.get("legal_line"):
         lines.append(f"Legal line (added in post, don't write it): {brand['legal_line']}")
-    required = [s for s in screens if s.get("default_for")]
-    if required:
-        moments = sorted({m for s in required for m in s["default_for"]})
+    needed = [s for s in screens if s.get("default_for")]
+    if needed:
         lines.append(
             "Required screens. Every shot at one of these moments shows the matching screen, "
             "attached as a reference image and shown exactly:"
         )
-        lines += [_screen(s) + f" — required at: {', '.join(s['default_for'])}" for s in required]
+        lines += [_screen(s) + f" — required at: {', '.join(s['default_for'])}" for s in needed]
+    if product:
+        lines.append(
+            f'Required product: product:{product["id"]} "{product["name"]}", attached as a '
+            "reference image and shown exactly (label to camera, no face) — required at: "
+            + ", ".join(PRODUCT_MOMENTS)
+        )
+    if needed or product:
+        moments = sorted(set(sum((m for m in required(needed, product).values()), [])))
         lines.append(f"Moments: {', '.join(moments)}")
     else:
         lines.append("This brand has no required screens.")

@@ -67,44 +67,22 @@
     "name": "Iron Paws",
     "tone_notes": "Warm, a little funny, never preachy. The dog is the hero. Product: human-grade greens powder for dogs, vet formulated; the bag label reads 'Chicken flavor'."
    },
-   "screens": [
-    {
-     "id": 11,
-     "name": "Iron Paws bag (front)",
-     "tags": [
-      "product",
-      "bag"
-     ],
-     "default_for": [
-      "product",
-      "feeding",
-      "iron-paws-mention",
-      "end-card"
-     ]
-    }
-   ]
+   "screens": [],
+   "product": {
+    "id": 1,
+    "name": "Chicken bag"
+   }
   },
   "iron-paws-pb": {
    "brand": {
     "name": "Iron Paws",
     "tone_notes": "Warm, a little funny, never preachy. The dog is the hero. Product: human-grade greens powder for dogs, vet formulated; this project's bag is the peanut butter one."
    },
-   "screens": [
-    {
-     "id": 12,
-     "name": "Iron Paws bag (peanut butter)",
-     "tags": [
-      "product",
-      "bag"
-     ],
-     "default_for": [
-      "product",
-      "feeding",
-      "iron-paws-mention",
-      "end-card"
-     ]
-    }
-   ]
+   "screens": [],
+   "product": {
+    "id": 2,
+    "name": "Peanut butter bag"
+   }
   }
  },
  "cases": [
@@ -260,7 +238,7 @@
     "MR. HALE: One more hole and he goes back to the shelter.",
     "Sam hugs Tank tight.",
     "That night Sam fills Tank's bowl and Tank wolfs it down.",
-    "★ Iron Paws screen: Iron Paws bag — beside the bowl, label to camera",
+    "★ Iron Paws product: Chicken bag — beside the bowl, label to camera",
     "SCENE 2 — EXT. PARK — DUSK",
     "Mr. Hale searches the bushes, panicking.",
     "MR. HALE: My ring. My wife's ring. It's gone.",
@@ -284,7 +262,7 @@
      3
     ],
     "screen_lines": {
-     "8": "screen:11"
+     "8": "product:1"
     }
    }
   },
@@ -324,7 +302,7 @@
     "The script never shows the bag: a brand_screen mark puts the Iron Paws bag where it fits (the porch call, or a reward feeding at the end)."
    ],
    "expect": {
-    "screen_anywhere": "screen:11"
+    "screen_anywhere": "product:1"
    }
   },
   {
@@ -371,8 +349,8 @@
    ],
    "expect": {
     "screens_at": {
-     "9": "screen:12",
-     "10": "screen:12"
+     "9": "product:2",
+     "10": "product:2"
     },
     "notes_absent": [
      "chicken"
@@ -459,7 +437,7 @@
    ],
    "expect": {
     "screen_lines": {
-     "1": "screen:12"
+     "1": "product:2"
     },
     "clips": [
      1,
