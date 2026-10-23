@@ -8,7 +8,7 @@
      "guaranteed profit",
      "can't lose"
     ],
-    "cta": "Want to trade like me? Download fomo through the link in my bio."
+    "end_line": "Want to trade like me? Download fomo through the link in my bio."
    },
    "screens": [
     {
@@ -231,7 +231,8 @@
     "words_per_draft": [
      45,
      85
-    ]
+    ],
+    "end_line": "Want to trade like me? Download fomo through the link in my bio."
    }
   },
   {
@@ -422,7 +423,7 @@
      65
     ],
     "reference_words": true,
-    "cta": "Want to trade like me? Download fomo through the link in my bio.",
+    "end_line": "Want to trade like me? Download fomo through the link in my bio.",
     "clips": [
      2,
      3
@@ -499,13 +500,14 @@
     ],
     "words_per_draft": [
      0,
-     6
+     20
     ],
     "clips": [
      1,
      1
     ],
-    "min_screen_shots": 3
+    "min_screen_shots": 3,
+    "end_line": "Want to trade like me? Download fomo through the link in my bio."
    }
   }
  ]

@@ -41,15 +41,15 @@ def number_lines(script: str) -> str:
 
 
 def brand_block(brand: dict, screens: list[dict]) -> str:
-    """`brand`: name, tone_notes, never_say, legal_line, cta. `screens`: id, name, tags,
+    """`brand`: name, tone_notes, never_say, legal_line, end_line. `screens`: id, name, tags,
     default_for (the moments a screen is required at)."""
     lines = [f"<brand>\nBrand: {brand['name']}"]
     if brand.get("tone_notes"):
         lines.append(f"Tone: {brand['tone_notes']}")
     if brand.get("never_say"):
         lines.append("Never say: " + "; ".join(brand["never_say"]))
-    if brand.get("cta"):
-        lines.append(f"Call to action (the closing line when a video ends on one): {brand['cta']}")
+    if brand.get("end_line"):
+        lines.append(f"End line (every video ends on it, word for word): {brand['end_line']}")
     if brand.get("legal_line"):
         lines.append(f"Legal line (added in post, don't write it): {brand['legal_line']}")
     required = [s for s in screens if s.get("default_for")]
@@ -92,7 +92,7 @@ def reference_block(ref: dict, replace: str = "") -> str:
     for b in ref["beats"]:
         what = f"{b['summary']} ({b['emotion']})"
         if b["start"] >= live_from:
-            what = "Live-action tag: removed; the brand's call to action goes here."
+            what = "Live-action tag: removed; the brand's end line goes here."
         lines.append(f"- {b['start']:.1f}–{b['end']:.1f} s {what}")
     lines.append("Shots (time, framing, camera, action, emotion, line):")
     for s in ref["shots"]:
@@ -106,7 +106,7 @@ def reference_block(ref: dict, replace: str = "") -> str:
     if live:
         lines.append(
             f"Shots {live[0]['n']}–{live[-1]['n']} ({live[0]['start']:.2f}–{live[-1]['end']:.2f} s)"
-            " are live action: always removed; that slot becomes the brand's call to action."
+            " are live action: always removed; that slot becomes the brand's end line."
         )
     if replace:
         lines.append(f"Replace: {replace}")

@@ -67,8 +67,8 @@ def score(out: Path, case: dict) -> list[str]:
             said = "\n".join(spoken)
             problems += [f"draft {i}: the reference's line “{x}” isn't kept word for word"
                          for x in ref_lines if x not in said]  # fmt: skip
-            if (cta := exp.get("cta")) and cta not in draft.script:
-                problems.append(f"draft {i}: doesn't end on the call to action")
+            if (end := exp.get("end_line")) and end not in draft.script:
+                problems.append(f"draft {i}: doesn't end on the brand's end line")
 
     if bd := answers.get("breakdown"):
         working = out / f"{case['id']}.script.txt"

@@ -230,7 +230,7 @@ def test_a_tagged_brand_screen_line_still_needs_a_screen_in_the_breakdown():
     assert "[Camera] " in apply_all(script_of(example("enhance")[0]), result.suggestions)
 
 
-def test_reference_block_drops_live_action_and_brand_block_carries_the_cta():
+def test_reference_block_drops_live_action_and_brand_block_carries_the_end_line():
     ref = json.loads(
         (
             Path(prompts.__file__).parents[3] / "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
@@ -239,14 +239,13 @@ def test_reference_block_drops_live_action_and_brand_block_carries_the_cta():
     block = prompts.reference_block(ref)
     assert "Shots 44–50 (42.67–45.02 s) are live action: always removed" in block
     assert "real creator" not in block.lower()
-    cta = "Want to trade like me? Download fomo through the link in my bio."
-    assert (
-        f"Call to action (the closing line when a video ends on one): {cta}"
-        in prompts.brand_block({"name": "fomo", "cta": cta}, [])
+    end = "Want to trade like me? Download fomo through the link in my bio."
+    assert f"End line (every video ends on it, word for word): {end}" in prompts.brand_block(
+        {"name": "fomo", "end_line": end}, []
     )
 
 
-def test_eval_scoring_checks_reference_words_and_the_cta(tmp_path):
+def test_eval_scoring_checks_reference_words_and_the_end_line(tmp_path):
     from evals.score import CASES, score
 
     case = next(c for c in CASES["cases"] if c["id"] == "fomo-adapt-altar")
@@ -264,5 +263,20 @@ def test_eval_scoring_checks_reference_words_and_the_cta(tmp_path):
     assert score(tmp_path, case) == [
         "draft 2: 25 spoken words, expected 35–65",
         "draft 2: the reference's line “Sorry, I'm fully booked.” isn't kept word for word",
-        "draft 2: doesn't end on the call to action",
+        "draft 2: doesn't end on the brand's end line",
     ]
+
+
+def test_breakdown_check_wants_the_script_to_end_on_the_brands_end_line():
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    end = "Want to trade like me? Download fomo through the link in my bio."
+    assert check.breakdown(script, bd, FOMO, 4, 30, end_line=end) == [
+        "the script doesn't end on the brand's end line"
+    ]
+    ended = script.replace(
+        "★ fomo screen: Home — closing tag", f"MALIK: {end}\n★ fomo screen: Home — closing tag"
+    )
+    assert "the script doesn't end on the brand's end line" not in check.breakdown(
+        ended, bd, FOMO, 4, 30, end_line=end
+    )
