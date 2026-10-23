@@ -90,6 +90,8 @@ def save(
 ):
     """Save the editor's edited breakdown for the working script (a new row)."""
     project, version = _working(db, user, project_id)
+    if unknown := breakdown.unknown_ids(db, project, body):
+        raise HTTPException(422, f"{unknown[0]}. Pick from the project's cast, places and screens.")
     row = BreakdownVersion(
         project_id=project.id,
         script_version=version.version,

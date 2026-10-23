@@ -19,6 +19,7 @@ from app.routes import (
     projects,
     screens,
     scripts,
+    storyboard,
     team,
 )
 from app.routes.scripts import MAX_DOC_BYTES
@@ -49,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         enhance,
         drafts,
         breakdown,
+        storyboard,
         clips,
     ):
         app.include_router(module.router)

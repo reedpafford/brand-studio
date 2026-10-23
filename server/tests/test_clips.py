@@ -136,7 +136,7 @@ def test_prompt_says_which_picture_is_which(app, editor, fomo, db):
     body = _clip(fomo, prompt=prompt, character_ids=[fomo["character"]], place_ids=[kitchen])
     assert editor.post("/clips", json=body).status_code == 201
     assert _sent(app, db)["prompt"] == (
-        "[Image1] is Max.\n[Image2] is the kitchen.\n"
+        "[Image1] is Max. [Image2] is the kitchen. "
         '[Image3] is the fomo "Buy" screen, shown exactly.\n'
         "[Image1] starts trading in the [Image2], emailing max@fomo.app"
     )
@@ -180,8 +180,8 @@ def test_brand_screens_and_products_stay_lossless(app, editor, fomo, db):
 
 
 def test_huge_images_fail_before_any_paid_call(app, editor, fomo, db, monkeypatch):
-    monkeypatch.setattr("app.references.MAX_PIXELS", 100)
     big = upload(editor, data=png(20, 20))
+    monkeypatch.setattr("app.references.MAX_PIXELS", 100)  # e.g. the limit was lowered since
     body = _clip(fomo, prompt="A quiet beach at dawn", file_ids=[big])
     job = editor.post("/clips", json=body).json()["id"]
     fake = FakeReplicate()

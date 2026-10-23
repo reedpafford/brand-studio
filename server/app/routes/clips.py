@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import prompts
 from app.auth import current_user
 from app.catalogue import CatalogueModel, get_model
 from app.credits import estimate, needs_approval
@@ -25,7 +26,7 @@ from app.models.brands import Brand, BrandScreen
 from app.models.files import StoredFile
 from app.models.jobs import Job
 from app.models.library import Kind
-from app.references import LONG_SIDE, bind_names, media_seconds, reference_lines
+from app.references import LONG_SIDE, bind_names, media_seconds
 from app.routes.brands import get_brand
 from app.routes.files import get_file
 from app.routes.jobs import JobOut, enqueue
@@ -94,7 +95,7 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
         raise HTTPException(422, f"{model.name} makes clips from {lo} to {hi} seconds.")
 
     images: list[int] = []
-    labels: list[tuple[str, str, list[int]]] = []  # (name, what it is, its file ids)
+    refs: dict[int, dict] = {}  # file id -> what it is, for the prompt's [ImageN] lines
     exact: list[int] = []
     for kind, ids in (
         (Kind.character, body.character_ids),
@@ -104,8 +105,8 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
         for item_id in dict.fromkeys(ids):
             item = get_item(db, user, kind, item_id)
             images += item.image_file_ids
-            label = item.name if kind == Kind.character else f"the {item.name}"
-            labels.append((item.name, label, item.image_file_ids))
+            for file_id in item.image_file_ids:
+                refs.setdefault(file_id, {"kind": str(kind), "name": item.name})
             if kind == Kind.prop:
                 exact += item.image_file_ids
     screens = _brand_screens(db, brand)
@@ -123,7 +124,7 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
         s = screens[i]
         images.append(s.file_id)
         exact.append(s.file_id)
-        labels.append((s.name, f'the {brand.name} "{s.name}" screen, shown exactly', [s.file_id]))
+        refs.setdefault(s.file_id, {"kind": "screen", "name": s.name, "brand": brand.name})
 
     files = {"reference_images": [], "reference_videos": [], "reference_audios": []}
     for file_id in images + list(dict.fromkeys(body.file_ids)):
@@ -149,7 +150,7 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     if files["reference_audios"] and not (files["reference_images"] or files["reference_videos"]):
         raise HTTPException(422, "Audio references need at least one image or video with them.")
     _check_media_length(db, storage, model, files)
-    prompt = _prompt(body.prompt, labels, files["reference_images"])
+    prompt = _prompt(body.prompt, refs, files["reference_images"])
     credits = estimate(
         db,
         user.workspace_id,
@@ -162,17 +163,21 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     )
 
 
-def _prompt(text: str, labels: list[tuple[str, str, list[int]]], images: list[int]) -> str:
-    """Say which picture is which (FIT row 4): Seedance only knows them by upload number."""
-    number = {file_id: n for n, file_id in enumerate(images, 1)}
-    found = [
-        (name, label, sorted({number[f] for f in ids if f in number}))
-        for name, label, ids in labels
-    ]
-    lines = [(label, numbers) for _, label, numbers in found if numbers]
-    names = {name: numbers[0] for name, _, numbers in found if numbers}
-    head = reference_lines(lines)
-    return f"{head}\n{bind_names(text, names)}" if head else bind_names(text, names)
+def _prompt(text: str, refs: dict[int, dict], images: list[int]) -> str:
+    """Say which picture is which (FIT row 4): Seedance only knows them by upload number.
+    The words are the Director's (`prompts.reference_lines`); '@Name' becomes its [ImageN]."""
+    extra = (f for f in images if f not in refs)
+    refs = {
+        **refs,
+        **{f: {"kind": "upload", "name": f"extra picture {k}"} for k, f in enumerate(extra, 1)},
+    }
+    head = prompts.reference_lines([refs[f] for f in images])
+    names: dict[str, int] = {}
+    for n, file_id in enumerate(images, 1):
+        if refs[file_id]["kind"] != "upload":
+            names.setdefault(refs[file_id]["name"], n)
+    text = bind_names(text, names)
+    return f"{head}\n{text}" if head else text
 
 
 def _check_media_length(db: Session, storage: Storage, model: CatalogueModel, files) -> None:
