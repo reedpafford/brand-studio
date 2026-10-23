@@ -12,7 +12,7 @@
 - Catalogue: `server/app/catalogue.json` is the one list of models (limits from Replicate schemas, snapshots in `tests/fixtures/replicate`). `GET /models` (credits) for everyone, `GET /models/prices` (dollars) owner-only.
 - Replicate (in review): `app/providers/replicate.py`. Jobs with `provider="replicate"` and input `{"model": <catalogue id>, "input": {...}}`; the worker polls, copies outputs into our storage (`output.file_ids`), records real cost (from Replicate metrics, else marked `estimated`). Token from `REPLICATE_API_TOKEN` if set, else the sandbox proxy adds it; base URL `BS_REPLICATE_BASE_URL`.
 - Claude client (in review): `server/app/claude.py` `ask()` = claude-opus-5-5, adaptive thinking, Pydantic structured output, cached system prompt (base + brand), server-side fallbacks. Key from `STUDIO_ANTHROPIC_KEY` only; always api.anthropic.com.
-- Quick clips (in review): `POST /clips` and `POST /clips/estimate` (same body), checked against the catalogue and brand; brand screens auto-attached when the prompt mentions their moment; references sent as data URLs by the worker. `JobOut` carries `prompt_summary`, `model_id`, `brand_id`, `duration`, `aspect_ratio`, `resolution`.
+- Quick clips (in review): `POST /clips` and `POST /clips/estimate` (same body), checked against the catalogue and brand; brand screens auto-attached when the prompt mentions their moment (unless in `skip_screen_ids`); `GET /clips/{job}/request` returns the full request for Try again; references sent as data URLs by the worker. `JobOut` carries `prompt_summary`, `model_id`, `brand_id`, `duration`, `aspect_ratio`, `resolution`.
 ## Next
 - Builder-Server: claude.py `output_config` follow-up, then #24 (script projects).
 - Explorer maps tezu.ai once network access is granted.

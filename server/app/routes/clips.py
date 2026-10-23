@@ -19,6 +19,7 @@ from app.credits import estimate, needs_approval
 from app.db import get_db
 from app.models.accounts import User
 from app.models.brands import Brand, BrandScreen
+from app.models.jobs import Job
 from app.models.library import Kind
 from app.routes.brands import get_brand
 from app.routes.files import get_file
@@ -42,6 +43,7 @@ class ClipIn(BaseModel):
     prop_ids: list[int] = []
     screen_ids: list[int] = []
     file_ids: list[int] = []  # extra images, videos or audio
+    skip_screen_ids: list[int] = []  # auto-added screens the editor removed: don't re-add
 
 
 class EstimateOut(BaseModel):
@@ -96,7 +98,9 @@ def _plan(db: Session, user: User, body: ClipIn) -> _Plan:
     auto = [
         s.id
         for s in screens.values()
-        if s.id not in body.screen_ids and any(_mentions(body.prompt, m) for m in s.default_for)
+        if s.id not in body.screen_ids
+        and s.id not in body.skip_screen_ids
+        and any(_mentions(body.prompt, m) for m in s.default_for)
     ]
     images += [screens[i].file_id for i in [*dict.fromkeys(body.screen_ids), *auto]]
 
@@ -143,6 +147,7 @@ def _job_input(model: CatalogueModel, body: ClipIn, files: dict) -> dict:
             "generate_audio": body.generate_audio,
         },
         "files": {k: v for k, v in files.items() if v},  # sent as data when the job starts
+        "request": body.model_dump(),  # the editor's original choices, for "Try again"
     }
 
 
@@ -173,3 +178,13 @@ def create_clip(body: ClipIn, user: User = Depends(current_user), db: Session = 
         units=body.duration,
         provider="replicate",
     )
+
+
+@router.get("/{job_id}/request", response_model=ClipIn)
+def clip_request(job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The full request a clip was made from (prompt, settings, brand pieces), for "Try again"
+    and "Reuse prompt". Same visibility as the job itself: the caller's workspace."""
+    job = db.get(Job, job_id)
+    if not job or job.workspace_id != user.workspace_id or "request" not in job.input:
+        raise HTTPException(404, "No such clip.")
+    return job.input["request"]
