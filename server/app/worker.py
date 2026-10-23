@@ -307,7 +307,9 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
     sessions = make_sessionmaker(settings.database_url)
     with sessions() as db:
         recover(db, providers)
-    if not settings.generation_enabled:
+    if settings.fake_providers:
+        log.warning("Using stand-in providers (BS_FAKE_PROVIDERS): nothing real is generated.")
+    elif not settings.generation_enabled:
         log.warning("Generation is switched off (BS_GENERATION_ENABLED): paid jobs stay queued.")
     while True:
         try:

@@ -253,8 +253,10 @@ def estimate_clip(
 
 
 def generation_on(request: Request) -> None:
-    """Paid generation can be switched off per server (BS_GENERATION_ENABLED)."""
-    if not request.app.state.settings.generation_enabled:
+    """Paid generation can be switched off per server (BS_GENERATION_ENABLED). Local runs
+    with stand-in providers (BS_FAKE_PROVIDERS) pay nothing, so they're always on."""
+    settings = request.app.state.settings
+    if not (settings.generation_enabled or settings.fake_providers):
         raise HTTPException(503, "Generation is switched off on this server.")
 
 
