@@ -95,9 +95,9 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                     problems.append(f"{c.clip_id}: shot {sid}'s screen {screen} isn't attached")
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
-            said = [_words(q) for q in QUOTED.findall(c.prompt)]
-            line = _words(shot.line or "")
-            times = sum(_words(shots[s].line or "") == line for s in clip.shot_ids)
+            said = [_exact(q) for q in QUOTED.findall(c.prompt)]
+            line = _exact(shot.line or "")
+            times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         shape, _ = _shape(c.prompt, c.seconds)
@@ -158,11 +158,11 @@ def improve(
     """Quick clip Improve prompt: the editor's quoted words survive exactly, the server's
     reference lines are copied, the shape and timing match the brief."""
     prompt = result.prompt.strip()
-    said = [_words(q) for q in QUOTED.findall(prompt)]
-    asked = [_words(q) for q in QUOTED.findall(idea)]
+    said = [_exact(q) for q in QUOTED.findall(prompt)]
+    asked = [_exact(q) for q in QUOTED.findall(idea)]
     problems = []
     for quote in dict.fromkeys(QUOTED.findall(idea)):
-        if said.count(_words(quote)) != asked.count(_words(quote)):
+        if said.count(_exact(quote)) != asked.count(_exact(quote)):
             problems.append(f"the line “{quote}” isn't there once, word for word")
     if references and f"References: {references}" not in prompt.splitlines():
         problems.append("the reference lines aren't copied exactly")
@@ -171,6 +171,12 @@ def improve(
     if count != shots:
         problems.append(f"{count} shots, the brief asks for {shots}")
     return problems
+
+
+def _exact(text: str) -> str:
+    """Spoken words as written: case and punctuation count (they carry delivery); only runs
+    of whitespace are evened out."""
+    return " ".join(text.split())
 
 
 def _words(text: str) -> str:
