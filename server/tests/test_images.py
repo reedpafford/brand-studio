@@ -32,13 +32,17 @@ def test_always_sends_aspect_and_never_the_fallback(app, editor, db, model):
     )
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
     assert sent["aspect_ratio"] == "9:16"
-    assert "allow_fallback_model" not in sent
+    assert sent.get("allow_fallback_model", False) is False  # Pro: sent as false
+    assert ("allow_fallback_model" in sent) == (model is PRO)
     assert sent["image_input"][0].startswith("data:image/png;base64,")
 
 
-def test_aspect_must_be_given_explicitly():
+def test_aspect_and_resolution_are_checked():
     with pytest.raises(HTTPException):
         image_job_input(NB, "x", "match_input_image")
+    with pytest.raises(HTTPException) as err:
+        image_job_input(NB, "x", "9:16", resolution="8K")
+    assert err.value.detail == "Nano Banana 2.1 offers 1K, 2K, 4K."
 
 
 def test_character_likeness_limits():

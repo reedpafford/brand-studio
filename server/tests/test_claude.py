@@ -86,13 +86,15 @@ def test_typed_call_with_cached_system_thinking_and_fallbacks(monkeypatch):
 
 def test_refusal_raises_plain_error():
     reply = _reply("refusal", text="", stop_details={"type": "refusal", "category": "cyber"})
-    with pytest.raises(ClaudeError, match="declined"):
+    with pytest.raises(ClaudeError, match="declined") as err:
         suggest_enhancements(_client(reply, []), "b", "s")
+    assert err.value.cost_usd == Decimal("0.0144")  # refused answers are still billed
 
 
 def test_cut_off_answer_raises():
-    with pytest.raises(ClaudeError, match="cut off"):
+    with pytest.raises(ClaudeError, match="cut off") as err:
         suggest_enhancements(_client(_reply("max_tokens", text='{"sugg'), []), "b", "s")
+    assert err.value.cost_usd  # whatever was received is still recorded
 
 
 def test_key_comes_only_from_studio_env_var(monkeypatch):
