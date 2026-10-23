@@ -24,10 +24,10 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/script/notes": [200, []],
 };
 
-function open() {
+function open(query = "tab=script") {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/projects/9?tab=script"]}>
+      <MemoryRouter initialEntries={[`/b/1/projects/9?${query}`]}>
         <App />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -47,7 +47,7 @@ test("while Enhance runs the button is off and says why", async () => {
   fakeServer({ ...base, "GET /jobs": [200, [{ id: 3, kind: "write-claude", status: "running", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z" }]] });
   open();
   expect(await screen.findByText("Reading your script…")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Enhance/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /^✦ Enhance/ })).toBeDisabled();
 });
 
 test("suggestions sit under their lines as direction notes, and the script's own lines stay as they were", async () => {
@@ -91,7 +91,7 @@ test("accept and reject are sent; apply shows once something is accepted", async
 
 test("notes can only be dismissed with Got it", async () => {
   fakeServer({ ...base, "GET /projects/9/script/notes": [200, [{ line: 2, text: "The brand kit has no strawberry product." }]] });
-  open();
+  open("stage=enhance");
   expect(await screen.findByText(/Line 2: The brand kit has no strawberry product\./)).toBeInTheDocument();
   expect(within(screen.getByLabelText("Notes")).getAllByRole("button")).toHaveLength(1);
   await userEvent.click(screen.getByRole("button", { name: "Got it: line 2" }));
@@ -106,6 +106,6 @@ test("a failed run says the script is unchanged; a switched-off server explains 
   });
   open();
   expect(await screen.findByText(/Enhance didn't finish\. Your script is unchanged/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Enhance/ }));
+  await userEvent.click(screen.getByRole("button", { name: /^✦ Enhance/ }));
   expect(await screen.findByText("Generation is switched off on this server.")).toBeInTheDocument();
 });
