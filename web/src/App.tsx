@@ -1,17 +1,8 @@
 import { Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth";
 import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
-import { useMe } from "./auth/useMe";
-
-function Home() {
-  const { data: me } = useMe();
-  return (
-    <main className="p-6">
-      <h1 className="text-2xl font-semibold">Brand Studio</h1>
-      <p className="text-neutral-600">Signed in as {me?.name}.</p>
-    </main>
-  );
-}
+import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
+import { TeamPage } from "./team/TeamPage";
 
 export function App() {
   return (
@@ -20,7 +11,11 @@ export function App() {
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route element={<RequireAuth />}>
-        <Route path="*" element={<Home />} />
+        <Route element={<Shell />}>
+          <Route index element={<GoToBrand />} />
+          <Route path="b/:brandId" element={<BrandHome />} />
+          <Route path="team" element={<TeamPage />} />
+        </Route>
       </Route>
     </Routes>
   );

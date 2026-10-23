@@ -11,7 +11,7 @@ export function fakeServer(routes: Record<string, [number, unknown]>) {
       const text = await req.text();
       calls.push({ key, body: text ? JSON.parse(text) : undefined });
       const [status, body] = routes[key] ?? [404, { detail: "not faked" }];
-      return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+      return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
     }),
   );
   return calls;
