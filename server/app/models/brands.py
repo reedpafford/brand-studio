@@ -1,0 +1,38 @@
+"""Brands, their kit, and their screens (real app UI images that must appear exactly)."""
+
+from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db import Base, Entity
+from app.models.files import StoredFile
+
+
+class Brand(Entity, Base):
+    __tablename__ = "brands"
+    __table_args__ = (UniqueConstraint("workspace_id", "slug"),)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    slug: Mapped[str] = mapped_column(String(120))
+    archived: Mapped[bool] = mapped_column(default=False)
+
+    # Brand kit
+    logo_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
+    style_board_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
+    end_card_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
+    colours: Mapped[list[str]] = mapped_column(JSON, default=list)
+    fonts: Mapped[list[str]] = mapped_column(JSON, default=list)
+    tone_notes: Mapped[str] = mapped_column(Text, default="")
+    never_say: Mapped[list[str]] = mapped_column(JSON, default=list)
+    legal_line: Mapped[str] = mapped_column(Text, default="")
+
+
+class BrandScreen(Entity, Base):
+    __tablename__ = "brand_screens"
+    __table_args__ = (UniqueConstraint("brand_id", "name"),)
+    brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
+    file: Mapped[StoredFile] = relationship()
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list)  # e.g. trading, chart-up, mobile
+    # Moments this screen is attached to by default, e.g. ["trading"] for fomo.
+    default_for: Mapped[list[str]] = mapped_column(JSON, default=list)
