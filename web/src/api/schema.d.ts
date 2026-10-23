@@ -1292,6 +1292,8 @@ export interface components {
             unit: string;
             /** Cost Usd */
             cost_usd: string;
+            /** Estimated */
+            estimated: boolean;
             /**
              * Created At
              * Format: date-time
