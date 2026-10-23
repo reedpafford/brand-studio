@@ -4,6 +4,7 @@ import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { linkText, pageTitle } from "../ui";
 import { useEnhance } from "./Enhance";
+import { useBreakdown } from "./BreakdownPane";
 import { Meter, WaitingBadge } from "./Meter";
 import { ScriptTab, useLatestScript } from "./ScriptTab";
 import { STAGES, StagePane, Stepper, firstUnfinished, lockReason, type Stage } from "./Workspace";
@@ -24,14 +25,17 @@ export function ProjectPage() {
   });
   const script = useLatestScript(id);
   const enhance = useEnhance(id, script.data?.version, script.data?.text);
-  if (project.isPending || script.isPending) return <p className="p-6 text-muted">Loading…</p>;
+  const breakdown = useBreakdown(id, script.data?.version ?? 0);
+  if (project.isPending || script.isPending || breakdown.isPending) return <p className="p-6 text-muted">Loading…</p>;
   const p = project.data;
   if (!p) return <p className="p-6">That project doesn't exist.</p>;
   const hasScript = !!script.data;
+  const ready = { script: hasScript, breakdown: !!breakdown.data, breakdownOk: !!breakdown.data && !breakdown.data.stale && breakdown.data.problems.length === 0 };
   // A link to a stage that is locked lands on the first stage that is not finished yet.
-  if (lockReason(stage, hasScript) !== null) return <Navigate to={`?stage=${firstUnfinished(hasScript)}`} replace />;
+  if (lockReason(stage, ready) !== null) return <Navigate to={`?stage=${firstUnfinished(ready)}`} replace />;
   const pick = (s: Stage) => setParams(s === "brief" ? {} : { stage: s });
-  const done: Stage[] = ["brief", ...(script.data ? (["script"] as Stage[]) : [])];
+  const bd = breakdown.data;
+  const done: Stage[] = ["brief", ...(script.data ? (["script"] as Stage[]) : []), ...(bd && !bd.stale && bd.problems.length === 0 ? (["breakdown"] as Stage[]) : [])];
 
   return (
     <main className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
@@ -45,7 +49,7 @@ export function ProjectPage() {
         </div>
       </div>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
-      <Stepper stage={stage} done={done} hasScript={hasScript} onPick={pick} />
+      <Stepper stage={stage} done={done} ready={ready} onPick={pick} />
       <div role="tablist" className="flex gap-1 text-sm lg:hidden">
         {(["script", "stage"] as const).map((t) => (
           <button

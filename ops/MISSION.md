@@ -5,7 +5,20 @@ Let a small team make engaging brand videos fast, from a script or brief, with e
 - An editor goes from brief to a finished, on-brand video without help.
 - Brand elements that must appear (e.g. fomo's real app screens) always appear, exactly.
 - Videos are engaging: strong hook, clear story, no dead air.
-- Cost stays inside each project's budget (2x the 480p estimate).
+- Cost stays inside each project's budget (2x the 480p estimate) and never above the $75 per-video hard cap.
+
+## Definition of done (Reed, 2026-10-23)
+Done means an editor on the **live site** makes both videos below from brief to final cut **without agent help**, and Reed signs off. We plan every PR toward these two.
+
+**A. fomo: the altar-rejection reel** (`docs/references/fomo-DehudnaAmce`).
+- Same story and the same dialogue, word for word. Visuals at least as entertaining as the reference, in the house style.
+- The reselling montage becomes a fomo trading montage. The real fomo screens appear exactly.
+- The live-action tag at the end is replaced by a CTA: "Want to trade like me? Download fomo through the link in my bio."
+
+**B. Iron Paws: Pitbull 1** (`docs/briefs/ironpaws-scripts-2026-10-21.md`).
+- The script word for word, with the right bag shown exactly (the project picks the flavour; Pitbull 1 says peanut butter).
+
+**Getting there.** Day-to-day tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, run through Breakdown → Storyboard → Clips with an estimate first. First two excerpts: Iron Paws "mixed it into my food… peanut butter flavor… finished the bowl" (PB bag), and the fomo trading montage from the altar reel.
 
 ## Product shape
 Workspace → Brand (kit, screens, characters, places, voices, formats) → Project → Scenes → Shots → Clips → Takes → Final cut.
