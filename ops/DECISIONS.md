@@ -1,4 +1,5 @@
 # Decisions (newest first; one line each, with date)
+- 2026-10-23 (Reed) Seedance prompt shape B adopted (FIT rows 3, 9, 10): whole-second shot times with quick cuts grouped in one segment, "[Image1] is the first frame." for the storyboard frame, and Summary + Keep lines. Both A/B clips worked; B is the shape the guide says stays consistent across generations. The breakdown keeps its decimals; only the video prompt rounds.
 - 2026-10-23 (Reed) Script and dialogue never change in Enhance, breakdown or clips. Enhance only suggests camera shots, character movements, reactions and where brand screens/products show; problems in the words become notes, never edits.
 - 2026-10-23 Reed: per-video absolute max is $35 (340 credits). It applies to everyone and is owner-editable.
 - 2026-10-23 Reed: nothing from the old story-studio project carries over except fomo's real screens and logo.

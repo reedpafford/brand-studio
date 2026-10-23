@@ -6,12 +6,18 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 
 import re
 
-from app.prompts.schemas import Breakdown, ClipPrompts, EnhanceResult, StoryboardFrames
+from app.prompts.schemas import (
+    Breakdown,
+    ClipPrompts,
+    EnhanceResult,
+    ImprovedPrompt,
+    StoryboardFrames,
+)
 
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
 AUDIO_LINE = re.compile(r"^Audio: only the spoken lines and .+ No subtitles\.$")
-QUOTED = re.compile(r'"([^"]*)"')
+QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
 SETTINGS_WORDS = re.compile(r"\b\d+:\d+\b|\b(480|720|1080)p\b")
 
 
@@ -89,16 +95,19 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                     problems.append(f"{c.clip_id}: shot {sid}'s screen {screen} isn't attached")
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
-            said = [_words(q) for q in QUOTED.findall(c.prompt)]
-            line = _words(shot.line or "")
-            times = sum(_words(shots[s].line or "") == line for s in clip.shot_ids)
+            said = [_exact(q) for q in QUOTED.findall(c.prompt)]
+            line = _exact(shot.line or "")
+            times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
-        lines = c.prompt.strip().splitlines()
-        if not (AUDIO_LINE.match(lines[0]) and lines[-1] == lines[0]):
-            problems.append(f"{c.clip_id}: doesn't open and close with the same audio line")
-        if SETTINGS_WORDS.search(QUOTED.sub("", c.prompt)):
-            problems.append(f"{c.clip_id}: writes aspect or resolution (those are settings)")
+        shape, _ = _shape(c.prompt, c.seconds)
+        problems += [f"{c.clip_id}: {p}" for p in shape]
+        if (
+            images
+            and images[0].startswith("frame:")
+            and "[Image1] is the first frame." not in c.prompt
+        ):
+            problems.append(f"{c.clip_id}: doesn't name [Image1] the first frame")
         cast = [r.id for r in c.references if r.id.startswith("char:")]
         first_seen = list(dict.fromkeys(i for s in clip.shot_ids for i in shots[s].character_ids))
         if cast != [i for i in first_seen if i in cast]:
@@ -115,6 +124,59 @@ def storyboard(frames: StoryboardFrames, max_images: int, max_characters: int) -
         if len(f.reference_ids) > max_images or len(characters) > max_characters:
             problems.append(f"{f.clip_id}: more references than the image model keeps")
     return problems
+
+
+SHOT_LINE = re.compile(r"^Shot \d+ \| (\d+)–(\d+) s\.", re.M)
+
+
+def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
+    """The Seedance prompt shape (Reed, 2026-10-23): the same audio line first and last, a
+    Summary line, whole-second shots back to back from 0 to `seconds`, a Keep line before the
+    closing audio line, and no settings words. Returns the problems and the shot count."""
+    lines = prompt.strip().splitlines()
+    problems = []
+    if not (AUDIO_LINE.match(lines[0]) and lines[-1] == lines[0]):
+        problems.append("doesn't open and close with the same audio line")
+    if not any(line.startswith("Summary: ") for line in lines):
+        problems.append("has no Summary line")
+    if len(lines) < 2 or not lines[-2].startswith("Keep: "):
+        problems.append("has no Keep line before the closing audio line")
+    if SETTINGS_WORDS.search(QUOTED.sub("", prompt)):
+        problems.append("writes aspect or resolution (those are settings)")
+    times = [(int(a), int(b)) for a, b in SHOT_LINE.findall(prompt)]
+    ends = [0] + [end for _, end in times]
+    if not times or any(start != ends[i] or end <= start for i, (start, end) in enumerate(times)):
+        problems.append("shot times aren't whole seconds back to back from 0")
+    elif times[-1][1] != seconds:
+        problems.append(f"shots end at {times[-1][1]} s, the clip is {seconds} s")
+    return problems, len(times)
+
+
+def improve(
+    idea: str, result: ImprovedPrompt, references: str, shots: int, seconds: float
+) -> list[str]:
+    """Quick clip Improve prompt: the editor's quoted words survive exactly, the server's
+    reference lines are copied, the shape and timing match the brief."""
+    prompt = result.prompt.strip()
+    said = [_exact(q) for q in QUOTED.findall(prompt)]
+    asked = [_exact(q) for q in QUOTED.findall(idea)]
+    problems = []
+    for quote in dict.fromkeys(QUOTED.findall(idea)):
+        if said.count(_exact(quote)) != asked.count(_exact(quote)):
+            problems.append(f"the line “{quote}” isn't there once, word for word")
+    if references and f"References: {references}" not in prompt.splitlines():
+        problems.append("the reference lines aren't copied exactly")
+    shape, count = _shape(prompt, seconds)
+    problems += shape
+    if count != shots:
+        problems.append(f"{count} shots, the brief asks for {shots}")
+    return problems
+
+
+def _exact(text: str) -> str:
+    """Spoken words as written: case and punctuation count (they carry delivery); only runs
+    of whitespace are evened out."""
+    return " ".join(text.split())
 
 
 def _words(text: str) -> str:

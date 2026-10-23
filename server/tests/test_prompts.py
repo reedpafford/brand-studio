@@ -121,6 +121,7 @@ def test_clip_prompt_checks_catch_music_aspect_and_cast_order():
     clip.references[1], clip.references[2] = clip.references[2], clip.references[1]
     assert check.clip_prompts(bd, cp, 30, 10) == [
         "c2: doesn't open and close with the same audio line",
+        "c2: has no Keep line before the closing audio line",
         "c2: writes aspect or resolution (those are settings)",
         "c2: characters aren't attached in the order they appear",
     ]
@@ -163,3 +164,50 @@ def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     bd.scenes[1].shots[8].line = "No."  # a line said twice on purpose, quoted twice
     clip.prompt = clip.prompt.replace('"Should I still go to school? Comment below."', '"No."')
     assert check.clip_prompts(bd, cp, 30, 10) == []
+
+
+def test_improve_keeps_the_editors_words_and_the_reference_lines():
+    ex, result = example("improve")
+    idea = re.search(r"<idea>(.*)</idea>", ex["input"], re.S).group(1)
+    refs = re.search(r"<references>(.*)</references>", ex["input"], re.S).group(1)
+    assert check.improve(idea, result, refs, 4, 8) == []
+    twice = idea + ' Then again: "I bought it at six cents."'
+    callback = result.prompt.replace(
+        "holds the stare.", 'holds the stare. Leo: "I bought it at six cents."'
+    )
+    assert check.improve(twice, schemas.ImprovedPrompt(prompt=callback), refs, 4, 8) == []
+    gap = result.prompt.replace("Shot 2 | 2–4 s.", "Shot 2 | 3–4 s.")
+    assert check.improve(idea, schemas.ImprovedPrompt(prompt=gap), refs, 4, 8) == [
+        "shot times aren't whole seconds back to back from 0"
+    ]
+    curly = idea.replace('"I bought it at six cents."', "“I bought it at six cents.”")
+    assert check.improve(curly, result, refs, 4, 8) == []
+    reworded = result.prompt.replace("six cents", "6 cents")
+    assert check.improve(curly, schemas.ImprovedPrompt(prompt=reworded), refs, 4, 8) == [
+        "the line “I bought it at six cents.” isn't there once, word for word"
+    ]
+    for changed in ("I BOUGHT IT AT SIX CENTS.", "I bought it at six cents!!!"):
+        tweaked = result.prompt.replace("I bought it at six cents.", changed)
+        assert check.improve(idea, schemas.ImprovedPrompt(prompt=tweaked), refs, 4, 8) == [
+            "the line “I bought it at six cents.” isn't there once, word for word"
+        ]
+    result.prompt = result.prompt.replace("six cents", "6 cents").replace(refs, "[Image1] is Leo.")
+    assert check.improve(idea, result, refs, 3, 8) == [
+        "the line “I bought it at six cents.” isn't there once, word for word",
+        "the reference lines aren't copied exactly",
+        "4 shots, the brief asks for 3",
+    ]
+
+
+def test_clip_prompt_check_wants_first_frame_summary_and_whole_seconds():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    clip = cp.clips[0]
+    clip.prompt = re.sub(r"Summary: .*\n", "", clip.prompt)
+    clip.prompt = clip.prompt.replace("[Image1] is the first frame.", "[Image1] storyboard frame.")
+    clip.prompt = clip.prompt.replace("Shot 1 | 0–1 s.", "Shot 1 | 0–1.2 s.")
+    assert check.clip_prompts(bd, cp, 30, 10) == [
+        "c2: has no Summary line",
+        "c2: shot times aren't whole seconds back to back from 0",
+        "c2: doesn't name [Image1] the first frame",
+    ]
