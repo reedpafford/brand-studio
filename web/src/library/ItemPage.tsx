@@ -24,7 +24,7 @@ export function ItemPage() {
     enabled: !!slug,
     queryKey: ["library", kind, "item", item_id],
     queryFn: async () => (await api.GET("/library/{kind}/{item_id}", { params: { path: { kind, item_id } } })).data ?? null,
-    refetchInterval: (q) => (q.state.data?.sheet_status === "drawing" ? 3000 : false),
+    refetchInterval: (q) => (["drawing", "waiting_for_owner"].includes(q.state.data?.sheet_status ?? "") ? 3000 : false),
   });
   if (!slug) return <p className="p-6">That library doesn't exist.</p>;
   if (item.isPending) return <p className="p-6 text-muted">Loading…</p>;

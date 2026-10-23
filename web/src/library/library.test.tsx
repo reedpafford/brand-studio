@@ -263,3 +263,17 @@ test("library cards say Needs a sheet until the sheet is approved", async () => 
   await screen.findByText("Dex");
   expect(screen.getAllByText("Needs a sheet")).toHaveLength(1);
 });
+
+test("a sheet held for the owner says Waiting for Reed to approve, not Drawing, and offers nothing to press", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_status: "waiting_for_owner" }] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("Waiting for Reed to approve")).toBeInTheDocument();
+  expect(screen.queryByText(/Drawing/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Make house-style sheet|Ask Reed|Approve|Redo/ })).not.toBeInTheDocument();
+});
+
+test("past the weekly allowance the button says Ask Reed to approve with the price", async () => {
+  fakeServer({ ...sheetBase, "GET /credits/me": [200, { quick_clip_credits_used: 149, quick_clip_credits_allowed: 150 }], "GET /library/character/5": [200, sheetItem] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 1.5 credits" })).toBeInTheDocument();
+});
