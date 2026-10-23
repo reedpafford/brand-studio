@@ -34,7 +34,7 @@ def project(owner, editor, db):
 
 def _raise_video_cap(owner, credits=1000):
     """The approval paths need a per-video cap above 2x the editor length limit."""
-    limits = {"max_planned_seconds": 180, "weekly_quick_clip_credits": 150}
+    limits = {"weekly_quick_clip_credits": 150}
     owner.put("/credits/limits", json={**limits, "per_video_max_credits": credits})
 
 
@@ -54,11 +54,7 @@ def test_only_owner_sets_rates_and_limits(owner, editor):
     rate = {"unit": "image", "credits_per_unit": 3}
     assert editor.put("/credits/rates/image-x", json=rate).status_code == 403
     assert owner.put("/credits/rates/image-x", json=rate).json()["credits_per_unit"] == 3
-    limits = {
-        "max_planned_seconds": 240,
-        "weekly_quick_clip_credits": 200,
-        "per_video_max_credits": 500,
-    }
+    limits = {"weekly_quick_clip_credits": 200, "per_video_max_credits": 500}
     assert editor.put("/credits/limits", json=limits).status_code == 403
     assert owner.put("/credits/limits", json=limits).json() == limits
 
@@ -91,27 +87,13 @@ def test_over_budget_job_waits_for_owner(project, owner, editor, ed, db):
     assert owner.get(f"/jobs/{held.id}/detail").json()["approved_by_id"] == me
 
 
-def test_long_project_from_editor_waits_and_holds_its_jobs(owner, editor, ed, db):
-    _raise_video_cap(owner)
+def test_editors_plan_any_length_up_to_the_cap(owner, editor):
+    """Reed, 2026-10-23: no editor length limit; only the per-video cap (budget = 2x)."""
     fomo = owner.get("/brands").json()[0]["id"]
-    body = {"brand_id": fomo, "name": "Epic", "planned_seconds": 181}
-    created = editor.post("/projects", json=body).json()
-    assert created["status"] == "needs_owner_approval"
-    job = enqueue(db, ed, "video-480p", {}, units=1, project=db.get(Project, created["id"]))
-    assert job.status == "needs_owner_approval"
-    assert editor.post(f"/projects/{created['id']}/approve").status_code == 403
-    assert owner.post(f"/projects/{created['id']}/approve").json()["status"] == "active"
-    assert owner.post("/projects", json=body).json()["status"] == "active"
-
-
-def test_editor_lengthening_past_limit_needs_owner_again(project, owner, editor):
-    _raise_video_cap(owner)
-    body, _ = project
-    url = f"/projects/{body['id']}"
-    assert editor.patch(url, json={"planned_seconds": 180}).json()["status"] == "active"
-    assert editor.patch(url, json={"planned_seconds": 200}).json()["status"] == (
-        "needs_owner_approval"
-    )
+    body = {"brand_id": fomo, "name": "Epic", "planned_seconds": 364}  # 728 credits
+    assert editor.post("/projects", json=body).json()["status"] == "active"
+    r = editor.post("/projects", json={**body, "planned_seconds": 365})  # 730 > 729
+    assert r.status_code == 422 and "Plan 364 seconds or less." in r.json()["detail"]
 
 
 def test_real_cost_replaces_estimate(project, ed, db):
@@ -241,11 +223,7 @@ def test_weekly_allowance_is_per_editor_and_owner_can_raise_it(app, owner, ed, d
     assert enqueue(db, second, "video-480p", {}, units=60).status == "queued"
     owner.put(
         "/credits/limits",
-        json={
-            "max_planned_seconds": 170,
-            "weekly_quick_clip_credits": 180,
-            "per_video_max_credits": 340,
-        },
+        json={"weekly_quick_clip_credits": 180, "per_video_max_credits": 340},
     )
     assert enqueue(db, ed, "video-480p", {}, units=60).status == "queued"
 
@@ -256,6 +234,8 @@ def test_approving_a_project_releases_its_held_jobs_within_budget(owner, editor,
     body = {"brand_id": fomo, "name": "Epic", "planned_seconds": 200}  # budget 400
     created = editor.post("/projects", json=body).json()
     model = db.get(Project, created["id"])
+    model.status = "needs_owner_approval"  # a project from before Reed dropped the length limit
+    db.commit()
     jobs = [enqueue(db, ed, "video-480p", {}, units=u, project=model) for u in (150, 200, 100)]
     assert {j.status for j in jobs} == {"needs_owner_approval"}
     owner.post(f"/projects/{created['id']}/approve")
@@ -266,12 +246,12 @@ def test_approving_a_project_releases_its_held_jobs_within_budget(owner, editor,
 
 def test_per_video_cap_holds_for_everyone(owner, editor, ed, db):
     fomo = owner.get("/brands").json()[0]["id"]
-    body = {"brand_id": fomo, "name": "Big", "planned_seconds": 171}  # 342 credits > 340
+    body = {"brand_id": fomo, "name": "Big", "planned_seconds": 365}  # 730 credits > 729
     r = owner.post("/projects", json=body)
     assert (
         r.status_code == 422
-        and "$35 limit" in r.json()["detail"]
-        and "170 seconds" in r.json()["detail"]
+        and "$75 limit" in r.json()["detail"]
+        and "364 seconds" in r.json()["detail"]
     )
     r = editor.post("/projects", json=body)
     assert (
@@ -279,17 +259,17 @@ def test_per_video_cap_holds_for_everyone(owner, editor, ed, db):
         and "$" not in r.json()["detail"]
         and "over its limit" in r.json()["detail"]
     )
-    project = owner.post("/projects", json={**body, "planned_seconds": 170}).json()
+    project = owner.post("/projects", json={**body, "planned_seconds": 364}).json()
     me = db.query(User).filter_by(role=Role.owner).one()
     model = db.get(Project, project["id"])
-    enqueue(db, me, "video-480p", {}, units=300, project=model)
-    with pytest.raises(HTTPException) as err:  # the owner too: 300 + 41 > 340
-        enqueue(db, me, "video-480p", {}, units=41, project=model)
-    assert "$35 limit" in err.value.detail
+    enqueue(db, me, "video-480p", {}, units=700, project=model)
+    with pytest.raises(HTTPException) as err:  # the owner too: 700 + 30 > 729
+        enqueue(db, me, "video-480p", {}, units=30, project=model)
+    assert "$75 limit" in err.value.detail
     with pytest.raises(HTTPException) as err:
-        enqueue(db, ed, "video-480p", {}, units=41, project=model)
+        enqueue(db, ed, "video-480p", {}, units=30, project=model)
     assert err.value.detail == "This video would go over its limit."
-    assert enqueue(db, me, "video-480p", {}, units=40, project=model).status == "queued"
+    assert enqueue(db, me, "video-480p", {}, units=29, project=model).status == "queued"
 
 
 def test_owner_cannot_approve_past_the_cap(owner, editor, ed, db):
@@ -308,15 +288,15 @@ def test_owner_cannot_approve_past_the_cap(owner, editor, ed, db):
 
 
 def test_limits_put_needs_the_cap_so_it_is_never_reset_by_omission(owner):
-    r = owner.put(
-        "/credits/limits", json={"max_planned_seconds": 170, "weekly_quick_clip_credits": 150}
-    )
+    r = owner.put("/credits/limits", json={"weekly_quick_clip_credits": 150})
     assert r.status_code == 422
-    assert owner.get("/credits/limits").json()["per_video_max_credits"] == 340
+    assert owner.get("/credits/limits").json()["per_video_max_credits"] == 729
 
 
-def test_editor_length_limit_defaults_to_half_the_cap(editor):
-    assert editor.get("/credits/limits").json()["max_planned_seconds"] == 170
+def test_default_cap_is_75_dollars_and_no_editor_length_limit(editor):
+    limits = editor.get("/credits/limits").json()
+    assert limits == {"weekly_quick_clip_credits": 150, "per_video_max_credits": 729}
+    assert 729 * 0.1028 <= 75  # floored: never more than $75
 
 
 def test_a_single_quick_clip_cannot_pass_the_cap(owner, ed, db):
