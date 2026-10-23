@@ -1397,10 +1397,7 @@ export interface components {
             max_planned_seconds: number;
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number | string;
-            /**
-             * Per Video Max Credits
-             * @default 340
-             */
+            /** Per Video Max Credits */
             per_video_max_credits: number;
         };
         /** LimitsOut */
