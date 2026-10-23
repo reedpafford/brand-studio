@@ -6,6 +6,7 @@ import { linkText, pageTitle } from "../ui";
 import { useEnhance } from "./Enhance";
 import { useBreakdown } from "./BreakdownPane";
 import { useFrames } from "./StoryboardPane";
+import { EstimateNote } from "./EstimateNote";
 import { Meter, WaitingBadge } from "./Meter";
 import { ScriptTab, useLatestScript } from "./ScriptTab";
 import { STAGES, StagePane, Stepper, firstUnfinished, lockReason, type Stage } from "./Workspace";
@@ -48,6 +49,7 @@ export function ProjectPage() {
         <h1 className={pageTitle}>{p.name}</h1>
         <div className="w-full sm:w-72">
           <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+          <EstimateNote projectId={id} used={p.credits_used} budget={p.budget_credits} />
         </div>
       </div>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
