@@ -154,3 +154,34 @@ test("elapsed time reads as seconds, then minutes", () => {
   expect(elapsed(80_000)).toBe("1m 20s");
   expect(elapsed(-5_000)).toBe("0s");
 });
+
+test("removing a star screen is sent as skip_screen_ids, so the server doesn't add it back", async () => {
+  const calls = fakeServer({ ...studio, "POST /clips": [201, { id: 6, kind: "video", status: "queued", credits: 9 }] });
+  open();
+  await userEvent.type(await screen.findByLabelText(/Prompt/), "Mia hits the buy moment today");
+  const chip = await screen.findByText("Buy BTC");
+  await userEvent.click(within(chip.closest("li")!).getByRole("button", { name: "Remove Buy BTC" }));
+  const generate = await screen.findByRole("button", { name: /Generate · 9 credits/ });
+  await vi.waitFor(() => expect(generate).toBeEnabled());
+  await userEvent.click(generate);
+  await screen.findByText("Clip queued. It will show in History.");
+  expect(calls.filter((c) => c.key === "POST /clips").at(-1)?.body).toMatchObject({ screen_ids: [], skip_screen_ids: [3] });
+});
+
+test("Try again on a failed clip brings back its prompt, settings and pieces without sending anything", async () => {
+  const calls = fakeServer({
+    ...studio,
+    "GET /jobs": [200, [{ id: 2, kind: "video", status: "failed", credits: 8, error: "The model could not make that clip.", output: null, prompt_summary: "Mia…", duration: 12, resolution: "720p", aspect_ratio: "16:9" }]],
+    "GET /clips/2/request": [200, {
+      brand_id: 1, model_id: "seedance-2.5", prompt: "Mia taps buy on the app", aspect_ratio: "16:9", duration: 12, resolution: "720p",
+      generate_audio: true, character_ids: [4], place_ids: [], prop_ids: [], screen_ids: [], skip_screen_ids: [], file_ids: [],
+    }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Try again" }));
+  expect(await screen.findByDisplayValue("Mia taps buy on the app")).toBeInTheDocument();
+  expect(await screen.findByText("Mia")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "16:9" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "720p" })).toHaveAttribute("aria-pressed", "true");
+  expect(calls.some((c) => c.key === "POST /clips")).toBe(false);
+});

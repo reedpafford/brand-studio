@@ -42,7 +42,7 @@ function Elapsed({ since }: { since: string }) {
   return <span className="text-muted">{elapsed(now - new Date(since).getTime())}</span>;
 }
 
-export function History({ brandName }: { brandName: string }) {
+export function History({ brandName, onTryAgain }: { brandName: string; onTryAgain: (jobId: number) => void }) {
   const queryClient = useQueryClient();
   const jobs = useJobs();
   const cancel = useMutation({
@@ -81,6 +81,11 @@ export function History({ brandName }: { brandName: string }) {
             {j.prompt_summary && <p className="line-clamp-2">{j.prompt_summary}</p>}
             {detail && <p className="text-muted">{detail}</p>}
             {j.status === "failed" && j.error && <p className="text-danger">{j.error}</p>}
+            {j.status === "failed" && (
+              <button className={btnSecondary} onClick={() => onTryAgain(j.id)}>
+                Try again
+              </button>
+            )}
             {j.status === "succeeded" && fileId && (
               <>
                 <video controls src={fileUrl(fileId)} className="max-h-72 rounded-sm" />

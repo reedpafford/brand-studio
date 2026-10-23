@@ -726,6 +726,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clips/{job_id}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Clip Request
+         * @description The full request a clip was made from (prompt, settings, brand pieces), for "Try again"
+         *     and "Reuse prompt". Same visibility as the job itself: the caller's workspace.
+         */
+        get: operations["clip_request_clips__job_id__request_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -923,6 +944,11 @@ export interface components {
              * @default []
              */
             file_ids: number[];
+            /**
+             * Skip Screen Ids
+             * @default []
+             */
+            skip_screen_ids: number[];
         };
         /** Duration */
         Duration: {
@@ -3008,6 +3034,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clip_request_clips__job_id__request_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipIn"];
                 };
             };
             /** @description Validation Error */

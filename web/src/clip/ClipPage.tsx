@@ -76,6 +76,7 @@ function Studio({ models }: { models: Model[] }) {
     place_ids: ids("place"),
     prop_ids: ids("prop"),
     screen_ids: ids("screen"),
+    skip_screen_ids: dismissed.filter((k) => k.startsWith("screen-")).map((k) => Number(k.slice(7))),
     file_ids: [],
   };
   // Ask the server what this would cost and whether Reed must approve it. Nothing is queued.
@@ -103,6 +104,25 @@ function Studio({ models }: { models: Model[] }) {
   });
 
   const reason = blockedReason({ prompt, loading: isPending, tooMany: chosen.length > maxRefs, maxRefs, credits, left, rendering: isRendering(jobs.data), refused: estimate.error?.message });
+
+  // Try again: put a failed clip's prompt, settings and brand pieces back. Nothing is sent until Generate.
+  const tryAgain = async (jobId: number) => {
+    const { data } = await api.GET("/clips/{job_id}/request", { params: { path: { job_id: jobId } } });
+    if (!data) return toast("Could not load that clip's settings.");
+    const old = models.find((m) => m.id === data.model_id) ?? model;
+    const keys = [
+      ...data.character_ids.map((id) => `character-${id}`),
+      ...data.place_ids.map((id) => `place-${id}`),
+      ...data.prop_ids.map((id) => `prop-${id}`),
+      ...data.screen_ids.map((id) => `screen-${id}`),
+    ];
+    setModel(old);
+    setSettings(fit(old, { aspect: data.aspect_ratio, duration: data.duration, resolution: data.resolution }).settings);
+    setPrompt(data.prompt);
+    setPicked(keys.flatMap((k) => pieces.find((p) => p.key === k) ?? []));
+    setDismissed(data.skip_screen_ids.map((id) => `screen-${id}`));
+    toast("Brought back that clip's prompt and settings. Press Generate to try again.");
+  };
 
   const switchModel = (m: Model) => {
     const { settings: next, notes } = fit(m, settings);
@@ -182,7 +202,7 @@ function Studio({ models }: { models: Model[] }) {
       </section>
       <section aria-label="History" className="space-y-3">
         <h2 className="text-[length:var(--text-md)] font-semibold">History</h2>
-        <History brandName={brand?.name ?? "brand"} />
+        <History brandName={brand?.name ?? "brand"} onTryAgain={tryAgain} />
       </section>
     </main>
   );
