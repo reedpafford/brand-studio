@@ -69,7 +69,7 @@ def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -
     if needed:
         lines.append(
             "Required screens. Every shot at one of these moments shows the matching screen, "
-            "attached as a reference image and shown exactly:"
+            "attached as a reference image: logo, colours and layout exact, numbers free:"
         )
         lines += [_screen(s) + f" — required at: {', '.join(s['default_for'])}" for s in needed]
     if product:
@@ -144,7 +144,7 @@ def reference_lines(refs: list[dict]) -> str:
     image to what it is, in upload order. `refs`: one dict per image with `kind` (character,
     place, prop, screen, product), `name` and, for screens and products, `brand`.
     E.g. '[Image1] and [Image2] are Aiden. [Image3] is the fomo "Token chart up" screen,
-    shown exactly.'"""
+    logo and layout exact.'"""
     groups: dict[tuple, list[int]] = {}
     for n, ref in enumerate(refs, 1):
         groups.setdefault((ref["kind"], ref["name"], ref.get("brand", "")), []).append(n)
@@ -153,7 +153,7 @@ def reference_lines(refs: list[dict]) -> str:
         tags = " and ".join(f"[Image{n}]" for n in numbers)
         verb = "are" if len(numbers) > 1 else "is"
         if kind == "screen":
-            what = f'the {brand} "{name}" screen, shown exactly'
+            what = f'the {brand} "{name}" screen, logo and layout exact'
         elif kind == "product":
             what = f"the {brand} {name}, shown exactly"
         elif kind == "character":

@@ -96,6 +96,19 @@ def test_no_prompt_file_keeps_a_merge_conflict_marker():
             assert not re.search(r"^(<{7}|={7}|>{7})( |$)", text, re.M), path
 
 
+def test_breakdown_check_wants_the_main_character_in_every_montage_shot():
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []
+    shot = next(s for s in bd.scenes[1].shots if s.id == "2.7")
+    shot.character_ids = []
+    assert check.breakdown(script, bd, FOMO, 4, 30) == [
+        "shot 2.7: a montage shot without the main character"
+    ]
+    lone = bd.scenes[0].shots[1]  # 1.2: one quick empty insert between lines, not a montage
+    assert not lone.line and not lone.character_ids and lone.seconds <= 0.6
+
+
 def test_nobody_speaks_unless_the_script_says_so():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
@@ -236,7 +249,8 @@ def test_reference_lines_bind_each_image_in_upload_order():
     ]
     assert prompts.reference_lines(refs) == (
         "[Image1] and [Image2] are Aiden. [Image3] is the kitchen. [Image4] is the fomo "
-        '"Token chart up" screen, shown exactly. [Image5] is the Iron Paws bag, shown exactly.'
+        '"Token chart up" screen, logo and layout exact. [Image5] is the Iron Paws bag, '
+        "shown exactly."
     )
 
 

@@ -453,7 +453,7 @@
     "breakdown",
     "clip_prompts"
    ],
-   "brief": "Only the montage of Reed's reference reel (17.4–29.2 s), about 12 s, rebuilt as a wordless fomo trading montage with the real screens, shown exactly. Keep its match cuts (same pose, bigger world) and its end on the skyline arrival.",
+   "brief": "Only the montage of Reed's reference reel (17.4–29.2 s), about 12 s, rebuilt as a wordless fomo montage of Nate trading his way to wealth: he is in every shot, the real fomo screens keep their logo and layout. Keep its match cuts (same pose, bigger world) and its end on the skyline arrival.",
    "cast": [
     "char:1 Nate, the teen groom"
    ],
@@ -467,8 +467,9 @@
    },
    "script": null,
    "good": [
-    "Wordless, about 12 s, shots around 0.3–0.5 s.",
-    "Same pose, bigger world: phone in a small room → laptop → desktop setup → penthouse, with the real fomo screens (chart down, chart up, desktop) shown exactly.",
+    "Wordless, about 12 s, shots around 0.3–0.5 s; nobody speaks and the audio line says so.",
+    "Nate in every shot, no empty rooms: trading at night, the win, escalating payoffs he's part of (keys, the car, the penthouse door, the balcony), cut with the real fomo screens.",
+    "The got-rich beat shows a big portfolio balance (hundreds of thousands) on the fomo Home screen, not a coin price.",
     "Ends on the skyline arrival in the black suit."
    ],
    "expect": {
@@ -484,7 +485,12 @@
      1,
      1
     ],
-    "min_screen_shots": 3
+    "min_screen_shots": 3,
+    "clip_absent": [
+     "empty room",
+     "does not",
+     "says"
+    ]
    }
   },
   {

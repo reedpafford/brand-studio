@@ -81,6 +81,12 @@ def breakdown(
         needed = {sid for sid, moments in screens.items() if shot.moment in moments}
         if needed and not needed & set(shot.screen_ids):
             problems.append(f"shot {shot.id}: '{shot.moment}' moment without its screen")
+    quick = [not shot.line and shot.seconds <= 0.6 for shot in shots]  # wordless, fast
+    for i, shot in enumerate(shots):
+        # a montage is 3+ quick shots in a row; is this shot inside one?
+        windows = [quick[k : k + 3] for k in range(max(0, i - 2), i + 1)]
+        if any(len(w) == 3 and all(w) for w in windows) and not shot.character_ids:
+            problems.append(f"shot {shot.id}: a montage shot without the main character")
     order = [shot.id for shot in shots]
     if [sid for clip in bd.clips for sid in clip.shot_ids] != order:
         problems.append("clips don't cover the shots once each, in order")
