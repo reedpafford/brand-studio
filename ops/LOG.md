@@ -1,4 +1,5 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-23 Producer sent five more Reed decisions (script words fixed, $35 per-video max, story-studio carry-over limit, @nateassets house style, official-docs prompting). Logged in ops/DECISIONS.md.
 - 2026-10-23 Merged #22 Replicate adapter (Generation #15, part 2/3).
 - 2026-10-23 Merged #29 Phone bottom tab bar (Brand, Clip, Library, More).
 - 2026-10-23 Merged #26 Quick clip studio: controls, brand pieces, history (Generate not wired yet).
