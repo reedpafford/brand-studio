@@ -6,10 +6,12 @@ import { LibraryPage } from "./library/LibraryPage";
 import { KitPage } from "./brand/KitPage";
 import { ScreensPage } from "./brand/ScreensPage";
 import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
+import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
 
 export function App() {
   return (
+    <ToastProvider>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup" element={<SetupPage />} />
@@ -27,5 +29,6 @@ export function App() {
         </Route>
       </Route>
     </Routes>
+    </ToastProvider>
   );
 }

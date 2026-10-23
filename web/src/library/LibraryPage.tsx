@@ -4,6 +4,7 @@ import { Link, NavLink, useParams } from "react-router-dom";
 import { api, errorText, must } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
+import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 import { KINDS, isKindSlug } from "./kinds";
@@ -24,6 +25,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
   const [search, setSearch] = useState("");
   const { data: me } = useMe();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const key = ["library", kind, brandId, archived];
   const items = useQuery({
     queryKey: key,
@@ -36,7 +38,14 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
   const unarchive = useMutation({
     mutationFn: (item_id: number) => must(api.POST("/library/{kind}/{item_id}/unarchive", { params: { path: { kind, item_id } } })),
-    onSuccess: refresh,
+    onSuccess: (_, item_id) => {
+      refresh();
+      const name = items.data?.find((i) => i.id === item_id)?.name ?? "Item";
+      toast(`${name} is back.`, async () => {
+        await must(api.DELETE("/library/{kind}/{item_id}", { params: { path: { kind, item_id } } }));
+        refresh();
+      });
+    },
   });
   const purge = useMutation({
     mutationFn: (item_id: number) => must(api.DELETE("/library/{kind}/{item_id}/permanent", { params: { path: { kind, item_id } } })),

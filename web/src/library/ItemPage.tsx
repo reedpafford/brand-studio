@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText, must } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
 import type { components } from "../api/schema";
+import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 import { CharacterExtras } from "./CharacterExtras";
@@ -33,6 +34,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
   const { kind, one, title } = KINDS[slug];
   const { data: brands } = useBrands();
   const navigate = useNavigate();
+  const toast = useToast();
   const queryClient = useQueryClient();
   const start = { name: item.name, notes: item.notes ?? "", brand_ids: item.brand_ids ?? [], image_file_ids: item.image_file_ids ?? [],
     outfits: item.outfits ?? [],
@@ -57,6 +59,10 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
     onSuccess: async () => {
       await refresh();
       navigate(`/b/${brandId}/library/${slug}`);
+      toast(`${item.name} archived.`, async () => {
+        await api.POST("/library/{kind}/{item_id}/unarchive", { params: { path } });
+        refresh();
+      });
     },
   });
   const addImage = useMutation({
@@ -141,7 +147,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
       {archive.isError && <p role="alert" className={errorClass}>{archive.error.message}</p>}
       <button
         className={btnSecondary}
-        onClick={() => window.confirm(`Archive ${item.name}? You can bring it back from "Show archived".`) && archive.mutate()}
+        onClick={() => archive.mutate()}
       >
         Archive {one}
       </button>
@@ -158,9 +164,16 @@ function History({ kind, item, onRestored }: { kind: "character" | "place" | "pr
     queryKey: ["team", "members"],
     queryFn: async () => (await api.GET("/team/members")).data ?? [],
   });
+  const toast = useToast();
+  const restoreCall = (version: number) =>
+    must(api.POST("/library/{kind}/{item_id}/versions/{version}/restore", { params: { path: { kind, item_id: item.id, version } } }));
   const restore = useMutation({
-    mutationFn: (version: number) => must(api.POST("/library/{kind}/{item_id}/versions/{version}/restore", { params: { path: { kind, item_id: item.id, version } } })),
-    onSuccess: onRestored,
+    mutationFn: restoreCall,
+    onSuccess: ({ data }, version) => {
+      onRestored();
+      // Undo = restore the version we were on, which makes one more version.
+      toast(`Restored v${version} as v${data?.version}.`, () => restoreCall(item.version).then(onRestored));
+    },
   });
   const who = (id: number | null) => members.data?.find((m) => m.id === id)?.name ?? "someone";
   return (
