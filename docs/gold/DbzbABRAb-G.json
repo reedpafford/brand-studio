@@ -1,0 +1,295 @@
+{
+ "id": "DbzbABRAb-G",
+ "account": "nateassets",
+ "views": "6.1M",
+ "url": "https://www.instagram.com/reel/DbzbABRAb-G/",
+ "duration_seconds": 59.82,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A young clothing reseller faces his mom's disbelief after risking his savings on inventory, persists through an exhausting dry spell, and wins her attention when sales turn their argument into a shared packing job.",
+ "tags": [
+  "mom",
+  "home",
+  "reselling",
+  "business",
+  "clothing",
+  "prove-them-wrong",
+  "family",
+  "glow-up",
+  "comedic",
+  "emotional",
+  "hustle"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.1",
+  "mechanic": "Mom confronts her son from the doorway, then a hard cut reveals them squeezed between towering stacks of bagged clothing as she questions his spending.",
+  "first_line": "What is all this inventory?"
+ },
+ "moment": "51.94-52.86: Hero says, \"Told you,\" during the packing-table scene with Mom. His short, assertive callback pays off her earlier demand that he return the stock; her eventual wide-eyed reaction makes the reversal visible.",
+ "stats": {
+  "shots": 40,
+  "live_shots_skipped": 6,
+  "animated_seconds": 57.13,
+  "avg_shot_seconds": 1.43,
+  "median_shot_seconds": 0.47,
+  "longest_shot_seconds": 13.21,
+  "shots_under_1s": 33,
+  "spoken_lines": 9,
+  "words_per_second_while_speaking": 3.1,
+  "speech_share_of_runtime": 0.37
+ },
+ "cut_times": [
+  1.38,
+  7.47,
+  10.72,
+  11.53,
+  12.02,
+  12.35,
+  12.98,
+  13.27,
+  13.57,
+  14.07,
+  14.35,
+  14.65,
+  14.93,
+  15.57,
+  15.82,
+  16.4,
+  17.07,
+  17.52,
+  18.02,
+  18.52,
+  18.9,
+  19.15,
+  19.4,
+  19.65,
+  19.93,
+  20.23,
+  27.35,
+  29.38,
+  29.63,
+  39.55,
+  40.0,
+  40.67,
+  40.97,
+  41.22,
+  41.63,
+  42.47,
+  42.72,
+  43.42,
+  56.63,
+  57.13,
+  57.63,
+  57.93,
+  58.37,
+  58.85,
+  59.37
+ ],
+ "live_shots": [
+  41,
+  42,
+  43,
+  44,
+  45,
+  46
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 7.47,
+   "beat": "hook",
+   "what_happens": "Mom discovers the clothing inventory, challenges the purchase, and gets a subdued answer about how little has sold.",
+   "emotion": "Mom's raised brows, tense mouth, and open-handed gestures show alarm; Hero faces her with a tentative, defensive expression.",
+   "camera": "Medium shot of Mom in the doorway, then a medium two-shot framed tightly by tall inventory stacks.",
+   "cuts": "One cut at 1.38s, followed by a 6.09s hold through the exchange and hesitant answer."
+  },
+  {
+   "start": 7.47,
+   "end": 12.02,
+   "beat": "doubt",
+   "what_happens": "Mom orders Hero to return the clothes and focus on school, while he asks for one month.",
+   "emotion": "Mom narrows her eyes and bares her teeth; Hero's lifted inner brows and parted lips make his reply feel pleading.",
+   "camera": "Tight close-up on Mom, reverse close-up on Hero, then a short return to Mom's scowl.",
+   "cuts": "Three shots lasting 3.25s, 0.81s, and 0.49s sharpen the final exchange."
+  },
+  {
+   "start": 12.02,
+   "end": 17.52,
+   "beat": "montage",
+   "what_happens": "Hero photographs a black spiderweb sweatshirt, works through product and shipping screens, and prepares a labeled package.",
+   "emotion": "His concentrated gaze and hands-on handling of the garment show purposeful effort.",
+   "camera": "Keyboard detail, frontal product presentation, close inserts of computer and phone screens, then package and label-printer inserts.",
+   "cuts": "Twelve shots in 5.5s, mostly 0.25-0.67s each, compress the selling process into quick actions."
+  },
+  {
+   "start": 17.52,
+   "end": 20.23,
+   "beat": "low",
+   "what_happens": "Hero sits surrounded by stock, closes his eyes, and leans back as the room shifts between light and darkness.",
+   "emotion": "His slack posture, heavy eyelids, and tipped-back head convey fatigue and discouragement.",
+   "camera": "Repeated frontal medium close-ups widen slightly as he reclines, keeping the inventory walls behind him.",
+   "cuts": "Eight brief shots in 2.71s create a flickering passage of time."
+  },
+  {
+   "start": 20.23,
+   "end": 27.35,
+   "beat": "doubt",
+   "what_happens": "Mom finds Hero still working at his laptop at night, and he insists he can make the business work before something catches his attention.",
+   "emotion": "Mom watches from behind with concern; Hero hunches toward the laptop with stubborn concentration.",
+   "camera": "Medium-wide view of Hero at the laptop with Mom visible in the doorway behind him.",
+   "cuts": "One 7.12s shot holds the renewed challenge, his response, and the waiting beat before \"Wait.\""
+  },
+  {
+   "start": 27.35,
+   "end": 29.63,
+   "beat": "turn",
+   "what_happens": "Hero reacts to the laptop with enormous eyes and an open mouth, then pitches forward behind the screen.",
+   "emotion": "His sudden wide-eyed stare changes exhaustion into startled excitement.",
+   "camera": "Extreme close-up of Hero's face followed by a frontal medium view across the laptop.",
+   "cuts": "A 2.03s reaction hold is followed by a 0.25s physical reaction."
+  },
+  {
+   "start": 29.63,
+   "end": 39.55,
+   "beat": "reveal",
+   "what_happens": "Mom approaches the work area as the conversation reveals that the clothing is selling.",
+   "emotion": "Her posture and questioning response suggest surprise, while Hero's answer conveys excitement under pressure.",
+   "camera": "Wider room framing places Mom at the doorway beside the inventory and worktable.",
+   "cuts": "One 9.92s shot lets the surprise unfold after a long speech-free stretch."
+  },
+  {
+   "start": 39.55,
+   "end": 43.42,
+   "beat": "montage",
+   "what_happens": "Hero rapidly folds clothing and prepares parcels at the worktable through alternating bright and dark room views.",
+   "emotion": "His lowered gaze, forward lean, and quick arm movements show urgency and renewed energy.",
+   "camera": "Repeated frontal medium views keep the packing surface and colorful inventory stacks visible.",
+   "cuts": "Eight shots in 3.87s, each 0.25-0.84s, accelerate the fulfillment work."
+  },
+  {
+   "start": 43.42,
+   "end": 56.63,
+   "beat": "payoff",
+   "what_happens": "Hero and Mom work beside each other at the packing table, trade a correction, and reach his brief \"Told you\" payoff.",
+   "emotion": "Mom's skeptical sideways look gives way to astonishment; Hero's attention turns between her and the work as he claims vindication.",
+   "camera": "Medium two-shot across the table with clothing and packing supplies in the foreground.",
+   "cuts": "A single 13.21s shot slows the rhythm for the family exchange and callback."
+  },
+  {
+   "start": 56.63,
+   "end": 57.13,
+   "beat": "callback",
+   "what_happens": "Mom fills the frame with a wide-eyed, open-mouthed reaction.",
+   "emotion": "Her lifted brows and rounded eyes make her disbelief visibly collapse into surprise.",
+   "camera": "Extreme close-up isolates Mom's reaction.",
+   "cuts": "One 0.5s reaction shot delivers the final animated punctuation."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Mom",
+   "text": "What is all this inventory? You spent your savings on clothes?",
+   "delivery": "Firmly projected at a brisk conversational pace, with rising questions and an alarmed, accusing edge."
+  },
+  {
+   "t": 0.0,
+   "speaker": "Hero",
+   "text": "I'm reselling them.",
+   "delivery": "Brief, matter-of-fact defense within the opening exchange; the shared timing does not isolate his volume."
+  },
+  {
+   "t": 0.0,
+   "speaker": "Mom",
+   "text": "How many have you sold?",
+   "delivery": "Clipped, skeptical question within the brisk opening exchange; exact onset is not separately measured."
+  },
+  {
+   "t": 6.72,
+   "speaker": "Hero",
+   "text": "Two.",
+   "delivery": "Quieter and hesitant, with a small falling finish after a 0.86s beat."
+  },
+  {
+   "t": 8.36,
+   "speaker": "Mom",
+   "text": "Exactly. Take them back and focus on school.",
+   "delivery": "Sharp, firmly projected reprimand after a 1.2s pause; the exchange runs at a snappy 4.1 words per second."
+  },
+  {
+   "t": 10.72,
+   "speaker": "Hero",
+   "text": "Just give me a month.",
+   "delivery": "Quick, pleading reply, with worried raised brows and an urgent appeal."
+  },
+  {
+   "t": 20.3,
+   "speaker": "Mom",
+   "text": "You're still doing this.",
+   "delivery": "Relatively restrained and quieter than the opening, with skeptical emphasis on his persistence."
+  },
+  {
+   "t": 20.3,
+   "speaker": "Hero",
+   "text": "Yeah, because I know I can make it work.",
+   "delivery": "Steady, determined response within a moderately brisk 3.5-word-per-second exchange; exact onset is not separately measured."
+  },
+  {
+   "t": 26.48,
+   "speaker": "Hero",
+   "text": "Wait.",
+   "delivery": "A short, more projected interruption after a 2.48s pause, signaling sudden attention."
+  },
+  {
+   "t": 35.2,
+   "speaker": "Mom",
+   "text": "Oh. What happened?",
+   "delivery": "A quiet, drawn-out opening shifts into a more projected question as surprise replaces skepticism."
+  },
+  {
+   "t": 35.88,
+   "speaker": "Hero",
+   "text": "They're selling. All of them.",
+   "delivery": "More projected and excited, with emphasis on the scale of the sales; exact onset within the exchange is not separately measured."
+  },
+  {
+   "t": 35.88,
+   "speaker": "Hero",
+   "text": "I'm trying.",
+   "delivery": "Brief, effortful continuation within the same moderately paced exchange; exact onset is not separately measured."
+  },
+  {
+   "t": 47.02,
+   "speaker": "Mom",
+   "text": "What are you doing? You're doing it wrong.",
+   "delivery": "Firm, corrective delivery at about three words per second, with a questioning rise followed by a decisive reprimand."
+  },
+  {
+   "t": 51.94,
+   "speaker": "Hero",
+   "text": "Told you.",
+   "delivery": "Short and assertive after a 2.28s pause, with a strong accent and a satisfied falling finish."
+  }
+ ],
+ "voice_arc": "Mom opens with brisk, projected questions while Hero's delayed, quieter \"Two\" exposes his vulnerability. His quick plea becomes a steadier declaration during the nighttime scene, then a sudden \"Wait\" breaks the lull. The sales exchange lifts the energy, and his compact \"Told you\" supplies the final verbal reversal. The measurements support firm projection and relative quietness rather than sustained shouting.",
+ "camera_language": "The animation alternates inventory-filled medium views with tight facial reverses, making the stock both the source of conflict and a constant visual pressure around Hero. Short keyboard, garment, screen, parcel, and printer inserts turn work into concrete actions, while repeated frontal views and lighting changes compress time. Longer dialogue holds surround the rapid work passages, and extreme facial close-ups punctuate discovery and disbelief.",
+ "why_it_works": "The savings gamble is immediately visible in the excessive inventory, and Hero's hesitant \"Two\" gives Mom's objection weight. Repeated work actions and exhausted posture make the later sales feel earned. Bringing Mom to the packing table turns the original family conflict into a shared activity, giving the brief \"Told you\" a clear emotional payoff.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Opens instantly with a dramatic high-stakes confrontation between mother and son over an room stacked entirely with clothes, immediately hooking the viewer into a classic 'underdog vs doubter' narrative.",
+  "turn": "The turn occurs at 0:26 when laptop notifications flood the screen, proving the son's hustle worked and shifting the mood from struggle to explosive victory.",
+  "payoff": "Mom transitions from harsh critic to active teammate, high-fiving him while packing, followed by a comical final reveal of an even bigger box stack in the hallway and real-life success proof.",
+  "why_it_works": "Universal emotional theme: Proving a doubting parent/authority figure wrong. Exaggerated Pixar-style 3D animation creates high expressiveness and visual appeal. Fast pacing with clear dynamic arc: Doubt -> Grind -> Surprise Success -> Reconciliation -> Escalation. Auditory payoff with crisp UI sound effects and hype beat drops.",
+  "camera": [
+   "Aggressive push-in on Mom's angry face at 0:07 to heighten dramatic conflict",
+   "Snap zoom onto Son's shocked face at 0:27 during sales notification reveal",
+   "ECU reflection shot on eyes at 0:28 for stylized visual emphasis",
+   "Pan right twist reveal at 0:54 showing hallway packed with boxes"
+  ],
+  "montages": [
+   "{\"start\": \"0:12\", \"end\": \"0:18\", \"cuts\": 6, \"content\": \"Typing on laptop -> showing hoodie -> creating online listing -> polybagging clothing -> thermal label printer -> tired face at desk\", \"style\": \"Fast match cuts synced to energetic bea",
+   "{\"start\": \"0:39\", \"end\": \"0:45\", \"cuts\": 4, \"content\": \"Son packing orders frantically while time-lapse lighting shifts from daylight to darkness\", \"style\": \"Speed ramped match cuts and lighting time-lapse\"}"
+  ]
+ }
+}

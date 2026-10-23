@@ -1,0 +1,272 @@
+{
+ "id": "Dc_wqlLqKq1",
+ "account": "cevrico",
+ "views": "350K",
+ "url": "https://www.instagram.com/reel/Dc_wqlLqKq1/",
+ "duration_seconds": 51.38,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A backpack-wearing teen dismissed by a luxury-car salesman trades on the spot, claims a big profit, and makes the salesman offer him the keys and ask for lessons.",
+ "tags": [
+  "salesman",
+  "car",
+  "dealership",
+  "trading",
+  "day-trading",
+  "prove-them-wrong",
+  "public-humiliation",
+  "status-reversal",
+  "glow-up",
+  "savage"
+ ],
+ "pacing_profile": "medium",
+ "hook": {
+  "seconds": "0-4.72",
+  "mechanic": "A suited salesman dismisses a casually dressed teen in a luxury showroom with an immediate affordability challenge; the teen answers with a short question.",
+  "first_line": "Kid, you can't afford this car."
+ },
+ "moment": "Around 35-40 seconds, the salesman offers to get the keys and the teen replies, \"I thought I couldn't afford it.\" The second shot places the suited salesman beside the casually dressed teen, making the reversal of his opening judgment the central payoff.",
+ "stats": {
+  "shots": 3,
+  "live_shots_skipped": 0,
+  "animated_seconds": 51.38,
+  "avg_shot_seconds": 17.13,
+  "median_shot_seconds": 14.59,
+  "longest_shot_seconds": 28.08,
+  "shots_under_1s": 0,
+  "spoken_lines": 9,
+  "words_per_second_while_speaking": 2.4,
+  "speech_share_of_runtime": 0.97
+ },
+ "cut_times": [
+  28.08,
+  42.67
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 7.3,
+   "beat": "hook",
+   "what_happens": "The salesman tells the teen he cannot afford the car, cites its price, and hears that the teen is a day trader.",
+   "emotion": "The teen's lowered head and hands near his pockets give him an understated presence against the upright salesman.",
+   "camera": "Medium rear three-quarter view of the teen, with his large backpack prominent and the salesman ahead among showroom cars.",
+   "cuts": "No detected cuts; the opening remains within shot 1."
+  },
+  {
+   "start": 7.3,
+   "end": 14.0,
+   "beat": "doubt",
+   "what_happens": "The salesman dismisses him as a high schooler and tells him to return when trading makes money.",
+   "emotion": "The dialogue establishes condescension, while the teen's brief acceptance sounds restrained.",
+   "camera": "The opening showroom shot continues, keeping the casually dressed teen and suited salesman in the same social space.",
+   "cuts": "No detected cuts."
+  },
+  {
+   "start": 14.0,
+   "end": 21.0,
+   "beat": "turn",
+   "what_happens": "The teen starts trading there, prompting disbelief and another premature judgment from the salesman.",
+   "emotion": "The salesman sounds incredulous; the teen answers tersely and asks him to wait.",
+   "camera": "Shot 1 continues; the supplied keyframe establishes the showroom interaction but does not show the trading action clearly.",
+   "cuts": "No detected cuts; dialogue supplies the change in stakes."
+  },
+  {
+   "start": 21.0,
+   "end": 28.08,
+   "beat": "reveal",
+   "what_happens": "Spoken amounts escalate as the trade develops toward a claimed seventy-one-thousand-dollar result.",
+   "emotion": "The louder number sequence and \"Come on\" create anticipation and urgency.",
+   "camera": "The first showroom shot holds through the numerical escalation.",
+   "cuts": "No internal detected cuts; shot 1 ends at 28.08."
+  },
+  {
+   "start": 28.08,
+   "end": 38.12,
+   "beat": "payoff",
+   "what_happens": "The salesman reacts to the profit and offers to get the keys after the teen says it took one trade.",
+   "emotion": "Disbelief turns into accommodating interest, while the teen remains verbally concise.",
+   "camera": "Hard cut to a medium-wide rear view of the pair walking through the showroom, with the salesman reaching toward the teen's shoulder.",
+   "cuts": "One cut at 28.08, followed by a continuous shot."
+  },
+  {
+   "start": 38.12,
+   "end": 42.67,
+   "beat": "callback",
+   "what_happens": "The teen repeats the affordability insult back to the salesman, who admits judging him too quickly.",
+   "emotion": "A brief held beat precedes the teen's pointed comeback; the salesman's language becomes conciliatory.",
+   "camera": "The rear walking composition continues, keeping both characters together.",
+   "cuts": "No internal detected cuts; shot 2 ends at 42.67."
+  },
+  {
+   "start": 42.67,
+   "end": 48.5,
+   "beat": "payoff",
+   "what_happens": "The salesman asks the teen to teach him trading, and the teen calls out his sudden interest.",
+   "emotion": "The seated teen smiles while the salesman leans toward him with an open-handed, pleading gesture.",
+   "camera": "Hard cut inside the car to a medium side view of the teen at the wheel, with the salesman framed through the open side window.",
+   "cuts": "One cut at 42.67; the car-interior shot then holds."
+  },
+  {
+   "start": 48.5,
+   "end": 51.38,
+   "beat": "cta",
+   "what_happens": "The teen asks whether he should buy the car and invites viewers to comment.",
+   "emotion": "The closing delivery becomes faster and more projected, maintaining the teen's confident upper hand.",
+   "camera": "The final car-interior composition holds on the smiling teen and the salesman outside.",
+   "cuts": "No further detected cuts."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.62,
+   "speaker": "Salesman",
+   "text": "Kid, you can't afford this car.",
+   "delivery": "Firm, brisk dismissal with a downward finish."
+  },
+  {
+   "t": 2.5,
+   "speaker": "Hero",
+   "text": "How do you know?",
+   "delivery": "Short, direct challenge with rising questioning inflection."
+  },
+  {
+   "t": 3.2,
+   "speaker": "Salesman",
+   "text": "Because this thing costs 200 grand.",
+   "delivery": "Matter-of-fact and patronizing, stressing the price."
+  },
+  {
+   "t": 5.2,
+   "speaker": "Hero",
+   "text": "I'm a day trader.",
+   "delivery": "Compact, assured statement at a moderate volume."
+  },
+  {
+   "t": 6.7,
+   "speaker": "Salesman",
+   "text": "You're a high schooler. Come back when trading actually makes you money.",
+   "delivery": "Measured, dismissive rebuke, emphasizing the contrast between school and earning."
+  },
+  {
+   "t": 11.8,
+   "speaker": "Hero",
+   "text": "All right.",
+   "delivery": "Quiet, brief acceptance in the softer portion of the exchange."
+  },
+  {
+   "t": 13.0,
+   "speaker": "Salesman",
+   "text": "Wait, you're seriously trading here?",
+   "delivery": "Slower, incredulous question with rising pitch."
+  },
+  {
+   "t": 15.6,
+   "speaker": "Hero",
+   "text": "Yep.",
+   "delivery": "Clipped, calm confirmation."
+  },
+  {
+   "t": 16.4,
+   "speaker": "Narrator",
+   "text": "His finger's already on the tier.",
+   "delivery": "Low-key descriptive phrase; the final word is unclear in the supplied transcript."
+  },
+  {
+   "t": 18.5,
+   "speaker": "Salesman",
+   "text": "Looks like I was right.",
+   "delivery": "Brisk and self-satisfied, with stronger projection than the preceding exchange."
+  },
+  {
+   "t": 19.9,
+   "speaker": "Hero",
+   "text": "Just wait.",
+   "delivery": "Short, firm interruption."
+  },
+  {
+   "t": 20.7,
+   "speaker": "Narrator",
+   "text": "The chart. Four hundred. Eight thousand. Thousand. Twenty-six thousand.",
+   "delivery": "Increasingly projected numerical calls with space between amounts; the repeated \"thousand\" is unclear in the supplied transcript."
+  },
+  {
+   "t": 26.0,
+   "speaker": "Hero",
+   "text": "Come on.",
+   "delivery": "Urgent encouragement during the louder profit sequence."
+  },
+  {
+   "t": 28.0,
+   "speaker": "Salesman",
+   "text": "71 grand? You just made that sitting here?",
+   "delivery": "Loud, astonished questioning, stressing the amount and the ease of earning it."
+  },
+  {
+   "t": 33.0,
+   "speaker": "Hero",
+   "text": "One trade.",
+   "delivery": "Brief, confident answer."
+  },
+  {
+   "t": 34.1,
+   "speaker": "Salesman",
+   "text": "Wait, what? Would you like me to get the keys?",
+   "delivery": "Startled opening that shifts into an eager, accommodating offer."
+  },
+  {
+   "t": 38.0,
+   "speaker": "Hero",
+   "text": "I thought I couldn't afford it.",
+   "delivery": "Pointed, moderately paced comeback, with a noticeable beat after the opening \"I.\""
+  },
+  {
+   "t": 40.4,
+   "speaker": "Salesman",
+   "text": "I may have judged you too fast.",
+   "delivery": "Measured, conciliatory admission."
+  },
+  {
+   "t": 42.5,
+   "speaker": "Hero",
+   "text": "Yeah, you did.",
+   "delivery": "Dry, direct confirmation."
+  },
+  {
+   "t": 43.5,
+   "speaker": "Salesman",
+   "text": "So can you teach me how to trade?",
+   "delivery": "Eager question that accelerates into the louder closing exchange."
+  },
+  {
+   "t": 46.8,
+   "speaker": "Hero",
+   "text": "Now you want to learn?",
+   "delivery": "Fast, teasing question with rising pitch."
+  },
+  {
+   "t": 48.5,
+   "speaker": "Hero",
+   "text": "Should I buy the car? Comment below.",
+   "delivery": "Brisk, projected audience address with a clipped final instruction."
+  }
+ ],
+ "voice_arc": "The salesman begins with brisk dismissal while the teen gives short, controlled replies. The exchange softens and slows around the decision to trade, then grows louder during the escalating amounts and surprised reaction. The salesman shifts into accommodation and a request for lessons; the teen finishes with a pointed callback and a faster, more projected audience question. Individual line times and speaker assignments are inferred within the supplied transcript blocks.",
+ "camera_language": "Three long shots carry the story, with hard cuts only at 28.08 and 42.67 seconds. The supplied views progress from the backpack-wearing teen facing the salesman, to the pair walking together, to the teen smiling at the wheel while the salesman leans through the window. This progression makes the change in status visible through position, posture, and access to the car.",
+ "why_it_works": "The price challenge establishes a clear social wound immediately, and the escalating spoken amounts turn the wait for a result into suspense. The teen's affordability callback directly answers the opening insult, while the salesman's request for lessons completes the reversal. The final image places the teen comfortably inside the desired car with the former gatekeeper seeking his help.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "In the first 2 seconds, an arrogant salesman confronts a young kid checking out an expensive luxury car, immediately locking viewers into a high-stakes 'underdog vs. elitist' narrative.",
+  "turn": "The turn occurs at 0:11 when the kid stops, blushes red with resolve, and pulls out his laptop to trade right in front of the salesman.",
+  "payoff": "The payoff lands when the trade spikes from -$3,800 to +$71,400 in seconds, forcing the arrogant salesman to grovel and beg for trading lessons.",
+  "why_it_works": "Universal underdog satisfaction: Watching a condescending adult get instantly humbled by a teenager triggers high emotional gratification. Gamified financial tension: The rapid green tally numbers (+400, +8,000, +26,000, +71,400) tap into dopamine-driven visual feedback. Pixar-quality animated visual clarity: Exaggerated facial expressions (blushing cheeks, gaping jaw) make the narrative easy to f",
+  "camera": [
+   "Close-up opening shot at 0:00 highlighting luxury car reflection to immediately signal high status setting.",
+   "Push-in at 0:11 on the kid's face with a visual glowing red blush effect to exaggerate humiliation turning into determination.",
+   "Extreme close-up framing at 0:26 on the salesman's wide-eyed shock to maximize dramatic payoff.",
+   "Snap-zoom close-up at 0:42 to capture the salesman's desperate, subservient expression.",
+   "Direct fourth-wall breaking close-up at 0:48 for the final engagement question."
+  ],
+  "montages": []
+ }
+}

@@ -1,0 +1,306 @@
+{
+ "id": "DdkCQMnCHua",
+ "account": "pjtradesnq",
+ "views": "",
+ "url": "https://www.instagram.com/reel/DdkCQMnCHua/",
+ "duration_seconds": 68.08,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "Fired diner worker Ryan faces rent he cannot afford and taunts about his trading, then accepts PJ's disciplined guidance, pays his rent, and earns a stunned reaction from his doubters.",
+ "tags": [
+  "friends",
+  "boss",
+  "restaurant",
+  "street",
+  "trading",
+  "eviction",
+  "mentor",
+  "prove-them-wrong",
+  "rags-to-riches",
+  "emotional"
+ ],
+ "pacing_profile": "medium",
+ "hook": {
+  "seconds": "0-2.22",
+  "mechanic": "An offscreen boss fires Ryan while a tight frontal close-up holds his wide eyes, raised brows, and parted mouth; a short silence lets the rejection register.",
+  "first_line": "Ryan, you're done here."
+ },
+ "moment": "37.48-39.16: A close phone insert confirms the rent payment as Ryan says, \"It's paid. It's actually paid.\" His relatively quiet, measured repetition makes the payoff feel like stunned relief after his earlier panic.",
+ "stats": {
+  "shots": 8,
+  "live_shots_skipped": 4,
+  "animated_seconds": 57.88,
+  "avg_shot_seconds": 7.24,
+  "median_shot_seconds": 5.02,
+  "longest_shot_seconds": 22.53,
+  "shots_under_1s": 0,
+  "spoken_lines": 25,
+  "words_per_second_while_speaking": 3.9,
+  "speech_share_of_runtime": 0.62
+ },
+ "cut_times": [
+  5.73,
+  7.6,
+  9.97,
+  32.5,
+  36.8,
+  39.2,
+  46.0,
+  46.8,
+  49.3,
+  52.73,
+  56.2
+ ],
+ "live_shots": [
+  8,
+  9,
+  10,
+  11
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 5.73,
+   "beat": "hook",
+   "what_happens": "Ryan loses his diner job and protests that rent is due tomorrow.",
+   "emotion": "His lifted eyebrows, wide eyes, and open mouth show shock and helplessness.",
+   "camera": "Tight frontal close-up on Ryan against a softly blurred diner interior.",
+   "cuts": "One uninterrupted 5.73-second shot holds through the dismissal and response."
+  },
+  {
+   "start": 5.73,
+   "end": 9.97,
+   "beat": "setup",
+   "what_happens": "Ryan stands alone in a wet nighttime alley and checks his overdrawn bank account.",
+   "emotion": "His isolated stance and downward attention make the money problem feel immediate.",
+   "camera": "Full-body alley view followed by a tight phone insert.",
+   "cuts": "Two shots lasting 1.87 and 2.37 seconds move from isolation to the financial problem."
+  },
+  {
+   "start": 9.97,
+   "end": 17.72,
+   "beat": "doubt",
+   "what_happens": "Doubters ridicule Ryan's money and trading ambitions while he sits at his computer and answers defensively.",
+   "emotion": "Ryan's furrowed brow and tense forward posture accompany a quick, forceful rebuttal.",
+   "camera": "Medium close view of Ryan at his keyboard, with trading screens behind him.",
+   "cuts": "No measured cut; the dialogue changes speakers within the extended desk shot."
+  },
+  {
+   "start": 17.72,
+   "end": 24.92,
+   "beat": "low",
+   "what_happens": "Ryan pleads for one successful trade, panics at the result, and reacts to PJ's arrival.",
+   "emotion": "His concentrated stare and hunched position support the shift from desperate hope to alarm.",
+   "camera": "The desk framing keeps Ryan and his trading environment together.",
+   "cuts": "The same uninterrupted shot continues through the failed trade and arrival dialogue."
+  },
+  {
+   "start": 24.92,
+   "end": 32.5,
+   "beat": "turn",
+   "what_happens": "PJ identifies Ryan's revenge trading and asks him to trust a disciplined strategy and wait.",
+   "emotion": "Ryan's hurried confession gives way to hesitant trust and impatience.",
+   "camera": "Continued medium close desk view; the supplied frame does not establish PJ's position.",
+   "cuts": "No measured cut until 32.5, completing the 22.53-second desk shot."
+  },
+  {
+   "start": 32.5,
+   "end": 36.8,
+   "beat": "payoff",
+   "what_happens": "A close view of the trading interface accompanies PJ's signal and Ryan's growing excitement.",
+   "emotion": "Ryan's repeated encouragement turns into excited disbelief.",
+   "camera": "Tight trading-screen insert focuses attention on the trade.",
+   "cuts": "One 4.3-second insert follows the long desk scene."
+  },
+  {
+   "start": 36.8,
+   "end": 39.2,
+   "beat": "payoff",
+   "what_happens": "Ryan holds a phone showing his completed rent payment and repeats that it is paid.",
+   "emotion": "The repeated confirmation sounds relieved and almost disbelieving.",
+   "camera": "Close-up of a hand holding the phone.",
+   "cuts": "One 2.4-second phone insert makes the practical outcome immediate."
+  },
+  {
+   "start": 39.2,
+   "end": 46.0,
+   "beat": "reveal",
+   "what_happens": "PJ credits Ryan's effort, then the doubters recognize the mentor beside him.",
+   "emotion": "Ryan appears composed in the foreground while the nearby young men look toward him; their dialogue shifts from mockery to surprise.",
+   "camera": "Medium group composition against a brick wall, with Ryan prominent at the right.",
+   "cuts": "One 6.8-second group shot holds through reassurance, a final taunt, and recognition."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Boss",
+   "text": "Ryan, you're done here.",
+   "delivery": "Quiet, measured, and final, with a downward finish."
+  },
+  {
+   "t": 2.22,
+   "speaker": "Ryan",
+   "text": "Done? Rent's due tomorrow.",
+   "delivery": "Noticeably louder than the boss, deliberate and alarmed; pitch rises on the question."
+  },
+  {
+   "t": 4.46,
+   "speaker": "Boss",
+   "text": "That's all I've got for you.",
+   "delivery": "Quiet and brisk after a held beat, with a dismissive finality."
+  },
+  {
+   "t": 7.48,
+   "speaker": "Ryan",
+   "text": "Negative 32. Rent's 1,850. Tomorrow.",
+   "delivery": "Subdued and slow after a long silence, separating the amounts and deadline into worried fragments."
+  },
+  {
+   "t": 10.24,
+   "speaker": "Doubter",
+   "text": "Well, look who it is. Diner boy.",
+   "delivery": "Low-volume, conversational mockery with a pointed finish."
+  },
+  {
+   "t": 12.24,
+   "speaker": "Doubter",
+   "text": "128 bucks? That's your whole life?",
+   "delivery": "Quiet, evenly paced taunting, with rising questions."
+  },
+  {
+   "t": 14.14,
+   "speaker": "Doubter",
+   "text": "Forget trading. This is it for you.",
+   "delivery": "Quiet but rapid and cutting, landing firmly on the final phrase."
+  },
+  {
+   "t": 15.48,
+   "speaker": "Ryan",
+   "text": "You don't know anything about me.",
+   "delivery": "Louder, very fast, and defensive, snapping back almost immediately."
+  },
+  {
+   "t": 16.58,
+   "speaker": "Doubter",
+   "text": "Good luck making rent, Ryan.",
+   "delivery": "Low and brisk, with a mocking emphasis on Ryan's name."
+  },
+  {
+   "t": 18.12,
+   "speaker": "Ryan",
+   "text": "One good trade. Just one.",
+   "delivery": "Moderately forceful, pleading self-talk; the repetition narrows into desperation."
+  },
+  {
+   "t": 20.1,
+   "speaker": "Ryan",
+   "text": "No. No, no, no.",
+   "delivery": "His strongest sustained volume in the animated sequence, with urgent repeated refusals and rising panic."
+  },
+  {
+   "t": 21.9,
+   "speaker": "Ryan",
+   "text": "What did I just do?",
+   "delivery": "Quick and shaken after a pause, with a disbelieving upward inflection."
+  },
+  {
+   "t": 23.58,
+   "speaker": "Ryan",
+   "text": "PJ, what are you doing here?",
+   "delivery": "Fast and surprised, still tense from the loss."
+  },
+  {
+   "t": 24.92,
+   "speaker": "PJ",
+   "text": "You've been revenge trading.",
+   "delivery": "Firm, relatively loud, and very brisk, stating the diagnosis directly."
+  },
+  {
+   "t": 25.82,
+   "speaker": "Ryan",
+   "text": "I lost my job. Rent's due tomorrow. I panicked.",
+   "delivery": "Rushed and emotionally exposed, packing three admissions into one short burst."
+  },
+  {
+   "t": 27.68,
+   "speaker": "PJ",
+   "text": "Fear doesn't make trades. Discipline does.",
+   "delivery": "Steady and firm at a moderate pace, emphasizing the final contrast."
+  },
+  {
+   "t": 29.08,
+   "speaker": "PJ",
+   "text": "Do you trust my strategy?",
+   "delivery": "Quick and direct, immediately following his advice with a pointed question."
+  },
+  {
+   "t": 30.26,
+   "speaker": "Ryan",
+   "text": "Yeah, I do. Nothing's happening.",
+   "delivery": "Softer and slower, moving from agreement to uneasy impatience."
+  },
+  {
+   "t": 31.98,
+   "speaker": "PJ",
+   "text": "Then we wait. There. That's it.",
+   "delivery": "Measured and controlled, shifting from patient instruction to a concise signal."
+  },
+  {
+   "t": 34.32,
+   "speaker": "Ryan",
+   "text": "Come on. Come on. It's off. It's actually off.",
+   "delivery": "More forceful and excited, repeating encouragement before an incredulous finish."
+  },
+  {
+   "t": 37.48,
+   "speaker": "Ryan",
+   "text": "It's paid. It's actually paid.",
+   "delivery": "Quieter and measured after a nearly one-second pause, repeating the news with relieved disbelief."
+  },
+  {
+   "t": 39.38,
+   "speaker": "PJ",
+   "text": "That was you. Not luck.",
+   "delivery": "Firm and brisk, with reassuring emphasis on Ryan's responsibility."
+  },
+  {
+   "t": 40.9,
+   "speaker": "Doubter",
+   "text": "Where are you headed, Ryan? Looking for another diner?",
+   "delivery": "Very quiet and fast, retaining a casual, needling tone."
+  },
+  {
+   "t": 43.02,
+   "speaker": "Doubter",
+   "text": "Wait, that's PJ Trades?",
+   "delivery": "Suddenly louder and slower, with a surprised upward finish."
+  },
+  {
+   "t": 59.26,
+   "speaker": "Unidentified speaker",
+   "text": "What's going on?",
+   "delivery": "Much louder and more projected than the earlier dialogue, delivered quickly after a long speech-free interval."
+  }
+ ],
+ "voice_arc": "The boss's quiet dismissal meets Ryan's louder disbelief. Low, quick taunts provoke Ryan's fastest defensive response; his self-talk then builds to repeated, louder panic. PJ introduces firm, controlled instruction, Ryan briefly accelerates into excitement, and the rent confirmation softens into relief before the doubters' quiet mockery flips into louder recognition.",
+ "camera_language": "The animated story alternates expressive character framing with tight inserts of the financial stakes and outcome. A frontal reaction close-up and isolated alley view establish vulnerability, while the unusually long desk shot carries most of the dialogue. The trading and payment inserts accelerate the resolution before a group composition delivers the social reversal.",
+ "why_it_works": "The firing and next-day rent deadline give Ryan an immediate, concrete problem, while the taunts make his financial fear personal. His panicked attempt creates a low point that makes PJ's controlled delivery feel like a meaningful turn. Paying the rent resolves the opening threat, and the doubters recognizing PJ adds a second payoff through their changed reaction.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within the first 2 seconds, Ryan is instantly fired by his harsh boss with $0 in his bank account right before rent is due, establishing high emotional stakes instantly.",
+  "turn": "The turn occurs at 0:23 when mentor PJ enters the room, stops Ryan's destructive revenge trading, and shifts his mindset from panic to disciplined strategy.",
+  "payoff": "The win lands when Ryan pays off his full $1,850 rent in one disciplined trade, followed by the ultimate status flex when PJ picks him up in a red Ferrari in front of the bullies who mocked him.",
+  "why_it_works": "High Stakes & Universal Fear: Eviction, firing, and zero money resonate deeply with viewers. Relatable Downfall vs Discipline: Shows the realistic danger of 'revenge trading' before offering the solution. Pixar-Quality 3D Animation: High production value makes it visually captivating compared to average social ads. Satisfying Status Revenge: Shifting from diner boy to pulling up in a Ferrari deliv",
+  "camera": [
+   "Push-in on Ryan's shocked facial reaction when fired at 0:02",
+   "POV frame lock on bank account showing negative balance at 0:07",
+   "Snap zoom on Ryan clutching his hair during panic trade at 0:21",
+   "Symmetrical static wide shot during time-lapse sunrise transition at 0:29",
+   "Dynamic whip-pan reveal as the red Ferrari pulls up to humiliate bullies at 0:43"
+  ],
+  "montages": [
+   "{\"start\": \"0:45\", \"end\": \"0:59\", \"cuts\": 11, \"content\": \"Real-life creator streaming, hitting green trades, flexing Audemars Piguet watches, Lamborghini Urus, Ferrari driving, nightlife, and logo end screen.\", \"style\": \"Rhythmic high-energy"
+  ]
+ }
+}

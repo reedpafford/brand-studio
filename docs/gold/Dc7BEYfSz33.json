@@ -1,0 +1,255 @@
+{
+ "id": "Dc7BEYfSz33",
+ "account": "cevrico",
+ "views": "18.5K",
+ "url": "https://www.instagram.com/reel/Dc7BEYfSz33/",
+ "duration_seconds": 30.05,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "Aiden faces cafeteria ridicule for choosing trading over a summer job, struggles through learning, then returns with a single day's earnings that eclipse his friends' summer wages.",
+ "tags": [
+  "friends",
+  "school",
+  "cafeteria",
+  "trading",
+  "summer-job",
+  "prove-them-wrong",
+  "public-humiliation",
+  "glow-up",
+  "money",
+  "savage"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.56",
+  "mechanic": "A close view of a cheerful blond student at lunch opens with a concrete hourly wage, immediately establishing money as the group's status contest.",
+  "first_line": "I'm making $15 an hour as a lifeguard."
+ },
+ "moment": "25.8-26.28: With Aiden holding his phone toward his friends, he answers their disbelief with the firm, clipped 'One trade.' The tiny answer compresses the comparison from an entire summer to a single transaction.",
+ "stats": {
+  "shots": 8,
+  "live_shots_skipped": 3,
+  "animated_seconds": 27.22,
+  "avg_shot_seconds": 3.4,
+  "median_shot_seconds": 3.19,
+  "longest_shot_seconds": 7.12,
+  "shots_under_1s": 0,
+  "spoken_lines": 17,
+  "words_per_second_while_speaking": 4.4,
+  "speech_share_of_runtime": 0.69
+ },
+ "cut_times": [
+  4.5,
+  6.38,
+  13.5,
+  14.33,
+  15.62,
+  16.17,
+  17.62,
+  19.33,
+  22.17,
+  26.5
+ ],
+ "live_shots": [
+  4,
+  6,
+  7
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 4.5,
+   "beat": "hook",
+   "what_happens": "Students compare summer wages over lunch, opening on the smiling blond friend.",
+   "emotion": "Easy confidence and competitive pride show in the blond student's open expression and relaxed posture.",
+   "camera": "Eye-level medium close-up of the blond student, with lunch trays below and classmates behind.",
+   "cuts": "One uninterrupted 4.5-second shot carries the opening wage comparison."
+  },
+  {
+   "start": 4.5,
+   "end": 6.38,
+   "beat": "setup",
+   "what_happens": "The blond friend turns toward dark-haired Aiden and asks about his summer job.",
+   "emotion": "The friend looks curious while Aiden sits quietly with a reserved, sideways glance.",
+   "camera": "Medium two-shot across the cafeteria table, blond friend in profile and Aiden facing the camera.",
+   "cuts": "One cut at 4.5 seconds reframes the conversation around Aiden."
+  },
+  {
+   "start": 6.38,
+   "end": 13.5,
+   "beat": "doubt",
+   "what_happens": "Aiden says he will learn trading, his friends predict failure, and he answers, 'We'll see.'",
+   "emotion": "Aiden stays composed amid the group's surprised faces and skeptical attention.",
+   "camera": "Wider frontal group shot places Aiden centrally, surrounded by seated classmates and visible cafeteria benches.",
+   "cuts": "A single 7.12-second shot holds seven short exchanges without reaction cuts."
+  },
+  {
+   "start": 13.5,
+   "end": 17.62,
+   "beat": "low",
+   "what_happens": "During the learning passage, Aiden presses a hand over his face.",
+   "emotion": "Closed eyes, lowered brows, sweat, and a hand clamped across his face make the strain physical.",
+   "camera": "An extreme close-up isolates Aiden's eyes, brow, and hand.",
+   "cuts": "The passage accelerates through boundaries at 13.5, 14.33, 15.62, and 16.17 seconds; the animated reaction lasts 1.29 seconds."
+  },
+  {
+   "start": 17.62,
+   "end": 19.33,
+   "beat": "turn",
+   "what_happens": "A time jump separates Aiden's struggle from the friends' next earnings comparison.",
+   "emotion": "The dialogue break suspends the outcome before a quieter voice resumes.",
+   "camera": "A brief transition separates the learning passage from the return to the cafeteria.",
+   "cuts": "A 1.71-second transition bridges the montage and the next story scene."
+  },
+  {
+   "start": 19.33,
+   "end": 22.17,
+   "beat": "setup",
+   "what_happens": "A friend reports earning $5,000 over the summer as Aiden stands beside the table and reacts to the amount.",
+   "emotion": "The seated friends look pleased and animated, while Aiden's upright, restrained posture prepares the reversal.",
+   "camera": "Medium-wide cafeteria group shot with standing Aiden above the seated blond friend and gesturing girl.",
+   "cuts": "One 2.84-second shot carries the summer total, praise, and Aiden's questioning repetition."
+  },
+  {
+   "start": 22.17,
+   "end": 26.5,
+   "beat": "reveal",
+   "what_happens": "Aiden extends his phone toward the group and says he earned that amount today, then specifies one trade.",
+   "emotion": "His steady gaze and controlled expression contrast with the friend's audible disbelief.",
+   "camera": "Frontal medium close-up gives the extended phone foreground prominence beneath Aiden's face.",
+   "cuts": "One 4.33-second reveal shot holds through a pause and the three-line exchange."
+  },
+  {
+   "start": 26.5,
+   "end": 30.05,
+   "beat": "cta",
+   "what_happens": "Aiden faces the viewer and asks whether they would skip a summer job to learn trading.",
+   "emotion": "Lowered brows and direct eye contact turn his composure into a confident challenge.",
+   "camera": "Centered chest-up close-up at eye level, with the cafeteria softly behind him.",
+   "cuts": "A final cut at 26.5 seconds isolates Aiden for a 3.55-second direct address."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Blond Friend",
+   "text": "I'm making $15 an hour as a lifeguard.",
+   "delivery": "Conversational volume, measured pace, bright and casually proud."
+  },
+  {
+   "t": 2.72,
+   "speaker": "Other Friend",
+   "text": "I got $20 an hour working at a golf course.",
+   "delivery": "Slightly quieter but much faster, with a snappy competitive boast."
+  },
+  {
+   "t": 4.84,
+   "speaker": "Blond Friend",
+   "text": "What's your summer job, Aiden?",
+   "delivery": "Conversational, brisk, with an inquisitive rise at the end."
+  },
+  {
+   "t": 6.58,
+   "speaker": "Aiden",
+   "text": "I'm not getting one.",
+   "delivery": "Firm and relatively loud, delivered quickly after a half-second beat."
+  },
+  {
+   "t": 7.66,
+   "speaker": "Friend",
+   "text": "What?",
+   "delivery": "The loudest interjection, sharply projected with a startled pitch rise."
+  },
+  {
+   "t": 8.3,
+   "speaker": "Aiden",
+   "text": "I'm spending the whole summer learning to trade.",
+   "delivery": "Brisk, clear, and assertive, with steady conviction."
+  },
+  {
+   "t": 10.12,
+   "speaker": "Blond Friend",
+   "text": "Bro, you're going to make $0.",
+   "delivery": "Fast and dismissive, stressing the zero as a punchline."
+  },
+  {
+   "t": 11.54,
+   "speaker": "Other Friend",
+   "text": "You'll be broke before school starts.",
+   "delivery": "Quieter, quick, and skeptical, ending with a matter-of-fact downward cadence."
+  },
+  {
+   "t": 13.02,
+   "speaker": "Aiden",
+   "text": "We'll see.",
+   "delivery": "Extremely clipped and controlled, a brief defiant answer."
+  },
+  {
+   "t": 18.86,
+   "speaker": "Blond Friend",
+   "text": "I made $5,000 this summer.",
+   "delivery": "Quiet conversational pride at a moderate pace, entering after the long dialogue gap."
+  },
+  {
+   "t": 20.62,
+   "speaker": "Girl Friend",
+   "text": "That's actually crazy.",
+   "delivery": "Quick, lightly animated admiration, immediately following the boast."
+  },
+  {
+   "t": 21.5,
+   "speaker": "Aiden",
+   "text": "$5,000?",
+   "delivery": "Noticeably louder, deliberate, with a questioning lift that challenges the comparison."
+  },
+  {
+   "t": 23.2,
+   "speaker": "Aiden",
+   "text": "That's what I made today.",
+   "delivery": "Firm, brisk, and assured after a 1.18-second held beat, emphasizing today."
+  },
+  {
+   "t": 24.56,
+   "speaker": "Friend",
+   "text": "In one day?",
+   "delivery": "Slower and incredulous, with rising pitch."
+  },
+  {
+   "t": 25.8,
+   "speaker": "Aiden",
+   "text": "One trade.",
+   "delivery": "Loud, compact, and decisive, ending with a firm downward cadence."
+  },
+  {
+   "t": 26.94,
+   "speaker": "Aiden",
+   "text": "Would you skip a summer job to learn trading?",
+   "delivery": "Projected and rapid, directly challenging the viewer with an upward questioning finish."
+  },
+  {
+   "t": 28.52,
+   "speaker": "Aiden",
+   "text": "Comment below.",
+   "delivery": "Quieter and substantially slower, giving the final instruction room to land."
+  }
+ ],
+ "voice_arc": "The friends begin with conversational wage boasts, interrupted by a much louder 'What?' Aiden answers quickly and firmly, then the voices disappear for a 5.56-second gap. The return starts quietly with the summer earnings boast; Aiden takes vocal control through a louder questioning repetition, a held beat, and the decisive 'One trade,' before a fast projected question and slower closing instruction.",
+ "camera_language": "Eye-level cafeteria framing moves from a friendly close-up to a two-shot and then a sustained group view, keeping the social judgment visible around Aiden. An extreme facial close-up makes his private strain tangible; the return gives him standing height, foregrounds his extended phone, and finishes with centered direct eye contact.",
+ "why_it_works": "Specific wage figures make the friends' hierarchy immediately understandable, and their confident predictions give Aiden a clear social wound to reverse. The visible distress creates a cost between his promise and his return, while the final comparison repeatedly shrinks the earning window from a summer to a day to one trade.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Opens instantly with relatable high school conversation about summer jobs and hourly pay ($15/hr vs $20/hr), creating instant context before flipping expectations when Aiden refuses to get a job.",
+  "turn": "The turn occurs at 0:13 when the dialogue stops and transitions to a high-stress montage of Aiden sweating, studying, and trading in isolation while everyone else is partying/working normal jobs.",
+  "payoff": "The payoff hits at 0:22 when the friend brags about earning $5,000 across the entire 3-month summer, only for Aiden to show his phone showing +$5,300 earned in a single day on one trade.",
+  "why_it_works": "High contrast narrative archetype: 'Underdog who gets doubted' vs 'Doubters who get proven wrong'. High relatable tension: Hourly wage trap vs high-leverage skill (trading). 3D Pixar-style aesthetic gives high-production quality and universal appeal to a financial story. Fast pacing with clear visual beat drops keeps retention high through the 30-second runtime. Ending directly asks a binary quest",
+  "camera": [
+   "CU framings during dialogue clips create tight focus on facial expressions and social dynamics in cafeteria (0:00 - 0:06)",
+   "Wide group table framing at 0:07 isolates Aiden in the middle while everyone around him shouts and leans in",
+   "Extreme Close Up (ECU) push-in at 0:13 dramatically accentuates sweat droplets to highlight pressure and hard work",
+   "First-person perspective style push-in on the phone UI at 0:22 lets the audience directly read the massive profit number"
+  ],
+  "montages": [
+   "{\"start\": \"0:13\", \"end\": \"0:18\", \"cuts\": 4, \"content\": \"ECU sweat on forehead/nose bridge -> MS late-night studying at desk with books -> insert stock line graph shooting up green -> black card text 'END OF SUMMER'\", \"style\": \"Rhythmic fast"
+  ]
+ }
+}
