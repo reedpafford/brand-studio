@@ -44,8 +44,8 @@ function ShotEditor({ shot, picks, onChange }: { shot: Shot; picks: Picks; onCha
       <fieldset className="text-xs">
         <legend className="font-medium">Who's in it</legend>
         {picks.characters.map((c) => (
-          <label key={c.key} className={`mr-3 gap-1 ${tap}`}>
-            <input type="checkbox" checked={shot.character_ids.includes(c.key)} onChange={() => onChange({ character_ids: toggle(shot.character_ids, c.key) })} />
+          <label key={c.key} className={`mr-3 min-w-11 gap-2 px-1 ${tap}`}>
+            <input type="checkbox" className="size-5 sm:size-4" checked={shot.character_ids.includes(c.key)} onChange={() => onChange({ character_ids: toggle(shot.character_ids, c.key) })} />
             {c.name}
           </label>
         ))}
@@ -81,8 +81,8 @@ function ShotEditor({ shot, picks, onChange }: { shot: Shot; picks: Picks; onCha
       <fieldset className="text-xs">
         <legend className="font-medium">Brand screens</legend>
         {picks.screens.map((s) => (
-          <label key={s.key} className={`mr-3 gap-1 ${tap}`}>
-            <input type="checkbox" checked={shot.screen_ids.includes(s.key)} onChange={() => onChange({ screen_ids: toggle(shot.screen_ids, s.key) })} />
+          <label key={s.key} className={`mr-3 min-w-11 gap-2 px-1 ${tap}`}>
+            <input type="checkbox" className="size-5 sm:size-4" checked={shot.screen_ids.includes(s.key)} onChange={() => onChange({ screen_ids: toggle(shot.screen_ids, s.key) })} />
             {s.name}
           </label>
         ))}
