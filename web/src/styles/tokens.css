@@ -1,0 +1,189 @@
+/* Brand Studio design tokens. Spec: docs/design/README.md.
+   Theme: follows the OS; <html data-theme="light|dark"> overrides it.
+   data-theme="dark" also works on a single element (e.g. the video lightbox).
+   The current brand's colour is set at runtime: <html style="--brand: #xxxxxx">. */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface-2: #f0eeea;
+  --border: #e2dfd9;
+  --border-strong: #8f8a81; /* inputs, checkboxes: 3:1 on surface */
+
+  /* Text */
+  --text: #1c1b19;
+  --text-muted: #5e5b55; /* also placeholders */
+  --text-faint: #8a867e; /* disabled and decoration only, never real text */
+
+  /* Accent (ours, not the brand's) */
+  --accent: #0e6f64;
+  --accent-hover: #0b5c53;
+  --accent-soft: #e2f0ec;
+  --accent-text: #0b5c53; /* accent text on accent-soft */
+  --on-accent: #ffffff;
+  --focus: #0e6f64;
+
+  /* Status */
+  --success: #1f7a3d;
+  --success-soft: #e4f3e8;
+  --warning: #9a5800;
+  --warning-soft: #fcf0dc;
+  --danger: #b42318;
+  --danger-soft: #fde8e6;
+
+  /* Script Enhance marks */
+  --mark: #fff0bf; /* pending suggestion highlight */
+  --mark-line: #c99400;
+
+  /* Brand slot (falls back to our accent) */
+  --brand: var(--accent);
+
+  --shadow-1: 0 1px 2px rgb(28 27 25 / 0.06);
+  --shadow-2: 0 4px 16px rgb(28 27 25 / 0.10);
+  --scrim: rgb(20 20 18 / 0.45);
+
+  /* Type */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-script: "Courier Prime", "Courier New", ui-monospace, monospace;
+  --text-xs: 0.75rem;   /* 12 badges, timecodes */
+  --text-sm: 0.8125rem; /* 13 helper text, table meta */
+  --text-base: 0.9375rem; /* 15 body, controls */
+  --text-md: 1.0625rem; /* 17 card titles */
+  --text-lg: 1.375rem;  /* 22 page titles */
+  --text-xl: 1.75rem;   /* 28 empty-state headlines, login */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-script: 1.6;
+
+  /* Space (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Shape */
+  --radius-sm: 6px;  /* chips, badges, inputs */
+  --radius-md: 10px; /* buttons, cards */
+  --radius-lg: 16px; /* dialogs, sheets */
+
+  /* Layout */
+  --topbar-h: 56px;
+  --sidebar-w: 232px;
+  --panel-w: 360px;  /* Quick clip controls, script pane min */
+  --tabbar-h: 64px;  /* phone bottom tabs */
+  --content-max: 1280px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+}
+
+@media (max-width: 640px) {
+  :root { --text-base: 1rem; } /* 16px on phones: no iOS zoom on inputs */
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #141412;
+  --surface: #1c1c1a;
+  --surface-2: #262623;
+  --border: #2f2e2b;
+  --border-strong: #6e6b64;
+  --text: #eceae5;
+  --text-muted: #a9a69e;
+  --text-faint: #7a776f;
+  --accent: #3fb8a4;
+  --accent-hover: #5cc9b6;
+  --accent-soft: #17302b;
+  --accent-text: #6cd0be;
+  --on-accent: #0b1f1b;
+  --focus: #6cd0be;
+  --success: #56c785;
+  --success-soft: #16291d;
+  --warning: #e8a83e;
+  --warning-soft: #2e2412;
+  --danger: #f27a70;
+  --danger-soft: #341a1a;
+  --mark: #3a3215;
+  --mark-line: #e8a83e;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 4px 16px rgb(0 0 0 / 0.5);
+  --scrim: rgb(0 0 0 / 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #141412;
+    --surface: #1c1c1a;
+    --surface-2: #262623;
+    --border: #2f2e2b;
+    --border-strong: #6e6b64;
+    --text: #eceae5;
+    --text-muted: #a9a69e;
+    --text-faint: #7a776f;
+    --accent: #3fb8a4;
+    --accent-hover: #5cc9b6;
+    --accent-soft: #17302b;
+    --accent-text: #6cd0be;
+    --on-accent: #0b1f1b;
+    --focus: #6cd0be;
+    --success: #56c785;
+    --success-soft: #16291d;
+    --warning: #e8a83e;
+    --warning-soft: #2e2412;
+    --danger: #f27a70;
+    --danger-soft: #341a1a;
+    --mark: #3a3215;
+    --mark-line: #e8a83e;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 4px 16px rgb(0 0 0 / 0.5);
+    --scrim: rgb(0 0 0 / 0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; }
+}
+
+/* Tailwind v4: import this file after `@import "tailwindcss";` to get
+   bg-surface, text-muted, border-strong, rounded-md, font-script, etc.
+   Other CSS tools ignore this block. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-mark: var(--mark);
+  --color-mark-line: var(--mark-line);
+  --color-brand: var(--brand);
+  --font-sans: var(--font-sans);
+  --font-script: var(--font-script);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+}
