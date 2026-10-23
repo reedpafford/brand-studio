@@ -77,9 +77,18 @@ def score(out: Path, case: dict) -> list[str]:
         for n, sid in exp.get("screen_lines", {}).items():
             if not any(int(n) in s.script_lines and sid in s.screen_ids for s in shots):
                 problems.append(f"expected {sid} in the shot for line {n}")
+        screen_shots = sum(1 for s in shots if s.screen_ids)
+        if screen_shots < exp.get("min_screen_shots", 0):
+            problems.append(
+                f"{screen_shots} shots show a screen, expected {exp['min_screen_shots']}+"
+            )
         if cp := answers.get("clip_prompts"):
             limits = video.max_reference_images, video.max_reference_audios
             problems += check.clip_prompts(bd, cp, *limits)
+    saved = " ".join(a.model_dump_json() for a in answers.values()).lower()
+    problems += [
+        f"copies '{w}' from the reference" for w in exp.get("forbid", []) if w.lower() in saved
+    ]
     return problems
 
 
