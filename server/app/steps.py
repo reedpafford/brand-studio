@@ -12,8 +12,13 @@ log = logging.getLogger(__name__)
 def save_step_result(db: Session, job: Job) -> None:
     from app.breakdown import save_breakdown
     from app.enhance import save_suggestions
+    from app.storyboard import save_frames
 
-    handlers = {"enhance": save_suggestions, "breakdown": save_breakdown}
+    handlers = {
+        "enhance": save_suggestions,
+        "breakdown": save_breakdown,
+        "storyboard": save_frames,
+    }
     handler = handlers.get(job.input.get("step", ""))
     if handler is None:
         return

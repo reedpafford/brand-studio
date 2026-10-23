@@ -54,4 +54,4 @@ def test_character_likeness_limits():
         "Nano Banana 2.1 keeps likeness for up to 4 character sheets; this has 5."
     )
     image_job_input(PRO, "x", "9:16", characters=[1, 2, 3, 4, 5])
-    assert "max character sheets: 4\nmax other references: 10" in image_model_block(NB, "9:16")
+    assert "max character images: 4\nmax other references: 10" in image_model_block(NB, "9:16")

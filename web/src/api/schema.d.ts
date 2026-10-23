@@ -958,6 +958,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/storyboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Frames */
+        get: operations["frames_projects__project_id__storyboard_get"];
+        put?: never;
+        /**
+         * Make
+         * @description Queue a storyboard call (a paid Claude call). New frames replace the old ones.
+         */
+        post: operations["make_projects__project_id__storyboard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/frames/{frame_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Frame
+         * @description Edit a frame's prompt or references; its problems are checked again.
+         */
+        put: operations["edit_frame_projects__project_id__storyboard_frames__frame_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/estimate": {
         parameters: {
             query?: never;
@@ -1332,6 +1373,32 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** FrameIn */
+        FrameIn: {
+            /** Prompt */
+            prompt: string;
+            /** Reference Ids */
+            reference_ids: string[];
+        };
+        /** FrameOut */
+        FrameOut: {
+            /** Id */
+            id: number;
+            /** Clip Id */
+            clip_id: string;
+            /** Shot Id */
+            shot_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Reference Ids */
+            reference_ids: string[];
+            /** Problems */
+            problems: string[];
+            /** File Id */
+            file_id: number | null;
+            /** Stale */
+            stale: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1958,6 +2025,14 @@ export interface components {
              * @description Brand screens shown in this shot. Required whenever `moment` is one the brand block lists a screen for.
              */
             screen_ids: string[];
+        };
+        /** StoryboardIn */
+        StoryboardIn: {
+            /**
+             * Per Shot
+             * @default false
+             */
+            per_shot: boolean;
         };
         /** SuggestionOut */
         SuggestionOut: {
@@ -4070,6 +4145,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    frames_projects__project_id__storyboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_projects__project_id__storyboard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryboardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_frame_projects__project_id__storyboard_frames__frame_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FrameIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
                 };
             };
             /** @description Validation Error */
