@@ -38,6 +38,7 @@ test("a new character is created in the current brand", async () => {
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, []], "POST /library/character": [201, mia] });
   renderAt("/b/1/library/characters");
   expect(await screen.findByText("No characters for this brand yet.")).toBeInTheDocument();
+  expect(screen.getByText("Add a character once, use them in every video.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "New character" }));
   await userEvent.type(screen.getByLabelText("Name"), "Mia");
   await userEvent.click(screen.getByRole("button", { name: "Create character" }));
@@ -122,4 +123,28 @@ test("places have no outfits or voice", async () => {
   renderAt("/b/1/library/places/7");
   await screen.findByLabelText("Name");
   expect(screen.queryByRole("button", { name: "Add outfit" })).not.toBeInTheDocument();
+});
+
+test("shared items show their brands, and Save needs at least one brand", async () => {
+  fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, brands],
+    "GET /team/members": [200, []],
+    "GET /library/character/5": [200, { ...mia, brand_ids: [1, 2] }],
+    "GET /library/character/5/versions": [200, []],
+  });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("Shared with Iron Paws. Changes apply there too.")).toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText("fomo"));
+  expect(screen.getByText("This will remove Mia from fomo's library.")).toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText("Iron Paws"));
+  expect(screen.getByText("Pick at least one brand.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+});
+
+test("archived cards carry an Archived badge", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/place": [200, [{ ...mia, kind: "place" }]] });
+  renderAt("/b/1/library/places");
+  await userEvent.click(await screen.findByLabelText("Show archived"));
+  expect(await screen.findByText("Archived")).toBeInTheDocument();
 });

@@ -44,7 +44,7 @@ export function Shell() {
             aria-label="Brand"
             className="min-h-11 w-full rounded-sm border border-border-strong bg-surface px-2 text-base text-text sm:min-h-9"
             value={brand ? current! : ""}
-            onChange={(e) => navigate(`/b/${e.target.value}/${subPage}`)}
+            onChange={(e) => navigate(subPage ? `/b/${e.target.value}/${subPage}` : `/b/${e.target.value}`)}
           >
             {!brand && <option value="">Choose a brand</option>}
             {brands.map((b) => (

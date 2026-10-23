@@ -42,6 +42,8 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
   const changed = JSON.stringify(form) !== JSON.stringify(start);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
   const path = { kind, item_id: item.id };
+  const others = (item.brand_ids ?? []).filter((id) => id !== brandId).map((id) => brands?.find((b) => b.id === id)?.name).filter(Boolean);
+  const currentName = brands?.find((b) => b.id === brandId)?.name;
 
   const save = useMutation({
     mutationFn: async () => {
@@ -74,6 +76,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
         ← {title}
       </Link>
       <h1 className={pageTitle}>{item.name}</h1>
+      {others.length > 0 && <p className="text-sm text-muted">Shared with {others.join(", ")}. Changes apply there too.</p>}
       <form onSubmit={submit} className={`${card} space-y-4`}>
         <div className="space-y-2">
           <div className="text-sm font-medium">Images</div>
@@ -124,9 +127,15 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
           />
         )}
         {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
-        <button className={btnPrimary} disabled={save.isPending || !changed}>
-          Save
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={btnPrimary} disabled={save.isPending || !changed || form.brand_ids.length === 0}>
+            Save
+          </button>
+          {form.brand_ids.length === 0 && <span className="text-sm text-muted">Pick at least one brand.</span>}
+          {form.brand_ids.length > 0 && item.brand_ids?.includes(brandId) && !form.brand_ids.includes(brandId) && (
+            <span className="text-sm text-warning">This will remove {form.name} from {currentName}'s library.</span>
+          )}
+        </div>
       </form>
       <History kind={kind} item={item} onRestored={refresh} />
       <button
