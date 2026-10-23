@@ -10,6 +10,7 @@ from anthropic import DefaultHttpxClient
 from app.claude import MODEL, ClaudeError, ask, make_client
 from app.prompts.schemas import EnhanceResult
 from app.settings import Settings
+from tests.helpers import claude_stream
 
 ANSWER = {
     "suggestions": [
@@ -53,7 +54,13 @@ def _reply(stop_reason="end_turn", text=json.dumps(ANSWER), **extra):
 def _client(reply, seen):
     def handler(request):
         seen.append(request)
-        return httpx.Response(200, json=reply)
+        body = claude_stream(
+            "".join(b["text"] for b in reply["content"]),
+            reply["stop_reason"],
+            reply.get("stop_details"),
+            reply["usage"],
+        )
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
 
     return make_client("test-key", DefaultHttpxClient(transport=httpx.MockTransport(handler)))
 
@@ -73,6 +80,7 @@ def test_typed_call_with_cached_system_thinking_and_fallbacks(monkeypatch):
     assert body["thinking"] == {"type": "adaptive"}
     assert body["output_config"]["format"]["type"] == "json_schema"
     assert [b.get("cache_control") for b in body["system"]] == [None, {"type": "ephemeral"}]
+    assert body["stream"] is True  # long answers need streaming
 
 
 def test_refusal_raises_plain_error():
@@ -96,3 +104,11 @@ def test_key_comes_only_from_studio_env_var(monkeypatch):
 def test_missing_key_is_a_clear_error():
     with pytest.raises(ClaudeError, match="STUDIO_ANTHROPIC_KEY"):
         make_client("")
+
+
+def test_long_answers_are_allowed(monkeypatch):
+    """The Director's breakdowns use 32k max_tokens: the SDK refuses that without streaming."""
+    seen = []
+    client = _client(_reply(), seen)
+    answer = ask(client, system=["Base."], prompt="p", schema=EnhanceResult, max_tokens=32000)
+    assert answer.parsed and json.loads(seen[0].content)["max_tokens"] == 32000

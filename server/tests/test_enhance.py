@@ -13,7 +13,7 @@ from app.models.scripts import Suggestion
 from app.providers.claude import ClaudeProvider
 from app.worker import run_once
 from tests.conftest import upload
-from tests.helpers import assert_hidden, assert_no_dollars
+from tests.helpers import assert_hidden, assert_no_dollars, claude_stream
 
 SCRIPT = """SCENE 1 — INT. KITCHEN — MORNING
 Mom storms in holding an empty wallet.
@@ -27,19 +27,10 @@ class FakeClaude:
 
     def __call__(self, request):
         self.requests.append(json.loads(request.content))
-        return httpx.Response(
-            200,
-            json={
-                "id": "msg_1",
-                "type": "message",
-                "role": "assistant",
-                "model": "claude-opus-5-5",
-                "content": [{"type": "text", "text": json.dumps(self.answer)}],
-                "stop_reason": "end_turn",
-                "stop_sequence": None,
-                "usage": {"input_tokens": 3000, "output_tokens": 800},
-            },
+        body = claude_stream(
+            json.dumps(self.answer), usage={"input_tokens": 3000, "output_tokens": 800}
         )
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
 
 
 def _mark(id, kind, line, quote, placement, text, screen_id=None):

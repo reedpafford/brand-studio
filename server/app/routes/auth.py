@@ -82,7 +82,7 @@ def setup(body: SetupIn, request: Request, response: Response, db: Session = Dep
     state = request.app.state
     try:
         seed_rates(db, workspace.id)
-        seed_brands(db, workspace.id, state.storage, state.settings.fomo_screens_dir)
+        seed_brands(db, workspace.id, state.storage, state.settings.brand_assets_dir)
     except Exception:  # never leave a half-set-up server: log it; the import can be re-run
         db.rollback()
         log.exception("Seeding launch brands failed; run `python -m app.seed <folder>` later.")
