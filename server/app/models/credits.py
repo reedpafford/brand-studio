@@ -13,7 +13,7 @@ from app.db import Base, Entity
 
 USD_PER_CREDIT = Decimal("0.1028")  # Seedance 2.5 480p, per second
 BUDGET_MULTIPLIER = 2
-DEFAULT_MAX_PLANNED_SECONDS = 180  # editors can plan up to this without the owner
+DEFAULT_MAX_PLANNED_SECONDS = 170  # editors can plan up to this without the owner (= cap/2)
 DEFAULT_WEEKLY_QUICK_CLIP_CREDITS = Decimal(150)  # per editor, Mon-Sun (UTC)
 DEFAULT_PER_VIDEO_MAX_CREDITS = 340  # Reed: $35 per video at most, owner included
 
