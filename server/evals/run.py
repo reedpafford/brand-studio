@@ -16,8 +16,8 @@ from app.claude import ask, make_client
 from app.prompts import SCHEMAS, brand_block, number_lines, reference_block, system
 from evals.score import CASES
 
-# Room for long scripts; the SDK refuses non-streamed calls above about 21.3k output tokens.
-LONG_MAX_TOKENS = 21000
+# Room for long scripts (claude.ask streams, so this can exceed the unstreamed limit).
+LONG_MAX_TOKENS = 32000
 
 
 def apply_all(script: str, suggestions) -> str:
