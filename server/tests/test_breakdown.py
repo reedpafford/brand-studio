@@ -57,7 +57,9 @@ def test_breakdown_made_checked_and_edited(app, db, editor, setup):  # noqa: F81
     assert "3| MOM: Nate, where is all your money?" in message
 
     got = editor.get(url).json()
-    assert (got["source"], got["problems"], got["stale"]) == ("claude", [], False)
+    # fomo's videos end on its end line (Reed); this short test script doesn't, so it says so.
+    assert (got["source"], got["stale"]) == ("claude", False)
+    assert got["problems"] == ["the script doesn't end on the brand's end line"]
     assert got["breakdown"]["clips"][0]["shot_ids"] == ["1.1", "1.2"]
 
     edited = copy.deepcopy(BREAKDOWN)

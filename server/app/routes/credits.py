@@ -30,13 +30,11 @@ class RateOut(BaseModel):
 
 
 class LimitsIn(BaseModel):
-    max_planned_seconds: int = Field(gt=0, le=3600)
     weekly_quick_clip_credits: Decimal = Field(ge=0, le=100000)
     per_video_max_credits: int = Field(gt=0, le=100000)  # required: never reset by omission
 
 
 class LimitsOut(BaseModel):
-    max_planned_seconds: int
     weekly_quick_clip_credits: float
     per_video_max_credits: int
 

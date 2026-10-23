@@ -12,7 +12,7 @@ from app.models.accounts import User
 from app.models.brands import BrandScreen
 from app.routes.brands import get_brand
 from app.routes.files import get_file
-from app.schemas import Name, Slug
+from app.schemas import Name, ShortText, Slug
 
 router = APIRouter(prefix="/brands/{brand_id}/screens", tags=["brands"])
 
@@ -25,6 +25,8 @@ class ScreenIn(BaseModel):
     file_id: int
     tags: list[Slug] = []
     default_for: list[Slug] = []
+    product: ShortText = ""  # e.g. "bag": screens sharing it are versions of one product
+    variant: ShortText = ""  # e.g. "Chicken"; each project picks one variant per product
 
 
 class ScreenPatch(BaseModel):
@@ -32,6 +34,8 @@ class ScreenPatch(BaseModel):
     file_id: int | None = None
     tags: list[Slug] | None = None
     default_for: list[Slug] | None = None
+    product: ShortText | None = None
+    variant: ShortText | None = None
 
 
 class ScreenOut(ScreenIn):

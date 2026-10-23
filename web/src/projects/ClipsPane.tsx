@@ -18,15 +18,16 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
   const path = { project_id: projectId };
   const jobs = useJobs();
   const frames = useFrames(projectId);
-  // The takes I started: clip row id → job id (jobs don't say which clip they are for yet).
-  const [started, setStarted] = useState<Record<number, number>>({});
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
+  // The newest take job for a clip row (it survives a reload, since the job says which clip it is for).
+  const takeJob = (clipRowId: number) =>
+    (jobs.data ?? []).filter((j) => j.project_clip_id === clipRowId && j.step === "clip_take").sort((a, b) => b.id - a.id)[0];
   const serverGoing = (step: string) => (jobs.data ?? []).filter((j) => j.project_id === projectId && j.step === step && GOING.includes(j.status));
   const writingNow = going(writing ?? undefined) || serverGoing("clip_prompts").length > 0;
   const takesGoing = serverGoing("clip_take").length;
-  const anyGoing = writingNow || takesGoing > 0 || Object.values(started).some((j) => going(j));
+  const anyGoing = writingNow || takesGoing > 0;
 
   const clips = useQuery({
     queryKey: ["project-clips", projectId],
@@ -61,21 +62,22 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
     },
   });
   const generate = useMutation({
-    mutationFn: async (clip: Clip) => {
-      const { data, error } = await api.POST("/projects/{project_id}/clips/{clip_id}/generate", { params: { path: { ...path, clip_id: clip.id } } });
+    mutationFn: async ({ clip, note }: { clip: Clip; note?: string }) => {
+      const { data, error } = await api.POST("/projects/{project_id}/clips/{clip_id}/generate", {
+        params: { path: { ...path, clip_id: clip.id } },
+        ...(note ? { body: { note } } : {}),
+      });
       if (!data) throw new Error(errorText(error));
-      return { clip, job: data };
+      return data;
     },
-    onSuccess: ({ clip, job }) => {
-      setStarted((s) => ({ ...s, [clip.id]: job.id }));
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
   });
   const review = useMutation({
-    mutationFn: async (act: { clip: Clip; take?: number }) => {
+    mutationFn: async (act: { clip: Clip; take?: number; undo?: boolean }) => {
       const args = { params: { path: { ...path, clip_id: act.clip.id } } };
-      const { error, response } =
-        act.take !== undefined
+      const { error, response } = act.undo
+        ? await api.DELETE("/projects/{project_id}/clips/{clip_id}/approve", args)
+        : act.take !== undefined
           ? await api.POST("/projects/{project_id}/clips/{clip_id}/takes/{take_id}/pick", { params: { path: { ...path, clip_id: act.clip.id, take_id: act.take } } })
           : await api.POST("/projects/{project_id}/clips/{clip_id}/approve", args);
       if (!response.ok) throw new Error(errorText(error));
@@ -103,11 +105,10 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
   const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${Math.round(n)} credits`);
   const err = write.error ?? generate.error ?? review.error ?? edit.error ?? stitch.error;
-  const videoRate = rate("video");
-  const takeCost = (c: Clip) => (videoRate === undefined ? undefined : videoRate * c.seconds);
-  const busyFor = (c: Clip) => going(started[c.id]);
+  const takeCost = (c: Clip) => c.take_credits;
+  const busyFor = (c: Clip) => going(takeJob(c.id)?.id);
   const missing = list.filter((c) => c.takes.length === 0 && c.problems.length === 0 && !c.stale && !busyFor(c));
-  const allCost = videoRate === undefined ? undefined : missing.reduce((n, c) => n + videoRate * c.seconds, 0);
+  const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
   const writeCost = rate("write-claude");
 
@@ -124,7 +125,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
       <section className={`${card} space-y-3`} aria-label="Clips">
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
-        <button className={btnPrimary} disabled={write.isPending} onClick={() => write.mutate()}>
+        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending} onClick={() => write.mutate()}>
           {over(writeCost) ? "Ask Reed to approve" : "Write clip prompts"}
           {price(writeCost)}
         </button>
@@ -142,10 +143,10 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
         </h2>
         {missing.length > 0 && (
           <button
-            className={btnPrimary}
+            className={`${btnPrimary} min-h-11 sm:min-h-9`}
             disabled={generate.isPending}
             onClick={async () => {
-              for (const c of missing) await generate.mutateAsync(c).catch(() => undefined);
+              for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
             }}
           >
             {over(allCost) ? "Ask Reed to approve" : "Make missing"}
@@ -156,7 +157,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       <ul className="space-y-4">
         {list.map((c) => {
-          const job = started[c.id] !== undefined ? jobOf(started[c.id]) : undefined;
+          const job = takeJob(c.id);
           return (
             <ClipCard
               key={c.id}
@@ -168,9 +169,10 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
               busy={busyFor(c)}
               cost={takeCost(c)}
               over={over(takeCost(c))}
-              onGenerate={() => generate.mutate(c)}
+              onGenerate={(note) => generate.mutate({ clip: c, note })}
               onPick={(take) => review.mutate({ clip: c, take })}
               onApprove={() => review.mutate({ clip: c })}
+              onUnapprove={() => review.mutate({ clip: c, undo: true })}
               onSave={(prompt) => edit.mutate({ clip: c, prompt })}
             />
           );
@@ -191,7 +193,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
           <p className="text-muted">{left > 0 ? `${approved} of ${list.length} clips approved. Approve every clip to make the video (${left} left).` : "Every clip is approved."}</p>
         )}
         {(!v || v.out_of_date) && (
-          <button className={btnPrimary} disabled={left > 0 || stitch.isPending} onClick={() => stitch.mutate()}>
+          <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={left > 0 || stitch.isPending} onClick={() => stitch.mutate()}>
             {stitch.isPending ? "Putting your clips together…" : v ? "Make the video again" : "Make the video"}
           </button>
         )}
@@ -210,13 +212,15 @@ function ClipCard(props: {
   busy: boolean;
   cost: number | undefined;
   over: boolean;
-  onGenerate: () => void;
+  onGenerate: (note?: string) => void;
   onPick: (takeId: number) => void;
   onApprove: () => void;
+  onUnapprove: () => void;
   onSave: (prompt: string) => void;
 }) {
   const { clip: c } = props;
   const [editing, setEditing] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const failed = props.job?.status === "failed";
   const status = c.approved ? "Approved" : props.busy ? null : failed ? "Failed · credits returned" : c.stale ? "Made for an older breakdown" : c.file_id ? "Ready" : "Not made";
   const verb = props.over ? "Ask Reed to approve" : c.takes.length === 0 ? "Make clip" : "Make another take";
@@ -263,6 +267,30 @@ function ClipCard(props: {
           ))}
         </fieldset>
       )}
+      {note !== null && (
+        <div className="space-y-2">
+          <label className="block">
+            What's wrong?
+            <textarea className={input} rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          <div className="flex gap-2">
+            <button
+              className={`${btnPrimary} min-h-11 sm:min-h-9`}
+              disabled={props.busy || !note.trim()}
+              onClick={() => {
+                props.onGenerate(note.trim());
+                setNote(null);
+              }}
+            >
+              {props.over ? "Ask Reed to approve" : "Redo"}
+              {price}
+            </button>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={() => setNote(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {editing !== null ? (
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for ${c.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
@@ -282,10 +310,22 @@ function ClipCard(props: {
               ✓ Looks good
             </button>
           )}
-          <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || c.problems.length > 0 || c.stale} onClick={props.onGenerate}>
+          {c.approved && (
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={props.onUnapprove}>
+              Undo approval
+            </button>
+          )}
+          {note === null && (
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || c.problems.length > 0 || c.stale} onClick={() => props.onGenerate()}>
             {verb}
             {price}
           </button>
+          )}
+          {c.takes.length > 0 && note === null && (
+            <button className={`${linkText} min-h-11 sm:min-h-9`} onClick={() => setNote("")}>
+              Needs a change
+            </button>
+          )}
           {picked && (
             <a className={`${linkText} inline-flex min-h-11 items-center sm:min-h-9`} href={fileUrl(picked.file_id)} download={`${props.projectName}-${c.clip_id}-take${picked.number}.mp4`}>
               Download
