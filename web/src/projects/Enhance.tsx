@@ -116,11 +116,11 @@ export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
       <span className="text-xs text-muted">{KIND[mark.kind] ?? mark.kind}</span>
       <span className="ml-auto flex gap-3 sm:ml-0">
         {!accepted && (
-          <button className={`${linkText} min-h-11 sm:min-h-8`} aria-label={`Accept: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "accept" })}>
+          <button className={`${btnSecondary} min-h-11 sm:min-h-8`} aria-label={`Accept: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "accept" })}>
             Accept
           </button>
         )}
-        <button className={`${linkText} min-h-11 sm:min-h-8`} aria-label={`${accepted ? "Remove" : "Reject"}: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "reject" })}>
+        <button className={`${btnSecondary} min-h-11 sm:min-h-8`} aria-label={`${accepted ? "Remove" : "Reject"}: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "reject" })}>
           {accepted ? "Remove" : "Reject"}
         </button>
       </span>
