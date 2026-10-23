@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 
 from app import credits as credits_module
 from app.models.accounts import Role, User
-from app.models.credits import Project
 from app.models.jobs import Job
+from app.models.projects import Project
 from app.providers.fake import FakeProvider
 from app.routes.jobs import enqueue
 from app.worker import run_once

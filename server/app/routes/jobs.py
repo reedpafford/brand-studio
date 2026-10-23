@@ -12,8 +12,8 @@ from app.auth import current_user, owner_only
 from app.credits import estimate, lock, needs_approval
 from app.db import get_db, utcnow
 from app.models.accounts import User
-from app.models.credits import Project
 from app.models.jobs import Job, JobStatus, Usage
+from app.models.projects import Project
 
 router = APIRouter(tags=["jobs"])
 
