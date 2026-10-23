@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
@@ -87,9 +87,13 @@ export function useEnhance(projectId: number, scriptVersion: number | undefined,
       });
     },
   });
+  // Which kind you're looking at (null = all) and which suggestion the keys act on.
+  const [filter, setFilter] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState<number | null>(null);
+  const shown = (marks.data ?? []).filter((m) => m.status !== "rejected" && (!filter || m.kind === filter));
   const visibleNotes = (notes.data ?? []).filter((n) => !gone.includes(`${scriptVersion}:${n.line}:${n.text}`));
   const dismiss = (n: { line: number; text: string }) => setGone((g) => [...g, `${scriptVersion}:${n.line}:${n.text}`]);
-  return { marks: marks.data ?? [], notes: visibleNotes, last, running, cost, start, decide, apply, acceptMany, dismiss };
+  return { marks: marks.data ?? [], notes: visibleNotes, last, running, cost, start, decide, apply, acceptMany, dismiss, filter, setFilter, focusId, setFocusId, shown };
 }
 
 export type EnhanceState = ReturnType<typeof useEnhance>;
@@ -132,7 +136,57 @@ function AcceptAll({ e }: { e: EnhanceState }) {
   );
 }
 
+/** Filter chips: All and each kind that is waiting, with counts. They scroll sideways on a phone. */
+function Chips({ e }: { e: EnhanceState }) {
+  const live = e.marks.filter((m) => m.status !== "rejected");
+  const kinds = [...new Set(live.map((m) => m.kind))];
+  if (live.length === 0 || kinds.length < 2) return null;
+  const chip = (on: boolean) => `min-h-11 shrink-0 rounded-full border px-3 text-sm sm:min-h-8 ${on ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong bg-surface"}`;
+  return (
+    <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Show">
+      <button className={chip(e.filter === null)} aria-pressed={e.filter === null} onClick={() => e.setFilter(null)}>
+        All {live.length}
+      </button>
+      {kinds.map((k) => (
+        <button key={k} className={chip(e.filter === k)} aria-pressed={e.filter === k} onClick={() => e.setFilter(e.filter === k ? null : k)}>
+          {KIND[k] ?? k} {live.filter((m) => m.kind === k).length}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** J / K move between suggestions, A accepts, R rejects, Esc lets go. Typing in a box is never hijacked. */
+function useKeys(e: EnhanceState) {
+  const latest = useRef(e);
+  useEffect(() => {
+    latest.current = e;
+  });
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      const t = ev.target as HTMLElement | null;
+      if (ev.metaKey || ev.ctrlKey || ev.altKey || t?.closest("input, textarea, select, [contenteditable], [role=dialog]")) return;
+      const { shown, focusId, setFocusId, decide } = latest.current;
+      const at = shown.findIndex((m) => m.id === focusId);
+      const key = ev.key.toLowerCase();
+      if (key === "j" || key === "k") {
+        if (shown.length === 0) return;
+        const next = key === "j" ? (at + 1) % shown.length : (at <= 0 ? shown.length : at) - 1;
+        setFocusId(shown[next].id);
+      } else if (key === "escape") setFocusId(null);
+      else if ((key === "a" || key === "r") && at >= 0) {
+        const mark = shown[at];
+        if (key === "a" && mark.status === "pending") decide.mutate({ id: mark.id, verb: "accept" });
+        if (key === "r") decide.mutate({ id: mark.id, verb: "reject" });
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+}
+
 export function EnhanceBar({ e }: { e: EnhanceState }) {
+  useKeys(e);
   const [notesOpen, setNotesOpen] = useState(false);
   const pending = e.marks.filter((m) => m.status === "pending").length;
   const accepted = e.marks.filter((m) => m.status === "accepted").length;
@@ -162,6 +216,8 @@ export function EnhanceBar({ e }: { e: EnhanceState }) {
         {e.running && <span className="text-sm text-muted">{e.last?.status === "needs_owner_approval" ? "Waiting for Reed to approve" : "Reading your script…"}</span>}
         {e.marks.length > 0 && <span className="text-sm text-muted">{pending} suggestions waiting · {accepted} accepted</span>}
       </div>
+      <Chips e={e} />
+      {e.marks.length > 0 && <p className="hidden text-xs text-muted sm:block">Keys: J / K next and previous, A accept, R reject, Esc to let go.</p>}
       {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Applying adds the accepted directions as a new version. Suggestions you haven't decided on are dropped.</p>}
       {failed && (
         <p role="alert" className={errorClass}>
@@ -183,10 +239,15 @@ export function EnhanceBar({ e }: { e: EnhanceState }) {
 /** One direction note, shown on its own indented line, never merged into the script's words. */
 export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
   const [open, setOpen] = useState(false);
+  const row = useRef<HTMLLIElement>(null);
+  const focused = e.focusId === mark.id;
+  useEffect(() => {
+    if (focused) row.current?.scrollIntoView?.({ block: "nearest" });
+  }, [focused]);
   if (mark.status === "rejected") return null;
   const accepted = mark.status === "accepted";
   return (
-    <li className={`ml-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 py-0.5 text-sm sm:ml-10 ${accepted ? "text-muted" : ""}`} data-kind={mark.kind}>
+    <li ref={row} aria-current={focused ? "true" : undefined} className={`ml-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-sm py-0.5 text-sm sm:ml-10 ${accepted ? "text-muted" : ""} ${focused ? "outline outline-2 outline-accent" : ""}`} data-kind={mark.kind}>
       {/* Phone: the words first, then the kind and the buttons on a second line. */}
       <span className="basis-full sm:basis-0 sm:flex-1">
         {/* Only the suggestion's own words are marked, never the row or the buttons. */}

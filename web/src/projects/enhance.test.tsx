@@ -180,3 +180,51 @@ test("the helper says 'directions', and phones get a 'Why?' hint after a suggest
   expect(await screen.findByText(/Applying adds the accepted directions as a new version\./)).toBeInTheDocument();
   expect(screen.getByText("Why?")).toBeInTheDocument();
 });
+
+const three = [mark({ id: 1, kind: "camera", text: "Camera one", line: 1 }), mark({ id: 2, kind: "reaction", text: "Reaction two", line: 1 }), mark({ id: 3, kind: "camera", text: "Camera three", line: 2 })];
+
+test("filter chips show a kind at a time, with counts", async () => {
+  fakeServer({ ...base, "GET /projects/9/script/suggestions": [200, three] });
+  open();
+  const chips = await screen.findByRole("group", { name: "Show" });
+  expect(within(chips).getByRole("button", { name: "All 3" })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(within(chips).getByRole("button", { name: "Camera 2" }));
+  expect(screen.queryByText(/Reaction two/)).not.toBeInTheDocument();
+  expect(screen.getAllByText(/Camera (one|three)/)).toHaveLength(2);
+  await userEvent.click(within(chips).getByRole("button", { name: "All 3" }));
+  expect(await screen.findByText(/Reaction two/)).toBeInTheDocument();
+});
+
+test("J and K move between suggestions, A accepts and R rejects the focused one, Esc lets go", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, three],
+    "POST /projects/9/script/suggestions/1/accept": [200, mark({})],
+    "POST /projects/9/script/suggestions/2/reject": [200, mark({})],
+  });
+  open();
+  await screen.findByText(/Camera one/);
+  const focusedText = () => document.querySelector("[aria-current=true]")?.textContent ?? "";
+  await userEvent.keyboard("j");
+  expect(focusedText()).toContain("Camera one");
+  await userEvent.keyboard("a");
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/1/accept")).toBe(true));
+  await userEvent.keyboard("j");
+  expect(focusedText()).toContain("Reaction two");
+  await userEvent.keyboard("r");
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/2/reject")).toBe(true));
+  await userEvent.keyboard("k");
+  expect(focusedText()).toContain("Camera one");
+  await userEvent.keyboard("{Escape}");
+  expect(document.querySelector("[aria-current=true]")).toBeNull();
+});
+
+test("the keys never act while you are typing in a box", async () => {
+  const calls = fakeServer({ ...base, "GET /projects/9/script/suggestions": [200, three] });
+  open();
+  await screen.findByText(/Camera one/);
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  await userEvent.type(screen.getByLabelText("Your script"), "jjjaaarrr");
+  expect(document.querySelector("[aria-current=true]")).toBeNull();
+  expect(calls.some((c) => c.key.endsWith("/accept") || c.key.endsWith("/reject"))).toBe(false);
+});
