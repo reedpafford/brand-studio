@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -24,6 +25,22 @@ export function useJobs() {
 
 export const isRendering = (jobs: { kind: string; status: string }[] = []) =>
   jobs.some((j) => j.kind.startsWith("video") && (j.status === "queued" || j.status === "running"));
+
+/** "45s" or "1m 20s". */
+export function elapsed(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return total < 60 ? `${total}s` : `${Math.floor(total / 60)}m ${total % 60}s`;
+}
+
+/** How long a clip has been going. Ticks every second while it is on screen. */
+function Elapsed({ since }: { since: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return <span className="text-muted">{elapsed(now - new Date(since).getTime())}</span>;
+}
 
 export function History({ brandName }: { brandName: string }) {
   const queryClient = useQueryClient();
@@ -53,6 +70,7 @@ export function History({ brandName }: { brandName: string }) {
               <span className={`rounded-sm px-2 py-0.5 text-xs ${j.status === "succeeded" ? "bg-success-soft text-success" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-surface-2"}`}>
                 {WORDS[j.status]}
               </span>
+              {(j.status === "queued" || j.status === "running") && <Elapsed since={j.created_at} />}
               <span className="text-muted">{j.credits} credits</span>
               {ACTIVE.includes(j.status) && (
                 <button className={`${btnSecondary} ml-auto`} aria-label={`Cancel clip ${j.id}`} onClick={() => cancel.mutate(j.id)}>

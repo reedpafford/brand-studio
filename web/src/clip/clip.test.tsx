@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { elapsed } from "./History";
 import { blockedReason, clipCredits, fit, mentionsMoment, type Model } from "./logic";
 
 const seedance = {
@@ -146,4 +147,10 @@ test("a refusal from the server is shown as the reason Generate is off", async (
   await userEvent.type(await screen.findByLabelText(/Prompt/), "A long calm shot of the city");
   expect(await screen.findByText("Seedance 2.5 makes clips from 4 to 30 seconds.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Generate/ })).toBeDisabled();
+});
+
+test("elapsed time reads as seconds, then minutes", () => {
+  expect(elapsed(45_000)).toBe("45s");
+  expect(elapsed(80_000)).toBe("1m 20s");
+  expect(elapsed(-5_000)).toBe("0s");
 });
