@@ -209,12 +209,12 @@ test("J and K move between suggestions, A accepts and R rejects the focused one,
   expect(focusedText()).toContain("Camera one");
   await userEvent.keyboard("a");
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/1/accept")).toBe(true));
-  await userEvent.keyboard("j");
-  expect(focusedText()).toContain("Reaction two");
+  expect(focusedText()).toContain("Reaction two"); // accepting moved on to the next waiting one
   await userEvent.keyboard("r");
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/2/reject")).toBe(true));
+  expect(focusedText()).toContain("Camera three");
   await userEvent.keyboard("k");
-  expect(focusedText()).toContain("Camera one");
+  expect(focusedText()).toContain("Reaction two");
   await userEvent.keyboard("{Escape}");
   expect(document.querySelector("[aria-current=true]")).toBeNull();
 });
@@ -227,4 +227,24 @@ test("the keys never act while you are typing in a box", async () => {
   await userEvent.type(screen.getByLabelText("Your script"), "jjjaaarrr");
   expect(document.querySelector("[aria-current=true]")).toBeNull();
   expect(calls.some((c) => c.key.endsWith("/accept") || c.key.endsWith("/reject"))).toBe(false);
+});
+
+test("after A or R the keys move to the next waiting suggestion, so they can be pressed again", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/script/suggestions": [200, three],
+    "POST /projects/9/script/suggestions/1/accept": [200, mark({})],
+    "POST /projects/9/script/suggestions/2/reject": [200, mark({})],
+    "POST /projects/9/script/suggestions/3/accept": [200, mark({})],
+  });
+  open();
+  await screen.findByText(/Camera one/);
+  const focusedText = () => document.querySelector("[aria-current=true]")?.textContent ?? "";
+  await userEvent.keyboard("j");
+  await userEvent.keyboard("a"); // accepts Camera one, moves on
+  expect(focusedText()).toContain("Reaction two");
+  await userEvent.keyboard("r"); // rejects Reaction two, moves on
+  expect(focusedText()).toContain("Camera three");
+  await userEvent.keyboard("a");
+  await vi.waitFor(() => expect(calls.filter((c) => /\/(accept|reject)$/.test(c.key))).toHaveLength(3));
 });

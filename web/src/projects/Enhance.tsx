@@ -176,8 +176,11 @@ function useKeys(e: EnhanceState) {
       } else if (key === "escape") setFocusId(null);
       else if ((key === "a" || key === "r") && at >= 0) {
         const mark = shown[at];
-        if (key === "a" && mark.status === "pending") decide.mutate({ id: mark.id, verb: "accept" });
-        if (key === "r") decide.mutate({ id: mark.id, verb: "reject" });
+        if (key === "a" && mark.status !== "pending") return;
+        decide.mutate({ id: mark.id, verb: key === "a" ? "accept" : "reject" });
+        // Carry on with the next waiting suggestion (wrapping round), so A / R can be pressed again straight away.
+        const waiting = shown.filter((m) => m.status === "pending" && m.id !== mark.id);
+        setFocusId((waiting.find((m) => shown.indexOf(m) > at) ?? waiting[0])?.id ?? null);
       }
     };
     document.addEventListener("keydown", onKey);
