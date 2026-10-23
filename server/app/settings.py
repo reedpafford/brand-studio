@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     max_upload_mb: int = 200
     # Folder of fomo UI screens imported on first setup (optional)
     fomo_screens_dir: str = ""
+    # Login throttling: this many failures within the window locks the email / IP out.
+    login_max_failures: int = 5
+    login_max_failures_per_ip: int = 20
+    login_window_minutes: int = 15
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 

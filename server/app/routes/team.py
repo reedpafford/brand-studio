@@ -77,7 +77,7 @@ def create_invite(
     owner: User = Depends(owner_only),
     db: Session = Depends(get_db),
 ):
-    if db.scalar(select(User).where(User.email == body.email)):
+    if db.scalar(select(User).where(User.email == body.email, User.active)):
         raise HTTPException(409, "That email already has an account.")
     raw, digest = new_token()
     days = request.app.state.settings.invite_days

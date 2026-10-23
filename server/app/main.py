@@ -6,6 +6,7 @@ from app.db import make_sessionmaker
 from app.routes import auth, brands, files, health, screens, team
 from app.settings import Settings, get_settings
 from app.storage import LocalStorage
+from app.upload_limit import UploadLimit
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -16,4 +17,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.storage = LocalStorage(settings.storage_dir)
     for module in (health, auth, team, files, brands, screens):
         app.include_router(module.router)
+    app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
     return app
