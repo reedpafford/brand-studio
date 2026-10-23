@@ -68,5 +68,7 @@ def check_production(settings: Settings) -> None:
         )
     if make_url(settings.database_url).password == PLACEHOLDER:
         problems.append("POSTGRES_PASSWORD is the example value: use `openssl rand -hex 24`.")
+    if settings.fake_providers:
+        problems.append("BS_FAKE_PROVIDERS is on: it's for local runs only, remove the line.")
     if problems:
         raise RuntimeError("Not starting. Fix deploy/.env: " + " ".join(problems))
