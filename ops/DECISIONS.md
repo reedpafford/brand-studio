@@ -1,4 +1,9 @@
 # Decisions (newest first; one line each, with date)
+- 2026-10-23 (Reed) Script and dialogue never change in Enhance, breakdown or clips. Enhance only suggests camera shots, character movements, reactions and where brand screens/products show; problems in the words become notes, never edits.
+- 2026-10-23 Reed: per-video absolute max is $35 (340 credits). It applies to everyone and is owner-editable.
+- 2026-10-23 Reed: nothing from the old story-studio project carries over except fomo's real screens and logo.
+- 2026-10-23 Reed: house style and gold examples come from the top animated reels on Instagram @nateassets (Reference Analyst builds them).
+- 2026-10-23 Reed: prompting guidance comes only from the official Seedance and Google Nano Banana docs (Prompt Researcher).
 - 2026-10-23 Reed: no monthly workspace cap. The per-video cap is the project budget (2x the 480p estimate), max 180 s planned without owner approval.
 - 2026-10-23 Reed: Iron Paws is a dog gut-health product. Its real bag must appear exactly, like fomo's screens.
 - 2026-10-23 Reed approved the Director's first paid eval: 22 Claude calls, cap $4.

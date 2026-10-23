@@ -32,3 +32,14 @@ const PNG = Buffer.from(
 
 /** A tiny valid PNG, in the shape setInputFiles wants. */
 export const image = (name: string) => ({ name, mimeType: "image/png", buffer: PNG });
+
+/**
+ * A brand that starts empty (fomo and Iron Paws come with their real screens). Made through the
+ * API as the signed-in person; asking again for the same name returns the one already made.
+ */
+export async function emptyBrand(page: Page, name = "Night Owl"): Promise<number> {
+  const made = await page.request.post("/api/brands", { data: { name } });
+  if (made.ok()) return (await made.json()).id;
+  const brands = await (await page.request.get("/api/brands")).json();
+  return brands.find((b: { name: string }) => b.name === name).id;
+}

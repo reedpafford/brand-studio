@@ -18,6 +18,7 @@ def app(tmp_path):
         database_url=f"sqlite:///{tmp_path}/test.db",
         storage_dir=str(tmp_path / "files"),
         brand_assets_dir="",
+        generation_enabled=True,
         cookie_secure=False,
         setup_token=SETUP_TOKEN,
     )
