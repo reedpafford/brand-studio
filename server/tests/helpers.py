@@ -3,6 +3,8 @@
 - `assert_no_dollars`: an editor's responses contain no `*_usd` field anywhere.
 """
 
+import json
+
 MP3 = b"ID3" + b"0" * 32
 MP4 = b"\0\0\0\x18ftypmp42" + b"0" * 32
 
@@ -29,3 +31,57 @@ def assert_no_dollars(client, paths: list[str]) -> None:
         r = client.get(path)
         assert r.status_code == 200, f"GET {path} gave {r.status_code}"
         assert not _usd_keys(r.json()), f"GET {path} sent dollars: {_usd_keys(r.json())}"
+
+
+def claude_stream(
+    text: str,
+    stop_reason: str = "end_turn",
+    stop_details: dict | None = None,
+    usage: dict | None = None,
+) -> bytes:
+    """A Messages API streaming reply (server-sent events) carrying one text block."""
+    usage = usage or {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "cache_read_input_tokens": 2000,
+        "cache_creation_input_tokens": 0,
+    }
+    start = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-opus-5-5",
+        "content": [],
+        "stop_reason": None,
+        "stop_sequence": None,
+        "usage": {**usage, "output_tokens": 1},
+    }
+    events = [("message_start", {"type": "message_start", "message": start})]
+    if text:
+        events += [
+            (
+                "content_block_start",
+                {
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {"type": "text", "text": ""},
+                },
+            ),
+            (
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "text_delta", "text": text},
+                },
+            ),
+            ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+        ]
+    delta = {"stop_reason": stop_reason, "stop_sequence": None}
+    if stop_details:
+        delta["stop_details"] = stop_details
+    events += [
+        ("message_delta", {"type": "message_delta", "delta": delta, "usage": usage}),
+        ("message_stop", {"type": "message_stop"}),
+    ]
+    return "".join(f"event: {e}\ndata: {json.dumps(d)}\n\n" for e, d in events).encode()
