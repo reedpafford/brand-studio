@@ -28,15 +28,11 @@ def apply_all(script: str, suggestions) -> str:
         n = s.anchor.line
         if not 1 <= n <= len(lines) or s.anchor.quote not in lines[n - 1]:
             continue
-        if s.placement == "replace":
-            lines[n - 1] = lines[n - 1].replace(s.anchor.quote, s.text, 1)
-        else:
-            (before if s.placement == "before" else after).setdefault(n, []).append(s.text)
+        (before if s.placement == "before" else after).setdefault(n, []).append(s.text)
     out = []
     for n, line in enumerate(lines, 1):
         out += before.get(n, [])
-        if line.strip():
-            out.append(line)
+        out.append(line)
         out += after.get(n, [])
     return "\n".join(out)
 
