@@ -16,6 +16,9 @@ from app.claude import ask, make_client
 from app.prompts import SCHEMAS, brand_block, number_lines, reference_block, system
 from evals.score import CASES
 
+# Room for long scripts; the SDK refuses non-streamed calls above about 21.3k output tokens.
+LONG_MAX_TOKENS = 21000
+
 
 def apply_all(script: str, suggestions) -> str:
     """Accept every suggestion (what an editor clicking 'Accept all' gets)."""
@@ -84,7 +87,7 @@ def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) 
             system=[system(step), brand_text],
             prompt=prompt,
             schema=SCHEMAS[step],
-            max_tokens=32000 if step in ("breakdown", "clip_prompts") else 16000,
+            max_tokens=LONG_MAX_TOKENS if step in ("breakdown", "clip_prompts") else 16000,
         )
         spent.append(answer.cost_usd)
         answers[step] = answer.parsed

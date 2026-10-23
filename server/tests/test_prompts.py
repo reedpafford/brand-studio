@@ -108,3 +108,11 @@ def test_reference_block_keeps_timing_and_lines_but_not_on_screen_text():
     block = prompts.reference_block(ref, "the montage")
     assert '1. 0.00–0.40 ECU; push-in | Bride screams | rage | bride: "HELL NO!"' in block
     assert "do not copy" not in block and "Replace: the montage" in block
+
+
+def test_eval_runner_stays_under_the_sdk_limit_for_non_streamed_calls():
+    from anthropic import Anthropic
+
+    from evals.run import LONG_MAX_TOKENS
+
+    Anthropic(api_key="unused")._calculate_nonstreaming_timeout(LONG_MAX_TOKENS, None)
