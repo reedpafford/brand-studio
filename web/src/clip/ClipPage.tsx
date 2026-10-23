@@ -1,17 +1,27 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
+import { api, errorText } from "../api/client";
+import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
 import { btnPrimary, input, pageTitle } from "../ui";
 import { BrandPieces, useBrandPieces, type Piece } from "./BrandPieces";
-import { useMe } from "../auth/useMe";
 import { History, isRendering, useJobs } from "./History";
 import { ModelPicker } from "./ModelPicker";
 import { blockedReason, clipCredits, defaultSettings, fit, mentionsMoment, type Model, type Settings } from "./logic";
 
 const MAX_PROMPT = 2000;
+
+/** The value, once it has stopped changing for a moment. */
+function useDebounced<T>(value: T, ms = 400) {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return settled;
+}
 
 export function ClipPage() {
   const models = useQuery({
@@ -36,8 +46,8 @@ function Studio({ models }: { models: Model[] }) {
   const [prompt, setPrompt] = useState(params.get("prompt") ?? "");
   const [picked, setPicked] = useState<Piece[]>([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const [sent, setSent] = useState("");
   const { pieces, screens, isPending } = useBrandPieces(brandId);
-  const { data: me } = useMe();
   const jobs = useJobs();
   const allowance = useQuery({
     queryKey: ["allowance"],
@@ -57,11 +67,72 @@ function Studio({ models }: { models: Model[] }) {
     return all.filter((p, i) => !dismissed.includes(p.key) && all.findIndex((x) => x.key === p.key) === i);
   }, [prompt, screens, pieces, picked, dismissed, wantedCharacter]);
 
-  const credits = useMemo(() => clipCredits(model, settings), [model, settings]);
+  const ids = (type: Piece["type"]) => chosen.filter((p) => p.type === type).map((p) => p.id);
   const maxRefs = model.max_reference_images;
-  // The weekly allowance is for editors; the owner's clips need no ask.
-  const left = allowance.data && me?.role !== "owner" ? allowance.data.quick_clip_credits_allowed - allowance.data.quick_clip_credits_used : null;
-  const reason = blockedReason({ prompt, loading: isPending, tooMany: chosen.length > maxRefs, maxRefs, credits, left, rendering: isRendering(jobs.data) });
+
+  const queryClient = useQueryClient();
+  const body: components["schemas"]["ClipIn"] = {
+    brand_id: brandId,
+    model_id: model.id,
+    prompt: prompt.trim(),
+    aspect_ratio: settings.aspect,
+    duration: settings.duration,
+    resolution: settings.resolution,
+    generate_audio: true,
+    character_ids: ids("character"),
+    place_ids: ids("place"),
+    prop_ids: ids("prop"),
+    screen_ids: ids("screen"),
+    skip_screen_ids: dismissed.filter((k) => k.startsWith("screen-")).map((k) => Number(k.slice(7))),
+    file_ids: [],
+  };
+  // Ask the server what this would cost and whether Reed must approve it. Nothing is queued.
+  const settledBody = useDebounced(body);
+  const estimate = useQuery({
+    queryKey: ["estimate", settledBody],
+    enabled: settledBody.prompt.length >= 8 && !isPending,
+    retry: false,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await api.POST("/clips/estimate", { body: settledBody });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+  });
+  const credits = estimate.data?.credits ?? clipCredits(model, settings);
+  const generate = useMutation({
+    mutationFn: async () => {
+      const { error, response } = await api.POST("/clips", { body });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: () => {
+      setSent(JSON.stringify(body));
+      toast(estimate.data?.needs_owner_approval ? "Sent to Reed for approval. It will show in History." : "Clip queued. It will show in History.");
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["allowance"] });
+    },
+  });
+
+  const reason = blockedReason({ prompt, loading: isPending, tooMany: chosen.length > maxRefs, maxRefs, rendering: isRendering(jobs.data), noEstimate: !estimate.data && !estimate.error, refused: estimate.error?.message, alreadySent: sent === JSON.stringify(body) });
+
+  // Try again: put a failed clip's prompt, settings and brand pieces back. Nothing is sent until Generate.
+  const tryAgain = async (jobId: number) => {
+    const { data } = await api.GET("/clips/{job_id}/request", { params: { path: { job_id: jobId } } });
+    if (!data) return toast("Could not load that clip's settings.");
+    const old = models.find((m) => m.id === data.model_id) ?? model;
+    const keys = [
+      ...data.character_ids.map((id) => `character-${id}`),
+      ...data.place_ids.map((id) => `place-${id}`),
+      ...data.prop_ids.map((id) => `prop-${id}`),
+      ...data.screen_ids.map((id) => `screen-${id}`),
+    ];
+    setModel(old);
+    setSettings(fit(old, { aspect: data.aspect_ratio, duration: data.duration, resolution: data.resolution }).settings);
+    setPrompt(data.prompt);
+    setPicked(keys.flatMap((k) => pieces.find((p) => p.key === k) ?? []));
+    setDismissed(data.skip_screen_ids.map((id) => `screen-${id}`));
+    toast("Brought back that clip's prompt and settings. Press Generate to try again.");
+  };
 
   const switchModel = (m: Model) => {
     const { settings: next, notes } = fit(m, settings);
@@ -113,7 +184,11 @@ function Studio({ models }: { models: Model[] }) {
           <span className="flex justify-between font-medium">
             Length <span className="font-normal">{settings.duration}s</span>
           </span>
-          <input type="range" className="w-full" min={model.duration?.min ?? 1} max={model.duration?.max ?? 30} value={settings.duration} onChange={(e) => setSettings({ ...settings, duration: Number(e.target.value) })} />
+          <input type="range" className="w-full accent-[var(--accent)]" min={model.duration?.min ?? 1} max={model.duration?.max ?? 30} value={settings.duration} onChange={(e) => setSettings({ ...settings, duration: Number(e.target.value) })} />
+          <span className="flex justify-between text-muted">
+            <span>{model.duration?.min ?? 1}s</span>
+            <span>{model.duration?.max ?? 30}s</span>
+          </span>
         </label>
         <fieldset className="space-y-1 text-sm">
           <legend className="font-medium">Quality</legend>
@@ -125,17 +200,19 @@ function Studio({ models }: { models: Model[] }) {
             ))}
           </div>
         </fieldset>
-        {left !== null && <p className="text-sm text-muted">Quick clips this week: {allowance.data?.quick_clip_credits_used} of {allowance.data?.quick_clip_credits_allowed} credits used.</p>}
+        {allowance.data && <p className="text-sm text-muted">Quick clips this week: {allowance.data?.quick_clip_credits_used} of {allowance.data?.quick_clip_credits_allowed} credits used.</p>}
         <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 space-y-1 md:bottom-0 border-t border-border bg-surface p-4 shadow-md lg:sticky lg:bottom-0 lg:border-0 lg:p-0 lg:shadow-none">
-          <button className={`${btnPrimary} min-h-11 w-full`} disabled={reason !== null}>
-            Generate · {credits} credits
+          <button className={`${btnPrimary} min-h-11 w-full`} disabled={reason !== null || generate.isPending} onClick={() => generate.mutate()}>
+            {generate.isPending ? "Sending…" : `${estimate.data?.needs_owner_approval ? "Ask Reed to approve" : "Generate"} · ${credits} credits`}
           </button>
           {reason && <p className="text-sm text-muted">{reason}</p>}
+          {!reason && estimate.data?.needs_owner_approval && <p className="text-sm text-warning">{estimate.data.reason}</p>}
+          {generate.isError && <p role="alert" className="text-sm text-danger">{generate.error.message}</p>}
         </div>
       </section>
       <section aria-label="History" className="space-y-3">
         <h2 className="text-[length:var(--text-md)] font-semibold">History</h2>
-        <History brandName={brand?.name ?? "brand"} />
+        <History brandName={brand?.name ?? "brand"} onTryAgain={tryAgain} />
       </section>
     </main>
   );
