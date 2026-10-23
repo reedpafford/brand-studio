@@ -255,6 +255,15 @@ describe("on a phone", () => {
   });
 });
 
+test("a clean breakdown opens the Storyboard step with Next", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()], "GET /projects/9/storyboard": [200, []] });
+  open();
+  const next = await screen.findByRole("button", { name: "Next: Storyboard →" });
+  expect(next).toBeEnabled();
+  await userEvent.click(next);
+  expect(await screen.findByText("No frames yet.")).toBeInTheDocument();
+});
+
 test("a breakdown run is recognised by its step, even after a reload; an Enhance run is not mistaken for it", async () => {
   const running = (step: string) => [{ id: 3, kind: "write-claude", step, status: "running", credits: 6, project_id: 9, created_at: "2026-10-23T10:00:00Z" }];
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("breakdown")] });
