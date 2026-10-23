@@ -50,7 +50,7 @@ Replicate's description of the `prompt` input: Seedance 2.5 "works best with det
 - **The basic unit is 1 second.** Segments must be continuous with no gaps: write "0-3 seconds…3-7 seconds…", not "0-3s… 5-6s…". Too little content in a segment lets the model improvise. Too much gives "excessive cuts" or drops plot. Don't time very fast repeated actions ("shake your head three times per second") ([Guide § Timestamps][g]).
 - Point and relative timing also work: "At the 2-second mark…", "After 3 seconds…" ([Guide][g]).
 - Don't claim half-second precision. Timestamps are event budgets, not frame-exact edit points ([Skill § Long Videos and Time Segments][skill]).
-- **Our A/B (2026-10-23, one clip each; see [FIT.md](FIT.md#ab-result-2026-10-23-206-logged-by-the-producer)):** decimal shot times were followed within about 0.3–0.7 s. Rounding to whole seconds and grouping two quick cuts into one second lost a shot and finished the dialogue early. We keep decimal shot times.
+- **Our A/B (2026-10-23, one clip each; see [FIT.md](FIT.md#ab-result-2026-10-23-206-logged-by-the-producer)):** both styles worked. Reed adopted whole-second timing for consistency with this guide. Watch for quick cuts that share a second merging into one, and for dialogue finishing early.
 
 ## 6. Limits
 | | Limit | Source |
