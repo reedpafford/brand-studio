@@ -1,7 +1,7 @@
 """Run the eval cases through Claude and save each answer for `score.py`. PAID: one run is
 14 calls (about $2.50). Only with the Producer's go-ahead, logged in ops/SPEND.md.
 
-Usage (from server/): python -m evals.run <out dir> [--cap-usd 2]
+Usage (from server/): python -m evals.run <out dir> [--cap-usd 2] [--cases id ...]
 Key from STUDIO_ANTHROPIC_KEY. Stops before the next call once the cap is reached."""
 
 import argparse
@@ -95,11 +95,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("out", type=Path)
     parser.add_argument("--cap-usd", type=Decimal, default=Decimal(2))
+    parser.add_argument("--cases", nargs="*", help="only these case ids (default: all)")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     client = make_client(os.environ.get("STUDIO_ANTHROPIC_KEY", ""))
     spent: list[Decimal] = []
     for case in CASES["cases"]:
+        if args.cases and case["id"] not in args.cases:
+            continue
         try:
             run_case(client, case, args.out, spent, args.cap_usd)
         except Exception as exc:  # noqa: BLE001 - keep going; a failed case is a result
