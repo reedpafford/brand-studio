@@ -1175,7 +1175,8 @@ export interface paths {
          * @description ✓ Looks good: approve the picked take.
          */
         post: operations["approve_projects__project_id__clips__clip_id__approve_post"];
-        delete?: never;
+        /** Unapprove */
+        delete: operations["unapprove_projects__project_id__clips__clip_id__approve_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1743,6 +1744,8 @@ export interface components {
             step?: string | null;
             /** Frame Id */
             frame_id?: number | null;
+            /** Project Clip Id */
+            project_clip_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1795,6 +1798,8 @@ export interface components {
             step?: string | null;
             /** Frame Id */
             frame_id?: number | null;
+            /** Project Clip Id */
+            project_clip_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -1984,6 +1989,8 @@ export interface components {
             picked_take_id: number | null;
             /** Approved */
             approved: boolean;
+            /** Take Credits */
+            take_credits: number;
             /** Stale */
             stale: boolean;
         };
@@ -2350,6 +2357,14 @@ export interface components {
             reason: string;
             /** Status */
             status: string;
+        };
+        /** TakeIn */
+        TakeIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** TakeOut */
         TakeOut: {
@@ -4812,7 +4827,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TakeIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -4868,6 +4887,38 @@ export interface operations {
         };
     };
     approve_projects__project_id__clips__clip_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unapprove_projects__project_id__clips__clip_id__approve_delete: {
         parameters: {
             query?: never;
             header?: never;
