@@ -138,6 +138,25 @@ def test_storyboard_check_keeps_character_sheets_within_the_model_limit():
     assert check.storyboard(frames, 14, 2) == ["c1: more references than the image model keeps"]
 
 
+def test_frames_and_clips_attach_every_character_in_the_shot():
+    _, bd = example("breakdown")
+    first = bd.scenes[0].shots[0]
+    cast = first.character_ids
+    frame = {"clip_id": "c1", "shot_id": first.id, "prompt": "x"}
+    bare = schemas.StoryboardFrames(frames=[frame | {"reference_ids": ["place:1"]}])
+    assert check.storyboard(bare, 14, 4, bd) == [
+        f"c1: {', '.join(cast)} in the shot without a sheet"
+    ]
+    full = schemas.StoryboardFrames(frames=[frame | {"reference_ids": cast}])
+    assert check.storyboard(full, 14, 4, bd) == []
+    _, cp = example("clip_prompts")
+    c = cp.clips[0]
+    who = next(r.id for r in c.references if r.id.startswith("char:"))
+    c.references = [r for r in c.references if r.id != who]
+    problems = check.clip_prompts(bd, cp, 30, 10)
+    assert f"{c.clip_id}: {who} is in the clip but its sheet isn't attached" in problems
+
+
 def test_reference_lines_bind_each_image_in_upload_order():
     refs = [
         {"kind": "character", "name": "Aiden"},

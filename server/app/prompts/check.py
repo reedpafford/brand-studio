@@ -120,6 +120,9 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             problems.append(f"{c.clip_id}: doesn't name [Image1] the first frame")
         cast = [r.id for r in c.references if r.id.startswith("char:")]
         first_seen = list(dict.fromkeys(i for s in clip.shot_ids for i in shots[s].character_ids))
+        for i in first_seen:
+            if i not in cast:
+                problems.append(f"{c.clip_id}: {i} is in the clip but its sheet isn't attached")
         if cast != [i for i in first_seen if i in cast]:
             problems.append(f"{c.clip_id}: characters aren't attached in the order they appear")
         if c.seconds != clip.seconds:
@@ -127,12 +130,19 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
     return problems
 
 
-def storyboard(frames: StoryboardFrames, max_images: int, max_characters: int) -> list[str]:
+def storyboard(
+    frames: StoryboardFrames, max_images: int, max_characters: int, bd: Breakdown | None = None
+) -> list[str]:
+    shots = {shot.id: shot for scene in bd.scenes for shot in scene.shots} if bd else {}
     problems = []
     for f in frames.frames:
         characters = [r for r in f.reference_ids if r.startswith("char:")]
         if len(f.reference_ids) > max_images or len(characters) > max_characters:
             problems.append(f"{f.clip_id}: more references than the image model keeps")
+        cast = shots[f.shot_id].character_ids if f.shot_id in shots else []
+        missing = [i for i in cast if i not in characters]
+        if missing and len(characters) < max_characters:
+            problems.append(f"{f.clip_id}: {', '.join(missing)} in the shot without a sheet")
     return problems
 
 
