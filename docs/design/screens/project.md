@@ -22,7 +22,7 @@ API: `/projects/{id}` (has `budget_credits`, `budget_pct`).
 - Stepper: done = ✓ teal, current = filled dot, future = muted. Any done stage is clickable. Future stages are not clickable and say why on hover ("Finish the breakdown first").
 - Script pane: line-numbered Courier Prime, 1.6 line height, max 64 characters per line. Selecting a shot on the right highlights its lines on the left (`--accent-soft`) and scrolls them into view; and the reverse.
 - Stage pane by stage:
-  - **Brief**: form (Goal, Audience, Must show (brand screens, chips), Length, Format). [Write script] (cost shown in the button like every paid action).
+  - **Brief**: `brief.md`.
   - **Enhance**: `script-enhance.md`.
   - **Breakdown**: `breakdown.md`.
   - **Storyboard**: `storyboard.md` (one frame per clip).

@@ -14,7 +14,15 @@ const GOING = ["queued", "running", "needs_owner_approval"];
 const ratio = (a: string) => a.replace(":", " / ");
 
 /** One still per clip: Claude writes the frame prompts, then each still is drawn. */
-export function StoryboardPane(props: { projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
+/** The project's storyboard frames (shared by the Storyboard and Clips steps). */
+export function useFrames(projectId: number) {
+  return useQuery({
+    queryKey: ["storyboard", projectId],
+    queryFn: async () => (await api.GET("/projects/{project_id}/storyboard", { params: { path: { project_id: projectId } } })).data ?? [],
+  });
+}
+
+export function StoryboardPane(props: { projectId: number; brandId: number; aspect: string; used: number; budget: number; onNext: () => void }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -194,12 +202,10 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
         })}
       </ul>
       <div className="space-y-1">
-        <button className={btnPrimary} disabled>
+        <button className={btnPrimary} disabled={waiting > 0 || list.some((f) => f.stale)} onClick={props.onNext}>
           Next: Clips →
         </button>
-        <p className="text-sm text-muted">
-          {waiting > 0 ? `Approve all ${list.length} frame${list.length === 1 ? "" : "s"} first (${waiting} left).` : "Clips are coming soon."}
-        </p>
+        {waiting > 0 && <p className="text-sm text-muted">{`Approve all ${list.length} frame${list.length === 1 ? "" : "s"} first (${waiting} left).`}</p>}
       </div>
       {lightbox && lightbox.file_id !== null && (
         <Sheet title={`Clip ${lightbox.clip_id} · shot ${lightbox.shot_id}`} onClose={() => setLightbox(null)}>
