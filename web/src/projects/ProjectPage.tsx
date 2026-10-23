@@ -62,7 +62,7 @@ export function ProjectPage() {
           <ScriptTab projectId={id} enhance={enhance} />
         </div>
         <div className={pane === "stage" ? "" : "hidden lg:block"}>
-          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} onPick={pick} />
+          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} projectId={id} brandId={p.brand_id} used={p.credits_used} budget={p.budget_credits} onPick={pick} />
         </div>
       </div>
     </main>
