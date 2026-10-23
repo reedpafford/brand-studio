@@ -125,12 +125,12 @@
     "AIDEN: Pass the potatoes, Rick."
    ],
    "good": [
-    "Enhance cuts the table small talk (line 2) and the explaining half of line 10. It keeps line 3: 'Pass the potatoes' is the setup for the last line's callback.",
-    "Enhance adds a scene break before line 11 (the script skips scene 2).",
-    "Line 11 gets the Home screen, line 12 the chart-down screen, line 13 the desktop screen, line 17 the chart-up screen.",
-    "Line 14 names a screen fomo doesn't have ('Wallet'): Enhance suggests replacing it with a real one (Token chart up).",
-    "No dialogue is reworded; 'Pass the potatoes, Rick.' callback is untouched.",
-    "Breakdown: 2 clips, seam at the one-year jump, clip 2 opens on an insert; the table laugh and Rick's 'Is that... real?' get big reaction shots.",
+    "No script line changes (Reed's rule): only camera, movement, reaction and brand screen marks.",
+    "Line 11 gets the Home screen, line 12 the chart-down screen, line 13 the desktop screen, line 17 the chart-up screen; the turn after line 13 shows the chart-up screen too.",
+    "Line 14 names a screen fomo doesn't have ('Wallet'): a note says so, and a brand_screen mark shows the real Token chart up screen there.",
+    "Notes may point out the small talk (line 2), the explaining half of line 10 and the missing scene 2 heading, without rewording anything.",
+    "A visible hook: a camera or action mark on Rick's jab (line 4) and big reactions on the table laugh and 'Is that... real?'.",
+    "Breakdown: 2–3 clips, seam at the one-year jump, clip after the jump opens on an insert.",
     "Clip prompts: every screen shot names its [ImageN] and says 'exactly'; no screen content described in words."
    ],
    "expect": {
@@ -140,18 +140,9 @@
      "13": "screen:4",
      "17": "screen:2"
     },
-    "cut_lines": [
-     2
-    ],
-    "not_cut": [
-     3
-    ],
-    "scene_break_before": [
-     11
-    ],
-    "untouched_lines": [
-     19
-    ]
+    "notes_mention": {
+     "14": "wallet"
+    }
    }
   },
   {
@@ -179,19 +170,12 @@
     "LEO: Six cents."
    ],
    "good": [
-    "Restraint: the script already works. At most 3 marks, none of them cuts.",
-    "A sensible mark is a reaction or camera beat on 'Six cents.' (the punchline) or a Home screen for line 3 (app-open moment).",
-    "No dialogue touched."
+    "Restraint: the script already works. At most 3 marks.",
+    "A sensible mark is a held reaction on 'Six cents.' (the punchline) or a Home screen for line 3 (app-open moment).",
+    "No notes needed."
    ],
    "expect": {
-    "max_suggestions": 3,
-    "cut_lines": [],
-    "untouched_lines": [
-     2,
-     5,
-     7,
-     8
-    ]
+    "max_suggestions": 3
    }
   },
   {
@@ -310,21 +294,13 @@
     "NORA: You silly, wonderful dog."
    ],
    "good": [
-    "Enhance cuts the slow opening (lines 2–3) so it starts at the knock or the escape.",
-    "Line 7's explanation is cut in favour of a visible reaction (Nora at the door, calling).",
-    "The script never shows the bag: Enhance suggests the Iron Paws bag where it fits (e.g. Nora shakes the bag on the porch to call him home, or feeds him at the end).",
-    "A reaction or camera mark on the return (line 11) makes the payoff land; no dialogue changes."
+    "No script line changes; the slow opening (lines 2–3) and line 7's explanation can only be raised as notes.",
+    "Visible beats instead: Biscuit's escape and Nora's reaction get marks so the turn reads with the sound off.",
+    "A reaction or camera mark on the return (line 11) makes the payoff land.",
+    "The script never shows the bag: a brand_screen mark puts the Iron Paws bag where it fits (the porch call, or a reward feeding at the end)."
    ],
    "expect": {
-    "cut_lines": [
-     2,
-     3,
-     7
-    ],
-    "screen_anywhere": "screen:11",
-    "untouched_lines": [
-     12
-    ]
+    "screen_anywhere": "screen:11"
    }
   },
   {
@@ -364,9 +340,9 @@
     "No spoken word changed or added: every sentence is the narrator's (Reed's) voiceover.",
     "Hook: line 1 plays over an extreme close-up of the crusty eyes, so the first 2 s show the problem, not a title or an establishing shot.",
     "The three symptoms (eyes, paws, shedding) each get a clear visual, and they come back at the end when each one is gone (no crust, no redness, a full coat).",
-    "The long explanation (line 8) is covered by visuals that change every 1–3 s (inside-the-gut style shots, toxins, the eyes and paws), not a talking head; a cut may be suggested but never a rewrite.",
+    "The long explanation (line 8) is covered by visuals that change every 1–3 s (inside-the-gut style shots, toxins, the eyes and paws), not a talking head.",
     "The real bag shows when she finds it (line 9), when she mixes it in (line 10), and on the closing lines (12–13), shown exactly, no face on it.",
-    "Line 10 says 'Peanut butter flavor' but the bag says Chicken flavor: a mark on line 10 points that out; the words stay.",
+    "Line 10 says 'Peanut butter flavor' but the bag says Chicken flavor: a note on line 10 says so; the words stay.",
     "Breakdown: clips end between sentences, each 4–30 s; the dog's mouth doesn't move (it's voiceover)."
    ],
    "expect": {
@@ -374,7 +350,7 @@
      "9": "screen:11",
      "10": "screen:11"
     },
-    "flag_lines": {
+    "notes_mention": {
      "10": "chicken"
     },
     "clips": [

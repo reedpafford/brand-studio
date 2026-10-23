@@ -23,17 +23,16 @@ class Anchor(BaseModel):
 
 class Suggestion(BaseModel):
     id: str = Field(description="s1, s2, … in script order.")
-    kind: Literal["scene_break", "action", "reaction", "camera", "brand_screen", "cut"]
+    kind: Literal["camera", "action", "reaction", "brand_screen"]
     anchor: Anchor
-    placement: Literal["before", "after", "replace"] = Field(
-        description="Where `text` goes relative to the quote. scene_break: before. "
-        "action/reaction/camera/brand_screen: usually after. cut: replace."
+    placement: Literal["before", "after"] = Field(
+        description="Whether the mark goes on its own line just before or just after the quoted "
+        "line. The script's own lines never change."
     )
     text: str = Field(
-        description="What gets added, in script style, present tense, one line. scene_break: "
-        "the new heading ('SCENE 2 — INT. BEDROOM — NIGHT'). brand_screen: the screen line "
-        "('★ fomo screen: Token chart up — on Leo's phone, fills the frame'). cut: empty "
-        "string (the quote is removed)."
+        description="What we see, in script style, present tense, one line; never spoken words. "
+        "brand_screen: the screen line ('★ fomo screen: Token chart up — on Leo's phone, fills "
+        "the frame')."
     )
     screen_id: str | None = Field(
         description="brand_screen only: the screen's id from the brand block. Otherwise null."
@@ -44,11 +43,20 @@ class Suggestion(BaseModel):
     )
 
 
+class Note(BaseModel):
+    line: int = Field(description="The numbered line the note is about.")
+    text: str = Field(
+        description="One plain sentence: what only the editor can fix in the words and why "
+        "(e.g. the line says peanut butter, the bag says chicken). Never replacement words."
+    )
+
+
 class EnhanceResult(BaseModel):
     suggestions: list[Suggestion] = Field(
         description="In script order. Only suggestions that clearly help; an empty list if the "
-        "script already works."
+        "script already plays well."
     )
+    notes: list[Note] = Field(description="Usually empty. Things in the words, not edits.")
 
 
 # --- Script draft from a brief ---

@@ -32,23 +32,12 @@ def score(out: Path, case: dict) -> list[str]:
         marks = {}
         for s in e.suggestions:
             marks.setdefault(s.anchor.line, []).append(s)
-        kinds = {n: {s.kind for s in ms} for n, ms in marks.items()}
-        replaced = {n for n, ms in marks.items() if any(s.placement == "replace" for s in ms)}
-        for n, word in exp.get("flag_lines", {}).items():
-            if not any(word in s.reason.lower() for s in marks.get(int(n), [])):
-                problems.append(f"expected a mark on line {n} that mentions '{word}'")
+        for n, word in exp.get("notes_mention", {}).items():
+            if not any(x.line == int(n) and word in x.text.lower() for x in e.notes):
+                problems.append(f"expected a note on line {n} that mentions '{word}'")
         for n, sid in exp.get("screens_at", {}).items():
             if not any(s.screen_id == sid for s in marks.get(int(n), [])):
                 problems.append(f"expected {sid} at line {n}")
-        rules = [
-            ("cut_lines", lambda n: "cut" not in kinds.get(n, ()), "expected a cut on line {}"),
-            ("not_cut", lambda n: "cut" in kinds.get(n, ()), "line {} should not be cut"),
-            ("scene_break_before", lambda n: "scene_break" not in kinds.get(n, ()),
-             "expected a scene break before line {}"),
-            ("untouched_lines", lambda n: n in replaced, "line {} should be left alone"),
-        ]  # fmt: skip
-        for key, bad, message in rules:
-            problems += [message.format(n) for n in exp.get(key, []) if bad(n)]
         if len(e.suggestions) > exp.get("max_suggestions", 99):
             problems.append(
                 f"{len(e.suggestions)} suggestions, expected at most {exp['max_suggestions']}"
