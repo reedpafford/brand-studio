@@ -1,0 +1,172 @@
+{
+ "suggestions": [
+  {
+   "id": "s1",
+   "kind": "cut",
+   "anchor": {
+    "line": 2,
+    "quote": "The family sits around the table. Everyone is eating and talking about school and work."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Slow establishing small talk; open straight on the table so Rick's jab lands within two seconds. Keep line 3, since it sets up the potatoes callback."
+  },
+  {
+   "id": "s2",
+   "kind": "camera",
+   "anchor": {
+    "line": 4,
+    "quote": "UNCLE RICK: So Aiden, still doing your little internet trading?"
+   },
+   "placement": "before",
+   "text": "Rick points his fork across the table at Aiden; quick push-in on Rick's smug grin.",
+   "screen_id": null,
+   "reason": "Makes the accusation the visual hook, not just a line of dialogue."
+  },
+  {
+   "id": "s3",
+   "kind": "reaction",
+   "anchor": {
+    "line": 7,
+    "quote": "The whole table laughs."
+   },
+   "placement": "after",
+   "text": "Aiden's face burns red; he grips his fork, the only one not laughing.",
+   "screen_id": null,
+   "reason": "The humiliation is the story's engine and needs a face we can read with the sound off."
+  },
+  {
+   "id": "s4",
+   "kind": "camera",
+   "anchor": {
+    "line": 9,
+    "quote": "AIDEN: Give me a year."
+   },
+   "placement": "before",
+   "text": "Tight close-up on Aiden, eyes locked on Rick, the laughter dying around him.",
+   "screen_id": null,
+   "reason": "This is the promise the ending pays off, so give it weight."
+  },
+  {
+   "id": "s5",
+   "kind": "cut",
+   "anchor": {
+    "line": 10,
+    "quote": " He is angry and wants to prove Rick wrong."
+   },
+   "placement": "replace",
+   "text": "",
+   "screen_id": null,
+   "reason": "Explains a feeling the camera can't show; let his actions do it."
+  },
+  {
+   "id": "s6",
+   "kind": "action",
+   "anchor": {
+    "line": 10,
+    "quote": "Aiden goes to his room."
+   },
+   "placement": "after",
+   "text": "He shoves his chair back and storms off, napkin thrown on his plate.",
+   "screen_id": null,
+   "reason": "Shows the anger instead of telling it."
+  },
+  {
+   "id": "s7",
+   "kind": "scene_break",
+   "anchor": {
+    "line": 11,
+    "quote": "Aiden opens fomo on his phone."
+   },
+   "placement": "before",
+   "text": "SCENE 2 — INT. AIDEN'S BASEMENT ROOM — NIGHT",
+   "screen_id": null,
+   "reason": "Place and time change here; the script jumps from scene 1 to 3."
+  },
+  {
+   "id": "s8",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 11,
+    "quote": "Aiden opens fomo on his phone."
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Home — on Aiden's phone as the app opens, fills the frame",
+   "screen_id": "screen:1",
+   "reason": "Opening fomo is a brand moment that needs the real home screen."
+  },
+  {
+   "id": "s9",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 12,
+    "quote": "He loses a trade"
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Token chart down — on his phone, red line dropping",
+   "screen_id": "screen:3",
+   "reason": "A loss is a fomo moment, so the real chart-down screen must show before he slams the desk."
+  },
+  {
+   "id": "s10",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 13,
+    "quote": "He keeps trading at his desk every night for months."
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Desktop trading — on his monitor, its glow on his face as seasons change in the window behind him",
+   "screen_id": "screen:4",
+   "reason": "The months of grinding are desk trading, so the real desktop screen shows, and the window sells the passing time with the sound off."
+  },
+  {
+   "id": "s11",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 14,
+    "quote": "★ fomo screen: Wallet — showing his balance"
+   },
+   "placement": "replace",
+   "text": "★ fomo screen: Token chart up — on Aiden's phone, the line climbing, fills the frame",
+   "screen_id": "screen:2",
+   "reason": "\"Wallet\" isn't a real fomo screen; the turn is a win, so it gets the chart-up screen."
+  },
+  {
+   "id": "s12",
+   "kind": "reaction",
+   "anchor": {
+    "line": 14,
+    "quote": "★ fomo screen: Wallet — showing his balance"
+   },
+   "placement": "after",
+   "text": "Aiden leans back in his chair, a slow, quiet grin spreading.",
+   "screen_id": null,
+   "reason": "The turn needs a held beat on his face before we jump a year."
+  },
+  {
+   "id": "s13",
+   "kind": "brand_screen",
+   "anchor": {
+    "line": 17,
+    "quote": "Aiden slides his phone across the table."
+   },
+   "placement": "after",
+   "text": "★ fomo screen: Token chart up — on the phone as it stops in front of Rick, top-down insert",
+   "screen_id": "screen:2",
+   "reason": "The proof Rick sees is fomo, so the real chart-up screen must be on that phone."
+  },
+  {
+   "id": "s14",
+   "kind": "reaction",
+   "anchor": {
+    "line": 18,
+    "quote": "UNCLE RICK: Is that... real?"
+   },
+   "placement": "before",
+   "text": "Rick's fork freezes mid-air, his jaw drops; Mom hides a proud smile behind her glass.",
+   "screen_id": null,
+   "reason": "Rick's face is the payoff of the whole video, so hold on it before the last line."
+  }
+ ]
+}
