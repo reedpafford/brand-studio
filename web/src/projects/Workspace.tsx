@@ -1,5 +1,6 @@
 import { btnPrimary, card } from "../ui";
 import { BreakdownPane } from "./BreakdownPane";
+import { StoryboardPane } from "./StoryboardPane";
 import { Notes, type EnhanceState } from "./Enhance";
 
 export const STAGES = [
@@ -11,25 +12,29 @@ export const STAGES = [
   { id: "clips", label: "Clips" },
 ] as const;
 export type Stage = (typeof STAGES)[number]["id"];
-const BUILT: Stage[] = ["brief", "script", "enhance", "breakdown"];
+const BUILT: Stage[] = ["brief", "script", "enhance", "breakdown", "storyboard"];
+
+/** What exists so far; later stages wait for it. */
+export type Ready = { script: boolean; breakdown: boolean };
 
 /** Why a stage can't be opened right now, or null when it can. */
-export function lockReason(stage: Stage, hasScript: boolean): string | null {
+export function lockReason(stage: Stage, ready: Ready): string | null {
   if (!BUILT.includes(stage)) return "Coming soon";
-  if ((stage === "enhance" || stage === "breakdown") && !hasScript) return "Finish the script first";
+  if ((stage === "enhance" || stage === "breakdown") && !ready.script) return "Finish the script first";
+  if (stage === "storyboard" && !ready.breakdown) return "Make the breakdown first";
   return null;
 }
 
 /** Where a link to a locked stage should land: the first stage not finished yet. */
-export const firstUnfinished = (hasScript: boolean): Stage => (hasScript ? "enhance" : "script");
+export const firstUnfinished = (ready: Ready): Stage => (!ready.script ? "script" : ready.breakdown ? "storyboard" : "enhance");
 
 /** Done steps get a tick, the current one is filled, the ones not built yet say why they can't be opened. */
-export function Stepper(props: { stage: Stage; done: Stage[]; hasScript: boolean; onPick: (s: Stage) => void }) {
+export function Stepper(props: { stage: Stage; done: Stage[]; ready: Ready; onPick: (s: Stage) => void }) {
   return (
     <>
       <ol className="hidden flex-wrap items-center gap-x-2 gap-y-1 text-sm lg:flex" aria-label="Stages">
         {STAGES.map((s, i) => {
-          const why = lockReason(s.id, props.hasScript);
+          const why = lockReason(s.id, props.ready);
           const open = why === null;
           const current = s.id === props.stage;
           const done = props.done.includes(s.id);
@@ -60,7 +65,7 @@ export function Stepper(props: { stage: Stage; done: Stage[]; hasScript: boolean
           onChange={(e) => props.onPick(e.target.value as Stage)}
         >
           {STAGES.map((s) => {
-            const why = lockReason(s.id, props.hasScript);
+            const why = lockReason(s.id, props.ready);
             return (
               <option key={s.id} value={s.id} disabled={why !== null}>
                 {s.label}
@@ -112,7 +117,21 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
       </div>
     );
   if (stage === "breakdown")
-    return <BreakdownPane projectId={props.projectId} brandId={props.brandId} scriptVersion={props.version} plannedSeconds={brief.planned_seconds} used={props.used} budget={props.budget} line={props.line} onShowLines={props.onShowLines} />;
+    return (
+      <BreakdownPane
+        projectId={props.projectId}
+        brandId={props.brandId}
+        scriptVersion={props.version}
+        plannedSeconds={brief.planned_seconds}
+        used={props.used}
+        budget={props.budget}
+        line={props.line}
+        onShowLines={props.onShowLines}
+        onNext={() => props.onPick("storyboard")}
+      />
+    );
+  if (stage === "storyboard")
+    return <StoryboardPane projectId={props.projectId} brandId={props.brandId} aspect={brief.aspect_ratio} used={props.used} budget={props.budget} />;
   return (
     <section className={`${card} text-sm`} aria-label="Coming soon">
       <h2 className="text-[length:var(--text-md)] font-semibold">Coming soon</h2>

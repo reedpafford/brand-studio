@@ -254,3 +254,12 @@ describe("on a phone", () => {
     expect(screen.queryByText(/Clip c2/)).not.toBeInTheDocument();
   });
 });
+
+test("a clean breakdown opens the Storyboard step with Next", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()], "GET /projects/9/storyboard": [200, []] });
+  open();
+  const next = await screen.findByRole("button", { name: "Next: Storyboard →" });
+  expect(next).toBeEnabled();
+  await userEvent.click(next);
+  expect(await screen.findByText("No frames yet.")).toBeInTheDocument();
+});

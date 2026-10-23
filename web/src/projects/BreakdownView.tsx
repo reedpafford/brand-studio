@@ -102,6 +102,7 @@ export function BreakdownView(props: {
   name: (id: string | null) => string;
   line: number | null;
   onShowLines: (lines: number[]) => void;
+  onNext: () => void;
 }) {
   const { row, projectId, scriptVersion, makeButton, name } = props;
   const queryClient = useQueryClient();
@@ -153,7 +154,7 @@ export function BreakdownView(props: {
   const shots = bd.scenes.flatMap((s) => s.shots);
   const total = Math.round(bd.clips.reduce((sum, c) => sum + c.seconds, 0));
   const dirty = draft !== null;
-  const blockedBy = dirty ? "Save your changes first." : row.stale ? "Make a new breakdown first." : row.problems.length > 0 ? `Fix the ${row.problems.length} problem${row.problems.length === 1 ? "" : "s"} first.` : "Storyboard is coming soon.";
+  const blockedBy = dirty ? "Save your changes first." : row.stale ? "Make a new breakdown first." : row.problems.length > 0 ? `Fix the ${row.problems.length} problem${row.problems.length === 1 ? "" : "s"} first.` : null;
 
   const problemList = (after?: () => void) => (
     <ul className="space-y-1 text-sm">
@@ -352,10 +353,10 @@ export function BreakdownView(props: {
       )}
       {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
       <div className="space-y-1">
-        <button className={btnPrimary} disabled>
+        <button className={btnPrimary} disabled={blockedBy !== null} onClick={props.onNext}>
           Next: Storyboard →
         </button>
-        <p className="text-sm text-muted">{blockedBy}</p>
+        {blockedBy && <p className="text-sm text-muted">{blockedBy}</p>}
       </div>
     </div>
   );
