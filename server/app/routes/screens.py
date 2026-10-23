@@ -50,7 +50,7 @@ def _get_screen(db: Session, user: User, brand_id: int, screen_id: int) -> Brand
 def _apply(db: Session, user: User, screen: BrandScreen, values: dict) -> None:
     values = {k: v for k, v in values.items() if v is not None}
     if "file_id" in values:
-        get_file(db, user, values["file_id"])
+        get_file(db, user, values["file_id"], "image")
     if "name" in values:
         clash = db.scalar(
             select(BrandScreen).where(

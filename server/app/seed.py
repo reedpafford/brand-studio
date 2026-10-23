@@ -7,6 +7,7 @@ Without it, tags come from words in the filename (e.g. `trading-chart-up-mobile.
 
 import hashlib
 import json
+import logging
 import sys
 import uuid
 from pathlib import Path
@@ -14,12 +15,14 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.filetypes import matches
 from app.models.brands import Brand, BrandScreen
 from app.models.files import StoredFile
 from app.routes.screens import COMMON_TAGS
 from app.schemas import slugify
 from app.storage import Storage
 
+log = logging.getLogger(__name__)
 LAUNCH_BRANDS = ["fomo", "Iron Paws"]
 IMAGE_TYPES = {
     ".png": "image/png",
@@ -61,6 +64,9 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
         if not content_type or path.stem in existing:
             continue
         data = path.read_bytes()
+        if not matches(content_type, data[:16]):
+            log.warning("Skipping %s: contents don't match its extension.", path.name)
+            continue
         key = f"{brand.workspace_id}/{uuid.uuid4().hex}"
         storage.put(key, data)
         stored = StoredFile(
