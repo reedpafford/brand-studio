@@ -1,5 +1,6 @@
 """First-run setup, login, logout, accepting an invite, and "who am I"."""
 
+import logging
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -23,6 +24,7 @@ from app.schemas import Email, Name, Password
 from app.seed import seed_brands
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+log = logging.getLogger(__name__)
 
 
 class Me(BaseModel):
@@ -77,7 +79,11 @@ def setup(body: SetupIn, request: Request, response: Response, db: Session = Dep
         db.rollback()
         raise HTTPException(409, "Already set up.") from None
     state = request.app.state
-    seed_brands(db, workspace.id, state.storage, state.settings.fomo_screens_dir)
+    try:
+        seed_brands(db, workspace.id, state.storage, state.settings.fomo_screens_dir)
+    except Exception:  # never leave a half-set-up server: log it; the import can be re-run
+        db.rollback()
+        log.exception("Seeding launch brands failed; run `python -m app.seed <folder>` later.")
     start_session(db, request, response, user)
     return user
 
