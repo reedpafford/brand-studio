@@ -196,7 +196,7 @@
    "script": null,
    "good": [
     "2–3 drafts whose hooks are clearly different (e.g. the salesman's insult, Kai already holding the keys, a shocking number).",
-    "Each draft is 70–90 spoken words, opens on conflict in the first line, and ends on a callback plus a one-line call to action.",
+    "Each draft is about 50–75 spoken words (house pace: 4.8 words/s in short lines, talking under half the runtime), opens on conflict in the first line at 0 s, and ends on a callback plus a one-line call to action.",
     "The trade is shown with real screens on ★ lines (chart up for the win; chart down only if there's a dip).",
     "Uses only Kai and the salesman; no narrator; no captions or music."
    ],
@@ -206,8 +206,8 @@
      3
     ],
     "words_per_draft": [
-     60,
-     100
+     45,
+     85
     ]
    }
   },

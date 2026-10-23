@@ -120,7 +120,7 @@ def test_clip_prompt_checks_catch_music_aspect_and_cast_order():
     _, cp = example("clip_prompts")
     clip = cp.clips[0]
     clip.prompt = clip.prompt.split("\n", 1)[1] + "\nStyle: 9:16."
-    clip.references[1], clip.references[2] = clip.references[2], clip.references[1]
+    clip.references.append(schemas.Reference(kind="image", id="char:2", role="Tasha"))
     assert check.clip_prompts(bd, cp, 30, 10) == [
         "c2: doesn't open and close with the same audio line",
         "c2: has no Keep line before the closing audio line",
@@ -155,16 +155,16 @@ def test_reference_lines_bind_each_image_in_upload_order():
 def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")
-    shot = bd.scenes[1].shots[1]
+    shots = bd.scenes[1].shots
     clip = cp.clips[0]
-    clip.prompt = clip.prompt.replace(shot.line, "No.").replace("Okay. Show me how.", "It's 3:15.")
-    clip.prompt = clip.prompt.replace("Trust your setup.", "Trust your setup. Okay, I know.")
-    bd.scenes[1].shots[3].line = "Don't you dare sell. Trust your setup. Okay, I know."
-    shot.line = "No."
-    bd.scenes[1].shots[7].line = "It's 3:15."
+    clip.prompt = clip.prompt.replace('"Come on. One more."', '"No."')
+    clip.prompt = clip.prompt.replace(
+        "slow, small grin.", 'slow, small grin. Malik: "Okay, I know. It\'s 3:15."'
+    )
+    shots[2].line, shots[7].line = "No.", "Okay, I know. It's 3:15."
     assert check.clip_prompts(bd, cp, 30, 10) == []
-    bd.scenes[1].shots[8].line = "No."  # a line said twice on purpose, quoted twice
-    clip.prompt = clip.prompt.replace('"Should I still go to school? Comment below."', '"No."')
+    shots[1].line = "No."  # a line said twice on purpose, quoted twice
+    clip.prompt = clip.prompt.replace("eyes shut.", 'eyes shut. Malik (muttering): "No."')
     assert check.clip_prompts(bd, cp, 30, 10) == []
 
 
