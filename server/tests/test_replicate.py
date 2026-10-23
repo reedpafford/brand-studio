@@ -106,9 +106,9 @@ def test_missing_metrics_falls_back_to_request_and_is_marked_estimate(app, owner
 
 
 def test_failed_prediction_gives_plain_message_and_frees_credits(app, owner, editor, db):
-    fake = FakeReplicate(final={"status": "failed", "error": "NSFW detected; balance $3.20"})
+    fake = FakeReplicate(final={"status": "failed", "error": "NSFW detected; balance $987.65"})
     job = _tick(app, db, fake, _job(db), 3)
-    assert job.status == "failed" and "3.20" not in editor.get(f"/jobs/{job.id}").text
+    assert job.status == "failed" and "987.65" not in editor.get(f"/jobs/{job.id}").text
     assert "NSFW" in owner.get(f"/jobs/{job.id}/detail").json()["error_detail"]
     assert db.query(Usage).count() == 0
 

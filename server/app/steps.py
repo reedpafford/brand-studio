@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 def save_step_result(db: Session, job: Job) -> None:
     from app.breakdown import save_breakdown
     from app.clip_prompts import save_clip_prompts
+    from app.clip_takes import save_take
     from app.enhance import save_suggestions
     from app.routes.improve import save_improved
     from app.storyboard import save_frames, save_still
@@ -23,6 +24,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "improve": save_improved,
         "frame": save_still,
         "clip_prompts": save_clip_prompts,
+        "clip_take": save_take,
     }
     handler = handlers.get(job.input.get("step", ""))
     if handler is None:
