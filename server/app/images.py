@@ -54,7 +54,7 @@ def image_model_block(model: CatalogueModel, aspect_ratio: str) -> str:
     """The <image_model> part of the storyboard prompt."""
     return (
         f"<image_model>\nname: {model.name}\nmax reference images: {model.max_reference_images}\n"
-        f"max character sheets: {model.max_character_images}\n"
+        f"max character images: {model.max_character_images}\n"
         f"max other references: {model.max_object_images or model.max_reference_images}\n"
         f"aspect: {aspect_ratio}\n</image_model>"
     )

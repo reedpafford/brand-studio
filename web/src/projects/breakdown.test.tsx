@@ -109,3 +109,18 @@ test("Breakdown stays locked until there is a script", async () => {
   expect(within(steps).getByRole("button", { name: /Breakdown/ })).toBeDisabled();
   expect(within(steps).getByRole("button", { name: /Breakdown/ })).toHaveAttribute("title", "Finish the script first");
 });
+
+test("Redo is a secondary button; Next is the only primary one", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
+  open();
+  const redo = await screen.findByRole("button", { name: "Redo · 6 credits" });
+  expect(redo).not.toHaveClass("bg-accent");
+  expect(screen.getByRole("button", { name: "Next: Storyboard →" })).toHaveClass("bg-accent");
+});
+
+test("a paid button asks Reed when the call would take the project past its budget", async () => {
+  fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
+  open();
+  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 6 credits" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Redo · 6 credits" })).not.toBeInTheDocument();
+});

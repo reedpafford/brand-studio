@@ -14,6 +14,7 @@ from app.db import get_db
 from app.filetypes import ALLOWED_TYPES, matches
 from app.models.accounts import User
 from app.models.files import StoredFile
+from app.references import too_many_pixels
 
 router = APIRouter(prefix="/files", tags=["files"])
 CHUNK = 1024 * 1024
@@ -61,6 +62,8 @@ async def upload(
     data = b"".join(chunks)
     if not matches(upload.content_type, data[:16]):
         raise HTTPException(415, "The file's contents don't match its type.")
+    if upload.content_type.startswith("image/") and (problem := too_many_pixels(data)):
+        raise HTTPException(422, problem)
     key = f"{user.workspace_id}/{uuid.uuid4().hex}"
     request.app.state.storage.put(key, data)
     stored = StoredFile(

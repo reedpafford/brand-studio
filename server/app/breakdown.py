@@ -70,7 +70,23 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
         f"screen:{s.id}": s.default_for for s in screens_of(db, db.get(Brand, project.brand_id))
     }
     m = video_model()
-    return check.breakdown(script, bd, screens, m.duration.min, m.duration.max)
+    found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max)
+    return found + unknown_ids(db, project, bd)
+
+
+def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
+    """Characters, places and screens a shot names that aren't this project's (cast, the
+    brand's places, the brand's screens). Clips use these ids to attach pictures."""
+    from app.storyboard import assets
+
+    known = assets(db, project)
+    return [
+        f"shot {shot.id}: unknown {asset}"
+        for scene in bd.scenes
+        for shot in scene.shots
+        for asset in [*shot.character_ids, shot.place_id, *shot.screen_ids]
+        if asset and asset not in known
+    ]
 
 
 def save_breakdown(db: Session, job: Job) -> None:

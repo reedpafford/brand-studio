@@ -1,13 +1,13 @@
 # Project workspace
 
 Purpose: one video, guided by its script, from brief to final cut. Script stays visible on the left the whole time.
-Stages: Brief → Script → Breakdown → Storyboard → Clips → Review → Final cut.
+Stages: Brief → Script → Enhance → Breakdown → Storyboard → Clips (review, redo and the finished video are inside Clips).
 API: `/projects/{id}` (has `budget_credits`, `budget_pct`).
 
 ## Desktop (1440)
 ```
 │ ← Projects  Mia buys the dip  ✎                [412 / 660 credits · 62%]          │
-│ Brief ✓ ─ Script ✓ ─ Breakdown ● ─ Storyboard ─ Clips ─ Review ─ Final cut       │ stepper
+│ Brief ✓ ─ Script ✓ ─ Enhance ✓ ─ Breakdown ● ─ Storyboard ─ Clips                │ stepper
 ├───────────────── script pane (min 360, resizable 30–50%) ┬───────── stage pane ──┤
 │ [Edit] [✦ Enhance]                     v4 · saved       │ Breakdown              │
 │                                                         │ Scene 1 · Kitchen, 0:00│
@@ -23,11 +23,10 @@ API: `/projects/{id}` (has `budget_credits`, `budget_pct`).
 - Script pane: line-numbered Courier Prime, 1.6 line height, max 64 characters per line. Selecting a shot on the right highlights its lines on the left (`--accent-soft`) and scrolls them into view; and the reverse.
 - Stage pane by stage:
   - **Brief**: form (Goal, Audience, Must show (brand screens, chips), Length, Format). [Write script] (cost shown in the button like every paid action).
-  - **Breakdown**: scenes → shots list, each shot card: framing, length, who/where, brand screens (★ if required).
-  - **Storyboard**: grid of frames (one per shot, 9:16), each with [Redo · 3 credits] and [Approve].
-  - **Clips**: like Quick clip History, one row per shot with takes (Take 1, 2…), pick one with a radio. [Generate all missing · 240 credits].
-  - **Review**: player on top, shot list with ✓ / "Needs change" + comment per shot.
-  - **Final cut**: player, [Export MP4], [Download], length and file size.
+  - **Enhance**: `script-enhance.md`.
+  - **Breakdown**: `breakdown.md`.
+  - **Storyboard**: `storyboard.md` (one frame per clip).
+  - **Clips, review and the finished video**: `clips.md`.
 - Credits meter in the header (see `usage.md`). If an action would push past 100%, its button reads "Ask Reed to approve · 120 credits" and sends an approval request instead.
 
 ## Phone (390)

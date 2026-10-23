@@ -10,7 +10,7 @@ Pill, 8px tall bar + label. Colour: `--accent` < 75%, `--warning` 75–100% ("Al
 Phone: header shows only "62%" with a small ring; tap opens the same detail in a sheet.
 
 ## Over-budget approval
-When an action would cross 100%: button reads "Ask Reed to approve · 120 credits". Dialog: "This takes the project to 118% of its budget. Reed needs to approve." Optional note, [Send request]. The project shows a warning banner "Waiting for Reed to approve 120 credits." Owner sees a badge on Usage and an "Approvals" list there with [Approve] [Decline].
+When an action would cross 100%: button reads "Ask Reed to approve · 120 credits". Dialog: "This takes the project to 118% of its budget. Reed needs to approve." Optional note, [Send request]. The project shows a warning banner "Waiting for Reed to approve 120 credits." The owner decides on the Approvals page (`approvals.md`).
 
 ## Usage page (owner only, `/usage`; editors who open it get 404 text "Page not found")
 ```
