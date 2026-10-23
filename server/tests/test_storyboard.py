@@ -1,5 +1,7 @@
 """Storyboard frame prompts with a mocked Claude (no paid calls)."""
 
+import copy
+
 from app.models.jobs import Job
 from tests.conftest import upload
 from tests.helpers import assert_hidden, assert_no_dollars
@@ -74,3 +76,19 @@ def test_storyboard_switch_workspace_and_dollars(app, db, editor, outsider, setu
         == 404
     )
     assert_no_dollars(editor, [url])
+
+
+def test_breakdown_ids_must_be_the_projects(app, db, editor, setup):  # noqa: F811
+    url = f"/projects/{setup['project']}/breakdown"
+    bad = copy.deepcopy(BREAKDOWN)
+    bad["scenes"][0]["shots"][0]["character_ids"] = ["char:999"]
+    r = editor.put(url, json=bad)
+    assert r.status_code == 422 and r.json()["detail"].startswith("shot 1.1: unknown char:999.")
+    good = copy.deepcopy(BREAKDOWN)
+    good["scenes"][0]["shots"][0]["screen_ids"] = [f"screen:{setup['screen']}"]
+    assert editor.put(url, json=good).status_code == 200
+    editor.post(url)  # Claude naming an unknown place is saved, with the problem shown
+    bad["scenes"][0]["shots"][0]["character_ids"] = []
+    bad["scenes"][0]["shots"][0]["place_id"] = "place:7"
+    _run(app, db, FakeClaude(bad))
+    assert "shot 1.1: unknown place:7" in editor.get(url).json()["problems"]
