@@ -2,8 +2,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.models  # noqa: F401
+from app.auth import hash_password
 from app.db import Base
 from app.main import create_app
+from app.models.accounts import Role, User, Workspace
 from app.settings import Settings
 
 SETUP_TOKEN = "test-setup-token"
@@ -69,3 +71,23 @@ def upload(client, name="a.png", data=PNG, content_type="image/png") -> int:
     r = client.post("/files", files={"upload": (name, data, content_type)})
     assert r.status_code == 201, r.text
     return r.json()["id"]
+
+
+@pytest.fixture
+def outsider(app, db, owner):
+    """A client logged in as the owner of a *different* workspace (inserted directly,
+    since setup only allows one)."""
+    db.add(
+        User(
+            workspace=Workspace(name="Other"),
+            email="other@example.com",
+            name="Other",
+            password_hash=hash_password(PASSWORD),
+            role=Role.owner,
+        )
+    )
+    db.commit()
+    with TestClient(app) as c:
+        r = c.post("/auth/login", json={"email": "other@example.com", "password": PASSWORD})
+        assert r.status_code == 200, r.text
+        yield c

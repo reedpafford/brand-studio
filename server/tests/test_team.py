@@ -33,3 +33,19 @@ def test_removed_member_is_logged_out_and_cannot_log_in(owner, editor):
 def test_owner_cannot_remove_self(owner):
     me = owner.get("/auth/me").json()["id"]
     assert owner.delete(f"/team/members/{me}").status_code == 400
+
+
+def test_removed_member_can_be_invited_back(app, owner, editor):
+    ed_id = editor.get("/auth/me").json()["id"]
+    owner.delete(f"/team/members/{ed_id}")
+    invite = owner.post("/team/invites", json={"email": "ed@example.com", "role": "owner"})
+    assert invite.status_code == 201
+    body = {"token": invite.json()["token"], "name": "Ed 2", "password": "a new password"}
+    me = editor.post("/auth/accept-invite", json=body).json()
+    assert (me["id"], me["name"], me["role"]) == (ed_id, "Ed 2", "owner")
+
+
+def test_other_workspace_owner_cannot_see_or_cancel_invites(owner, outsider):
+    invite = owner.post("/team/invites", json={"email": "z@example.com"}).json()
+    assert outsider.get("/team/invites").json() == []
+    assert outsider.delete(f"/team/invites/{invite['id']}").status_code == 404

@@ -1,6 +1,11 @@
-from fastapi.testclient import TestClient
+from datetime import timedelta
 
-from app.models.accounts import User
+from fastapi.testclient import TestClient
+from sqlalchemy import update
+from sqlalchemy.orm import Session
+
+from app.db import utcnow
+from app.models.accounts import Invite, LoginSession, User
 from tests.conftest import PASSWORD, SETUP_TOKEN
 
 SETUP = {
@@ -52,3 +57,51 @@ def test_invite_token_works_once(app, owner):
     with TestClient(app) as c:
         assert c.post("/auth/accept-invite", json=body).status_code == 201
         assert c.post("/auth/accept-invite", json=body).status_code == 400
+
+
+def _login(client, password):
+    return client.post("/auth/login", json={"email": "reed@example.com", "password": password})
+
+
+def test_login_locks_after_repeated_failures(owner):
+    for _ in range(5):
+        assert _login(owner, "wrong").status_code == 401
+    assert _login(owner, "wrong").status_code == 429
+    assert _login(owner, PASSWORD).status_code == 429  # locked even with the right password
+
+
+def test_success_resets_the_email_counter(owner):
+    for _ in range(4):
+        _login(owner, "wrong")
+    assert _login(owner, PASSWORD).status_code == 200
+    assert _login(owner, "wrong").status_code == 401
+
+
+def test_setup_token_guessing_is_throttled(app, client):
+    app.state.settings.login_max_failures_per_ip = 2
+    for _ in range(2):
+        assert client.post("/auth/setup", json={**SETUP, "setup_token": "x"}).status_code == 403
+    r = client.post("/auth/setup", json={**SETUP, "setup_token": SETUP_TOKEN})
+    assert r.status_code == 429
+
+
+def test_setup_race_loser_gets_409(owner, monkeypatch):
+    # Pretend the "already set up?" check ran before the other request committed.
+    monkeypatch.setattr(Session, "get", lambda *a, **k: None)
+    r = owner.post("/auth/setup", json={**SETUP, "setup_token": SETUP_TOKEN})
+    assert r.status_code == 409
+
+
+def test_expired_session_is_refused(owner, db):
+    db.execute(update(LoginSession).values(expires_at=utcnow() - timedelta(seconds=1)))
+    db.commit()
+    assert owner.get("/auth/me").status_code == 401
+
+
+def test_expired_invite_is_refused(app, owner, db):
+    token = owner.post("/team/invites", json={"email": "a@example.com"}).json()["token"]
+    db.execute(update(Invite).values(expires_at=utcnow() - timedelta(seconds=1)))
+    db.commit()
+    with TestClient(app) as c:
+        r = c.post("/auth/accept-invite", json={"token": token, "name": "A", "password": PASSWORD})
+        assert r.status_code == 400
