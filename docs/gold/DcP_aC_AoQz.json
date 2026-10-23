@@ -1,0 +1,492 @@
+{
+ "id": "DcP_aC_AoQz",
+ "account": "nateassets",
+ "views": "16.3M",
+ "url": "https://www.instagram.com/reel/DcP_aC_AoQz/",
+ "duration_seconds": 60.02,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A young clothing seller faces his mom's anger over spending his $2,000 savings, wins her help when orders surge, and turns her doubt into pride and a shared business.",
+ "tags": [
+  "mom",
+  "home",
+  "clothing-brand",
+  "reselling",
+  "business",
+  "prove-them-wrong",
+  "family",
+  "rags-to-riches",
+  "emotional",
+  "comedic",
+  "hustle"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.07",
+  "mechanic": "Mom advances through a doorway holding an open wallet, brows pinched and mouth wide in accusation; a hard cut finds her startled son surrounded by packaged clothes.",
+  "first_line": "Nate, where is all your money?"
+ },
+ "moment": "39.36-41.08: Mom says, \"Give me that,\" then, \"You're too slow,\" as she joins her son at the clothing counter. Her stern expression becomes practical commitment: the person demanding he recover the money now helps fulfill the orders.",
+ "stats": {
+  "shots": 39,
+  "live_shots_skipped": 4,
+  "animated_seconds": 58.0,
+  "avg_shot_seconds": 1.49,
+  "median_shot_seconds": 0.75,
+  "longest_shot_seconds": 8.83,
+  "shots_under_1s": 24,
+  "spoken_lines": 49,
+  "words_per_second_while_speaking": 4.9,
+  "speech_share_of_runtime": 0.44
+ },
+ "cut_times": [
+  1.32,
+  2.07,
+  3.23,
+  4.02,
+  4.48,
+  4.93,
+  7.73,
+  8.23,
+  8.77,
+  13.43,
+  15.18,
+  19.92,
+  20.75,
+  21.05,
+  22.55,
+  23.05,
+  25.05,
+  25.97,
+  28.5,
+  29.53,
+  30.23,
+  33.87,
+  38.5,
+  41.08,
+  43.58,
+  44.17,
+  44.58,
+  45.0,
+  45.58,
+  46.25,
+  46.62,
+  46.92,
+  47.17,
+  48.0,
+  48.33,
+  48.67,
+  48.92,
+  49.17,
+  58.0,
+  58.47,
+  58.92,
+  59.38
+ ],
+ "live_shots": [
+  40,
+  41,
+  42,
+  43
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 4.93,
+   "beat": "hook",
+   "what_happens": "Mom confronts Nate about his missing $2,000, and he admits spending it on his business amid towering clothing stock.",
+   "emotion": "Mom leans forward with narrowed eyes and an open, accusing mouth; Nate recoils with raised eyebrows and tense shoulders.",
+   "camera": "Medium close-up on Mom with the wallet, hard cuts to Nate behind the counter, a closer view of Mom planting her hand down, then inventory inserts.",
+   "cuts": "6 cuts in 4.93 seconds; the final inventory views last 0.46 and 0.45 seconds."
+  },
+  {
+   "start": 4.93,
+   "end": 8.77,
+   "beat": "doubt",
+   "what_happens": "Mom questions the clothing purchase and his sales, while Nate tries to explain that he has only just started.",
+   "emotion": "Nate gestures defensively from a lowered position while Mom looms over him with a fixed skeptical stare.",
+   "camera": "Counter-height two-shot, brief phone insert showing the sales dashboard, then a tighter face-to-face view.",
+   "cuts": "2 internal cuts; a 2.8-second confrontation gives way to two roughly half-second shots."
+  },
+  {
+   "start": 8.77,
+   "end": 15.18,
+   "beat": "doubt",
+   "what_happens": "Mom challenges Nate to earn back every dollar within one week, and he reluctantly agrees.",
+   "emotion": "Mom braces a hand on the wallet and bares her teeth; Nate looks trapped before yielding with a quieter answer.",
+   "camera": "Sustained close two-shot across the counter, then a tighter side view placing their faces nearly level.",
+   "cuts": "1 internal cut; holds of 4.66 and 1.75 seconds let the rapid argument play."
+  },
+  {
+   "start": 15.18,
+   "end": 19.92,
+   "beat": "low",
+   "what_happens": "Alone at night, Nate slumps over his laptop and resolves to try again.",
+   "emotion": "His head rests on folded arms before the dialogue turns toward weary determination.",
+   "camera": "Held medium view in a dark room, with cold laptop light isolating Nate and his desk.",
+   "cuts": "One uninterrupted 4.74-second shot creates a pause after the confrontation."
+  },
+  {
+   "start": 19.92,
+   "end": 28.5,
+   "beat": "montage",
+   "what_happens": "Nate works at the laptop, handles clothing, and continues through changing daylight as orders begin arriving.",
+   "emotion": "His lowered brows and forward posture show concentration; fatigue gives way to watchful interest.",
+   "camera": "Keyboard and laptop inserts alternate with medium shots of Nate working beside packaged garments; cool night lighting switches to warm window light and back.",
+   "cuts": "6 internal cuts across 8.58 seconds, mixing 0.3-0.92-second inserts with 1.5-2.53-second working shots."
+  },
+  {
+   "start": 28.5,
+   "end": 33.87,
+   "beat": "turn",
+   "what_happens": "Nate registers the orders, calls Mom, and holds out his phone for her to inspect.",
+   "emotion": "His eyes widen in disbelief before he urgently summons her; Mom initially responds with wary confusion.",
+   "camera": "Frontal laptop reaction, extreme close-up of Nate's eye, then a doorway two-shot with the phone between them.",
+   "cuts": "2 internal cuts; 1.03 and 0.7-second reaction shots lead into a 3.64-second exchange."
+  },
+  {
+   "start": 33.87,
+   "end": 41.08,
+   "beat": "reveal",
+   "what_happens": "Nate counts the growing orders, begins handling stock, and Mom steps in because he cannot pack fast enough.",
+   "emotion": "Nate bends eagerly over the merchandise; Mom's surprise shifts into brisk, commanding involvement.",
+   "camera": "Medium counter two-shots keep Mom, Nate, clothing, and the phone together as the business becomes a shared task.",
+   "cuts": "1 internal cut; 4.63 and 2.58-second holds make the change in their relationship readable."
+  },
+  {
+   "start": 41.08,
+   "end": 49.17,
+   "beat": "montage",
+   "what_happens": "Mom and Nate fold, bag, and box colorful clothes side by side while demanding more stock and faster packing.",
+   "emotion": "Both lean into the work with concentrated expressions; Nate's wide-eyed strain and Mom's impatient glances turn the workload into comedy.",
+   "camera": "Repeated frontal medium two-shots emphasize synchronized hand movements; abrupt day-to-night changes and rising stacks compress sustained work.",
+   "cuts": "13 internal cuts; after a 2.5-second opening, shots shrink to 0.25-0.83 seconds."
+  },
+  {
+   "start": 49.17,
+   "end": 58.0,
+   "beat": "payoff",
+   "what_happens": "Surrounded by packed boxes, Nate shares credit with Mom, who smiles and agrees to get more inventory.",
+   "emotion": "Nate's tense face relaxes into a proud smile, and Mom's softened eyes and smile replace her earlier hostility.",
+   "camera": "Held medium two-shot behind a foreground cluster of sealed shipping boxes.",
+   "cuts": "One uninterrupted 8.83-second shot, the longest hold, gives the reconciliation room to land."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Mom",
+   "text": "Nate, where is all your money?",
+   "delivery": "Firmly projected, brisk and accusing, with an upward questioning finish."
+  },
+  {
+   "t": 1.58,
+   "speaker": "Hero",
+   "text": "What?",
+   "delivery": "Clipped, startled, rising sharply."
+  },
+  {
+   "t": 1.98,
+   "speaker": "Mom",
+   "text": "You had $2,000.",
+   "delivery": "Firm, measured accusation with emphasis on the amount."
+  },
+  {
+   "t": 3.22,
+   "speaker": "Hero",
+   "text": "I spent it.",
+   "delivery": "Quick, tense admission at slightly lower volume."
+  },
+  {
+   "t": 3.76,
+   "speaker": "Mom",
+   "text": "On what?",
+   "delivery": "Louder, extremely snappy, incredulous upward inflection."
+  },
+  {
+   "t": 3.96,
+   "speaker": "Hero",
+   "text": "My business.",
+   "delivery": "Immediate, projected and defensive."
+  },
+  {
+   "t": 4.7,
+   "speaker": "Mom",
+   "text": "You spent $2,000 on clothes?",
+   "delivery": "Accusing, brisk, stressing the money and lifting on clothes."
+  },
+  {
+   "t": 6.12,
+   "speaker": "Hero",
+   "text": "They're not just clothes.",
+   "delivery": "Louder and fast, protesting with tight emphasis on just."
+  },
+  {
+   "t": 6.86,
+   "speaker": "Mom",
+   "text": "How many have you sold?",
+   "delivery": "Rapid, pointed questioning with a skeptical finish."
+  },
+  {
+   "t": 7.68,
+   "speaker": "Hero",
+   "text": "Actually, I just started.",
+   "delivery": "Slower, hesitant explanation, softening his earlier defensiveness."
+  },
+  {
+   "t": 8.8,
+   "speaker": "Mom",
+   "text": "Three?",
+   "delivery": "Loud, clipped disbelief with a sharp pitch rise."
+  },
+  {
+   "t": 9.18,
+   "speaker": "Hero",
+   "text": "Yes.",
+   "delivery": "Short, restrained acknowledgment."
+  },
+  {
+   "t": 9.44,
+   "speaker": "Mom",
+   "text": "You spent $2,000.",
+   "delivery": "Fast, stern repetition, pressing the amount."
+  },
+  {
+   "t": 10.06,
+   "speaker": "Hero",
+   "text": "I'm going to make it back.",
+   "delivery": "Rushed burst, louder and urgently reassuring."
+  },
+  {
+   "t": 10.66,
+   "speaker": "Mom",
+   "text": "Then prove it.",
+   "delivery": "Firm, clipped challenge with a downward finish."
+  },
+  {
+   "t": 11.14,
+   "speaker": "Hero",
+   "text": "How?",
+   "delivery": "Quick, tense upward question."
+  },
+  {
+   "t": 11.42,
+   "speaker": "Mom",
+   "text": "One week.",
+   "delivery": "Projected, decisive, each word sharply placed."
+  },
+  {
+   "t": 11.84,
+   "speaker": "Hero",
+   "text": "For what?",
+   "delivery": "Very fast and loud, alarmed questioning."
+  },
+  {
+   "t": 12.12,
+   "speaker": "Mom",
+   "text": "Make your $2,000 back.",
+   "delivery": "Brisk, controlled command, emphasizing the full amount."
+  },
+  {
+   "t": 13.12,
+   "speaker": "Hero",
+   "text": "All of it?",
+   "delivery": "Rushed, incredulous, rising pitch."
+  },
+  {
+   "t": 13.52,
+   "speaker": "Mom",
+   "text": "Every dollar.",
+   "delivery": "Slower, firm finality, stressing every."
+  },
+  {
+   "t": 14.62,
+   "speaker": "Hero",
+   "text": "Fine.",
+   "delivery": "Noticeably quieter, resigned, after a 0.62-second beat."
+  },
+  {
+   "t": 17.22,
+   "speaker": "Hero",
+   "text": "I can't let her down.",
+   "delivery": "Subdued, worried self-talk after a long silence, settling downward."
+  },
+  {
+   "t": 19.1,
+   "speaker": "Hero",
+   "text": "One more time.",
+   "delivery": "Quiet, deliberate resolve after another held beat."
+  },
+  {
+   "t": 28.28,
+   "speaker": "Hero",
+   "text": "Wait, wait, wait.",
+   "delivery": "Relatively quiet, spaced repetitions, disbelief building after 8.5 seconds without speech."
+  },
+  {
+   "t": 29.62,
+   "speaker": "Hero",
+   "text": "Three, three.",
+   "delivery": "Suddenly louder, excited repetition with rising pitch."
+  },
+  {
+   "t": 30.38,
+   "speaker": "Hero",
+   "text": "Mom!",
+   "delivery": "Loud, urgent call with an upward pitch leap."
+  },
+  {
+   "t": 31.02,
+   "speaker": "Mom",
+   "text": "What?",
+   "delivery": "Brisk, questioning response."
+  },
+  {
+   "t": 31.32,
+   "speaker": "Hero",
+   "text": "Look!",
+   "delivery": "Clipped, urgent invitation."
+  },
+  {
+   "t": 31.72,
+   "speaker": "Mom",
+   "text": "What am I looking at?",
+   "delivery": "Fast, skeptical questioning, words packed tightly together."
+  },
+  {
+   "t": 32.48,
+   "speaker": "Hero",
+   "text": "Orders!",
+   "delivery": "Louder, emphatic excitement."
+  },
+  {
+   "t": 33.02,
+   "speaker": "Mom",
+   "text": "How many?",
+   "delivery": "Quick, focused question with rising interest."
+  },
+  {
+   "t": 33.56,
+   "speaker": "Hero",
+   "text": "10, 20, 30.",
+   "delivery": "Projected, spaced counting, excitement rising with each number."
+  },
+  {
+   "t": 35.3,
+   "speaker": "Hero",
+   "text": "Wait, they're still coming!",
+   "delivery": "Breathier and less loud, astonishment stretching the phrase before the excited finish."
+  },
+  {
+   "t": 36.56,
+   "speaker": "Mom",
+   "text": "Right now?",
+   "delivery": "Brief, surprised upward question."
+  },
+  {
+   "t": 39.36,
+   "speaker": "Mom",
+   "text": "Give me that.",
+   "delivery": "Lower-volume, practical command after a 2.38-second pause."
+  },
+  {
+   "t": 40.14,
+   "speaker": "Hero",
+   "text": "What?",
+   "delivery": "Fast, puzzled reaction."
+  },
+  {
+   "t": 40.48,
+   "speaker": "Mom",
+   "text": "You're too slow.",
+   "delivery": "Dry, brisk and matter-of-fact, dropping at the end."
+  },
+  {
+   "t": 41.18,
+   "speaker": "Hero",
+   "text": "Wait.",
+   "delivery": "Quick, projected protest."
+  },
+  {
+   "t": 41.72,
+   "speaker": "Hero",
+   "text": "OK.",
+   "delivery": "Short acceptance after a small beat."
+  },
+  {
+   "t": 47.42,
+   "speaker": "Hero",
+   "text": "More!",
+   "delivery": "Loud, stretched call, strained by the workload."
+  },
+  {
+   "t": 48.08,
+   "speaker": "Mom",
+   "text": "Keep packing!",
+   "delivery": "Projected, brisk command with emphatic stress."
+  },
+  {
+   "t": 48.8,
+   "speaker": "Hero",
+   "text": "I am!",
+   "delivery": "Louder, quick defensive shout, comically exasperated."
+  },
+  {
+   "t": 50.48,
+   "speaker": "Hero",
+   "text": "We did it.",
+   "delivery": "Much quieter, gently paced relief after a 1.26-second pause."
+  },
+  {
+   "t": 51.74,
+   "speaker": "Mom",
+   "text": "You did.",
+   "delivery": "Warm, clear acknowledgment with a soft downward finish."
+  },
+  {
+   "t": 52.42,
+   "speaker": "Hero",
+   "text": "No.",
+   "delivery": "Brief, firm but affectionate correction."
+  },
+  {
+   "t": 53.06,
+   "speaker": "Hero",
+   "text": "We did.",
+   "delivery": "Quick, emphatic insistence on shared credit."
+  },
+  {
+   "t": 55.62,
+   "speaker": "Mom",
+   "text": "OK.",
+   "delivery": "Slow, accepting response after a 2.32-second emotional beat."
+  },
+  {
+   "t": 56.6,
+   "speaker": "Mom",
+   "text": "More inventory.",
+   "delivery": "Steady, decisive and newly approving, with a businesslike finish."
+  }
+ ],
+ "voice_arc": "The opening is a tightly spaced argument: Mom projects pointed questions while Nate answers in increasingly rushed defensive bursts, peaking at 11.5 words per second on his promise to repay the money. His quiet \"Fine\" drops to -20.2 dB, followed by subdued nighttime self-talk and long gaps. The order discovery lifts him into louder surprise and an urgent call for Mom; their packing commands become comic back-and-forth before his -18.9 dB \"We did it\" softens the ending into mutual recognition.",
+ "camera_language": "Vertical medium shots and close two-shots repeatedly place Mom leaning over Nate across a counter, using faces, hands, and the wallet to make the conflict physical. Phone, laptop, and clothing inserts connect their argument to tangible business activity, while an extreme eye close-up punctuates Nate's discovery. Repeated frontal packing compositions accelerate through short cuts and changing light, then resolve into a long, steady two-shot behind completed shipping boxes.",
+ "why_it_works": "The missing $2,000 creates an immediate, specific conflict, and the one-week deadline gives Nate's solitary work a clear purpose. The strongest reversal is physical: Mom moves from challenging the purchase to packing the same clothes herself. Repeating the work setup at increasing speed builds comic pressure, while the final shared credit turns financial vindication into family reconciliation.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within the first 2 seconds, an angry mother slams down a wallet yelling about lost money, instantly tapping into universal familial confrontation dynamics and setting up high financial stakes.",
+  "turn": "The turn happens at 0:28 when quiet midnight typing gives way to a rapid succession of digital order chimes, shifting the emotional tone from desperate struggle to triumphant viral growth.",
+  "payoff": "The payoff subverts expectations: instead of remaining hostile or taking credit, the mother gets infected by the excitement, steps in to pack faster than Nate, and forms a unified team with her son.",
+  "why_it_works": "High relatable conflict: The premise taps into young entrepreneurs struggling against skeptical parents. Expressive 3D Animation: Stylized character facial expressions amplify drama and comedy instantly without feeling overly dark. Perfect Pacing Curve: Moves seamlessly from intense argument to rock-bottom despair, to energetic grind, to rapid payoff. Rhythmic Micro-Editing: Fast match cuts and so",
+  "camera": [
+   "Aggressive push-in on Mom's face at 0:01 during initial escalation",
+   "Snappy eye-level confrontation angle at 0:10 creating intense dramatic tension",
+   "POV camera angle at 0:19 placing viewer directly in the shoes of the working protagonist",
+   "Dynamic orbit camera move at 0:34 during the high-energy sales reveal",
+   "Smooth pull-out at 0:50 emphasizing the emotional win and scale of packed boxes"
+  ],
+  "montages": [
+   "{\"start\": \"0:18\", \"end\": \"0:28\", \"cuts\": 6, \"content\": \"Hands typing on laptop screen, Nate staring intently, clock hands spinning fast, background light changing from night to day and night again as inventory stacks build up around his des",
+   "{\"start\": \"0:41\", \"end\": \"0:49\", \"cuts\": 8, \"content\": \"Rhythmic high-speed side-by-side packing sequence: folding shirts, sliding into polybags, slapping shipping labels, throwing boxes into stacks.\", \"style\": \"Rhythmic micro-cuts synchron"
+  ]
+ }
+}

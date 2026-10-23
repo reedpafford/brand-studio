@@ -1,0 +1,283 @@
+{
+ "id": "Dd9nC33yyeU",
+ "account": "cevrico",
+ "views": "112K",
+ "url": "https://www.instagram.com/reel/Dd9nC33yyeU/",
+ "duration_seconds": 46.76,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A student publicly shamed by a teacher for choosing day trading over college trains through losses with a mentor, then returns to the school wealthy enough to make his doubter confront her prediction.",
+ "tags": [
+  "teacher",
+  "school",
+  "trading",
+  "public-humiliation",
+  "mentor",
+  "prove-them-wrong",
+  "glow-up",
+  "revenge",
+  "emotional",
+  "savage",
+  "car"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.6",
+  "mechanic": "On a school stage, a suited teacher reaches across a student's red diploma folder while publicly attacking his future; a tight folder insert gives way to uncomfortable audience reactions.",
+  "first_line": "You're throwing your life away for day trading."
+ },
+ "moment": "40.62-41.42: After the student holds up a phone showing a financial result, he answers, \"Better than you expected.\" His brisk, projected delivery and the audience's open mouths turn the teacher's public humiliation back on her.",
+ "stats": {
+  "shots": 36,
+  "live_shots_skipped": 0,
+  "animated_seconds": 46.76,
+  "avg_shot_seconds": 1.3,
+  "median_shot_seconds": 1.1,
+  "longest_shot_seconds": 3.88,
+  "shots_under_1s": 14,
+  "spoken_lines": 15,
+  "words_per_second_while_speaking": 3.6,
+  "speech_share_of_runtime": 0.37
+ },
+ "cut_times": [
+  1.0,
+  1.62,
+  3.29,
+  5.0,
+  8.88,
+  9.88,
+  10.92,
+  13.0,
+  13.46,
+  14.0,
+  14.42,
+  16.71,
+  18.33,
+  18.88,
+  19.25,
+  19.75,
+  20.96,
+  21.71,
+  22.0,
+  22.29,
+  22.54,
+  23.04,
+  25.04,
+  26.42,
+  28.42,
+  30.17,
+  30.88,
+  33.21,
+  36.21,
+  38.17,
+  40.25,
+  41.42,
+  42.17,
+  43.21,
+  44.75
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 5.0,
+   "beat": "hook",
+   "what_happens": "A teacher humiliates a student holding a diploma folder onstage, and he reacts in disbelief before the seated audience.",
+   "emotion": "The teacher leans forcefully into his space; the student's raised brows and parted mouth show shock, while spectators look uneasy.",
+   "camera": "Full stage view, tight folder insert, audience medium shot, then a frontal close-up of the student.",
+   "cuts": "3 cuts in 5 seconds; the first two shots last 1.0 and 0.62 seconds before longer reaction holds."
+  },
+  {
+   "start": 5.0,
+   "end": 10.92,
+   "beat": "doubt",
+   "what_happens": "The teacher questions his decision to skip college and predicts he will beg for a normal job.",
+   "emotion": "Her knitted brows and tense mouth convey contempt; students cover their mouths, and the hero's flushed face tightens with embarrassment.",
+   "camera": "Extended teacher close-up, audience reaction shot, then a close-up of the hero.",
+   "cuts": "2 cuts across 5.92 seconds, with the teacher held for 3.88 seconds so the accusation dominates."
+  },
+  {
+   "start": 10.92,
+   "end": 16.71,
+   "beat": "turn",
+   "what_happens": "The student begins working at a trading desk with a curly-haired mentor standing behind him.",
+   "emotion": "The student focuses on the monitors, then throws his forearms upward in frustration as the mentor watches seriously.",
+   "camera": "Medium desk two-shot interrupted by tight inserts of market numbers, handwritten notes, and a red financial display.",
+   "cuts": "4 cuts in 5.79 seconds; three consecutive inserts last 0.46, 0.54, and 0.42 seconds before a 2.29-second desk shot."
+  },
+  {
+   "start": 16.71,
+   "end": 21.71,
+   "beat": "low",
+   "what_happens": "Trading setbacks lead to a clenched fist, more handwritten study, and the student gripping his head beside the mentor.",
+   "emotion": "A tight fist and hands buried in his hair make the frustration physical; he then sits back with crossed arms and a stubborn expression.",
+   "camera": "Market-chart insert, fist close-up, notebook insert, medium laptop two-shot, then a seated medium shot.",
+   "cuts": "5 cuts in 5 seconds, including the transition into this beat; the shortest detail shots last 0.37-0.55 seconds."
+  },
+  {
+   "start": 21.71,
+   "end": 25.04,
+   "beat": "montage",
+   "what_happens": "Financial results and typing hands lead to a view of a torn certificate pinned above the student's workstation.",
+   "emotion": "Rapid work details suggest persistence, while the damaged certificate keeps his humiliation physically present.",
+   "camera": "Extreme close-ups of green financial figures, close-up of hands typing, then a tight view of the certificate above his head.",
+   "cuts": "4 cuts in 3.33 seconds; three result inserts last 0.25-0.29 seconds, followed by 0.5 seconds of typing and a 2-second hold."
+  },
+  {
+   "start": 25.04,
+   "end": 28.42,
+   "beat": "callback",
+   "what_happens": "The mentor asks whether the student remembers the insult, and the student answers that he remembers every word.",
+   "emotion": "The mentor's expression is measured; the student's lowered gaze and firm brow show controlled resentment.",
+   "camera": "Medium close-up of the mentor facing the seated student, then a close-up of the student behind his laptop.",
+   "cuts": "1 internal cut across 3.38 seconds, slowing the rhythm for the exchange."
+  },
+  {
+   "start": 28.42,
+   "end": 33.21,
+   "beat": "reveal",
+   "what_happens": "A black supercar arrives outside the school, students stare, and the hero steps out beside its raised door.",
+   "emotion": "The onlookers' widened eyes contrast with the hero's composed posture and steady expression.",
+   "camera": "Low three-quarter car view, medium group reaction, then a full-body view of the hero framed by the open door.",
+   "cuts": "2 cuts in 4.79 seconds; the 0.71-second crowd reaction bridges longer car and hero shots."
+  },
+  {
+   "start": 33.21,
+   "end": 38.17,
+   "beat": "callback",
+   "what_happens": "The hero and mentor approach the teacher's podium, and the hero repeats her prediction about begging for a normal job.",
+   "emotion": "The teacher's eyes widen and her mouth opens in recognition; the hero stands upright and speaks with controlled confidence.",
+   "camera": "Wide auditorium view, wide stage confrontation, then a close-up of the teacher.",
+   "cuts": "2 cuts in 4.96 seconds; a 3-second establishing hold gives the return a deliberate entrance."
+  },
+  {
+   "start": 38.17,
+   "end": 42.17,
+   "beat": "payoff",
+   "what_happens": "The hero displays his phone, answers the teacher's question about trading, and shocks the audience.",
+   "emotion": "He looks assured while presenting the screen; audience members gape, lift phones, and clutch their chests.",
+   "camera": "Medium hero shot with the phone facing outward, followed by a packed audience reaction shot.",
+   "cuts": "2 cuts in 4 seconds, including the transition into the audience shot at 40.25 seconds; the audience is held for 1.17 seconds."
+  },
+  {
+   "start": 42.17,
+   "end": 46.76,
+   "beat": "callback",
+   "what_happens": "The mentor acknowledges that the hero remembered, and the hero closes by saying he never forgot.",
+   "emotion": "The mentor looks quietly impressed; the hero answers with a restrained, satisfied expression.",
+   "camera": "Medium close-up of the mentor, then a frontal medium close-up of the hero at the podium.",
+   "cuts": "2 remaining cuts across 4.59 seconds; the final visible character exchange uses 1.04- and 1.54-second shots."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Teacher",
+   "text": "You're throwing your life away for day trading.",
+   "delivery": "Firm and projected at a measured pace, with accusatory stress on throwing your life away."
+  },
+  {
+   "t": 3.74,
+   "speaker": "Hero",
+   "text": "What the hell?",
+   "delivery": "Loud, startled burst after a 1.14-second beat; brows lift and the voice rises in disbelief."
+  },
+  {
+   "t": 5.04,
+   "speaker": "Teacher",
+   "text": "You're skipping college for this?",
+   "delivery": "Projected, clipped question with an incredulous upward inflection and a tense, scowling face."
+  },
+  {
+   "t": 7.02,
+   "speaker": "Teacher",
+   "text": "You'll be begging for a normal job in a year.",
+   "delivery": "Fast and forceful at 4.7 words per second, delivering the prediction with dismissive certainty."
+  },
+  {
+   "t": 10.66,
+   "speaker": "Mentor",
+   "text": "You ready?",
+   "delivery": "Moderate volume and steady pace after a 1.52-second pause, sounding direct and challenging."
+  },
+  {
+   "t": 11.92,
+   "speaker": "Hero",
+   "text": "Let's work.",
+   "delivery": "Compact, measured response at moderate volume, with a firm downward finish."
+  },
+  {
+   "t": 25.14,
+   "speaker": "Mentor",
+   "text": "You still remember?",
+   "delivery": "Relatively quiet and conversational, with a gentle questioning rise after the long dialogue-free work sequence."
+  },
+  {
+   "t": 26.96,
+   "speaker": "Hero",
+   "text": "Every word.",
+   "delivery": "Quiet, deliberate, and firm after a 0.86-second beat, conveying contained hurt."
+  },
+  {
+   "t": 34.72,
+   "speaker": "Hero",
+   "text": "Let's go.",
+   "delivery": "The quietest line, short and brisk, with understated confidence."
+  },
+  {
+   "t": 35.38,
+   "speaker": "Teacher",
+   "text": "Aiden?",
+   "delivery": "A loud, drawn-out recognition question, sharply breaking the restrained entrance."
+  },
+  {
+   "t": 36.3,
+   "speaker": "Hero",
+   "text": "You said I'd be begging for a normal job.",
+   "delivery": "Very fast at 5.6 words per second but controlled in volume, pointedly returning her own prediction."
+  },
+  {
+   "t": 38.3,
+   "speaker": "Teacher",
+   "text": "So, how did day trading go?",
+   "delivery": "Quieter and more tentative than her opening attack, with an even pace and questioning finish."
+  },
+  {
+   "t": 40.62,
+   "speaker": "Hero",
+   "text": "Better than you expected.",
+   "delivery": "Brisk and projected at 5 words per second, landing as a confident, cutting reply."
+  },
+  {
+   "t": 42.12,
+   "speaker": "Mentor",
+   "text": "You remembered.",
+   "delivery": "Clear and relatively projected, but slow enough to sound reflective and impressed."
+  },
+  {
+   "t": 43.7,
+   "speaker": "Hero",
+   "text": "I never forgot.",
+   "delivery": "Quieter, compact, and resolute after a 0.74-second pause, ending with restrained satisfaction."
+  }
+ ],
+ "voice_arc": "The teacher opens with projected accusations that accelerate into a rapid prediction of failure, while the hero briefly bursts out in disbelief. The mentor and hero then speak more quietly and deliberately around an extended stretch without dialogue. On the return, the teacher's loud recognition gives way to a softer question; the hero delivers his fastest callback and a louder payoff before settling into a quiet final answer.",
+ "camera_language": "Public confrontations alternate stage-wide views with frontal facial close-ups and audience reactions, making embarrassment and status changes visible. The work sequence compresses effort into market, notebook, fist, and keyboard inserts before returning to medium shots of the hero and mentor. The return repeats the school-stage setting, adding a low car view and a phone presentation as visible evidence of changed status; the supplied keyframes establish framing more clearly than camera movement.",
+ "why_it_works": "The opening gives the hero a specific public wound and a precise prediction to overturn, so his return immediately carries emotional stakes. Frustration, study, and the mentor's presence make the transformation feel worked for, while the car, phone, and shocked audience provide fast visual rewards. Repeating the teacher's prediction and ending on remembered humiliation ties the financial success to a personal victory.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within 2 seconds, a authority figure aggressively snatches a boy's diploma and shouts at him for day trading, instantly creating a high-stakes conflict everyone understands.",
+  "turn": "At 0:27, after struggling and achieving green trading metrics, Aiden pulls up to his old school in a matte black Lamborghini, shifting the story from humiliation to complete dominance.",
+  "payoff": "Aiden steps onto the stage in front of his teacher and entire assembly, delivering a calm, triumphant line while the teacher stammers in utter shock.",
+  "why_it_works": "Universal underdog trope: zero-to-hero story structured around intense public rejection and ultimate vindication. Expressive 3D animation style leverages exaggerated facial animation for immediate, visceral emotional resonance. Rhythmic pacing alternates between hyper-fast failure/study montages and slow cinematic flex reveals (supercar, stage entry).",
+  "camera": [
+   "Snap zoom onto Aiden's horrified reaction at 0:03 heightens immediate dramatic stakes",
+   "Slow push-in on the teacher's angry face at 0:05 emphasizes aggressive authority",
+   "Fast tracking shots during supercar arrival at 0:28 establish cinematic prestige and high production value",
+   "Push-in on teacher's shocked expression at 0:38 delivers the visual climax of reversal"
+  ],
+  "montages": [
+   "{\"start\": \"0:11\", \"end\": \"0:24\", \"cuts\": 10, \"content\": \"Aiden pinning diploma, writing rules, getting frustrated, market crash chart, studying late night, reflection, green win percentages, looking at torn diploma\", \"style\": \"Fast-paced rh"
+  ]
+ }
+}

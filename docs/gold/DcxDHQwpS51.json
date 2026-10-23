@@ -1,0 +1,350 @@
+{
+ "id": "DcxDHQwpS51",
+ "account": "cevrico",
+ "views": "200K",
+ "url": "https://www.instagram.com/reel/DcxDHQwpS51/",
+ "duration_seconds": 60.09,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A student mocked for his trading losses gets called onstage by a visiting trader, where his battered journal and patient market analysis turn public embarrassment into respect.",
+ "tags": [
+  "friends",
+  "teacher",
+  "school",
+  "auditorium",
+  "trading",
+  "mentor",
+  "public-humiliation",
+  "prove-them-wrong",
+  "glow-up",
+  "emotional"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.32",
+  "mechanic": "A worried student hunches over a laptop at his classroom desk, urgently saying “Go, go, go!” before a fast, blurred screen view makes his trading feel exposed.",
+  "first_line": "Go, go, go!"
+ },
+ "moment": "48.22-51.52: With the student and visiting trader together in front of the trading display, the Mentor says, “You guys saw a kid who kept losing,” then softens into “I saw someone who kept learning.” The cut to the student walking confidently through the hallway makes the change in his social standing visible.",
+ "stats": {
+  "shots": 25,
+  "live_shots_skipped": 0,
+  "animated_seconds": 60.09,
+  "avg_shot_seconds": 2.4,
+  "median_shot_seconds": 1.46,
+  "longest_shot_seconds": 10.58,
+  "shots_under_1s": 6,
+  "spoken_lines": 28,
+  "words_per_second_while_speaking": 4.0,
+  "speech_share_of_runtime": 0.51
+ },
+ "cut_times": [
+  1.25,
+  3.67,
+  4.62,
+  5.17,
+  8.54,
+  10.17,
+  14.04,
+  15.54,
+  17.0,
+  18.17,
+  19.38,
+  20.0,
+  20.71,
+  22.12,
+  22.88,
+  23.83,
+  25.33,
+  26.54,
+  28.0,
+  30.04,
+  35.83,
+  37.71,
+  39.67,
+  50.25
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 6.88,
+   "beat": "hook",
+   "what_happens": "The Hero trades on his classroom laptop, draws the Teacher's attention, and gets called out by a classmate.",
+   "emotion": "His lowered gaze and tense mouth turn into wide-eyed alarm as other students notice.",
+   "camera": "Medium view of the Hero at his desk, blurred laptop insert, low rear angle on the approaching Teacher, screen detail, and a classmate reaction.",
+   "cuts": "4 cuts in the first 5.17 seconds; the shortest screen insert lasts 0.55 seconds."
+  },
+  {
+   "start": 6.88,
+   "end": 15.54,
+   "beat": "setup",
+   "what_happens": "An announcement sends the students to the auditorium, where the Hero recognizes the guest trader.",
+   "emotion": "Classroom anxiety becomes astonishment, shown through the Hero's open mouth and widened eyes.",
+   "camera": "Classroom reactions give way to a rear auditorium wide with the speaker small against a huge trading display, then a close-up of the Hero.",
+   "cuts": "3 cuts across the beat; the auditorium reveal holds for 3.87 seconds before the reaction."
+  },
+  {
+   "start": 15.54,
+   "end": 22.12,
+   "beat": "doubt",
+   "what_happens": "The Mentor asks who trades, a classmate singles out the Hero mockingly, and the Mentor summons him onstage.",
+   "emotion": "The Mentor looks confident and direct while the Hero drops his gaze and clutches his journal.",
+   "camera": "Medium shot of the Mentor with a microphone, audience reactions, close-up of the Hero, and a wider view of him stepping onto the stage.",
+   "cuts": "6 cuts within the beat, with most shots lasting roughly 0.6-1.5 seconds."
+  },
+  {
+   "start": 22.12,
+   "end": 28.0,
+   "beat": "reveal",
+   "what_happens": "The Hero identifies his trading journal, and the Mentor discovers pages documenting trades since freshman year.",
+   "emotion": "The Hero's worried brows and tight grip convey vulnerability; the Mentor's expression shifts toward impressed curiosity.",
+   "camera": "Alternating close-ups of the Mentor and Hero frame a detailed insert of the worn spiral notebook and its handwritten charts.",
+   "cuts": "4 internal cuts across 5.88 seconds; the journal insert gets 1.5 seconds."
+  },
+  {
+   "start": 28.0,
+   "end": 35.83,
+   "beat": "turn",
+   "what_happens": "The Mentor challenges the Hero to explain a trade without touching the controls.",
+   "emotion": "The challenge sounds forceful at first, then becomes a quieter instruction as the two face the chart together.",
+   "camera": "Rear two-shot with the Mentor's hand on the Hero's shoulder, followed by a frontal two-shot beneath a large market chart.",
+   "cuts": "One internal cut at 30.04 seconds, followed by a 5.79-second hold."
+  },
+  {
+   "start": 35.83,
+   "end": 42.52,
+   "beat": "low",
+   "what_happens": "The Hero studies the chart, indicates a level, and explains that he would wait for a breakout and retest.",
+   "emotion": "His knitted brows and closed mouth show concentration before his quiet answer earns a firm “Good.”",
+   "camera": "Extreme close-up of the Hero's eyes, an insert of his finger indicating a chart level, then a wider two-shot with the Mentor.",
+   "cuts": "Two internal cuts lead from a 1.88-second face study to a 1.96-second pointing insert and a sustained two-shot."
+  },
+  {
+   "start": 42.52,
+   "end": 48.22,
+   "beat": "turn",
+   "what_happens": "A quiet “I knew it” and abrupt “Wait” interrupt the apparent resolution while the chart remains central.",
+   "emotion": "Hushed confidence gives way to renewed uncertainty, with a long spoken pause delaying the verdict.",
+   "camera": "The established two-shot keeps both characters and the rising market display visible.",
+   "cuts": "No cuts; this section sits inside the video's longest shot."
+  },
+  {
+   "start": 48.22,
+   "end": 51.52,
+   "beat": "payoff",
+   "what_happens": "The Mentor reframes the Hero's losses as evidence of learning as the scene changes to a confident hallway walk.",
+   "emotion": "Public judgment becomes validation; the Hero now carries a relaxed smile and upright posture.",
+   "camera": "Stage two-shot cuts to a frontal hallway view with the Hero leading and the Mentor behind him.",
+   "cuts": "One decisive cut at 50.25 seconds bridges the Mentor's two-part statement."
+  },
+  {
+   "start": 51.52,
+   "end": 56.4,
+   "beat": "payoff",
+   "what_happens": "A classmate apologizes and asks for help, and the Mentor encourages the Hero to continue.",
+   "emotion": "The apology is subdued, the request eager, and the Hero's easy smile shows restored confidence.",
+   "camera": "The hallway group composition keeps the Hero prominent in front with peers and the Mentor around him.",
+   "cuts": "No cuts; the hallway shot continues."
+  },
+  {
+   "start": 56.4,
+   "end": 60.09,
+   "beat": "cta",
+   "what_happens": "A closing voice asks viewers whether they would have taken the trade and invites a response.",
+   "emotion": "The confident hallway image sustains the feeling of social vindication while the voice becomes brisk and inviting.",
+   "camera": "The same frontal hallway composition carries the ending.",
+   "cuts": "No cuts; the final shot lasts 9.84 seconds overall."
+  }
+ ],
+ "lines": [
+  {
+   "t": 1.2,
+   "speaker": "Hero",
+   "text": "Go, go, go!",
+   "delivery": "Urgent, moderately loud repeated bursts, with tense rising insistence."
+  },
+  {
+   "t": 2.68,
+   "speaker": "Teacher",
+   "text": "Are you trading in my class again?",
+   "delivery": "Brisk and accusatory, medium volume, with a pointed lift on the question."
+  },
+  {
+   "t": 4.94,
+   "speaker": "Classmate",
+   "text": "He's trading again!",
+   "delivery": "Projected and gleefully exposing, stressing “again.”"
+  },
+  {
+   "t": 6.18,
+   "speaker": "Hero",
+   "text": "Wait!",
+   "delivery": "A loud, sharp interjection, rushed out in alarm."
+  },
+  {
+   "t": 6.88,
+   "speaker": "School Announcer",
+   "text": "All students report to the auditorium.",
+   "delivery": "Clear, brisk announcement at a firm medium volume."
+  },
+  {
+   "t": 8.7,
+   "speaker": "School Announcer",
+   "text": "Our surprise guest speaker has arrived.",
+   "delivery": "Quick, declarative continuation with an announcing cadence."
+  },
+  {
+   "t": 14.22,
+   "speaker": "Hero",
+   "text": "No way.",
+   "delivery": "Emphatic disbelief at relatively high volume, arriving after a four-second speech gap."
+  },
+  {
+   "t": 15.6,
+   "speaker": "Mentor",
+   "text": "Anybody here actually trade?",
+   "delivery": "Loudly projected, confident, and conversational, with a questioning rise."
+  },
+  {
+   "t": 17.08,
+   "speaker": "Classmate",
+   "text": "Him! He thinks he's you!",
+   "delivery": "Fast, mocking callout at medium volume, punching “Him!”"
+  },
+  {
+   "t": 19.24,
+   "speaker": "Mentor",
+   "text": "You, white shirt, come up here.",
+   "delivery": "Measured, direct command at medium volume after a brief held beat."
+  },
+  {
+   "t": 22.04,
+   "speaker": "Mentor",
+   "text": "What's that?",
+   "delivery": "Short, curious question at a controlled medium volume."
+  },
+  {
+   "t": 23.02,
+   "speaker": "Hero",
+   "text": "My trading journal.",
+   "delivery": "Quick and slightly tense, with a compact, matter-of-fact finish."
+  },
+  {
+   "t": 25.3,
+   "speaker": "Mentor",
+   "text": "You wrote all this?",
+   "delivery": "Louder and brisk with surprised upward inflection, following a pause to inspect the pages."
+  },
+  {
+   "t": 26.7,
+   "speaker": "Hero",
+   "text": "Every trade since freshman year.",
+   "delivery": "Even, fairly quick, and earnest at medium volume."
+  },
+  {
+   "t": 27.96,
+   "speaker": "Mentor",
+   "text": "Then let's see if you actually learned anything.",
+   "delivery": "Strongly projected and brisk, turning immediately from curiosity to challenge."
+  },
+  {
+   "t": 31.24,
+   "speaker": "Mentor",
+   "text": "Don't touch anything.",
+   "delivery": "Quieter, controlled instruction with a firm downward finish."
+  },
+  {
+   "t": 32.78,
+   "speaker": "Mentor",
+   "text": "Just tell me what you would do.",
+   "delivery": "Quiet but very fast, compressing the instruction into a snappy phrase."
+  },
+  {
+   "t": 39.68,
+   "speaker": "Hero",
+   "text": "I'd wait for the breakout, then enter on the retest.",
+   "delivery": "Quiet, focused, and fairly brisk after a 5.9-second thinking pause."
+  },
+  {
+   "t": 42.34,
+   "speaker": "Mentor",
+   "text": "Good.",
+   "delivery": "Loud, clipped approval with a decisive downward finish."
+  },
+  {
+   "t": 43.34,
+   "speaker": "Hero",
+   "text": "I knew it.",
+   "delivery": "Very quiet, almost under his breath, with tentative satisfaction."
+  },
+  {
+   "t": 44.22,
+   "speaker": "Hero",
+   "text": "Wait.",
+   "delivery": "A hushed, extremely clipped interruption that checks the preceding confidence."
+  },
+  {
+   "t": 48.22,
+   "speaker": "Mentor",
+   "text": "You guys saw a kid who kept losing.",
+   "delivery": "Firmly projected and fast after a long pause, addressing the surrounding students."
+  },
+  {
+   "t": 50.38,
+   "speaker": "Mentor",
+   "text": "I saw someone who kept learning.",
+   "delivery": "Softer but quicker, with warm conviction and emphasis on “learning.”"
+  },
+  {
+   "t": 52.16,
+   "speaker": "Classmate",
+   "text": "Bro, I'm sorry.",
+   "delivery": "Quiet, slow, and subdued, letting the apology land."
+  },
+  {
+   "t": 53.8,
+   "speaker": "Classmate",
+   "text": "Can you teach me that setup?",
+   "delivery": "Suddenly very fast and eager, with a rising request."
+  },
+  {
+   "t": 55.08,
+   "speaker": "Mentor",
+   "text": "Yo, keep going.",
+   "delivery": "Quiet, unhurried encouragement with a relaxed, reassuring finish."
+  },
+  {
+   "t": 57.96,
+   "speaker": "Closing Voice",
+   "text": "Would you have taken that trade?",
+   "delivery": "Projected and very quick, with a direct questioning rise."
+  },
+  {
+   "t": 59.24,
+   "speaker": "Closing Voice",
+   "text": "Comment below.",
+   "delivery": "Brief, medium-volume instruction with a clean downward finish."
+  }
+ ],
+ "voice_arc": "The opening mixes the Hero's urgency, the Teacher's brisk accusation, and a classmate's mocking callout. The Mentor enters with strong public projection, then lowers his voice for the practical test; the Hero answers quietly after the longest thinking pause. A forceful “Good” and public defense resolve into a soft apology and relaxed encouragement, before the closing question speeds up again.",
+ "camera_language": "Expressive close-ups make the Hero's eyes, brows, and mouth carry the embarrassment, recognition, and concentration; laptop, notebook, and pointing-finger inserts make his trading activity concrete. Auditorium wides establish public exposure, while alternating audience and speaker shots sharpen the social pressure. Rapid early cutting gives way to sustained stage two-shots and a long final hallway shot as his confidence settles.",
+ "why_it_works": "The same behavior that gets the Hero embarrassed in class becomes the reason an admired expert takes him seriously. His worn journal gives the reversal visible evidence, and the long thinking pause makes his answer feel earned. The Mentor's reframing changes the meaning of the losses, while the classmate's apology and request for help make the status reversal explicit.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Within the first 2 seconds, the high-octane visual of a high school kid secretly trading live green charts under his desk under threat of being caught instantly grabs young, ambitious vertical video viewers.",
+  "turn": "The turn happens when the guest speaker invites the boy on stage and opens his journal, shifting the story from 'kid getting caught' to 'underdog prodigy being validated by his hero'.",
+  "payoff": "The payoff lands when the trade dips into a dramatic fakeout (-4,500%) before skyrocketing into a massive +$31,600 win, humiliating the doubt-casters and making the boy the hero of the school.",
+  "why_it_works": "Pixar-style high-quality 3D animation creates immediate emotional connection and polished visual appeal. Universal underdog trope (nerdy trader vs strict teacher and toxic bullies) resonates deeply with target youth/hustle audience. High visual stakes with big financial green/red numbers (+ $31,600) trigger strong emotional dopamine hits. Fast pacing with clear dynamic sound design keeps retention",
+  "camera": [
+   "Push-in on boy's intense typing at 0:00 to establish urgency and secrecy.",
+   "Whip pan from laptop to bully at 0:04 to create high drama and conflict.",
+   "Crane/high-angle wide shot of auditorium at 0:09 to show massive scale.",
+   "ECU push-in on eyes at 0:35 to create focus and tension during calculation.",
+   "Snap zoom visual flash during chart fakeout at 0:42 to startle the viewer."
+  ],
+  "montages": [
+   "{\"start\": \"0:42\", \"end\": \"0:47\", \"cuts\": 3, \"content\": \"Red chart plunge (-4,500%), crowd gasp and bully gloating, instant explosive green reversal visual sequence (+$31,600) with roaring cheer.\", \"style\": \"Fast match cuts on chart movement"
+  ]
+ }
+}

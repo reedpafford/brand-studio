@@ -1,0 +1,347 @@
+{
+ "id": "Dd3ABUmAjA4",
+ "account": "nateassets",
+ "views": "158K",
+ "url": "https://www.instagram.com/reel/Dd3ABUmAjA4/",
+ "duration_seconds": 63.25,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "mixed",
+ "logline": "A young clothing reseller nearly abandons his business to keep his girlfriend, but a supernatural mentor shows him the cost of quitting, sending him back to build the warehouse operation she later mistakes for his nine-to-five job.",
+ "tags": [
+  "girlfriend",
+  "home",
+  "warehouse",
+  "reselling",
+  "clothing-brand",
+  "business",
+  "prove-them-wrong",
+  "breakup",
+  "mentor",
+  "glow-up",
+  "rags-to-riches",
+  "emotional",
+  "savage"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.8",
+  "mechanic": "His girlfriend announces she is leaving; he whips away from his packing desk and drops to his knees beside her suitcase, firing off increasingly desperate pleas.",
+  "first_line": "I'm leaving."
+ },
+ "moment": "56.24-59.68: Standing beside another man, the girlfriend asks, \"So you did end up getting a 9-5?\" The hero stands calmly in a vast, working warehouse and gestures down the aisle, reversing the opening image of him kneeling for her approval.",
+ "stats": {
+  "shots": 50,
+  "live_shots_skipped": 8,
+  "animated_seconds": 59.68,
+  "avg_shot_seconds": 1.19,
+  "median_shot_seconds": 0.85,
+  "longest_shot_seconds": 4.86,
+  "shots_under_1s": 28,
+  "spoken_lines": 21,
+  "words_per_second_while_speaking": 3.7,
+  "speech_share_of_runtime": 0.33
+ },
+ "cut_times": [
+  0.47,
+  1.52,
+  2.8,
+  4.93,
+  5.33,
+  6.27,
+  7.53,
+  8.0,
+  8.45,
+  8.9,
+  9.62,
+  10.23,
+  10.95,
+  11.83,
+  15.12,
+  17.17,
+  17.95,
+  18.78,
+  20.28,
+  22.33,
+  23.58,
+  24.68,
+  29.52,
+  29.93,
+  31.98,
+  33.15,
+  35.32,
+  35.82,
+  36.15,
+  36.65,
+  37.15,
+  37.57,
+  37.82,
+  38.23,
+  38.52,
+  39.23,
+  39.68,
+  40.6,
+  41.27,
+  43.52,
+  43.85,
+  44.52,
+  45.77,
+  46.93,
+  49.72,
+  54.58,
+  56.08,
+  57.92,
+  59.42,
+  59.68,
+  60.58,
+  61.02,
+  61.47,
+  61.88,
+  62.18,
+  62.52,
+  62.78
+ ],
+ "live_shots": [
+  51,
+  52,
+  53,
+  54,
+  55,
+  56,
+  57,
+  58
+ ],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 2.8,
+   "beat": "hook",
+   "what_happens": "The girlfriend threatens to leave, and the hero rushes from his desk to kneel and beg beside her luggage.",
+   "emotion": "He looks panicked, reaching up with open hands while she stands rigidly above him.",
+   "camera": "Wide room introduction, rapid turn at the desk, then a full-body two-shot emphasizing his lower position.",
+   "cuts": "2 internal cuts in 2.8 seconds, moving directly from announcement to physical pleading."
+  },
+  {
+   "start": 2.8,
+   "end": 7.53,
+   "beat": "doubt",
+   "what_happens": "She demands a safe job, and he promises to give up his business dream.",
+   "emotion": "Her knitted brows and tight mouth convey contempt; his worried face and slumped posture show surrender.",
+   "camera": "Tight girlfriend close-up, hand-and-luggage insert, hero reaction close-up, then a standing two-shot.",
+   "cuts": "3 internal cuts in 4.73 seconds, alternating the demand with his reaction and acceptance."
+  },
+  {
+   "start": 7.53,
+   "end": 15.12,
+   "beat": "low",
+   "what_happens": "The hero closes down his work and retreats to bed before a glowing stranger appears and startles him.",
+   "emotion": "Small, withdrawn gestures give way to a wide-eyed, open-mouthed shock.",
+   "camera": "Door view, laptop and packing-tape inserts, dark room wide, reaching-hand detail, bedside wide, extreme facial reaction, then an overhead sleeping close-up.",
+   "cuts": "7 internal cuts; brief inserts accelerate the shutdown before the final sleeping shot holds for 3.29 seconds."
+  },
+  {
+   "start": 15.12,
+   "end": 22.33,
+   "beat": "turn",
+   "what_happens": "The glowing mentor challenges his decision and transports him to a vast warehouse.",
+   "emotion": "The mentor stays stern and composed while the hero recoils, stares, and stiffens in surprise.",
+   "camera": "Frontal mentor portrait, hero close-up, offered-hand insert, reaction close-up, a wider transport image, then a low warehouse aisle two-shot.",
+   "cuts": "5 internal cuts in 7.21 seconds, with short reaction shots between longer mentor and location views."
+  },
+  {
+   "start": 22.33,
+   "end": 29.52,
+   "beat": "reveal",
+   "what_happens": "The mentor shows the hero a huge operation and a future in which his partner is with the man who kept pursuing success.",
+   "emotion": "The hero scans the unfamiliar scene with fear and disbelief while the mentor remains unsentimental.",
+   "camera": "High warehouse establishing view, street-level future glimpse, then a tight hero-and-mentor composition.",
+   "cuts": "2 internal cuts in 7.19 seconds; the final composition holds 4.84 seconds for the warning and decision."
+  },
+  {
+   "start": 29.52,
+   "end": 33.15,
+   "beat": "callback",
+   "what_happens": "Back in his bedroom, the tearful hero faces his girlfriend as she delivers a final warning.",
+   "emotion": "His tear-streaked face hardens into resolve; she looks back sharply from the doorway with her luggage.",
+   "camera": "Bedroom wide, tearful hero close-up, then an over-the-shoulder doorway confrontation.",
+   "cuts": "2 internal cuts in 3.63 seconds, giving the emotional close-up 2.05 seconds."
+  },
+  {
+   "start": 33.15,
+   "end": 37.82,
+   "beat": "montage",
+   "what_happens": "The hero photographs packaged clothing, a hoodie, and a jeweled watch, then works through product screens on his phone.",
+   "emotion": "He leans into the tasks with focused, purposeful movements.",
+   "camera": "Product-studio wide, full-body working view, isolated hoodie and watch details, then tight phone inserts.",
+   "cuts": "6 internal cuts in 4.67 seconds, accelerating from a 2.17-second setup into shots lasting 0.25-0.5 seconds."
+  },
+  {
+   "start": 37.82,
+   "end": 41.27,
+   "beat": "montage",
+   "what_happens": "The hero studies his phone with a clenched expression while product-processing views alternate with his face.",
+   "emotion": "Pinched brows, pursed lips, and a rigid grip make the work feel uncertain and demanding.",
+   "camera": "Frontal medium close-ups alternate with extreme phone details and a product view.",
+   "cuts": "5 internal cuts in 3.45 seconds, sustaining a rapid face-to-task pattern."
+  },
+  {
+   "start": 41.27,
+   "end": 46.93,
+   "beat": "payoff",
+   "what_happens": "A parcel and growing stacks of packaged clothes lead into the hero checking his phone and breaking into a delighted smile.",
+   "emotion": "Tension releases into bright eyes and an open, pleased grin.",
+   "camera": "Low parcel view, inventory wides and details, close phone view, then a tight facial reaction.",
+   "cuts": "4 internal cuts in 5.66 seconds; a 2.25-second parcel hold precedes shorter inventory and reaction images."
+  },
+  {
+   "start": 46.93,
+   "end": 54.58,
+   "beat": "reveal",
+   "what_happens": "The girlfriend and her new companion encounter the hero standing inside a brightly lit warehouse entrance.",
+   "emotion": "Their attention locks onto him, and her recognition unfolds slowly while he remains composed.",
+   "camera": "Rear two-shot of the visitors looking toward his distant silhouette in the open loading doorway.",
+   "cuts": "1 internal cut in 7.65 seconds, with 2.79- and 4.86-second holds stretching the recognition."
+  },
+  {
+   "start": 54.58,
+   "end": 59.68,
+   "beat": "callback",
+   "what_happens": "The hero confirms his identity, hears the girlfriend's nine-to-five assumption, and gestures toward the warehouse around him.",
+   "emotion": "He answers with relaxed confidence while she smiles beside her companion, apparently misreading his position.",
+   "camera": "Hero medium-wide in the aisle, visitor two-shot, frontal hero view, then a brief side angle following his gesture.",
+   "cuts": "3 internal cuts in 5.1 seconds, finishing with a 0.26-second gesture shot."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Girlfriend",
+   "text": "I'm leaving.",
+   "delivery": "Firm, projected, and clipped; the fast two-word declaration lands with a decisive falling finish."
+  },
+  {
+   "t": 0.6,
+   "speaker": "Hero",
+   "text": "No! Babe! Please! Tell me what to do!",
+   "delivery": "Loud, breathless pleading in short bursts, with brief catches between appeals and a rushed final question."
+  },
+  {
+   "t": 3.06,
+   "speaker": "Girlfriend",
+   "text": "Promise me you're getting a safe 9-5 job.",
+   "delivery": "Controlled but forceful, at a brisk conversational pace, with a stern, demanding cadence matching her scowl."
+  },
+  {
+   "t": 5.6,
+   "speaker": "Hero",
+   "text": "I swear.",
+   "delivery": "Quieter and subdued after a half-second beat, with a short, resigned falling finish."
+  },
+  {
+   "t": 6.42,
+   "speaker": "Hero",
+   "text": "It was a foolish dream anyway.",
+   "delivery": "Quick, deflated self-dismissal, running the words together while his posture sags."
+  },
+  {
+   "t": 15.74,
+   "speaker": "Mentor",
+   "text": "You want to quit, huh?",
+   "delivery": "Projected, measured, and challenging, with a slight lift on the final question after a long speech-free stretch."
+  },
+  {
+   "t": 17.42,
+   "speaker": "Hero",
+   "text": "What the?",
+   "delivery": "A short, startled exclamation with an abruptly rising, unfinished contour."
+  },
+  {
+   "t": 18.16,
+   "speaker": "Mentor",
+   "text": "Come with me.",
+   "delivery": "Firm, clearly projected, and evenly paced, ending like an instruction."
+  },
+  {
+   "t": 23.64,
+   "speaker": "Hero",
+   "text": "Where are we?",
+   "delivery": "Relatively quiet, cautious questioning at a moderate pace after a long held beat."
+  },
+  {
+   "t": 24.66,
+   "speaker": "Mentor",
+   "text": "It's your wife.",
+   "delivery": "Brisk and matter-of-fact, with a firm downward finish."
+  },
+  {
+   "t": 25.66,
+   "speaker": "Hero",
+   "text": "Who's that?",
+   "delivery": "Quick and more projected, with a sharp questioning rise."
+  },
+  {
+   "t": 26.42,
+   "speaker": "Mentor",
+   "text": "The guy who didn't quit.",
+   "delivery": "Firm, snappy explanation with a pointed finish on \"quit.\""
+  },
+  {
+   "t": 27.96,
+   "speaker": "Mentor",
+   "text": "You still want to quit?",
+   "delivery": "Rapid, pressing question after a brief pause, tightening the challenge."
+  },
+  {
+   "t": 28.68,
+   "speaker": "Hero",
+   "text": "No.",
+   "delivery": "Quieter, slow, and resolved, answering immediately and letting the single word settle."
+  },
+  {
+   "t": 31.06,
+   "speaker": "Girlfriend",
+   "text": "You'll regret it.",
+   "delivery": "Measured and cold, with a deliberate falling cadence after a held pause."
+  },
+  {
+   "t": 49.1,
+   "speaker": "Girlfriend",
+   "text": "Wait, Nate, is that you?",
+   "delivery": "Drawn-out recognition with widely spaced words, moderate projection, and a rising, incredulous finish."
+  },
+  {
+   "t": 55.24,
+   "speaker": "Hero",
+   "text": "Yup.",
+   "delivery": "Brief, strongly projected, and casual, with an assured downward finish."
+  },
+  {
+   "t": 56.24,
+   "speaker": "Girlfriend",
+   "text": "So you did end up getting a 9-5?",
+   "delivery": "Brisk and questioning, relatively restrained in volume, with a knowing smile and an upward finish."
+  },
+  {
+   "t": 61.82,
+   "speaker": "Hero",
+   "text": "No.",
+   "delivery": "A delayed, elongated refusal with a strong peak of emphasis, landing as a confident final answer."
+  }
+ ],
+ "voice_arc": "The opening pairs the girlfriend's clipped certainty with the hero's louder, rushed pleading, then drops into his quieter surrender. After a long speech-free stretch, the mentor brings firm, measured authority and draws increasingly urgent questions from the hero. The girlfriend's slow recognition later gives way to a brisk assumption, while the hero answers with compact confidence and a final prolonged refusal.",
+ "camera_language": "Vertical compositions alternate expressive facial close-ups with full-body relationship tableaux: he begins kneeling beneath her and later stands comfortably in a towering warehouse aisle. Hands, luggage, packing tools, products, and phones supply quick inserts that make decisions and labor tangible. Blue-lit supernatural scenes use glowing silhouettes and reaction cuts, while the business sequence accelerates through short task details before longer warehouse holds establish scale.",
+ "why_it_works": "The opening makes the wound physical: he kneels for approval while she stands ready to leave. The mentor turns quitting into a concrete future loss, and the product-and-packing sequence gives his change of mind visible consequences. Repeating the nine-to-five question inside the enormous warehouse lets his calm bearing reverse the original power dynamic.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "Opens instantly with emotional drama: a girlfriend leaving her partner because he's pursuing an e-commerce hustle, tapping into universal themes of heartbreak, doubt, and ambition.",
+  "turn": "The supernatural mentor vision showing him what happens if he quits (she ends up with someone else who didn't quit), giving him the fire to stick to his vision.",
+  "payoff": "The ex-girlfriend sees him backlit in a massive warehouse thinking he got a entry-level job, only for him to hit her with the line 'I own it' before cutting to real-life proof.",
+  "why_it_works": "Universal emotional archetype: Underdog revenge/redemption storyline that deeply resonates with young entrepreneurs. Stylized 3D Pixar-like animation makes complex environments and dramatic expressions visual, clean, and highly engaging. Fast pacing and tight cut duration (avg ~1.5s) keep retention high with zero dead air. Seamless mix of fantasy narrative, clear hustle montage steps, and real-lif",
+  "camera": [
+   "Snap zoom on sleeping guy awakening at 0:10 to heighten jump-scare sci-fi tension",
+   "High-angle tilt down at 0:23 revealing huge warehouse floor space to convey immense scale",
+   "Slow emotional push-in at 0:32 highlighting the single tear of determination",
+   "Low-angle hero push-in at 0:58 during the final line 'I own it' to solidify authority"
+  ],
+  "montages": []
+ }
+}

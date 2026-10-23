@@ -1,0 +1,343 @@
+{
+ "id": "DdXLcbtSW6x",
+ "account": "cevrico",
+ "views": "305K",
+ "url": "https://www.instagram.com/reel/DdXLcbtSW6x/",
+ "duration_seconds": 53.17,
+ "evidence": "local: ffmpeg cut detection, Whisper transcript with loudness and speech rate, Codex read of one keyframe per shot",
+ "style": "3d",
+ "logline": "A young trader wounded by his parents’ disbelief leaves for Miami, endures a frightening run of losses, and earns both financial success and the approval they once withheld.",
+ "tags": [
+  "mom",
+  "dad",
+  "home",
+  "trading",
+  "prove-them-wrong",
+  "family-conflict",
+  "rags-to-riches",
+  "glow-up",
+  "emotional",
+  " miami",
+  "moving-away",
+  "parental-approval"
+ ],
+ "pacing_profile": "fast",
+ "hook": {
+  "seconds": "0-2.02",
+  "mechanic": "Beside an open suitcase in a dark trading room, two parents confront their son; the opening prohibition immediately makes his departure a family showdown.",
+  "first_line": "You are not moving to Miami to day trade."
+ },
+ "moment": "48.84-49.98: A parent says, “We're proud of you,” softly and at a measured pace during the bright home reunion. The approval lands because the opening argument made their disbelief the hero’s central wound.",
+ "stats": {
+  "shots": 14,
+  "live_shots_skipped": 0,
+  "animated_seconds": 53.17,
+  "avg_shot_seconds": 3.8,
+  "median_shot_seconds": 1.48,
+  "longest_shot_seconds": 17.12,
+  "shots_under_1s": 6,
+  "spoken_lines": 30,
+  "words_per_second_while_speaking": 4.7,
+  "speech_share_of_runtime": 0.56
+ },
+ "cut_times": [
+  17.12,
+  17.79,
+  18.33,
+  18.96,
+  19.46,
+  19.96,
+  22.67,
+  24.62,
+  25.54,
+  27.17,
+  31.62,
+  32.96,
+  36.17
+ ],
+ "live_shots": [],
+ "beats": [
+  {
+   "start": 0.0,
+   "end": 6.88,
+   "beat": "hook",
+   "what_happens": "Aiden’s parents challenge his move to Miami and point out that his trading has not become profitable.",
+   "emotion": "Aiden stands defensively opposite his parents while Mom gestures with open hands and an anxious face.",
+   "camera": "Medium-wide family staging with an open suitcase in the foreground and trading monitors behind them.",
+   "cuts": "No detected cuts; the confrontation stays within the opening 17.12-second shot."
+  },
+  {
+   "start": 6.88,
+   "end": 17.12,
+   "beat": "doubt",
+   "what_happens": "Aiden insists on betting on himself and accepts the possibility of failure despite his parents’ objections.",
+   "emotion": "His replies become clipped and forceful, while his parents remain worried and incredulous.",
+   "camera": "The same shared family composition holds the opposing sides of the argument together.",
+   "cuts": "The opening shot continues uninterrupted through the rapid exchange, then cuts at 17.12."
+  },
+  {
+   "start": 17.12,
+   "end": 22.67,
+   "beat": "montage",
+   "what_happens": "Laptop trading views alternate with Aiden’s tense face as he works alone through losses.",
+   "emotion": "His furrowed brows and tight mouth turn defiance into concentrated frustration.",
+   "camera": "Laptop inserts, a hands-at-keyboard view, and extreme close-ups of his eyes and face.",
+   "cuts": "Six cuts from 17.12 through 19.96 create a burst of roughly half-second shots, followed by a 2.71-second laptop hold."
+  },
+  {
+   "start": 22.67,
+   "end": 27.17,
+   "beat": "low",
+   "what_happens": "Aiden reacts in dismay, receives an incoming phone call, and looks back toward his computer in alarm.",
+   "emotion": "Wide eyes and a parted mouth replace his earlier scowl; his quiet “No” exposes doubt.",
+   "camera": "Tight face shot, close phone insert, then another frontal reaction close-up above the laptop.",
+   "cuts": "Three shots last 1.95, 0.92, and 1.63 seconds; the phone briefly interrupts the reaction sequence."
+  },
+  {
+   "start": 27.17,
+   "end": 32.96,
+   "beat": "turn",
+   "what_happens": "Aiden watches a steeply rising trading chart, urges it onward, and celebrates his breakthrough.",
+   "emotion": "A clenched, intent stare gives way to an excited grin and a relieved declaration.",
+   "camera": "Frontal desk view with the monitor dominating the foreground and Aiden visible behind it.",
+   "cuts": "A 4.45-second suspense hold ends at 31.62, followed by a 1.34-second celebration shot."
+  },
+  {
+   "start": 32.96,
+   "end": 36.17,
+   "beat": "setup",
+   "what_happens": "His parents arrive at a modern home and question whether they have the correct address.",
+   "emotion": "Their hesitant posture and searching expressions suggest surprise before they even meet him.",
+   "camera": "Full-body exterior two-shot beside a tall wooden door, glass walls, and tropical planting.",
+   "cuts": "One 3.21-second arrival shot bridges the trading breakthrough and reunion."
+  },
+  {
+   "start": 36.17,
+   "end": 45.02,
+   "beat": "reveal",
+   "what_happens": "Aiden welcomes his astonished parents and holds out his phone as they ask whether trading succeeded.",
+   "emotion": "He smiles confidently while Mom’s raised brows and open mouth register disbelief.",
+   "camera": "Bright interior medium framing brings Aiden and Mom close together, with his extended phone prominent in the foreground.",
+   "cuts": "No further detected cuts; the final 17-second shot begins at 36.17."
+  },
+  {
+   "start": 45.02,
+   "end": 50.34,
+   "beat": "payoff",
+   "what_happens": "Aiden reminds his parents that he needed a chance, and they admit their doubts before expressing pride.",
+   "emotion": "His quick, assertive replies carry lingering hurt; the parents’ final reassurance softens the confrontation into acceptance.",
+   "camera": "The bright reunion composition continues, keeping the successful son and his surprised mother together.",
+   "cuts": "The final shot holds through the emotional resolution."
+  },
+  {
+   "start": 50.34,
+   "end": 53.17,
+   "beat": "cta",
+   "what_happens": "A closing voice asks viewers whether they would move away to chase a dream and invites a response.",
+   "emotion": "The delivery becomes projecting and conversational after the intimate family reconciliation.",
+   "camera": "The reunion remains the final visual setting.",
+   "cuts": "No detected cut before the video ends at 53.17."
+  }
+ ],
+ "lines": [
+  {
+   "t": 0.0,
+   "speaker": "Dad",
+   "text": "You are not moving to Miami to day trade.",
+   "delivery": "Firm, projecting prohibition at a brisk pace, with emphasis on “not” and “day trade.”"
+  },
+  {
+   "t": 2.12,
+   "speaker": "Hero",
+   "text": "Yes I am!",
+   "delivery": "Loud, snappy defiance with a sharp upward attack."
+  },
+  {
+   "t": 2.86,
+   "speaker": "Mom",
+   "text": "Aiden, this is insane!",
+   "delivery": "Quieter, worried protest at a moderate pace, with an incredulous lift."
+  },
+  {
+   "t": 4.18,
+   "speaker": "Hero",
+   "text": "You guys don't even think I'll ever become profitable.",
+   "delivery": "Rushed and accusatory, with frustrated emphasis on “ever.”"
+  },
+  {
+   "t": 6.0,
+   "speaker": "Dad",
+   "text": "Because you haven't.",
+   "delivery": "Brief, blunt correction at a measured pace, ending flatly."
+  },
+  {
+   "t": 6.88,
+   "speaker": "Hero",
+   "text": "I'm tired of hearing that every day.",
+   "delivery": "Fast, projected frustration, entering almost immediately after the rebuttal."
+  },
+  {
+   "t": 8.26,
+   "speaker": "Mom",
+   "text": "So your solution is to move across the country?",
+   "delivery": "Quiet but rushed disbelief, rising into the question."
+  },
+  {
+   "t": 9.98,
+   "speaker": "Hero",
+   "text": "My solution is to finally bet on myself.",
+   "delivery": "Firm and brisk, with deliberate stress on “finally” and “myself.”"
+  },
+  {
+   "t": 11.74,
+   "speaker": "Dad",
+   "text": "You're throwing your future away for this.",
+   "delivery": "Loud, rapid warning with a hard, disapproving finish."
+  },
+  {
+   "t": 12.96,
+   "speaker": "Hero",
+   "text": "Then let me fail.",
+   "delivery": "Very fast and forcefully projected, the argument’s sharpest defiant burst."
+  },
+  {
+   "t": 13.76,
+   "speaker": "Hero",
+   "text": "But I'm gonna fail doing what I actually want.",
+   "delivery": "Still rushed but noticeably quieter, turning anger into personal conviction."
+  },
+  {
+   "t": 15.26,
+   "speaker": "Mom",
+   "text": "What are you even gonna do in Miami?",
+   "delivery": "Quiet, hurried questioning with anxious upward inflection."
+  },
+  {
+   "t": 16.68,
+   "speaker": "Hero",
+   "text": "We'll trade.",
+   "delivery": "An extremely clipped, projected answer after a short beat."
+  },
+  {
+   "t": 20.34,
+   "speaker": "Hero",
+   "text": "There.",
+   "delivery": "Short, focused utterance at moderate volume after a long silent stretch."
+  },
+  {
+   "t": 23.88,
+   "speaker": "Hero",
+   "text": "No.",
+   "delivery": "Quiet, deflated disbelief after another held beat."
+  },
+  {
+   "t": 27.1,
+   "speaker": "Hero",
+   "text": "Wait.",
+   "delivery": "Very quiet, cautious realization, briefly suspending his panic."
+  },
+  {
+   "t": 30.0,
+   "speaker": "Hero",
+   "text": "Come on!",
+   "delivery": "The loudest projected outburst, drawn with urgent, pleading excitement after a suspenseful pause."
+  },
+  {
+   "t": 31.82,
+   "speaker": "Hero",
+   "text": "I did it!",
+   "delivery": "Loud, relieved celebration with an excited pitch lift."
+  },
+  {
+   "t": 33.28,
+   "speaker": "Dad",
+   "text": "This is the address he sent us?",
+   "delivery": "Brisk, clearly projected question with puzzled upward inflection."
+  },
+  {
+   "t": 37.58,
+   "speaker": "Mom",
+   "text": "Aiden!",
+   "delivery": "Loud, surprised call after a long anticipatory beat."
+  },
+  {
+   "t": 39.28,
+   "speaker": "Mom",
+   "text": "You live here?",
+   "delivery": "Measured, openly astonished question after a pause."
+  },
+  {
+   "t": 40.6,
+   "speaker": "Hero",
+   "text": "Yeah.",
+   "delivery": "Quick, confidently projected confirmation."
+  },
+  {
+   "t": 41.16,
+   "speaker": "Dad",
+   "text": "Did trading actually work?",
+   "delivery": "Slower, clearly articulated disbelief, stressing “actually.”"
+  },
+  {
+   "t": 43.76,
+   "speaker": "Mom",
+   "text": "186,000?",
+   "delivery": "Loud, slow incredulity with rising pitch after a full beat."
+  },
+  {
+   "t": 45.02,
+   "speaker": "Hero",
+   "text": "I told you I needed a chance.",
+   "delivery": "Fast and forceful, carrying vindication and a trace of resentment."
+  },
+  {
+   "t": 46.6,
+   "speaker": "Dad",
+   "text": "I thought you'd be home in a month.",
+   "delivery": "Very fast, loudly candid admission of his earlier doubt."
+  },
+  {
+   "t": 48.16,
+   "speaker": "Hero",
+   "text": "I remember.",
+   "delivery": "Clipped and strongly projected, with pointed emphasis."
+  },
+  {
+   "t": 48.84,
+   "speaker": "Mom",
+   "text": "We're proud of you.",
+   "delivery": "Softer and slower, warm reassurance that releases the tension."
+  },
+  {
+   "t": 50.34,
+   "speaker": "Closing voice",
+   "text": "Would you move away to chase your dream?",
+   "delivery": "Loud, brisk audience address with an inviting question rise."
+  },
+  {
+   "t": 52.24,
+   "speaker": "Closing voice",
+   "text": "Comment below.",
+   "delivery": "Clear, moderately paced directive with a firm finish."
+  }
+ ],
+ "voice_arc": "The opening alternates Aiden’s fast, forceful defiance with Dad’s blunt warnings and Mom’s quieter anxious questions. Alone at the computer, Aiden falls into sparse, subdued words separated by long pauses, then erupts into the video’s loudest plea and a relieved celebration. The reunion slows into astonished questions, briefly returns to pointed, rapid vindication, and resolves in a softer statement of parental pride before the projecting closing address.",
+ "camera_language": "A long opening family shot establishes the conflict through shared space, opposing bodies, and an open suitcase. The trading passage compresses time with laptop and keyboard inserts alternating with extreme facial close-ups, then holds a frontal monitor-dominated view for the reversal. A full-body doorway arrival shifts the story into a bright, spacious setting, followed by an extended reunion shot with a phone thrust toward the foreground.",
+ "why_it_works": "The argument makes parental disbelief the emotional stake, so the trading outcome also becomes a test of whether Aiden deserves their trust. Rapid loss-and-reaction cuts expose fear beneath his confidence, while long pauses around his solitary words make the eventual shout feel earned. The bright home reunion delivers visible status change, and the parents’ admission and approval complete the conflict established in the first seconds.",
+ "gemini_watch": {
+  "version": "gemini-reel-v2-shots",
+  "hook": "An intense, relatable family argument about taking a risky career move immediately hooks viewers by establishing high emotional stakes in under 2 seconds.",
+  "turn": "The turn happens when Aiden is down -$7,900 and gets a call from his mother; rather than giving up, he looks back at the screen just as the chart reverses into a steep parabolic spike.",
+  "payoff": "Six months later, Aiden hosts his once-doubting parents in his luxury oceanview Miami penthouse, proving his success with $186,400 in payouts and receiving a tearful embrace from his mother.",
+  "why_it_works": "Universal emotional conflict: Parent skepticism vs. youth ambition is deeply relatable to Gen-Z and millennial audiences. 3D Animation aesthetic: Clean, high-quality Pixar/Disney-style character designs make dramatic micro-expressions hit harder and stand out on vertical feeds. Clear visual progression: Highly legible UI popups with bold red/green color coding communicate the financial risk and re",
+  "camera": [
+   "Sustained single-shot framing during high-drama argument sequence (0:00-0:16) builds claustrophobia and emotional tension.",
+   "Rapid push-in on eyes at 0:17 to transition immediately into internal high-pressure focus.",
+   "Over-the-screen transparency framing at 0:26 where the rising green chart line is mapped directly across Aiden's ecstatic face.",
+   "Smooth cinematic pan across floor-to-ceiling windows at 0:38 to magnify the visual contrast between his dark bedroom starting point and his sunny Miami penthouse win."
+  ],
+  "montages": [
+   "{\"start\": \"0:16\", \"end\": \"0:26\", \"cuts\": 8, \"content\": \"Laptop trading screen loss -> ECU Aiden eye movement -> WS dark desk trading setup -> compounding loss -$3,880 -> loss -$7,900 -> ECU stunned facial reaction -> incoming call phone scr"
+  ]
+ }
+}
