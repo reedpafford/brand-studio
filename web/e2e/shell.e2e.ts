@@ -1,19 +1,19 @@
 import { expect, test } from "@playwright/test";
-import { expectSignedInAs, fill, openAccountMenu, PASSWORD, signIn } from "./helpers";
+import { PASSWORD, expectSignedInAs, fill, onBrand, openAccountMenu, signIn } from "./helpers";
 
 // Runs after auth.e2e.ts, which created the owner (Reed). Ed is invited in the first team test and removed in the last.
 test.describe.configure({ mode: "serial" });
 
 test("the brand switcher changes brand and is remembered", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("heading", { name: "fomo" })).toBeVisible();
+  await onBrand(page, "fomo");
 
   await page.getByLabel("Brand").selectOption({ label: "Iron Paws" });
-  await expect(page.getByRole("heading", { name: "Iron Paws" })).toBeVisible();
-  await expect(page).toHaveURL(/\/b\/\d+\/?$/);
+  await onBrand(page, "Iron Paws");
+  await expect(page).toHaveURL(/\/b\/\d+\/projects$/);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Iron Paws" })).toBeVisible();
+  await onBrand(page, "Iron Paws");
 });
 
 test("signing out ends the session", async ({ page }) => {

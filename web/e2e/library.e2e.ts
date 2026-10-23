@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { image, signIn } from "./helpers";
+import { image, onBrand, signIn } from "./helpers";
 
 const MP3 = { name: "voice.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("ID3" + "0".repeat(32)) };
 
@@ -8,7 +8,7 @@ test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("heading", { name: "fomo" })).toBeVisible();
+  await onBrand(page, "fomo");
   await page.getByRole("link", { name: "Library" }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
 });
