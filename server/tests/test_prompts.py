@@ -155,6 +155,8 @@ def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     shot = bd.scenes[1].shots[1]
     clip = cp.clips[0]
     clip.prompt = clip.prompt.replace(shot.line, "No.").replace("Okay. Show me how.", "It's 3:15.")
+    clip.prompt = clip.prompt.replace("Trust your setup.", "Trust your setup. Okay, I know.")
+    bd.scenes[1].shots[3].line = "Don't you dare sell. Trust your setup. Okay, I know."
     shot.line = "No."
     bd.scenes[1].shots[7].line = "It's 3:15."
     assert check.clip_prompts(bd, cp, 30, 10) == []
