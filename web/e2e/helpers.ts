@@ -24,3 +24,11 @@ export async function expectSignedInAs(page: Page, name: string) {
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await page.keyboard.press("Escape");
 }
+
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+/** A tiny valid PNG, in the shape setInputFiles wants. */
+export const image = (name: string) => ({ name, mimeType: "image/png", buffer: PNG });

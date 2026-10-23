@@ -1,14 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { image, signIn } from "./helpers";
 
 // Runs after shell.e2e.ts; Reed (owner) exists. Tests share the fomo brand and run in order.
 test.describe.configure({ mode: "serial" });
-
-const PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-  "base64",
-);
-const image = (name: string) => ({ name, mimeType: "image/png", buffer: PNG });
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
