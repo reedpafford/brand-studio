@@ -42,11 +42,12 @@ test("an uploaded logo shows and survives a reload", async ({ page }) => {
 test("a brand screen can be added with tags and a moment", async ({ page }) => {
   await page.getByRole("link", { name: "Screens" }).click();
   await expect(page.getByText("No brand screens yet.")).toBeVisible();
+  await page.getByRole("button", { name: "Add screen" }).click();
   await page.getByLabel("Screen image").setInputFiles(image("buy-flow.png"));
   await expect(page.getByLabel("Name")).toHaveValue("buy-flow");
   await page.getByLabel("What it shows (tags, separated by commas)").fill("Trading, Mobile");
   await page.getByLabel("Use automatically for these moments (separated by commas)").fill("trading");
-  await page.getByRole("button", { name: "Add screen" }).click();
+  await page.getByRole("button", { name: "Save screen" }).click();
 
   await expect(page.getByRole("img", { name: "buy-flow" })).toBeVisible();
   await expect(page.getByText("★ Always used for: trading")).toBeVisible();
