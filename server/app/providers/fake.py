@@ -31,6 +31,9 @@ class FakeProvider:
         self._polls[ref] = 0
         return ref
 
+    def fetch(self, url: str) -> tuple[bytes, str]:
+        return b"\0\0\0\x18ftypmp42" + b"0" * 32, "video/mp4"
+
     def poll(self, ref: str) -> Result:
         if self.network_errors_on_poll:
             self.network_errors_on_poll -= 1
