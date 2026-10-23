@@ -87,7 +87,7 @@ function AddScreen(props: { brandId: number; tagOptions: string[]; momentOptions
       const stored = await uploadFile(file);
       const { data, error } = await api.POST("/brands/{brand_id}/screens", {
         params: { path: { brand_id: brandId } },
-        body: { name, file_id: stored.id, tags: slugs(tags), default_for: slugs(moments) },
+        body: { name, file_id: stored.id, tags: slugs(tags), default_for: slugs(moments), product: "", variant: "" },
       });
       if (!data) throw new Error(errorText(error));
     },

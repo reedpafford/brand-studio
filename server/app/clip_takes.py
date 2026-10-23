@@ -15,8 +15,10 @@ from app.clip_prompts import assets
 from app.credits import estimate
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job
+from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.references import LONG_SIDE
+from app.sheets import require_sheet
 
 RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
 KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "reference_audios"}
@@ -32,6 +34,8 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         if ref["id"] not in known:
             raise HTTPException(409, f"{ref['id']} is no longer part of this project.")
         _, kind, file_ids = known[ref["id"]]
+        if not file_ids and ref["id"].startswith(("char:", "place:")):
+            require_sheet(db.get(LibraryItem, int(ref["id"].split(":")[1])))
         if not file_ids:
             raise HTTPException(422, f"{ref['id']} has no picture yet. Add one in the library.")
         files[KEYS[kind]].append(file_ids[0])

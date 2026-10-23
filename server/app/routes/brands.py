@@ -26,6 +26,7 @@ class KitFields(BaseModel):
     tone_notes: LongText = ""
     never_say: list[ShortText] = []
     legal_line: LongText = ""
+    end_line: LongText = ""  # the call to action every video ends on, word for word
 
 
 class BrandIn(KitFields):

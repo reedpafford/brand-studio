@@ -34,6 +34,11 @@ class LibraryItem(Entity, Base):
     # Characters only: [{"name": "Gym kit", "file_ids": [..]}], and a voice sample.
     outfits: Mapped[list[dict]] = mapped_column(JSON, default=list)
     voice_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
+    # Characters and places: an uploaded photo is only source material; videos use the
+    # house-style sheet made from it, and only once an editor approves it (Reed).
+    source_photo_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
+    sheet_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
+    sheet_approved: Mapped[bool] = mapped_column(default=False)
     version: Mapped[int] = mapped_column(default=1)
     archived: Mapped[bool] = mapped_column(default=False)
 
