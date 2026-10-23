@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, errorText } from "../api/client";
+import { api, errorText, must } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
 import type { components } from "../api/schema";
 import { useBrands } from "../shell/useBrands";
@@ -53,7 +53,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
     onSuccess: refresh,
   });
   const archive = useMutation({
-    mutationFn: () => api.DELETE("/library/{kind}/{item_id}", { params: { path } }),
+    mutationFn: () => must(api.DELETE("/library/{kind}/{item_id}", { params: { path } })),
     onSuccess: async () => {
       await refresh();
       navigate(`/b/${brandId}/library/${slug}`);
@@ -138,6 +138,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
         </div>
       </form>
       <History kind={kind} item={item} onRestored={refresh} />
+      {archive.isError && <p role="alert" className={errorClass}>{archive.error.message}</p>}
       <button
         className={btnSecondary}
         onClick={() => window.confirm(`Archive ${item.name}? You can bring it back from "Show archived".`) && archive.mutate()}
@@ -158,13 +159,14 @@ function History({ kind, item, onRestored }: { kind: "character" | "place" | "pr
     queryFn: async () => (await api.GET("/team/members")).data ?? [],
   });
   const restore = useMutation({
-    mutationFn: (version: number) => api.POST("/library/{kind}/{item_id}/versions/{version}/restore", { params: { path: { kind, item_id: item.id, version } } }),
+    mutationFn: (version: number) => must(api.POST("/library/{kind}/{item_id}/versions/{version}/restore", { params: { path: { kind, item_id: item.id, version } } })),
     onSuccess: onRestored,
   });
   const who = (id: number | null) => members.data?.find((m) => m.id === id)?.name ?? "someone";
   return (
     <section className="space-y-2">
       <h2 className="text-[length:var(--text-md)] font-semibold">History</h2>
+      {restore.isError && <p role="alert" className={errorClass}>{restore.error.message}</p>}
       <ul className="divide-y divide-border text-sm">
         {versions.data?.map((v) => (
           <li key={v.version} className="flex items-center gap-3 py-2">

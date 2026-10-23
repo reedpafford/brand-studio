@@ -148,3 +148,23 @@ test("archived cards carry an Archived badge", async () => {
   await userEvent.click(await screen.findByLabelText("Show archived"));
   expect(await screen.findByText("Archived")).toBeInTheDocument();
 });
+
+test("a refused restore or delete-forever shows the server's reason", async () => {
+  fakeServer({
+    "GET /auth/me": [200, owner],
+    "GET /brands": [200, brands],
+    "GET /library/character": [200, [mia]],
+    "DELETE /library/character/5/permanent": [409, { detail: "Archive it first." }],
+  });
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderAt("/b/1/library/characters");
+  await userEvent.click(await screen.findByLabelText("Show archived"));
+  await userEvent.click(await screen.findByRole("button", { name: "Delete Mia forever" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Archive it first.");
+});
+
+test("a card without a picture is still linked by the item's name", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [{ ...mia, image_file_ids: [] }]] });
+  renderAt("/b/1/library/characters");
+  expect(await screen.findByRole("link", { name: "Mia" })).toHaveAttribute("href", "/b/1/library/characters/5");
+});
