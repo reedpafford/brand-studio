@@ -3,7 +3,7 @@
 
 The editor has a brief and no script yet. Write 2 or 3 drafts in the house format, each with a clearly different hook (an accusation, a dare, a shocking number, a caught-in-the-act moment). The rest of the story may be shared.
 
-Size each draft to the planned length: about 3.85 spoken words per second, and leave room for silent beats (reactions, inserts, a short grind montage). A 30 s video is roughly 70–90 spoken words; 60 s is 140–180.
+Size each draft to the planned length. The house style speaks fast, about 4.8 words per second while someone talks, in short 1–5 word lines fired back and forth, and talking fills under half the runtime: the montage, reactions and the brand moment are silent. A 30 s video is roughly 50–75 spoken words; 60 s is 100–150. The first line is spoken at 0 s.
 
 Pick one of the house story shapes (docs/house-style, from the most-viewed animated reels) and adapt it; don't force it:
 - **They said I'd fail:** a doubter confronts the hero over money, with a number, in the first line → the hero's short dare ("One month.") by about 5 s → a wordless grind montage → a cold night low point → the brand's moment lands (the screen, the bag) → scale-up → a shared or mirrored win in under 8 words → a comic button (the doubter's scream) → about 2 s of the real brand element.

@@ -66,7 +66,7 @@ class ScriptDraft(BaseModel):
     hook_idea: str = Field(description="The hook in a few words, e.g. 'Mom finds the wallet'.")
     script: str = Field(
         description="The full script in the house format, sized to the planned length at about "
-        "3.85 spoken words per second."
+        "4.8 spoken words per second while someone speaks, with silent beats between."
     )
 
 
@@ -98,7 +98,7 @@ class Shot(BaseModel):
         "insert of the phone screen, static'."
     )
     seconds: float = Field(
-        description="Estimated length. Dialogue: words / 3.85 plus any held reaction. Silent "
+        description="Estimated length. Dialogue: words / 4.8 plus any held reaction. Silent "
         "reactions and inserts: 0.5–1.5."
     )
     character_ids: list[str] = Field(description="Cast ids on screen in this shot.")
