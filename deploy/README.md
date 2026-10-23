@@ -84,3 +84,8 @@ docker compose up -d
 - See what's running: `docker compose ps`
 - See recent messages: `docker compose logs --tail 50 api worker caddy`
 - Restart everything: `docker compose restart`
+
+## Automatic deploys (optional, off)
+
+`docs/deploy/auto-deploy.md` has a ready workflow that deploys on every merge to main, and the
+GitHub secrets it needs. It isn't switched on; Reed decides.
