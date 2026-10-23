@@ -10,7 +10,9 @@ import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } fr
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
 const lines = (n: number[]) => (n.length === 0 ? "" : n.length === 1 ? `line ${n[0]}` : `lines ${Math.min(...n)}–${Math.max(...n)}`);
-const small = `${input} min-h-9`;
+const small = `${input} min-h-11 sm:min-h-9`;
+// Below sm every tap target is at least 44px tall.
+const tap = "inline-flex min-h-11 items-center sm:min-h-0";
 
 /** A line of text with an Edit link that turns it into a one-line box. */
 function EditableText({ value, label, onChange, children }: { value: string; label: string; onChange: (v: string) => void; children: ReactNode }) {
@@ -20,7 +22,7 @@ function EditableText({ value, label, onChange, children }: { value: string; lab
   return (
     <span>
       {children}{" "}
-      <button type="button" className={`${linkText} text-xs`} aria-label={`Edit ${label}`} onClick={() => setEditing(true)}>
+      <button type="button" className={`${linkText} ${tap} text-xs`} aria-label={`Edit ${label}`} onClick={() => setEditing(true)}>
         Edit
       </button>
     </span>
@@ -42,7 +44,7 @@ function ShotEditor({ shot, picks, onChange }: { shot: Shot; picks: Picks; onCha
       <fieldset className="text-xs">
         <legend className="font-medium">Who's in it</legend>
         {picks.characters.map((c) => (
-          <label key={c.key} className="mr-3 inline-flex items-center gap-1">
+          <label key={c.key} className={`mr-3 gap-1 ${tap}`}>
             <input type="checkbox" checked={shot.character_ids.includes(c.key)} onChange={() => onChange({ character_ids: toggle(shot.character_ids, c.key) })} />
             {c.name}
           </label>
@@ -79,7 +81,7 @@ function ShotEditor({ shot, picks, onChange }: { shot: Shot; picks: Picks; onCha
       <fieldset className="text-xs">
         <legend className="font-medium">Brand screens</legend>
         {picks.screens.map((s) => (
-          <label key={s.key} className="mr-3 inline-flex items-center gap-1">
+          <label key={s.key} className={`mr-3 gap-1 ${tap}`}>
             <input type="checkbox" checked={shot.screen_ids.includes(s.key)} onChange={() => onChange({ screen_ids: toggle(shot.screen_ids, s.key) })} />
             {s.name}
           </label>
@@ -165,7 +167,7 @@ export function BreakdownView(props: {
             <span className="flex-1">{p}</span>
             {target && (
               <button
-                className="underline"
+                className={`underline ${tap}`}
                 aria-label={`Go to: ${p}`}
                 onClick={() => {
                   after?.();
@@ -256,7 +258,7 @@ export function BreakdownView(props: {
                             <span className="font-medium">{s.id}</span>
                             <span className="text-muted">{s.seconds} s</span>
                             <span className="text-muted">{s.camera}</span>
-                            <button type="button" className="ml-auto text-xs text-muted underline" aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines(s.script_lines)}>
+                            <button type="button" className={`ml-auto text-xs text-muted underline ${tap}`} aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines(s.script_lines)}>
                               {lines(s.script_lines)} ◂
                             </button>
                           </div>
@@ -285,7 +287,7 @@ export function BreakdownView(props: {
                           )}
                           <div className="relative flex gap-3 text-xs">
                             <button
-                              className={linkText}
+                              className={`${linkText} ${tap}`}
                               aria-label={`${editing && !phone ? "Done with" : "Edit"} shot ${s.id}`}
                               onClick={() => (phone ? setSheetShot(s.id) : setOpen(editing ? open.filter((x) => x !== s.id) : [...open, s.id]))}
                             >
@@ -294,7 +296,7 @@ export function BreakdownView(props: {
                             {phone ? (
                               (!lastInClip || !last) && (
                                 <>
-                                  <button className={linkText} aria-label={`More for shot ${s.id}`} aria-expanded={menu === s.id} onClick={() => setMenu(menu === s.id ? null : s.id)}>
+                                  <button className={`${linkText} ${tap}`} aria-label={`More for shot ${s.id}`} aria-expanded={menu === s.id} onClick={() => setMenu(menu === s.id ? null : s.id)}>
                                     ⋯
                                   </button>
                                   {menu === s.id && (
@@ -314,7 +316,7 @@ export function BreakdownView(props: {
                               )
                             ) : (
                               !lastInClip && (
-                                <button className={linkText} aria-label={`Split clip ${clip.id} after shot ${s.id}`} onClick={() => change((b) => splitAfter(b, s.id))}>
+                                <button className={`${linkText} ${tap}`} aria-label={`Split clip ${clip.id} after shot ${s.id}`} onClick={() => change((b) => splitAfter(b, s.id))}>
                                   Split clip after
                                 </button>
                               )
@@ -329,7 +331,7 @@ export function BreakdownView(props: {
                       {clip.seam === "end" ? "end" : `ends: ${clip.seam}`}
                     </EditableText>
                     {!last && !phone && (
-                      <button className={linkText} aria-label={`Join clip ${clip.id} with the next clip`} onClick={() => change((b) => joinWithNext(b, clip.id))}>
+                      <button className={`${linkText} ${tap}`} aria-label={`Join clip ${clip.id} with the next clip`} onClick={() => change((b) => joinWithNext(b, clip.id))}>
                         Join with next clip
                       </button>
                     )}

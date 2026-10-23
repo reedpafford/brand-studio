@@ -44,7 +44,7 @@ test("Enhance shows its cost and starts the run", async () => {
 });
 
 test("while Enhance runs the button is off and says why", async () => {
-  fakeServer({ ...base, "GET /jobs": [200, [{ id: 3, kind: "write-claude", status: "running", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z" }]] });
+  fakeServer({ ...base, "GET /jobs": [200, [{ id: 3, kind: "write-claude", step: "enhance", status: "running", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z" }]] });
   open();
   expect(await screen.findByText("Reading your script…")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^✦ Enhance/ })).toBeDisabled();
@@ -101,7 +101,7 @@ test("notes can only be dismissed with Got it", async () => {
 test("a failed run says the script is unchanged; a switched-off server explains itself", async () => {
   fakeServer({
     ...base,
-    "GET /jobs": [200, [{ id: 3, kind: "write-claude", status: "failed", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z" }]],
+    "GET /jobs": [200, [{ id: 3, kind: "write-claude", step: "enhance", status: "failed", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z" }]],
     "POST /projects/9/script/enhance": [503, { detail: "Generation is switched off on this server." }],
   });
   open();
