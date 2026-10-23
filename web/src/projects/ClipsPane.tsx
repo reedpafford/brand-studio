@@ -315,10 +315,12 @@ function ClipCard(props: {
               Undo approval
             </button>
           )}
-          <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || c.problems.length > 0 || c.stale} onClick={() => props.onGenerate()}>
+          {note === null && (
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || c.problems.length > 0 || c.stale} onClick={() => props.onGenerate()}>
             {verb}
             {price}
           </button>
+          )}
           {c.takes.length > 0 && note === null && (
             <button className={`${linkText} min-h-11 sm:min-h-9`} onClick={() => setNote("")}>
               Needs a change
