@@ -57,7 +57,7 @@ How they were made:
   - Some brand colours won't pass contrast with white text, so they need a darker variant.
   - Furthest from tezu, and the serif may feel less like a tool.
 
-## Recommendation: B, Screening room
+## Recommendation: B, Screening room (picked by Reed, 2026-10-24)
 - **Why:** Reed asked for tezu's level or better, and this app is mostly about looking at frames and takes. B gives the work the most room and the most impact, and keeps one obvious amber action per screen.
 - **What it keeps from A:** the warm neutrals become B's **light mode**, built in phase 3 from the same tokens, for anyone who prefers it.
 - **What it keeps from C:** the brand still shows (the brand dot, and the brand's colour on its own pages) without fighting the amber action colour.
