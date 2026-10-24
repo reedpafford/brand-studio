@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
+import { CastPicker, FlavourPicker, useBriefChoices } from "./BriefPickers";
 import { backLink, btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 
 const ASPECTS = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
@@ -19,20 +20,7 @@ export function NewProjectPage() {
   const [reference, setReference] = useState<number | null>(null);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
 
-  const characters = useQuery({
-    queryKey: ["library", "character", brandId, false],
-    queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "character" }, query: { brand_id: brandId } } })).data ?? [],
-  });
-  const screens = useQuery({
-    queryKey: ["screens", brandId],
-    queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: brandId } } })).data ?? [],
-  });
-  // Screens that are one flavour of a product (a bag that comes in Chicken or Peanut butter) are picked here.
-  const products = new Map<string, NonNullable<typeof screens.data>>();
-  for (const s of screens.data ?? []) if (s.product && s.variant) products.set(s.product, [...(products.get(s.product) ?? []), s]);
-  // A flavour has to be chosen; a product with only one is chosen for you.
-  const chosen = (product: string) => picks[product] ?? (products.get(product)?.length === 1 ? products.get(product)![0].variant : undefined);
-  const unchosen = [...products.keys()].find((p) => !chosen(p));
+  const { characters, products, chosen, unchosen } = useBriefChoices(brandId, picks);
   const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
   const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 364; // budget is 2x the 480p seconds
 
@@ -115,39 +103,8 @@ export function NewProjectPage() {
           <input className={input} type="number" required min={1} max={longest} value={form.seconds} onChange={(e) => set("seconds", Number(e.target.value))} />
           <span className="block text-muted">Budget: {form.seconds * 2} credits (twice the length).</span>
         </label>
-        <fieldset className="space-y-1 text-sm">
-          <legend className="font-medium">Who's in it</legend>
-          {characters.data?.length === 0 && <p className="text-muted">No characters for this brand yet. Add them in the Library.</p>}
-          {characters.data?.map((c) => (
-            <label key={c.id} className="mr-4 inline-flex min-h-11 items-center gap-2 sm:min-h-0">
-              <input type="checkbox" disabled={c.sheet_status !== "approved"} checked={cast.includes(c.id)} onChange={() => setCast(cast.includes(c.id) ? cast.filter((x) => x !== c.id) : [...cast, c.id])} />
-              {c.name}
-              {c.sheet_status !== "approved" && <span className="text-muted"> · Approve its sheet first</span>}
-            </label>
-          ))}
-        </fieldset>
-        {[...products].map(([product, list]) => (
-          <fieldset key={product} className="space-y-1 text-sm">
-            <legend className="font-medium">{product.charAt(0).toUpperCase() + product.slice(1)}</legend>
-            <div className="flex flex-wrap gap-3">
-              {list.map((s) => {
-                const on = chosen(product) === s.variant;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    aria-pressed={on}
-                    className={`w-28 overflow-hidden rounded-md bg-surface text-left ${on ? "border-2 border-accent" : "border border-border-strong"}`}
-                    onClick={() => setPicks({ ...picks, [product]: s.variant })}
-                  >
-                    <img src={fileUrl(s.file_id)} alt="" className="aspect-square w-full object-cover" />
-                    <span className="block min-h-11 p-2 sm:min-h-0">{s.variant}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-        ))}
+        <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
+        <FlavourPicker products={products} chosen={chosen} onPick={(product, variant) => setPicks({ ...picks, [product]: variant })} />
         <div className="space-y-1 text-sm">
           <div className="font-medium">Reference video (optional)</div>
           {reference && <video controls src={fileUrl(reference)} className="max-h-48 rounded-sm" />}

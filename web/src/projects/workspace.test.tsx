@@ -108,3 +108,36 @@ test("choosing a stage on a phone shows that stage, not the script tab", async (
   await userEvent.click(within(steps).getByRole("button", { name: /Enhance/ }));
   expect(within(tabs).getAllByRole("tab")[1]).toHaveAttribute("aria-selected", "true");
 });
+
+const bag = (id: number, variant: string) => ({ id, brand_id: 1, name: `${variant} bag`, tags: [], default_for: [], product: "bag", variant, file_id: id });
+const briefRoutes = {
+  ...base,
+  "GET /projects/9": [200, { ...project, cast_ids: [4], product_variants: { bag: "Chicken" } }] as [number, unknown],
+  "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [], sheet_status: "approved" }, { id: 5, name: "Dex", image_file_ids: [], sheet_status: "approved" }]] as [number, unknown],
+  "GET /brands/1/screens": [200, [bag(1, "Chicken"), bag(2, "Peanut butter")]] as [number, unknown],
+};
+
+test("the brief shows who is in it and which flavour, and can be edited after the project is made", async () => {
+  const calls = fakeServer({ ...briefRoutes, "PATCH /projects/9": [200, project] });
+  open();
+  expect(await screen.findByText("In it: Mia")).toBeInTheDocument();
+  expect(screen.getByText("Bag: Chicken")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Peanut butter" }));
+  await userEvent.click(screen.getByLabelText("Dex"));
+  const length = screen.getByLabelText(/Planned length/);
+  await userEvent.clear(length);
+  await userEvent.type(length, "45");
+  await userEvent.click(screen.getByRole("button", { name: "Save brief" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toMatchObject({ cast_ids: [4, 5], planned_seconds: 45, product_variants: { bag: "Peanut butter" }, goal: "Show the buy flow" }));
+});
+
+test("a refused brief edit shows the server's reason and Cancel leaves it as it was", async () => {
+  fakeServer({ ...briefRoutes, "PATCH /projects/9": [422, { detail: "Plan 90 seconds or less." }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit brief" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save brief" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Plan 90 seconds or less.");
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByText("In it: Mia")).toBeInTheDocument();
+});
