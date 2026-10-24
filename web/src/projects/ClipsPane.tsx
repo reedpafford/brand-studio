@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -51,6 +51,18 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
     queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] });
     queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
   };
+  // When a run or a take finishes, bring in what it made. The clips only refetch while a job is
+  // going, so a job that finishes between two polls (or before it is ever seen running, like the
+  // free stand-ins) would otherwise leave the card saying "Not made" until a reload.
+  const finishedKey = (jobs.data ?? [])
+    .filter((j) => j.project_id === projectId && (j.step === "clip_take" || j.step === "clip_prompts") && j.status === "succeeded")
+    .map((j) => j.id)
+    .join(",");
+  useEffect(() => {
+    if (!finishedKey) return;
+    queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
+  }, [finishedKey, projectId, queryClient]);
 
   const write = useMutation({
     mutationFn: async () => {
