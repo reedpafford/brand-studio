@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
     # Paid generation (Replicate, Claude). Off by default: the owner turns it on at deploy.
     generation_enabled: bool = False
+    # Local runs only: stand-ins for Replicate and Claude (grey pictures, simple answers).
+    # Nothing is sent or billed, and Generate works even with generation switched off.
+    fake_providers: bool = False
     # Background worker
     worker_poll_seconds: float = 2.0
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
@@ -65,5 +68,7 @@ def check_production(settings: Settings) -> None:
         )
     if make_url(settings.database_url).password == PLACEHOLDER:
         problems.append("POSTGRES_PASSWORD is the example value: use `openssl rand -hex 24`.")
+    if settings.fake_providers:
+        problems.append("BS_FAKE_PROVIDERS is on: it's for local runs only, remove the line.")
     if problems:
         raise RuntimeError("Not starting. Fix deploy/.env: " + " ".join(problems))
