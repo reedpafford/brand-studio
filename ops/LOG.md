@@ -1,6 +1,12 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-24 20:54 · #174 Redesign phase 3: Screening room design system and screen specs merged
+- 2026-10-24 20:45 · #172 Quick clip bar no longer covers the form; 44px phone fields merged
+- 2026-10-24 20:40 · #173 Redesign phase 2: three visual directions for Reed to pick merged
+- 2026-10-24 20:18 · #170 Redesign phase 1: how the app is organised (structure map + top 10 changes) merged
+- 2026-10-24 20:11 · #171 ops: HANDOFF/LOG refresh 2026-10-24 20:15Z merged (by the Producer)
+- 2026-10-24 · Decisions in DECISIONS.md: Reed approved the redesign structure (phase 1, #170); clip prompts are always reviewable before takes are paid for; Reed picked redesign direction B, Screening room (#173).
 - 2026-10-24 06:09 · #169 ops: HANDOFF/LOG refresh 2026-10-24 06:15Z merged (by the Producer)
 - 2026-10-24 06:08 · #168 Breakdown: a montage clip uses only the screens its beats need (3 at most) merged
 - 2026-10-24 06:00 · #166 Deploy guide: step-by-step, phone-friendly setup for Reed merged (deploy/README.md)
