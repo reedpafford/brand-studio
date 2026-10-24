@@ -1,6 +1,15 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-24 02:36 · #152 Gap hunt: script drafts, edit the brief, character photo, phone stage switch, 44px targets merged
+- 2026-10-24 00:43 · #151 e2e: run the whole video flow in the browser with the free stand-in providers merged
+- 2026-10-24 00:20 · #138 Project: credits left per stage under the budget meter merged
+- 2026-10-24 00:20 · #137 Brand screens: Product and Variant, Edit a screen merged
+- 2026-10-24 00:20 · #133 Approvals: the owner's screen for held projects and jobs merged
+- 2026-10-24 00:20 · #139 fomo: Home screen also counts for the win moment merged
+- 2026-10-24 00:20 · #128 Local runs: a switch for free stand-in providers (BS_FAKE_PROVIDERS) merged
+- 2026-10-24 00:20 · #118 Quick clip: Improve prompt (screen) merged
+- 2026-10-24 00:10 · #146 ops: HANDOFF/LOG refresh 2026-10-24 00:14Z merged (by the Producer)
 - 2026-10-24 00:06 · #141 ops: HANDOFF/LOG refresh 2026-10-24 00:08Z merged (by the Producer)
 - 2026-10-24 00:01 · Decisions in DECISIONS.md since the last refresh: app screens need the logo and UI right but numbers can be invented, and the "Use the real image" cut-in is optional and off by default (#131, #132); montages put the main character in every shot with escalating wealth (#131); product exactness means brand name, main claim and flavour label read right, small print may be garbled (#125); an uploaded person photo becomes a house-style character sheet the editor approves, and only approved sheets go in frames and clips (#125).
 - 2026-10-24 00:01 · #129 Storyboard and Clips: "needs an approved sheet" warnings merged

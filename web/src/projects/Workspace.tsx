@@ -1,5 +1,7 @@
+import type { components } from "../api/schema";
 import { btnPrimary, card } from "../ui";
 import { BreakdownPane } from "./BreakdownPane";
+import { BriefEditor } from "./BriefEditor";
 import { ClipsPane } from "./ClipsPane";
 import { StoryboardPane } from "./StoryboardPane";
 import { Notes, type EnhanceState } from "./Enhance";
@@ -86,7 +88,7 @@ export function Stepper(props: { stage: Stage; done: Stage[]; ready: Ready; onPi
   );
 }
 
-export type BriefInfo = { goal: string; platform: string; aspect_ratio: string; format: string; planned_seconds: number };
+export type BriefInfo = components["schemas"]["ProjectOut"];
 
 /** The right-hand pane: what to do at the current stage. The script stays on the left. */
 export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: boolean; enhance: EnhanceState; version: number; projectId: number; brandId: number; name: string; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onPick: (s: Stage) => void }) {
@@ -95,19 +97,15 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
     return (
       <section className={`${card} space-y-2 text-sm`} aria-label="Brief">
         <h2 className="text-[length:var(--text-md)] font-semibold">Brief</h2>
-        {brief.goal ? <p>{brief.goal}</p> : <p className="text-muted">What's this video for? A few lines is enough. Claude turns it into a script.</p>}
-        <p className="text-muted">{[brief.platform, brief.aspect_ratio, brief.format, `${brief.planned_seconds}s planned`].filter(Boolean).join(" · ")}</p>
-        <button className={btnPrimary} onClick={() => props.onPick("script")}>
-          Next: Script →
-        </button>
+        <BriefEditor project={brief} hasScript={props.hasScript} onNext={() => props.onPick("script")} />
       </section>
     );
   if (stage === "script")
     return (
       <section className={`${card} space-y-2 text-sm`} aria-label="Script stage">
         <h2 className="text-[length:var(--text-md)] font-semibold">Script</h2>
-        <p className="text-muted">Paste your script or upload a document in the script pane. Every save is kept as a version, and you can come back to any of them from History.</p>
-        <button className={btnPrimary} disabled={!props.hasScript} onClick={() => props.onPick("enhance")}>
+        <p className="text-muted">Paste your script or upload a document in the script pane, or let Claude write drafts from your brief. Every save is kept as a version, and you can come back to any of them from History.</p>
+        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={!props.hasScript} onClick={() => props.onPick("enhance")}>
           Next: Enhance →
         </button>
         {!props.hasScript && <p className="text-muted">Finish the script first.</p>}

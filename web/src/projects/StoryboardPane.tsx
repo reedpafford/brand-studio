@@ -212,7 +212,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
         })}
       </ul>
       <div className="space-y-1">
-        <button className={btnPrimary} disabled={waiting > 0 || list.some((f) => f.stale)} onClick={props.onNext}>
+        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={waiting > 0 || list.some((f) => f.stale)} onClick={props.onNext}>
           Next: Clips →
         </button>
         {waiting > 0 && <p className="text-sm text-muted">{`Approve all ${list.length} frame${list.length === 1 ? "" : "s"} first (${waiting} left).`}</p>}
