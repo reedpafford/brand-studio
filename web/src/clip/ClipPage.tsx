@@ -85,6 +85,7 @@ function Studio({ models }: { models: Model[] }) {
     screen_ids: ids("screen"),
     skip_screen_ids: dismissed.filter((k) => k.startsWith("screen-")).map((k) => Number(k.slice(7))),
     file_ids: [],
+    improved: false,
   };
   // Ask the server what this would cost and whether Reed must approve it. Nothing is queued.
   const settledBody = useDebounced(body);

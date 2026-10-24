@@ -138,6 +138,7 @@ def edit_frame(
         db,
         project,
         Frame(clip_id=frame.clip_id, shot_id=frame.shot_id, **body.model_dump()),
+        frame.breakdown_id,
     )
     db.commit()
     return _out(db, project, frame)
