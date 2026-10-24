@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } from "../ui";
-import { CastPicker, FlavourPicker, useBriefChoices, useLongestSeconds } from "./BriefPickers";
+import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useLongestSeconds, useReferences } from "./BriefPickers";
 
 type Project = components["schemas"]["ProjectOut"];
 
@@ -15,6 +15,9 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
   const [format, setFormat] = useState(project.format);
   const [seconds, setSeconds] = useState(project.planned_seconds);
   const [cast, setCast] = useState(project.cast_ids);
+  const picked = (project.reference_breakdown as { source_id?: string } | null)?.source_id ?? null;
+  const [reel, setReel] = useState<{ id: string | null; replace: string }>({ id: picked, replace: project.reference_replace ?? "" });
+  const refs = useReferences();
   const [picks, setPicks] = useState<Record<string, string>>(project.product_variants ?? {});
   const { characters, products, chosen, unchosen } = useBriefChoices(project.brand_id, picks);
   const longest = useLongestSeconds();
@@ -22,7 +25,15 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
     mutationFn: async () => {
       const { error, response } = await api.PATCH("/projects/{project_id}", {
         params: { path: { project_id: project.id } },
-        body: { goal, format, planned_seconds: seconds, cast_ids: cast, product_variants: Object.fromEntries([...products.keys()].map((p) => [p, chosen(p)!])) },
+        body: {
+          goal,
+          format,
+          planned_seconds: seconds,
+          cast_ids: cast,
+          product_variants: Object.fromEntries([...products.keys()].map((p) => [p, chosen(p)!])),
+          // Picking a reel sets it (with what to replace); clearing it removes it.
+          ...(reel.id ? { reference_id: reel.id, reference_replace: reel.replace } : picked ? { reference_breakdown: null, reference_replace: "" } : {}),
+        },
       });
       if (!response.ok) throw new Error(errorText(error));
     },
@@ -38,6 +49,7 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
     setSeconds(project.planned_seconds);
     setCast(project.cast_ids);
     setPicks(project.product_variants ?? {});
+    setReel({ id: picked, replace: project.reference_replace ?? "" });
     setEditing(true);
   };
   const names = characters.data?.filter((c) => project.cast_ids.includes(c.id)).map((c) => c.name) ?? [];
@@ -49,6 +61,12 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
         {project.goal ? <p>{project.goal}</p> : <p className="text-muted">What's this video for? A few lines is enough. Claude turns it into a script.</p>}
         <p className="text-muted">{[project.platform, project.aspect_ratio, project.format, `${project.planned_seconds}s planned`].filter(Boolean).join(" · ")}</p>
         {names.length > 0 && <p>In it: {names.join(", ")}</p>}
+        {picked && (
+          <p>
+            Adapting: {refs.data?.find((r) => r.id === picked)?.name ?? picked}
+            {project.reference_replace && <span className="block text-muted">Replace: {project.reference_replace}</span>}
+          </p>
+        )}
         {flavours.map(([product, variant]) => (
           <p key={product}>
             {product.charAt(0).toUpperCase() + product.slice(1)}: {variant}
@@ -88,6 +106,7 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
       </label>
       <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
       <FlavourPicker products={products} chosen={chosen} onPick={(product, variant) => setPicks({ ...picks, [product]: variant })} />
+      <ReferencePicker value={reel.id} replace={reel.replace} onChange={(id, replace) => setReel({ id, replace })} />
       {hasScript && <p className="text-sm text-muted">Saving doesn't rewrite the script or the steps after it. Redo them if the change matters.</p>}
       {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
       <div className="flex gap-2">
