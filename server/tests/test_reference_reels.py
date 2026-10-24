@@ -27,3 +27,16 @@ def test_picking_a_reel_copies_its_breakdown_into_the_project(editor):
     assert (
         editor.patch(url, json={"reference_breakdown": None}).json()["reference_breakdown"] is None
     )
+
+
+def test_a_picked_reel_still_drops_its_live_action_shots(editor):
+    from app.prompts import reference_block
+
+    fomo = editor.get("/brands").json()[0]["id"]
+    body = {"brand_id": fomo, "name": "Altar", "planned_seconds": 45, "reference_id": ALTAR}
+    ref = editor.post("/projects", json=body).json()["reference_breakdown"]
+    assert {s["n"] for s in ref["shots"] if "live action" in s["style"]} == set(range(45, 51))
+    block = reference_block(ref)
+    listed = {int(line.split(".")[0]) for line in block.splitlines() if line[:1].isdigit()}
+    assert max(listed) == 43  # 44 morphs into photoreal, 45–50 are live action: all dropped
+    assert "Shots 44–50" in block and "always removed" in block
