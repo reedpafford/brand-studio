@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Check, ChevronDown, TriangleAlert } from "lucide-react";
 import { useMedia } from "../useMedia";
 import { Button } from "./Button";
@@ -23,6 +23,7 @@ const text = (s: Step) => (s.state === "stale" ? `${s.label} · out of date` : s
 /** Six steps. Desktop: a row joined by lines. Phone: one 44px button opening a sheet. */
 export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: string) => void }) {
   const phone = useMedia("(max-width: 639px)");
+  const uid = useId();
   const [open, setOpen] = useState(false);
   const at = Math.max(0, steps.findIndex((s) => s.state === "current"));
   const pick = (s: Step) => {
@@ -68,6 +69,7 @@ export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: stri
             type="button"
             aria-disabled={s.state === "todo"}
             aria-current={s.state === "current" ? "step" : undefined}
+            aria-describedby={s.state === "todo" && s.reason ? `${uid}-${s.id}` : undefined}
             title={s.state === "todo" ? s.reason : undefined}
             onClick={() => pick(s)}
             className={`inline-flex min-h-control items-center gap-2 rounded-full px-3 text-base transition-colors duration-(--dur-fast) ${
@@ -77,6 +79,11 @@ export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: stri
             <Mark step={s} n={i + 1} />
             {text(s)}
           </button>
+          {s.state === "todo" && s.reason && (
+            <span id={`${uid}-${s.id}`} className="sr-only">
+              {s.reason}
+            </span>
+          )}
         </li>
       ))}
     </ol>

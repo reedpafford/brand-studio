@@ -169,7 +169,9 @@ test("tapping outside closes a side panel too", async () => {
   render(<Opener side />);
   await userEvent.click(screen.getByRole("button", { name: "Open it" }));
   expect(screen.getByRole("dialog", { name: "Needs a change" })).toBeInTheDocument();
-  await userEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
+  // One "Close" per overlay (the X); the dimmed backdrop is not a second button but still closes it.
+  expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
+  await userEvent.click(document.querySelector("[aria-hidden].fixed.inset-0") as HTMLElement);
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
@@ -277,6 +279,7 @@ test("the step picker shows done, current, out of date and locked steps, and a l
   const locked = within(list).getByRole("button", { name: /Clips/ });
   expect(locked).toHaveAttribute("aria-disabled", "true");
   expect(locked).toHaveAttribute("title", "Finish Storyboard first");
+  expect(locked).toHaveAccessibleDescription("Finish Storyboard first"); // not only a tooltip
   await userEvent.click(locked);
   expect(pick).not.toHaveBeenCalled();
   await userEvent.click(within(list).getByRole("button", { name: "Script" }));
@@ -289,4 +292,28 @@ test("tabs show counts and tell you which is selected", async () => {
   expect(screen.getByRole("tab", { name: "Characters 5" })).toHaveAttribute("aria-selected", "true");
   await userEvent.click(screen.getByRole("tab", { name: "Places 2" }));
   expect(change).toHaveBeenCalledWith("places");
+});
+
+test("a toast stays while focus is inside it, even after the pointer leaves", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  render(
+    <ToastProvider>
+      <Shout undo={() => {}} />
+    </ToastProvider>,
+  );
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  act(() => screen.getByRole("button", { name: "Say it" }).click());
+  const undo = screen.getByRole("button", { name: "Undo" });
+  await user.hover(undo);
+  act(() => undo.focus());
+  await user.unhover(undo);
+  act(() => {
+    vi.advanceTimersByTime(30000);
+  });
+  expect(screen.getByRole("status")).toHaveTextContent("Approved"); // focus still holds it
+  act(() => undo.blur());
+  act(() => {
+    vi.advanceTimersByTime(8100);
+  });
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
 });

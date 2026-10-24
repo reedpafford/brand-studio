@@ -12,7 +12,10 @@ export const useToast = () => useContext(Ctx);
 /** One line, 4 seconds (8 with Undo); hovering or focusing it pauses the clock. One live region. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [item, setItem] = useState<Item | null>(null);
-  const [paused, setPaused] = useState(false);
+  // Paused while the pointer is over it OR focus is inside it, each tracked on its own.
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const paused = hovered || focused;
   const seq = useRef(0);
   const show = useCallback<Show>((message, undo, kind = "success") => {
     setItem({ message, undo, kind, id: ++seq.current });
@@ -33,10 +36,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {item && (
           <div
             key={item.id}
-            onMouseEnter={() => setPaused(true)}
-            onMouseLeave={() => setPaused(false)}
-            onFocus={() => setPaused(true)}
-            onBlur={() => setPaused(false)}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             className="pointer-events-auto flex items-center gap-3 rounded-lg bg-surface-3 px-4 py-3 text-base shadow-raised"
           >
             {item.kind === "error" ? <CircleAlert size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-danger" /> : <Check size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-success" />}
@@ -48,7 +51,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 onClick={() => {
                   item.undo?.();
                   setItem(null);
-                  setPaused(false);
+                  setHovered(false);
+                  setFocused(false);
                 }}
               >
                 Undo

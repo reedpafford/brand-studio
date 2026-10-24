@@ -44,7 +44,7 @@ function Frame({ title, onClose, className, grabber, children }: { title: string
   const panel = useOverlay(onClose);
   return (
     <>
-      <button type="button" aria-label="Close" tabIndex={-1} className="fixed inset-0 z-30 bg-scrim" onClick={onClose} />
+      <div aria-hidden onClick={onClose} className="fixed inset-0 z-30 bg-scrim" />
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className={`fixed z-30 flex flex-col bg-surface shadow-overlay ${className}`}>
         {grabber && <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-border-strong" />}
         <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -95,7 +95,7 @@ export function Dialog({
   const panel = useOverlay(onCancel);
   return (
     <>
-      <button type="button" aria-label="Close" tabIndex={-1} className="fixed inset-0 z-30 bg-scrim" onClick={onCancel} />
+      <div aria-hidden onClick={onCancel} className="fixed inset-0 z-30 bg-scrim" />
       <div ref={panel} role="alertdialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className="fixed left-1/2 top-1/2 z-30 w-[calc(100%-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-5 shadow-overlay">
         <h2 id={heading} className="font-display text-xl font-bold">
           {title}
