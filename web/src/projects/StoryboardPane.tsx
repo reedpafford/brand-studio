@@ -345,7 +345,7 @@ function FrameCard(props: {
           </div>
           {redo !== null && !phone && redoForm}
           {redo !== null && phone && (
-            <Sheet title={`Redo clip ${f.clip_id}`} onClose={() => setRedo(null)}>
+            <Sheet title={`Redo clip ${f.clip_id}`} closeLabel="Cancel" onClose={() => setRedo(null)}>
               {redoForm}
             </Sheet>
           )}

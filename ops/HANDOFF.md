@@ -1,4 +1,4 @@
-as of 17bc8c6 · 2026-10-24 00:08 UTC
+as of 1691d19 · 2026-10-24 00:14 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -30,23 +30,26 @@ as of 17bc8c6 · 2026-10-24 00:08 UTC
 ## Definition of done (Reed, ops/MISSION.md)
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
-- Progress: first Iron Paws (peanut butter) excerpt has run; Reed's verdict is in DECISIONS.md (#125: main text on the bag must read right, small print may be garbled) and its fixes merged in #124. Per the Producer, Reed approved it. The fomo trading montage is being re-run with Reed's new montage rules (#131, #135); that re-run is not visible on GitHub yet.
-## Open PRs (10, not counting the Scribe's own)
+- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); his verdict is in DECISIONS.md (#125: main text on the bag must read right, small print may be garbled) and the fixes (dry eyes on the healed beat, pitbull drift) merged in #124. The fomo trading montage ran once ($1.87 per the Producer); Reed's notes are in DECISIONS.md and #131 (hero in every shot, creative wealth beats, logo/UI right, numbers free). It re-runs after #135 merges. Excerpt spend $5.54 of the $8.30 approved, logged in ops/SPEND.md on #119 (not on main yet).
+## Open PRs (13, not counting the Scribe's own)
 - #118 Quick clip: Improve prompt (screen) | Builder-Screens | in review (its server half #117 is merged)
-- #119 Iron Paws: full-size peanut butter bag (scoop removed) + spend log | Producer | in review
-- #128 Local runs: BS_FAKE_PROVIDERS switch for free stand-ins | Builder-Server | QA at 54c6a36: 1 must-fix (production must refuse the flag, plus a test)
-- #133 Approvals: the owner's screen for held projects and jobs | Builder-Screens | Designer: 3 must-fixes (More badge wraps on phones, "Quick clip · Quick clip", show the limit)
+- #119 Iron Paws: full-size peanut butter bag (scoop removed) + spend log | Producer | in review; head since moved to 11e9955
+- #128 Local runs: BS_FAKE_PROVIDERS switch for free stand-ins | Builder-Server | QA passed (91cf778; production now refuses the flag)
+- #133 Approvals: the owner's screen for held projects and jobs | Builder-Screens | Designer re-check passed (291b0a2); QA not seen
 - #134 Cut-ins: real brand picture over insert shots when the video is made | Builder-Server | in review
-- #135 Nobody speaks unless scripted; montages: hero in every shot, wealth payoffs; screen numbers free | Director | in review
+- #135 Nobody speaks unless scripted; montages: hero in every shot, wealth payoffs | Director | QA at 56c569e: 1 must-fix (`test_improve_then_generate_as_is` expects the old "shown exactly" wording); head since moved to 9e60170
 - #136 Claude answers: drop stray control characters before saving | Builder-Server | in review
-- #137 Brand screens: Product and Variant, Edit a screen | Builder-Screens | Designer: 2 must-fixes (Done discards edits, Delete 19 px on phones)
-- #138 Project: credits left per stage under the budget meter | Builder-Screens | Designer: 1 must-fix (opening the list pushes the page down)
+- #137 Brand screens: Product and Variant, Edit a screen | Builder-Screens | Designer: 2 must-fixes (Done discards edits, Delete 19 px on phones); head since moved to 6ade551
+- #138 Project: credits left per stage under the budget meter | Builder-Screens | Designer: 1 must-fix (opening the list pushes the page down); head since moved to a43d9c4
 - #139 fomo: Home screen also counts for the win moment | Producer | in review
 - #140 Clips: "Use the real image" switch per insert | Builder-Screens | in review
+- #142 Approvals spec: planned length no longer waits for Reed | Designer | in review
+- #143 Approvals: who asked, and a job's cost in dollars for the owner | Builder-Server | in review
+- #144 Files: answer byte-range requests so phones can play videos | Builder-Server | in review
 ## Next
-- Builder-Screens: Designer fixes on #133, #137, #138; land #118, #140.
-- Builder-Server: #128's production check; #134 cut-ins; #136.
-- Director: land #135; re-run the fomo excerpt; paid runs only with Producer approval, logged in ops/SPEND.md.
+- Builder-Screens: Designer fixes on #137, #138; land #133, #118, #140.
+- Builder-Server: #134 cut-ins; #136; #143 and #144.
+- Director: fix #135's test, then re-run the fomo excerpt; paid runs only with Producer approval, logged in ops/SPEND.md.
 - Release: the deploy stack is merged (#112); the live deploy is not tracked on GitHub yet.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed

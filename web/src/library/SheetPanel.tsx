@@ -161,7 +161,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           )}
         </div>
       )}
-      {redoing !== null && !drawing && !held && (phone ? <Sheet title="Redo the sheet" onClose={() => setRedoing(null)}>{redoForm}</Sheet> : redoForm)}
+      {redoing !== null && !drawing && !held && (phone ? <Sheet title="Redo the sheet" closeLabel="Cancel" onClose={() => setRedoing(null)}>{redoForm}</Sheet> : redoForm)}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
     </section>
   );
