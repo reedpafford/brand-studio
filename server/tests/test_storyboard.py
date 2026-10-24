@@ -5,7 +5,9 @@ import json
 
 import httpx2 as httpx
 
+from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
+from app.models.storyboards import StoryboardFrame
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import PNG, upload
@@ -64,6 +66,17 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     too_many = {"prompt": "x", "reference_ids": [char] * 5}
     over = editor.put(f"{url}/frames/{frames[0]['id']}", json=too_many).json()
     assert over["problems"] == ["c1: more references than the image model keeps"]
+    bd = db.get(BreakdownVersion, db.get(StoryboardFrame, frames[0]["id"]).breakdown_id)
+    shot = bd.data["scenes"][0]["shots"][0]
+    bd.data = {
+        **bd.data,
+        "scenes": [{**bd.data["scenes"][0], "shots": [{**shot, "character_ids": [char]}]}],
+    }
+    db.commit()
+    no_mom = editor.put(
+        f"{url}/frames/{frames[0]['id']}", json={"prompt": "x", "reference_ids": []}
+    )
+    assert no_mom.json()["problems"] == [f"c1: {char} in the shot without a sheet"]
 
     editor.put(f"/projects/{setup['project']}/breakdown", json=BREAKDOWN)  # a newer breakdown
     assert editor.get(url).json()[0]["stale"] is True
