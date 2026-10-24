@@ -81,6 +81,7 @@ test("an invite link that is not valid says so and offers no form", async () => 
   expect(await screen.findByRole("alert")).toHaveTextContent("This invite link is not valid any more.");
   expect(screen.getByText("Ask whoever invited you to send a new link.")).toBeInTheDocument();
   expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
 });
 
 test("setup tells you when the studio already exists", async () => {

@@ -70,6 +70,12 @@ export function InvitePage() {
           <h1 className="text-xl font-semibold">Invite not valid</h1>
           <p role="alert">{invite.error.message}</p>
           <p className="text-muted">Ask whoever invited you to send a new link.</p>
+          <p>
+            Already have an account?{" "}
+            <Link className={`${linkText} inline-flex min-h-11 items-center sm:min-h-0`} to="/login">
+              Log in
+            </Link>
+          </p>
         </div>
       </main>
     );
