@@ -99,3 +99,13 @@ def claude_stream(
         ("message_stop", {"type": "message_stop"}),
     ]
     return "".join(f"event: {e}\ndata: {json.dumps(d)}\n\n" for e, d in events).encode()
+
+
+def with_sheet(db, item_id: int) -> None:
+    """Give a character or place an approved house-style sheet (its first picture), as if an
+    editor had made and approved one; only approved sheets reach generations."""
+    from app.models.library import LibraryItem
+
+    item = db.get(LibraryItem, item_id)
+    item.sheet_file_id, item.sheet_approved = item.image_file_ids[0], True
+    db.commit()

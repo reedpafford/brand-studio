@@ -11,8 +11,10 @@ from app.routes import (
     credits,
     drafts,
     enhance,
+    estimate,
     files,
     health,
+    improve,
     jobs,
     library,
     models,
@@ -20,17 +22,19 @@ from app.routes import (
     projects,
     screens,
     scripts,
+    sheets,
     storyboard,
     team,
 )
 from app.routes.scripts import MAX_DOC_BYTES
-from app.settings import Settings, get_settings
+from app.settings import Settings, check_production, get_settings
 from app.storage import LocalStorage
 from app.upload_limit import UploadLimit
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    check_production(settings)
     app = FastAPI(title="Brand Studio API", version="0.1.0")
     app.state.settings = settings
     app.state.sessionmaker = make_sessionmaker(settings.database_url)
@@ -43,9 +47,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         brands,
         screens,
         library,
+        sheets,
         jobs,
         projects,
         credits,
+        estimate,
         models,
         scripts,
         enhance,
@@ -53,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         breakdown,
         storyboard,
         project_clips,
+        improve,
         clips,
     ):
         app.include_router(module.router)

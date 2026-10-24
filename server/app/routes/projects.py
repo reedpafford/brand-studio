@@ -14,6 +14,7 @@ from app.auth import current_user, owner_only
 from app.credits import credits_used, get_limits, lock, over_cap
 from app.db import get_db
 from app.models.accounts import User
+from app.models.brands import BrandScreen
 from app.models.credits import BUDGET_MULTIPLIER
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind
@@ -38,6 +39,7 @@ class BriefPatch(BaseModel):
     format: ShortText | None = None
     cast_ids: list[int] | None = None  # library characters
     reference_file_id: int | None = None  # a video
+    product_variants: dict[str, str] | None = None  # product -> the variant this video shows
     reference_breakdown: dict | None = None  # the reel to adapt (docs/references shape)
     reference_replace: LongText | None = None  # which part to rebuild, e.g. "the montage"
 
@@ -65,6 +67,7 @@ class ProjectOut(BaseModel):
     format: str
     cast_ids: list[int]
     reference_file_id: int | None
+    product_variants: dict[str, str]
     reference_breakdown: dict | None
     reference_replace: str
     estimate_credits: float
@@ -115,7 +118,23 @@ def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
             get_file(db, user, value, "video")
         elif field == "reference_breakdown" and value is not None:
             value = reference.checked(value)
+        elif field == "product_variants":
+            value = _check_variants(db, project.brand_id, value)
         setattr(project, field, value)
+
+
+def _check_variants(db: Session, brand_id: int, chosen: dict[str, str]) -> dict[str, str]:
+    """Each chosen variant must be one of the brand's versions of that product."""
+    screens = db.scalars(select(BrandScreen).where(BrandScreen.brand_id == brand_id))
+    offered: dict[str, set[str]] = {}
+    for s in screens:
+        if s.product and s.variant:
+            offered.setdefault(s.product, set()).add(s.variant)
+    for product, variant in chosen.items():
+        if variant not in offered.get(product, set()):
+            options = ", ".join(sorted(offered.get(product, []))) or "none"
+            raise HTTPException(422, f"{product} comes in: {options}.")
+    return chosen
 
 
 def _set_length(db: Session, user: User, project: Project, seconds: int) -> None:
@@ -130,8 +149,6 @@ def _set_length(db: Session, user: User, project: Project, seconds: int) -> None
     project.planned_seconds = seconds
     if user.is_owner:
         project.status, project.approved_by_id = ProjectStatus.active, user.id
-    elif seconds > get_limits(db, user.workspace_id).max_planned_seconds:
-        project.status = ProjectStatus.needs_owner_approval
 
 
 @router.get("", response_model=list[ProjectOut])

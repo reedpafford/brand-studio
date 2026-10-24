@@ -1,4 +1,8 @@
 # Decisions (newest first; one line each, with date)
+- 2026-10-23 (Reed) App screens (fomo) don't need to be pixel-exact: the logo and UI must be right; balances, prices and other numbers can be invented. The "Use the real image" cut-in is optional for screens too (default off).
+- 2026-10-23 (Reed) Montages: the main character is in every shot. When growing wealth matters to the story, show it creatively with escalating payoffs the character is part of (e.g. a big balance on the fomo screen, buying a car, a penthouse, walking out on the balcony), not empty rooms or coin prices.
+- 2026-10-23 (Reed) Product exactness means the main text reads right: brand name, the main claim line and the flavour label. Garbled small print (badge sub-text, net weight) is acceptable.
+- 2026-10-23 (Reed) Character sheets: an uploaded person photo becomes a house-style front/side/back sheet (no labels); the editor approves or redoes it; frames and clips use only the approved sheet, never the raw photo.
 - 2026-10-23 (Reed) Definition of done: an editor on the live site makes the fomo altar-rejection reel and Iron Paws Pitbull 1 from brief to final cut without agent help, and Reed signs off. Details in ops/MISSION.md.
 - 2026-10-23 (Reed) Live-action segments in reference reels are always removed or replaced, by default with a brand CTA (fomo: "Want to trade like me? Download fomo through the link in my bio.").
 - 2026-10-23 (Reed) Day-to-day testing uses 15–30 s excerpts at 480p inside the $15/week test cap, estimate first.

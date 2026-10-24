@@ -486,6 +486,43 @@
     ],
     "min_screen_shots": 3
    }
+  },
+  {
+   "id": "ironpaws-healed-payoff",
+   "brand": "iron-paws-pb",
+   "steps": [
+    "breakdown",
+    "clip_prompts"
+   ],
+   "brief": "Iron Paws paid ad excerpt, about 12 s, stylized 3D animated. The pitbull narrates (voiceover). The payoff: his eyes and paws are healed.",
+   "cast": [
+    "char:1 Tank, the pitbull (narrator): brindle coat, white chest blaze",
+    "char:2 Maya, his owner, a woman in her 30s"
+   ],
+   "places": [
+    "place:1 Her kitchen in the morning"
+   ],
+   "script": [
+    "Three weeks later she knelt down with a tissue, out of habit. There was nothing to wipe."
+   ],
+   "good": [
+    "Tank's eyes are clean, clear and dry; Maya can be moved, but no tears on the dog.",
+    "Tank stays brindle with the white blaze in every shot."
+   ],
+   "expect": {
+    "clips": [
+     1,
+     1
+    ],
+    "clip_absent": [
+     "tear",
+     "crust",
+     "wet"
+    ],
+    "clip_present": [
+     "brindle"
+    ]
+   }
   }
  ]
 }

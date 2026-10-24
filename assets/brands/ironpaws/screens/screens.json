@@ -1,4 +1,4 @@
 {
-  "bag.webp": {"name": "Iron Paws bag (front)", "tags": ["product", "bag"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"]},
-  "bag-peanut-butter.png": {"name": "Iron Paws bag, peanut butter (front)", "tags": ["product", "bag", "peanut-butter"], "default_for": []}
+  "bag.webp": {"name": "Chicken bag", "tags": ["product", "bag"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"], "product": "bag", "variant": "Chicken"},
+  "bag-peanut-butter.png": {"name": "Peanut butter bag", "tags": ["product", "bag", "peanut-butter"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"], "product": "bag", "variant": "Peanut butter"}
 }

@@ -45,7 +45,7 @@ const studio: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]],
   "GET /models": [200, [seedance, older]],
-  "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
+  "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [], sheet_status: "approved" }]],
   "GET /library/place": [200, []],
   "GET /library/prop": [200, []],
   "GET /brands/1/screens": [200, [buy]],

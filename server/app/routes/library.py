@@ -1,16 +1,18 @@
 """Characters, places and props, filtered by brand. Edits keep a version history."""
 
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.auth import current_user, owner_only
 from app.db import get_db
 from app.models.accounts import User
 from app.models.brands import Brand
+from app.models.jobs import Job, JobStatus
 from app.models.library import Kind, LibraryItem, LibraryItemVersion
 from app.routes.brands import get_brand
 from app.routes.files import get_file
@@ -31,6 +33,8 @@ class ItemIn(BaseModel):
     image_file_ids: list[int] = []
     outfits: list[Outfit] = []  # characters only
     voice_file_id: int | None = None  # characters only
+    # Characters and places: a photo kept as source material only, never used in videos.
+    source_photo_file_id: int | None = None
 
 
 class ItemPatch(BaseModel):
@@ -42,12 +46,15 @@ class ItemPatch(BaseModel):
     image_file_ids: list[int] | None = None
     outfits: list[Outfit] | None = None
     voice_file_id: int | None = None
+    source_photo_file_id: int | None = None
 
 
 class ItemOut(ItemIn):
     id: int
     kind: Kind
     version: int
+    sheet_file_id: int | None  # the house-style sheet; only an approved one is used in videos
+    sheet_status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
 
 
 class VersionOut(BaseModel):
@@ -65,11 +72,38 @@ def _snapshot(item: LibraryItem) -> dict:
         "image_file_ids": item.image_file_ids,
         "outfits": item.outfits,
         "voice_file_id": item.voice_file_id,
+        "source_photo_file_id": item.source_photo_file_id,
+        "sheet_file_id": item.sheet_file_id,
+        "sheet_approved": item.sheet_approved,
     }
 
 
+def sheet_status(item: LibraryItem) -> str:
+    """Worked out, not stored, so a failed sheet job never leaves it stuck at "drawing"."""
+    db = object_session(item)
+    waiting = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
+    jobs = (
+        db.scalars(
+            select(Job).where(Job.workspace_id == item.workspace_id, Job.status.in_(waiting))
+        )
+        if db
+        else []
+    )
+    mine = [j for j in jobs if j.input.get("library_item_id") == item.id]
+    if any(j.status == JobStatus.needs_owner_approval for j in mine):
+        return "waiting_for_owner"  # over the editor's allowance: held until the owner says yes
+    if mine:
+        return "drawing"
+    if not item.sheet_file_id:
+        return "none"
+    return "approved" if item.sheet_approved else "needs_approval"
+
+
 def _out(item: LibraryItem) -> ItemOut:
-    return ItemOut(id=item.id, kind=item.kind, version=item.version, **_snapshot(item))
+    data = {k: v for k, v in _snapshot(item).items() if k != "sheet_approved"}
+    return ItemOut(
+        id=item.id, kind=item.kind, version=item.version, sheet_status=sheet_status(item), **data
+    )
 
 
 def get_item(
@@ -100,10 +134,14 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
         get_file(db, user, file_id, "image")
     if values.get("voice_file_id"):
         get_file(db, user, values["voice_file_id"], "audio")
+    if values.get("source_photo_file_id"):
+        if item.kind == Kind.prop:
+            raise HTTPException(422, "Only characters and places have a source photo.")
+        get_file(db, user, values["source_photo_file_id"], "image")
     if "brand_ids" in values:
         item.brands = [get_brand(db, user, b) for b in sorted(set(values.pop("brand_ids")))]
     for field, value in values.items():
-        if value is not None or field == "voice_file_id":
+        if value is not None or field in ("voice_file_id", "source_photo_file_id"):
             setattr(item, field, value)
 
 
@@ -164,6 +202,7 @@ def update_item(
     item = get_item(db, user, kind, item_id)
     _save_version(db, user, item)
     _apply(db, user, item, body.model_dump(exclude_unset=True))
+    item.sheet_approved = False  # any edit (a new photo included) needs the sheet approved again
     db.commit()
     return _out(item)
 

@@ -9,7 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.catalogue import CatalogueModel, catalogue
-from app.enhance import escape, project_context, screens_of
+from app.enhance import escape, project_context, project_screens, screen_name
 from app.images import image_job_input, image_model_block
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
@@ -18,7 +18,8 @@ from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
-from app.prompts.schemas import Frame, StoryboardFrames
+from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
+from app.sheets import require_cast_sheets, require_sheet, usable_files
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
@@ -43,12 +44,13 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         if item.kind != Kind.character and not in_brand:
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
-        out[key] = (f"{key} | {item.kind} | {item.name} | {item.notes}", item.image_file_ids)
+        out[key] = (f"{key} | {item.kind} | {item.name} | {item.notes}", usable_files(item))
     brand = db.get(Brand, project.brand_id)
-    for s in screens_of(db, brand):
+    for s in project_screens(db, project):
         product = "product" in s.tags  # e.g. the Iron Paws bag: shown as a product, no face
         kind, what = ("product", "product") if product else ("screen", "app screen")
-        line = f"screen:{s.id} | {kind} | {s.name} | {brand.name} {what}, {', '.join(s.tags)}"
+        name = screen_name(s)
+        line = f"screen:{s.id} | {kind} | {name} | {brand.name} {what}, {', '.join(s.tags)}"
         out[f"screen:{s.id}"] = (line, [s.file_id])
     return out
 
@@ -73,11 +75,13 @@ def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: boo
     }
 
 
-def frame_problems(db: Session, project: Project, frame: Frame) -> list[str]:
+def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: int) -> list[str]:
+    """With the frame's breakdown, a character in the shot but not attached is flagged too."""
     m = image_model()
     known = assets(db, project)
+    bd = Breakdown.model_validate(db.get(BreakdownVersion, breakdown_id).data)
     problems = check.storyboard(
-        StoryboardFrames(frames=[frame]), m.max_reference_images, m.max_character_images
+        StoryboardFrames(frames=[frame]), m.max_reference_images, m.max_character_images, bd
     )
     problems += [
         f"{frame.clip_id}: unknown reference {r}" for r in frame.reference_ids if r not in known
@@ -100,7 +104,7 @@ def save_frames(db: Session, job: Job) -> None:
                 shot_id=f.shot_id,
                 prompt=f.prompt,
                 reference_ids=f.reference_ids,
-                problems=frame_problems(db, project, f),
+                problems=frame_problems(db, project, f, job.input["breakdown_id"]),
             )
         )
 
@@ -109,11 +113,15 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     """The Nano Banana job for one frame's still: the project's aspect ratio (always sent),
     character sheets first, then the place, props and screens, in the frame's order."""
     known = assets(db, project)
+    breakdown = db.get(BreakdownVersion, frame.breakdown_id)
+    require_cast_sheets(db, breakdown.data, [frame.shot_id])
     characters, objects = [], []
     for ref in frame.reference_ids:
         if ref not in known:
             raise HTTPException(409, f"{ref} is no longer part of this project. Edit the frame.")
-        files = known[ref][1][:1]  # an item's first picture is its sheet / main reference
+        files = known[ref][1][:1]  # the approved sheet (characters, places) or main picture
+        if not files and ref.startswith(("char:", "place:")):
+            require_sheet(db.get(LibraryItem, int(ref.split(":")[1])))
         (characters if ref.startswith("char:") else objects).extend(files)
     prompt = f"{frame.prompt}\nChange from the last still: {note}" if note else frame.prompt
     job = image_job_input(

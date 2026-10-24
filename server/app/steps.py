@@ -14,12 +14,16 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_prompts import save_clip_prompts
     from app.clip_takes import save_take
     from app.enhance import save_suggestions
+    from app.routes.improve import save_improved
+    from app.routes.sheets import save_sheet
     from app.storyboard import save_frames, save_still
 
     handlers = {
         "enhance": save_suggestions,
         "breakdown": save_breakdown,
         "storyboard": save_frames,
+        "improve": save_improved,
+        "sheet": save_sheet,
         "frame": save_still,
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,

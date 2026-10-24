@@ -19,6 +19,10 @@ SCREEN_LINE = "★"
 TAG = re.compile(r"^\[[A-Za-z ]+\] ")  # accepted Enhance lines: "[Camera] …", "[Brand screen] ★ …"
 AUDIO_LINE = re.compile(r"^Audio: only the spoken lines and .+ No subtitles\.$")
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
+FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23
+    r"\b(leggings|laps?|thighs?|cleavage|crust\w*|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
+    re.I,
+)
 SETTINGS_WORDS = re.compile(r"\b\d+:\d+\b|\b(480|720|1080)p\b")
 
 
@@ -120,6 +124,9 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             problems.append(f"{c.clip_id}: doesn't name [Image1] the first frame")
         cast = [r.id for r in c.references if r.id.startswith("char:")]
         first_seen = list(dict.fromkeys(i for s in clip.shot_ids for i in shots[s].character_ids))
+        for i in first_seen:
+            if i not in cast:
+                problems.append(f"{c.clip_id}: {i} is in the clip but its sheet isn't attached")
         if cast != [i for i in first_seen if i in cast]:
             problems.append(f"{c.clip_id}: characters aren't attached in the order they appear")
         if c.seconds != clip.seconds:
@@ -127,16 +134,28 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
     return problems
 
 
-def storyboard(frames: StoryboardFrames, max_images: int, max_characters: int) -> list[str]:
+def storyboard(
+    frames: StoryboardFrames, max_images: int, max_characters: int, bd: Breakdown | None = None
+) -> list[str]:
+    shots = {shot.id: shot for scene in bd.scenes for shot in scene.shots} if bd else {}
     problems = []
     for f in frames.frames:
         characters = [r for r in f.reference_ids if r.startswith("char:")]
         if len(f.reference_ids) > max_images or len(characters) > max_characters:
             problems.append(f"{f.clip_id}: more references than the image model keeps")
+        cast = shots[f.shot_id].character_ids if f.shot_id in shots else []
+        missing = [i for i in cast if i not in characters]
+        if missing and len(characters) < max_characters:
+            problems.append(f"{f.clip_id}: {', '.join(missing)} in the shot without a sheet")
+        flagged = sorted({w.lower() for w in FLAGGED.findall(f.prompt)})
+        if flagged:
+            problems.append(
+                f"{f.clip_id}: the image model may refuse “{', '.join(flagged)}”; say it gently"
+            )
     return problems
 
 
-SHOT_LINE = re.compile(r"^Shot \d+ \| (\d+)–(\d+) s\.", re.M)
+SHOT_LINE = re.compile(r"^Shot \d+ \| (\d+)[-–](\d+) s\.", re.M)  # hyphen or en dash
 
 
 def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:

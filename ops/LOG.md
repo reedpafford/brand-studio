@@ -1,6 +1,14 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-23 23:04 · #108 Character sheet and place still prompts (Nano Banana, house style) merged
+- 2026-10-23 23:04 · #113 Clips pane support: clip on jobs, Redo note, take cost, un-approve merged
+- 2026-10-23 23:04 · #107 Reference reels: live action becomes the brand CTA; definition-of-done eval cases merged
+- 2026-10-23 23:01 · #111 Library spec: photo → house-style sheet → approve (only approved sheets go in videos) merged
+- 2026-10-23 23:01 · #103 Specs: brief product picker, no length note; end line is the last clip merged
+- 2026-10-23 22:59 · #104 Clips pane: takes, pick, approve, make the video, download merged
+- 2026-10-23 22:56 · #98 House style in the prompts: new fomo worked examples, style lines, pacing; old gold examples gone merged
+- 2026-10-23 22:55 · #105 ops: HANDOFF/LOG refresh 2026-10-23 22:41Z merged (by the Producer)
 - 2026-10-23 22:53 · #106 Library spec: Make sheet for characters and places merged
 - 2026-10-23 22:53 · #101 ops: Reed's definition of done + new cost, flavour and live-action decisions; remove old gold examples and fomo style board merged
 - 2026-10-23 22:53 · Decisions in DECISIONS.md (#101): per-video cap $75 (729 credits) replaces $35; 2x budget kept, 170 s editor limit dropped; Iron Paws flavour per project; live-action segments in references become the brand CTA; 15–30 s excerpt testing. MISSION.md gets Reed's Definition of done.

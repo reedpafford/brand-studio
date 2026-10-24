@@ -5,11 +5,13 @@ import json
 
 import httpx2 as httpx
 
+from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
+from app.models.storyboards import StoryboardFrame
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import PNG, upload
-from tests.helpers import assert_hidden, assert_no_dollars
+from tests.helpers import assert_hidden, assert_no_dollars, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_replicate import BASE
@@ -39,6 +41,7 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     mom = editor.post(
         "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
     ).json()["id"]
+    with_sheet(db, mom)
     editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom]})
     _with_breakdown(app, db, editor, setup)
 
@@ -63,6 +66,17 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     too_many = {"prompt": "x", "reference_ids": [char] * 5}
     over = editor.put(f"{url}/frames/{frames[0]['id']}", json=too_many).json()
     assert over["problems"] == ["c1: more references than the image model keeps"]
+    bd = db.get(BreakdownVersion, db.get(StoryboardFrame, frames[0]["id"]).breakdown_id)
+    shot = bd.data["scenes"][0]["shots"][0]
+    bd.data = {
+        **bd.data,
+        "scenes": [{**bd.data["scenes"][0], "shots": [{**shot, "character_ids": [char]}]}],
+    }
+    db.commit()
+    no_mom = editor.put(
+        f"{url}/frames/{frames[0]['id']}", json={"prompt": "x", "reference_ids": []}
+    )
+    assert no_mom.json()["problems"] == [f"c1: {char} in the shot without a sheet"]
 
     editor.put(f"/projects/{setup['project']}/breakdown", json=BREAKDOWN)  # a newer breakdown
     assert editor.get(url).json()[0]["stale"] is True
@@ -123,6 +137,7 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     mom = editor.post(
         "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
     ).json()
+    with_sheet(db, mom["id"])
     editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom["id"]]})
     _with_breakdown(app, db, editor, setup)
     url = f"/projects/{setup['project']}/storyboard"
@@ -144,6 +159,29 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     still = editor.get(url).json()[0]["file_id"]
     assert still and editor.get(f"/files/{still}").content == PNG
     assert job.json()["frame_id"] == frame["id"] and job.json()["step"] == "frame"
+    from app.models.library import LibraryItem
+
+    db.get(LibraryItem, mom["id"]).sheet_approved = False  # e.g. Mom was edited since
+    db.commit()
+    r = editor.post(f"{url}/frames/{frame['id']}/render")
+    assert (r.status_code, r.json()["detail"]) == (422, "Approve Mom's sheet first.")
+    with_sheet(db, mom["id"])
+    # A place named in the frame's shot needs an approved sheet too, even if the frame
+    # doesn't attach it: editors find out here, before spending on stills.
+    from app.models.breakdowns import BreakdownVersion
+
+    kitchen = editor.post(
+        "/library/place",
+        json={"name": "Kitchen", "image_file_ids": [upload(editor)]},
+    ).json()["id"]
+    bd = db.get(BreakdownVersion, frame_breakdown(db, frame["id"]))
+    data = copy.deepcopy(bd.data)
+    data["scenes"][0]["shots"][0]["place_id"] = f"place:{kitchen}"
+    bd.data = data
+    db.commit()
+    r = editor.post(f"{url}/frames/{frame['id']}/render")
+    assert (r.status_code, r.json()["detail"]) == (422, "Approve Kitchen's sheet first.")
+    with_sheet(db, kitchen)
     fid = frame["id"]
     assert editor.post(f"{url}/frames/{fid}/approve").json()["approved"] is True
     assert editor.delete(f"{url}/frames/{fid}/approve").json()["approved"] is False
@@ -185,3 +223,9 @@ def test_products_are_labelled_as_products(app, db, editor, setup):  # noqa: F81
     lines = {k: line for k, (line, _) in assets(db, db.get(Project, setup["project"])).items()}
     assert lines[f"screen:{bag}"].startswith(f"screen:{bag} | product | Bag | fomo product,")
     assert "fomo app screen" in lines[f"screen:{setup['screen']}"]
+
+
+def frame_breakdown(db, frame_id):
+    from app.models.storyboards import StoryboardFrame
+
+    return db.get(StoryboardFrame, frame_id).breakdown_id
