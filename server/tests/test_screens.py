@@ -108,10 +108,11 @@ def test_real_fomo_assets_import_with_names_moments_and_logo(app, owner, db):
 
     folder = Path(Settings().brand_assets_dir) / "fomo" / "screens"
     fomo = db.query(Brand).filter_by(slug="fomo").one()
-    assert import_screens(db, app.state.storage, fomo, folder) == 4
+    assert import_screens(db, app.state.storage, fomo, folder) == 5
     screens = {s["name"]: s for s in owner.get(f"/brands/{fomo.id}/screens").json()}
     assert screens["Token chart up"]["default_for"] == ["trading", "win"]
     assert screens["Home"]["tags"] == ["home", "mobile"]
+    assert screens["Home (rich)"]["default_for"] == ["win"]  # the got-rich payoff, not $0.00
     kit = owner.get(f"/brands/{fomo.id}").json()
     assert kit["logo_file_id"] and kit["style_board_file_id"] is None
     assert owner.get(f"/files/{kit['logo_file_id']}").headers["content-type"] == "image/png"
@@ -134,7 +135,7 @@ def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
     brands = {b["slug"]: b["id"] for b in client.get("/brands").json()}
     fomo = client.get(f"/brands/{brands['fomo']}/screens").json()
     bag = client.get(f"/brands/{brands['iron-paws']}/screens").json()
-    assert len(fomo) == 4
+    assert len(fomo) == 5
     assert [(s["name"], s["tags"]) for s in bag] == [
         ("Chicken bag", ["bag", "product"]),
         ("Peanut butter bag", ["bag", "peanut-butter", "product"]),
