@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
-import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices } from "./BriefPickers";
+import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useLongestSeconds } from "./BriefPickers";
 import { backLink, btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 
 const ASPECTS = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
@@ -22,8 +22,7 @@ export function NewProjectPage() {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
 
   const { characters, products, chosen, unchosen } = useBriefChoices(brandId, picks);
-  const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
-  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 364; // budget is 2x the 480p seconds
+  const longest = useLongestSeconds();
 
   const upload = useMutation({ mutationFn: uploadFile, onSuccess: (f) => setReference(f.id) });
   const create = useMutation({
@@ -106,15 +105,16 @@ export function NewProjectPage() {
           <span className="block text-muted">Budget: {form.seconds * 2} credits (twice the length).</span>
         </label>
         <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
-        <ReferencePicker value={reel.id} replace={reel.replace} onChange={(id, replace) => setReel({ id, replace })} />
         <FlavourPicker products={products} chosen={chosen} onPick={(product, variant) => setPicks({ ...picks, [product]: variant })} />
+        <ReferencePicker value={reel.id} replace={reel.replace} onChange={(id, replace) => setReel({ id, replace })} />
         <div className="space-y-1 text-sm">
-          <div className="font-medium">Reference video (optional)</div>
+          <div className="font-medium">Your own example video (optional)</div>
+          <p className="text-muted">Saved with the project so your team can see what you had in mind. Claude does not watch it yet.</p>
           {reference && <video controls src={fileUrl(reference)} className="max-h-48 rounded-sm" />}
           <div className="flex gap-3">
             <label className={`inline-flex min-h-11 cursor-pointer items-center sm:min-h-0 ${linkText}`}>
               {reference ? "Replace" : "Add a video"}
-              <input type="file" accept="video/*" className="sr-only" aria-label="Reference video file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
+              <input type="file" accept="video/*" className="sr-only" aria-label="Your own example video file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
             </label>
             {reference && (
               <button type="button" className={`${linkText} min-h-11 sm:min-h-0`} onClick={() => setReference(null)}>

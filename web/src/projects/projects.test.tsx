@@ -131,3 +131,12 @@ test("without a pick, no reference is sent", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects")).toBe(true));
   expect(calls.find((c) => c.key === "POST /projects")?.body).not.toHaveProperty("reference_id");
 });
+
+test("the upload is called Your own example video and says how it is used, so it is not confused with the reference reels", async () => {
+  fakeServer({ ...base, "GET /references": [200, reels] });
+  renderAt("/b/1/projects/new");
+  expect(await screen.findByText("Adapt a reference reel (optional)")).toBeInTheDocument();
+  expect(screen.getByText("Your own example video (optional)")).toBeInTheDocument();
+  expect(screen.getByText(/Claude does not watch it yet/)).toBeInTheDocument();
+  expect(screen.queryByText("Reference video (optional)")).not.toBeInTheDocument();
+});

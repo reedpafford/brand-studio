@@ -69,6 +69,12 @@ export function ReferencePicker({ value, replace, onChange }: { value: string | 
   );
 }
 
+/** The longest video a brief may plan: half the per-video credit cap (the budget is twice the 480p seconds). */
+export function useLongestSeconds() {
+  const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
+  return limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 364;
+}
+
 export function CastPicker({ characters, cast, onChange }: { characters: Item[] | undefined; cast: number[]; onChange: (cast: number[]) => void }) {
   return (
     <fieldset className="space-y-1 text-sm">

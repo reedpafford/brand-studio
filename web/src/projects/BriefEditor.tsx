@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } from "../ui";
-import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useReferences } from "./BriefPickers";
+import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useLongestSeconds, useReferences } from "./BriefPickers";
 
 type Project = components["schemas"]["ProjectOut"];
 
@@ -20,6 +20,7 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
   const refs = useReferences();
   const [picks, setPicks] = useState<Record<string, string>>(project.product_variants ?? {});
   const { characters, products, chosen, unchosen } = useBriefChoices(project.brand_id, picks);
+  const longest = useLongestSeconds();
   const save = useMutation({
     mutationFn: async () => {
       const { error, response } = await api.PATCH("/projects/{project_id}", {
@@ -100,12 +101,12 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
       </label>
       <label className="block">
         Planned length (seconds)
-        <input className={input} type="number" required min={1} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} />
+        <input className={input} type="number" required min={1} max={longest} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} />
         <span className="block text-muted">Budget: {seconds * 2} credits (twice the length).</span>
       </label>
-      <ReferencePicker value={reel.id} replace={reel.replace} onChange={(id, replace) => setReel({ id, replace })} />
       <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
       <FlavourPicker products={products} chosen={chosen} onPick={(product, variant) => setPicks({ ...picks, [product]: variant })} />
+      <ReferencePicker value={reel.id} replace={reel.replace} onChange={(id, replace) => setReel({ id, replace })} />
       {hasScript && <p className="text-sm text-muted">Saving doesn't rewrite the script or the steps after it. Redo them if the change matters.</p>}
       {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
       <div className="flex gap-2">
