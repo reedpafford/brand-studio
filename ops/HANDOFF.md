@@ -1,4 +1,4 @@
-as of 9d80e59 · 2026-10-24 03:15 UTC
+as of d691915 · 2026-10-24 03:55 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -12,6 +12,7 @@ as of 9d80e59 · 2026-10-24 03:15 UTC
 - Since then: Iron Paws flavour picker on the brief (#114) and product variants + brand end line (#110); cap 729 credits ($75), no editor length limit (#109); house-style character sheets and place stills with owner approval and "Waiting for Reed" (#116, #122, #130), warnings when a cast member has no approved sheet (#129); credits left per stage (#126); storyboard frames work around what the image model refuses (#121); Quick clip Improve prompt (server, #117); PB excerpt fixes (#124); Docker Compose deploy stack for the VPS (#112); specs for sheets, "Use the real image" and prices (#123, #127, #132).
 - Then: Approvals screen for the owner (#133), Product/Variant on brand screens (#137), credits left per stage (#138), Quick clip Improve prompt screen (#118), fomo Home screen counts for the win moment (#139); the whole video flow runs in the browser tests on free stand-ins (#151); gap-hunt fixes: script drafts, Edit brief, character photo, phone stage switch, 44px targets (#152).
 - Also merged: montage rules, nobody speaks unless scripted (#135); stray control characters dropped from Claude answers (#136); real-brand-picture cut-ins over insert shots and the "Use the real image" switch (#134, #140); Approvals show who asked and dollars for the owner (#143, #147, #142); invite page says who invited you (#154, #156); byte-range file requests so phones can play videos (#144); no sideways scroll at 390 (#145); full-size peanut butter bag (#119); automatic deploy to the VPS on every merge to main (#150; skips with a warning unless the server secrets and `VPS_HOST_KEY` are set); `python -m app.seed refresh` makes manifest changes reach live databases (#149).
+- Also merged: payoff screen, named screens, two screens per clip, hero in frame from the first moment (#159); reference reel catalogue picked on the brief, live-action shots dropped (#153, #155); Clips refetch after a take or prompts finish, the real fix for the flaky pipeline e2e (#161); `scripts/fake_run.py` runs both done-test videos end to end on the free stand-ins (#148).
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
 - Director prompts/evals (#30, #36, #41, #54, #75); Iron Paws + fomo seeds (#27, #39); browser tests (#19, #86, #49, #52, #61, #65, #71, #73, #76).
 - Design specs: Breakdown, Storyboard, Clips, Approvals (#79, #80); Prompting guides and FIT rows (#53, #70); house style and gold references from @nateassets (#96).
@@ -33,18 +34,15 @@ as of 9d80e59 · 2026-10-24 03:15 UTC
 ## Definition of done (Reed, ops/MISSION.md)
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
-- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage ran twice; the re-run after #135 is logged in ops/SPEND.md ($1.96). Per the Producer: no speech and the hero in almost every shot now, but the payoff screen showed a coin price instead of the balance; the Director is proposing a fix. Excerpt spend $7.65 of the $8.30 approved (ops/SPEND.md on main).
-## Open PRs (4, not counting the Scribe's own)
-- #159 Payoff screen, named screens, two screens per clip, hero in frame from the first moment | Director | in review (follows the fomo re-run; prompts only, no paid calls)
-- #155 Brief: Adapt a reference reel | Builder-Screens | Designer re-check passed (3a393a3)
-- #153 Reference reels: a catalogue to adapt from, picked on the brief | Builder-Server | QA must-fix at 6c5d137 (`RefShot` has no `style`, so live-action shots are not removed); head since moved to f8582bd
-- #148 scripts/fake_run.py: both done-test videos end to end on the stand-ins | Builder-Server | QA passed at d38d388 before #135 merged; per the Producer it breaks under #135's checks and is back with Builder-Server; head now c1ead03
+- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage ran twice (the re-run after #135 is logged in ops/SPEND.md, $1.96); excerpt spend is $7.65 of the $8.30 approved. #159 fixes the payoff screen showing a coin price. Per the Producer, a third fomo montage run (about $2) would go over the $8.30 batch and waits on Reed, as does a one-time "Home (rich)" brand screen edit ($0.15–0.30).
+## Open PRs
+- None, apart from the Scribe's own refresh PR.
 ## Next
-- Builder-Server: fix #153's `RefShot` style field and test; make #148 pass under #135's checks.
-- Builder-Screens: land #155 once #153 is in.
-- Director: land #159 (payoff screen shows the balance, not a coin price), then re-run the excerpt; paid runs only with Producer approval, logged in ops/SPEND.md.
+- Director: re-run the fomo montage excerpt once Reed approves the extra spend; paid runs only with Producer approval, logged in ops/SPEND.md.
+- Producer / Reed: decide the "Home (rich)" fomo screen and the extra montage run.
 - Release: first live deploy needs Reed's server secrets (not tracked on GitHub).
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
 - Replicate key for the deployed server (later). Keys stay server-side only.
+- Waiting on Reed (per the Producer): the Home (rich) screen ($0.15–0.30) and a montage re-run (about $2, over the $8.30 batch).
 - Reed's sign-off on videos A and B is the finish line.

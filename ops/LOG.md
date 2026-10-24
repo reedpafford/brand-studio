@@ -1,6 +1,12 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-24 03:47 · #155 Brief: Adapt a reference reel merged
+- 2026-10-24 03:46 · #153 Reference reels: a catalogue to adapt from, picked on the brief merged (reel shots keep their style, so live-action shots are dropped)
+- 2026-10-24 03:43 · #161 Clips: fetch the clips again when a take or the prompts finish (fixes the flaky pipeline e2e) merged
+- 2026-10-24 03:39 · #148 scripts/fake_run.py: both done-test videos end to end on the stand-ins merged (stand-ins pass #135's silence check)
+- 2026-10-24 03:16 · #159 Payoff screen, named screens, two screens per clip, hero in frame from the first moment merged
+- 2026-10-24 03:11 · #160 ops: HANDOFF/LOG refresh 2026-10-24 03:15Z merged (by the Producer)
 - 2026-10-24 03:00 · #158 ops: HANDOFF/LOG refresh 2026-10-24 03:05Z merged (by the Producer)
 - 2026-10-24 02:59 · #149 Seed: manifest changes reach live databases (python -m app.seed refresh) merged
 - 2026-10-24 02:57 · #150 Deploy: automatic deploy to the VPS on every merge to main merged
