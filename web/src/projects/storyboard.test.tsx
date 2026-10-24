@@ -202,3 +202,21 @@ test("Redo asks what should change and sends it as the note for that render only
   await userEvent.click(redoButtons[1]);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/render")?.body).toEqual({ note: "Warmer light" }));
 });
+
+test("a frame whose character has no approved sheet says so, links to the character, and is skipped by Make all stills", async () => {
+  const withMia = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [{ id: "1.1", character_ids: ["char:4"], place_id: null }, { id: "2.1", character_ids: [], place_id: null }] }] } };
+  fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, withMia],
+    "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [], sheet_status: "needs_approval" }]],
+    "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2", shot_id: "2.1", reference_ids: [] })]],
+  });
+  open();
+  const first = await screen.findByLabelText("Frame c1");
+  expect(await within(first).findByText(/Mia needs an approved sheet\./)).toBeInTheDocument();
+  expect(within(first).getByRole("link", { name: "Open Mia" })).toHaveAttribute("href", expect.stringContaining("/b/1/library/characters/4?back=%2Fb%2F1%2Fprojects%2F9%3Fstage%3Dstoryboard"));
+  expect(within(first).getByRole("button", { name: /Make still/ })).toBeDisabled();
+  expect(within(screen.getByLabelText("Frame c2")).getByRole("button", { name: /Make still/ })).toBeEnabled();
+  expect(screen.getByText(/1 frame waits for a sheet \(Mia\)\./)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make all stills · 3 credits" })).toBeInTheDocument(); // only the frame that can be made
+});

@@ -5,8 +5,9 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
-import { btnPrimary, input, pageTitle } from "../ui";
+import { btnPrimary, btnSecondary, input, pageTitle } from "../ui";
 import { BrandPieces, useBrandPieces, type Piece } from "./BrandPieces";
+import { ImproveDialog } from "./Improve";
 import { History, isRendering, useJobs } from "./History";
 import { ModelPicker } from "./ModelPicker";
 import { blockedReason, clipCredits, defaultSettings, fit, mentionsMoment, type Model, type Settings } from "./logic";
@@ -47,6 +48,10 @@ function Studio({ models }: { models: Model[] }) {
   const [picked, setPicked] = useState<Piece[]>([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [sent, setSent] = useState("");
+  // Improve prompt: the prompt that was there before (for Undo improve), and whether the box still holds Claude's text.
+  const [improving, setImproving] = useState(false);
+  const [improved, setImproved] = useState(false);
+  const [before, setBefore] = useState<string | null>(null);
   const { pieces, screens, isPending } = useBrandPieces(brandId);
   const jobs = useJobs();
   const allowance = useQuery({
@@ -85,6 +90,7 @@ function Studio({ models }: { models: Model[] }) {
     screen_ids: ids("screen"),
     skip_screen_ids: dismissed.filter((k) => k.startsWith("screen-")).map((k) => Number(k.slice(7))),
     file_ids: [],
+    improved,
   };
   // Ask the server what this would cost and whether Reed must approve it. Nothing is queued.
   const settledBody = useDebounced(body);
@@ -154,9 +160,39 @@ function Studio({ models }: { models: Model[] }) {
           <span className="flex justify-between font-medium">
             Prompt <span className="font-normal text-muted">{prompt.length}/{MAX_PROMPT.toLocaleString()}</span>
           </span>
-          <textarea className={input} rows={6} maxLength={MAX_PROMPT} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+          <textarea className={input} rows={6} maxLength={MAX_PROMPT} value={prompt} onChange={(e) => { setPrompt(e.target.value); setImproved(false); }} />
           <span className="text-muted">Who's in it, what happens, how the camera moves.</span>
         </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={prompt.trim().length < 8} onClick={() => setImproving(true)}>
+            ✦ Improve prompt
+          </button>
+          {before !== null && (
+            <button
+              type="button"
+              className={`${btnSecondary} min-h-11 border-transparent sm:min-h-9`}
+              onClick={() => {
+                setPrompt(before);
+                setImproved(false);
+                setBefore(null);
+              }}
+            >
+              Undo improve
+            </button>
+          )}
+        </div>
+        {improving && (
+          <ImproveDialog
+            body={body}
+            onClose={() => setImproving(false)}
+            onUse={(text) => {
+              setBefore(prompt);
+              setPrompt(text);
+              setImproved(true);
+              setImproving(false);
+            }}
+          />
+        )}
         <BrandPieces
           all={pieces}
           chosen={chosen}
