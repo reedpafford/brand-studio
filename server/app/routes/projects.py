@@ -4,7 +4,7 @@ Editors see credits and % of budget, never dollars."""
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from app.models.credits import BUDGET_MULTIPLIER
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind
 from app.models.projects import Project, ProjectStatus
+from app.routes import references
 from app.routes.brands import get_brand
 from app.routes.files import get_file
 from app.routes.library import get_item
@@ -45,12 +46,14 @@ class BriefPatch(BaseModel):
 
 
 class ProjectIn(BriefPatch):
+    reference_id: str | None = None  # a reel from GET /references: its breakdown is copied in
     brand_id: int
     name: Name
     planned_seconds: int = Field(gt=0, le=3600)
 
 
 class ProjectPatch(BriefPatch):
+    reference_id: str | None = None  # a reel from GET /references: its breakdown is copied in
     name: Name | None = None
     planned_seconds: int | None = Field(None, gt=0, le=3600)
 
@@ -167,7 +170,10 @@ def list_projects(
 
 @router.post("", response_model=ProjectOut, status_code=201)
 def create_project(
-    body: ProjectIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+    body: ProjectIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
     get_brand(db, user, body.brand_id)
     project = Project(
@@ -178,6 +184,8 @@ def create_project(
     )
     _set_length(db, user, project, body.planned_seconds)
     _set_brief(db, user, project, body.model_dump())
+    if body.reference_id:
+        project.reference_breakdown = references.load(request, body.reference_id)
     db.add(project)
     db.commit()
     return _out(db, project)
@@ -194,6 +202,7 @@ def read_project(
 def update_project(
     project_id: int,
     body: ProjectPatch,
+    request: Request,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -203,6 +212,8 @@ def update_project(
     if body.planned_seconds is not None:
         _set_length(db, user, project, body.planned_seconds)
     _set_brief(db, user, project, body.model_dump(exclude_unset=True))
+    if body.reference_id:
+        project.reference_breakdown = references.load(request, body.reference_id)
     db.commit()
     return _out(db, project)
 

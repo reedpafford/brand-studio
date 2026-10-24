@@ -29,10 +29,12 @@ class RefShot(BaseModel):
     emotion: str = Text
     speaker: str | None = None
     line: str | None = Field(None, max_length=2000)
+    style: str = Field("", max_length=2000)  # live-action shots are dropped (reference_block)
 
 
 class ReferenceBreakdown(BaseModel):
     model_config = ConfigDict(extra="ignore")
+    source_id: str = Field("", max_length=80)  # the catalogue reel it came from, if any
     logline: str = Text
     duration_seconds: float = Field(gt=0, le=600)
     hook: Hook
