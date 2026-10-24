@@ -97,7 +97,6 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0
   if (!current || editing !== null) {
     return (
       <div className="space-y-4">
-      {!current && <DraftsPanel projectId={projectId} used={used} budget={budget} />}
       <section className={`${card} space-y-3`} aria-label="Script">
         {!current && (
           <>
@@ -130,6 +129,7 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0
           {upload.isPending && <span className="text-muted">Reading the document…</span>}
         </div>
       </section>
+      {!current && <DraftsPanel projectId={projectId} used={used} budget={budget} />}
       </div>
     );
   }

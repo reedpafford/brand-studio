@@ -165,3 +165,11 @@ test("over the project's budget the drafts button asks Reed", async () => {
   open();
   expect(await screen.findByRole("button", { name: "Ask Reed to approve · 3 credits" })).toBeInTheDocument();
 });
+
+test("the paste box comes first and the drafts offer sits below it", async () => {
+  fakeServer({ ...none, "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
+  open();
+  const paste = await screen.findByLabelText("Script");
+  const drafts = await screen.findByLabelText("Script drafts");
+  expect(paste.compareDocumentPosition(drafts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});

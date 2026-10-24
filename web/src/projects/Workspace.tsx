@@ -104,7 +104,7 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
     return (
       <section className={`${card} space-y-2 text-sm`} aria-label="Script stage">
         <h2 className="text-[length:var(--text-md)] font-semibold">Script</h2>
-        <p className="text-muted">Paste your script or upload a document in the script pane. Every save is kept as a version, and you can come back to any of them from History.</p>
+        <p className="text-muted">Paste your script or upload a document in the script pane, or let Claude write drafts from your brief. Every save is kept as a version, and you can come back to any of them from History.</p>
         <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={!props.hasScript} onClick={() => props.onPick("enhance")}>
           Next: Enhance →
         </button>
