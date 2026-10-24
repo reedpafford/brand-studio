@@ -5,7 +5,7 @@ One column, max 680px, centred on desktop. On phones the amber button sits in th
 ## Order (required first)
 1. **Title** (input). Placeholder: "e.g. Bo tries salmon".
 2. **What's it for?** (textarea, 4 rows, counter "0 / 2,000"). Helper: "A few lines is enough. Claude turns it into a script."
-3. **Planned length (seconds)** (number, 44px, `inputmode=numeric`). Helper: "Budget: {2×s} credits (twice the length)." If the server refuses it, the server's words show below the field in `danger`, with a `CircleAlert` icon. Editors never see dollars.
+3. **Planned length (seconds)** (number, 44px, `inputmode=numeric`). Helper: "Budget: {2×s} credits (twice the length)." There is no length limit. The only hard limit is the per-video cap, checked when the video is made: if the server refuses the plan, its words show below the field in `danger`, with a `CircleAlert` icon, e.g. "This plan would cost more than one video can (729 credits). Shorten it or ask Reed." Editors never see dollars.
 4. **Who's in it**: character chips with a picture, checkbox-style, 44px tall, in a wrapping row. Characters without an approved sheet:
    - show greyed, using the disabled colours
    - add the meta line "Needs an approved sheet" under the chip
