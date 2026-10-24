@@ -103,3 +103,31 @@ test("a product with one flavour is picked for you", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Create project" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects")?.body).toMatchObject({ product_variants: { bag: "Chicken" } }));
 });
+
+const reels = [
+  { id: "fomo-DehudnaAmce", name: "Altar rejection", logline: "A groom is rejected at the altar and turns it into a win.", seconds: 45, style: "3D animated", brand: "fomo", has_thumbnail: true },
+  { id: "other", name: "Other reel", logline: "Something else.", seconds: 20, style: "live", brand: "", has_thumbnail: false },
+];
+
+test("a reference reel can be picked on the brief, with what to replace, and nothing is picked by default", async () => {
+  const calls = fakeServer({ ...base, "GET /references": [200, reels], "POST /projects": [201, project], "GET /projects/9": [200, project], "GET /projects": [200, []] });
+  renderAt("/b/1/projects/new");
+  await userEvent.type(await screen.findByLabelText("Title"), "Altar reel");
+  expect(await screen.findByText("Adapt a reference reel (optional)")).toBeInTheDocument();
+  expect(screen.queryByLabelText(/What to replace/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Altar rejection/ })).toHaveAttribute("aria-pressed", "false");
+  await userEvent.click(screen.getByRole("button", { name: /Altar rejection/ }));
+  await userEvent.type(screen.getByLabelText(/What to replace/), "The reselling montage becomes a fomo trading montage.");
+  await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects")?.body).toMatchObject({ reference_id: "fomo-DehudnaAmce", reference_replace: "The reselling montage becomes a fomo trading montage." }));
+});
+
+test("without a pick, no reference is sent", async () => {
+  const calls = fakeServer({ ...base, "GET /references": [200, reels], "POST /projects": [201, project], "GET /projects/9": [200, project], "GET /projects": [200, []] });
+  renderAt("/b/1/projects/new");
+  await userEvent.type(await screen.findByLabelText("Title"), "Plain");
+  await screen.findByText("Adapt a reference reel (optional)");
+  await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects")).toBe(true));
+  expect(calls.find((c) => c.key === "POST /projects")?.body).not.toHaveProperty("reference_id");
+});

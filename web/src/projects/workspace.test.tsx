@@ -153,3 +153,27 @@ test("editing the brief after a script exists says saving does not rewrite the s
   await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
   expect(screen.getByText("Saving doesn't rewrite the script or the steps after it. Redo them if the change matters.")).toBeInTheDocument();
 });
+
+const reel = { id: "fomo-DehudnaAmce", name: "Altar rejection", logline: "A groom is rejected.", seconds: 45, style: "3D", brand: "fomo", has_thumbnail: true };
+
+test("the brief says which reel is being adapted, and the reel can be changed or removed", async () => {
+  const withReel = { ...project, cast_ids: [4], product_variants: { bag: "Chicken" }, reference_breakdown: { source_id: "fomo-DehudnaAmce" }, reference_replace: "Make the montage about trading." };
+  const calls = fakeServer({ ...briefRoutes, "GET /projects/9": [200, withReel], "GET /references": [200, [reel]], "PATCH /projects/9": [200, project] });
+  open();
+  expect(await screen.findByText(/Adapting: Altar rejection/)).toBeInTheDocument();
+  expect(screen.getByText("Replace: Make the montage about trading.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Altar rejection/ })); // tapping the picked reel again removes it
+  await userEvent.click(screen.getByRole("button", { name: "Save brief" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toMatchObject({ reference_breakdown: null, reference_replace: "" }));
+});
+
+test("picking a reel in the brief editor sends reference_id and what to replace", async () => {
+  const calls = fakeServer({ ...briefRoutes, "GET /references": [200, [reel]], "PATCH /projects/9": [200, project] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit brief" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Altar rejection/ }));
+  await userEvent.type(screen.getByLabelText(/What to replace/), "Swap the montage.");
+  await userEvent.click(screen.getByRole("button", { name: "Save brief" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toMatchObject({ reference_id: "fomo-DehudnaAmce", reference_replace: "Swap the montage." }));
+});

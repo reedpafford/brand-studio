@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
-import { CastPicker, FlavourPicker, useBriefChoices } from "./BriefPickers";
+import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices } from "./BriefPickers";
 import { backLink, btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 
 const ASPECTS = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
@@ -18,6 +18,7 @@ export function NewProjectPage() {
   const [cast, setCast] = useState<number[]>([]);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [reference, setReference] = useState<number | null>(null);
+  const [reel, setReel] = useState<{ id: string | null; replace: string }>({ id: null, replace: "" });
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
 
   const { characters, products, chosen, unchosen } = useBriefChoices(brandId, picks);
@@ -38,6 +39,7 @@ export function NewProjectPage() {
           format: form.format,
           cast_ids: cast,
           reference_file_id: reference,
+          ...(reel.id ? { reference_id: reel.id, reference_replace: reel.replace } : {}),
           product_variants: Object.fromEntries([...products.keys()].map((p) => [p, chosen(p)!])),
         },
       });
@@ -104,6 +106,7 @@ export function NewProjectPage() {
           <span className="block text-muted">Budget: {form.seconds * 2} credits (twice the length).</span>
         </label>
         <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
+        <ReferencePicker value={reel.id} replace={reel.replace} onChange={(id, replace) => setReel({ id, replace })} />
         <FlavourPicker products={products} chosen={chosen} onPick={(product, variant) => setPicks({ ...picks, [product]: variant })} />
         <div className="space-y-1 text-sm">
           <div className="font-medium">Reference video (optional)</div>
