@@ -225,3 +225,20 @@ test("an approved clip can be un-approved", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Undo approval" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /projects/9/clips/1/approve")).toBe(true));
 });
+
+test("a clip whose shots use a character without an approved sheet is blocked, and Make missing skips it", async () => {
+  const bd = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "K", look: "", shots: [{ id: "1.1", character_ids: ["char:4"], place_id: null }, { id: "2.1", character_ids: [], place_id: null }] }], clips: [{ id: "c1", shot_ids: ["1.1"] }, { id: "c2", shot_ids: ["2.1"] }] } };
+  fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, bd],
+    "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [], sheet_status: "none" }]],
+    "GET /projects/9/clips": [200, [clip({}), clip({ id: 2, clip_id: "c2" })]],
+  });
+  open();
+  const first = await screen.findByLabelText("Clip c1");
+  expect(await within(first).findByText(/Mia needs an approved sheet\./)).toBeInTheDocument();
+  expect(within(first).getByRole("button", { name: /Make clip/ })).toBeDisabled();
+  expect(within(screen.getByLabelText("Clip c2")).getByRole("button", { name: /Make clip/ })).toBeEnabled();
+  expect(screen.getByText(/1 clip waits for a sheet \(Mia\)\./)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make missing · 24 credits" })).toBeInTheDocument();
+});

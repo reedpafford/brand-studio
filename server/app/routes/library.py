@@ -54,7 +54,7 @@ class ItemOut(ItemIn):
     kind: Kind
     version: int
     sheet_file_id: int | None  # the house-style sheet; only an approved one is used in videos
-    sheet_status: Literal["none", "drawing", "needs_approval", "approved"]
+    sheet_status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
 
 
 class VersionOut(BaseModel):
@@ -89,7 +89,10 @@ def sheet_status(item: LibraryItem) -> str:
         if db
         else []
     )
-    if any(j.input.get("library_item_id") == item.id for j in jobs):
+    mine = [j for j in jobs if j.input.get("library_item_id") == item.id]
+    if any(j.status == JobStatus.needs_owner_approval for j in mine):
+        return "waiting_for_owner"  # over the editor's allowance: held until the owner says yes
+    if mine:
         return "drawing"
     if not item.sheet_file_id:
         return "none"
