@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
-import { CastPicker, FlavourPicker, useBriefChoices } from "./BriefPickers";
+import { CastPicker, FlavourPicker, useBriefChoices, useLongestSeconds } from "./BriefPickers";
 import { backLink, btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 
 const ASPECTS = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
@@ -21,8 +21,7 @@ export function NewProjectPage() {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
 
   const { characters, products, chosen, unchosen } = useBriefChoices(brandId, picks);
-  const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
-  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 364; // budget is 2x the 480p seconds
+  const longest = useLongestSeconds();
 
   const upload = useMutation({ mutationFn: uploadFile, onSuccess: (f) => setReference(f.id) });
   const create = useMutation({

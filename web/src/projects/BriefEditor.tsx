@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } from "../ui";
-import { CastPicker, FlavourPicker, useBriefChoices } from "./BriefPickers";
+import { CastPicker, FlavourPicker, useBriefChoices, useLongestSeconds } from "./BriefPickers";
 
 type Project = components["schemas"]["ProjectOut"];
 
@@ -17,6 +17,7 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
   const [cast, setCast] = useState(project.cast_ids);
   const [picks, setPicks] = useState<Record<string, string>>(project.product_variants ?? {});
   const { characters, products, chosen, unchosen } = useBriefChoices(project.brand_id, picks);
+  const longest = useLongestSeconds();
   const save = useMutation({
     mutationFn: async () => {
       const { error, response } = await api.PATCH("/projects/{project_id}", {
@@ -82,7 +83,7 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
       </label>
       <label className="block">
         Planned length (seconds)
-        <input className={input} type="number" required min={1} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} />
+        <input className={input} type="number" required min={1} max={longest} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} />
         <span className="block text-muted">Budget: {seconds * 2} credits (twice the length).</span>
       </label>
       <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
