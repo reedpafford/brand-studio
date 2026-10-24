@@ -69,7 +69,9 @@ In the Web console, from `~/brand-studio/deploy`:
 - See what's running: `docker compose ps`
 - See recent messages: `docker compose logs --tail 50 api worker caddy`
 - Restart everything: `docker compose restart`
-- Deploy by hand (same as the workflow does): `git pull && docker compose up -d --build`
+- Deploy by hand: `git pull && docker compose up -d --build`, then, if
+  `assets/brands/*/screens/screens.json` changed, `docker compose exec -T api python -m app.seed refresh`
+  so live brands pick up the new screens (the automatic deploy does both).
 
 The database keeps the password it was first started with; the deploy reuses it from `.env`, so
 never delete `deploy/.env` on the server.
