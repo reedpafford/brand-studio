@@ -264,6 +264,18 @@ test("library cards say Needs a sheet until the sheet is approved", async () => 
   expect(screen.getAllByText("Needs a sheet")).toHaveLength(1);
 });
 
+test("Open Mia from a video comes back to the same stage", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
+  renderAt("/b/1/library/characters/5?back=%2Fb%2F1%2Fprojects%2F9%3Fstage%3Dclips");
+  expect(await screen.findByRole("link", { name: "← Back to your video" })).toHaveAttribute("href", "/b/1/projects/9?stage=clips");
+});
+
+test("a back link to somewhere else is ignored", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
+  renderAt("/b/1/library/characters/5?back=https%3A%2F%2Fevil.example");
+  expect(await screen.findByRole("link", { name: "← Characters" })).toHaveAttribute("href", "/b/1/library/characters");
+});
+
 test("a sheet held for the owner says Waiting for Reed to approve, not Drawing, and offers nothing to press", async () => {
   fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_status: "waiting_for_owner" }] });
   renderAt("/b/1/library/characters/5");
