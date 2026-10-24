@@ -74,7 +74,7 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   const overBudget = cost !== undefined && props.used + cost > props.budget;
   const makeButton = (label: string, opts: { ask?: string; primary?: boolean } = {}) => (
     <button
-      className={opts.primary ? btnPrimary : btnSecondary}
+      className={`${opts.primary ? btnPrimary : btnSecondary} min-h-11 sm:min-h-9`}
       disabled={running || make.isPending || asked}
       onClick={() => {
         if (opts.ask && !window.confirm(opts.ask)) return;

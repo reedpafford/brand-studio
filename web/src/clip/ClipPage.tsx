@@ -151,7 +151,9 @@ function Studio({ models }: { models: Model[] }) {
   return (
     <main className="mx-auto grid max-w-6xl gap-6 p-4 pb-32 sm:p-6 lg:grid-cols-[360px_1fr]">
       <h1 className={`${pageTitle} lg:col-span-2`}>Quick clip · {brand?.name}</h1>
-      <section aria-label="Clip settings" className="space-y-4 lg:self-start lg:rounded-md lg:border lg:border-border lg:bg-surface lg:p-6">
+      <section aria-label="Clip settings" className="space-y-4 lg:self-start lg:space-y-0 lg:rounded-md lg:border lg:border-border lg:bg-surface lg:p-6">
+        {/* On desktop the page scrolls (no hidden inner scroll); Generate stays at the bottom of the window with a shadow above it, and sits in the flow at the end so the last field scrolls clear of it. */}
+        <div className="space-y-4 lg:pb-6">
         <div className="space-y-1 text-sm">
           <div className="font-medium">Model</div>
           <ModelPicker models={models} value={model} onChange={switchModel} />
@@ -237,7 +239,8 @@ function Studio({ models }: { models: Model[] }) {
           </div>
         </fieldset>
         {allowance.data && <p className="text-sm text-muted">Quick clips this week: {allowance.data?.quick_clip_credits_used} of {allowance.data?.quick_clip_credits_allowed} credits used.</p>}
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 space-y-1 md:bottom-0 border-t border-border bg-surface p-4 shadow-md lg:sticky lg:bottom-0 lg:border-0 lg:p-0 lg:shadow-none">
+        </div>
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 space-y-1 md:bottom-0 border-t border-border bg-surface p-4 shadow-md lg:sticky lg:bottom-0 lg:-mx-6 lg:-mb-6 lg:rounded-b-md lg:border-t lg:border-border lg:bg-surface lg:px-6 lg:py-4 lg:shadow-[0_-10px_12px_-10px_rgb(0_0_0/0.18)]">
           <button className={`${btnPrimary} min-h-11 w-full`} disabled={reason !== null || generate.isPending} onClick={() => generate.mutate()}>
             {generate.isPending ? "Sending…" : `${estimate.data?.needs_owner_approval ? "Ask Reed to approve" : "Generate"} · ${credits} credits`}
           </button>
