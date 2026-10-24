@@ -15,6 +15,7 @@ def prod(**values) -> Settings:
         prod(setup_token="change-me"),
         prod(setup_token="too-short-123"),
         prod(database_url="postgresql+psycopg://brand:change-me@db:5432/brand"),
+        prod(fake_providers=True),  # stand-ins would make every video grey on the live site
     ],
 )
 def test_production_refuses_example_secrets(settings):

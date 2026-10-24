@@ -5,6 +5,7 @@ import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Elapsed, useJobs } from "../clip/History";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
+import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
 
 type Clip = components["schemas"]["ProjectClipOut"];
@@ -18,6 +19,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
   const path = { project_id: projectId };
   const jobs = useJobs();
   const frames = useFrames(projectId);
+  const blocks = useSheetBlocks(projectId, props.brandId);
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
@@ -117,7 +119,8 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
   const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error ?? stitch.error;
   const takeCost = (c: Clip) => c.take_credits;
   const busyFor = (c: Clip) => going(takeJob(c.id)?.id);
-  const missing = list.filter((c) => c.takes.length === 0 && c.problems.length === 0 && !c.stale && !busyFor(c));
+  const missing = list.filter((c) => c.takes.length === 0 && c.problems.length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
+  const waitingForSheet = list.filter((c) => c.takes.length === 0 && blocks.forClip(c.clip_id).length > 0);
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
   const writeCost = rate("write-claude");
@@ -165,6 +168,11 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
         )}
       </div>
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
+      {waitingForSheet.length > 0 && (
+        <p className="text-sm text-warning">
+          {waitingForSheet.length} clip{waitingForSheet.length === 1 ? " waits" : "s wait"} for a sheet ({blockerNames(waitingForSheet.flatMap((c) => blocks.forClip(c.clip_id)))}).
+        </p>
+      )}
       <ul className="space-y-4">
         {list.map((c) => {
           const job = takeJob(c.id);
@@ -177,6 +185,8 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
               projectName={props.projectName}
               job={job}
               busy={busyFor(c)}
+              blockers={blocks.forClip(c.clip_id)}
+              brandId={props.brandId}
               cost={takeCost(c)}
               over={over(takeCost(c))}
               onGenerate={(note) => generate.mutate({ clip: c, note })}
@@ -221,6 +231,8 @@ function ClipCard(props: {
   projectName: string;
   job: { status: string; created_at: string } | undefined;
   busy: boolean;
+  blockers: Blocker[];
+  brandId: number;
   cost: number | undefined;
   over: boolean;
   onGenerate: (note?: string) => void;
@@ -260,6 +272,7 @@ function ClipCard(props: {
           <span className="text-muted">No video yet</span>
         )}
       </div>
+      <SheetWarning blockers={props.blockers} brandId={props.brandId} />
       {c.problems.length > 0 && (
         <ul className="list-disc pl-5 text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
           {c.problems.map((p) => (
@@ -337,7 +350,7 @@ function ClipCard(props: {
             </button>
           )}
           {note === null && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || c.problems.length > 0 || c.stale} onClick={() => props.onGenerate()}>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || c.problems.length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
             {verb}
             {price}
           </button>

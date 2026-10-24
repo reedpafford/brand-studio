@@ -1,6 +1,27 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-24 00:06 · #141 ops: HANDOFF/LOG refresh 2026-10-24 00:08Z merged (by the Producer)
+- 2026-10-24 00:01 · Decisions in DECISIONS.md since the last refresh: app screens need the logo and UI right but numbers can be invented, and the "Use the real image" cut-in is optional and off by default (#131, #132); montages put the main character in every shot with escalating wealth (#131); product exactness means brand name, main claim and flavour label read right, small print may be garbled (#125); an uploaded person photo becomes a house-style character sheet the editor approves, and only approved sheets go in frames and clips (#125).
+- 2026-10-24 00:01 · #129 Storyboard and Clips: "needs an approved sheet" warnings merged
+- 2026-10-24 00:01 · #122 Library: photo to house-style sheet (make, approve, redo) merged
+- 2026-10-23 23:54 · #132 Clips spec: "Use the real image" is off by default for app screens too merged
+- 2026-10-23 23:54 · #131 ops: fomo screens need logo/UI right (numbers free); montage rules merged
+- 2026-10-23 23:54 · #117 Quick clip: Improve prompt (server) merged
+- 2026-10-23 23:54 · #130 Sheets: "waiting for owner" status; storyboard frames checked against their shot's cast merged
+- 2026-10-23 23:46 · #127 Clips spec: "Use the real image" switch for product and app-screen inserts merged
+- 2026-10-23 23:46 · #114 Brief: pick a flavour (Iron Paws bag: Chicken / Peanut butter) merged
+- 2026-10-23 23:43 · #125 ops: Reed's decisions on product exactness and character sheets merged
+- 2026-10-23 23:43 · #123 Library spec: a sheet costs 1.5 credits, plus the "Waiting for Reed" state merged
+- 2026-10-23 23:43 · #126 Project estimate: credits still to spend, stage by stage merged
+- 2026-10-23 23:43 · #124 PB excerpt fixes: payoff state, readable product text, named looks, hyphen shot times merged
+- 2026-10-23 23:38 · #116 House-style sheets for characters and places, with approval (only approved sheets go in videos) merged
+- 2026-10-23 23:38 · #109 Credits: per-video cap 729 credits ($75), no editor length limit merged
+- 2026-10-23 23:38 · #110 Product variants (Iron Paws flavour) and the brand end line merged
+- 2026-10-23 23:31 · #115 Clips: server price and per-clip jobs, "Needs a change" note, undo approval merged
+- 2026-10-23 23:29 · #112 Deploy: Docker Compose stack for the VPS (Postgres, API, worker, Caddy HTTPS) merged
+- 2026-10-23 23:27 · #121 Storyboard: frame around what the image model refuses merged
+- 2026-10-23 23:12 · #120 ops: HANDOFF/LOG refresh 2026-10-23 23:15Z merged (by the Producer)
 - 2026-10-23 23:04 · #108 Character sheet and place still prompts (Nano Banana, house style) merged
 - 2026-10-23 23:04 · #113 Clips pane support: clip on jobs, Redo note, take cost, un-approve merged
 - 2026-10-23 23:04 · #107 Reference reels: live action becomes the brand CTA; definition-of-done eval cases merged
