@@ -1,9 +1,9 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
-/* The variable Inter package registers itself as "Inter Variable". */
+/* Native checkboxes, radios, range and progress take the amber, not the browser blue. */
 :root {
-  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  accent-color: var(--accent);
 }
 
 body {

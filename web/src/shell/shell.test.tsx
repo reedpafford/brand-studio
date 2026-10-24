@@ -130,6 +130,7 @@ test("on a phone the tab bar reaches every section through More", async () => {
 
 test("the More menu closes on Escape or a tap outside, and can switch theme and sign out", async () => {
   localStorage.removeItem("bs.theme");
+  document.documentElement.removeAttribute("data-theme");
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "POST /auth/logout": [204, null] });
   renderAt("/b/1");
   const tabs = await screen.findByRole("navigation", { name: "Tabs" });
@@ -141,7 +142,8 @@ test("the More menu closes on Escape or a tap outside, and can switch theme and 
   await userEvent.click(screen.getByRole("button", { name: "Close menu" }));
   expect(screen.queryByRole("link", { name: "Brand kit" })).not.toBeInTheDocument();
   await userEvent.click(more);
-  await userEvent.click(screen.getByRole("button", { name: "Theme: System" }));
+  // Dark is the default; each press goes dark → light → system.
+  await userEvent.click(screen.getByRole("button", { name: "Theme: Dark" }));
   expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
   expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
