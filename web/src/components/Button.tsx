@@ -24,6 +24,10 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   price?: number;
   /** The spend needs Reed: the label becomes "Ask Reed to approve · N credits". */
   ask?: boolean;
+  /** An icon after the label, pushed to the far edge (a picker's chevron). */
+  trailing?: Icon;
+  /** Label left, trailing icon right, filling the width. */
+  spread?: boolean;
   /** Why the button is disabled, in muted text on the line under it. */
   reason?: string | null;
   icon?: Icon;
@@ -31,22 +35,24 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   children?: ReactNode;
 };
 
-export function Button({ variant = "primary", dense, busy, price, ask, reason, icon: Icon, className = "", children, disabled, type = "button", ...rest }: ButtonProps) {
+export function Button({ variant = "primary", dense, busy, price, ask, reason, icon: Icon, trailing: Trailing, spread, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
   const why = useId();
-  const off = !!disabled || !!busy;
+  // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
   const label = ask ? "Ask Reed to approve" : children;
   const size = dense && variant !== "primary" ? "min-h-control px-4 sm:min-h-control-dense sm:px-3" : "min-h-control px-4";
   const button = (
     <button
       type={type}
-      disabled={off}
+      disabled={disabled}
       aria-busy={busy || undefined}
+      aria-disabled={busy || undefined}
+      onClick={busy ? (e) => e.preventDefault() : onClick}
       aria-describedby={reason ? why : undefined}
-      className={`${base} ${look[variant]} ${size} ${className}`}
+      className={`${base} ${look[variant]} ${size} ${spread ? "w-full justify-between text-left" : ""} ${busy ? "cursor-progress" : ""} ${className}`}
       {...rest}
     >
       {busy ? <LoaderCircle size={16} strokeWidth={1.75} aria-hidden className="animate-spin motion-reduce:animate-none" /> : Icon ? <Icon size={20} strokeWidth={1.75} aria-hidden /> : null}
-      <span>
+      <span className={spread ? "min-w-0 flex-1" : undefined}>
         {label}
         {price !== undefined && (
           <>
@@ -55,6 +61,7 @@ export function Button({ variant = "primary", dense, busy, price, ask, reason, i
           </>
         )}
       </span>
+      {Trailing && <Trailing size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />}
     </button>
   );
   if (!reason) return button;

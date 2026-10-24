@@ -1,12 +1,14 @@
 import type { ComponentType, ReactNode } from "react";
 
-export type Tone = "success" | "warning" | "danger" | "neutral" | "accent";
+export type Tone = "success" | "warning" | "danger" | "neutral" | "accent" | "media";
 const tones: Record<Tone, string> = {
   success: "bg-success-soft text-success",
   warning: "bg-warning-soft text-warning",
   danger: "bg-danger-soft text-danger",
   neutral: "bg-surface-3 text-muted",
   accent: "bg-accent-soft text-accent-text",
+  /** Over a picture, in either mode: readable on any photo. */
+  media: "bg-black/60 text-white",
 };
 
 /** Status is always in words; the colour is a second signal. */

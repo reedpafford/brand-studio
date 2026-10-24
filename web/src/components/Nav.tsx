@@ -33,11 +33,10 @@ export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: stri
   if (phone)
     return (
       <>
-        <Button variant="secondary" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} className="w-full justify-between">
+        <Button variant="secondary" spread trailing={ChevronDown} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
           <span className="tabular-nums">
             Step {at + 1} of {steps.length} · {steps[at]?.label}
           </span>
-          <ChevronDown size={20} strokeWidth={1.75} aria-hidden />
         </Button>
         {open && (
           <Sheet title="Steps" onClose={() => setOpen(false)}>

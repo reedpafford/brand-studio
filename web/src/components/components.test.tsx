@@ -44,8 +44,11 @@ test("a disabled button says why on the line under it, and a busy one cannot be 
       Making…
     </Button>,
   );
-  expect(screen.getByRole("button", { name: "Making…" })).toBeDisabled();
+  // Busy keeps its look (an amber button stays amber) and ignores presses; it is not "disabled".
+  expect(screen.getByRole("button", { name: "Making…" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Making…" })).toHaveAttribute("aria-busy", "true");
+  expect(screen.getByRole("button", { name: "Making…" })).toHaveAttribute("aria-disabled", "true");
+  expect(screen.getByRole("button", { name: "Making…" }).className).toContain("bg-accent");
   await userEvent.click(screen.getByRole("button", { name: "Making…" }));
   expect(click).not.toHaveBeenCalled();
 });
@@ -86,9 +89,24 @@ test("fields are labelled, show a counter, and an error replaces the hint and is
   expect(screen.getByRole("combobox", { name: "Where will it be posted?" })).toBeInTheDocument();
 });
 
-test("a badge says the status in words", () => {
-  render(<Badge tone="warning">Waiting for Reed to approve</Badge>);
+test("a badge says the status in words, and one over a picture is white on black", () => {
+  render(
+    <>
+      <Badge tone="warning">Waiting for Reed to approve</Badge>
+      <Badge tone="media">Clips</Badge>
+    </>,
+  );
   expect(screen.getByText("Waiting for Reed to approve")).toBeInTheDocument();
+  expect(screen.getByText("Clips").className).toContain("text-white");
+  expect(screen.getByText("Clips").className).toContain("bg-black/60");
+});
+
+test("a media card with no picture has no shade, normal text colours and the kind's icon in the middle", () => {
+  render(<MediaCard title="Bo" meta="Character" icon={Clapperboard} />);
+  expect(document.querySelector('[class*="media-shade"]')).not.toBeInTheDocument();
+  expect(screen.getByText("Bo").parentElement?.className).toContain("text-text");
+  expect(screen.getByText("Bo").parentElement?.className).not.toContain("text-on-media");
+  expect(document.querySelector("svg")).toBeInTheDocument();
 });
 
 test("a media card leads with the picture: title on it, badge on it, play only when it plays", async () => {
