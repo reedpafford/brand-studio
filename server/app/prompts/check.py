@@ -129,6 +129,7 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
+        problems += [f"{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
         shape, _ = _shape(c.prompt, c.seconds)
         problems += [f"{c.clip_id}: {p}" for p in shape]
         problems += [
@@ -198,6 +199,25 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
     elif times[-1][1] != seconds:
         problems.append(f"shots end at {times[-1][1]} s, the clip is {seconds} s")
     return problems, len(times)
+
+
+CAST = re.compile(r"\[Image\d+\] (?:is|are) ([A-Z][\w-]+)")  # "[Image2] is Malik."
+
+
+def _cuts_name_someone(prompt: str) -> list[str]:
+    """In a "Two quick cuts: …; then …" segment every cut names a cast member, so the model
+    never opens on an empty room (fomo montage, 2026-10-24)."""
+    refs = next((line for line in prompt.splitlines() if line.startswith("References: ")), "")
+    names = set(CAST.findall(refs)) - {"The"}
+    if not names:
+        return []
+    problems = []
+    for line in prompt.splitlines():
+        if m := re.match(r"^Shot (\d+) \|[^:]*quick cuts[^:]*: (.*)$", line, re.I):
+            for cut in m.group(2).split("; then "):
+                if not any(re.search(rf"\b{re.escape(n)}\b", cut) for n in names):
+                    problems.append(f"shot {m.group(1)}: a quick cut names nobody (“{cut[:40]}”)")
+    return problems
 
 
 def _silence(prompt: str, spoken: bool) -> list[str]:
