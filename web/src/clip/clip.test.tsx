@@ -45,7 +45,7 @@ const studio: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]],
   "GET /models": [200, [seedance, older]],
-  "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
+  "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [], sheet_status: "approved" }]],
   "GET /library/place": [200, []],
   "GET /library/prop": [200, []],
   "GET /brands/1/screens": [200, [buy]],
@@ -228,4 +228,64 @@ test("when generation is switched off on the server, its message is shown by the
   await vi.waitFor(() => expect(generate).toBeEnabled());
   await userEvent.click(generate);
   expect(await screen.findByRole("alert")).toHaveTextContent("Generation is switched off on this server.");
+});
+
+test("Improve prompt writes a prompt, Use this fills the box and Generate says it was improved, Undo improve puts the idea back", async () => {
+  const calls = fakeServer({
+    ...studio,
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
+    "POST /clips/improve": [201, { id: 31, kind: "write-claude", step: "improve", status: "queued", credits: 3 }],
+    "GET /clips/improve/31": [200, { status: "succeeded", prompt: "Shot 1: Mia taps buy, close-up.", problems: [], error: "" }],
+    "POST /clips": [201, { id: 40 }],
+  });
+  open();
+  const prompt = await screen.findByLabelText(/Prompt/);
+  expect(screen.getByRole("button", { name: "✦ Improve prompt" })).toBeDisabled();
+  await userEvent.type(prompt, "Mia buys bitcoin");
+  await userEvent.click(screen.getByRole("button", { name: "✦ Improve prompt" }));
+  const dialog = await screen.findByRole("dialog", { name: "Improve prompt" });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Funny" }));
+  await userEvent.click(within(dialog).getByRole("button", { name: "3" }));
+  await userEvent.click(await within(dialog).findByRole("button", { name: "Improve · 3 credits" }));
+  expect(await within(dialog).findByLabelText("Improved prompt")).toHaveValue("Shot 1: Mia taps buy, close-up.");
+  expect(calls.find((c) => c.key === "POST /clips/improve")?.body).toMatchObject({ direction: "Funny", shots: 3, prompt: "Mia buys bitcoin" });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Use this" }));
+  expect(prompt).toHaveValue("Shot 1: Mia taps buy, close-up.");
+  await userEvent.click(await screen.findByRole("button", { name: /Generate · 9 credits/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /clips")?.body).toMatchObject({ improved: true }));
+  await userEvent.click(screen.getByRole("button", { name: "Undo improve" }));
+  expect(prompt).toHaveValue("Mia buys bitcoin");
+});
+
+test("typing your own prompt after Improve sends improved: false again", async () => {
+  const calls = fakeServer({
+    ...studio,
+    "POST /clips/improve": [201, { id: 31, kind: "write-claude", step: "improve", status: "queued", credits: 3 }],
+    "GET /clips/improve/31": [200, { status: "succeeded", prompt: "Shot 1: Mia taps buy.", problems: [], error: "" }],
+    "POST /clips": [201, { id: 40 }],
+  });
+  open();
+  const prompt = await screen.findByLabelText(/Prompt/);
+  await userEvent.type(prompt, "Mia buys bitcoin");
+  await userEvent.click(screen.getByRole("button", { name: "✦ Improve prompt" }));
+  const dialog = await screen.findByRole("dialog", { name: "Improve prompt" });
+  await userEvent.click(within(dialog).getByRole("button", { name: /^Improve/ }));
+  await userEvent.click(await within(dialog).findByRole("button", { name: "Use this" }));
+  await userEvent.type(prompt, " now");
+  const go = await screen.findByRole("button", { name: /Generate/ });
+  await vi.waitFor(() => expect(go).toBeEnabled());
+  await userEvent.click(go);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /clips")?.body).toMatchObject({ improved: false }));
+});
+
+test("a failed Improve says so and a refused one shows the server's reason", async () => {
+  fakeServer({
+    ...studio,
+    "POST /clips/improve": [422, { detail: "Add a brand piece first." }],
+  });
+  open();
+  await userEvent.type(await screen.findByLabelText(/Prompt/), "Mia buys bitcoin");
+  await userEvent.click(screen.getByRole("button", { name: "✦ Improve prompt" }));
+  await userEvent.click(await screen.findByRole("button", { name: /^Improve/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Add a brand piece first.");
 });

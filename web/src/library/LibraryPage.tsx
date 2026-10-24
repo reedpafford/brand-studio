@@ -103,6 +103,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
                 return b && <span key={id} title={b.name} className="size-2.5 rounded-full" style={{ background: b.colours?.[0] || "var(--accent)" }}><span className="sr-only">{b.name}</span></span>;
               })}
               v{i.version}
+              {!archived && kind !== "prop" && i.sheet_status !== "approved" && <span className="rounded-sm bg-warning-soft px-2 py-0.5 text-xs text-warning">Needs a sheet</span>}
               {archived && <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs">Archived</span>}
             </div>
             {archived && (
