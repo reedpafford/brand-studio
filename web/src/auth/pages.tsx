@@ -1,6 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { linkText } from "../ui";
+import { card, linkText } from "../ui";
 import { AuthForm } from "./AuthForm";
 
 export function LoginPage() {
@@ -51,9 +52,42 @@ export function SetupPage() {
 
 export function InvitePage() {
   const { token = "" } = useParams();
+  // Who invited you, to which studio. The token goes in the body, never the address, so it stays out of logs.
+  const invite = useQuery({
+    queryKey: ["invite", token],
+    retry: false,
+    queryFn: async () => {
+      const { data, response } = await api.POST("/auth/invite", { body: { token } });
+      if (!data) throw new Error(response.status === 404 ? "This invite link is not valid any more." : "Could not check this invite. Try again.");
+      return data;
+    },
+  });
+  if (invite.isPending) return <p className="p-6 text-muted">Checking your invite…</p>;
+  if (invite.isError)
+    return (
+      <main className="mx-auto flex min-h-screen max-w-[432px] flex-col justify-start gap-4 p-4 pt-[20vh] sm:justify-center sm:pt-4">
+        <div className={`${card} space-y-2`}>
+          <h1 className="text-xl font-semibold">Invite not valid</h1>
+          <p role="alert">{invite.error.message}</p>
+          <p className="text-muted">Ask whoever invited you to send a new link.</p>
+          <p>
+            Already have an account?{" "}
+            <Link className={`${linkText} inline-flex min-h-11 items-center sm:min-h-0`} to="/login">
+              Log in
+            </Link>
+          </p>
+        </div>
+      </main>
+    );
+  const i = invite.data;
   return (
     <AuthForm
-      title="Join the studio"
+      title={`Join ${i.workspace_name}`}
+      intro={
+        <p className="text-sm text-muted">
+          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {i.workspace_name} as {i.role === "owner" ? "an owner" : "an editor"}. Your email is {i.email}.
+        </p>
+      }
       submitLabel="Create my account"
       fields={[
         { name: "name", label: "Your name", autoComplete: "name" },
