@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "./Button";
 
@@ -42,10 +43,11 @@ function useOverlay(onClose: () => void) {
 function Frame({ title, onClose, className, grabber, children }: { title: string; onClose: () => void; className: string; grabber?: boolean; children: ReactNode }) {
   const heading = useId();
   const panel = useOverlay(onClose);
-  return (
+  // Rendered into the page body, so a sticky bar or tab bar can never sit on top of it.
+  return createPortal(
     <>
-      <div aria-hidden onClick={onClose} className="fixed inset-0 z-30 bg-scrim" />
-      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className={`fixed z-30 flex flex-col bg-surface shadow-overlay ${className}`}>
+      <div aria-hidden onClick={onClose} className="fixed inset-0 z-50 bg-scrim" />
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className={`fixed z-50 flex flex-col bg-surface shadow-overlay ${className}`}>
         {grabber && <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-border-strong" />}
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <h2 id={heading} className="font-display text-md font-bold">
@@ -57,7 +59,8 @@ function Frame({ title, onClose, className, grabber, children }: { title: string
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">{children}</div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -93,10 +96,10 @@ export function Dialog({
 }) {
   const heading = useId();
   const panel = useOverlay(onCancel);
-  return (
+  return createPortal(
     <>
-      <div aria-hidden onClick={onCancel} className="fixed inset-0 z-30 bg-scrim" />
-      <div ref={panel} role="alertdialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className="fixed left-1/2 top-1/2 z-30 w-[calc(100%-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-5 shadow-overlay">
+      <div aria-hidden onClick={onCancel} className="fixed inset-0 z-50 bg-scrim" />
+      <div ref={panel} role="alertdialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-5 shadow-overlay">
         <h2 id={heading} className="font-display text-xl font-bold">
           {title}
         </h2>
@@ -110,6 +113,7 @@ export function Dialog({
           </Button>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

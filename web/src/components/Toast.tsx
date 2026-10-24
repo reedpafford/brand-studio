@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={show}>
       {children}
       {/* Always mounted so screen readers announce what appears inside it. */}
-      <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-[calc(var(--tabbar-h)+var(--actionbar-h)+env(safe-area-inset-bottom))] z-40 mx-auto max-w-md sm:bottom-6">
+      <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-[calc(var(--tabbar-h)+var(--actionbar-h)+env(safe-area-inset-bottom))] z-[60] mx-auto max-w-md sm:bottom-6">
         {item && (
           <div
             key={item.id}
