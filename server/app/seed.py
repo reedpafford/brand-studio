@@ -1,6 +1,9 @@
 """Launch brands (fomo, Iron Paws) and import of their real screens from the repo assets.
 
 Runs on first setup. To import screens later: `python -m app.seed <folder> [brand-slug]`.
+After a manifest change (new screens, moments, tags), bring live databases up to date with
+`python -m app.seed refresh`: every workspace's launch brands get the new screens, and screens
+named in a manifest take its tags, moments and product/variant.
 A folder may hold `screens.json`:
 {"file.png": {"name": "...", "tags": [...], "default_for": [...]}}.
 Without it, tags come from words in the filename (e.g. `trading-chart-up-mobile.png`).
@@ -17,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.filetypes import matches
+from app.models.accounts import Workspace
 from app.models.brands import Brand, BrandScreen
 from app.models.files import StoredFile
 from app.routes.screens import COMMON_TAGS
@@ -104,7 +108,8 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
         meta = manifest.get(path.name) or _guess(path.stem)
         name = meta.get("name") or path.stem
         if name in existing:
-            _set_variant(db, brand, name, meta)  # a product version added to the manifest later
+            if path.name in manifest:
+                _refresh(db, brand, name, meta)  # the manifest changed since it was imported
             continue
         stored = _store(storage, brand.workspace_id, path)
         if stored is None:
@@ -137,12 +142,14 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
     return added
 
 
-def _set_variant(db: Session, brand: Brand, name: str, meta: dict) -> None:
+def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
     screen = db.scalar(
         select(BrandScreen).where(BrandScreen.brand_id == brand.id, BrandScreen.name == name)
     )
-    if screen and not screen.variant and meta.get("variant"):
-        screen.product, screen.variant = meta.get("product", ""), meta["variant"]
+    if screen:
+        screen.tags = sorted(set(meta.get("tags", [])))
+        screen.default_for = sorted(set(meta.get("default_for", [])))
+        screen.product, screen.variant = meta.get("product", ""), meta.get("variant", "")
 
 
 def main(folder: str, slug: str = "fomo") -> None:
@@ -151,11 +158,17 @@ def main(folder: str, slug: str = "fomo") -> None:
     from app.storage import LocalStorage
 
     settings = get_settings()
+    storage = LocalStorage(settings.storage_dir)
     with make_sessionmaker(settings.database_url)() as db:
+        if folder == "refresh":
+            for workspace_id in db.scalars(select(Workspace.id)).all():
+                seed_brands(db, workspace_id, storage, settings.brand_assets_dir)
+            print("Launch brands brought up to date from the manifests.")
+            return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:
             sys.exit(f"No {slug} brand yet. Run first-time setup first.")
-        count = import_screens(db, LocalStorage(settings.storage_dir), brand, Path(folder))
+        count = import_screens(db, storage, brand, Path(folder))
         print(f"Imported {count} screens into {slug}.")
 
 
