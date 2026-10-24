@@ -33,6 +33,7 @@ class RefShot(BaseModel):
 
 class ReferenceBreakdown(BaseModel):
     model_config = ConfigDict(extra="ignore")
+    source_id: str = Field("", max_length=80)  # the catalogue reel it came from, if any
     logline: str = Text
     duration_seconds: float = Field(gt=0, le=600)
     hook: Hook

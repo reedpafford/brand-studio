@@ -748,6 +748,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List References */
+        get: operations["list_references_references_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/references/{ref_id}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Thumbnail */
+        get: operations["thumbnail_references__ref_id__thumbnail_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/script": {
         parameters: {
             query?: never;
@@ -2228,6 +2262,8 @@ export interface components {
             } | null;
             /** Reference Replace */
             reference_replace?: string | null;
+            /** Reference Id */
+            reference_id?: string | null;
             /** Brand Id */
             brand_id: number;
             /** Name */
@@ -2301,6 +2337,8 @@ export interface components {
             } | null;
             /** Reference Replace */
             reference_replace?: string | null;
+            /** Reference Id */
+            reference_id?: string | null;
             /** Name */
             name?: string | null;
             /** Planned Seconds */
@@ -2344,6 +2382,23 @@ export interface components {
              * @description What it is for, e.g. 'storyboard frame', 'Leo's look', 'fomo Token chart up screen, shown exactly'.
              */
             role: string;
+        };
+        /** ReferenceOut */
+        ReferenceOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Logline */
+            logline: string;
+            /** Seconds */
+            seconds: number;
+            /** Style */
+            style: string;
+            /** Brand */
+            brand: string;
+            /** Has Thumbnail */
+            has_thumbnail: boolean;
         };
         /** RenderIn */
         RenderIn: {
@@ -4308,6 +4363,55 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ModelOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_references_references_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceOut"][];
+                };
+            };
+        };
+    };
+    thumbnail_references__ref_id__thumbnail_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

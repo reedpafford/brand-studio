@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     # Launch brands' real screens, logos and style boards, imported on first setup
     # ("" to skip): <dir>/fomo/screens, <dir>/ironpaws/screens.
     brand_assets_dir: str = str(REPO_ROOT / "assets" / "brands")
+    # Reference reels a brief can adapt: folders with BREAKDOWN.json (+ contact.jpg).
+    references_dir: str = str(REPO_ROOT / "docs" / "references")
     # Login throttling: this many failures within the window locks the email / IP out.
     login_max_failures: int = 5
     login_max_failures_per_ip: int = 20

@@ -10,6 +10,8 @@ COPY server/pyproject.toml server/uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 # Brand screens and logos are imported on first setup from /srv/assets/brands.
 COPY assets /srv/assets
+# Reference reels a brief can adapt (GET /references): BREAKDOWN.json + contact.jpg each.
+COPY docs/references /srv/docs/references
 COPY server/alembic.ini ./
 COPY server/migrations ./migrations
 COPY server/app ./app
