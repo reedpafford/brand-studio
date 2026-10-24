@@ -123,6 +123,9 @@ test("the brief shows who is in it and which flavour, and can be edited after th
   expect(await screen.findByText("In it: Mia")).toBeInTheDocument();
   expect(screen.getByText("Bag: Chicken")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
+  // While editing, Save brief is the only primary: Next is hidden.
+  expect(screen.queryByRole("button", { name: /Next: Script/ })).not.toBeInTheDocument();
+  expect(screen.queryByText(/doesn't rewrite the script/)).not.toBeInTheDocument(); // no script yet
   await userEvent.click(await screen.findByRole("button", { name: "Peanut butter" }));
   await userEvent.click(screen.getByLabelText("Dex"));
   const length = screen.getByLabelText(/Planned length/);
@@ -140,4 +143,13 @@ test("a refused brief edit shows the server's reason and Cancel leaves it as it 
   expect(await screen.findByRole("alert")).toHaveTextContent("Plan 90 seconds or less.");
   await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.getByText("In it: Mia")).toBeInTheDocument();
+});
+
+test("editing the brief after a script exists says saving does not rewrite the script, and Next is 44px on phones", async () => {
+  fakeServer({ ...briefRoutes, "GET /projects/9/script": [200, script] });
+  open();
+  const next = await screen.findByRole("button", { name: "Next: Script →" });
+  expect(next.className).toContain("min-h-11");
+  await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
+  expect(screen.getByText("Saving doesn't rewrite the script or the steps after it. Redo them if the change matters.")).toBeInTheDocument();
 });

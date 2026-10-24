@@ -97,10 +97,7 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
     return (
       <section className={`${card} space-y-2 text-sm`} aria-label="Brief">
         <h2 className="text-[length:var(--text-md)] font-semibold">Brief</h2>
-        <BriefEditor project={brief} />
-        <button className={btnPrimary} onClick={() => props.onPick("script")}>
-          Next: Script →
-        </button>
+        <BriefEditor project={brief} hasScript={props.hasScript} onNext={() => props.onPick("script")} />
       </section>
     );
   if (stage === "script")
@@ -108,7 +105,7 @@ export function StagePane(props: { stage: Stage; brief: BriefInfo; hasScript: bo
       <section className={`${card} space-y-2 text-sm`} aria-label="Script stage">
         <h2 className="text-[length:var(--text-md)] font-semibold">Script</h2>
         <p className="text-muted">Paste your script or upload a document in the script pane. Every save is kept as a version, and you can come back to any of them from History.</p>
-        <button className={btnPrimary} disabled={!props.hasScript} onClick={() => props.onPick("enhance")}>
+        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={!props.hasScript} onClick={() => props.onPick("enhance")}>
           Next: Enhance →
         </button>
         {!props.hasScript && <p className="text-muted">Finish the script first.</p>}

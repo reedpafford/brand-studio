@@ -8,7 +8,7 @@ import { CastPicker, FlavourPicker, useBriefChoices } from "./BriefPickers";
 type Project = components["schemas"]["ProjectOut"];
 
 /** The brief as it stands, with Edit: cast, flavour, length and the words can change after the project is made. */
-export function BriefEditor({ project }: { project: Project }) {
+export function BriefEditor({ project, hasScript, onNext }: { project: Project; hasScript: boolean; onNext: () => void }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [goal, setGoal] = useState(project.goal);
@@ -44,9 +44,14 @@ export function BriefEditor({ project }: { project: Project }) {
             {product.charAt(0).toUpperCase() + product.slice(1)}: {variant}
           </p>
         ))}
-        <button className={`${linkText} min-h-11 sm:min-h-0`} onClick={() => setEditing(true)}>
-          Edit brief
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={`${btnPrimary} min-h-11 sm:min-h-9`} onClick={onNext}>
+            Next: Script →
+          </button>
+          <button className={`${linkText} min-h-11 sm:min-h-0`} onClick={() => setEditing(true)}>
+            Edit brief
+          </button>
+        </div>
       </div>
     );
 
@@ -73,6 +78,7 @@ export function BriefEditor({ project }: { project: Project }) {
       </label>
       <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
       <FlavourPicker products={products} chosen={chosen} onPick={(product, variant) => setPicks({ ...picks, [product]: variant })} />
+      {hasScript && <p className="text-sm text-muted">Saving doesn't rewrite the script or the steps after it. Redo them if the change matters.</p>}
       {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
       <div className="flex gap-2">
         <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={save.isPending || !!unchosen}>
