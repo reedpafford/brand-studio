@@ -1,7 +1,7 @@
 {
  "source": "house-style template A \"They said I'd fail\" (docs/house-style, after nateassets DcP_aC_AoQz); new characters and lines for fomo",
  "note": "Conflict line with a number at 0 s and the dare by 5 s (8 shots in 7 s), a cold low point held 2 s, the screens at the low point, the turn (with a ding) and the scale-up, a wordless six-beat montage at 0.4 s with day/night flips and a flash frame, a white flash into the time jump, a mirrored payoff under 8 words, a scream button, and 2 s of the real fomo screen to close.",
- "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image and shown exactly:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, red beanie, grey hoodie, headphones round his neck\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<places>\nplace:1 Tasha's kitchen\nplace:2 Malik's small bedroom\n</places>\n<video_model>Seedance 2.5: 4–30 s per clip, up to 30 reference images (prefer 8 or fewer)</video_model>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Aunt Tasha slams Malik's empty piggy bank on the counter.\n3| TASHA: Your college fund is EMPTY?! Five hundred dollars!\n4| MALIK: I put it in fomo.\n5| TASHA: A phone app? That's your college money!\n6| MALIK: Thirty days. Watch me.\n7| TASHA: Thirty days. Then you're bagging groceries.\n8| SCENE 2 — INT. MALIK'S BEDROOM — NIGHT\n9| ★ fomo screen: Token chart down — on Malik's phone\n10| Malik drops his head onto his arms in the blue phone glow.\n11| MALIK: Come on. One more.\n12| ★ fomo screen: Token chart up — fills the frame, a phone ding\n13| Wordless montage, same pose at his desk: the phone becomes a laptop, then two monitors, while day and night flip in the window behind him.\n14| ★ fomo screen: Desktop trading — on his monitor\n15| SCENE 3 — INT. KITCHEN — DAY, ONE MONTH LATER\n16| White flash. The red piggy bank sits on the counter.\n17| Malik slides his phone across the counter.\n18| TASHA: That's… real?\n19| MALIK: Still want me bagging groceries?\n20| Tasha grabs his phone with both hands and screams.\n21| ★ fomo screen: Home — closing tag, fills the frame\n</script>",
+ "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image: logo, colours and layout exact, numbers free:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, red beanie, grey hoodie, headphones round his neck\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<places>\nplace:1 Tasha's kitchen\nplace:2 Malik's small bedroom\n</places>\n<video_model>Seedance 2.5: 4–30 s per clip, up to 30 reference images (prefer 8 or fewer)</video_model>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Aunt Tasha slams Malik's empty piggy bank on the counter.\n3| TASHA: Your college fund is EMPTY?! Five hundred dollars!\n4| MALIK: I put it in fomo.\n5| TASHA: A phone app? That's your college money!\n6| MALIK: Thirty days. Watch me.\n7| TASHA: Thirty days. Then you're bagging groceries.\n8| SCENE 2 — INT. MALIK'S BEDROOM — NIGHT\n9| ★ fomo screen: Token chart down — on Malik's phone\n10| Malik drops his head onto his arms in the blue phone glow.\n11| MALIK: Come on. One more.\n12| ★ fomo screen: Token chart up — fills the frame, a phone ding\n13| Wordless montage, Malik in every shot, getting rich: car keys dropped into his palm, behind the wheel of a new red coupe, pushing open a penthouse door, out on the balcony over the city, then at his new trading desk.\n14| ★ fomo screen: Desktop trading — on his monitor\n15| SCENE 3 — INT. KITCHEN — DAY, ONE MONTH LATER\n16| White flash. The red piggy bank sits on the counter.\n17| Malik slides his phone across the counter.\n18| TASHA: That's… real?\n19| MALIK: Still want me bagging groceries?\n20| Tasha grabs his phone with both hands and screams.\n21| ★ fomo screen: Home — closing tag, fills the frame\n</script>",
  "output": {
   "hook": "Tasha bursts in and slams Malik's empty piggy bank down at 0 s, and the money ($500) is in her first line; his dare lands by second 5.",
   "scenes": [
@@ -160,8 +160,8 @@
    },
    {
     "id": 2,
-    "heading": "INT. MALIK'S BEDROOM — NIGHT",
-    "look": "Night screen-glow: cold blue phone light from below is the only key, the room near black, a warm tungsten doorway behind him; it warms as the chart turns green.",
+    "heading": "INT. MALIK'S BEDROOM — NIGHT, THEN MONTAGE: CAR, PENTHOUSE",
+    "look": "Near black, cold blue phone light from below, until the win turns it green and warm; the montage climbs into warm gold: a showroom, the red coupe, a glass penthouse and its balcony over the city lights at night.",
     "shots": [
      {
       "id": "2.1",
@@ -243,14 +243,14 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Same pose at the desk; the phone in his hands is now a laptop.",
+      "action": "A dealer drops car keys into Malik's open palm; his fist closes on them.",
       "reaction": null,
-      "camera": "Medium shot, locked off, match cut",
+      "camera": "Close-up, static",
       "seconds": 0.4,
       "character_ids": [
        "char:1"
       ],
-      "place_id": "place:2",
+      "place_id": null,
       "moment": null,
       "screen_ids": []
      },
@@ -261,14 +261,14 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Same frame; the window behind him flips from night to day.",
+      "action": "Malik behind the wheel of a new red coupe, both hands on the wheel, grinning.",
       "reaction": null,
-      "camera": "Medium shot, locked off",
+      "camera": "Medium shot through the windshield, static",
       "seconds": 0.4,
       "character_ids": [
        "char:1"
       ],
-      "place_id": "place:2",
+      "place_id": null,
       "moment": null,
       "screen_ids": []
      },
@@ -279,14 +279,14 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Same pose; the laptop is now a wide desk with two monitors.",
+      "action": "Malik pushes open the glass door of a penthouse, keys spinning on his finger.",
       "reaction": null,
-      "camera": "Medium shot, locked off, match cut",
+      "camera": "Wide, track in behind him",
       "seconds": 0.4,
       "character_ids": [
        "char:1"
       ],
-      "place_id": "place:2",
+      "place_id": null,
       "moment": null,
       "screen_ids": []
      },
@@ -297,14 +297,14 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Same frame; day flips back to night, energy cans piling up.",
+      "action": "Malik walks out onto the penthouse balcony over the city lights, arms wide.",
       "reaction": null,
-      "camera": "Medium shot, locked off",
+      "camera": "Wide, low angle, slow pull out",
       "seconds": 0.4,
       "character_ids": [
        "char:1"
       ],
-      "place_id": "place:2",
+      "place_id": null,
       "moment": null,
       "screen_ids": []
      },
@@ -315,11 +315,13 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "A white flash frame.",
+      "action": "Malik at a penthouse desk with two monitors, hoodie on, phone beside the keyboard.",
       "reaction": null,
-      "camera": "Flash frame",
+      "camera": "Medium shot, locked off",
       "seconds": 0.4,
-      "character_ids": [],
+      "character_ids": [
+       "char:1"
+      ],
       "place_id": "place:2",
       "moment": null,
       "screen_ids": []
@@ -331,9 +333,9 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Same pose; his hands fly over the keyboard.",
+      "action": "His hands fly over the keyboard in the green monitor glow.",
       "reaction": null,
-      "camera": "Close-up on his hands, locked off",
+      "camera": "Close-up, static",
       "seconds": 0.4,
       "character_ids": [
        "char:1"
@@ -412,15 +414,15 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Malik's phone slides across the counter and stops in front of Tasha.",
+      "action": "Malik's phone slides across the counter and stops in front of Tasha; the fomo home screen's portfolio balance reads $348,920.15.",
       "reaction": null,
       "camera": "Overhead close-up on the phone, static",
       "seconds": 1.0,
       "character_ids": [],
       "place_id": "place:1",
-      "moment": "win",
+      "moment": "app-open",
       "screen_ids": [
-       "screen:2"
+       "screen:1"
       ]
      },
      {

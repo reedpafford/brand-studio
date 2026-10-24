@@ -1,4 +1,4 @@
-as of ac1751d · 2026-10-24 02:42 UTC
+as of 410c815 · 2026-10-24 03:05 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -11,6 +11,7 @@ as of ac1751d · 2026-10-24 02:42 UTC
 - Clips pane: takes, pick, approve, make the video, download (#104); server support: clip on jobs, Redo note, take cost, un-approve (#113). The path brief → script → breakdown → storyboard → clips → video exists end to end.
 - Since then: Iron Paws flavour picker on the brief (#114) and product variants + brand end line (#110); cap 729 credits ($75), no editor length limit (#109); house-style character sheets and place stills with owner approval and "Waiting for Reed" (#116, #122, #130), warnings when a cast member has no approved sheet (#129); credits left per stage (#126); storyboard frames work around what the image model refuses (#121); Quick clip Improve prompt (server, #117); PB excerpt fixes (#124); Docker Compose deploy stack for the VPS (#112); specs for sheets, "Use the real image" and prices (#123, #127, #132).
 - Then: Approvals screen for the owner (#133), Product/Variant on brand screens (#137), credits left per stage (#138), Quick clip Improve prompt screen (#118), fomo Home screen counts for the win moment (#139); the whole video flow runs in the browser tests on free stand-ins (#151); gap-hunt fixes: script drafts, Edit brief, character photo, phone stage switch, 44px targets (#152).
+- Also merged: montage rules, nobody speaks unless scripted (#135); stray control characters dropped from Claude answers (#136); real-brand-picture cut-ins over insert shots and the "Use the real image" switch (#134, #140); Approvals show who asked and dollars for the owner (#143, #147, #142); invite page says who invited you (#154, #156); byte-range file requests so phones can play videos (#144); no sideways scroll at 390 (#145); full-size peanut butter bag (#119); automatic deploy to the VPS on every merge to main (#150; skips with a warning unless the server secrets and `VPS_HOST_KEY` are set); `python -m app.seed refresh` makes manifest changes reach live databases (#149).
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
 - Director prompts/evals (#30, #36, #41, #54, #75); Iron Paws + fomo seeds (#27, #39); browser tests (#19, #86, #49, #52, #61, #65, #71, #73, #76).
 - Design specs: Breakdown, Storyboard, Clips, Approvals (#79, #80); Prompting guides and FIT rows (#53, #70); house style and gold references from @nateassets (#96).
@@ -32,30 +33,16 @@ as of ac1751d · 2026-10-24 02:42 UTC
 ## Definition of done (Reed, ops/MISSION.md)
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
-- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); his verdict is in DECISIONS.md (#125: main text on the bag must read right, small print may be garbled) and the fixes (dry eyes on the healed beat, pitbull drift) merged in #124. The fomo trading montage ran once ($1.87 per the Producer); Reed's notes are in DECISIONS.md and #131 (hero in every shot, creative wealth beats, logo/UI right, numbers free). It re-runs after #135 merges. Excerpt spend $5.54 of the $8.30 approved, logged in ops/SPEND.md on #119 (not on main yet).
-## Open PRs (17, not counting the Scribe's own)
-- #156 Invite page: who invited you, to which studio | Builder-Screens | Designer pass (9a13dda)
-- #155 Brief: Adapt a reference reel | Builder-Screens | Designer: 1 must-fix (two "reference" fields on one form); re-check at 2874283 says not fixed yet
-- #154 Invite page: POST /auth/invite tells who invited you | Builder-Server | in review
-- #153 Reference reels: a catalogue to adapt from, picked on the brief | Builder-Server | in review
-- #150 Deploy: automatic deploy to the VPS on every merge to main | Release | QA pass at 2c32838 (workflow read, not run); host-key pinning added in d78894b; non-root deploy key left as a follow-up
-- #149 Seed: manifest changes reach live databases (`python -m app.seed refresh`) | Builder-Server | in review
-- #148 scripts/fake_run.py: both done-test videos end to end on the stand-ins | Builder-Server | in review
-- #147 Approvals: who asked, and dollars for the owner | Builder-Screens | Designer pass
-- #145 Project page: no sideways scroll at 390 | Builder-Screens | Designer pass
-- #144 Files: answer byte-range requests so phones can play videos | Builder-Server | in review
-- #143 Approvals: who asked, and a job's cost in dollars for the owner (server) | Builder-Server | in review
-- #142 Approvals spec: planned length no longer waits for Reed | Designer | in review
-- #140 Clips: "Use the real image" switch per insert | Builder-Screens | Designer pass at an earlier head; head since moved to 1822bff
-- #136 Claude answers: drop stray control characters before saving | Builder-Server | QA pass (83880fa)
-- #135 Nobody speaks unless scripted; montages: hero in every shot, wealth payoffs | Director | QA pass (9e60170); head since moved to 9938d3e (Director narrowed one check)
-- #134 Cut-ins: the real brand picture over insert shots when the video is made | Builder-Server | QA pass (246ca4d); needs `schema.d.ts` regenerated against main; head since moved to 9af69c6
-- #119 Iron Paws: full-size peanut butter bag (scoop removed) + spend log | Producer | in review
+- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage ran twice; the re-run after #135 is logged in ops/SPEND.md ($1.96). Per the Producer: no speech and the hero in almost every shot now, but the payoff screen showed a coin price instead of the balance; the Director is proposing a fix. Excerpt spend $7.65 of the $8.30 approved (ops/SPEND.md on main).
+## Open PRs (3, not counting the Scribe's own)
+- #155 Brief: Adapt a reference reel | Builder-Screens | Designer re-check passed (3a393a3)
+- #153 Reference reels: a catalogue to adapt from, picked on the brief | Builder-Server | QA at 6c5d137: 1 must-fix (live-action shots not removed from a reel picked by `reference_id`: `RefShot` has no `style`); head since moved to 11f2ec3
+- #148 scripts/fake_run.py: both done-test videos end to end on the stand-ins | Builder-Server | QA passed at d38d388 before #135 merged; per the Producer it breaks under #135's checks and is back with Builder-Server; head now c1ead03
 ## Next
-- Builder-Screens: fix #155's duplicate reference field; land #156, #147, #145, #140.
-- Builder-Server: land #134, #136, #143, #144, #149, #153, #154, #148.
-- Director: land #135; re-run the fomo excerpt after it merges; paid runs only with Producer approval, logged in ops/SPEND.md.
-- Release: land #150 (auto deploy); the live deploy itself is not tracked on GitHub yet.
+- Builder-Server: fix #153's `RefShot` style field and test; make #148 pass under #135's checks.
+- Builder-Screens: land #155 once #153 is in.
+- Director: fix the fomo payoff screen (balance, not a coin price) and re-run the excerpt; paid runs only with Producer approval, logged in ops/SPEND.md.
+- Release: first live deploy needs Reed's server secrets (not tracked on GitHub).
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
 - Replicate key for the deployed server (later). Keys stay server-side only.

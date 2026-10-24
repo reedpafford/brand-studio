@@ -1,8 +1,7 @@
 name: web
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_call:  # on main, deploy.yml runs this before deploying
 jobs:
   lint-test:
     runs-on: ubuntu-latest

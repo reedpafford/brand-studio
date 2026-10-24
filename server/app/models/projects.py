@@ -23,6 +23,7 @@ class Project(Entity, Base):
     planned_seconds: Mapped[int]
     status: Mapped[ProjectStatus] = mapped_column(String(30), default=ProjectStatus.active)
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
     # Brief
     goal: Mapped[str] = mapped_column(Text, default="")

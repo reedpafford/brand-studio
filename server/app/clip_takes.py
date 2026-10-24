@@ -97,9 +97,10 @@ def pick(clip: ProjectClip, take: ClipTake) -> None:
     clip.picked_take_id, clip.file_id, clip.approved = take.id, take.file_id, False
 
 
-def stitch(videos: list[bytes]) -> bytes:
+def stitch(videos: list[bytes], reencode: bool = False) -> bytes:
     """Join MP4 clips in order into one MP4 with ffmpeg (no credits). Clips from one model share
-    a format, so streams are copied; if that fails they are re-encoded."""
+    a format, so streams are copied; if that fails (or some clips have cut-ins, so formats may
+    differ) they are re-encoded."""
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         names = []
@@ -108,7 +109,8 @@ def stitch(videos: list[bytes]) -> bytes:
             names.append(f"file '{n}.mp4'")
         (folder / "list.txt").write_text("\n".join(names))
         base = ["ffmpeg", "-v", "error", "-y", "-f", "concat", "-i", "list.txt"]
-        for codec in (["-c", "copy"], ["-c:v", "libx264", "-c:a", "aac"]):
+        codecs = [["-c", "copy"], ["-c:v", "libx264", "-c:a", "aac"]][int(reencode) :]
+        for codec in codecs:
             done = subprocess.run(  # noqa: S603 - fixed arguments; file names are ours
                 [*base, *codec, "out.mp4"], cwd=folder, capture_output=True, timeout=600
             )

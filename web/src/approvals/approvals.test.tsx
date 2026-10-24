@@ -110,3 +110,24 @@ test("a Quick clip row says Quick clip once", async () => {
   await screen.findByText(/Mia hits the buy moment/);
   expect(within(screen.getByRole("list")).getAllByText("Quick clip")).toHaveLength(1);
 });
+
+test("each row says who asked, and the owner sees the dollars next to the credits", async () => {
+  fakeServer({
+    ...base,
+    "GET /jobs": [200, [held({ created_by_name: "Sam" })]],
+    "GET /jobs/50/detail": [200, held({ created_by_name: "Sam", cost_usd: 2.36 })],
+    "GET /projects": [200, [{ ...project, id: 11, name: "Big summer story", status: "needs_owner_approval", created_by_name: "Jo" }, project]],
+  });
+  open();
+  expect(await screen.findByText(/asked by Sam, /)).toBeInTheDocument();
+  expect(await screen.findByText(/27 credits \(\$2\.36\) · takes the project to/)).toBeInTheDocument();
+  expect(screen.getByText("asked by Jo")).toBeInTheDocument();
+  expect(screen.getByText("To decline, ask Jo to shorten the plan.")).toBeInTheDocument();
+});
+
+test("an editor never sees dollars anywhere on the app's held-work badges", async () => {
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs/50/detail": [403, { detail: "Owner only." }] });
+  open("/b/1/projects");
+  await screen.findByRole("navigation", { name: "Main" });
+  expect(document.body.textContent).not.toMatch(/\$/);
+});
