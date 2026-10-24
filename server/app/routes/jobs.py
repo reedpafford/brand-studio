@@ -5,11 +5,18 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, model_validator
-from sqlalchemy import select, update
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session, object_session
 
-from app.auth import current_user, owner_only
-from app.credits import check_clip_cap, check_video_cap, estimate, lock, needs_approval
+from app.auth import current_user, owner_only, user_name
+from app.credits import (
+    USD_PER_CREDIT,
+    check_clip_cap,
+    check_video_cap,
+    estimate,
+    lock,
+    needs_approval,
+)
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus, Usage
@@ -39,6 +46,8 @@ class JobOut(BaseModel):
     duration: int | None = None
     aspect_ratio: str | None = None
     resolution: str | None = None
+    created_by_id: int | None = None  # who asked (for the owner's Approvals list)
+    created_by_name: str = ""
 
     @model_validator(mode="before")
     @classmethod
@@ -64,6 +73,7 @@ class JobOut(BaseModel):
             for f in ("provider", "provider_ref", "error_detail", "approved_by_id")
             if hasattr(job, f)
         }
+        db = object_session(job)
         given = job.input.get("input") or {}
         # The editor's own words, not the [ImageN] lines added for the model.
         prompt = str((job.input.get("request") or given).get("prompt", ""))
@@ -78,16 +88,26 @@ class JobOut(BaseModel):
             "model_id": job.input.get("model"),
             "brand_id": job.input.get("brand_id"),
             **{k: given.get(k) for k in ("duration", "aspect_ratio", "resolution")},
+            "created_by_id": job.created_by_id,
+            "created_by_name": user_name(db, job.created_by_id) if db else "",
+            **({"cost_usd": _usd(db, job)} if "cost_usd" in cls.model_fields and db else {}),
         }
 
 
+def _usd(db: Session, job: Job) -> float:
+    spent = db.scalar(select(func.sum(Usage.cost_usd)).where(Usage.job_id == job.id))
+    return round(float(spent if spent is not None else job.credits * USD_PER_CREDIT), 4)
+
+
 class JobDetailOut(JobOut):
-    """Owner-only: includes the provider's raw error text."""
+    """Owner-only: includes the provider's raw error text and the cost in dollars (what was
+    spent once it ran; until then, what its credits are worth)."""
 
     approved_by_id: int | None
     provider: str
     provider_ref: str | None
     error_detail: str
+    cost_usd: float = 0.0
 
 
 class UsageOut(BaseModel):
