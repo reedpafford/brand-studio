@@ -1,4 +1,4 @@
-as of 410c815 · 2026-10-24 03:05 UTC
+as of 9d80e59 · 2026-10-24 03:15 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -34,14 +34,15 @@ as of 410c815 · 2026-10-24 03:05 UTC
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
 - Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage ran twice; the re-run after #135 is logged in ops/SPEND.md ($1.96). Per the Producer: no speech and the hero in almost every shot now, but the payoff screen showed a coin price instead of the balance; the Director is proposing a fix. Excerpt spend $7.65 of the $8.30 approved (ops/SPEND.md on main).
-## Open PRs (3, not counting the Scribe's own)
+## Open PRs (4, not counting the Scribe's own)
+- #159 Payoff screen, named screens, two screens per clip, hero in frame from the first moment | Director | in review (follows the fomo re-run; prompts only, no paid calls)
 - #155 Brief: Adapt a reference reel | Builder-Screens | Designer re-check passed (3a393a3)
-- #153 Reference reels: a catalogue to adapt from, picked on the brief | Builder-Server | QA at 6c5d137: 1 must-fix (live-action shots not removed from a reel picked by `reference_id`: `RefShot` has no `style`); head since moved to 11f2ec3
+- #153 Reference reels: a catalogue to adapt from, picked on the brief | Builder-Server | QA must-fix at 6c5d137 (`RefShot` has no `style`, so live-action shots are not removed); head since moved to f8582bd
 - #148 scripts/fake_run.py: both done-test videos end to end on the stand-ins | Builder-Server | QA passed at d38d388 before #135 merged; per the Producer it breaks under #135's checks and is back with Builder-Server; head now c1ead03
 ## Next
 - Builder-Server: fix #153's `RefShot` style field and test; make #148 pass under #135's checks.
 - Builder-Screens: land #155 once #153 is in.
-- Director: fix the fomo payoff screen (balance, not a coin price) and re-run the excerpt; paid runs only with Producer approval, logged in ops/SPEND.md.
+- Director: land #159 (payoff screen shows the balance, not a coin price), then re-run the excerpt; paid runs only with Producer approval, logged in ops/SPEND.md.
 - Release: first live deploy needs Reed's server secrets (not tracked on GitHub).
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
