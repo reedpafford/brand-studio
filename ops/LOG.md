@@ -1,6 +1,9 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-24 03:56 · #164 Login spec: "Sign in" wording, invite page states as built merged
+- 2026-10-24 03:56 · #163 Invite page polish: Sign in wording, failed check says try again merged
+- 2026-10-24 03:48 · #162 ops: HANDOFF/LOG refresh 2026-10-24 03:55Z merged (by the Producer)
 - 2026-10-24 03:47 · #155 Brief: Adapt a reference reel merged
 - 2026-10-24 03:46 · #153 Reference reels: a catalogue to adapt from, picked on the brief merged (reel shots keep their style, so live-action shots are dropped)
 - 2026-10-24 03:43 · #161 Clips: fetch the clips again when a take or the prompts finish (fixes the flaky pipeline e2e) merged
