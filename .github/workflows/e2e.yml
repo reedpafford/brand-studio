@@ -1,8 +1,7 @@
 name: e2e
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_call:  # on main, deploy.yml runs this before deploying
 jobs:
   browser-tests:
     runs-on: ubuntu-latest
