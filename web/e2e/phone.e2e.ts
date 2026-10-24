@@ -28,13 +28,16 @@ test("on a phone, the theme can be changed from More and is remembered", async (
   await signIn(page, "reed@example.com");
   const tabs = page.getByRole("navigation", { name: "Tabs" });
   await tabs.getByRole("button", { name: "More" }).click();
-  await page.getByRole("button", { name: "Theme: System" }).click();
-  await expect(page.getByRole("button", { name: "Theme: Light" })).toBeVisible();
-  await page.getByRole("button", { name: "Theme: Light" }).click();
+  // Dark is the default, then light, then "match my device".
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Theme: Dark" }).click();
+  await expect(page.getByRole("button", { name: "Theme: Light" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Theme: Light" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
 
   await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
 });
 
 test("on a phone, Escape closes More and Sign out ends the session", async ({ page }) => {

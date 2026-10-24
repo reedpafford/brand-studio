@@ -1,175 +1,203 @@
-/* Brand Studio design tokens. Spec: docs/design/README.md.
-   Theme: follows the OS; <html data-theme="light|dark"> overrides it.
-   data-theme="dark" also works on a single element (e.g. the video lightbox).
-   The current brand's colour is set at runtime: <html style="--brand: #xxxxxx">. */
+/* Brand Studio design tokens v2 · "Screening room" (Reed's pick, #173).
+   Drop-in replacement for web/src/styles/tokens.css (redesign PR 1).
+   Variable names match v1 where they mean the same thing, so existing classes keep working.
+
+   Theme: dark is the default (the app is for looking at frames and takes).
+   <html data-theme="light"> switches to the warm light mode. The theme menu offers Dark / Light;
+   "System" follows the OS only when the person picks it (data-theme="system" + the media query below).
+   The current brand's colour is set at runtime: <html style="--brand: #xxxxxx">.
+
+   Contrast (WCAG 2.2 AA), checked with docs/design/redesign/phase3/contrast.py:
+   every text pair >= 4.5:1, input borders and focus >= 3:1, disabled labels >= 4.5:1 too. */
+
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/manrope"; /* new dependency, web/ only */
+@import "@fontsource/courier-prime/400.css";
+@import "@fontsource/courier-prime/700.css";
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Surfaces */
-  --bg: #f7f6f3;
-  --surface: #ffffff;
-  --surface-2: #f0eeea;
-  --border: #e2dfd9;
-  --border-strong: #8f8a81; /* inputs, checkboxes: 3:1 on surface */
+  /* Surfaces: night -> panel -> raised -> hover */
+  --bg: #0b0b0d;
+  --surface: #151517;
+  --surface-2: #1e1e21;
+  --surface-3: #28282c;       /* hover / pressed on surface-2 */
+  --border: #2a2a2f;           /* dividers, card edges */
+  --border-strong: #64646e;    /* inputs, checkboxes: 3.1:1 on surface */
+  --scrim: rgb(0 0 0 / 0.64);  /* behind sheets and dialogs */
+  --media-shade: linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0) 70%); /* text on pictures */
 
   /* Text */
-  --text: #1c1b19;
-  --text-muted: #5e5b55; /* also placeholders */
-  --text-faint: #8a867e; /* disabled and decoration only, never real text */
+  --text: #f3f2ef;             /* 16.3:1 on surface */
+  --text-muted: #a3a1a9;       /* 7.2:1 on surface, 5.8:1 on surface-3 */
+  --text-faint: #6e6c75;       /* decoration only: never words people must read */
+  --text-on-media: #ffffff;
 
-  /* Accent (ours, not the brand's) */
-  --accent: #0e6f64;
-  --accent-hover: #0b5c53;
-  --accent-soft: #e2f0ec;
-  --accent-text: #0b5c53; /* accent text on accent-soft */
-  --on-accent: #ffffff;
-  --focus: #0e6f64;
+  /* Action: golden-hour amber, ours (not the brand's). Dark text on it. */
+  --accent: #f4a940;
+  --accent-hover: #f7ba62;
+  --accent-pressed: #e2962d;
+  --accent-border: transparent;
+  --on-accent: #1b1206;        /* 9.3:1 on accent */
+  --accent-soft: #2e2414;
+  --accent-text: #f7c27a;      /* 9.4:1 on accent-soft */
+  --focus: #f7c27a;            /* 2px ring, 12:1 on bg */
+
+  /* Disabled: a real colour pair, not opacity (stays readable) */
+  --disabled-bg: #26262a;
+  --disabled-text: #8e8c95;    /* 4.55:1 */
 
   /* Status */
-  --success: #1f7a3d;
-  --success-soft: #e4f3e8;
-  --warning: #9a5800;
-  --warning-soft: #fcf0dc;
-  --danger: #b42318;
-  --danger-soft: #fde8e6;
+  --success: #5bd08a;  --success-soft: #12261a;   /* 8.2:1 */
+  --warning: #f2c14e;  --warning-soft: #2a2312;   /* 9.3:1 */
+  --danger: #ff8a7e;   --danger-soft: #33191a;    /* 7.1:1 */
 
   /* Script Enhance marks */
-  --mark: #fff0bf; /* pending suggestion highlight */
-  --mark-line: #c99400;
+  --mark: #3a3215;
+  --mark-line: #f2c14e;
 
-  /* Brand slot (falls back to our accent) */
+  /* Brand slot (the brand dot, the brand's own pages). Falls back to amber. */
   --brand: var(--accent);
 
-  --shadow-1: 0 1px 2px rgb(28 27 25 / 0.06);
-  --shadow-2: 0 4px 16px rgb(28 27 25 / 0.10);
-  --scrim: rgb(20 20 18 / 0.45);
+  /* Elevation: dark uses light edges, not big shadows */
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-raised: 0 12px 32px rgb(0 0 0 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.05); /* menus, toasts */
+  --shadow-overlay: 0 24px 64px rgb(0 0 0 / 0.6);                                       /* sheets, dialogs */
 
-  /* Type */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Type: Manrope titles, Inter text, Courier Prime for scripts and prompts */
+  --font-display: "Manrope Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-script: "Courier Prime", "Courier New", ui-monospace, monospace;
-  --text-xs: 0.75rem;   /* 12 badges, timecodes */
-  --text-sm: 0.8125rem; /* 13 helper text, table meta */
-  --text-base: 0.9375rem; /* 15 body, controls */
-  --text-md: 1.0625rem; /* 17 card titles */
-  --text-lg: 1.375rem;  /* 22 page titles */
-  --text-xl: 1.75rem;   /* 28 empty-state headlines, login */
-  --leading-tight: 1.25;
-  --leading-normal: 1.5;
-  --leading-script: 1.6;
 
-  /* Space (4px grid) */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --space-7: 48px;
+  /* Type scale: size / line height (weight set by role, see typography.md) */
+  --text-xs: 0.75rem;     --leading-xs: 1rem;        /* 12/16 badges, timecodes, captions */
+  --text-sm: 0.8125rem;   --leading-sm: 1.125rem;    /* 13/18 helper text, meta */
+  --text-base: 0.9375rem; --leading-base: 1.375rem;  /* 15/22 body, controls (16/24 on phones) */
+  --text-md: 1.0625rem;   --leading-md: 1.375rem;    /* 17/22 card titles (Manrope 700) */
+  --text-lg: 1.25rem;     --leading-lg: 1.625rem;    /* 20/26 section titles (Manrope 700) */
+  --text-xl: 1.5rem;      --leading-xl: 1.875rem;    /* 24/30 empty-state headlines (Manrope 750) */
+  --text-2xl: 2rem;       --leading-2xl: 2.375rem;   /* 32/38 page titles (Manrope 800; 26/32 on phones) */
+  --text-script: 0.875rem; --leading-script: 1.6;   /* 14 Courier Prime */
+  --tracking-display: -0.02em;
+
+  /* Space: 4px grid. Allowed steps only: 1 2 3 4 5 6 8 10 12 16 (x4px) */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+  --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px;
 
   /* Shape */
-  --radius-sm: 6px;  /* chips, badges, inputs */
-  --radius-md: 10px; /* buttons, cards */
-  --radius-lg: 16px; /* dialogs, sheets */
+  --radius-sm: 6px;    /* badges, chips */
+  --radius-md: 10px;   /* buttons, inputs, small media */
+  --radius-lg: 14px;   /* cards, media cards */
+  --radius-xl: 20px;   /* sheets, dialogs */
+  --radius-full: 999px;
 
-  /* Layout */
-  --topbar-h: 56px;
-  --sidebar-w: 232px;
-  --panel-w: 360px;  /* Quick clip controls, script pane min */
-  --tabbar-h: 64px;  /* phone bottom tabs */
+  /* Sizes */
+  --control-h: 44px;       /* every control on phones; also the desktop minimum for primary actions */
+  --control-h-dense: 36px; /* secondary controls on desktop only (pointer), never on phones */
+  --topbar-h: 60px;
+  --rail-w: 232px;         /* desktop side rail */
+  --tabbar-h: 64px;        /* phone bottom tabs (+ safe area) */
+  --actionbar-h: 68px;     /* phone action bar above the tabs */
   --content-max: 1280px;
 
-  /* Motion */
-  --ease: cubic-bezier(0.2, 0, 0, 1);
-  --dur-fast: 120ms;
-  --dur: 200ms;
+  /* Motion: quick and smooth. Enter decelerates, exit accelerates and is ~70% as long. */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1); /* press-release, toasts in */
+  --dur-instant: 80ms;  /* press feedback */
+  --dur-fast: 140ms;    /* hover, focus, small fades */
+  --dur: 220ms;         /* cards, tabs, step changes */
+  --dur-slow: 320ms;    /* sheets and side panels in */
+  --dur-exit: 160ms;    /* sheets and dialogs out */
 }
 
-@media (max-width: 640px) {
-  :root { --text-base: 1rem; } /* 16px on phones: no iOS zoom on inputs */
-}
-
-[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #141412;
-  --surface: #1c1c1a;
-  --surface-2: #262623;
-  --border: #2f2e2b;
-  --border-strong: #6e6b64;
-  --text: #eceae5;
-  --text-muted: #a9a69e;
-  --text-faint: #7a776f;
-  --accent: #3fb8a4;
-  --accent-hover: #5cc9b6;
-  --accent-soft: #17302b;
-  --accent-text: #6cd0be;
-  --on-accent: #0b1f1b;
-  --focus: #6cd0be;
-  --success: #56c785;
-  --success-soft: #16291d;
-  --warning: #e8a83e;
-  --warning-soft: #2e2412;
-  --danger: #f27a70;
-  --danger-soft: #341a1a;
-  --mark: #3a3215;
-  --mark-line: #e8a83e;
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-2: 0 4px 16px rgb(0 0 0 / 0.5);
-  --scrim: rgb(0 0 0 / 0.6);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --bg: #141412;
-    --surface: #1c1c1a;
-    --surface-2: #262623;
-    --border: #2f2e2b;
-    --border-strong: #6e6b64;
-    --text: #eceae5;
-    --text-muted: #a9a69e;
-    --text-faint: #7a776f;
-    --accent: #3fb8a4;
-    --accent-hover: #5cc9b6;
-    --accent-soft: #17302b;
-    --accent-text: #6cd0be;
-    --on-accent: #0b1f1b;
-    --focus: #6cd0be;
-    --success: #56c785;
-    --success-soft: #16291d;
-    --warning: #e8a83e;
-    --warning-soft: #2e2412;
-    --danger: #f27a70;
-    --danger-soft: #341a1a;
-    --mark: #3a3215;
-    --mark-line: #e8a83e;
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-2: 0 4px 16px rgb(0 0 0 / 0.5);
-    --scrim: rgb(0 0 0 / 0.6);
+@media (max-width: 639px) {
+  :root {
+    --text-base: 1rem; --leading-base: 1.5rem;     /* 16px: no iOS zoom on inputs */
+    --text-2xl: 1.625rem; --leading-2xl: 2rem;     /* 26/32 page titles */
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  :root { --dur-fast: 0ms; --dur: 0ms; }
+/* Light mode: the warm palette from direction A, with the same amber action colour. */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f3ee;
+  --surface: #ffffff;
+  --surface-2: #efece5;
+  --surface-3: #e6e2d9;
+  --border: #e2ded5;
+  --border-strong: #8f8a81;    /* 3.4:1 */
+  --scrim: rgb(20 20 18 / 0.45);
+  --text: #1c1b19;
+  --text-muted: #5e5b55;       /* 6.8:1 on surface */
+  --text-faint: #8a867e;
+  --accent: #f4a940;
+  --accent-hover: #f7ba62;
+  --accent-pressed: #e2962d;
+  --accent-border: #b8740f;    /* amber fill is light on light: the edge carries 3.4:1 */
+  --on-accent: #1b1206;
+  --accent-soft: #fcefd9;
+  --accent-text: #8a4b00;      /* 6.0:1 on accent-soft */
+  --focus: #b45f06;            /* 4.1:1 on bg */
+  --disabled-bg: #e6e2d9;
+  --disabled-text: #5e5b55;    /* 5.2:1 */
+  --success: #1f7a3d;  --success-soft: #e4f3e8;
+  --warning: #8a5a00;  --warning-soft: #fcf0dc;
+  --danger: #b42318;   --danger-soft: #fde8e6;
+  --mark: #fff0bf;
+  --mark-line: #c99400;
+  --shadow-card: 0 1px 2px rgb(28 27 25 / 0.06);
+  --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
+  --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);
 }
 
-/* Tailwind v4: import this file after `@import "tailwindcss";` to get
-   bg-surface, text-muted, border-strong, rounded-md, font-script, etc.
-   Other CSS tools ignore this block. */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    color-scheme: light;
+    --bg: #f5f3ee; --surface: #ffffff; --surface-2: #efece5; --surface-3: #e6e2d9;
+    --border: #e2ded5; --border-strong: #8f8a81; --scrim: rgb(20 20 18 / 0.45);
+    --text: #1c1b19; --text-muted: #5e5b55; --text-faint: #8a867e;
+    --accent-border: #b8740f; --accent-soft: #fcefd9; --accent-text: #8a4b00; --focus: #b45f06;
+    --disabled-bg: #e6e2d9; --disabled-text: #5e5b55;
+    --success: #1f7a3d; --success-soft: #e4f3e8; --warning: #8a5a00; --warning-soft: #fcf0dc;
+    --danger: #b42318; --danger-soft: #fde8e6; --mark: #fff0bf; --mark-line: #c99400;
+    --shadow-card: 0 1px 2px rgb(28 27 25 / 0.06); --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
+    --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);
+  }
+}
+
+/* Reduced motion: nothing moves; state still changes (opacity swaps at 1ms so transitionend fires). */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-instant: 1ms; --dur-fast: 1ms; --dur: 1ms; --dur-slow: 1ms; --dur-exit: 1ms; }
+}
+
+/* Tailwind v4 theme: import after `@import "tailwindcss";`.
+   Gives bg-surface, text-muted, border-strong, rounded-lg, font-display, text-2xl, shadow-raised,
+   ease-out, h-control, w-rail ... Durations: duration-(--dur-fast), duration-(--dur) etc. Spacing stays Tailwind's 4px unit (p-4 = 16px);
+   use only the steps listed above (lint: no p-7, p-9, p-11, gap-7 ... and no arbitrary [13px]). */
 @theme inline {
+  --color-*: initial; /* only these colours exist: no bg-violet-500 and friends */
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-text: var(--text);
   --color-muted: var(--text-muted);
   --color-faint: var(--text-faint);
+  --color-on-media: var(--text-on-media);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-accent-border: var(--accent-border);
   --color-accent-soft: var(--accent-soft);
   --color-accent-text: var(--accent-text);
   --color-on-accent: var(--on-accent);
+  --color-focus: var(--focus);
+  --color-disabled: var(--disabled-bg);
+  --color-disabled-text: var(--disabled-text);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
@@ -179,11 +207,44 @@
   --color-mark: var(--mark);
   --color-mark-line: var(--mark-line);
   --color-brand: var(--brand);
+  --color-scrim: var(--scrim);
+  --color-transparent: transparent;
+  --color-white: #fff;
+  --color-black: #000;
+
+  --font-display: var(--font-display);
   --font-sans: var(--font-sans);
   --font-script: var(--font-script);
+
+  --text-xs: var(--text-xs);       --text-xs--line-height: var(--leading-xs);
+  --text-sm: var(--text-sm);       --text-sm--line-height: var(--leading-sm);
+  --text-base: var(--text-base);   --text-base--line-height: var(--leading-base);
+  --text-md: var(--text-md);       --text-md--line-height: var(--leading-md);
+  --text-lg: var(--text-lg);       --text-lg--line-height: var(--leading-lg);
+  --text-xl: var(--text-xl);       --text-xl--line-height: var(--leading-xl);
+  --text-2xl: var(--text-2xl);     --text-2xl--line-height: var(--leading-2xl);
+  --text-script: var(--text-script); --text-script--line-height: var(--leading-script);
+  --tracking-display: var(--tracking-display);
+
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
-  --shadow-sm: var(--shadow-1);
-  --shadow-md: var(--shadow-2);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+
+  --ease-out: var(--ease-out);
+  --ease-in: var(--ease-in);
+  --ease-spring: var(--ease-spring);
+
+  --spacing-control: var(--control-h);
+  --spacing-control-dense: var(--control-h-dense);
+  --spacing-topbar: var(--topbar-h);
+  --spacing-rail: var(--rail-w);
+  --spacing-tabbar: var(--tabbar-h);
+  --spacing-actionbar: var(--actionbar-h);
+  --container-content: var(--content-max);
 }
