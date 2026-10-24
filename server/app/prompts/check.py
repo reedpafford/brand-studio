@@ -98,6 +98,9 @@ def breakdown(
             problems.append(f"clip {clip.id}: {clip.seconds} s is outside {min_s}–{max_s} s")
         if clip.seconds < total - 0.5:
             problems.append(f"clip {clip.id}: {clip.seconds} s is shorter than its shots")
+        screens = {sid for s in clip.shot_ids if s in by_id for sid in by_id[s].screen_ids}
+        if len(screens) > 3:  # the model mixes them up (fomo montage run 3, 2026-10-24)
+            problems.append(f"clip {clip.id}: {len(screens)} screens; keep the 3 its beats need")
     return problems
 
 

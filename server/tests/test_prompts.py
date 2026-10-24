@@ -122,6 +122,16 @@ def test_every_quick_cut_names_a_cast_member():
     assert check._cuts_name_someone(no_cast) == []
 
 
+def test_breakdown_check_keeps_a_clip_to_three_screens():
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    shot = next(s for s in bd.scenes[1].shots if s.id == "2.12")
+    shot.screen_ids = ["screen:1"]
+    assert check.breakdown(script, bd, FOMO, 4, 30) == [
+        "clip c2: 4 screens; keep the 3 its beats need"
+    ]
+
+
 def test_nobody_speaks_unless_the_script_says_so():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
