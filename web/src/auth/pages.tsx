@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { card, linkText } from "../ui";
+import { btnPrimary, card, linkText } from "../ui";
 import { AuthForm } from "./AuthForm";
 
 export function LoginPage() {
@@ -50,6 +50,8 @@ export function SetupPage() {
   );
 }
 
+class InviteGone extends Error {}
+
 export function InvitePage() {
   const { token = "" } = useParams();
   // Who invited you, to which studio. The token goes in the body, never the address, so it stays out of logs.
@@ -57,23 +59,37 @@ export function InvitePage() {
     queryKey: ["invite", token],
     retry: false,
     queryFn: async () => {
-      const { data, response } = await api.POST("/auth/invite", { body: { token } });
-      if (!data) throw new Error(response.status === 404 ? "This invite link is not valid any more." : "Could not check this invite. Try again.");
+      // Only a 404 means the link is dead; a dropped connection or a server error is just "try again".
+      const { data, response } = await api.POST("/auth/invite", { body: { token } }).catch(() => ({ data: undefined, response: undefined }));
+      if (response?.status === 404) throw new InviteGone();
+      if (!data) throw new Error("Could not check this invite. Check your connection and try again.");
       return data;
     },
   });
   if (invite.isPending) return <p className="p-6 text-muted">Checking your invite…</p>;
+  if (invite.isError && !(invite.error instanceof InviteGone))
+    return (
+      <main className="mx-auto flex min-h-screen max-w-[432px] flex-col justify-start gap-4 p-4 pt-[20vh] sm:justify-center sm:pt-4">
+        <div className={`${card} space-y-3`}>
+          <h1 className="text-xl font-semibold">Could not check your invite</h1>
+          <p role="alert">{invite.error.message}</p>
+          <button className={`${btnPrimary} min-h-11`} disabled={invite.isFetching} onClick={() => invite.refetch()}>
+            Try again
+          </button>
+        </div>
+      </main>
+    );
   if (invite.isError)
     return (
       <main className="mx-auto flex min-h-screen max-w-[432px] flex-col justify-start gap-4 p-4 pt-[20vh] sm:justify-center sm:pt-4">
         <div className={`${card} space-y-2`}>
           <h1 className="text-xl font-semibold">Invite not valid</h1>
-          <p role="alert">{invite.error.message}</p>
+          <p role="alert">This invite link is not valid any more.</p>
           <p className="text-muted">Ask whoever invited you to send a new link.</p>
           <p>
             Already have an account?{" "}
             <Link className={`${linkText} inline-flex min-h-11 items-center sm:min-h-0`} to="/login">
-              Log in
+              Sign in
             </Link>
           </p>
         </div>

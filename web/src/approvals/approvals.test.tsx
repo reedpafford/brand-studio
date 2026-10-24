@@ -125,9 +125,10 @@ test("each row says who asked, and the owner sees the dollars next to the credit
   expect(screen.getByText("To decline, ask Jo to shorten the plan.")).toBeInTheDocument();
 });
 
-test("an editor never sees dollars anywhere on the app's held-work badges", async () => {
-  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs/50/detail": [403, { detail: "Owner only." }] });
-  open("/b/1/projects");
-  await screen.findByRole("navigation", { name: "Main" });
+test("an editor who opens Approvals sees no held work and no dollars", async () => {
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "GET /jobs/50/detail": [200, held({ cost_usd: 2.36 })] });
+  open("/approvals");
+  expect(await screen.findByText("Page not found.")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
+  expect(screen.queryByText(/Clip take/)).not.toBeInTheDocument();
 });

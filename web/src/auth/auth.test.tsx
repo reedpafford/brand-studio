@@ -81,7 +81,7 @@ test("an invite link that is not valid says so and offers no form", async () => 
   expect(await screen.findByRole("alert")).toHaveTextContent("This invite link is not valid any more.");
   expect(screen.getByText("Ask whoever invited you to send a new link.")).toBeInTheDocument();
   expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+  expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
 });
 
 test("setup tells you when the studio already exists", async () => {
@@ -97,4 +97,12 @@ test("setup tells you when the studio already exists", async () => {
   for (const [label, value] of entries) await userEvent.type(await screen.findByLabelText(label), value);
   await userEvent.click(screen.getByRole("button", { name: "Create owner account" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Already set up.");
+});
+
+test("a dropped connection on the invite page says it could not check, with Try again, not that the invite is invalid", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [500, { detail: "Server error" }] });
+  renderAt("/invite/abc123");
+  expect(await screen.findByRole("heading", { name: "Could not check your invite" })).toBeInTheDocument();
+  expect(screen.queryByText("Invite not valid")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
 });
