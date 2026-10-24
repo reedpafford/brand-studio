@@ -30,6 +30,15 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
       setEditing(false);
     },
   });
+  // Each time Edit brief opens, the fields start from what is saved (a Cancel earlier doesn't linger).
+  const startEditing = () => {
+    setGoal(project.goal);
+    setFormat(project.format);
+    setSeconds(project.planned_seconds);
+    setCast(project.cast_ids);
+    setPicks(project.product_variants ?? {});
+    setEditing(true);
+  };
   const names = characters.data?.filter((c) => project.cast_ids.includes(c.id)).map((c) => c.name) ?? [];
   const flavours = Object.entries(project.product_variants ?? {});
 
@@ -48,7 +57,7 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
           <button className={`${btnPrimary} min-h-11 sm:min-h-9`} onClick={onNext}>
             Next: Script →
           </button>
-          <button className={`${linkText} min-h-11 sm:min-h-0`} onClick={() => setEditing(true)}>
+          <button className={`${linkText} min-h-11 sm:min-h-0`} onClick={startEditing}>
             Edit brief
           </button>
         </div>

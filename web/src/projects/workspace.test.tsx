@@ -153,3 +153,15 @@ test("editing the brief after a script exists says saving does not rewrite the s
   await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
   expect(screen.getByText("Saving doesn't rewrite the script or the steps after it. Redo them if the change matters.")).toBeInTheDocument();
 });
+
+test("Cancel throws the edits away: the next Edit brief starts from what is saved", async () => {
+  fakeServer({ ...briefRoutes });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit brief" }));
+  const goal = screen.getByLabelText("What's it for?");
+  await userEvent.clear(goal);
+  await userEvent.type(goal, "Something else");
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
+  expect(screen.getByLabelText("What's it for?")).toHaveValue("Show the buy flow");
+});
