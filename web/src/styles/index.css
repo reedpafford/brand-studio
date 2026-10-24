@@ -6,6 +6,18 @@
   accent-color: var(--accent);
 }
 
+/* Type roles (phase3 README): use these classes instead of raw sizes. */
+@utility type-page { font-family: var(--font-display); font-size: var(--text-2xl); line-height: var(--leading-2xl); font-weight: 800; letter-spacing: var(--tracking-display); }
+@utility type-headline { font-family: var(--font-display); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: 750; }
+@utility type-section { font-family: var(--font-display); font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: 700; }
+@utility type-card { font-family: var(--font-display); font-size: var(--text-md); line-height: var(--leading-md); font-weight: 700; }
+@utility type-body { font-size: var(--text-base); line-height: var(--leading-base); }
+@utility type-label { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: 500; }
+@utility type-meta { font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--text-muted); }
+@utility type-eyebrow { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+@utility type-caption { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: 600; }
+@utility type-script { font-family: var(--font-script); font-size: var(--text-script); line-height: var(--leading-script); }
+
 body {
   @apply bg-bg font-sans text-text antialiased;
   font-size: var(--text-base);
