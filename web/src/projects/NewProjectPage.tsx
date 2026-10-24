@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
-import { btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
+import { CastPicker, FlavourPicker, useBriefChoices, useLongestSeconds } from "./BriefPickers";
+import { backLink, btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 
 const ASPECTS = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
 const PLATFORMS = ["TikTok", "Instagram Reels", "YouTube Shorts", "Other"];
@@ -15,15 +16,12 @@ export function NewProjectPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", goal: "", platform: PLATFORMS[0], aspect: "9:16" as (typeof ASPECTS)[number], format: "", seconds: 30 });
   const [cast, setCast] = useState<number[]>([]);
+  const [picks, setPicks] = useState<Record<string, string>>({});
   const [reference, setReference] = useState<number | null>(null);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
 
-  const characters = useQuery({
-    queryKey: ["library", "character", brandId, false],
-    queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "character" }, query: { brand_id: brandId } } })).data ?? [],
-  });
-  const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
-  const longest = limits.data ? Math.floor(limits.data.per_video_max_credits / 2) : 364; // budget is 2x the 480p seconds
+  const { characters, products, chosen, unchosen } = useBriefChoices(brandId, picks);
+  const longest = useLongestSeconds();
 
   const upload = useMutation({ mutationFn: uploadFile, onSuccess: (f) => setReference(f.id) });
   const create = useMutation({
@@ -39,6 +37,7 @@ export function NewProjectPage() {
           format: form.format,
           cast_ids: cast,
           reference_file_id: reference,
+          product_variants: Object.fromEntries([...products.keys()].map((p) => [p, chosen(p)!])),
         },
       });
       if (!data) throw new Error(errorText(error));
@@ -57,7 +56,7 @@ export function NewProjectPage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4 sm:p-6">
-      <Link to={`/b/${brandId}/projects`} className={linkText}>
+      <Link to={`/b/${brandId}/projects`} className={backLink}>
         ← Projects
       </Link>
       <h1 className={pageTitle}>New video</h1>
@@ -101,28 +100,20 @@ export function NewProjectPage() {
         <label className="block text-sm">
           Planned length (seconds)
           <input className={input} type="number" required min={1} max={longest} value={form.seconds} onChange={(e) => set("seconds", Number(e.target.value))} />
-          <span className="block text-muted">Up to {longest}s. Budget: {form.seconds * 2} credits (twice the length).</span>
+          <span className="block text-muted">Budget: {form.seconds * 2} credits (twice the length).</span>
         </label>
-        <fieldset className="space-y-1 text-sm">
-          <legend className="font-medium">Who's in it</legend>
-          {characters.data?.length === 0 && <p className="text-muted">No characters for this brand yet. Add them in the Library.</p>}
-          {characters.data?.map((c) => (
-            <label key={c.id} className="mr-4 inline-flex items-center gap-2">
-              <input type="checkbox" checked={cast.includes(c.id)} onChange={() => setCast(cast.includes(c.id) ? cast.filter((x) => x !== c.id) : [...cast, c.id])} />
-              {c.name}
-            </label>
-          ))}
-        </fieldset>
+        <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
+        <FlavourPicker products={products} chosen={chosen} onPick={(product, variant) => setPicks({ ...picks, [product]: variant })} />
         <div className="space-y-1 text-sm">
           <div className="font-medium">Reference video (optional)</div>
           {reference && <video controls src={fileUrl(reference)} className="max-h-48 rounded-sm" />}
           <div className="flex gap-3">
-            <label className={`cursor-pointer ${linkText}`}>
+            <label className={`inline-flex min-h-11 cursor-pointer items-center sm:min-h-0 ${linkText}`}>
               {reference ? "Replace" : "Add a video"}
               <input type="file" accept="video/*" className="sr-only" aria-label="Reference video file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
             </label>
             {reference && (
-              <button type="button" className={linkText} onClick={() => setReference(null)}>
+              <button type="button" className={`${linkText} min-h-11 sm:min-h-0`} onClick={() => setReference(null)}>
                 Remove
               </button>
             )}
@@ -131,9 +122,10 @@ export function NewProjectPage() {
           {upload.isError && <p role="alert" className={errorClass}>{upload.error.message}</p>}
         </div>
         {create.isError && <p role="alert" className={errorClass}>{create.error.message}</p>}
-        <button className={btnPrimary} disabled={create.isPending}>
+        <button className={btnPrimary} disabled={create.isPending || !!unchosen}>
           Create project
         </button>
+        {unchosen && <p className="text-sm text-muted">Pick which {unchosen} first.</p>}
       </form>
     </main>
   );

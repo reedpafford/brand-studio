@@ -50,6 +50,11 @@ class Provider(Protocol):
 
 def get_providers(settings) -> dict[str, Provider]:
     from app.providers.fake import FakeProvider
+
+    if settings.fake_providers:
+        from app.providers.fake_local import FakeMedia, FakeWriter
+
+        return {"fake": FakeProvider(), "replicate": FakeMedia(), "claude": FakeWriter()}
     from app.providers.replicate import ReplicateProvider
 
     replicate = ReplicateProvider(

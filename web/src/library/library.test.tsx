@@ -187,3 +187,141 @@ test("a card without a picture is still linked by the item's name", async () => 
   renderAt("/b/1/library/characters");
   expect(await screen.findByRole("link", { name: "Mia" })).toHaveAttribute("href", "/b/1/library/characters/5");
 });
+
+const sheetItem = { ...mia, source_photo_file_id: 20, sheet_file_id: null, sheet_status: "none" };
+const sheetBase: Record<string, [number, unknown]> = {
+  "GET /auth/me": [200, editor],
+  "GET /brands": [200, brands],
+  "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", credits_per_unit: { "2K": 1.5 } }]],
+  "GET /jobs": [200, []],
+  "GET /team/members": [200, []],
+  "GET /library/character/5/versions": [200, []],
+};
+
+test("a character without a sheet offers to make one, with the server's price, and sends the job", async () => {
+  const calls = fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem], "POST /library/character/5/sheet": [201, { id: 50, step: "sheet", library_item_id: 5, status: "queued" }] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("Source photo, not used in videos")).toBeInTheDocument();
+  expect(screen.getByText("Needs a sheet")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Make house-style sheet · 1.5 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ model_id: "nano-banana-pro", change: "" }));
+});
+
+test("without a photo a character says to upload one", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, source_photo_file_id: null }] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("Upload a photo to make a sheet.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Make house-style sheet/ })).not.toBeInTheDocument();
+});
+
+test("while drawing the card says so and offers nothing to press", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_status: "drawing" }] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("A sheet is being made.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Make house-style sheet|Approve|Redo/ })).not.toBeInTheDocument();
+});
+
+test("a sheet is approved, then shows as approved and can be undone", async () => {
+  const calls = fakeServer({
+    ...sheetBase,
+    "GET /library/character/5": [200, { ...sheetItem, sheet_file_id: 21, sheet_status: "needs_approval" }],
+    "POST /library/character/5/sheet/approve": [200, {}],
+  });
+  renderAt("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(true));
+});
+
+test("an approved sheet has the approved mark and Redo takes a note", async () => {
+  const calls = fakeServer({
+    ...sheetBase,
+    "GET /library/character/5": [200, { ...sheetItem, sheet_file_id: 21, sheet_status: "approved" }],
+    "POST /library/character/5/sheet": [201, { id: 51, step: "sheet", library_item_id: 5, status: "queued" }],
+  });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("✓ Approved sheet")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Redo · 1.5 credits" }));
+  await userEvent.type(screen.getByLabelText(/What should change/), "Shorter hair");
+  await userEvent.click(screen.getAllByRole("button", { name: "Redo · 1.5 credits" }).at(-1)!);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ change: "Shorter hair" }));
+});
+
+test("a failed sheet says credits came back and offers Try again", async () => {
+  fakeServer({
+    ...sheetBase,
+    "GET /library/character/5": [200, sheetItem],
+    "GET /jobs": [200, [{ id: 50, kind: "image", step: "sheet", library_item_id: 5, status: "failed", created_at: new Date().toISOString() }]],
+  });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("Didn't finish · credits returned")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Try again/ })).toBeInTheDocument();
+});
+
+test("library cards say Needs a sheet until the sheet is approved", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [{ ...mia, sheet_status: "none" }, { ...mia, id: 6, name: "Dex", sheet_status: "approved" }]] });
+  renderAt("/b/1/library/characters");
+  await screen.findByText("Dex");
+  expect(screen.getAllByText("Needs a sheet")).toHaveLength(1);
+});
+
+test("Open Mia from a video comes back to the same stage", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
+  renderAt("/b/1/library/characters/5?back=%2Fb%2F1%2Fprojects%2F9%3Fstage%3Dclips");
+  expect(await screen.findByRole("link", { name: "← Back to your video" })).toHaveAttribute("href", "/b/1/projects/9?stage=clips");
+});
+
+test("a back link to somewhere else is ignored", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
+  renderAt("/b/1/library/characters/5?back=https%3A%2F%2Fevil.example");
+  expect(await screen.findByRole("link", { name: "← Characters" })).toHaveAttribute("href", "/b/1/library/characters");
+});
+
+test("a sheet held for the owner says Waiting for Reed to approve, not Drawing, and offers nothing to press", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_status: "waiting_for_owner" }] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("Waiting for Reed to approve")).toBeInTheDocument();
+  expect(screen.queryByText(/Drawing/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Make house-style sheet|Ask Reed|Approve|Redo/ })).not.toBeInTheDocument();
+});
+
+test("past the weekly allowance the button says Ask Reed to approve with the price", async () => {
+  fakeServer({ ...sheetBase, "GET /credits/me": [200, { quick_clip_credits_used: 149, quick_clip_credits_allowed: 150 }], "GET /library/character/5": [200, sheetItem] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 1.5 credits" })).toBeInTheDocument();
+});
+
+test("a character's photo at creation is the source photo for its sheet, not a loose image", async () => {
+  const calls = fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, brands],
+    "GET /library/character": [200, []],
+    "POST /files": [201, { id: 33, filename: "nate.jpg", content_type: "image/jpeg", size: 3, created_at: "2026-10-23T00:00:00Z" }],
+    "POST /library/character": [201, mia],
+  });
+  renderAt("/b/1/library/characters");
+  await userEvent.click(await screen.findByRole("button", { name: "New character" }));
+  await userEvent.type(screen.getByLabelText("Name"), "Nate");
+  await userEvent.upload(screen.getByLabelText("Photo (optional)"), new File(["x"], "nate.jpg", { type: "image/jpeg" }));
+  await userEvent.click(screen.getByRole("button", { name: "Create character" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ source_photo_file_id: 33, image_file_ids: [] }));
+});
+
+test("a character's page has no second Images box, since the sheet card holds the photo", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
+  renderAt("/b/1/library/characters/5");
+  await screen.findByText("House-style sheet");
+  expect(screen.queryByText("Images")).not.toBeInTheDocument();
+});
+
+test("a card shows the sheet, else the source photo", async () => {
+  fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, brands],
+    "GET /library/character": [200, [{ ...mia, image_file_ids: [], source_photo_file_id: 20, sheet_file_id: 21, sheet_status: "approved" }, { ...mia, id: 6, name: "Dex", image_file_ids: [], source_photo_file_id: 22, sheet_file_id: null }]],
+  });
+  renderAt("/b/1/library/characters");
+  await screen.findByText("Dex");
+  const srcs = screen.getAllByRole("img").map((i) => i.getAttribute("src"));
+  expect(srcs).toContain("/api/files/21");
+  expect(srcs).toContain("/api/files/22");
+});

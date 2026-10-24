@@ -3,7 +3,7 @@ Let a small team make engaging brand videos fast, from a script or brief, with e
 
 ## Outcome we judge by
 - An editor goes from brief to a finished, on-brand video without help.
-- Brand elements that must appear (e.g. fomo's real app screens) always appear, exactly.
+- Brand elements that must appear always appear: the logo, UI and product main text read right (small print and numbers may vary).
 - Videos are engaging: strong hook, clear story, no dead air.
 - Cost stays inside each project's budget (2x the 480p estimate) and never above the $75 per-video hard cap.
 
@@ -12,7 +12,7 @@ Done means an editor on the **live site** makes both videos below from brief to 
 
 **A. fomo: the altar-rejection reel** (`docs/references/fomo-DehudnaAmce`).
 - Same story and the same dialogue, word for word. Visuals at least as entertaining as the reference, in the house style.
-- The reselling montage becomes a fomo trading montage. The real fomo screens appear exactly.
+- The reselling montage becomes a fomo trading montage, with the main character in every shot and escalating wealth (a big fomo balance, then the rewards). fomo's logo and UI read right; numbers can be invented.
 - The live-action tag at the end is replaced by a CTA: "Want to trade like me? Download fomo through the link in my bio."
 
 **B. Iron Paws: Pitbull 1** (`docs/briefs/ironpaws-scripts-2026-10-21.md`).

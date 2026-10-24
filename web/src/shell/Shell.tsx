@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { NavLink, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
 import { applyTheme, getTheme, nextTheme } from "../theme";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
@@ -15,6 +16,7 @@ export function Shell() {
   const { brandId } = useParams();
   const subPage = useMatch("/b/:brandId/*")?.params["*"] ?? "";
   const navigate = useNavigate();
+  const held = useHeld();
   const fromUrl = Number(brandId) || null;
   // Off brand pages (e.g. /team) you stay "in" the brand you were last in.
   const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : null);
@@ -79,10 +81,26 @@ export function Shell() {
         <NavLink to="/team" className={link}>
           Team
         </NavLink>
+        {held.owner && (
+          <NavLink to="/approvals" className={link}>
+            Approvals <Badge n={held.count} />
+          </NavLink>
+        )}
       </nav>
       <Outlet />
-      <TabBar brandId={current} />
+      <TabBar brandId={current} waiting={held.owner ? held.count : null} />
     </div>
+  );
+}
+
+/** A count in a small pill, said in words for screen readers. */
+function Badge({ n }: { n: number }) {
+  if (n === 0) return null;
+  return (
+    <span className="ml-1 inline-block min-w-5 rounded-full bg-warning-soft px-1.5 text-center text-xs font-medium text-warning">
+      {n}
+      <span className="sr-only"> waiting</span>
+    </span>
   );
 }
 
@@ -93,12 +111,12 @@ const row = ({ isActive }: { isActive: boolean }) =>
 const BAR = "calc(4rem + env(safe-area-inset-bottom))"; // tab bar height plus the phone's home-bar space
 
 /** Phone navigation: four tabs along the bottom; "More" holds the rest. */
-function TabBar({ brandId }: { brandId: number | null }) {
+function TabBar({ brandId, waiting }: { brandId: number | null; waiting: number | null }) {
   const [more, setMore] = useState(false);
   const [theme, setTheme] = useState(getTheme);
   const signOut = useSignOut();
   const { pathname } = useLocation();
-  const inMore = /\/(kit|screens)$|^\/team/.test(pathname);
+  const inMore = /\/(kit|screens)$|^\/(team|approvals)/.test(pathname);
   const close = () => setMore(false);
 
   useEffect(() => {
@@ -127,6 +145,11 @@ function TabBar({ brandId }: { brandId: number | null }) {
             <NavLink to="/team" onClick={close} className={row}>
               Team
             </NavLink>
+            {waiting !== null && (
+              <NavLink to="/approvals" onClick={close} className={row}>
+                Approvals <Badge n={waiting} />
+              </NavLink>
+            )}
             <button
               type="button"
               className="flex min-h-12 w-full items-center px-3 text-left"
@@ -158,8 +181,8 @@ function TabBar({ brandId }: { brandId: number | null }) {
             </NavLink>
           </>
         )}
-        <button type="button" aria-expanded={more} className={`grid min-h-16 flex-1 place-items-center text-sm ${more || inMore ? "font-medium text-accent-text" : "text-muted"}`} onClick={() => setMore(!more)}>
-          More
+        <button type="button" aria-expanded={more} className={`flex min-h-16 flex-1 items-center justify-center text-sm ${more || inMore ? "font-medium text-accent-text" : "text-muted"}`} onClick={() => setMore(!more)}>
+          More {waiting ? <Badge n={waiting} /> : null}
         </button>
       </nav>
     </>

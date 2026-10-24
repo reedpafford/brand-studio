@@ -65,7 +65,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <input className={`${input} max-w-xs`} type="search" aria-label="Search" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
           <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} />
           Show archived
         </label>
@@ -91,9 +91,9 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
       <ul className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {shown?.map((i) => (
           <li key={i.id} className="space-y-1 text-sm">
-            {archived ? <Thumb id={i.image_file_ids?.[0]} name={i.name} faded /> : (
+            {archived ? <Thumb id={cover(i)} name={i.name} faded /> : (
               <Link to={`/b/${brandId}/library/${slug}/${i.id}`} aria-label={i.name}>
-                <Thumb id={i.image_file_ids?.[0]} name={i.name} />
+                <Thumb id={cover(i)} name={i.name} />
               </Link>
             )}
             <div className="text-[length:var(--text-md)] font-semibold">{i.name}</div>
@@ -103,6 +103,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
                 return b && <span key={id} title={b.name} className="size-2.5 rounded-full" style={{ background: b.colours?.[0] || "var(--accent)" }}><span className="sr-only">{b.name}</span></span>;
               })}
               v{i.version}
+              {!archived && kind !== "prop" && i.sheet_status !== "approved" && <span className="rounded-sm bg-warning-soft px-2 py-0.5 text-xs text-warning">Needs a sheet</span>}
               {archived && <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs">Archived</span>}
             </div>
             {archived && (
@@ -137,16 +138,21 @@ function Thumb({ id, name, faded }: { id?: number; name: string; faded?: boolean
   );
 }
 
+/** The picture on a card: the approved or latest sheet, else the source photo, else the first picture. */
+const cover = (i: { sheet_file_id?: number | null; source_photo_file_id?: number | null; image_file_ids?: number[] }) => i.sheet_file_id ?? i.source_photo_file_id ?? i.image_file_ids?.[0];
+
 function NewItem(props: { brandId: number; kind: "character" | "place" | "prop"; one: string; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const create = useMutation({
     mutationFn: async () => {
-      const image_file_ids = file ? [(await uploadFile(file)).id] : [];
+      // A character's or place's picture is a source photo (the sheet is what videos use); a prop's picture is used as it is.
+      const stored = file ? (await uploadFile(file)).id : null;
+      const photo = props.kind !== "prop";
       const { data, error } = await api.POST("/library/{kind}", {
         params: { path: { kind: props.kind } },
-        body: { name, notes: "", brand_ids: [props.brandId], image_file_ids, outfits: [] },
+        body: { name, notes: "", brand_ids: [props.brandId], image_file_ids: stored && !photo ? [stored] : [], source_photo_file_id: stored && photo ? stored : null, outfits: [] },
       });
       if (!data) throw new Error(errorText(error));
     },
@@ -174,7 +180,7 @@ function NewItem(props: { brandId: number; kind: "character" | "place" | "prop";
         <input className={input} required value={name} onChange={(e) => setName(e.target.value)} />
       </label>
       <label className="block text-sm">
-        Image (optional)
+        {props.kind === "prop" ? "Image (optional)" : "Photo (optional)"}
         <input className={input} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       {create.isError && <p role="alert" className={errorClass}>{create.error.message}</p>}

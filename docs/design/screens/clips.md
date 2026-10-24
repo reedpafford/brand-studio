@@ -30,6 +30,11 @@ Purpose: make one video clip per breakdown clip, review each one, redo what's wr
   - **✓ Looks good** approves the picked take (green border and "Approved").
   - **Needs a change** opens "What's wrong?" (required) + **[Redo · 27 credits]**. The note goes to the Director/prompt step, and the old take stays.
   - Approving is per clip. Changing the picked take removes the approval.
+- **Use the real image** (only on clips with a product or app-screen insert shot):
+  - A switch per insert on the clip card, labelled "Use the real image · Chart down (shot 1.2)". It's off by default for both app screens and products, because the generated insert only needs the logo and the layout right (its numbers can be made up). Turn it on when the moment needs the exact picture.
+  - When it's on, the finished video shows the real picture at that moment, with a slow push-in, in place of the generated insert. Helper text under it (muted): "Free. Shows the real picture at that moment."
+  - Turning it on or off doesn't change the take or the approval. It only changes the finished video, so an existing video shows "Out of date. [Make the video again]".
+  - Phone: the switch is a full-width row, 44px tall.
 - A character or place without an approved sheet blocks its frame or clip: "Mia needs an approved sheet. [Open Mia]" (see `library.md`).
 - **Make missing** generates every clip that has no take yet. Like every paid action, it shows the cost, or "Ask Reed to approve · N credits" when over budget.
 - **The video:**
