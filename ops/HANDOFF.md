@@ -1,4 +1,4 @@
-as of b985b3d · 2026-10-24 06:15 UTC
+as of 35bbb7a · 2026-10-24 20:15 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -37,13 +37,14 @@ as of b985b3d · 2026-10-24 06:15 UTC
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
 - Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet.
-## Open PRs
-- None, apart from the Scribe's own refresh PR.
+## Open PRs (1, not counting the Scribe's own)
+- #170 Redesign phase 1: how the app is organised (structure map + top 10 changes) | Designer | in review; docs only (`docs/design/redesign/`), for Reed to approve before any visual work starts
 ## Next
 - Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (planned for tomorrow, per the Producer), then the first live deploy runs on merge to main.
 - Director: further excerpt runs only with Producer approval, logged in ops/SPEND.md.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
+- Reed to approve the redesign phase 1 structure map and top 10 changes in #170 before any visual work (per its description).
 - Replicate key for the deployed server (later). Keys stay server-side only.
 - Waiting on Reed: the VPS secrets (see `deploy/README.md`), per the Producer.
 - Reed's sign-off on videos A and B is the finish line.
