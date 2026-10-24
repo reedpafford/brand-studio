@@ -112,19 +112,53 @@ def me(user: User = Depends(current_user)):
     return user
 
 
-@router.post("/accept-invite", response_model=Me, status_code=201)
-def accept_invite(
-    body: AcceptIn, request: Request, response: Response, db: Session = Depends(get_db)
-):
-    invite = db.scalar(
+INVALID_INVITE = "This invite link is not valid any more."
+
+
+def _open_invite(db: Session, token: str) -> Invite | None:
+    return db.scalar(
         select(Invite).where(
-            Invite.token_hash == hash_token(body.token),
+            Invite.token_hash == hash_token(token),
             Invite.accepted_at.is_(None),
             Invite.expires_at > utcnow(),
         )
     )
+
+
+class InviteLookupIn(BaseModel):
+    token: str
+
+
+class InviteOut(BaseModel):
+    workspace_name: str
+    invited_by_name: str
+    email: str
+    role: Role
+
+
+@router.post("/invite", response_model=InviteOut)
+def read_invite(body: InviteLookupIn, db: Session = Depends(get_db)):
+    """What an invite link is for, before signing up (no login). The token is sent in the body,
+    not the URL, so it never lands in access logs."""
+    invite = _open_invite(db, body.token)
     if not invite:
-        raise HTTPException(400, "This invite link is not valid any more.")
+        raise HTTPException(404, INVALID_INVITE)
+    inviter = db.get(User, invite.invited_by_id)
+    return InviteOut(
+        workspace_name=db.get(Workspace, invite.workspace_id).name,
+        invited_by_name=inviter.name if inviter else "",
+        email=invite.email,
+        role=invite.role,
+    )
+
+
+@router.post("/accept-invite", response_model=Me, status_code=201)
+def accept_invite(
+    body: AcceptIn, request: Request, response: Response, db: Session = Depends(get_db)
+):
+    invite = _open_invite(db, body.token)
+    if not invite:
+        raise HTTPException(400, INVALID_INVITE)
     user = db.scalar(select(User).where(User.email == invite.email))
     if user and user.active:
         raise HTTPException(409, "That email already has an account.")

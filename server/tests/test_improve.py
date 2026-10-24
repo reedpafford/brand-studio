@@ -18,7 +18,7 @@ AUDIO = (
     "score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. "
     "No subtitles."
 )
-REFS = '[Image1] is Max. [Image2] is the fomo "Buy" screen, shown exactly.'
+REFS = '[Image1] is Max. [Image2] is the fomo "Buy" screen, logo and layout exact.'
 
 
 def _improved(line: str = "Let's go!") -> dict:
@@ -31,8 +31,8 @@ def _improved(line: str = "Let's go!") -> dict:
             "Setting: warm sunrise through a window.",
             "Shots (hard cuts):",
             f'Shot 1 | 0–2 s. Close-up, push in. Max grins at his phone. Max (excited): "{line}"',
-            "Shot 2 | 2–5 s. Close-up on the phone, static. It shows [Image2] exactly.",
-            "Keep: Max as in [Image1], one of him; the screen exactly as [Image2].",
+            "Shot 2 | 2–5 s. Close-up on the phone, static. It shows [Image2]. No one speaks.",
+            "Keep: Max as in [Image1], one of him; the screen's logo and layout as [Image2].",
             AUDIO,
         ]
     )

@@ -96,6 +96,44 @@ def test_no_prompt_file_keeps_a_merge_conflict_marker():
             assert not re.search(r"^(<{7}|={7}|>{7})( |$)", text, re.M), path
 
 
+def test_breakdown_check_wants_the_main_character_in_every_montage_shot():
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []
+    shot = next(s for s in bd.scenes[1].shots if s.id == "2.7")
+    shot.character_ids = []
+    assert check.breakdown(script, bd, FOMO, 4, 30) == [
+        "shot 2.7: a montage shot without the main character"
+    ]
+    lone = bd.scenes[0].shots[1]  # 1.2: one quick empty insert between lines, not a montage
+    assert not lone.line and not lone.character_ids and lone.seconds <= 0.6
+
+
+def test_nobody_speaks_unless_the_script_says_so():
+    _, cp = example("clip_prompts")
+    prompt = cp.clips[0].prompt
+    assert check._silence(prompt, True) == []
+    assert check._silence(prompt, False) == ["the audio line doesn't match whether anyone speaks"]
+    montage = prompt.replace(
+        "Shot 2 | 1-3 s. High-angle close-up, slow push in. Malik drops his head onto his arms "
+        "in the blue glow, shoulders sagging, eyes shut. No one speaks.",
+        "Shot 2 | 1-3 s. High-angle close-up. Malik stares at the loss and does not sell.",
+    )
+    assert check._silence(montage, True) == [
+        "shot 2 has no line but doesn't say no one speaks",
+        "shot 2: 'does not sell' reads like a line; show what the body does",
+    ]
+    calm = montage.replace(
+        "stares at the loss and does not sell.", "stares; the dog does not move."
+    )
+    assert check._silence(calm, True) == ["shot 2 has no line but doesn't say no one speaks"]
+    _, result = example("improve")
+    quiet = result.prompt.replace("Audio: only the spoken lines and", check.SILENT.rstrip())
+    assert check.AUDIO_LINE.match(quiet.splitlines()[0])
+    assert check._silence(quiet, False) == []
+    assert check._silence(quiet, True) == ["the audio line doesn't match whether anyone speaks"]
+
+
 def test_shot_times_take_a_hyphen_or_an_en_dash():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
@@ -215,7 +253,8 @@ def test_reference_lines_bind_each_image_in_upload_order():
     ]
     assert prompts.reference_lines(refs) == (
         "[Image1] and [Image2] are Aiden. [Image3] is the kitchen. [Image4] is the fomo "
-        '"Token chart up" screen, shown exactly. [Image5] is the Iron Paws bag, shown exactly.'
+        '"Token chart up" screen, logo and layout exact. [Image5] is the Iron Paws bag, '
+        "shown exactly."
     )
 
 

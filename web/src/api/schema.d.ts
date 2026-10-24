@@ -92,6 +92,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Invite
+         * @description What an invite link is for, before signing up (no login). The token is sent in the body,
+         *     not the URL, so it never lands in access logs.
+         */
+        post: operations["read_invite_auth_invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/accept-invite": {
         parameters: {
             query?: never;
@@ -1220,6 +1241,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/inserts/{shot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Insert
+         * @description Switch "Use the real image" for one insert shot. Free: it applies when the video is
+         *     made, so the take and its approval stay.
+         */
+        put: operations["set_insert_projects__project_id__clips__clip_id__inserts__shot_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/video": {
         parameters: {
             query?: never;
@@ -1797,6 +1839,30 @@ export interface components {
             /** Error */
             error: string;
         };
+        /** InsertIn */
+        InsertIn: {
+            /** Use Real Image */
+            use_real_image: boolean;
+        };
+        /**
+         * InsertOut
+         * @description An insert shot (brand screens, no people): "Use the real image" cuts the real picture
+         *     in over this stretch of the clip when the video is made.
+         */
+        InsertOut: {
+            /** Shot Id */
+            shot_id: string;
+            /** Asset Id */
+            asset_id: string;
+            /** Name */
+            name: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Use Real Image */
+            use_real_image: boolean;
+        };
         /** InviteIn */
         InviteIn: {
             /** Email */
@@ -1804,18 +1870,10 @@ export interface components {
             /** @default editor */
             role: components["schemas"]["Role"];
         };
-        /** InviteOut */
-        InviteOut: {
-            /** Id */
-            id: number;
-            /** Email */
-            email: string;
-            role: components["schemas"]["Role"];
-            /**
-             * Expires At
-             * Format: date-time
-             */
-            expires_at: string;
+        /** InviteLookupIn */
+        InviteLookupIn: {
+            /** Token */
+            token: string;
         };
         /** ItemIn */
         ItemIn: {
@@ -1909,7 +1967,8 @@ export interface components {
         };
         /**
          * JobDetailOut
-         * @description Owner-only: includes the provider's raw error text.
+         * @description Owner-only: includes the provider's raw error text and the cost in dollars (what was
+         *     spent once it ran; until then, what its credits are worth).
          */
         JobDetailOut: {
             /** Id */
@@ -1957,6 +2016,13 @@ export interface components {
             aspect_ratio?: string | null;
             /** Resolution */
             resolution?: string | null;
+            /** Created By Id */
+            created_by_id?: number | null;
+            /**
+             * Created By Name
+             * @default
+             */
+            created_by_name: string;
             /** Approved By Id */
             approved_by_id: number | null;
             /** Provider */
@@ -1965,6 +2031,11 @@ export interface components {
             provider_ref: string | null;
             /** Error Detail */
             error_detail: string;
+            /**
+             * Cost Usd
+             * @default 0
+             */
+            cost_usd: number;
         };
         /** JobOut */
         JobOut: {
@@ -2013,6 +2084,13 @@ export interface components {
             aspect_ratio?: string | null;
             /** Resolution */
             resolution?: string | null;
+            /** Created By Id */
+            created_by_id?: number | null;
+            /**
+             * Created By Name
+             * @default
+             */
+            created_by_name: string;
         };
         /**
          * JobStatus
@@ -2192,6 +2270,8 @@ export interface components {
             take_credits: number;
             /** Stale */
             stale: boolean;
+            /** Inserts */
+            inserts: components["schemas"]["InsertOut"][];
         };
         /** ProjectEstimateOut */
         ProjectEstimateOut: {
@@ -2276,6 +2356,10 @@ export interface components {
             credits_used: number;
             /** Budget Pct */
             budget_pct: number;
+            /** Created By Id */
+            created_by_id: number | null;
+            /** Created By Name */
+            created_by_name: string;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -2673,6 +2757,16 @@ export interface components {
             /** Out Of Date */
             out_of_date: boolean;
         };
+        /** InviteOut */
+        app__routes__auth__InviteOut: {
+            /** Workspace Name */
+            workspace_name: string;
+            /** Invited By Name */
+            invited_by_name: string;
+            /** Email */
+            email: string;
+            role: components["schemas"]["Role"];
+        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -2701,6 +2795,19 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** InviteOut */
+        app__routes__team__InviteOut: {
+            /** Id */
+            id: number;
+            /** Email */
+            email: string;
+            role: components["schemas"]["Role"];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
         };
     };
     responses: never;
@@ -2837,6 +2944,39 @@ export interface operations {
             };
         };
     };
+    read_invite_auth_invite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteLookupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__auth__InviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     accept_invite_auth_accept_invite_post: {
         parameters: {
             query?: never;
@@ -2934,7 +3074,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InviteOut"][];
+                    "application/json": components["schemas"]["app__routes__team__InviteOut"][];
                 };
             };
         };
@@ -5276,6 +5416,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_insert_projects__project_id__clips__clip_id__inserts__shot_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+                shot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsertIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

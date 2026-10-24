@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import clip_prompts, clip_takes
+from app import clip_prompts, clip_takes, cut_in
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -45,7 +45,23 @@ class TakeOut(BaseModel):
 class VideoOut(BaseModel):
     file_id: int
     take_ids: list[int]  # the picked takes it was made from, in clip order
-    out_of_date: bool  # a pick changed since
+    out_of_date: bool  # a pick or a "Use the real image" switch changed since
+
+
+class InsertOut(BaseModel):
+    """An insert shot (brand screens, no people): "Use the real image" cuts the real picture
+    in over this stretch of the clip when the video is made."""
+
+    shot_id: str
+    asset_id: str
+    name: str
+    start: float  # seconds into the clip, as planned
+    end: float
+    use_real_image: bool
+
+
+class InsertIn(BaseModel):
+    use_real_image: bool
 
 
 class ProjectClipOut(BaseModel):
@@ -61,6 +77,7 @@ class ProjectClipOut(BaseModel):
     approved: bool
     take_credits: float  # what one more take costs (shown on Make clip / Redo)
     stale: bool  # made from an older breakdown
+    inserts: list[InsertOut]
 
 
 def _takes(db: Session, row: ProjectClip) -> list[ClipTake]:
@@ -80,9 +97,11 @@ def _stale(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> bo
 
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
-    computed = ("stale", "takes", "take_credits")
+    computed = ("stale", "takes", "take_credits", "inserts")
     project = db.get(Project, row.project_id)
+    inserts = [InsertOut(**vars(i), use_real_image=i.on) for i in cut_in.inserts(db, project, row)]
     return ProjectClipOut(
+        inserts=inserts,
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
         takes=[TakeOut(id=t.id, number=t.number, file_id=t.file_id) for t in _takes(db, row)],
         take_credits=clip_takes.take_credits(db, project, row),
@@ -229,6 +248,31 @@ def approve(
     return _out(db, row, _newest_breakdown(db, project))
 
 
+@router.put("/clips/{clip_id}/inserts/{shot_id}", response_model=ProjectClipOut)
+def set_insert(
+    project_id: int,
+    clip_id: int,
+    shot_id: str,
+    body: InsertIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Switch "Use the real image" for one insert shot. Free: it applies when the video is
+    made, so the take and its approval stay."""
+    project, row = _clip(db, user, project_id, clip_id)
+    if shot_id not in {i.shot_id for i in cut_in.inserts(db, project, row)}:
+        raise HTTPException(404, "That shot isn't an insert in this clip.")
+    row.real_images = {**(row.real_images or {}), shot_id: body.use_real_image}
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
+
+
+def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[str]:
+    return [
+        f"{c.clip_id}/{i.shot_id}" for c in clips for i in cut_in.inserts(db, project, c) if i.on
+    ]
+
+
 @router.delete("/clips/{clip_id}/approve", response_model=ProjectClipOut)
 def unapprove(
     project_id: int,
@@ -243,10 +287,11 @@ def unapprove(
 
 
 def _video_out(db: Session, video: FinalVideo) -> VideoOut:
-    current = [c.picked_take_id for c in _clips(db, video.project_id)]
-    return VideoOut(
-        file_id=video.file_id, take_ids=video.take_ids, out_of_date=video.take_ids != current
-    )
+    clips = _clips(db, video.project_id)
+    current = [c.picked_take_id for c in clips]
+    cuts = _cut_ins(db, db.get(Project, video.project_id), clips)
+    old = video.take_ids != current or (video.cut_ins or []) != cuts
+    return VideoOut(file_id=video.file_id, take_ids=video.take_ids, out_of_date=old)
 
 
 @router.post("/video", response_model=VideoOut, status_code=201)
@@ -265,9 +310,9 @@ def make_video(
     if left:
         raise HTTPException(409, f"Approve every clip to make the video ({left} left).")
     storage = request.app.state.storage
-    videos = [storage.get(db.get(StoredFile, c.file_id).key) for c in clips]
     try:
-        data = clip_takes.stitch(videos)
+        videos = [_with_cut_ins(db, storage, project, c) for c in clips]
+        data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
     except Exception as exc:  # noqa: BLE001 - a bad clip file: say so plainly
         raise HTTPException(
             422, "The clips couldn't be put together. Redo the odd one out."
@@ -289,11 +334,23 @@ def make_video(
         project_id=project.id,
         file_id=stored.id,
         take_ids=[c.picked_take_id for c in clips],
+        cut_ins=_cut_ins(db, project, clips),
         created_by_id=user.id,
     )
     db.add(video)
     db.commit()
     return _video_out(db, video)
+
+
+def _with_cut_ins(db: Session, storage, project: Project, clip: ProjectClip) -> bytes:
+    """The picked take, with the real picture cut in over each insert that's switched on."""
+    video = storage.get(db.get(StoredFile, clip.file_id).key)
+    cuts = [
+        (storage.get(db.get(StoredFile, i.file_id).key), i.start, i.end)
+        for i in cut_in.inserts(db, project, clip)
+        if i.on
+    ]
+    return cut_in.apply(video, cuts, clip.seconds) if cuts else video
 
 
 @router.get("/video", response_model=VideoOut)

@@ -55,8 +55,19 @@ def test_invite_token_works_once(app, owner):
     token = owner.post("/team/invites", json={"email": "a@example.com"}).json()["token"]
     body = {"token": token, "name": "A", "password": PASSWORD}
     with TestClient(app) as c:
+        info = c.post("/auth/invite", json={"token": token})  # no login needed
+        assert info.json() == {
+            "workspace_name": "Studio",
+            "invited_by_name": "Reed",
+            "email": "a@example.com",
+            "role": "editor",
+        }
         assert c.post("/auth/accept-invite", json=body).status_code == 201
         assert c.post("/auth/accept-invite", json=body).status_code == 400
+        used = c.post("/auth/invite", json={"token": token})
+        assert used.status_code == 404
+        assert used.json()["detail"] == "This invite link is not valid any more."
+        assert c.post("/auth/invite", json={"token": "made-up"}).status_code == 404
 
 
 def _login(client, password):
@@ -105,3 +116,4 @@ def test_expired_invite_is_refused(app, owner, db):
     with TestClient(app) as c:
         r = c.post("/auth/accept-invite", json={"token": token, "name": "A", "password": PASSWORD})
         assert r.status_code == 400
+        assert c.post("/auth/invite", json={"token": token}).status_code == 404

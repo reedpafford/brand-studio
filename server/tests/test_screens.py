@@ -55,6 +55,17 @@ def test_import_folder_uses_manifest_or_filename(app, owner, db, tmp_path):
     assert screens["trading-chart-up-mobile"]["default_for"] == ["trading"]
     assert owner.get(f"/files/{screens['home']['file_id']}").content == PNG
 
+    # A manifest change reaches screens already imported; a screen it doesn't name is left alone.
+    owner.patch(f"/brands/{fomo.id}/screens/{screens['trading-chart-up-mobile']['id']}",
+                json={"default_for": ["win"]})  # fmt: skip
+    (folder / "screens.json").write_text(
+        '{"home.png": {"tags": ["desktop"], "default_for": ["win"]}}'
+    )
+    import_screens(db, app.state.storage, fomo, folder)
+    screens = {s["name"]: s for s in owner.get(f"/brands/{fomo.id}/screens").json()}
+    assert (screens["home"]["default_for"], screens["home"]["variant"]) == (["win"], "")
+    assert screens["trading-chart-up-mobile"]["default_for"] == ["win"]  # the editor's change
+
 
 def _setup_with_screens_dir(app, client, folder):
     """`folder` plays fomo's screens folder: <assets>/fomo/screens."""
@@ -141,4 +152,4 @@ def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
     file = client.get(f"/files/{bag[0]['file_id']}")
     assert file.headers["content-type"] == "image/webp"
     moment = client.get(f"/brands/{brands['iron-paws']}/screens", params={"moment": "feeding"})
-    assert [s["name"] for s in moment.json()] == ["Chicken bag"]
+    assert [s["name"] for s in moment.json()] == ["Chicken bag", "Peanut butter bag"]

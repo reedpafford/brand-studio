@@ -87,3 +87,9 @@ def owner_only(user: User = Depends(current_user)) -> User:
     if not user.is_owner:
         raise HTTPException(403, "Only the owner can do that.")
     return user
+
+
+def user_name(db: Session, user_id: int | None) -> str:
+    """A teammate's name for lists ("asked by"), or "" if unknown."""
+    user = db.get(User, user_id) if user_id else None
+    return user.name if user else ""

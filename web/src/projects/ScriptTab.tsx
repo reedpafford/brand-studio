@@ -217,7 +217,7 @@ export function ScriptText({ text, around, highlight = [], onLineClick }: { text
     document.querySelector("[data-hl=true]")?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   }, [marked]);
   return (
-    <div className="max-w-[72ch] rounded-md border border-border bg-surface p-4 font-script leading-[1.6]">
+    <div className="max-w-[72ch] break-words rounded-md border border-border bg-surface p-4 font-script leading-[1.6] [overflow-wrap:anywhere]">
       <ol aria-label="Script text">
         {text.split("\n").map((line, i) => {
           // Directions that Enhance added are tagged lines. They never look like dialogue: indented and muted, tag as the label.
@@ -237,14 +237,14 @@ export function ScriptText({ text, around, highlight = [], onLineClick }: { text
                 )}
                 {tag ? (
                   <span className="ml-4 flex flex-wrap items-baseline gap-x-3 text-muted sm:ml-8">
-                    <span className="whitespace-pre-wrap break-words">
+                    <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">
                       {tag[1] === "Brand screen" ? "★ " : "▸ "}
                       {line.slice(tag[0].length)}
                     </span>
                     <span className="font-sans text-xs">{tag[1]}</span>
                   </span>
                 ) : (
-                  <span className="whitespace-pre-wrap break-words">{line || "\u00a0"}</span>
+                  <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{line || "\u00a0"}</span>
                 )}
               </li>
               {around?.(i + 1, "after")}

@@ -1,6 +1,7 @@
 """Upload and fetch files (images, audio, video). Files belong to a workspace."""
 
 import hashlib
+import re
 import uuid
 from datetime import datetime
 from typing import Literal
@@ -92,8 +93,33 @@ def download(
         data = request.app.state.storage.get(stored.key)
     except FileNotFoundError:
         raise HTTPException(404, "This file is missing from storage.") from None
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, max-age=3600",
+        "Accept-Ranges": "bytes",
+    }
+    part = _range(request.headers.get("range", ""), len(data))
+    if part is None:
+        return Response(data, media_type=stored.content_type, headers=headers)
+    if part == ():
+        headers["Content-Range"] = f"bytes */{len(data)}"
+        return Response(status_code=416, headers=headers)
+    start, end = part
+    headers["Content-Range"] = f"bytes {start}-{end}/{len(data)}"
     return Response(
-        data,
-        media_type=stored.content_type,
-        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600"},
+        data[start : end + 1], status_code=206, media_type=stored.content_type, headers=headers
     )
+
+
+def _range(header: str, size: int) -> tuple[int, int] | tuple[()] | None:
+    """One byte range ("bytes=0-", "bytes=100-199", "bytes=-500"): iPhone Safari only plays a
+    video when the server answers these. None = send the whole file; () = can't be met."""
+    found = re.fullmatch(r"bytes=(\d*)-(\d*)", header.strip())
+    if not found or found.groups() == ("", ""):
+        return None
+    first, last = found.groups()
+    if not first:  # the last N bytes
+        start, end = max(0, size - int(last)), size - 1
+    else:
+        start, end = int(first), min(int(last), size - 1) if last else size - 1
+    return (start, end) if start <= end and start < size else ()
