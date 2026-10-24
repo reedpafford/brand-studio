@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText, must } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
 import type { components } from "../api/schema";
@@ -8,6 +8,7 @@ import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 import { CharacterExtras } from "./CharacterExtras";
+import { SheetPanel } from "./SheetPanel";
 import { KINDS, isKindSlug } from "./kinds";
 
 type Item = components["schemas"]["ItemOut"];
@@ -23,6 +24,7 @@ export function ItemPage() {
     enabled: !!slug,
     queryKey: ["library", kind, "item", item_id],
     queryFn: async () => (await api.GET("/library/{kind}/{item_id}", { params: { path: { kind, item_id } } })).data ?? null,
+    refetchInterval: (q) => (["drawing", "waiting_for_owner"].includes(q.state.data?.sheet_status ?? "") ? 3000 : false),
   });
   if (!slug) return <p className="p-6">That library doesn't exist.</p>;
   if (item.isPending) return <p className="p-6 text-muted">Loading…</p>;
@@ -46,6 +48,9 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
   const path = { kind, item_id: item.id };
   const others = (item.brand_ids ?? []).filter((id) => id !== brandId).map((id) => brands?.find((b) => b.id === id)?.name).filter(Boolean);
   const currentName = brands?.find((b) => b.id === brandId)?.name;
+  // "Open Mia" from a storyboard or clips step comes back to that step.
+  const back = useSearchParams()[0].get("back");
+  const backTo = back?.startsWith(`/b/${brandId}/`) ? back : null;
 
   const save = useMutation({
     mutationFn: async () => {
@@ -78,11 +83,12 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
-      <Link to={`/b/${brandId}/library/${slug}`} className={linkText}>
-        ← {title}
+      <Link to={backTo ?? `/b/${brandId}/library/${slug}`} className={linkText}>
+        {backTo ? "← Back to your video" : `← ${title}`}
       </Link>
       <h1 className={pageTitle}>{item.name}</h1>
       {others.length > 0 && <p className="text-sm text-muted">Shared with {others.join(", ")}. Changes apply there too.</p>}
+      {kind !== "prop" && <SheetPanel item={item} kind={kind} ensureSaved={async () => changed && form.brand_ids.length > 0 && (await save.mutateAsync())} />}
       <form onSubmit={submit} className={`${card} space-y-4`}>
         <div className="space-y-2">
           <div className="text-sm font-medium">Images</div>

@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { ApprovalsPage } from "./approvals/ApprovalsPage";
 import { RequireAuth } from "./auth/RequireAuth";
 import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
 import { NewProjectPage } from "./projects/NewProjectPage";
@@ -34,6 +35,7 @@ export function App() {
           <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />
           <Route path="b/:brandId/clip" element={<ClipPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="approvals" element={<ApprovalsPage />} />
         </Route>
       </Route>
     </Routes>

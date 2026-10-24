@@ -8,6 +8,7 @@ import { fileUrl } from "../api/upload";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 import { useMedia } from "../useMedia";
 import { Sheet } from "./Sheet";
+import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -28,6 +29,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   const path = { project_id: projectId };
   const { pieces } = useBrandPieces(brandId);
   const jobs = useJobs();
+  const blocks = useSheetBlocks(projectId, brandId);
   // The stills I started: frame id → job id (the server doesn't say which job is which frame yet).
   const [drawing, setDrawing] = useState<Record<number, number>>({});
   const [writing, setWriting] = useState<number | null>(null);
@@ -109,7 +111,8 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   if (frames.isPending) return <p className="text-muted">Loading…</p>;
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const list = frames.data;
-  const missing = list.filter((f) => f.file_id === null && !f.problems.length && !drawingNow[f.id]);
+  const missing = list.filter((f) => f.file_id === null && !f.problems.length && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
+  const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${n} credits`);
   const makeLabel = over(writeCost) ? "Ask Reed to approve" : list.length ? "Redo storyboard" : "Make storyboard";
@@ -177,6 +180,11 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
         </span>
       </div>
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
+      {waitingForSheet.length > 0 && (
+        <p className="text-sm text-warning">
+          {waitingForSheet.length} frame{waitingForSheet.length === 1 ? " waits" : "s wait"} for a sheet ({blockerNames(waitingForSheet.flatMap((f) => blocks.forShot(f.shot_id)))}).
+        </p>
+      )}
       <ul className="grid gap-4 sm:grid-cols-2">
         {list.map((f) => {
           const frameJobs = (jobs.data ?? []).filter((j) => j.step === "frame" && j.frame_id === f.id).sort((a, b) => b.id - a.id);
@@ -190,6 +198,8 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
               aspect={props.aspect}
               busy={busy}
               failed={job?.status === "failed"}
+              blockers={blocks.forShot(f.shot_id)}
+              brandId={brandId}
               nameOf={nameOf}
               cost={imageCost}
               over={over(imageCost)}
@@ -225,6 +235,8 @@ function FrameCard(props: {
   aspect: string;
   busy: boolean;
   failed: boolean;
+  blockers: Blocker[];
+  brandId: number;
   nameOf: (id: string) => string;
   cost: number | undefined;
   over: boolean;
@@ -284,6 +296,7 @@ function FrameCard(props: {
           </span>
         ))}
       </p>
+      <SheetWarning blockers={props.blockers} brandId={props.brandId} />
       {f.problems.length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${f.clip_id}`}>
           {f.problems.map((p) => (
@@ -307,7 +320,7 @@ function FrameCard(props: {
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {f.file_id === null ? (
-              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || f.problems.length > 0} onClick={() => props.onRender()}>
+              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || f.problems.length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
                 {verb}
                 {price}
               </button>
@@ -320,7 +333,7 @@ function FrameCard(props: {
                 >
                   {f.approved ? "Undo approve" : "Approve"}
                 </button>
-                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || f.problems.length > 0} onClick={() => setRedo(redo === null ? "" : null)} aria-expanded={redo !== null}>
+                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || f.problems.length > 0 || props.blockers.length > 0} onClick={() => setRedo(redo === null ? "" : null)} aria-expanded={redo !== null}>
                   {verb}
                   {price}
                 </button>
@@ -332,7 +345,7 @@ function FrameCard(props: {
           </div>
           {redo !== null && !phone && redoForm}
           {redo !== null && phone && (
-            <Sheet title={`Redo clip ${f.clip_id}`} onClose={() => setRedo(null)}>
+            <Sheet title={`Redo clip ${f.clip_id}`} closeLabel="Cancel" onClose={() => setRedo(null)}>
               {redoForm}
             </Sheet>
           )}
