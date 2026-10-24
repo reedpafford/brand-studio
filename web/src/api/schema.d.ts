@@ -92,6 +92,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Invite
+         * @description What an invite link is for, before signing up (no login). The token is sent in the body,
+         *     not the URL, so it never lands in access logs.
+         */
+        post: operations["read_invite_auth_invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/accept-invite": {
         parameters: {
             query?: never;
@@ -1804,18 +1825,10 @@ export interface components {
             /** @default editor */
             role: components["schemas"]["Role"];
         };
-        /** InviteOut */
-        InviteOut: {
-            /** Id */
-            id: number;
-            /** Email */
-            email: string;
-            role: components["schemas"]["Role"];
-            /**
-             * Expires At
-             * Format: date-time
-             */
-            expires_at: string;
+        /** InviteLookupIn */
+        InviteLookupIn: {
+            /** Token */
+            token: string;
         };
         /** ItemIn */
         ItemIn: {
@@ -2673,6 +2686,16 @@ export interface components {
             /** Out Of Date */
             out_of_date: boolean;
         };
+        /** InviteOut */
+        app__routes__auth__InviteOut: {
+            /** Workspace Name */
+            workspace_name: string;
+            /** Invited By Name */
+            invited_by_name: string;
+            /** Email */
+            email: string;
+            role: components["schemas"]["Role"];
+        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -2701,6 +2724,19 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** InviteOut */
+        app__routes__team__InviteOut: {
+            /** Id */
+            id: number;
+            /** Email */
+            email: string;
+            role: components["schemas"]["Role"];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
         };
     };
     responses: never;
@@ -2837,6 +2873,39 @@ export interface operations {
             };
         };
     };
+    read_invite_auth_invite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteLookupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__auth__InviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     accept_invite_auth_accept_invite_post: {
         parameters: {
             query?: never;
@@ -2934,7 +3003,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InviteOut"][];
+                    "application/json": components["schemas"]["app__routes__team__InviteOut"][];
                 };
             };
         };
