@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* Native checkboxes, radios, range and progress take the amber, not the browser blue. */
+:root {
+  accent-color: var(--accent);
+}
+
 body {
   @apply bg-bg font-sans text-text antialiased;
   font-size: var(--text-base);
