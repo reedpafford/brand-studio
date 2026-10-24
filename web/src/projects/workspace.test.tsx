@@ -177,3 +177,15 @@ test("picking a reel in the brief editor sends reference_id and what to replace"
   await userEvent.click(screen.getByRole("button", { name: "Save brief" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toMatchObject({ reference_id: "fomo-DehudnaAmce", reference_replace: "Swap the montage." }));
 });
+
+test("Cancel throws the edits away: the next Edit brief starts from what is saved", async () => {
+  fakeServer({ ...briefRoutes });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit brief" }));
+  const goal = screen.getByLabelText("What's it for?");
+  await userEvent.clear(goal);
+  await userEvent.type(goal, "Something else");
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
+  expect(screen.getByLabelText("What's it for?")).toHaveValue("Show the buy flow");
+});
