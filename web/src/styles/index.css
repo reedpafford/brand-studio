@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* Native checkboxes, radios, range and progress take the amber, not the browser blue. */
+:root {
+  accent-color: var(--accent);
+}
+
 /* Type roles (phase3 README): use these classes instead of raw sizes. */
 @utility type-page { font-family: var(--font-display); font-size: var(--text-2xl); line-height: var(--leading-2xl); font-weight: 800; letter-spacing: var(--tracking-display); }
 @utility type-headline { font-family: var(--font-display); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: 750; }
