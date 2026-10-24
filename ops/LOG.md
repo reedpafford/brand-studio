@@ -1,6 +1,7 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-24 03:00 · #158 ops: HANDOFF/LOG refresh 2026-10-24 03:05Z merged (by the Producer)
 - 2026-10-24 02:59 · #149 Seed: manifest changes reach live databases (python -m app.seed refresh) merged
 - 2026-10-24 02:57 · #150 Deploy: automatic deploy to the VPS on every merge to main merged
 - 2026-10-24 02:57 · #119 Iron Paws: full-size peanut butter bag (scoop removed) + spend log merged
