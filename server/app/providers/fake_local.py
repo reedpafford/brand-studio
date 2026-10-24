@@ -62,14 +62,17 @@ def _clip(clip: dict, shots: dict, framed: bool) -> dict:
     for k, group in enumerate(groups):
         said = [f'{shots[i]["speaker"] or "Someone"} says "{shots[i]["line"]}"' for i in group
                 if shots[i].get("line")]  # fmt: skip
-        what = " ".join([*(shots[i]["action"] for i in group), *said])
+        what = " ".join([*(shots[i]["action"] for i in group), *(said or ["No one speaks."])])
         lines.append(f"Shot {k + 1} | {ends[k - 1] if k else 0}–{ends[k]} s. {what}")
-    lines += ["Keep: plain grey test look.", audio]
-    refs = [{"kind": "image", "id": f"frame:{clip['id']}", "role": "storyboard frame"}]
+    cast = [c for i in ids for c in shots[i]["character_ids"]]
+    screens = [s for i in ids for s in shots[i]["screen_ids"]]
+    images = [*([f"frame:{clip['id']}"] if framed else []), *dict.fromkeys(cast + screens)]
+    shown = " ".join(f"[Image{images.index(s) + 1}]" for s in dict.fromkeys(screens))
+    lines += [f"Keep: plain grey test look. {shown}".strip(), audio]
     return {
         "clip_id": clip["id"],
         "seconds": seconds,
-        "references": refs if framed else [],
+        "references": [{"kind": "image", "id": i, "role": i} for i in images],
         "prompt": "\n".join(lines),
     }
 
@@ -107,6 +110,7 @@ class FakeWriter:
 
     def run(self, kind: str, input: dict) -> Result:
         step, prompt = input["step"], input["prompt"]
+        self._system = "\n".join(input.get("system") or [])  # the brand block lists screens
         answer = getattr(self, f"_{step}")(prompt)
         return Result("succeeded", output=SCHEMAS[step].model_validate(answer).model_dump())
 
@@ -125,6 +129,8 @@ class FakeWriter:
         limits = re.search(r"(\d+)–(\d+) s per clip", prompt)
         low, high = map(int, limits.groups()) if limits else (4, 15)
         lines = [ln.split("| ", 1) for ln in _tag(prompt, "script").splitlines() if "| " in ln]
+        screen = next(iter(re.findall(r"- (screen:\d+)", self._system)), None)
+        cast = re.findall(r"^(char:\d+) \|", _tag(prompt, "cast"), re.M)
         shots = [
             {
                 "id": f"1.{i}",
@@ -133,21 +139,25 @@ class FakeWriter:
                 "action": text.strip(),
                 "reaction": None,
                 "camera": "Medium shot, static",
-                "seconds": 2.0,
-                "character_ids": [],
+                "seconds": max(1.5, round(len(text.split()) / 4.8, 1)),  # spoken pace
+                # A speaker is the first cast member; a ★ line shows the brand's first screen.
+                "character_ids": cast[:1] if DIALOGUE.match(text) else [],
                 "place_id": None,
                 "moment": None,
-                "screen_ids": [],
+                "screen_ids": [screen] if "★" in text and screen else [],
             }  # fmt: skip
             for i, (n, text) in enumerate((x for x in lines if x[1].strip()), 1)
         ]
-        per_clip = max(1, high // 2)
-        groups = [shots[i : i + per_clip] for i in range(0, len(shots), per_clip)]
+        groups: list[list[dict]] = []
+        for shot in shots:  # fill each clip up to the model's longest
+            if not groups or sum(x["seconds"] for x in groups[-1]) + shot["seconds"] > high:
+                groups.append([])
+            groups[-1].append(shot)
         clips = [
             {
                 "id": f"c{k}",
                 "shot_ids": [s["id"] for s in group],
-                "seconds": min(high, max(low, math.ceil(2 * len(group)))),
+                "seconds": min(high, max(low, math.ceil(sum(s["seconds"] for s in group)))),
                 "seam": "end" if k == len(groups) else "model length limit",
             }
             for k, group in enumerate(groups, 1)
@@ -157,12 +167,16 @@ class FakeWriter:
 
     def _storyboard(self, prompt):
         bd = json.loads(_tag(prompt, "breakdown") or "{}")
+        shots = {s["id"]: s for scene in bd.get("scenes", []) for s in scene["shots"]}
         frames = [
             {
                 "clip_id": c["id"],
                 "shot_id": c["shot_ids"][0],
                 "prompt": "A plain test still.",
-                "reference_ids": [],
+                "reference_ids": [
+                    *shots[c["shot_ids"][0]]["character_ids"],
+                    *shots[c["shot_ids"][0]]["screen_ids"],
+                ],
             }  # fmt: skip
             for c in bd.get("clips", [])
         ]
