@@ -23,7 +23,8 @@ AUDIO_LINE = re.compile(
     r"only) .+ No subtitles\.$"
 )
 SAYS = re.compile(  # action that reads like a line; the model voices it (fomo montage, 2026-10-23)
-    r"\b(says?|tells?|repl(y|ies)|answers?|shouts?|whispers?|yells?|refuses?|does not|doesn't)\b",
+    r"\b(says?|tells?|repl(y|ies)|answers?|shouts?|whispers?|yells?|refuses?"
+    r"|(does not|doesn't|won't|will not) (sell|say|speak|answer|reply|agree|give in))\b",
     re.I,
 )
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)

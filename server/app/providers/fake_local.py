@@ -57,7 +57,10 @@ def _clip(clip: dict, shots: dict, framed: bool) -> dict:
     ends = [round(seconds * (i + 1) / len(ids)) for i in range(len(ids))]
     groups = [ids] if len(set(ends)) < len(ends) or ends[0] == 0 else [[i] for i in ids]
     ends = ends if len(groups) > 1 else [seconds]
-    audio = "Audio: only the spoken lines and room sound. No subtitles."
+    spoken = any(shots[i].get("line") for i in ids)
+    audio = ("Audio: only the spoken lines and room sound. No subtitles." if spoken else
+             "Audio: no one speaks (no voices, narration or dialogue), only room sound. "
+             "No subtitles.")  # fmt: skip
     lines = [audio, *(["[Image1] is the first frame."] if framed else []), "Summary: Test clip."]
     for k, group in enumerate(groups):
         said = [f'{shots[i]["speaker"] or "Someone"} says "{shots[i]["line"]}"' for i in group

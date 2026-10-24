@@ -121,8 +121,12 @@ def test_nobody_speaks_unless_the_script_says_so():
     )
     assert check._silence(montage, True) == [
         "shot 2 has no line but doesn't say no one speaks",
-        "shot 2: 'does not' reads like a line; show what the body does",
+        "shot 2: 'does not sell' reads like a line; show what the body does",
     ]
+    calm = montage.replace(
+        "stares at the loss and does not sell.", "stares; the dog does not move."
+    )
+    assert check._silence(calm, True) == ["shot 2 has no line but doesn't say no one speaks"]
     _, result = example("improve")
     quiet = result.prompt.replace("Audio: only the spoken lines and", check.SILENT.rstrip())
     assert check.AUDIO_LINE.match(quiet.splitlines()[0])
