@@ -133,7 +133,7 @@ class FakeWriter:
                 "action": text.strip(),
                 "reaction": None,
                 "camera": "Medium shot, static",
-                "seconds": 2.0,
+                "seconds": max(1.5, round(len(text.split()) / 4.8, 1)),  # spoken pace
                 "character_ids": [],
                 "place_id": None,
                 "moment": None,
@@ -141,13 +141,16 @@ class FakeWriter:
             }  # fmt: skip
             for i, (n, text) in enumerate((x for x in lines if x[1].strip()), 1)
         ]
-        per_clip = max(1, high // 2)
-        groups = [shots[i : i + per_clip] for i in range(0, len(shots), per_clip)]
+        groups: list[list[dict]] = []
+        for shot in shots:  # fill each clip up to the model's longest
+            if not groups or sum(x["seconds"] for x in groups[-1]) + shot["seconds"] > high:
+                groups.append([])
+            groups[-1].append(shot)
         clips = [
             {
                 "id": f"c{k}",
                 "shot_ids": [s["id"] for s in group],
-                "seconds": min(high, max(low, math.ceil(2 * len(group)))),
+                "seconds": min(high, max(low, math.ceil(sum(s["seconds"] for s in group)))),
                 "seam": "end" if k == len(groups) else "model length limit",
             }
             for k, group in enumerate(groups, 1)
