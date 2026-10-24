@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 async function newCharacter(page: import("@playwright/test").Page, name: string, withImage = false) {
   await page.getByRole("button", { name: "New character" }).click();
   await page.getByLabel("Name").fill(name);
-  if (withImage) await page.getByLabel("Image (optional)").setInputFiles(image(`${name}.png`));
+  if (withImage) await page.getByLabel("Photo (optional)").setInputFiles(image(`${name}.png`));
   await page.getByRole("button", { name: "Create character" }).click();
   await expect(page.getByText(name, { exact: true })).toBeVisible();
 }
