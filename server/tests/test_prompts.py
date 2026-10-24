@@ -109,6 +109,19 @@ def test_breakdown_check_wants_the_main_character_in_every_montage_shot():
     assert not lone.line and not lone.character_ids and lone.seconds <= 0.6
 
 
+def test_every_quick_cut_names_a_cast_member():
+    _, cp = example("clip_prompts")
+    prompt = cp.clips[0].prompt
+    assert check._cuts_name_someone(prompt) == []
+    empty = prompt.replace("behind Malik as he pushes open", "as a hand pushes open")
+    assert check._cuts_name_someone(empty) == [
+        "shot 6: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
+    ]
+    refs = next(line for line in empty.splitlines() if line.startswith("References: "))
+    no_cast = empty.replace(refs, "References: [Image1] is the first frame.")
+    assert check._cuts_name_someone(no_cast) == []
+
+
 def test_nobody_speaks_unless_the_script_says_so():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
