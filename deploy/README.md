@@ -17,7 +17,9 @@ in the repo's **Actions** tab with the server's last log lines.
    ```
    ssh-keygen -t ed25519 -N "" -f ~/.ssh/deploy_key -q && cat ~/.ssh/deploy_key.pub >> ~/.ssh/authorized_keys && base64 -w0 ~/.ssh/deploy_key; echo
    ```
-   Copy the long line it prints. Then make a setup code with `openssl rand -hex 32` and copy that.
+   Copy the long line it prints. Then copy two more short lines:
+   - the server's identity: `cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub` (starts `ssh-ed25519`)
+   - a setup code: `openssl rand -hex 32`
 2. **In GitHub** (github.com in the browser, desktop site on): repo → Settings → Secrets and
    variables → Actions → **New repository secret**, one per line below.
 
@@ -26,11 +28,11 @@ in the repo's **Actions** tab with the server's last log lines.
    | `VPS_HOST` | the VPS's IP address (Hostinger → VPS overview) |
    | `VPS_USER` | `root` |
    | `VPS_SSH_KEY` | the long line from step 1 |
+   | `VPS_HOST_KEY` | the `ssh-ed25519 ...` line from step 1 (the deploy won't send keys to any other server) |
    | `BS_SETUP_TOKEN` | the setup code from step 1 |
    | `REPLICATE_API_TOKEN` | your Replicate key (optional until generation is on) |
    | `STUDIO_ANTHROPIC_KEY` | your Claude key (optional until generation is on) |
    | `DOMAIN` | optional: your own address, e.g. `studio.yourdomain.com` (default: the VPS's own name, e.g. `srv123.hstgr.cloud`) |
-   | `VPS_KNOWN_HOSTS` | optional, safer: the output of `ssh-keyscan <VPS IP>` from any computer |
 
    Then back in the Web console: `rm ~/.ssh/deploy_key`.
 3. **Deploy:** repo → **Actions** → **deploy** → **Run workflow**. The first run takes about 10
