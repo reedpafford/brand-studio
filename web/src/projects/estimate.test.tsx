@@ -24,6 +24,7 @@ const estimate = {
     { stage: "script", done: true, credits: 0, note: "" },
     { stage: "breakdown", done: false, credits: 6, note: "One Claude call" },
     { stage: "clips", done: false, credits: 40, note: "30 s at 480p, 1 credit a second" },
+    { stage: "video", done: false, credits: 0, note: "Putting the clips together costs nothing" },
   ],
   remaining_credits: 46,
   used_credits: 70,
@@ -50,6 +51,7 @@ test("the project shows what is left to spend per stage, and warns when it is mo
   const list = screen.getByRole("list", { name: "Credits left per stage" });
   expect(within(list).getByText("done")).toBeInTheDocument();
   expect(within(list).getByText("40 credits")).toBeInTheDocument();
+  expect(within(list).getByText("free")).toBeInTheDocument(); // not "0 credits"
   expect(within(list).getByText("30 s at 480p, 1 credit a second")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
 });

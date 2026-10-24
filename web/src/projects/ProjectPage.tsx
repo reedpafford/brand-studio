@@ -45,7 +45,7 @@ export function ProjectPage() {
       <Link to={`/b/${brandId}/projects`} className={linkText}>
         ← Projects
       </Link>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className={pageTitle}>{p.name}</h1>
         <div className="w-full sm:w-72">
           <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
