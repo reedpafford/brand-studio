@@ -18,6 +18,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
+      - run: sudo apt-get install -y --no-install-recommends ffmpeg  # the stand-in videos
       - run: uv sync --locked
         working-directory: server
       - run: npm ci
