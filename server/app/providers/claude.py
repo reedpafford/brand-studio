@@ -11,12 +11,12 @@ from app.claude import ClaudeError, ask, make_client
 from app.prompts import SCHEMAS
 from app.providers import NetworkError, NotStarted, Result, UsageItem
 
-CONTROL = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")  # control characters except newline
+CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")  # all but tab, newline, return
 
 
 def clean(value):
-    """Stray control characters out of every string in an answer (seen: a tab and a "y" where
-    "Shot 1 | 0–1 s" had its dash). Newlines stay; nothing else changes."""
+    """Stray control characters out of every string in an answer (NUL, escape, …). Tabs,
+    newlines and returns stay, so a tabbed script's quotes still match; nothing else changes."""
     if isinstance(value, str):
         return CONTROL.sub("", value)
     if isinstance(value, dict):
