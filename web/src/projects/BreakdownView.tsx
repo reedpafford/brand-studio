@@ -355,7 +355,7 @@ export function BreakdownView(props: {
       )}
       {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
       <div className="space-y-1">
-        <button className={btnPrimary} disabled={blockedBy !== null} onClick={props.onNext}>
+        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={blockedBy !== null} onClick={props.onNext}>
           Next: Storyboard →
         </button>
         {blockedBy && <p className="text-sm text-muted">{blockedBy}</p>}
