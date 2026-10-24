@@ -65,8 +65,8 @@ export function ProjectPage() {
           </button>
         ))}
       </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(360px,3fr)_minmax(320px,2fr)]">
-        <div className={pane === "script" ? "" : "hidden lg:block"}>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(360px,3fr)_minmax(320px,2fr)]">
+        <div className={pane === "script" ? "min-w-0" : "hidden min-w-0 lg:block"}>
           <ScriptTab
             projectId={id}
             enhance={enhance}
@@ -82,7 +82,7 @@ export function ProjectPage() {
             }
           />
         </div>
-        <div className={pane === "stage" ? "" : "hidden lg:block"}>
+        <div className={pane === "stage" ? "min-w-0" : "hidden min-w-0 lg:block"}>
           <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} projectId={id} brandId={p.brand_id} name={p.name} used={p.credits_used}
             budget={p.budget_credits}
             line={line}
