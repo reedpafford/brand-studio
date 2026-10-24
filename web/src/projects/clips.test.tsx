@@ -260,3 +260,21 @@ test("a clip whose shots use a character without an approved sheet is blocked, a
   expect(screen.getByText(/1 clip waits for a sheet \(Mia\)\./)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make missing · 24 credits" })).toBeInTheDocument();
 });
+
+test("a take that finishes between two polls still shows up (the clips are fetched again)", async () => {
+  const done = { id: 12, kind: "video", step: "clip_take", project_id: 9, project_clip_id: 1, status: "succeeded", credits: 24 };
+  const routes = { ...base, "GET /projects/9/clips": [200, [clip({})]] as [number, unknown] };
+  fakeServer(routes);
+  const client = new QueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/b/1/projects/9?stage=clips"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await screen.findByLabelText("Clip c1");
+  const calls = fakeServer({ ...routes, "GET /jobs": [200, [done]] }); // the job has finished by the next poll
+  await client.invalidateQueries({ queryKey: ["jobs"] });
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/9/clips").length).toBeGreaterThanOrEqual(1));
+});
