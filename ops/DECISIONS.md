@@ -26,3 +26,4 @@
 - 2026-10-23 Brands at launch: fomo (real UI screens attached by default for trading/fomo moments) and Iron Paws.
 - 2026-10-23 New repo (brand-studio), not a rebuild of story-studio. Carry over only proven pieces: Seedance/Nano Banana/Gemini calls via Replicate, fomo screens, cut detection, gold breakdowns.
 - 2026-10-23 Models: Claude Opus 5.5 writes/directs; Seedance 2.5 video, Nano Banana 2.1/Pro pictures, Gemini 3.5 Flash watching, all via Replicate.
+- 2026-10-24 Reed approved the redesign structure (phase 1, #170); clip prompts are always reviewable before takes are paid for.

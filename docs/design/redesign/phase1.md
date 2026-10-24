@@ -1,6 +1,6 @@
 # Redesign, phase 1: how the app is organised
 
-Structure only, no styling. For Reed to approve before any visual work starts.
+Structure only, no styling. **Approved by Reed on 2026-10-24**, with one change: clip prompts stay a separate step before the paid takes (item 5).
 
 ![Structure map](phase1-structure-map.png)
 
@@ -8,7 +8,7 @@ Structure only, no styling. For Reed to approve before any visual work starts.
 
 | Job | Clicks today (desktop / phone) | Proposed |
 |---|---|---|
-| Brief → finished video (one clip) | 21 / 25 | 13 / 13 |
+| Brief → finished video (one clip) | 21 / 25 | 14 / 14 |
 | Quick clip with a brand screen | 5 / 5 | 4 / 4 |
 | Add a product screen and a character with an approved sheet | 12 / 14 | 11 / 11 |
 | Reed approves a request | 2 / 3 | 1 / 1 |
@@ -31,11 +31,13 @@ Structure only, no styling. For Reed to approve before any visual work starts.
 4. **One Next button on every step, always in the same place, with its price.**
    - On desktop it's top right; on a phone, a fixed bottom bar.
    - *Why:* after "Create project", the phone opens on the Script tab, so "Next: Script" is hidden. Four of the 25 phone clicks only switch between the Script tab and the step tab.
-5. **Fewer "make" presses.**
-   - "Make storyboard" writes the frames *and* draws the stills.
-   - "Make clips" writes the prompts *and* makes the takes.
-   - This saves two presses and two waits per video, and the button shows the total price.
-   - *Why:* today there are eight separate presses and waits, and two pairs are always pressed together.
+5. **One fewer "make" press, and clip prompts stay checkable.**
+   - "Make storyboard" writes the frames *and* draws the stills. Both are cheap, and today they're always pressed together.
+   - Clips stays two presses, as Reed decided:
+     - **Write clip prompts** shows each prompt with "Looks good / Edit", and the app's prompt checks can flag problems.
+     - Then one priced **Make the takes · N credits** button.
+     - This way nobody pays for video before the prompts have been read.
+   - *Why:* today there are eight separate presses and waits.
 6. **The script steps aside after the Script step.**
    - From Shots on, it opens from a **Script** button: a side panel on desktop, a sheet on a phone.
    - *Why:* today the script keeps half the screen on every step, so frames, takes and the final video are squeezed into the other half.
@@ -66,5 +68,5 @@ Structure only, no styling. For Reed to approve before any visual work starts.
 - Editors see credits, never dollars. Only Approvals (Reed) shows dollars.
 - Everything stays inside a brand. The fomo and Iron Paws flows were the ones walked.
 - Web only: nothing here needs a server, API or database change.
-  - The "two presses become one" changes call the same steps one after the other.
+  - Merging the Storyboard presses calls the same two steps one after the other.
   - The final-video step is a new screen over the existing video data.
