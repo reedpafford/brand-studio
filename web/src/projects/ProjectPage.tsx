@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import { linkText, pageTitle } from "../ui";
+import { backLink, pageTitle } from "../ui";
 import { useEnhance } from "./Enhance";
 import { useBreakdown } from "./BreakdownPane";
 import { useFrames } from "./StoryboardPane";
@@ -36,13 +36,16 @@ export function ProjectPage() {
   const ready = { script: hasScript, breakdown: !!breakdown.data, breakdownOk: !!breakdown.data && !breakdown.data.stale && breakdown.data.problems.length === 0, storyboardOk: !!frames.data?.length && frames.data.every((f) => f.approved && !f.stale) };
   // A link to a stage that is locked lands on the first stage that is not finished yet.
   if (lockReason(stage, ready) !== null) return <Navigate to={`?stage=${firstUnfinished(ready)}`} replace />;
-  const pick = (s: Stage) => setParams(s === "brief" ? {} : { stage: s });
+  const pick = (s: Stage) => {
+    setParams(s === "brief" ? {} : { stage: s });
+    setPane("stage"); // on a phone, choosing a stage shows it (the script tab would hide the change)
+  };
   const bd = breakdown.data;
   const done: Stage[] = ["brief", ...(script.data ? (["script"] as Stage[]) : []), ...(bd && !bd.stale && bd.problems.length === 0 ? (["breakdown"] as Stage[]) : [])];
 
   return (
     <main className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
-      <Link to={`/b/${brandId}/projects`} className={linkText}>
+      <Link to={`/b/${brandId}/projects`} className={backLink}>
         ← Projects
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -71,6 +74,8 @@ export function ProjectPage() {
         <div className={pane === "script" ? "" : "hidden lg:block"}>
           <ScriptTab
             projectId={id}
+            used={p.credits_used}
+            budget={p.budget_credits}
             enhance={enhance}
             highlight={highlight}
             onLineClick={
