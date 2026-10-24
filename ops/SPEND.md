@@ -13,4 +13,5 @@
 | 2026-10-23 | Producer | fomo trading-montage excerpt (13 s, 480p) via the app: 3 Claude calls, 2 Nano Banana 2.1 stills, 2 Seedance takes 9 s + 4 s (Theo's sheet counted above) | 3 + 2 + 13 s | 2.20 | 1.87 (Seedance at estimate) | Reed ($8.30 excerpt batch) |
 | 2026-10-24 | Producer | Place picture for the fomo re-run: car showroom (Nano Banana Pro 2K, prediction mqh2evswz1rmy0d1df49knzhh4) | 1 image | 0.15 | 0.15 | Reed ($8.30 excerpt batch) |
 | 2026-10-24 | Producer | fomo trading-montage re-run after #135 (14 s, 480p) via the app: 3 Claude calls ($0.46 actual), 2 Nano Banana 2.1 stills, 2 Seedance takes 7 s + 7 s | 3 + 2 + 14 s | 2.20 | 1.96 (Seedance at estimate) | Reed ($8.30 excerpt batch) |
-| 2026-10-24 | Producer | Excerpt batch total so far | | 8.30 cap | 7.65 | Reed |
+| 2026-10-24 | Producer | fomo "Home (rich)" screen: Nano Banana Pro 1K edit of home.png, balance $0.00 -> $348,920.15 (prediction far3fpbfhnrmy0d1dhn8sf5rf0) | 1 image | 0.15 | 0.15 | Reed ("Yes go ahead") |
+| 2026-10-24 | Producer | Excerpt batch total so far (Reed approved one more fomo montage re-run, ~$2, on top of the $8.30) | | 8.30 + ~2 | 7.80 | Reed |

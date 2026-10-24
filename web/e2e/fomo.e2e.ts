@@ -7,7 +7,7 @@ test("fomo comes with its real screens and logo", async ({ page }) => {
   await onBrand(page, "fomo");
 
   await page.getByRole("link", { name: "Screens" }).click();
-  await expect(page.getByRole("heading", { name: "Brand screens (4)" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Brand screens (5)" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Token chart up" })).toBeVisible();
   await expect(page.getByText("★ Always used for: trading, win")).toBeVisible();
 
