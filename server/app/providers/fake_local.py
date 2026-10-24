@@ -62,7 +62,7 @@ def _clip(clip: dict, shots: dict, framed: bool) -> dict:
     for k, group in enumerate(groups):
         said = [f'{shots[i]["speaker"] or "Someone"} says "{shots[i]["line"]}"' for i in group
                 if shots[i].get("line")]  # fmt: skip
-        what = " ".join([*(shots[i]["action"] for i in group), *said])
+        what = " ".join([*(shots[i]["action"] for i in group), *(said or ["No one speaks."])])
         lines.append(f"Shot {k + 1} | {ends[k - 1] if k else 0}–{ends[k]} s. {what}")
     lines += ["Keep: plain grey test look.", audio]
     refs = [{"kind": "image", "id": f"frame:{clip['id']}", "role": "storyboard frame"}]
