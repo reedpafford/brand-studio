@@ -289,3 +289,39 @@ test("past the weekly allowance the button says Ask Reed to approve with the pri
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByRole("button", { name: "Ask Reed to approve · 1.5 credits" })).toBeInTheDocument();
 });
+
+test("a character's photo at creation is the source photo for its sheet, not a loose image", async () => {
+  const calls = fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, brands],
+    "GET /library/character": [200, []],
+    "POST /files": [201, { id: 33, filename: "nate.jpg", content_type: "image/jpeg", size: 3, created_at: "2026-10-23T00:00:00Z" }],
+    "POST /library/character": [201, mia],
+  });
+  renderAt("/b/1/library/characters");
+  await userEvent.click(await screen.findByRole("button", { name: "New character" }));
+  await userEvent.type(screen.getByLabelText("Name"), "Nate");
+  await userEvent.upload(screen.getByLabelText("Photo (optional)"), new File(["x"], "nate.jpg", { type: "image/jpeg" }));
+  await userEvent.click(screen.getByRole("button", { name: "Create character" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ source_photo_file_id: 33, image_file_ids: [] }));
+});
+
+test("a character's page has no second Images box, since the sheet card holds the photo", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
+  renderAt("/b/1/library/characters/5");
+  await screen.findByText("House-style sheet");
+  expect(screen.queryByText("Images")).not.toBeInTheDocument();
+});
+
+test("a card shows the sheet, else the source photo", async () => {
+  fakeServer({
+    "GET /auth/me": [200, editor],
+    "GET /brands": [200, brands],
+    "GET /library/character": [200, [{ ...mia, image_file_ids: [], source_photo_file_id: 20, sheet_file_id: 21, sheet_status: "approved" }, { ...mia, id: 6, name: "Dex", image_file_ids: [], source_photo_file_id: 22, sheet_file_id: null }]],
+  });
+  renderAt("/b/1/library/characters");
+  await screen.findByText("Dex");
+  const srcs = screen.getAllByRole("img").map((i) => i.getAttribute("src"));
+  expect(srcs).toContain("/api/files/21");
+  expect(srcs).toContain("/api/files/22");
+});
