@@ -1,4 +1,4 @@
-as of 090dffb · 2026-10-24 04:15 UTC
+as of b985b3d · 2026-10-24 06:15 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -14,6 +14,7 @@ as of 090dffb · 2026-10-24 04:15 UTC
 - Also merged: montage rules, nobody speaks unless scripted (#135); stray control characters dropped from Claude answers (#136); real-brand-picture cut-ins over insert shots and the "Use the real image" switch (#134, #140); Approvals show who asked and dollars for the owner (#143, #147, #142); invite page says who invited you (#154, #156); byte-range file requests so phones can play videos (#144); no sideways scroll at 390 (#145); full-size peanut butter bag (#119); automatic deploy to the VPS on every merge to main (#150; skips with a warning unless the server secrets and `VPS_HOST_KEY` are set); `python -m app.seed refresh` makes manifest changes reach live databases (#149).
 - Also merged: payoff screen, named screens, two screens per clip, hero in frame from the first moment (#159); reference reel catalogue picked on the brief, live-action shots dropped (#153, #155); Clips refetch after a take or prompts finish, the real fix for the flaky pipeline e2e (#161); `scripts/fake_run.py` runs both done-test videos end to end on the free stand-ins (#148).
 - Invite page polish: "Sign in" wording, a failed check says try again (#163); login and invite page specs updated (#164).
+- fomo "Home (rich)" brand screen for the got-rich payoff (#167); montage clips use at most 3 screens (#168); step-by-step phone-friendly deploy guide for Reed in `deploy/README.md` (#166).
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
 - Director prompts/evals (#30, #36, #41, #54, #75); Iron Paws + fomo seeds (#27, #39); browser tests (#19, #86, #49, #52, #61, #65, #71, #73, #76).
 - Design specs: Breakdown, Storyboard, Clips, Approvals (#79, #80); Prompting guides and FIT rows (#53, #70); house style and gold references from @nateassets (#96).
@@ -35,15 +36,14 @@ as of 090dffb · 2026-10-24 04:15 UTC
 ## Definition of done (Reed, ops/MISSION.md)
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
-- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage ran twice (the re-run after #135 is logged in ops/SPEND.md, $1.96); excerpt spend is $7.65 of the $8.30 approved. #159 fixes the payoff screen showing a coin price. Per the Producer, a third fomo montage run (about $2) would go over the $8.30 batch and waits on Reed, as does a one-time "Home (rich)" brand screen edit ($0.15–0.30).
+- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet.
 ## Open PRs
 - None, apart from the Scribe's own refresh PR.
 ## Next
-- Director: re-run the fomo montage excerpt once Reed approves the extra spend; paid runs only with Producer approval, logged in ops/SPEND.md.
-- Producer / Reed: decide the "Home (rich)" fomo screen and the extra montage run.
-- Release: first live deploy needs Reed's server secrets (not tracked on GitHub).
+- Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (planned for tomorrow, per the Producer), then the first live deploy runs on merge to main.
+- Director: further excerpt runs only with Producer approval, logged in ops/SPEND.md.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
 - Replicate key for the deployed server (later). Keys stay server-side only.
-- Waiting on Reed (per the Producer): the Home (rich) screen ($0.15–0.30) and a montage re-run (about $2, over the $8.30 batch).
+- Waiting on Reed: the VPS secrets (see `deploy/README.md`), per the Producer.
 - Reed's sign-off on videos A and B is the finish line.
