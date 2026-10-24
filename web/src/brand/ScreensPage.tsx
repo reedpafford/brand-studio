@@ -89,7 +89,7 @@ export function ScreensPage() {
               Edit
             </button>
             <button
-              className={linkText}
+              className={`${linkText} min-h-11 sm:min-h-0`}
               aria-label={`Delete ${s.name}`}
               onClick={() => window.confirm(`Delete the screen "${s.name}"?`) && remove.mutate(s.id)}
             >
@@ -212,7 +212,7 @@ function EditScreen(props: { brandId: number; screen: Screen; tagOptions: string
     onSuccess: props.onDone,
   });
   return (
-    <Sheet title={`Edit ${sc.name}`} onClose={props.onClose}>
+    <Sheet title={`Edit ${sc.name}`} closeLabel="Cancel" onClose={props.onClose}>
       <form
         className="space-y-3"
         onSubmit={(e) => {

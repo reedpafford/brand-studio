@@ -133,6 +133,9 @@ test("Edit opens a sheet with the screen's words and saves the changes, product 
   const dialog = await screen.findByRole("dialog", { name: "Edit Chicken bag" });
   const variant = within(dialog).getByLabelText(/Variant/);
   expect(variant).toHaveValue("Chicken");
+  // A form sheet's close button doesn't save, so it says Cancel, not Done.
+  expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  expect(within(dialog).queryByRole("button", { name: "Done" })).not.toBeInTheDocument();
   await userEvent.clear(variant);
   await userEvent.type(variant, "Peanut butter");
   await userEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));

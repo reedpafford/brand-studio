@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { btnSecondary } from "../ui";
 
 /** A bottom sheet: a scrim, a panel along the bottom, Escape or a tap outside closes it. */
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({ title, onClose, closeLabel = "Done", children }: { title: string; onClose: () => void; closeLabel?: string; children: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
@@ -19,7 +19,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-[length:var(--text-md)] font-semibold">{title}</h3>
           <button type="button" className={`${btnSecondary} min-h-11 sm:min-h-8`} onClick={onClose}>
-            Done
+            {closeLabel}
           </button>
         </div>
         {children}
