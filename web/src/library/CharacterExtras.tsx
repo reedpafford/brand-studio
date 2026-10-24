@@ -53,7 +53,7 @@ export function CharacterExtras(props: {
         <div className="font-medium">Voice sample</div>
         {props.voiceFileId && <audio controls src={fileUrl(props.voiceFileId)} aria-label="Voice sample" className="w-full" />}
         <div className="flex gap-3">
-          <label className={`cursor-pointer ${linkText}`}>
+          <label className={`inline-flex min-h-11 cursor-pointer items-center sm:min-h-0 ${linkText}`}>
             {props.voiceFileId ? "Replace voice" : "Add voice"}
             <input type="file" accept="audio/*" className="sr-only" aria-label="Voice file" onChange={(e) => e.target.files?.[0] && addVoice.mutate(e.target.files[0])} />
           </label>

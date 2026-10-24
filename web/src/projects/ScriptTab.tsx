@@ -86,7 +86,7 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
   const viewingOld = viewing !== null && viewing !== current?.version;
   const shown = viewingOld ? old.data : current;
   const uploadButton = (
-    <label className={`inline-block cursor-pointer ${btnSecondary}`}>
+    <label className={`inline-flex min-h-11 cursor-pointer items-center sm:min-h-0 ${btnSecondary}`}>
       {current ? "Upload a new version" : "Upload a document"}
       <input type="file" accept=".txt,.docx,.pdf" className="sr-only" aria-label="Script file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
     </label>
@@ -140,22 +140,22 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
         <span className="ml-auto flex flex-wrap gap-2">
           {viewingOld ? (
             <>
-              <button className={btnPrimary} disabled={restore.isPending} onClick={() => restore.mutate(viewing!)}>
+              <button className={`${btnPrimary} min-h-11 sm:min-h-0`} disabled={restore.isPending} onClick={() => restore.mutate(viewing!)}>
                 Restore this version
               </button>
-              <button className={btnSecondary} onClick={() => setViewing(null)}>
+              <button className={`${btnSecondary} min-h-11 sm:min-h-0`} onClick={() => setViewing(null)}>
                 Back to the latest
               </button>
             </>
           ) : (
             <>
-              <button className={btnSecondary} onClick={() => setEditing(current.text)}>
+              <button className={`${btnSecondary} min-h-11 sm:min-h-0`} onClick={() => setEditing(current.text)}>
                 Edit
               </button>
               {uploadButton}
             </>
           )}
-          <button className={btnSecondary} aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
+          <button className={`${btnSecondary} min-h-11 sm:min-h-0`} aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
             History
           </button>
         </span>

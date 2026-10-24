@@ -97,3 +97,14 @@ test("the guidance points at the script pane, not 'the left', so it reads right 
   expect(await screen.findByLabelText("Script stage")).toHaveTextContent("in the script pane");
   expect(document.body.textContent).not.toMatch(/on the left/);
 });
+
+test("choosing a stage on a phone shows that stage, not the script tab", async () => {
+  fakeServer({ ...base, "GET /projects/9/script": [200, script] });
+  open("?stage=script");
+  const tabs = await screen.findByRole("tablist");
+  await userEvent.click(within(tabs).getAllByRole("tab")[0]);
+  expect(within(tabs).getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
+  const steps = await screen.findByRole("list", { name: "Stages" });
+  await userEvent.click(within(steps).getByRole("button", { name: /Enhance/ }));
+  expect(within(tabs).getAllByRole("tab")[1]).toHaveAttribute("aria-selected", "true");
+});

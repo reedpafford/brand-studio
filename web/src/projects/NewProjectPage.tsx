@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
-import { btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
+import { backLink, btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 
 const ASPECTS = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
 const PLATFORMS = ["TikTok", "Instagram Reels", "YouTube Shorts", "Other"];
@@ -69,7 +69,7 @@ export function NewProjectPage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4 sm:p-6">
-      <Link to={`/b/${brandId}/projects`} className={linkText}>
+      <Link to={`/b/${brandId}/projects`} className={backLink}>
         ← Projects
       </Link>
       <h1 className={pageTitle}>New video</h1>
@@ -119,7 +119,7 @@ export function NewProjectPage() {
           <legend className="font-medium">Who's in it</legend>
           {characters.data?.length === 0 && <p className="text-muted">No characters for this brand yet. Add them in the Library.</p>}
           {characters.data?.map((c) => (
-            <label key={c.id} className="mr-4 inline-flex items-center gap-2">
+            <label key={c.id} className="mr-4 inline-flex min-h-11 items-center gap-2 sm:min-h-0">
               <input type="checkbox" disabled={c.sheet_status !== "approved"} checked={cast.includes(c.id)} onChange={() => setCast(cast.includes(c.id) ? cast.filter((x) => x !== c.id) : [...cast, c.id])} />
               {c.name}
               {c.sheet_status !== "approved" && <span className="text-muted"> · Approve its sheet first</span>}
@@ -152,12 +152,12 @@ export function NewProjectPage() {
           <div className="font-medium">Reference video (optional)</div>
           {reference && <video controls src={fileUrl(reference)} className="max-h-48 rounded-sm" />}
           <div className="flex gap-3">
-            <label className={`cursor-pointer ${linkText}`}>
+            <label className={`inline-flex min-h-11 cursor-pointer items-center sm:min-h-0 ${linkText}`}>
               {reference ? "Replace" : "Add a video"}
               <input type="file" accept="video/*" className="sr-only" aria-label="Reference video file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
             </label>
             {reference && (
-              <button type="button" className={linkText} onClick={() => setReference(null)}>
+              <button type="button" className={`${linkText} min-h-11 sm:min-h-0`} onClick={() => setReference(null)}>
                 Remove
               </button>
             )}
