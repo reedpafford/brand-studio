@@ -121,3 +121,47 @@ test("tagged direction lines look different from dialogue, and the dialogue is u
   expect(items[2]).toHaveAttribute("data-direction", "Brand screen");
   expect(items[2]).toHaveTextContent("★ fomo screen: Chart down");
 });
+
+const none = { ...base, "GET /projects/9/script": [404, { detail: "none" }] as [number, unknown], "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]] as [number, unknown] };
+const draftJob = (o: object) => ({ id: 70, kind: "write-claude", step: "script_draft", project_id: 9, status: "succeeded", credits: 3, created_at: new Date().toISOString(), ...o });
+
+test("with no script, Claude can write drafts from the brief, with the cost shown", async () => {
+  const calls = fakeServer({ ...none, "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []], "POST /projects/9/script/draft": [201, draftJob({ status: "queued" })] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Write drafts from the brief · 3 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/draft")).toBe(true));
+});
+
+test("finished drafts show their hook idea and script, and Use this draft makes it the working script", async () => {
+  const calls = fakeServer({
+    ...none,
+    "GET /jobs": [200, [draftJob({})]],
+    "GET /projects/9/script/drafts": [200, [{ job_id: 70, n: 1, hook_idea: "A cold open", script: "MIA: Wait… it dipped?" }, { job_id: 70, n: 2, hook_idea: "A warm open", script: "DEX: Look at that." }]],
+    "POST /projects/9/script/drafts/70/2/use": [201, v1],
+  });
+  open();
+  const second = await screen.findByLabelText("Draft 2");
+  expect(within(second).getByText("Hook idea: A warm open")).toBeInTheDocument();
+  expect(within(second).getByText("DEX: Look at that.")).toBeInTheDocument();
+  await userEvent.click(within(second).getByRole("button", { name: "Use this draft" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/drafts/70/2/use")).toBe(true));
+});
+
+test("while Claude writes drafts the button says so and cannot be pressed twice; a failure says credits came back", async () => {
+  fakeServer({ ...none, "GET /jobs": [200, [draftJob({ status: "running" })]], "GET /projects/9/script/drafts": [200, []] });
+  open();
+  expect(await screen.findByRole("button", { name: /Claude is writing drafts/ })).toBeDisabled();
+});
+
+test("a failed draft run says credits came back and offers another go", async () => {
+  fakeServer({ ...none, "GET /jobs": [200, [draftJob({ status: "failed" })]], "GET /projects/9/script/drafts": [200, []] });
+  open();
+  expect(await screen.findByText("Didn't finish · credits returned")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Write drafts from the brief/ })).toBeEnabled();
+});
+
+test("over the project's budget the drafts button asks Reed", async () => {
+  fakeServer({ ...none, "GET /projects/9": [200, { ...project, credits_used: 59, budget_credits: 60 }], "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
+  open();
+  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 3 credits" })).toBeInTheDocument();
+});

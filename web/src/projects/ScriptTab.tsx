@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
+import { DraftsPanel } from "./Drafts";
 import { EnhanceBar, MarkLine, type EnhanceState } from "./Enhance";
 import { useToast } from "../toast";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
@@ -22,7 +23,7 @@ export function useLatestScript(projectId: number) {
 }
 
 /** The script: paste it or upload a document. Every save is a new numbered version. */
-export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { projectId: number; enhance: EnhanceState; highlight?: number[]; onLineClick?: (line: number) => void }) {
+export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0, budget = Infinity }: { projectId: number; enhance: EnhanceState; highlight?: number[]; onLineClick?: (line: number) => void; used?: number; budget?: number }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const path = { project_id: projectId };
@@ -95,6 +96,8 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
 
   if (!current || editing !== null) {
     return (
+      <div className="space-y-4">
+      {!current && <DraftsPanel projectId={projectId} used={used} budget={budget} />}
       <section className={`${card} space-y-3`} aria-label="Script">
         {!current && (
           <>
@@ -127,6 +130,7 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
           {upload.isPending && <span className="text-muted">Reading the document…</span>}
         </div>
       </section>
+      </div>
     );
   }
 

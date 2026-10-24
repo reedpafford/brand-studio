@@ -74,6 +74,8 @@ export function ProjectPage() {
         <div className={pane === "script" ? "" : "hidden lg:block"}>
           <ScriptTab
             projectId={id}
+            used={p.credits_used}
+            budget={p.budget_credits}
             enhance={enhance}
             highlight={highlight}
             onLineClick={
