@@ -139,7 +139,7 @@ def test_prompt_says_which_picture_is_which(app, editor, fomo, db):
     assert editor.post("/clips", json=body).status_code == 201
     assert _sent(app, db)["prompt"] == (
         "[Image1] is Max. [Image2] is the kitchen. "
-        '[Image3] is the fomo "Buy" screen, shown exactly.\n'
+        '[Image3] is the fomo "Buy" screen, logo and layout exact.\n'
         "[Image1] starts trading in the [Image2], emailing max@fomo.app"
     )
     job = db.query(Job).one().id

@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
@@ -98,6 +98,12 @@ function JobRow({ job, projects }: { job: Job; projects: Project[] }) {
       toast(yes ? `Approved. ${what} is starting.` : "Declined. Nothing was charged.");
     },
   });
+  // Dollars are for the owner only, so they come from the owner-only detail.
+  const detail = useQuery({
+    queryKey: ["job-detail", job.id],
+    queryFn: async () => (await api.GET("/jobs/{job_id}/detail", { params: { path: { job_id: job.id } } })).data ?? null,
+  });
+  const usd = detail.data ? ` ($${detail.data.cost_usd.toFixed(2)})` : "";
   const after = project && project.budget_credits > 0 ? ((project.credits_used + job.credits) / project.budget_credits) * 100 : null;
   return (
     <li className={`${card} space-y-2 text-sm`}>
@@ -113,11 +119,11 @@ function JobRow({ job, projects }: { job: Job; projects: Project[] }) {
             <span>{what}</span>
           )}
         </Where>
-        <span className="text-muted">{ago(job.created_at)}</span>
+        <span className="text-muted">{job.created_by_name ? `asked by ${job.created_by_name}, ` : ""}{ago(job.created_at)}</span>
       </div>
       {job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>}
       <p>
-        {Math.round(job.credits * 10) / 10} credits{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
+        {Math.round(job.credits * 10) / 10} credits{usd}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
       </p>
       {project && after !== null && <Meter used={project.credits_used + job.credits} budget={project.budget_credits} pct={after} />}
       {act.isError && <p role="alert" className={errorClass}>{act.error.message}</p>}
@@ -163,12 +169,13 @@ function ProjectRow({ project, heldJobs }: { project: Project; heldJobs: number 
           <span aria-hidden className="text-muted">·</span>
           <span>project</span>
         </Where>
+        {project.created_by_name && <span className="text-muted">asked by {project.created_by_name}</span>}
       </div>
       <p>
         Planned {project.planned_seconds} s · budget {Math.round(project.budget_credits)} credits
         {heldJobs > 0 && ` · ${heldJobs} step${heldJobs === 1 ? "" : "s"} held inside`}
       </p>
-      <p className="text-muted">To decline, ask whoever planned it to shorten the plan.</p>
+      <p className="text-muted">To decline, ask {project.created_by_name || "whoever planned it"} to shorten the plan.</p>
       {approve.isError && <p role="alert" className={errorClass}>{approve.error.message}</p>}
       <div className="flex gap-2">
         <button className={`${btnPrimary} min-h-11 flex-1 sm:min-h-9 sm:flex-none`} disabled={approve.isPending} aria-label={`Approve ${project.name}`} onClick={() => approve.mutate()}>

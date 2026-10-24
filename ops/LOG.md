@@ -1,6 +1,23 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-24 03:00 · #158 ops: HANDOFF/LOG refresh 2026-10-24 03:05Z merged (by the Producer)
+- 2026-10-24 02:59 · #149 Seed: manifest changes reach live databases (python -m app.seed refresh) merged
+- 2026-10-24 02:57 · #150 Deploy: automatic deploy to the VPS on every merge to main merged
+- 2026-10-24 02:57 · #119 Iron Paws: full-size peanut butter bag (scoop removed) + spend log merged
+- 2026-10-24 02:57 · #145 Project page: no sideways scroll at 390 merged
+- 2026-10-24 02:57 · #142 Approvals spec: planned length no longer waits for Reed merged
+- 2026-10-24 02:57 · #144 Files: answer byte-range requests so phones can play videos merged
+- 2026-10-24 02:56 · #156 Invite page: who invited you, to which studio merged
+- 2026-10-24 02:56 · #154 Invite page: POST /auth/invite tells who invited you, before signing up merged
+- 2026-10-24 02:56 · #147 Approvals: who asked, and dollars for the owner merged
+- 2026-10-24 02:56 · #143 Approvals: who asked, and a job's cost in dollars for the owner merged
+- 2026-10-24 02:56 · #140 Clips: "Use the real image" switch per insert merged
+- 2026-10-24 02:56 · #134 Cut-ins: the real brand picture over insert shots when the video is made merged
+- 2026-10-24 02:52 · ops/SPEND.md: fomo montage re-run logged ($1.96); excerpt batch at $7.65 of $8.30
+- 2026-10-24 02:40 · #136 Claude answers: drop stray control characters before saving merged
+- 2026-10-24 02:40 · #135 Nobody speaks unless scripted; montages: hero in every shot, wealth payoffs; screen numbers free merged
+- 2026-10-24 02:38 · #157 ops: HANDOFF/LOG refresh 2026-10-24 02:42Z merged (by the Producer)
 - 2026-10-24 02:36 · #152 Gap hunt: script drafts, edit the brief, character photo, phone stage switch, 44px targets merged
 - 2026-10-24 00:43 · #151 e2e: run the whole video flow in the browser with the free stand-in providers merged
 - 2026-10-24 00:20 · #138 Project: credits left per stage under the budget meter merged

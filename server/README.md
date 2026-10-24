@@ -14,6 +14,8 @@ Local runs without real calls: set `BS_FAKE_PROVIDERS=true` for both the server 
 Stand-ins replace Replicate and Claude (grey pictures and videos, simple answers in the right
 shape), so a project can be clicked through from script to final cut for free. Never set it on
 the live server.
+`uv run python -m scripts.fake_run` makes both done-test videos that way, end to end through
+the API, and exits 1 if anything goes wrong (a quick regression check).
 
 ## Deploy notes
 - Paid generation (Replicate, Claude) is off unless `BS_GENERATION_ENABLED=true`. While off, Generate answers "switched off" and the worker leaves paid jobs queued.

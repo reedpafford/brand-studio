@@ -89,3 +89,21 @@ def test_missing_bytes_on_disk_is_404(app, owner, db):
     file_id = upload(owner)
     app.state.storage.delete(db.get(StoredFile, file_id).key)
     assert owner.get(f"/files/{file_id}").status_code == 404
+
+
+def test_byte_ranges_so_phones_can_play_videos(editor):
+    data = bytes(range(256)) * 4  # 1024 bytes
+    file_id = upload(editor, "a.mp3", b"ID3" + data, "audio/mpeg")
+    url, size = f"/files/{file_id}", 1027
+    whole = editor.get(url)
+    assert whole.status_code == 200 and whole.headers["accept-ranges"] == "bytes"
+    for asked, start, end in (
+        ("bytes=0-1", 0, 1),
+        ("bytes=1000-", 1000, 1026),
+        ("bytes=-3", 1024, 1026),
+    ):
+        part = editor.get(url, headers={"Range": asked})
+        assert part.status_code == 206 and part.content == whole.content[start : end + 1]
+        assert part.headers["content-range"] == f"bytes {start}-{end}/{size}"
+    assert editor.get(url, headers={"Range": "bytes=5000-"}).status_code == 416
+    assert editor.get(url, headers={"Range": "lines=1-2"}).status_code == 200  # ignored

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -51,6 +51,18 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
     queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] });
     queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
   };
+  // When a run or a take finishes, bring in what it made. The clips only refetch while a job is
+  // going, so a job that finishes between two polls (or before it is ever seen running, like the
+  // free stand-ins) would otherwise leave the card saying "Not made" until a reload.
+  const finishedKey = (jobs.data ?? [])
+    .filter((j) => j.project_id === projectId && (j.step === "clip_take" || j.step === "clip_prompts") && j.status === "succeeded")
+    .map((j) => j.id)
+    .join(",");
+  useEffect(() => {
+    if (!finishedKey) return;
+    queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
+  }, [finishedKey, projectId, queryClient]);
 
   const write = useMutation({
     mutationFn: async () => {
@@ -93,6 +105,16 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
     },
     onSuccess: refresh,
   });
+  const realImage = useMutation({
+    mutationFn: async ({ clip, shot, on }: { clip: Clip; shot: string; on: boolean }) => {
+      const { data, error } = await api.PUT("/projects/{project_id}/clips/{clip_id}/inserts/{shot_id}", {
+        params: { path: { ...path, clip_id: clip.id, shot_id: shot } },
+        body: { use_real_image: on },
+      });
+      if (!data) throw new Error(errorText(error));
+    },
+    onSuccess: refresh, // the take and its approval stay; only the finished video goes out of date
+  });
   const stitch = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/video", { params: { path } });
@@ -106,7 +128,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
   const list = clips.data;
   const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${Math.round(n)} credits`);
-  const err = write.error ?? generate.error ?? review.error ?? edit.error ?? stitch.error;
+  const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error ?? stitch.error;
   const takeCost = (c: Clip) => c.take_credits;
   const busyFor = (c: Clip) => going(takeJob(c.id)?.id);
   const missing = list.filter((c) => c.takes.length === 0 && c.problems.length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
@@ -182,6 +204,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
               onGenerate={(note) => generate.mutate({ clip: c, note })}
               onPick={(take) => review.mutate({ clip: c, take })}
               onApprove={() => review.mutate({ clip: c })}
+              onRealImage={(shot, on) => realImage.mutate({ clip: c, shot, on })}
               onUnapprove={() => review.mutate({ clip: c, undo: true })}
               onSave={(prompt) => edit.mutate({ clip: c, prompt })}
             />
@@ -228,6 +251,7 @@ function ClipCard(props: {
   onPick: (takeId: number) => void;
   onApprove: () => void;
   onUnapprove: () => void;
+  onRealImage: (shotId: string, on: boolean) => void;
   onSave: (prompt: string) => void;
 }) {
   const { clip: c } = props;
@@ -304,6 +328,15 @@ function ClipCard(props: {
           </div>
         </div>
       )}
+      {c.inserts.map((i) => (
+        <label key={i.shot_id} className="flex min-h-11 w-full items-start gap-3 sm:min-h-0">
+          <input type="checkbox" role="switch" className="mt-0.5 size-5 shrink-0 sm:size-4" checked={i.use_real_image} onChange={(e) => props.onRealImage(i.shot_id, e.target.checked)} />
+          <span>
+            Use the real image · {i.name} (shot {i.shot_id})
+            <span className="block text-xs text-muted">Free. Shows the real picture at that moment.</span>
+          </span>
+        </label>
+      ))}
       {editing !== null ? (
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for ${c.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />

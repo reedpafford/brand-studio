@@ -17,7 +17,16 @@ from app.prompts.schemas import (
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
 TAG = re.compile(r"^\[[A-Za-z ]+\] ")  # accepted Enhance lines: "[Camera] …", "[Brand screen] ★ …"
-AUDIO_LINE = re.compile(r"^Audio: only the spoken lines and .+ No subtitles\.$")
+SILENT = "Audio: no one speaks (no voices, narration or dialogue), only "
+AUDIO_LINE = re.compile(
+    r"^Audio: (only the spoken lines and|no one speaks \(no voices, narration or dialogue\), "
+    r"only) .+ No subtitles\.$"
+)
+SAYS = re.compile(  # action that reads like a line; the model voices it (fomo montage, 2026-10-23)
+    r"\b(says?|tells?|repl(y|ies)|answers?|shouts?|whispers?|yells?|refuses?"
+    r"|(does not|doesn't|won't|will not) (sell|say|speak|answer|reply|agree|give in))\b",
+    re.I,
+)
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
 FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23
     r"\b(leggings|laps?|thighs?|cleavage|crust\w*|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
@@ -73,6 +82,12 @@ def breakdown(
         needed = {sid for sid, moments in screens.items() if shot.moment in moments}
         if needed and not needed & set(shot.screen_ids):
             problems.append(f"shot {shot.id}: '{shot.moment}' moment without its screen")
+    quick = [not shot.line and shot.seconds <= 0.6 for shot in shots]  # wordless, fast
+    for i, shot in enumerate(shots):
+        # a montage is 3+ quick shots in a row; is this shot inside one?
+        windows = [quick[k : k + 3] for k in range(max(0, i - 2), i + 1)]
+        if any(len(w) == 3 and all(w) for w in windows) and not shot.character_ids:
+            problems.append(f"shot {shot.id}: a montage shot without the main character")
     order = [shot.id for shot in shots]
     if [sid for clip in bd.clips for sid in clip.shot_ids] != order:
         problems.append("clips don't cover the shots once each, in order")
@@ -114,8 +129,13 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
+        problems += [f"{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
         shape, _ = _shape(c.prompt, c.seconds)
         problems += [f"{c.clip_id}: {p}" for p in shape]
+        problems += [
+            f"{c.clip_id}: {p}"
+            for p in _silence(c.prompt, any(shots[s].line for s in clip.shot_ids))
+        ]
         if (
             images
             and images[0].startswith("frame:")
@@ -181,6 +201,46 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
     return problems, len(times)
 
 
+CAST = re.compile(r"\[Image\d+\] (?:is|are) ([A-Z][\w-]+)")  # "[Image2] is Malik."
+
+
+def _cuts_name_someone(prompt: str) -> list[str]:
+    """In a "Two quick cuts: …; then …" segment every cut names a cast member, so the model
+    never opens on an empty room (fomo montage, 2026-10-24)."""
+    refs = next((line for line in prompt.splitlines() if line.startswith("References: ")), "")
+    names = set(CAST.findall(refs)) - {"The"}
+    if not names:
+        return []
+    problems = []
+    for line in prompt.splitlines():
+        if m := re.match(r"^Shot (\d+) \|[^:]*quick cuts[^:]*: (.*)$", line, re.I):
+            for cut in m.group(2).split("; then "):
+                if not any(re.search(rf"\b{re.escape(n)}\b", cut) for n in names):
+                    problems.append(f"shot {m.group(1)}: a quick cut names nobody (“{cut[:40]}”)")
+    return problems
+
+
+def _silence(prompt: str, spoken: bool) -> list[str]:
+    """Nobody speaks unless the script says so: a clip without lines carries the no-speech
+    audio line; every shot without a line says "No one speaks." and no action reads like one."""
+    problems = []
+    if spoken == prompt.lstrip().startswith(SILENT):
+        problems.append("the audio line doesn't match whether anyone speaks")
+    starts = [m.start() for m in SHOT_LINE.finditer(prompt)]
+    end = prompt.find("\nKeep: ")
+    for n, (a, b) in enumerate(
+        zip(starts, starts[1:] + [end if end > 0 else len(prompt)], strict=False), 1
+    ):
+        shot = prompt[a:b]
+        if QUOTED.search(shot):
+            continue
+        if "No one speaks." not in shot:
+            problems.append(f"shot {n} has no line but doesn't say no one speaks")
+        if m := SAYS.search(shot):
+            problems.append(f"shot {n}: '{m.group(0)}' reads like a line; show what the body does")
+    return problems
+
+
 def improve(
     idea: str, result: ImprovedPrompt, references: str, shots: int, seconds: float
 ) -> list[str]:
@@ -196,7 +256,7 @@ def improve(
     if references and f"References: {references}" not in prompt.splitlines():
         problems.append("the reference lines aren't copied exactly")
     shape, count = _shape(prompt, seconds)
-    problems += shape
+    problems += shape + _silence(prompt, bool(asked))
     if count != shots:
         problems.append(f"{count} shots, the brief asks for {shots}")
     return problems

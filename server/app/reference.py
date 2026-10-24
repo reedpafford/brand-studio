@@ -29,6 +29,7 @@ class RefShot(BaseModel):
     emotion: str = Text
     speaker: str | None = None
     line: str | None = Field(None, max_length=2000)
+    style: str = Field("", max_length=2000)  # live-action shots are dropped (reference_block)
 
 
 class ReferenceBreakdown(BaseModel):

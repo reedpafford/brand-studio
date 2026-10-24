@@ -17,7 +17,7 @@ const frames = [
   { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], file_id: 40, approved: true, stale: false },
   { id: 2, clip_id: "c2", shot_id: "2.1", prompt: "p", reference_ids: [], problems: [], file_id: 41, approved: true, stale: false },
 ];
-const clip = (o: object) => ({ id: 1, clip_id: "c1", seconds: 8, prompt: "Mia taps buy", references: [], problems: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, ...o });
+const clip = (o: object) => ({ id: 1, clip_id: "c1", seconds: 8, prompt: "Mia taps buy", references: [], problems: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]],
@@ -226,6 +226,24 @@ test("an approved clip can be un-approved", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /projects/9/clips/1/approve")).toBe(true));
 });
 
+test("an insert has a Use the real image switch, off by default, that changes only the video", async () => {
+  const insert = { shot_id: "1.2", asset_id: "screen:3", name: "Chart down", start: 2, end: 4, use_real_image: false };
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5, approved: true, inserts: [insert] }), clip({ id: 2, clip_id: "c2" })]],
+    "PUT /projects/9/clips/1/inserts/1.2": [200, clip({ inserts: [{ ...insert, use_real_image: true }] })],
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  const sw = within(card).getByRole("switch", { name: /Use the real image · Chart down \(shot 1\.2\)/ });
+  expect(sw).not.toBeChecked();
+  expect(within(card).getByText("Free. Shows the real picture at that moment.")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Clip c2")).queryByRole("switch")).not.toBeInTheDocument();
+  await userEvent.click(sw);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/clips/1/inserts/1.2")?.body).toEqual({ use_real_image: true }));
+  expect(within(card).getByText("Approved")).toBeInTheDocument(); // the approval stays
+});
+
 test("a clip whose shots use a character without an approved sheet is blocked, and Make missing skips it", async () => {
   const bd = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "K", look: "", shots: [{ id: "1.1", character_ids: ["char:4"], place_id: null }, { id: "2.1", character_ids: [], place_id: null }] }], clips: [{ id: "c1", shot_ids: ["1.1"] }, { id: "c2", shot_ids: ["2.1"] }] } };
   fakeServer({
@@ -241,4 +259,22 @@ test("a clip whose shots use a character without an approved sheet is blocked, a
   expect(within(screen.getByLabelText("Clip c2")).getByRole("button", { name: /Make clip/ })).toBeEnabled();
   expect(screen.getByText(/1 clip waits for a sheet \(Mia\)\./)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make missing · 24 credits" })).toBeInTheDocument();
+});
+
+test("a take that finishes between two polls still shows up (the clips are fetched again)", async () => {
+  const done = { id: 12, kind: "video", step: "clip_take", project_id: 9, project_clip_id: 1, status: "succeeded", credits: 24 };
+  const routes = { ...base, "GET /projects/9/clips": [200, [clip({})]] as [number, unknown] };
+  fakeServer(routes);
+  const client = new QueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/b/1/projects/9?stage=clips"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await screen.findByLabelText("Clip c1");
+  const calls = fakeServer({ ...routes, "GET /jobs": [200, [done]] }); // the job has finished by the next poll
+  await client.invalidateQueries({ queryKey: ["jobs"] });
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/9/clips").length).toBeGreaterThanOrEqual(1));
 });

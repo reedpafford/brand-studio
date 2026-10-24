@@ -184,3 +184,10 @@ def test_claude_busy_is_retried_and_lost_contact_is_unsure(db, user):
     db.refresh(job)
     assert (job.status, job.error) == (JobStatus.failed, UNSURE)
     assert db.query(Usage).count() == 0
+
+
+def test_claude_answers_lose_stray_control_characters():
+    from app.providers.claude import clean
+
+    answer = {"clips": [{"prompt": "Shot\x1b 1 | 0–1 s.\tA\r\nKeep: x\x00", "seconds": 5}]}
+    assert clean(answer) == {"clips": [{"prompt": "Shot 1 | 0–1 s.\tA\r\nKeep: x", "seconds": 5}]}
