@@ -17,7 +17,7 @@ const frames = [
   { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], file_id: 40, approved: true, stale: false },
   { id: 2, clip_id: "c2", shot_id: "2.1", prompt: "p", reference_ids: [], problems: [], file_id: 41, approved: true, stale: false },
 ];
-const clip = (o: object) => ({ id: 1, clip_id: "c1", seconds: 8, prompt: "Mia taps buy", references: [], problems: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, ...o });
+const clip = (o: object) => ({ id: 1, clip_id: "c1", seconds: 8, prompt: "Mia taps buy", references: [], problems: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]],
@@ -224,4 +224,22 @@ test("an approved clip can be un-approved", async () => {
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Undo approval" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /projects/9/clips/1/approve")).toBe(true));
+});
+
+test("an insert has a Use the real image switch, off by default, that changes only the video", async () => {
+  const insert = { shot_id: "1.2", asset_id: "screen:3", name: "Chart down", start: 2, end: 4, use_real_image: false };
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5, approved: true, inserts: [insert] }), clip({ id: 2, clip_id: "c2" })]],
+    "PUT /projects/9/clips/1/inserts/1.2": [200, clip({ inserts: [{ ...insert, use_real_image: true }] })],
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  const sw = within(card).getByRole("switch", { name: /Use the real image · Chart down \(shot 1\.2\)/ });
+  expect(sw).not.toBeChecked();
+  expect(within(card).getByText("Free. Shows the real picture at that moment.")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Clip c2")).queryByRole("switch")).not.toBeInTheDocument();
+  await userEvent.click(sw);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/clips/1/inserts/1.2")?.body).toEqual({ use_real_image: true }));
+  expect(within(card).getByText("Approved")).toBeInTheDocument(); // the approval stays
 });
