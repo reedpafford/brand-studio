@@ -1,5 +1,4 @@
 {
   "bag.webp": {"name": "Chicken bag", "tags": ["product", "bag"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"], "product": "bag", "variant": "Chicken"},
-  "bag-peanut-butter.jpg": {"name": "Peanut butter bag", "tags": ["product", "bag", "peanut-butter"], "default_for": [], "product": "bag", "variant": "Peanut butter"},
-  "bag-peanut-butter.png": {"name": "Peanut butter bag", "tags": ["product", "bag", "peanut-butter"], "default_for": [], "product": "bag", "variant": "Peanut butter"}
+  "bag-peanut-butter.png": {"name": "Peanut butter bag", "tags": ["product", "bag", "peanut-butter"], "default_for": ["product", "feeding", "iron-paws-mention", "end-card"], "product": "bag", "variant": "Peanut butter"}
 }

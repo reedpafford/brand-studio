@@ -141,4 +141,4 @@ def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
     file = client.get(f"/files/{bag[0]['file_id']}")
     assert file.headers["content-type"] == "image/webp"
     moment = client.get(f"/brands/{brands['iron-paws']}/screens", params={"moment": "feeding"})
-    assert [s["name"] for s in moment.json()] == ["Chicken bag"]
+    assert [s["name"] for s in moment.json()] == ["Chicken bag", "Peanut butter bag"]
