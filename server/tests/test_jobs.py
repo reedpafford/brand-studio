@@ -62,3 +62,24 @@ def test_editor_job_payload_has_no_money(editor, db):
     text = (editor.get("/jobs").text + editor.get(f"/jobs/{job.id}").text).lower()
     assert editor.get(f"/jobs/{job.id}").json()["status"] == "succeeded"
     assert "usd" not in text and "cost" not in text
+
+
+def test_owner_sees_who_asked_and_what_it_costs(owner, editor, db):
+    """For the owner's Approvals list: the asker's name on jobs and projects, dollars owner-only."""
+    ed = db.query(User).filter_by(name="Ed").one()
+    job = enqueue(db, ed, "video-480p", {"seconds": 5}, units=5)
+    row = owner.get("/jobs").json()[0]
+    assert (row["created_by_id"], row["created_by_name"]) == (ed.id, "Ed")
+    detail = owner.get(f"/jobs/{job.id}/detail").json()
+    assert detail["cost_usd"] == round(float(job.credits) * 0.1028, 4)  # not run yet: its worth
+    fake = FakeProvider()
+    run_once(db, {"fake": fake})
+    run_once(db, {"fake": fake})
+    assert owner.get(f"/jobs/{job.id}/detail").json()["cost_usd"] == 0.514  # what was spent
+    assert editor.get(f"/jobs/{job.id}/detail").status_code == 403
+    assert_no_dollars(editor, ["/jobs", f"/jobs/{job.id}"])
+
+    fomo = owner.get("/brands").json()[0]["id"]
+    made = editor.post("/projects", json={"brand_id": fomo, "name": "Dip", "planned_seconds": 30})
+    assert made.json()["created_by_name"] == "Ed"
+    assert owner.get("/projects").json()[0]["created_by_id"] == ed.id

@@ -1954,7 +1954,8 @@ export interface components {
         };
         /**
          * JobDetailOut
-         * @description Owner-only: includes the provider's raw error text.
+         * @description Owner-only: includes the provider's raw error text and the cost in dollars (what was
+         *     spent once it ran; until then, what its credits are worth).
          */
         JobDetailOut: {
             /** Id */
@@ -2002,6 +2003,13 @@ export interface components {
             aspect_ratio?: string | null;
             /** Resolution */
             resolution?: string | null;
+            /** Created By Id */
+            created_by_id?: number | null;
+            /**
+             * Created By Name
+             * @default
+             */
+            created_by_name: string;
             /** Approved By Id */
             approved_by_id: number | null;
             /** Provider */
@@ -2010,6 +2018,11 @@ export interface components {
             provider_ref: string | null;
             /** Error Detail */
             error_detail: string;
+            /**
+             * Cost Usd
+             * @default 0
+             */
+            cost_usd: number;
         };
         /** JobOut */
         JobOut: {
@@ -2058,6 +2071,13 @@ export interface components {
             aspect_ratio?: string | null;
             /** Resolution */
             resolution?: string | null;
+            /** Created By Id */
+            created_by_id?: number | null;
+            /**
+             * Created By Name
+             * @default
+             */
+            created_by_name: string;
         };
         /**
          * JobStatus
@@ -2323,6 +2343,10 @@ export interface components {
             credits_used: number;
             /** Budget Pct */
             budget_pct: number;
+            /** Created By Id */
+            created_by_id: number | null;
+            /** Created By Name */
+            created_by_name: string;
         };
         /** ProjectPatch */
         ProjectPatch: {

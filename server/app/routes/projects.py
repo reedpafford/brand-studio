@@ -10,7 +10,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app import reference
-from app.auth import current_user, owner_only
+from app.auth import current_user, owner_only, user_name
 from app.credits import credits_used, get_limits, lock, over_cap
 from app.db import get_db
 from app.models.accounts import User
@@ -74,6 +74,8 @@ class ProjectOut(BaseModel):
     budget_credits: float
     credits_used: float
     budget_pct: float
+    created_by_id: int | None  # who asked (for the owner's Approvals list)
+    created_by_name: str
 
 
 def get_project(db: Session, user: User, project_id: int) -> Project:
@@ -96,6 +98,8 @@ def _out(db: Session, project: Project) -> ProjectOut:
         budget_credits=project.budget_credits,
         credits_used=used,
         budget_pct=round(float(used / project.budget_credits * 100), 1),
+        created_by_id=project.created_by_id,
+        created_by_name=user_name(db, project.created_by_id),
     )
 
 
@@ -166,7 +170,12 @@ def create_project(
     body: ProjectIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     get_brand(db, user, body.brand_id)
-    project = Project(workspace_id=user.workspace_id, brand_id=body.brand_id, name=body.name)
+    project = Project(
+        workspace_id=user.workspace_id,
+        brand_id=body.brand_id,
+        name=body.name,
+        created_by_id=user.id,
+    )
     _set_length(db, user, project, body.planned_seconds)
     _set_brief(db, user, project, body.model_dump())
     db.add(project)
