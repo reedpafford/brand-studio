@@ -15,6 +15,7 @@ export function AuthForm(props: {
   submitLabel: string;
   submit: (values: Record<string, string>) => Promise<Result>;
   footer?: ReactNode;
+  intro?: ReactNode;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
@@ -39,6 +40,7 @@ export function AuthForm(props: {
     <main className="mx-auto flex min-h-screen max-w-[432px] flex-col justify-start gap-4 p-4 pt-[20vh] sm:justify-center sm:pt-4">
       <div className={`${card} space-y-4`}>
       <h1 className="text-xl font-semibold">{props.title}</h1>
+      {props.intro}
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {props.fields.map((f) => (
           <label key={f.name} className="flex flex-col gap-1 text-sm">
