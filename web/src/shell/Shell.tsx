@@ -181,7 +181,7 @@ function TabBar({ brandId, waiting }: { brandId: number | null; waiting: number 
             </NavLink>
           </>
         )}
-        <button type="button" aria-expanded={more} className={`grid min-h-16 flex-1 place-items-center text-sm ${more || inMore ? "font-medium text-accent-text" : "text-muted"}`} onClick={() => setMore(!more)}>
+        <button type="button" aria-expanded={more} className={`flex min-h-16 flex-1 items-center justify-center text-sm ${more || inMore ? "font-medium text-accent-text" : "text-muted"}`} onClick={() => setMore(!more)}>
           More {waiting ? <Badge n={waiting} /> : null}
         </button>
       </nav>

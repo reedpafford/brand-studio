@@ -103,3 +103,10 @@ test("an editor's navigation has no Approvals", async () => {
   await within(nav).findByRole("link", { name: "Projects" });
   expect(within(nav).queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
 });
+
+test("a Quick clip row says Quick clip once", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [held({ id: 60, project_id: null, step: null, prompt_summary: "Mia hits the buy moment" })]] });
+  open();
+  await screen.findByText(/Mia hits the buy moment/);
+  expect(within(screen.getByRole("list")).getAllByText("Quick clip")).toHaveLength(1);
+});

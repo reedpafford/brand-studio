@@ -103,9 +103,15 @@ function JobRow({ job, projects }: { job: Job; projects: Project[] }) {
     <li className={`${card} space-y-2 text-sm`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <Where brandId={brandId}>
-          {project ? <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link> : <span>Quick clip</span>}
-          <span aria-hidden className="text-muted">·</span>
-          <span>{what}</span>
+          {project ? (
+            <>
+              <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
+              <span aria-hidden className="text-muted">·</span>
+              <span>{what}</span>
+            </>
+          ) : (
+            <span>{what}</span>
+          )}
         </Where>
         <span className="text-muted">{ago(job.created_at)}</span>
       </div>
