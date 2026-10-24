@@ -81,6 +81,7 @@ def make(c, work, brand: str, case: dict, script: str, planned: int, variants=No
     ok(c.post(f"{base}/clips/prompts"), "clip prompts")
     work()
     for clip in c.get(f"{base}/clips").json():
+        problems.extend(f"clip {clip['clip_id']}: {p}" for p in clip["problems"])
         ok(c.post(f"{base}/clips/{clip['id']}/generate"), f"take {clip['clip_id']}")
         work()
         ok(c.post(f"{base}/clips/{clip['id']}/approve"), f"approve {clip['clip_id']}")
@@ -93,7 +94,7 @@ def make(c, work, brand: str, case: dict, script: str, planned: int, variants=No
     project = c.get(base).json()
     used, budget = project["credits_used"], project["budget_credits"]
     print(f"  {len(inserts)} insert(s); credits {used} of {budget}")
-    if video:
+    if video and "file_id" in video:
         data = c.get(f"/files/{video['file_id']}").content
         probe = [
             "ffprobe",

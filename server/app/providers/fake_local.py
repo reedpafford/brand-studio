@@ -139,7 +139,8 @@ class FakeWriter:
                 "id": f"1.{i}",
                 "script_lines": [int(n)],
                 **_spoken(text),
-                "action": text.strip(),
+                # Not the script's words: an action that reads like speech fails #135's check.
+                "action": f"A plain test shot for script line {n}.",
                 "reaction": None,
                 "camera": "Medium shot, static",
                 "seconds": max(1.5, round(len(text.split()) / 4.8, 1)),  # spoken pace
