@@ -194,7 +194,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
           <>
             <video controls src={fileUrl(v.file_id)} className="max-h-96 rounded-sm" />
             <p className="text-muted">{Math.round(list.reduce((n, c) => n + c.seconds, 0))} s · {props.aspect}</p>
-            <a className={`${btnSecondary} inline-block`} href={fileUrl(v.file_id)} download={`${props.projectName}.mp4`}>
+            <a className={`${btnSecondary} inline-flex min-h-11 items-center sm:min-h-9`} href={fileUrl(v.file_id)} download={`${props.projectName}.mp4`}>
               Download MP4
             </a>
             {v.out_of_date && <p className="text-warning">Out of date. A take or an approval changed since.</p>}

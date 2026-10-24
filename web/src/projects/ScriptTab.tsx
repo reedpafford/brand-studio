@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
+import { DraftsPanel } from "./Drafts";
 import { EnhanceBar, MarkLine, type EnhanceState } from "./Enhance";
 import { useToast } from "../toast";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
@@ -22,7 +23,7 @@ export function useLatestScript(projectId: number) {
 }
 
 /** The script: paste it or upload a document. Every save is a new numbered version. */
-export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { projectId: number; enhance: EnhanceState; highlight?: number[]; onLineClick?: (line: number) => void }) {
+export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0, budget = Infinity }: { projectId: number; enhance: EnhanceState; highlight?: number[]; onLineClick?: (line: number) => void; used?: number; budget?: number }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const path = { project_id: projectId };
@@ -86,7 +87,7 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
   const viewingOld = viewing !== null && viewing !== current?.version;
   const shown = viewingOld ? old.data : current;
   const uploadButton = (
-    <label className={`inline-block cursor-pointer ${btnSecondary}`}>
+    <label className={`inline-flex min-h-11 cursor-pointer items-center sm:min-h-0 ${btnSecondary}`}>
       {current ? "Upload a new version" : "Upload a document"}
       <input type="file" accept=".txt,.docx,.pdf" className="sr-only" aria-label="Script file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
     </label>
@@ -95,6 +96,7 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
 
   if (!current || editing !== null) {
     return (
+      <div className="space-y-4">
       <section className={`${card} space-y-3`} aria-label="Script">
         {!current && (
           <>
@@ -127,6 +129,8 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
           {upload.isPending && <span className="text-muted">Reading the document…</span>}
         </div>
       </section>
+      {!current && <DraftsPanel projectId={projectId} used={used} budget={budget} />}
+      </div>
     );
   }
 
@@ -140,22 +144,22 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
         <span className="ml-auto flex flex-wrap gap-2">
           {viewingOld ? (
             <>
-              <button className={btnPrimary} disabled={restore.isPending} onClick={() => restore.mutate(viewing!)}>
+              <button className={`${btnPrimary} min-h-11 sm:min-h-0`} disabled={restore.isPending} onClick={() => restore.mutate(viewing!)}>
                 Restore this version
               </button>
-              <button className={btnSecondary} onClick={() => setViewing(null)}>
+              <button className={`${btnSecondary} min-h-11 sm:min-h-0`} onClick={() => setViewing(null)}>
                 Back to the latest
               </button>
             </>
           ) : (
             <>
-              <button className={btnSecondary} onClick={() => setEditing(current.text)}>
+              <button className={`${btnSecondary} min-h-11 sm:min-h-0`} onClick={() => setEditing(current.text)}>
                 Edit
               </button>
               {uploadButton}
             </>
           )}
-          <button className={btnSecondary} aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
+          <button className={`${btnSecondary} min-h-11 sm:min-h-0`} aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
             History
           </button>
         </span>
