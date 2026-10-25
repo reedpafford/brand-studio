@@ -8,7 +8,7 @@ Quick clip (page 32)                                        This week: 132 of 60
 ┌ panel 400, bg-surface, radius 14 ────┐  ┌ History ─────────────────────────────────────────┐
 │ Model                                │  │ History (section)        [All ▾]  [▤ List][▦ Grid] │
 │ [Seedance 2.5 · 4–30 s · up to 1080p ⌄]│  │ ┌ media 9:14 ┐┌──────┐┌──────┐                    │
-│ What happens                0 / 2,000 │  │ │[Making 42%]││Ready ││Didn't│  3 columns, gap 16  │
+│ What happens                0 / 2,000 │  │ │[Making 1m] ││Ready ││Didn't│  3 columns, gap 16  │
 │ [textarea 6 rows, body role         ] │  │ │            ││  ▶   ││finish│                    │
 │ Who's in it, what happens, how the    │  │ │"Bo noses…" ││      ││      │  first line of the  │
 │ camera moves. (meta)                  │  │ │8 s · 9:16  ││      ││      │  prompt (2 lines)   │
@@ -32,10 +32,10 @@ Quick clip (page 32)                                        This week: 132 of 60
 
 ## History
 - **Cards** (grid, default on desktop): media-first in the clip's shape, status badge top left, the first line of the prompt (card role, 2 lines) and "8 s · 9:16 · 720p" (meta) over the shade. A `Play` button only when ready.
-- **List** (default on phone): rows with a 64px-wide thumbnail, status badge, the prompt (2 lines), meta line, and an `Ellipsis` menu (Download, Reuse, Send to a video, Delete).
+- **List** (default on phone): rows with a 64px-wide thumbnail, status badge, the prompt (2 lines), meta line, then **Download** and **Reuse** (secondary dense). Add an `Ellipsis` menu only if a third action appears.
 - The prompt shown is **what the person typed**, never the model's internal prompt (no `[Image1] is the first frame…`).
 - **Newest first.** A clip that was just started appears at the top with a 1.5s amber outline.
-- **Tap a ready clip:** lightbox with the player, the prompt (body role), the brand pieces as chips, and **Download** (amber in the lightbox), **Reuse** (secondary: fills the panel with this clip's settings), **Send to a video ▾** (ghost).
+- **Tap a ready clip:** lightbox with the player, the prompt (body role), the brand pieces as chips, and **Download** (amber in the lightbox), **Reuse** (secondary: fills the panel with this clip's prompt, settings and brand pieces; toast "Settings copied. Press Generate to make another."). Ready cards on the grid and list also carry Download and Reuse.
 - **Filter:** All · Ready · Making · Didn't finish (select, dense).
 
 ## Phone (390)
@@ -49,7 +49,7 @@ Quick clip (page 32)                                        This week: 132 of 60
 |---|---|
 | Empty history | `Zap` icon. **Your first {brand} clip starts here.** "Describe a moment, add a brand piece, press Generate." Ghost **Start describing** (focuses the prompt). The panel works as usual. |
 | Loading | Panel field skeletons and 3 history card skeletons (2 list rows on phone). |
-| Making | Badge "Queued", then "Making 42%" with the amber progress edge along the bottom of the picture, then "Finishing". Count-up after 1s. **Cancel** in the card menu. |
+| Making | Badge "Queued", then "Making 1m 12s" (elapsed time; the API has no progress). **Cancel** (ghost dense) on the card. |
 | Error (a clip) | Badge "Didn't finish · credits returned", one plain line ("The video service was busy."), **Try again · 68 credits** (secondary). |
 | Error (page) | Danger banner "Couldn't load your clips. Check your connection." **Try again**. The panel still works. |
 | Waiting for Reed | `warn` badge "Waiting for Reed to approve" on the card. |
