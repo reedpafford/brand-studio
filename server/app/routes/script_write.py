@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import reel_read, script_write
 from app import script_library as lib
 from app.auth import current_user
-from app.credits import credits_left, estimate
+from app.credits import afford, credits_left, estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.models.script_library import Script
@@ -38,7 +38,8 @@ class WriteManyEstimate(BaseModel):
 
 
 def _price(db: Session, user: User) -> Decimal:
-    return estimate(db, user.workspace_id, "write-claude", Decimal(1), {})
+    """Writing the words, then the cast read that follows it (one press, one price)."""
+    return estimate(db, user.workspace_id, "write-claude", Decimal(2), {})
 
 
 def _writable(db: Session, user: User, script_id: int, row: str = "") -> Script:
@@ -77,6 +78,7 @@ def _cost(db: Session, user: User, script: Script, plan: str) -> Decimal:
 def _queue(db: Session, user: User, request: Request, script: Script):
     reference = script_reference(request, script)
     data = script_write.job_input(db, script, reference)
+    data |= {"then_cast": True, "then_cast_reference": reference}  # cast read next, prepaid
     return enqueue(db, user, "write-claude", data, provider="claude")
 
 
@@ -100,8 +102,11 @@ def write_one(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Claude writes the original's words from the title, description, cast and reel."""
-    return _queue(db, user, request, _writable(db, user, script_id))
+    """Claude writes the original's words from the title, description, cast and reel, then
+    reads its cast (one price for both)."""
+    script = _writable(db, user, script_id)
+    afford(db, user, _price(db, user), "Writing this script")
+    return _queue(db, user, request, script)
 
 
 @router.post("/write/estimate", response_model=WriteManyEstimate)

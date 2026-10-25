@@ -180,6 +180,18 @@ def credits_left(db: Session, user: User) -> Decimal | None:
     return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
 
 
+def afford(db: Session, user: User, total: Decimal, what: str) -> None:
+    """All or none: an editor's allowance must cover the whole press (e.g. writing and the cast
+    read after it) before any of it is queued."""
+    left = credits_left(db, user)
+    if left is not None and total > left:
+        raise HTTPException(
+            409,
+            f"{what} takes {total:.0f} credits and you have {max(left, 0):.0f} left this week. "
+            "It resets Monday.",
+        )
+
+
 def over_allowance(db: Session, user: User, project: Project | None, credits: Decimal) -> str:
     """Plain words if this job would take an editor past their weekly allowance, else "".
     Past it, their own work is declined, never sent to the owner. Call with the row locked."""

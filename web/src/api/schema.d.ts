@@ -1092,7 +1092,8 @@ export interface paths {
         put?: never;
         /**
          * Write One
-         * @description Claude writes the original's words from the title, description, cast and reel.
+         * @description Claude writes the original's words from the title, description, cast and reel, then
+         *     reads its cast (one price for both).
          */
         post: operations["write_one_scripts__script_id__write_post"];
         delete?: never;
@@ -1599,7 +1600,7 @@ export interface paths {
         };
         /**
          * Variations Estimate
-         * @description What one run costs (one Claude call, whether it writes one variation or two).
+         * @description What one run costs: one Claude call (one variation or two), then the cast read.
          */
         get: operations["variations_estimate_scripts__script_id__variations_estimate_get"];
         put?: never;
