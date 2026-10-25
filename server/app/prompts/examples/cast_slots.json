@@ -7,6 +7,7 @@
    {
     "role": "Malik, the hero",
     "description": "17, lanky, light brown skin, short twists, red beanie, grey hoodie, over-ear headphones round his neck.",
+    "kind": "Main",
     "appears_in": [
      0,
      1
@@ -16,6 +17,7 @@
    {
     "role": "Aunt Tasha, the doubter",
     "description": "Mid-40s, curvy, dark brown skin, hair wrapped in a patterned scarf, cardigan over a work polo, reading glasses on a chain.",
+    "kind": "Family",
     "appears_in": [
      0,
      1
