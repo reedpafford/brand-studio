@@ -2,6 +2,7 @@
 finished video per brand, for this week, this month or all time. Editors get 404."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -203,7 +204,7 @@ class Who(BaseModel):
 
 
 def _who(db: Session, user_id: int | None) -> Who | None:
-    found = db.get(User, user_id) if user_id else None
+    found = db.get(User, user_id) if user_id else None  # the session caches each person
     return Who(id=found.id, name=found.name) if found else None
 
 
@@ -269,10 +270,11 @@ def brand_videos(
     when = usage.period(period)
     projects = list(db.scalars(select(Project).where(Project.brand_id == brand_id)))
     spend, guessed, credits, last = usage.project_totals(db, [p.id for p in projects])
+    states = usage.video_statuses(db, projects)
     videos, people = [], {}
     for p in projects:
         title, script_id, letter = usage.video_title(db, p)
-        state = usage.video_status(db, p)
+        state = states[p.id]
         active = max(filter(None, [last.get(p.id), p.created_at]))
         moment = p.finished_at if state == "done" else active
         if when.start is not None and moment < when.start:
@@ -346,10 +348,11 @@ def brand_scripts(
     scripts = db.scalars(
         select(Script).where(Script.brand_id == brand_id, Script.archived.is_(False))
     )
+    spends = usage.script_spends(db, brand_id)
     rows, authors = [], {}
     for script in scripts:
         row = library_row(db, script, full=False)
-        total, guessed = usage.script_spend(db, script)
+        total, guessed = spends.get(script.id, (Decimal(0), False))
         changed = max(
             filter(None, [script.created_at, *(d.approved_at for d in lib.drafts(db, script))])
         )
