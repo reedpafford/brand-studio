@@ -25,6 +25,8 @@ def test_write_two_variations_then_regenerate_one(app, db, owner):
     job = owner.post(url, json={})
     assert job.status_code == 201, job.text
     assert owner.post(url, json={}).status_code == 409  # one run at a time
+    listed = next(j for j in owner.get("/jobs").json() if j["id"] == job.json()["id"])
+    assert (listed["step"], listed["script_id"]) == ("variations", made["id"])  # any device
     prompt = db.get(Job, job.json()["id"]).input["prompt"]
     assert "<count>2</count>" in prompt and f"char:{mia.json()['id']} Mia (Mom)" in prompt
     assert "<reference>" in prompt and "<keep_apart>" not in prompt
