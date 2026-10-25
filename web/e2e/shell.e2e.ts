@@ -63,6 +63,7 @@ test("an editor sees the team but not the owner's controls", async ({ page }) =>
 
 test("the owner removes a member, who can no longer sign in", async ({ page }) => {
   await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo"); // wait for the landing page, or the sign-in redirect can replace the Team click
   await page.getByRole("link", { name: "Team" }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Remove Ed" }).click();

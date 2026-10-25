@@ -1084,6 +1084,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Preview */
+        get: operations["read_preview_scripts__script_id__drafts__slot__breakdown_get"];
+        /**
+         * Save Preview
+         * @description Save an edited breakdown on the version. Its problems are shown, never blocking.
+         */
+        put: operations["save_preview_scripts__script_id__drafts__slot__breakdown_put"];
+        /**
+         * Run Preview
+         * @description Run the breakdown on this version's words (a paid Claude call; an editor's own work
+         *     comes from their weekly allowance). It replaces any saved breakdown when it finishes.
+         */
+        post: operations["run_preview_scripts__script_id__drafts__slot__breakdown_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/breakdown/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Estimate
+         * @description What running the breakdown costs (one Claude call), before pressing it.
+         */
+        get: operations["preview_estimate_scripts__script_id__drafts__slot__breakdown_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/script/enhance": {
         parameters: {
             query?: never;
@@ -1284,6 +1330,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/breakdown/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Advice
+         * @description Keep anyway: this advice on the newest breakdown stays as it is (never blocks).
+         */
+        post: operations["keep_advice_projects__project_id__breakdown_keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/storyboard": {
         parameters: {
             query?: never;
@@ -1337,8 +1403,8 @@ export interface paths {
         /**
          * Render
          * @description Queue the still for one frame (a paid image job, counted against the project budget).
-         *     A frame with problems must be fixed first. An optional Redo note goes into this render's
-         *     prompt only.
+         *     A frame with problems must be fixed first ("Advice: …" never blocks). An optional Redo
+         *     note goes into this render's prompt only.
          */
         post: operations["render_projects__project_id__storyboard_frames__frame_id__render_post"];
         delete?: never;
@@ -1363,6 +1429,26 @@ export interface paths {
         post: operations["approve_projects__project_id__storyboard_frames__frame_id__approve_post"];
         /** Unapprove */
         delete: operations["unapprove_projects__project_id__storyboard_frames__frame_id__approve_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/frames/{frame_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Frame Advice
+         * @description Keep anyway: this frame's advice stays as it is.
+         */
+        post: operations["keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1508,6 +1594,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Clip Advice
+         * @description Keep anyway: this clip's advice stays as it is.
+         */
+        post: operations["keep_clip_advice_projects__project_id__clips__clip_id__keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/video": {
         parameters: {
             query?: never;
@@ -1578,7 +1684,8 @@ export interface paths {
         put?: never;
         /**
          * Estimate Clip
-         * @description What Generate would cost, and whether it would wait for the owner. Nothing is queued.
+         * @description What Generate would cost. Nothing is queued. Past the editor's weekly allowance it
+         *     answers 409 with the same plain words Generate would (never sent to the owner).
          */
         post: operations["estimate_clip_clips_estimate_post"];
         delete?: never;
@@ -1812,6 +1919,8 @@ export interface components {
             breakdown: components["schemas"]["Breakdown"];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** Stale */
             stale: boolean;
         };
@@ -1945,23 +2054,6 @@ export interface components {
              */
             smart: boolean;
         };
-        /** EstimateOut */
-        EstimateOut: {
-            /** Credits */
-            credits: number;
-            /** Needs Owner Approval */
-            needs_owner_approval: boolean;
-            /** Reason */
-            reason: string;
-            /** Auto Screen Ids */
-            auto_screen_ids: number[];
-            /** Reference Images */
-            reference_images: number;
-            /** Reference Videos */
-            reference_videos: number;
-            /** Reference Audios */
-            reference_audios: number;
-        };
         /** FileOut */
         FileOut: {
             /** Id */
@@ -1999,6 +2091,8 @@ export interface components {
             reference_ids: string[];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** File Id */
             file_id: number | null;
             /** Approved */
@@ -2359,6 +2453,11 @@ export interface components {
          * @enum {string}
          */
         JobStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "needs_owner_approval";
+        /** KeepIn */
+        KeepIn: {
+            /** Problem */
+            problem: string;
+        };
         /**
          * Kind
          * @enum {string}
@@ -2504,6 +2603,16 @@ export interface components {
              */
             file_ids: number[];
         };
+        /** PreviewOut */
+        PreviewOut: {
+            breakdown: components["schemas"]["Breakdown"] | null;
+            /** Problems */
+            problems: string[];
+            /** Seconds */
+            seconds: number;
+            /** Running */
+            running: boolean;
+        };
         /** ProjectClipIn */
         ProjectClipIn: {
             /** Prompt */
@@ -2525,6 +2634,8 @@ export interface components {
             references: components["schemas"]["Reference"][];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** File Id */
             file_id: number | null;
             /** Takes */
@@ -3126,6 +3237,23 @@ export interface components {
             email: string;
             role: components["schemas"]["Role"];
         };
+        /** EstimateOut */
+        app__routes__clips__EstimateOut: {
+            /** Credits */
+            credits: number;
+            /** Needs Owner Approval */
+            needs_owner_approval: boolean;
+            /** Reason */
+            reason: string;
+            /** Auto Screen Ids */
+            auto_screen_ids: number[];
+            /** Reference Images */
+            reference_images: number;
+            /** Reference Videos */
+            reference_videos: number;
+            /** Reference Audios */
+            reference_audios: number;
+        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -3232,6 +3360,11 @@ export interface components {
             has_breakdown: boolean;
             /** Approved At */
             approved_at: string | null;
+        };
+        /** EstimateOut */
+        app__routes__script_preview__EstimateOut: {
+            /** Credits */
+            credits: number;
         };
         /** ScriptIn */
         app__routes__scripts__ScriptIn: {
@@ -5711,6 +5844,138 @@ export interface operations {
             };
         };
     };
+    read_preview_scripts__script_id__drafts__slot__breakdown_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_preview_scripts__script_id__drafts__slot__breakdown_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Breakdown"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_preview_scripts__script_id__drafts__slot__breakdown_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_estimate_scripts__script_id__drafts__slot__breakdown_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_preview__EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     enhance_projects__project_id__script_enhance_post: {
         parameters: {
             query?: never;
@@ -6091,6 +6356,41 @@ export interface operations {
             };
         };
     };
+    keep_advice_projects__project_id__breakdown_keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     frames_projects__project_id__storyboard_get: {
         parameters: {
             query?: never;
@@ -6272,6 +6572,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6561,6 +6897,42 @@ export interface operations {
             };
         };
     };
+    keep_clip_advice_projects__project_id__clips__clip_id__keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_video_projects__project_id__video_get: {
         parameters: {
             query?: never;
@@ -6706,7 +7078,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EstimateOut"];
+                    "application/json": components["schemas"]["app__routes__clips__EstimateOut"];
                 };
             };
             /** @description Validation Error */

@@ -207,6 +207,20 @@ def test_eval_scoring_runs_the_variations_check(tmp_path):
     ]
 
 
+def test_quick_cut_check_is_advice_and_only_inside_a_montage_clip():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")  # clip c2 holds the montage
+    c = cp.clips[0]
+    c.prompt = c.prompt.replace("behind Malik as he pushes open", "as a hand pushes open")
+    flag = (
+        "Advice: c2: shot 6: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
+    )
+    assert flag in check.clip_prompts(bd, cp, 30, 10)
+    for shot in bd.scenes[1].shots:  # slow the montage down: now it's not one
+        shot.seconds = max(shot.seconds, 0.8)
+    assert not [p for p in check.clip_prompts(bd, cp, 30, 10) if "names nobody" in p]
+
+
 def test_nobody_speaks_unless_the_script_says_so():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
