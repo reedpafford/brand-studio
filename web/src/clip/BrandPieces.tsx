@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Plus, Smartphone, X } from "lucide-react";
-import { Button, Tabs } from "../components";
+import { Button, Sheet, Tabs } from "../components";
+import { useMedia } from "../useMedia";
 
 export type Piece = { key: string; type: "character" | "place" | "prop" | "screen"; id: number; name: string; fileId?: number; auto?: string; blocked?: string };
 
@@ -45,7 +46,25 @@ export function useBrandPieces(brandId: number): { pieces: Piece[]; screens: { k
 export function BrandPieces(props: { all: Piece[]; chosen: Piece[]; max: number; onAdd: (p: Piece) => void; onRemove: (key: string) => void }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]>("character");
+  const rail = useMedia("(min-width: 1024px)");
   const left = props.all.filter((p) => p.type === tab && !props.chosen.some((c) => c.key === p.key));
+  const picker = (
+    <div className={rail ? "space-y-3 rounded-lg border border-border bg-surface p-3" : "space-y-3"}>
+      <Tabs label="Brand pieces" value={tab} onChange={(id) => setTab(id as (typeof TABS)[number])} tabs={TABS.map((t) => ({ id: t, label: LABEL[t] }))} />
+      {left.length === 0 && <p className="text-sm text-muted">Nothing more here for this brand.</p>}
+      <ul className="grid grid-cols-3 gap-2">
+        {left.map((p) => (
+          <li key={p.key}>
+            <button type="button" className="block min-h-control w-full rounded-md p-1 text-left text-sm hover:bg-surface-2 disabled:opacity-60" onClick={() => props.onAdd(p)} disabled={props.chosen.length >= props.max || !!p.blocked}>
+              {p.fileId && <img src={fileUrl(p.fileId)} alt="" className="aspect-square w-full rounded-md border border-border object-cover" />}
+              {p.name}
+              {p.blocked && <span className="block text-xs text-muted">{p.blocked}</span>}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
   return (
     <div className="space-y-2">
       <div className="flex justify-between font-medium">
@@ -72,23 +91,7 @@ export function BrandPieces(props: { all: Piece[]; chosen: Piece[]; max: number;
       <Button variant="secondary" icon={Plus} aria-label="Add brand piece" aria-expanded={open} onClick={() => setOpen(!open)}>
         Add
       </Button>
-      {open && (
-        <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
-          <Tabs label="Brand pieces" value={tab} onChange={(id) => setTab(id as (typeof TABS)[number])} tabs={TABS.map((t) => ({ id: t, label: LABEL[t] }))} />
-          {left.length === 0 && <p className="text-sm text-muted">Nothing more here for this brand.</p>}
-          <ul className="grid grid-cols-3 gap-2">
-            {left.map((p) => (
-              <li key={p.key}>
-                <button type="button" className="block min-h-control w-full rounded-md p-1 text-left text-sm hover:bg-surface-2 disabled:opacity-60" onClick={() => props.onAdd(p)} disabled={props.chosen.length >= props.max || !!p.blocked}>
-                  {p.fileId && <img src={fileUrl(p.fileId)} alt="" className="aspect-square w-full rounded-md border border-border object-cover" />}
-                  {p.name}
-                  {p.blocked && <span className="block text-xs text-muted">{p.blocked}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {open && (rail ? picker : <Sheet title="Add a brand piece" onClose={() => setOpen(false)}>{picker}</Sheet>)}
     </div>
   );
 }

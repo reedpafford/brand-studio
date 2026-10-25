@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { setViewport } from "../test/viewport";
 import { elapsed } from "./History";
 import { blockedReason, clipCredits, fit, mentionsMoment, type Model } from "./logic";
 
@@ -311,4 +312,33 @@ test("history can be filtered, newest first, and Generate sits in the action bar
   expect(screen.queryByText("Newer clip")).not.toBeInTheDocument();
   expect(screen.getByText("Older clip")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Generate/ }).closest("div.border-t")).toHaveClass("[&_button]:w-full"); // in the phone action bar
+});
+
+test("History lists only clips made in Quick clip, not takes made inside a video", async () => {
+  fakeServer({
+    ...studio,
+    "GET /jobs": [200, [
+      { id: 1, kind: "video", status: "succeeded", credits: 8, error: "", output: { file_ids: [77] }, prompt_summary: "A quick one", project_id: null },
+      { id: 2, kind: "video", status: "succeeded", credits: 8, error: "", output: { file_ids: [78] }, prompt_summary: "[Image1] is the first frame. A take in a video", project_id: 9 },
+    ]],
+  });
+  open();
+  expect(await screen.findByText("A quick one")).toBeInTheDocument();
+  expect(screen.queryByText(/A take in a video/)).not.toBeInTheDocument();
+});
+
+test("Add brand piece opens a sheet on a phone", async () => {
+  fakeServer({ ...studio });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Add brand piece" }));
+  expect(await screen.findByRole("dialog", { name: "Add a brand piece" })).toBeInTheDocument();
+});
+
+test("Add brand piece stays inline from 1024", async () => {
+  setViewport(1440);
+  fakeServer({ ...studio });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Add brand piece" }));
+  expect(screen.getByRole("tab", { name: "Characters" })).toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Add a brand piece" })).not.toBeInTheDocument();
 });
