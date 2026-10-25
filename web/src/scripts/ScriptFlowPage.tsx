@@ -15,6 +15,7 @@ import { useRail } from "../useMedia";
 import { CastStep } from "./CastStep";
 import { DescriptionForm } from "./DescriptionForm";
 import { VariationsStep, variationsReason, writtenVariations } from "./VariationsStep";
+import { WriteOptions } from "./WriteOptions";
 import { ReadReelButton, ReelBlock, useReelImport } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
 import { WRITING_STEPS, around, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
@@ -231,7 +232,8 @@ function ScriptStep({ scriptId, script: s, onEditing }: { scriptId: number; scri
         toast("Saved.");
       },
     });
-  if (editing !== null || (!text.trim() && !s.published))
+  if (editing === null && !text.trim() && !s.published) return <WriteOptions script={s} onOwn={() => setEditing("")} />;
+  if (editing !== null)
     return (
       <Card className="max-w-[680px] space-y-3">
         <TextArea label="Your script" rows={14} maxLength={50000} placeholder="Paste or write the script here" value={editing ?? ""} onChange={(e) => setEditing(e.target.value)} />

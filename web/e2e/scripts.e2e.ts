@@ -17,6 +17,7 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   await expect(page.getByRole("heading", { name: "Script", exact: true, level: 2 })).toBeVisible();
   await expect(page.getByText("Draft · only you can see it")).toBeVisible();
+  await page.getByRole("button", { name: "Paste or write it yourself" }).click();
   await page.getByLabel("Your script").fill("BO: Salmon? Again?\nMIA: Try it.");
   await page.getByRole("button", { name: "Save script" }).click();
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("MIA: Try it.");
@@ -54,4 +55,18 @@ test("a script is made in the library: describe it, write its words, and it is l
   await expect(panel).toContainText("Salmon? Again?");
   await panel.getByRole("button", { name: "Make this version" }).click();
   await expect(page).toHaveURL(/\/projects\/\d+\?step=breakdown/);
+});
+
+test("an empty script with a reel is written from the reference, at the price shown", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brandId = await emptyBrand(page, "Write Ref Co");
+  const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Altar again", description: "Remake the altar reel for this brand.", notes: "", reference_replace: "", reference_id: "fomo-DehudnaAmce", text: "" } });
+  expect(made.ok()).toBeTruthy();
+  await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=script`);
+  await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeVisible();
+  await page.getByRole("button", { name: /^Write · \d+ credits?$/ }).click();
+  await expect(page.getByRole("list", { name: "Script text" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeHidden();
 });
