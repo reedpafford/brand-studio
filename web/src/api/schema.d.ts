@@ -4121,6 +4121,19 @@ export interface components {
             has_breakdown: boolean;
             /** Approved At */
             approved_at: string | null;
+            /** Variation Of */
+            variation_of?: string | null;
+            /**
+             * Estimate Credits
+             * @default 0
+             */
+            estimate_credits: number;
+            /**
+             * Clips
+             * @default 0
+             */
+            clips: number;
+            planned_by?: components["schemas"]["Person"] | null;
         };
         /** EstimateOut */
         app__routes__script_preview__EstimateOut: {
