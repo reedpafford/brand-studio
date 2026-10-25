@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Lock, Pencil, RotateCcw } from "lucide-react";
+import { Check, Ellipsis, Lock, Pencil, RotateCcw, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useJobs } from "../clip/History";
-import { Badge, Banner, Button, Card, Skeleton, Tabs, TextArea } from "../components";
+import { Badge, Banner, Button, Card, Dialog, Menu, MenuItem, Skeleton, Tabs, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
@@ -27,7 +27,7 @@ export const writtenVariations = (s: Script) => s.versions.filter((v) => v.slot 
 /** Why Next is held on this step, or null: every variation that was written has to be approved first. */
 export function variationsReason(s: Script): string | null {
   const open = writtenVariations(s).find((v) => v.status === "draft");
-  return open ? `Approve variation ${LETTER[open.slot]} first.` : null;
+  return open ? `Approve or remove variation ${LETTER[open.slot]} first.` : null;
 }
 
 function useVariations(s: Script) {
@@ -54,12 +54,15 @@ function useVariations(s: Script) {
   const jobId = run?.id ?? null;
   const jobs = useJobs();
   const job = jobs.data?.find((j) => j.id === jobId);
-  const writing = jobId !== null && (!job || GOING.includes(job.status));
-  const failed = !!job && !GOING.includes(job.status) && job.status !== "succeeded";
-  const done = !!job && job.status === "succeeded";
+  // A write for this script that is still going, from the job list: it shows on any tab or device, not just where it was started.
+  const going = jobs.data?.some((j) => j.script_id === s.id && j.step === "variations" && GOING.includes(j.status)) ?? false;
+  const writing = going || (jobId !== null && (!job || GOING.includes(job.status)));
+  const failed = !writing && !!job && job.status !== "succeeded";
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] }), queryClient.invalidateQueries({ queryKey: ["scripts"] })]);
+  const was = useRef(writing);
   useEffect(() => {
-    if (done) {
+    // When a write that was going stops, read the new words; the remembered job is done with.
+    if (was.current && !writing && !failed) {
       try {
         sessionStorage.removeItem(key);
       } catch {
@@ -67,8 +70,9 @@ function useVariations(s: Script) {
       }
       void refresh().then(() => toast("Variations ready. Read them side by side."));
     }
+    was.current = writing;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done, jobId]);
+  }, [writing]);
   const write = useMutation({
     mutationFn: async (a: { slots: (1 | 2)[]; note: string }) => {
       // The server writes variations from an approved original.
@@ -108,7 +112,25 @@ function useVariations(s: Script) {
       await refresh();
     },
   });
-  return { write, edit, approve, writing, failed, slots: run?.slots ?? [], retry: () => remember(null) };
+  const unapprove = useMutation({
+    mutationFn: async (slot: number) => {
+      const { data, error } = await api.DELETE("/scripts/{script_id}/drafts/{slot}/approve", { params: { path: { script_id: s.id, slot } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: async (data) => {
+      queryClient.setQueryData(["script-lib", s.id], data);
+      await refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: async (slot: number) => {
+      const { error, response } = await api.DELETE("/scripts/{script_id}/drafts/{slot}", { params: { path: { script_id: s.id, slot } } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: refresh,
+  });
+  return { write, edit, approve, unapprove, remove, writing, failed, slots: run?.slots ?? [1, 2], retry: () => remember(null) };
 }
 
 /** Step 4: choose how many variations, write them at one price, then read them next to the original and approve each. */
@@ -127,7 +149,7 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
   const [note, setNote] = useState("");
   const [shown, setShown] = useState(1);
   const [changesOnly, setChangesOnly] = useState(false);
-  const error = act.write.error ?? act.edit.error ?? act.approve.error;
+  const error = act.write.error ?? act.edit.error ?? act.approve.error ?? act.unapprove.error ?? act.remove.error;
 
   if (act.writing && written.length === 0)
     return (
@@ -190,7 +212,7 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
       <ul className={`grid gap-4 ${rail ? (all.length === 3 ? "grid-cols-3" : "grid-cols-2") : ""}`}>
         {visible.map((v) => (
           <li key={v.slot} aria-label={`Version ${LETTER[v.slot]}`} className="min-w-0">
-            <Column version={v} original={original} changesOnly={changesOnly} act={act} writing={act.writing && act.slots.includes(v.slot)} stop={stop} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
+            <Column version={v} scriptId={s.id} published={s.published} original={original} changesOnly={changesOnly} act={act} writing={act.writing && act.slots.includes(v.slot)} stop={stop} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
           </li>
         ))}
       </ul>
@@ -198,10 +220,18 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
   );
 }
 
-function Column({ version: v, original, changesOnly, act, writing, stop, regenerate, price }: { version: Version; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; writing: boolean; stop: string | null; regenerate: (note: string) => void; price?: number }) {
+function Column({ version: v, scriptId, published, original, changesOnly, act, writing, stop, regenerate, price }: { version: Version; scriptId: number; published: boolean; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; writing: boolean; stop: string | null; regenerate: (note: string) => void; price?: number }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
   const letter = LETTER[v.slot];
+  const final = published;
+  const earlier = useQuery({
+    enabled: v.slot > 0 && v.status === "draft" && !final,
+    queryKey: ["script-history", v.slot, v.text],
+    queryFn: async () => (await api.GET("/scripts/{script_id}/drafts/{slot}/history", { params: { path: { script_id: scriptId, slot: v.slot } } })).data ?? [],
+  });
+  const before = (earlier.data ?? []).filter((e) => e.text !== v.text);
   const marks = v.slot > 0 ? changedLines(original, v.text) : [];
   const lines = v.text.split("\n");
   const hidden = changesOnly && v.slot > 0;
@@ -225,7 +255,31 @@ function Column({ version: v, original, changesOnly, act, writing, stop, regener
           <h3 className="font-display text-md font-bold">
             {letter} · {NAME[v.slot]}
           </h3>
-          {v.slot === 0 ? <Badge icon={Lock}>Words final</Badge> : approved ? <Badge tone="success" icon={Check}>Approved</Badge> : <Badge>Draft</Badge>}
+          <div className="flex items-center gap-1">
+            {v.slot === 0 ? <Badge icon={Lock}>Words final</Badge> : approved ? <Badge tone="success" icon={Check}>Approved</Badge> : <Badge>Draft</Badge>}
+            {v.slot > 0 && !approved && !final && (
+              <Menu
+                title={`Version ${letter}`}
+                align="right"
+                trigger={(p) => (
+                  <button type="button" {...p} aria-label={`More for version ${letter}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
+                    <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
+                  </button>
+                )}
+              >
+                {(close) => (
+                  <MenuItem
+                    onClick={() => {
+                      close();
+                      setRemoving(true);
+                    }}
+                  >
+                    Remove variation {letter}
+                  </MenuItem>
+                )}
+              </Menu>
+            )}
+          </div>
         </div>
         {v.slot > 0 && v.changes.length > 0 && <p className="line-clamp-2 text-sm text-muted">What changed: {v.changes.join("; ")}</p>}
       </div>
@@ -256,9 +310,16 @@ function Column({ version: v, original, changesOnly, act, writing, stop, regener
           <Lock size={16} strokeWidth={1.75} aria-hidden /> Your script · words final
         </p>
       ) : approved ? (
-        <p className="flex items-center gap-1 text-sm text-muted">
-          <Lock size={16} strokeWidth={1.75} aria-hidden /> Approved · words final
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-1 text-sm text-muted">
+            <Lock size={16} strokeWidth={1.75} aria-hidden /> Approved · words final
+          </p>
+          {!final && (
+            <Button variant="ghost" icon={Undo2} busy={act.unapprove.isPending} onClick={() => act.unapprove.mutate(v.slot)}>
+              Undo approval
+            </Button>
+          )}
+        </div>
       ) : editing === null ? (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
@@ -268,6 +329,30 @@ function Column({ version: v, original, changesOnly, act, writing, stop, regener
             <Button variant="ghost" icon={Pencil} onClick={() => setEditing(v.text)}>
               Edit
             </Button>
+            {before.length > 0 && (
+              <Menu
+                title={`Earlier texts of version ${letter}`}
+                trigger={(p) => (
+                  <Button variant="ghost" {...p}>
+                    Earlier: {before.length}
+                  </Button>
+                )}
+              >
+                {(close) =>
+                  before.map((e) => (
+                    <MenuItem
+                      key={e.id}
+                      onClick={() => {
+                        close();
+                        act.edit.mutate({ slot: v.slot, text: e.text });
+                      }}
+                    >
+                      {new Date(e.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {e.source === "variations" ? "written" : "edited"} · {e.words} words
+                    </MenuItem>
+                  ))
+                }
+              </Menu>
+            )}
             {asking === null && (
               <Button variant="ghost" icon={RotateCcw} price={price} busy={writing} disabled={act.writing || stop !== null} reason={stop} onClick={() => setAsking("")}>
                 Regenerate
@@ -289,6 +374,11 @@ function Column({ version: v, original, changesOnly, act, writing, stop, regener
           )}
         </div>
       ) : null}
+      {removing && (
+        <Dialog title={`Remove variation ${letter}?`} cancelLabel="Keep it" actionLabel="Remove" danger busy={act.remove.isPending} onCancel={() => setRemoving(false)} onConfirm={() => act.remove.mutate(v.slot, { onSuccess: () => setRemoving(false), onError: () => setRemoving(false) })}>
+          It won't be made.
+        </Dialog>
+      )}
     </Card>
   );
 }
