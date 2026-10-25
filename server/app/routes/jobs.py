@@ -158,7 +158,8 @@ def enqueue(
     else:
         lock(db, User, user.id)
         check_clip_cap(db, user, credits)
-    if not prepaid and (declined := over_allowance(db, user, project, credits)):
+    # Free work (e.g. getting a reel) never takes anyone past their allowance.
+    if credits and not prepaid and (declined := over_allowance(db, user, project, credits)):
         db.rollback()
         raise HTTPException(409, declined)
     over = needs_approval(db, user, project, credits)

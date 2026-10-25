@@ -170,3 +170,22 @@ def test_a_stopped_read_holds_nothing(app, owner, editor, db, clip, monkeypatch)
     status = editor.get(f"{url}/import").json()
     assert status["failed_step"] == "watch"
     assert status["estimate"]["credits_left"] == 9  # only the watch that ran is spent
+
+
+def test_getting_a_reel_is_free_even_past_the_allowance(app, owner, editor, db, clip):
+    """Designer: only the paid Read (and Write all) stop at the allowance, so the editor sees
+    the price and the reason in context."""
+    plain = editor.post(
+        "/scripts", json={"brand_id": editor.get("/brands").json()[0]["id"], "title": "Spent"}
+    ).json()["id"]
+    assert editor.post(f"/scripts/{plain}/write").status_code == 201  # 3 credits used
+    owner.put(
+        "/credits/limits", json={"weekly_quick_clip_credits": 1, "per_video_max_credits": 729}
+    )
+    made = _upload(editor, clip)  # past the allowance (3 of 1), getting a reel is still free
+    assert made.status_code == 201, made.text
+    _drain(app, db)
+    ready = editor.get(f"/scripts/{made.json()['script_id']}/import").json()
+    assert ready["status"] == "ready" and ready["estimate"]["credits_left"] == 0
+    declined = editor.post(f"/scripts/{made.json()['script_id']}/import/read")
+    assert declined.status_code == 409 and "7 credits" in declined.json()["detail"]
