@@ -104,3 +104,13 @@ def test_write_all_holds_every_reels_read(app, owner, editor, db, clip):
     assert over.status_code == 409 and "credits" in over.json()["detail"]
     _drain(app, db, clip)
     assert all(editor.get(f"/scripts/{i}/import").json()["status"] == "done" for i in ids)
+
+
+def test_one_bulk_batch_of_reels_at_a_time(app, owner, db, clip):
+    """Producer: bulk skips one-prep-per-person, but a second batch waits for the first."""
+    assert _bulk(owner, [{"reel_url": u} for u in LINKS[:2]]).status_code == 201
+    again = _bulk(owner, [{"reel_url": LINKS[2]}])
+    assert again.status_code == 409 and "still being prepared" in again.json()["detail"]
+    assert _bulk(owner, [{"title": "Plain"}]).status_code == 201  # no reels: not held up
+    _drain(app, db, clip)
+    assert _bulk(owner, [{"reel_url": LINKS[2]}]).status_code == 201
