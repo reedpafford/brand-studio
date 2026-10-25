@@ -1,6 +1,6 @@
 # Workflow v2: scripts first, then videos (plan for Reed)
 
-**Status:** plan only, nothing is built. This follows Reed's decision of 2026-10-25 in `ops/DECISIONS.md`. It maps the new workflow onto the approved structure (phase 1) and the Screening room design (phase 3). Map: `workflow-v2-map.png`.
+**Status:** plan only, nothing is built. This follows Reed's decision of 2026-10-25 and his answers the same day, both in `ops/DECISIONS.md`. It maps the new workflow onto the approved structure (phase 1) and the Screening room design (phase 3). Map: `workflow-v2-map.png`.
 
 ## The idea in one paragraph
 A brand's home becomes the **Script library**:
@@ -14,7 +14,7 @@ Each published version can be made into **one video**. An editor picks a version
 2. Assets
 3. Storyboard
 4. Clips
-5. Final video
+5. Downloads
 
 Both flows use the same frame: header, step picker, one amber Next, and Back.
 
@@ -69,7 +69,7 @@ The frame from #179 (header, step picker, one Next, Script panel), with these st
 | 1 | **Description** | Title, brand (preset), what it's for, optional reference reel (the compact list from New video), notes. No length field. | Title and description saved |
 | 2 | **Script** | Write with Claude (drafts), paste, upload, or **Adapt the reference** (new card when a reel is picked). This is #185's step as built. | A working script exists |
 | 3 | **Directions** | Claude suggests camera, movement, reaction and brand screens; Reed's words never change. Optional: **Skip** is allowed. This is #185's Suggest directions, moved to its own step. | Applied or skipped |
-| 4 | **Variations** | Pick **0, 1 or 2** alternates. Side by side: Original · Variation B · Variation C, each in the script font, with what changed highlighted. Each one has **Approve**, **Edit** and **Regenerate · N credits**. After approval, each shows "Approved · words locked". | Every variation kept is approved (or 0 chosen) |
+| 4 | **Variations** | Reed: pick **0, 1 or 2** alternates. Editors on their own scripts: the step is skipped by default, with a secondary **Add a variation** on Publish (it isn't the main flow). Side by side: Original · Variation B · Variation C, each in the script font, with what changed highlighted. Each one has **Approve**, **Edit** and **Regenerate · N credits**. After approval, each shows "Approved · words locked". | Every variation kept is approved (or 0 chosen) |
 | 5 | **Characters** | Each character in the script is a row: picture, name, and a **Lock look** switch with a sheet picker. Locked: "Used as-is in every version." Unlocked: "The editor makes or picks a look." | Every character is decided (locked or not) |
 | 6 | **Breakdown** (optional) | Per version (tabs A / B / C): run the breakdown and edit timing, shots, splits and joins. This is #186's Shots step as built. It shows planned length and cost per version. **Skip** is allowed. | Saved for each version, or skipped |
 | 7 | **Publish** | A summary card per version: words approved, characters locked, breakdown saved or auto, estimated length and credits, then **Publish to the library**. | Versions are "Ready to make" |
@@ -88,10 +88,17 @@ A video is made **from one version**. It opens from a library chip ("Make this v
 | 2 | **Assets** (new) | One card per character, place and screen used. **Locked** characters show their sheet with "Locked by Reed", already approved. **Unlocked** ones get **Make look · N credits** (or "Pick a sheet"), then **Approve**. App screens are listed from the brand. | Every asset approved |
 | 3 | **Storyboard** | As specced (frames plus stills in one press). | Every frame approved |
 | 4 | **Clips** | Generate, then review: **Looks good**, or **Needs a change → Redo**. Whether prompts are read before paying is an open question (see 6b). | Every clip approved |
-| 5 | **Final video** | Make the video (free), then **Download MP4**. Uploading depends on question 6a. The version's chip becomes "Video done". | Video done |
+| 5 | **Downloads** | Everything to take away. There's no upload (Reed, 2026-10-25). See the layout under the table. | Downloaded or made, then "Video done" |
 
+- **Downloads (step 5):**
+  - **All clips** (amber): the picked take of every clip, in order, as one .zip: "bo-tries-salmon-clips.zip".
+  - **The whole video** (secondary): the stitched MP4, as today. It's made free the first time it's asked for.
+  - **One per clip:** a list of clips, each with **Download** for its picked take and an **Older takes (2)** disclosure. Each older take has its own Download.
+  - The version's chip becomes "Video done" once the video is made or the clips are downloaded.
 - **No length up front.** The breakdown sets it. The $75 per-video cap is checked when the breakdown is made: "This version would cost more than one video can (729 credits). Shorten it in Breakdown, or ask Reed."
-- **Credit limits:** editors work inside their own limits with no extra approval. Only spend past a limit goes to Approvals, as today.
+- **Credits, two kinds:**
+  - **Reed's library versions** keep today's rules: the video budget, with spend past it going to Approvals.
+  - **An editor's own script** uses their free weekly allowance, $15 (about 145 credits). The header shows "This week: 32 of 145 credits". Past it, a paid button is disabled with: "That's more than this week's 145 free credits. It resets on Monday." There's no "Ask Reed" on this path; it's declined, not sent for approval.
 
 ## 5. Which redesign work stands
 | PR / spec | Status | Why |
@@ -104,24 +111,24 @@ A video is made **from one version**. It opens from a library chip ("Make this v
 | 12 Brand, 13 Studio and auth | **Stand** | No change. |
 | 4 Videos home (#180) | **Re-spec** | Becomes the Script library (section 2). The poster card style is reused in library rows. |
 | 5 New video | **Re-spec** | Becomes writing step 1, Description: no length, no cast or flavour picking (characters come from the script). |
-| 8 Storyboard, 9 Clips and Final video | **Re-spec (small)** | Same screens. Add Assets before Storyboard, the version context in the header, and the upload/download decision. |
+| 8 Storyboard, 9 Clips and Final video | **Re-spec (small)** | Same screens. Add Assets before Storyboard and the version context in the header. Final video becomes **Downloads** (all clips as .zip, the whole video, older takes per clip). |
 | New | **Spec** | Script library, Variations side by side, Characters (locks), Publish, Assets, Bulk create. |
 
 ## 6. Questions for Reed
-a. **"Upload the final video":**
-   - (1) download the stitched MP4 and post it yourself, or
-   - (2) attach a file you edited elsewhere (CapCut, Premiere) to the version, so the library shows the real finished ad?
+Answered on 2026-10-25 and folded in above:
+- No upload; downloads instead.
+- Editors get $15 a week for their own scripts, and spend past it is declined.
+- Editors may make variations, as a secondary option.
 
-   Proposal: both. **Download MP4**, plus **Upload the final cut** (optional), which replaces the preview in the library.
-b. **Clip prompts before paying:** in October Reed decided prompts are always reviewable before takes are paid for. The new flow says "Generate". Keep the prompt review step in Clips? Proposal: yes, as today.
-c. **Reserving a version:** when an editor opens "Make this version", is it theirs, so nobody else can start it? Can Reed take it back?
-d. **Variations cost:**
+Still open:
+a. **Clip prompts before paying:** in October Reed decided prompts are always reviewable before takes are paid for. The new flow says "Generate". Keep the prompt review step in Clips? Proposal: yes, as today.
+b. **Reserving a version:** when an editor opens "Make this version", is it theirs, so nobody else can start it? Can Reed take it back?
+c. **Variations cost:**
    - Are B and C written together, at one Claude price?
    - Is Regenerate a paid call each time?
-e. **Several looks per character:** can a character have more than one sheet (outfits), so a lock means "this character, this look"?
-f. **Editors' own scripts:**
-   - Do they go into the shared library for everyone, or only for the editor until published?
-   - Can editors make variations and locks too?
+d. **Several looks per character:** can a character have more than one sheet (outfits), so a lock means "this character, this look"?
+e. **Editors' own scripts:** shared in the library for everyone once published, or only visible to the editor? Proposal: shared once published, marked with the editor's name.
+f. **Is the editors' $15 a week the same pot as their Quick clip allowance** (today "This week: N of 150 credits"), or a separate one?
 g. **Bulk create:**
    - Is the input a list of descriptions, several reference reels, or both?
    - Should it start writing straight away (paid), or only make drafts?
@@ -137,7 +144,8 @@ This is for the Producer to scope; the web can't do it alone.
 - The library list with filters and search, plus bulk create.
 - A video linked to a version, a version reserved by an editor, and length taken from the breakdown (no `planned_seconds` needed).
 - The Assets step: the list of assets a version needs, and approval per asset per video.
-- Optionally, uploading a final cut file to a version.
+- Downloads: one .zip of a video's picked takes, and older takes listed per clip (the files exist; the list needs an endpoint or field).
+- A weekly allowance for editors' own scripts ($15, about 145 credits). Past it the call is **declined** with a reason, not held for approval. Reed's library versions keep the video budget and Approvals.
 - The breakdown check fix: hand and screen inserts count for montage shots.
 
 ## 8. Order and ETA
