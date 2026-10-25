@@ -612,3 +612,18 @@ test("Variations: a write going for another script doesn't stop this one", async
   expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument();
   expect(screen.queryByRole("status", { name: "Writing variations" })).not.toBeInTheDocument();
 });
+
+test("Variations: another editor's script doesn't offer Earlier texts, and never asks for them", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /auth/me": [200, editor],
+    "GET /scripts/7": [200, { ...approvedOriginal([ver(1, { text: "B now" })]), created_by_id: 1 }],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /scripts/7/drafts/1/history": [403, { detail: "No" }],
+  });
+  open("/b/1/scripts/7?step=variations");
+  await screen.findByLabelText("Version B", { exact: true });
+  expect(screen.queryByRole("button", { name: /Earlier/ })).not.toBeInTheDocument();
+  expect(calls.some((c) => c.key === "GET /scripts/7/drafts/1/history")).toBe(false);
+});

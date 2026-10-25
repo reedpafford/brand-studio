@@ -4,6 +4,7 @@ import { Check, Ellipsis, Lock, Pencil, RotateCcw, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useJobs } from "../clip/History";
 import { Badge, Banner, Button, Card, Dialog, Menu, MenuItem, Skeleton, Tabs, TextArea } from "../components";
+import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
@@ -136,7 +137,9 @@ function useVariations(s: Script) {
 /** Step 4: choose how many variations, write them at one price, then read them next to the original and approve each. */
 export function VariationsStep({ script: s, own, onPicked }: { script: Script; own: boolean; onPicked: (n: number) => void }) {
   const rail = useRail();
+  const { data: me } = useMe();
   const act = useVariations(s);
+  const mayReadEarlier = me?.role === "owner" || s.created_by_id === me?.id; // the server keeps earlier texts to the author and Reed
   const written = writtenVariations(s);
   const original = s.versions.find((v) => v.slot === 0)?.text ?? "";
   const price = useQuery({ queryKey: ["variations-estimate", s.id], queryFn: async () => (await api.GET("/scripts/{script_id}/variations/estimate", { params: { path: { script_id: s.id } } })).data?.credits });
@@ -212,7 +215,7 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
       <ul className={`grid gap-4 ${rail ? (all.length === 3 ? "grid-cols-3" : "grid-cols-2") : ""}`}>
         {visible.map((v) => (
           <li key={v.slot} aria-label={`Version ${LETTER[v.slot]}`} className="min-w-0">
-            <Column version={v} scriptId={s.id} published={s.published} original={original} changesOnly={changesOnly} act={act} writing={act.writing && act.slots.includes(v.slot)} stop={stop} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
+            <Column version={v} mayReadEarlier={mayReadEarlier} scriptId={s.id} published={s.published} original={original} changesOnly={changesOnly} act={act} writing={act.writing && act.slots.includes(v.slot)} stop={stop} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
           </li>
         ))}
       </ul>
@@ -220,14 +223,14 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
   );
 }
 
-function Column({ version: v, scriptId, published, original, changesOnly, act, writing, stop, regenerate, price }: { version: Version; scriptId: number; published: boolean; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; writing: boolean; stop: string | null; regenerate: (note: string) => void; price?: number }) {
+function Column({ version: v, mayReadEarlier, scriptId, published, original, changesOnly, act, writing, stop, regenerate, price }: { version: Version; mayReadEarlier: boolean; scriptId: number; published: boolean; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; writing: boolean; stop: string | null; regenerate: (note: string) => void; price?: number }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const letter = LETTER[v.slot];
   const final = published;
   const earlier = useQuery({
-    enabled: v.slot > 0 && v.status === "draft" && !final,
+    enabled: mayReadEarlier && v.slot > 0 && v.status === "draft" && !final,
     queryKey: ["script-history", v.slot, v.text],
     queryFn: async () => (await api.GET("/scripts/{script_id}/drafts/{slot}/history", { params: { path: { script_id: scriptId, slot: v.slot } } })).data ?? [],
   });
