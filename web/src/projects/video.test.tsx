@@ -61,7 +61,7 @@ test("a look that needs approval points to Cast & places and never approves a sh
   open();
   const card = await screen.findByLabelText("Bo");
   expect(within(card).queryByRole("button")).toBeNull();
-  expect(within(card).getByRole("link", { name: "Make its look in Cast & places" })).toHaveAttribute("href", "/b/1/library/characters/5");
+  expect(within(card).getByRole("link", { name: "Make its look in Cast & places" })).toHaveAttribute("href", expect.stringMatching(/^\/b\/1\/library\/characters\/5\?back=/));
 });
 
 test("a locked role is already approved and has no buttons", async () => {
@@ -99,7 +99,7 @@ test("a role with no character can make one, so Assets is never a dead end", asy
   expect(screen.queryByLabelText("Use a Cast & places character")).toBeNull();
   await userEvent.click(await screen.findByRole("button", { name: "Make a look" }));
   await vi.waitFor(() => expect(calls.map((c) => c.key)).toEqual(expect.arrayContaining(["POST /library/character", "PUT /projects/9/assets/slots/3"])));
-  expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", brand_ids: [1] });
+  expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", notes: "Coach", brand_ids: [1] });
 });
 
 test("an approved picked character shows no buttons: it is shared with every video", async () => {
