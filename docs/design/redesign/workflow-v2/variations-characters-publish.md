@@ -63,7 +63,7 @@ Reed, 2026-10-25 (#197): once the script and its variations are approved, the ap
   - **Written by Claude** (Write with Claude or Write from the reference): the cast is found right after version A is written, as part of the same job. Its price is folded into the write's price, so the Script step's button already includes it. The meta under the button reads "Includes finding the roles."
   - **Imported from a reel:** filled free from the reel's breakdown, marked "From the reel" (`reel-import.md` §6).
   - **Variations:** a role that only appears in B or C is added when that variation is written, marked "In B only". Its price is folded into the variations' price.
-  - **Pasted or uploaded scripts:** nothing is found on its own. When the step opens with no roles, it shows the card "Claude can find the roles in your script." with the amber **Find roles in the script · N credits**. Its price comes from the rates; for an editor it counts towards the week.
+  - **Pasted or uploaded scripts:** nothing is found on its own. When the step opens with no roles, it shows the card "Claude can find the roles in your script." with **Find roles in the script · N credits** (secondary, `Sparkles`; the step's amber stays **Next**, since every role is optional). Its price comes from the rates. For an editor it counts towards the week, and past the allowance it's disabled with the reason. Before version A is approved it's disabled with "Approve the script first".
   - While roles are being found: "Finding the roles… 6 s", with row skeletons.
   - Crowds, guests and extras are never roles. **＋ Add a role** always stays.
 - **One row per slot,** in a single card divided by 1px borders:
