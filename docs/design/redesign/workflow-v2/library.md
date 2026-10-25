@@ -81,10 +81,12 @@ This week: 32 of 145 credits (meta, editors only)
 - **Published:** the **script page**: the Publish step's summary, read-only, showing every version's card with its chip. The header has `Lock` "Published · final", and the secondary **Duplicate script**.
 
 ## Phone (390) and tablet (< 1024)
-- **Title row:** "Scripts" (page 26), plus an `Ellipsis` icon button. It holds Bulk create, Sort, and Brand (Reed only).
+- **Title row:** "Scripts" (page 26), plus an `Ellipsis` icon button that holds Bulk create.
 - **Allowance:** meta under the title (editors only).
-- **Search:** full width, 44px.
-- **Filter chips:** one row that scrolls inside itself with a fade at the right edge: Status, Length, Reference, Versions left, Mine. Each opens a sheet with radio rows, 44px each.
+- **Search and Filters:** one row: the search field takes the width, and a **Filters** button sits to its right, both 44px.
+  - The button is secondary when nothing is filtered. With filters on it turns primary and shows the count: "Filters (2)".
+  - It opens one sheet titled "Filters" with every filter as a 44px select (Status, Length, Reference, Versions left, Mine, then Sort, and Brand for Reed), and a ghost **Clear filters** at the bottom while any are on.
+  - Accepted from #226 in place of a scrolling chip row: one button is easier to find and doesn't hide filters off the edge.
 - **Rows** are stacked cards (16 padding): the poster (56×88) on the left, then the title (card), one meta line ("Ref · 24–30 s"), and the chips wrapping under it at 44px.
 - **Action bar:** **＋ New script**.
 - **Tablet (768):** the same as phone. Rows are cards in 2 columns.
