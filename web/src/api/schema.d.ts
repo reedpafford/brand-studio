@@ -1062,6 +1062,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/cast/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Status */
+        get: operations["read_status_scripts__script_id__cast_read_get"];
+        put?: never;
+        /**
+         * Read Cast
+         * @description Read the roles every approved version needs a look for. Slots the script already has
+         *     stay (locked ones stay locked); new roles are added unlocked.
+         */
+        post: operations["read_cast_scripts__script_id__cast_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/cast": {
         parameters: {
             query?: never;
@@ -2994,6 +3016,13 @@ export interface components {
             /** Credits Per Unit */
             credits_per_unit: number;
         };
+        /** ReadOut */
+        ReadOut: {
+            /** Running */
+            running: boolean;
+            /** Problems */
+            problems: string[];
+        };
         /** Reference */
         Reference: {
             /**
@@ -3277,6 +3306,8 @@ export interface components {
         SlotIn: {
             /** Role */
             role: string;
+            /** Kind */
+            kind?: ("Main" | "Helper" | "Rival" | "Family") | null;
             /**
              * Description
              * @default
@@ -3289,10 +3320,14 @@ export interface components {
             id: number;
             /** Role */
             role: string;
+            /** Kind */
+            kind: string;
             /** Description */
             description: string;
             /** Position */
             position: number;
+            /** Appears In */
+            appears_in: number[];
             /** Library Item Id */
             library_item_id: number | null;
             /** Sheet File Id */
@@ -3304,6 +3339,8 @@ export interface components {
         SlotPatch: {
             /** Role */
             role?: string | null;
+            /** Kind */
+            kind?: ("Main" | "Helper" | "Rival" | "Family") | null;
             /** Description */
             description?: string | null;
             /** Position */
@@ -5900,6 +5937,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_status_scripts__script_id__cast_read_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_cast_scripts__script_id__cast_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */

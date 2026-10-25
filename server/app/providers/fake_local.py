@@ -151,6 +151,29 @@ class FakeWriter:
             })  # fmt: skip
         return {"variations": out}
 
+    def _cast_slots(self, prompt):
+        """The original's first two speakers, in every version."""
+        slots = [int(n) for n in re.findall(r'<version slot="(\d+)">', prompt)]
+        original = re.search(r'<version slot="0">\n(.*?)\n</version>', prompt, re.S)
+        lines = [
+            ln.split("| ", 1)[-1] for ln in (original.group(1) if original else "").splitlines()
+        ]
+        names = dict.fromkeys(
+            ln.split(":")[0].split(" (")[0].title() for ln in lines if DIALOGUE.match(ln)
+        )
+        return {
+            "slots": [
+                {
+                    "role": name,
+                    "kind": "Main",
+                    "description": "A practice look.",
+                    "appears_in": slots,
+                    "recurring": True,
+                }
+                for name in list(names)[:2]
+            ]
+        }
+
     def _breakdown(self, prompt):
         limits = re.search(r"(\d+)–(\d+) s per clip", prompt)
         low, high = map(int, limits.groups()) if limits else (4, 15)
