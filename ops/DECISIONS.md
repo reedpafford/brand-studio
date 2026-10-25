@@ -44,3 +44,8 @@
   - No final-video upload. Editors download instead: every clip one by one, or all at once, and older takes too (e.g. after redoing a clip).
   - Editors' own scripts: $15 a week of free generation per editor (about 145 credits). Anything beyond that is declined, not sent to Reed.
   - Editors may make variations of their own scripts too; it is not the main flow.
+- 2026-10-25 Reed: cast list for scripts.
+  - Once a script and its variations are approved, the app reads them and lists every named or recurring role as a cast slot: main characters, helpers (e.g. a mentor or coach from the reference), rivals, family.
+  - Every slot is optional. A slot Reed locks to a character look is used as-is in every shot and every version; unlocked slots are generated at the editor's Assets step.
+  - Roles carry across all versions of a script, so a locked mentor looks the same in every variation.
+  - Background people (guests, crowds, extras) are never cast slots; they are generated as part of each scene.
