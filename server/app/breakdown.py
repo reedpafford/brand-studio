@@ -51,6 +51,12 @@ def _places(db: Session, project: Project) -> str:
 
 def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     system, context = project_context(db, project, "breakdown")
+    if project.script_draft_id:  # from the library: its unlocked slots, cast at Assets
+        from app import script_preview
+        from app.models.script_library import ScriptDraft
+
+        draft = db.get(ScriptDraft, project.script_draft_id)
+        context = script_preview.with_slots(db, draft.script_id, context, project.slot_cast)
     parts = [context, f"<places>\n{escape(_places(db, project))}\n</places>"]
     parts.append(video_model_block(video_model()))
     if project.reference_breakdown:

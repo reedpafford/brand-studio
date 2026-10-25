@@ -32,6 +32,9 @@ class Project(Entity, Base):
         ForeignKey("script_drafts.id", use_alter=True), unique=True
     )
 
+    # Assets step: unlocked cast slot id (as text) -> the library character the editor gave it.
+    slot_cast: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
+
     # Brief
     goal: Mapped[str] = mapped_column(Text, default="")
     platform: Mapped[str] = mapped_column(String(40), default="")  # e.g. tiktok, youtube
