@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import script_library as lib
 from app import script_write
 from app.auth import current_user
-from app.credits import estimate, get_limits, quick_clip_used
+from app.credits import credits_left, estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.models.script_library import Script
@@ -45,12 +45,6 @@ def _writable(db: Session, user: User, script_id: int, row: str = "") -> Script:
     if lib.writing(db, script.id):
         raise HTTPException(409, f"{row}{script.title}: Claude is already writing for it.")
     return script
-
-
-def credits_left(db: Session, user: User) -> Decimal | None:
-    if user.is_owner:
-        return None
-    return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
 
 
 def _queue(db: Session, user: User, request: Request, script: Script):

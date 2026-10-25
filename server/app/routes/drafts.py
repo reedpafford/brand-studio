@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app import prompts
 from app.auth import current_user
 from app.db import get_db
-from app.enhance import escape, project_context
+from app.enhance import escape_block, project_context
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
@@ -43,7 +43,7 @@ def job_input(db: Session, project: Project) -> dict:
     system, context = project_context(db, project, "script_draft")
     if project.reference_breakdown:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
-        context += f"\n{escape(ref)}"
+        context += f"\n{escape_block(ref)}"
     return {"step": "script_draft", "project_id": project.id, "system": system, "prompt": context}
 
 

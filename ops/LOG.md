@@ -1,6 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 17:14 · #291 Reel import spec: Describe it | Import a reel merged
+- 2026-10-25 17:13 · #290 ops: HANDOFF/LOG refresh 2026-10-25 17:15Z (by the Producer) merged
 - 2026-10-25 17:06 · #285 Clip prompts: the Keep line names the face shape and keeps a hair cue visible merged
 - 2026-10-25 17:06 · #283 Reel watch: the Gemini prompt, the ReelWatch schema and its checks merged
 - 2026-10-25 17:02 · #278 Script draft keeps the reel's dialogue word for word; "new lines" is a switch merged

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import prompts
 from app import script_library as lib
-from app.enhance import escape, project_context
+from app.enhance import escape, escape_block, project_context
 from app.models.brands import Brand
 from app.models.jobs import Job
 from app.models.script_library import Script, ScriptDraft
@@ -29,7 +29,7 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     context = context.replace("<brief>\n", f"<brief>\nTitle: {escape(script.title)}\n", 1)
     context = with_slots(db, script.id, context)
     if reference:
-        context += f"\n{escape(prompts.reference_block(reference, script.reference_replace))}"
+        context += f"\n{escape_block(prompts.reference_block(reference, script.reference_replace))}"
         if script.new_lines:
             context += "\n<new_lines>true</new_lines>"
     data = {"step": "script_draft", "script_id": script.id, "system": system, "prompt": context}

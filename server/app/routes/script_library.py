@@ -13,13 +13,13 @@ from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
-from app.models.files import StoredFile
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.routes.brands import get_brand
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
+from app.routes.script_import import delete_bytes, drop_files
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
@@ -349,19 +349,17 @@ def delete_script(
     if not (user.is_owner or (script.created_by_id == user.id and not script.published)):
         raise HTTPException(403, "Only its author (before publishing) or the owner can remove it.")
     ids = [d.id for d in lib.drafts(db, script)]
+    old: list[str] = []
     if ids and db.scalar(select(Project.id).where(Project.script_draft_id.in_(ids)).limit(1)):
         script.archived = True
     else:
         db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
         db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(ids)))
         db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
-        reel = script.reel or {}
+        old = drop_files(db, script.reel)  # an imported reel's own files
         db.delete(script)
-        for key in ("video_file_id", "contact_file_id"):  # an imported reel's own files
-            if (stored := db.get(StoredFile, reel.get(key) or 0)) is not None:
-                request.app.state.storage.delete(stored.key)
-                db.delete(stored)
     db.commit()
+    delete_bytes(request, old)
 
 
 @router.put("/{script_id}/drafts/{slot}", response_model=ScriptOut)

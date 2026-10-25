@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import prompts
 from app.catalogue import CatalogueModel, catalogue
-from app.enhance import escape, project_context, project_screens
+from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
@@ -61,7 +61,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     parts.append(video_model_block(video_model()))
     if project.reference_breakdown:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
-        parts.append(escape(ref))
+        parts.append(escape_block(ref))
     parts.append(f"<script>\n{escape(prompts.number_lines(version.text))}\n</script>")
     return {
         "step": "breakdown",
