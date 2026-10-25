@@ -714,6 +714,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/production": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** In Production */
+        get: operations["in_production_production_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/production/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Summary */
+        get: operations["summary_production_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -3271,6 +3305,13 @@ export interface components {
             /** Price Source */
             price_source: string;
         };
+        /** Named */
+        Named: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** NewInviteOut */
         NewInviteOut: {
             /** Id */
@@ -3326,6 +3367,42 @@ export interface components {
             project_id: number;
             /** Breakdown Job Id */
             breakdown_job_id: number | null;
+        };
+        /** ProductionRow */
+        ProductionRow: {
+            /** Project Id */
+            project_id: number;
+            brand: components["schemas"]["Named"];
+            script: components["schemas"]["ScriptRef"];
+            /** Letter */
+            letter: string;
+            editor: components["schemas"]["Named"] | null;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "breakdown" | "assets" | "storyboard" | "clips" | "downloads";
+            /**
+             * Last Activity At
+             * Format: date-time
+             */
+            last_activity_at: string;
+            /** Credits Used */
+            credits_used: number;
+            /** Budget Credits */
+            budget_credits: number;
+            /** Spent Usd */
+            spent_usd: number;
+            /** Poster File Id */
+            poster_file_id: number | null;
+            /** Flag */
+            flag?: ("failed" | "stuck" | "idle") | null;
+            /** Flag Since */
+            flag_since?: string | null;
+            /** Flag Job */
+            flag_job?: string | null;
+            /** Flag Problem */
+            flag_problem?: string | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
@@ -3674,6 +3751,13 @@ export interface components {
             /** New Lines */
             new_lines?: boolean | null;
         };
+        /** ScriptRef */
+        ScriptRef: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+        };
         /** ScriptRow */
         ScriptRow: {
             /** Id */
@@ -3897,6 +3981,13 @@ export interface components {
             reason: string;
             /** Status */
             status: string;
+        };
+        /** Summary */
+        Summary: {
+            /** In Production */
+            in_production: number;
+            /** Needs Attention */
+            needs_attention: number;
         };
         /** TakeIn */
         TakeIn: {
@@ -5972,6 +6063,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    in_production_production_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+                editor_id?: number | null;
+                attention?: boolean;
+                q?: string;
+                sort?: "attention" | "activity" | "credits" | "budget";
+                limit?: number | null;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summary_production_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Summary"];
                 };
             };
         };
