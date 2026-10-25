@@ -1,5 +1,7 @@
 """The Script Library: scripts, versions, approval, publishing and who sees what."""
 
+from datetime import datetime, timedelta
+
 from tests.helpers import assert_hidden, assert_no_dollars
 
 SCRIPT = (
@@ -263,3 +265,19 @@ def test_a_deleted_script_is_gone_for_editors(owner, editor):
     assert owner.get(url).status_code == 404  # the owner too, until restored
     owner.post(f"{url}/restore")
     assert editor.get(url).status_code == 200
+
+
+def test_removed_scripts_have_their_own_list_with_a_purge_date(owner, editor):
+    """Restore from a list, not only the toast: each sees the removed ones they may restore."""
+    mine = _make(editor, title="Mine", text=SCRIPT)
+    reeds = _make(owner, title="Reed's", text=SCRIPT)
+    editor.delete(f"/scripts/{mine['id']}")
+    owner.delete(f"/scripts/{reeds['id']}")
+    assert [s["title"] for s in editor.get("/scripts?removed=1").json()] == ["Mine"]
+    rows = owner.get("/scripts?removed=1").json()
+    assert [s["title"] for s in rows] == ["Reed's", "Mine"]
+    gone, purge = (datetime.fromisoformat(rows[0][k]) for k in ("removed_at", "purge_on"))
+    assert purge - gone == timedelta(days=30)
+    assert owner.get("/scripts").json() == []
+    owner.post(f"/scripts/{reeds['id']}/restore")
+    assert [s["title"] for s in owner.get("/scripts").json()] == ["Reed's"]

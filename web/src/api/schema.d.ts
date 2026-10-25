@@ -3857,6 +3857,10 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /** Removed At */
+            removed_at?: string | null;
+            /** Purge On */
+            purge_on?: string | null;
             /**
              * Reel Imported
              * @default false
@@ -4238,6 +4242,10 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /** Removed At */
+            removed_at?: string | null;
+            /** Purge On */
+            purge_on?: string | null;
             /**
              * Reel Imported
              * @default false
@@ -4527,6 +4535,10 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /** Removed At */
+            removed_at?: string | null;
+            /** Purge On */
+            purge_on?: string | null;
             /**
              * Reel Imported
              * @default false
@@ -7224,6 +7236,7 @@ export interface operations {
                 versions_left?: number | null;
                 min_seconds?: number | null;
                 max_seconds?: number | null;
+                removed?: boolean;
             };
             header?: never;
             path?: never;
