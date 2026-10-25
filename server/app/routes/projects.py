@@ -2,6 +2,7 @@
 estimate of it. Above the owner's length limit a project waits for the owner.
 Editors see credits and % of budget, never dollars."""
 
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,19 +13,21 @@ from sqlalchemy.orm import Session
 from app import reference
 from app.auth import current_user, owner_only, user_name
 from app.credits import credits_used, get_limits, lock, over_cap
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
 from app.models.credits import BUDGET_MULTIPLIER
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind
 from app.models.projects import Project, ProjectStatus
+from app.models.script_library import ScriptDraft
 from app.routes import references
 from app.routes.brands import get_brand
 from app.routes.files import get_file
 from app.routes.library import get_item
 from app.schemas import LongText, Name, ShortText
 
+NOT_STARTED = (JobStatus.queued, JobStatus.needs_owner_approval)
 router = APIRouter(prefix="/projects", tags=["credits"])
 
 
@@ -81,6 +84,25 @@ class ProjectOut(BaseModel):
     created_by_id: int | None  # who asked (for the owner's Approvals list)
     created_by_name: str
     script_draft_id: int | None = None  # made from a library version; null: an earlier-style video
+    archived_at: datetime | None = None  # put away; POST .../unarchive brings it back
+
+
+def archive(db: Session, project: Project) -> None:
+    """Put a video away: hidden from lists, and its jobs that haven't started are cancelled
+    (cancelled jobs aren't counted, so their credits come back). Running jobs finish."""
+    project.archived_at = utcnow()
+    db.execute(
+        update(Job)
+        .where(Job.project_id == project.id, Job.status.in_(NOT_STARTED))
+        .values(status=JobStatus.cancelled, finished_at=utcnow())
+    )
+
+
+def _mine(db: Session, user: User, project_id: int) -> Project:
+    project = get_project(db, user, project_id)
+    if not (user.is_owner or project.created_by_id == user.id):
+        raise HTTPException(403, "Only whoever made this video, or the owner, can do that.")
+    return project
 
 
 def get_project(db: Session, user: User, project_id: int) -> Project:
@@ -107,6 +129,7 @@ def _out(db: Session, project: Project) -> ProjectOut:
         created_by_id=project.created_by_id,
         created_by_name=user_name(db, project.created_by_id),
         script_draft_id=project.script_draft_id,
+        archived_at=project.archived_at,
     )
 
 
@@ -166,9 +189,15 @@ def _set_length(db: Session, user: User, project: Project, seconds: int | None) 
 
 @router.get("", response_model=list[ProjectOut])
 def list_projects(
-    brand_id: int | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)
+    brand_id: int | None = None,
+    archived: bool = False,  # true: the archived videos instead, so they can be brought back
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
-    query = select(Project).where(Project.workspace_id == user.workspace_id)
+    query = select(Project).where(
+        Project.workspace_id == user.workspace_id,
+        Project.archived_at.is_not(None) if archived else Project.archived_at.is_(None),
+    )
     if brand_id is not None:
         query = query.where(Project.brand_id == brand_id)
     return [_out(db, p) for p in db.scalars(query.order_by(func.lower(Project.name)))]
@@ -193,6 +222,60 @@ def create_project(
     if body.reference_id:
         project.reference_breakdown = references.load(request, body.reference_id)
     db.add(project)
+    db.commit()
+    return _out(db, project)
+
+
+@router.post("/{project_id}/archive", response_model=ProjectOut)
+def archive_project(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    project = _mine(db, user, project_id)
+    if project.archived_at is None:
+        archive(db, project)
+        db.commit()
+    return _out(db, project)
+
+
+@router.post("/{project_id}/release", response_model=ProjectOut)
+def release_project(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Put a started version back to "Ready to make": the owner, or the editor making it.
+    Produce-once holds because the video goes too: it is archived (kept, not deleted; jobs
+    that haven't started are cancelled, so their credits come back, and credits already used
+    stay used) and unlinked from the version, which anyone may then make afresh. Restore
+    undoes it while nobody has. A finished video can't be released."""
+    project = get_project(db, user, project_id)
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if draft is None:
+        raise HTTPException(409, "This video isn't made from a library version.")
+    if not (user.is_owner or draft.reserved_by_id == user.id):
+        raise HTTPException(403, "Only whoever is making it, or the owner, can release it.")
+    if project.finished_at:
+        raise HTTPException(409, "This video is done, so its version can't be released.")
+    archive(db, project)
+    project.script_draft_id, project.released_draft_id = None, draft.id
+    draft.reserved_by_id = None
+    db.commit()
+    return _out(db, project)
+
+
+@router.post("/{project_id}/restore", response_model=ProjectOut)
+def restore_project(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo archive or release: the video comes back as it was (cancelled jobs stay
+    cancelled; run them again). A released video gets its version back; once someone has
+    started that version again it can't come back (one video per version)."""
+    project = _mine(db, user, project_id)
+    draft = db.get(ScriptDraft, project.released_draft_id) if project.released_draft_id else None
+    if draft and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
+        raise HTTPException(409, "This version has been made again, so this video can't come back.")
+    project.archived_at = None
+    if draft is not None:
+        project.script_draft_id, project.released_draft_id = draft.id, None
+        draft.reserved_by_id = project.created_by_id
     db.commit()
     return _out(db, project)
 

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app import credits, prompts
 from app.models.accounts import User
-from app.models.jobs import Job
+from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.routes.jobs import enqueue
@@ -169,6 +169,74 @@ def test_produce_uses_the_scripts_own_imported_reel(owner, editor, db):
     assert ref == IMPORTED
     block = prompts.reference_block(ref)
     assert "She says no" in block and "Creator talks to camera" not in block  # live action
+
+
+def test_a_started_version_can_be_released_and_made_again(app, owner, editor, db):
+    base, _ = _published(owner, db, target=40)
+    made = editor.post(f"{base}/drafts/0/produce").json()  # its breakdown job is queued
+    pid = made["project_id"]
+    two, _ = _second_editor(app, owner, db)
+    assert two.post(f"/projects/{pid}/release").status_code == 403  # not theirs
+    released = editor.post(f"/projects/{pid}/release").json()
+    assert released["archived_at"] and released["script_draft_id"] is None
+    assert db.get(Job, made["breakdown_job_id"]).status == "cancelled"  # credits come back
+    assert released["credits_used"] == 0
+    assert owner.get(base).json()["versions"][0]["status"] == "approved"  # Ready to make
+    again = two.post(f"{base}/drafts/0/produce")
+    assert again.status_code == 201 and again.json()["project_id"] != pid
+    late = editor.post(f"/projects/{pid}/restore")  # Undo, too late: the version is taken
+    assert late.status_code == 409 and "made again" in late.json()["detail"]
+    assert editor.post(f"/projects/{again.json()['project_id']}/release").status_code == 403
+    assert owner.post(f"/projects/{again.json()['project_id']}/release").status_code == 200
+
+
+def test_releasing_never_gives_the_allowance_back(editor, db):
+    """QA #328: an editor can't release their own video to spend their week again."""
+    base = _editors_script(editor)
+    made = editor.post(f"{base}/drafts/0/produce").json()
+    pid, me = made["project_id"], db.query(User).filter_by(role="editor").one()
+    db.get(Job, made["breakdown_job_id"]).status = JobStatus.succeeded  # credits really spent
+    db.commit()
+    spent = credits.quick_clip_used(db, me)
+    assert spent > 0
+    editor.post(f"/projects/{pid}/release")
+    db.expire_all()
+    assert credits.quick_clip_used(db, me) == spent
+    assert credits.own_script(db, db.get(Project, pid), me)  # still on their allowance
+
+
+def test_restore_right_after_release_gives_the_version_back(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    editor.post(f"/projects/{pid}/release")
+    back = editor.post(f"/projects/{pid}/restore").json()
+    assert back["script_draft_id"] is not None and back["archived_at"] is None
+    version = owner.get(base).json()["versions"][0]
+    assert (version["status"], version["project_id"]) == ("in_production", pid)
+
+
+def test_a_done_video_cant_be_released(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    from app.db import utcnow
+
+    db.get(Project, pid).finished_at = utcnow()
+    db.commit()
+    assert editor.post(f"/projects/{pid}/release").status_code == 409
+
+
+def test_a_video_can_be_archived_and_brought_back(app, owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    two, _ = _second_editor(app, owner, db)
+    assert two.post(f"/projects/{pid}/archive").status_code == 403
+    assert editor.post(f"/projects/{pid}/archive").json()["archived_at"]
+    paid = editor.post(f"/projects/{pid}/breakdown")  # nothing new runs on an archived video
+    assert paid.status_code == 409 and "archived" in paid.json()["detail"]
+    assert [p["id"] for p in editor.get("/projects").json()] == []
+    assert [p["id"] for p in editor.get("/projects?archived=true").json()] == [pid]
+    assert editor.post(f"/projects/{pid}/restore").json()["archived_at"] is None
+    assert [p["id"] for p in owner.get("/projects").json()] == [pid]
 
 
 def test_deleting_a_produced_script_keeps_its_video(owner, editor, db):

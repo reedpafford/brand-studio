@@ -28,6 +28,11 @@ class Project(Entity, Base):
     # "Video done": the first final video, or the first full download of the picked takes.
     # Set once, never cleared (Usage counts a video as finished on that day).
     finished_at: Mapped[datetime | None]
+    archived_at: Mapped[datetime | None]  # put away (or its version released); Undo clears it
+    # Released from this library version (it went back to Ready to make); Restore relinks it.
+    released_draft_id: Mapped[int | None] = mapped_column(
+        ForeignKey("script_drafts.id", use_alter=True)
+    )
     status: Mapped[ProjectStatus] = mapped_column(String(30), default=ProjectStatus.active)
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
