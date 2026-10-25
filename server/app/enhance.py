@@ -25,6 +25,13 @@ def escape(text: str) -> str:
     return text.replace("</", "<\\/")
 
 
+def escape_block(block: str) -> str:
+    """A whole `<tag>…</tag>` block (e.g. prompts.reference_block) with only its inside
+    escaped, so its own closing tag still closes it."""
+    found = re.fullmatch(r"(<(\w+)>\n?)(.*?)(\n?</\2>)", block, re.S)
+    return f"{found[1]}{escape(found[3])}{found[4]}" if found else escape(block)
+
+
 def screens_of(db: Session, brand: Brand) -> list[BrandScreen]:
     return list(db.scalars(select(BrandScreen).where(BrandScreen.brand_id == brand.id)))
 

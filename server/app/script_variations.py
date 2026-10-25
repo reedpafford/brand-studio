@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app import prompts
 from app import script_library as lib
-from app.enhance import escape, project_context, project_screens
+from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
 from app.models.jobs import Job
 from app.models.library import LibraryItem
@@ -46,7 +46,7 @@ def job_input(
         escape(original.text),
         [escape(c) for c in cast],
         len(slots),
-        reference=escape(ref),
+        reference=escape_block(ref),
         keep_apart=escape("\n\n".join(keep_apart)),
         note=escape(note),
     )
