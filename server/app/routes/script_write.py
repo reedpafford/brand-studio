@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import script_library as lib
 from app import script_write
 from app.auth import current_user
-from app.credits import estimate, get_limits, quick_clip_used
+from app.credits import credits_left, estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.models.script_library import Script
@@ -45,12 +45,6 @@ def _writable(db: Session, user: User, script_id: int, row: str = "") -> Script:
     if lib.writing(db, script.id):
         raise HTTPException(409, f"{row}{script.title}: Claude is already writing for it.")
     return script
-
-
-def _left(db: Session, user: User) -> Decimal | None:
-    if user.is_owner:
-        return None
-    return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
 
 
 def _queue(db: Session, user: User, request: Request, script: Script):
@@ -91,7 +85,7 @@ def write_many_estimate(
     ids = list(dict.fromkeys(body.script_ids))
     for script_id in ids:
         lib.get_script(db, user, script_id)
-    left = _left(db, user)
+    left = credits_left(db, user)
     return WriteManyEstimate(
         count=len(ids),
         credits=_price(db, user) * len(ids),
@@ -112,7 +106,7 @@ def write_many(
     allowance must cover them all; otherwise nothing is queued."""
     ids = list(dict.fromkeys(body.script_ids))
     scripts = [_writable(db, user, s, f"Row {n}: ") for n, s in enumerate(ids, 1)]
-    total, left = _price(db, user) * len(scripts), _left(db, user)
+    total, left = _price(db, user) * len(scripts), credits_left(db, user)
     if left is not None and total > left:
         raise HTTPException(
             409,

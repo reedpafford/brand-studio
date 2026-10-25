@@ -153,7 +153,10 @@ def own_script(db: Session, project: Project, user: User) -> bool:
 
 def quick_clip_used(db: Session, user: User) -> Decimal:
     """This week's (Mon-Sun, UTC) credits on this person's own work: jobs outside any
-    project (Quick clips, script steps) and on videos from scripts they wrote."""
+    project (Quick clips, script steps) and on videos from scripts they wrote, plus the
+    later steps of a reel read they pressed for, which are held until they run."""
+    from app.reel_read import held
+
     own = (
         select(Project.id)
         .join(ScriptDraft, ScriptDraft.id == Project.script_draft_id)
@@ -165,7 +168,14 @@ def quick_clip_used(db: Session, user: User) -> Decimal:
         or_(Job.project_id.is_(None), Job.project_id.in_(own)),
         Job.created_by_id == user.id,
         Job.created_at >= week_start(),
-    )
+    ) + held(db, user)
+
+
+def credits_left(db: Session, user: User) -> Decimal | None:
+    """An editor's weekly allowance left (can be below 0); None for the owner (unlimited)."""
+    if user.is_owner:
+        return None
+    return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
 
 
 def over_allowance(db: Session, user: User, project: Project | None, credits: Decimal) -> str:

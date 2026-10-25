@@ -95,6 +95,31 @@ def _clip(clip: dict, shots: dict, framed: bool) -> dict:
     }
 
 
+def watch(job: dict) -> dict:
+    """Stand-in Gemini for a reel: one plain shot per cut it was given, the transcript's lines
+    said by two roles in turn."""
+    prompt = job["prompt"]
+    cuts = re.findall(r"^(\d+)\. ([\d.]+)–([\d.]+)$", _tag(prompt, "cuts"), re.M)
+    lines = re.findall(r"^\d+\| ", _tag(prompt, "transcript"), re.M)
+    shot = dict(framing="medium", camera="static", on_screen="two people", action="they talk")
+    return {
+        "logline": "A proposal goes wrong, and he wins in the end",
+        "style": "3D animated",
+        "hook": {"seconds": 1.5, "mechanic": "A proposal answered with a no"},
+        "beats": [{"start": 0, "end": float(cuts[-1][2]), "summary": "No, then a win",
+                   "emotion": "shock"}],
+        "montage": None,
+        "shots": [
+            {**shot, "n": int(n), "start": float(a), "end": float(b), "emotion": "calm",
+             "live_action": False, "text_on_screen": ""}
+            for n, a, b in cuts
+        ],
+        "speakers": [{"line": i + 1, "speaker": ("groom", "bride")[i % 2]}
+                     for i in range(len(lines))],
+        "why_it_works": ["An instant no"],
+    }  # fmt: skip
+
+
 class FakeMedia:
     """Replicate's place: every image or video job succeeds on its first check."""
 
@@ -109,8 +134,13 @@ class FakeMedia:
         self._jobs[ref] = {"kind": kind, **input.get("input", {})}
         return ref
 
+    def upload(self, data: bytes, content_type: str) -> str:
+        return f"fake-upload://{next(self._ids)}"
+
     def poll(self, ref: str) -> Result:
         # No usage: the job keeps its estimated credits and no fake dollars are recorded.
+        if self._jobs[ref]["kind"] == "watch-gemini":
+            return Result("succeeded", output={"text": json.dumps(watch(self._jobs[ref]))})
         return Result("succeeded", output={"url": f"fake://{ref}"}, files=[f"fake://{ref}"])
 
     def fetch(self, url: str) -> tuple[bytes, str]:
