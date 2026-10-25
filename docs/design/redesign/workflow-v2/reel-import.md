@@ -22,13 +22,13 @@ An imported reel is saved to the reel library, so anyone can pick it for another
 ```
 Import a reel (tab)
 [ Paste an Instagram reel link                     ] [Get the reel]      (desktop: one row)
-or  [Upload  Upload a video]   MP4 or MOV, up to 3 minutes (meta)
+or  [Upload  Upload a video]   MP4 or MOV, up to 90 s and 100 MB (meta)
 ```
 - **Link:** an input with `inputmode="url"`, placeholder "https://www.instagram.com/reel/…". Then **Get the reel** (secondary).
   - It accepts `instagram.com/reel/…` and `instagram.com/p/…` links.
   - Anything else reads "That isn't an Instagram reel link." right under the field.
-- **Upload:** secondary with `Upload`, which opens the file picker. MP4 or MOV, up to 3 minutes and 200 MB (the server sets the limits; the copy uses its numbers).
-- Getting the reel is free: it's the download (or the upload) plus a check of its length.
+- **Upload:** secondary with `Upload`, which opens the file picker. MP4 or MOV, up to 90 seconds and 100 MB (the server's limits).
+- Getting the reel is free: it's the download (or the upload) plus a check of its length. It **creates the draft right away** ("Untitled reel" until Reed names it), so a reel that is still downloading, or one that failed, is never lost; the draft opens at Description with the reel in the reference block.
   - While it runs, the row shows "Getting the reel… 6 s", or "Uploading… 42%" with a bar.
 - **When it's in, a preview card replaces the inputs:**
   ```
@@ -37,13 +37,13 @@ or  [Upload  Upload a video]   MP4 or MOV, up to 3 minutes (meta)
   └─────────────────────┴────────────────────────────────────────────────────────────────┘
   [Read this reel · 7 credits]   (amber)
   ```
-- **The one amber button is Read this reel · N credits.** The price comes from the length (`GET /references/import/estimate`).
+- **The one amber button is Read this reel · N credits.** The price comes from the length (the read estimate).
   - **Reed:** always enabled. There's no video yet, so no video budget applies.
   - **An editor** past their weekly allowance gets the button disabled with the reason "That's more than this week's 145 free credits (120 used). It resets on Monday." There's no Ask Reed (decision l).
 - **On phone,** Read this reel takes the action bar. Get the reel and Upload are full width at 44px.
 
 ## 2. Reading it (paid)
-Read this reel creates the draft straight away (the title can stay empty: "Untitled reel" until Reed names it), opens it at Description, and shows the progress in the reference block:
+Read this reel starts the paid steps on the draft that Get the reel made, and shows the progress in the reference block:
 ```
 Reading the reel · 1 min 10 s (meta, counting up)
  ✓ Got the reel                       45 s · 1080×1920
@@ -62,7 +62,7 @@ Reading the reel · 1 min 10 s (meta, counting up)
 |---|---|---|
 | Got the reel (link) | "Instagram didn't let us download it. Upload the video instead." | **Upload a video** (secondary) |
 | Got the reel (link, private or removed) | "That reel is private or was removed." | **Upload a video** |
-| Got the reel (upload) | "That file isn't a video we can read. Use an MP4 or MOV up to 3 minutes." | **Choose another file** |
+| Got the reel (upload) | "That file isn't a video we can read. Use an MP4 or MOV." (Too long: "This reel is over 90 seconds. Upload a shorter cut.") | **Choose another file** |
 | Listening | "We couldn't make out the dialogue. Nothing was charged." | **Try again** (free retry once) |
 | No dialogue at all | Not an error: the row reads "No dialogue (music only)" and reading carries on. | — |
 | Finding the shots | "The shots couldn't be found. Credits for the rest were returned." | **Try again · N credits** |
@@ -186,16 +186,19 @@ Bulk create (`description.md`) gets a mode switch at the top: a segmented contro
 
 ## Data the screens need (server)
 For Builder-Server. Downloading and uploading are free. Every paid step goes through the estimate and the allowance (all or none, as for Write all).
-- **Getting the reel:**
-  - `POST /references/import {url}` or `POST /references/import/upload` (multipart) creates a reference in `fetching`.
-  - It returns `{id, status, thumbnail_file_id, duration_seconds, error?}` when it's in.
-  - The error codes are `blocked` (Instagram refused), `gone` (private or removed), `bad_file` and `too_long`.
-- **Price:** `GET /references/{id}/read/estimate` returns `{credits}` from the length.
-- **Reading:**
-  - `POST /references/{id}/read {script_id?}` starts the paid read. It's refused past an editor's allowance with the reason. It returns the job.
-  - With `script_id`, the finished read fills that draft's A text (if unedited) and its cast slots (marked `from_reel`).
-- **Progress:** `GET /references/{id}` gives `stage: fetched | listening | shots | breakdown | script | done | failed`, `failed_stage`, the per-stage results (`lines`, `shots`, `dropped`), and `breakdown` (the existing `ReferenceBreakdown` shape plus `style` per shot, so live action is marked).
-- **Redo:** `POST /references/{id}/reread {note}` is paid (breakdown and script only). The note goes through the same check as clip prompt notes, and dialogue changes are refused with the plain reason.
+- **Getting the reel (built, #282):**
+  - **By link:** `POST /scripts/import/link {brand_id, url, title?, new_lines?}`. It accepts `/reel/` and `/p/` links and refuses others with "That isn't an Instagram reel link."
+  - **By upload:** `POST /scripts/import/upload` (multipart: `file`, `brand_id`, `title?`, `new_lines?`), MP4 or MOV, up to 90 s and 100 MB.
+  - Both create the draft straight away and return `ImportOut {script_id, status: preparing | ready | failed, source, url, seconds, shots, transcript, video_file_id, contact_file_id, problem, problem_code}`.
+  - `problem_code` is `blocked` (Instagram refused), `gone` (private or removed), `bad_file` or `too_long`, and `problem` is the plain sentence to show.
+  - `POST /scripts/{id}/import/upload` replaces a failed link with an upload ("Upload the video instead").
+  - `GET /scripts/{id}/import` is the polled status.
+- **Price (to build):** a read estimate for the script, from `seconds`.
+- **Reading (to build):**
+  - The paid read on the script refuses past an editor's allowance with the reason, and returns the job.
+  - The finished read fills A's text (if unedited) and the cast slots (marked `from_reel`).
+- **Progress (to build):** the import status grows `stage: listening | shots | breakdown | script | done | failed`, `failed_stage`, the per-stage results (`lines`, `shots`, `dropped`), and `breakdown` (the existing `ReferenceBreakdown` shape plus `style` per shot, so live action is marked).
+- **Redo:** a paid re-read with `{note}` is paid (breakdown and script only). The note goes through the same check as clip prompt notes, and dialogue changes are refused with the plain reason.
 - **Script and slots:**
   - The script draft gets `edited_since_fill` so the UI knows whether to refill.
   - `POST /scripts/{id}/fill-from-reel` (free) refills it on request.
