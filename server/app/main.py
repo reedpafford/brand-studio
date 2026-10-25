@@ -18,6 +18,7 @@ from app.routes import (
     jobs,
     library,
     models,
+    project_assets,
     project_clips,
     projects,
     references,
@@ -69,6 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         breakdown,
         storyboard,
         project_clips,
+        project_assets,
         improve,
         clips,
     ):
