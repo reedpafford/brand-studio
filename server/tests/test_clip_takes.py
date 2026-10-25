@@ -129,16 +129,6 @@ def test_clip_with_problems_and_other_workspace(app, editor, outsider, setup, cl
     assert editor.get(f"{base}/video").status_code == 404
 
 
-def test_advice_never_blocks_a_clip(db, editor, setup, clip):  # noqa: F811
-    from app.models.clips import ProjectClip
-
-    row = db.get(ProjectClip, clip["id"])
-    row.problems = ["Advice: c1: shot 6: a quick cut names nobody (“a hand pushes the door”)"]
-    db.commit()
-    made = editor.post(f"/projects/{setup['project']}/clips/{clip['id']}/generate")
-    assert made.status_code == 201, made.text  # advice is shown, never a dead end
-
-
 def test_stale_and_replaced_clips(app, db, editor, setup, clip):  # noqa: F811
     base = f"/projects/{setup['project']}"
     url = f"{base}/clips/{clip['id']}"

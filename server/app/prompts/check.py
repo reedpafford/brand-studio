@@ -18,12 +18,6 @@ DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
 ADVICE = "Advice: "  # a problem that never blocks a step; the editor can keep it
 
-
-def blocking(problems: list[str]) -> list[str]:
-    """The problems that stop a step: everything but advice."""
-    return [p for p in problems if not p.startswith(ADVICE)]
-
-
 HIS = re.compile(
     r"\b[A-Z][\w-]*'s (hands?|fingers?|thumbs?|phone|laptop|monitors?|screen|keys|car|desk)\b"
 )
