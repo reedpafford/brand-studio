@@ -1,6 +1,9 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 20:15 · Decision (#301, Reed): altar remake v3 verdict: the montage is much better, no re-run needed. New montage rule: balance and P&L numbers climb with the chart, shot by shot (Director prompts and evals). Reed tests it on the live site.
+- 2026-10-25 20:00 · #301 Decisions: altar v3 verdict; montage numbers climb shot by shot merged
+- 2026-10-25 19:58 · #300 ops: HANDOFF/LOG refresh 2026-10-25 20:00Z (by the Producer) merged
 - 2026-10-25 19:57 · #299 HANDOFF/MISSION: site live since 10-24; Reed makes Pitbull 1 himself merged
 - 2026-10-25 20:00 · Decision (#297, Reed): the first real reel-import test runs on the altar reel: one paid read (about $0.40), then up to $10 in all on that video, after the allowance fix (#286) is merged. Correction (#299, Reed): the VPS secrets were added on 10-24 and the live site has generation on; Reed makes Pitbull 1 himself on the live site and that is done test B.
 - 2026-10-25 19:49 · #288 Reel prep: its own worker, one at a time per person, no leftover files merged
