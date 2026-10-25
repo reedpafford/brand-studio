@@ -65,8 +65,8 @@ def _mine(problems: list[str], n: int) -> list[str]:
 
 def save_variations(db: Session, job: Job) -> None:
     script = db.get(Script, job.input["script_id"])
-    if script is None:
-        return
+    if script is None or script.published or script.archived:
+        return  # published scripts are final
     result = Variations.model_validate(job.output)
     original = db.scalar(
         select(ScriptDraft).where(ScriptDraft.script_id == script.id, ScriptDraft.slot == 0)

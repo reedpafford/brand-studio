@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.accounts import User
 from app.models.clips import FinalVideo, ProjectClip
+from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 
@@ -92,3 +93,15 @@ def script_status(script: Script, statuses: list[str]) -> str:
     if approved and all(s == "done" for s in approved):
         return "done"
     return "in_production" if made else "published"
+
+
+WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
+
+
+def writing(db: Session, script_id: int, step: str | None = None) -> bool:
+    """A Claude step (variations, cast slots) is still writing into this script."""
+    jobs = db.scalars(select(Job).where(Job.status.in_(WAITING), Job.kind == "write-claude"))
+    return any(
+        j.input.get("script_id") == script_id and (step is None or j.input.get("step") == step)
+        for j in jobs
+    )

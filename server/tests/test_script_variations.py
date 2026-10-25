@@ -1,7 +1,7 @@
 """Variations of a library script: one price per run, slots 1 and 2, regenerate kept apart."""
 
 from app.models.jobs import Job
-from app.models.script_library import ScriptDraft
+from app.models.script_library import Script, ScriptDraft
 from tests.conftest import upload
 from tests.helpers import with_sheet
 from tests.test_script_library import SCRIPT, _make
@@ -58,3 +58,17 @@ def test_variations_follow_the_script_rules(owner, editor):
     editor.post(f"/scripts/{mine['id']}/drafts/0/approve")
     made = editor.post(f"/scripts/{mine['id']}/variations", json={"slots": [1]})
     assert made.status_code == 201  # on the editor's own allowance
+
+
+def test_publish_waits_for_variations_and_a_late_result_is_dropped(app, db, owner):
+    """QA #234: a published script is final, so variations can't land in it."""
+    made = _make(owner, text=LONGER)
+    base = f"/scripts/{made['id']}"
+    owner.post(f"{base}/drafts/0/approve")
+    assert owner.post(f"{base}/variations", json={}).status_code == 201
+    blocked = owner.post(f"{base}/publish")
+    assert blocked.status_code == 409 and "still writing" in blocked.json()["detail"]
+    db.query(Script).filter_by(id=made["id"]).update({"published": True})  # published anyway
+    db.commit()
+    _work(app, db)
+    assert [d.slot for d in db.query(ScriptDraft).filter_by(script_id=made["id"])] == [0]
