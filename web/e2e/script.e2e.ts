@@ -29,6 +29,9 @@ test("a script is pasted, edited into a new version, and an old version is resto
   await expect(page.getByText("Restored an earlier version.")).toBeVisible();
   await expect(lines).toContainText("Hello there.");
   await expect(page.getByText(/words · .*Saved/)).toBeVisible();
+  // Restoring adds a version; it doesn't overwrite. Three saves so far: first, second, and the restore.
+  await page.getByRole("button", { name: "Versions" }).click();
+  await expect(page.getByRole("menuitemradio")).toHaveCount(3);
 });
 
 test("a script document can be uploaded", async ({ page }) => {
