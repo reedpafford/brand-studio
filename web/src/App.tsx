@@ -3,6 +3,7 @@ import { ApprovalsPage } from "./approvals/ApprovalsPage";
 import { RequireAuth } from "./auth/RequireAuth";
 import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
 import { NewProjectPage } from "./projects/NewProjectPage";
+import { ProductionPage } from "./production/ProductionPage";
 import { ProjectPage } from "./projects/ProjectPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
 import { NewScriptPage } from "./scripts/NewScriptPage";
@@ -44,6 +45,7 @@ export function App() {
           <Route path="b/:brandId/clip" element={<ClipPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="production" element={<ProductionPage />} />
           <Route path="usage" element={<UsagePage />} />
           <Route path="usage/brands/:brandId" element={<UsageBrandPage />} />
         </Route>

@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChartColumn, ChevronDown, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, ChevronDown, Clapperboard, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
+import { useProductionSummary } from "../production/useProduction";
 import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { applyTheme, getTheme, type Theme } from "../theme";
 import { useMedia } from "../useMedia";
@@ -125,12 +126,12 @@ function Frame() {
   );
 }
 
-function Badge({ n }: { n: number | null }) {
+function Badge({ n, word = "waiting" }: { n: number | null; word?: string }) {
   if (!n) return null;
   return (
     <span className="ml-auto inline-grid min-w-5 place-items-center rounded-full bg-accent px-1.5 text-xs font-semibold text-on-accent tabular-nums">
       {n}
-      <span className="sr-only"> waiting</span>
+      <span className="sr-only"> {word}</span>
     </span>
   );
 }
@@ -235,6 +236,12 @@ function AccountMenu() {
             <div className="text-sm text-muted">{me?.email}</div>
           </div>
           {me?.role === "owner" && (
+            <Link to="/production" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
+              <Clapperboard size={20} strokeWidth={1.75} aria-hidden />
+              In production
+            </Link>
+          )}
+          {me?.role === "owner" && (
             <Link to="/team" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
               <UserPlus size={20} strokeWidth={1.75} aria-hidden />
               Team
@@ -307,6 +314,7 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
       {wide && extra}
     </NavItem>
   );
+  const attention = useProductionSummary(owner).data?.needs_attention ?? null;
   return (
     <nav aria-label="Main" className={`sticky top-topbar h-[calc(100vh-var(--topbar-h))] shrink-0 overflow-y-auto border-r border-border bg-bg p-3 ${wide ? "w-rail" : "w-[72px]"}`}>
       {wide && brand && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">{brand.name}</p>}
@@ -316,6 +324,7 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
           {wide && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">Studio</p>}
           <div className="flex flex-col gap-1">
             {row("/approvals", "Approvals", Bell, <Badge n={waiting} />)}
+            {row("/production", "In production", Clapperboard, <Badge n={attention} word="need attention" />)}
             {row("/team", "Team", UserPlus)}
             {row("/usage", "Usage", ChartColumn)}
           </div>
