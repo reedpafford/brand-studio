@@ -7,6 +7,7 @@ import { fileUrl } from "../api/upload";
 import { Button, Card, Field } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { useRail } from "../useMedia";
 import { useAllowanceStop } from "./useScript";
 
 const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
@@ -129,10 +130,35 @@ const ROWS: { id: "got" | "heard" | "watch" | "write" | "cast"; label: string }[
 /** What the server says is left this week, if it says the read doesn't fit. The usual wording comes from the allowance itself. */
 const notEnough = (e?: { credits: number; credits_left: number | null } | null) => (e && e.credits_left !== null && e.credits > e.credits_left ? "That's more than the credits you have left this week. It resets Monday." : null);
 
+/** Read this reel · N credits (or Try again after a failed step): the one amber button of a prepared reel. On a phone it sits in the action bar, on desktop in the card. */
+export function ReadReelButton({ scriptId, createdById, className }: { scriptId: number; createdById: number | null; className?: string }) {
+  const reel = useReelImport(scriptId);
+  const queryClient = useQueryClient();
+  const r = reel.data;
+  const allowanceStop = useAllowanceStop({ created_by_id: createdById }, r?.estimate?.credits);
+  const read = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/scripts/{script_id}/import/read", { params: { path: { script_id: scriptId } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (d) => queryClient.setQueryData(["script-import", scriptId], d),
+  });
+  if (!r || (r.status !== "ready" && r.status !== "failed") || r.failed_step === "prepare") return null;
+  const stop = allowanceStop ?? notEnough(r.estimate);
+  return (
+    <div className="space-y-2">
+      <Button className={className} busy={read.isPending} disabled={!r.estimate || stop !== null} reason={stop} price={r.estimate?.credits} onClick={() => read.mutate()}>
+        {r.status === "failed" ? "Try again" : "Read this reel"}
+      </Button>
+      {read.isError && <p role="alert" className={errorClass}>{read.error.message}</p>}
+    </div>
+  );
+}
+
 /** On the Description step: getting the reel, the price to read it, the read's progress, and what came of it. */
 export function ReelBlock({ scriptId, published, createdById }: { scriptId: number; published: boolean; createdById: number | null }) {
   const reel = useReelImport(scriptId);
-  const allowanceStop = useAllowanceStop({ created_by_id: createdById }, reel.data?.estimate?.credits);
   const file = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -153,14 +179,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
     },
     onSuccess: (d) => queryClient.setQueryData(["script-import", scriptId], d),
   });
-  const read = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/scripts/{script_id}/import/read", { params: { path: { script_id: scriptId } } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
-    onSuccess: (d) => queryClient.setQueryData(["script-import", scriptId], d),
-  });
+  const rail = useRail();
   const r = reel.data;
   // The read finished while this page was open: say so and bring the script in.
   const was = useRef(r?.status);
@@ -214,7 +233,6 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
   }
   if (r.status === "ready" || r.status === "failed") {
     const failedText = step === "watch" ? "The shots couldn't be found. Credits for the rest were returned." : step === "write" ? "The script didn't finish. Credits for this step were returned." : "The cast didn't finish. Credits for this step were returned.";
-    const stop = allowanceStop ?? notEnough(r.estimate);
     return (
       <Card className="max-w-[680px] space-y-3">
         <div className="flex gap-4">
@@ -235,12 +253,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
             {failedText}
           </p>
         )}
-        {!published && (
-          <Button busy={read.isPending} disabled={!r.estimate || stop !== null} reason={stop} price={r.estimate?.credits} onClick={() => read.mutate()}>
-            {r.status === "failed" ? "Try again" : "Read this reel"}
-          </Button>
-        )}
-        {read.isError && <p role="alert" className={errorClass}>{read.error.message}</p>}
+        {!published && rail && <ReadReelButton scriptId={scriptId} createdById={createdById} />}
       </Card>
     );
   }

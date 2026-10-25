@@ -6,6 +6,7 @@ import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
 import { Badge, Banner, Button, Field, Panel, Select, TextArea } from "../components";
 import { useToast } from "../toast";
+import { weekStop } from "./useScript";
 import { errorText as errorClass } from "../ui";
 
 type Row = { title: string; description: string; reference: string };
@@ -101,7 +102,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
             )}
           </div>
           {writeAll.isError && <Banner title={writeAll.error.message}>Nothing was charged.</Banner>}
-          <Button price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data || stopped} reason={stopped ? `You've used this week's ${Math.round(week.data?.quick_clip_credits_allowed ?? 0)} credits. It resets Monday.` : undefined} onClick={() => writeAll.mutate()} className="w-full">
+          <Button price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data || stopped} reason={stopped && week.data && estimate.data ? weekStop(week.data, estimate.data.credits) : stopped ? "That's more than the credits you have left this week. It resets on Monday." : undefined} onClick={() => writeAll.mutate()} className="w-full">
             Write all scripts
           </Button>
           <Button variant="ghost" onClick={onClose} className="w-full">

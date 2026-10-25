@@ -479,7 +479,7 @@ test("an editor past the week's allowance on their own script can't make it, and
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
   const own = await within(panel).findByRole("button", { name: /Make this version.*3 credits/ });
   await vi.waitFor(() => expect(own).toBeDisabled());
-  expect(within(panel).getByText("You've used this week's 145 credits. It resets Monday.")).toBeInTheDocument();
+  expect(within(panel).getByText("That's more than this week's 145 free credits (144 used). It resets on Monday.")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/Ask Reed/);
   unmount();
 
@@ -545,7 +545,7 @@ test("Variations: an editor on their own script past the week's allowance can't 
   await userEvent.click(await screen.findByRole("radio", { name: "1" }));
   const write = await screen.findByRole("button", { name: /Write 1 variation/ });
   await vi.waitFor(() => expect(write).toBeDisabled());
-  expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
+  expect(write).toHaveAccessibleDescription("That's more than this week's 145 free credits (144 used). It resets on Monday.");
 });
 
 test("the version panel says what it is a variation of, who planned the breakdown, how many clips, and about what it costs", async () => {
@@ -760,7 +760,7 @@ test("Bulk create for an editor: past the week's allowance Write all is disabled
   const done = await screen.findByRole("dialog", { name: "Drafts made" });
   const write = await within(done).findByRole("button", { name: /Write all scripts.*12 credits/ });
   await vi.waitFor(() => expect(write).toBeDisabled());
-  expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
+  expect(write).toHaveAccessibleDescription("That's more than this week's 145 free credits (140 used). It resets on Monday.");
   expect(document.body.textContent).not.toMatch(/Ask Reed/);
 });
 
@@ -884,7 +884,7 @@ test("an editor who can't cover the read can't press it, and there is no Ask Ree
   open("/b/1/scripts/7");
   const button = await screen.findByRole("button", { name: /Read this reel.*7 credits/ });
   await vi.waitFor(() => expect(button).toBeDisabled());
-  expect(button).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
+  expect(button).toHaveAccessibleDescription("That's more than this week's 145 free credits (142 used). It resets on Monday.");
   expect(document.body.textContent).not.toMatch(/Ask Reed/);
 });
 
@@ -902,4 +902,19 @@ test("Next waits until the reel is read, so Read this reel is the one amber butt
   open("/b/1/scripts/7");
   await screen.findByRole("button", { name: /Read this reel/ });
   expect(screen.queryByRole("button", { name: /^Next/ })).not.toBeInTheDocument();
+});
+
+test("when the whole week is used the stop says so; when only this price doesn't fit it says how much is used", async () => {
+  const { weekStop } = await import("./useScript");
+  expect(weekStop({ quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }, 3)).toBe("You've used this week's 145 credits. It resets Monday.");
+  expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 7)).toBe("That's more than this week's 10 free credits (7 used). It resets on Monday.");
+  expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 3)).toBeNull();
+});
+
+test("on a phone Read this reel takes the action bar, and is not in the card", async () => {
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ estimate: est(7) })] });
+  open("/b/1/scripts/7");
+  const button = await screen.findByRole("button", { name: /Read this reel.*7 credits/ });
+  expect(screen.getAllByRole("button", { name: /Read this reel/ })).toHaveLength(1);
+  expect(button.closest("main")).toBeNull(); // it sits in the shell's action bar, outside the page body
 });

@@ -15,7 +15,7 @@ import { useRail } from "../useMedia";
 import { CastStep } from "./CastStep";
 import { DescriptionForm } from "./DescriptionForm";
 import { VariationsStep, variationsReason, writtenVariations } from "./VariationsStep";
-import { ReelBlock, useReelImport } from "./ReelImport";
+import { ReadReelButton, ReelBlock, useReelImport } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
 import { WRITING_STEPS, around, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
 import { useScript, usePatchScript, useWriteWords } from "./useScript";
@@ -71,7 +71,8 @@ export function ScriptFlowPage() {
   );
   // A script from a reel isn't ready to move on until the reel is read: Read this reel is the one amber button until then.
   const unread = step === "description" && !!reel.data && reel.data.status !== "done";
-  const nextButton = publishButton || (next && !editing && !unread && !(step === "variations" && picked > 0 && writtenVariations(s).length === 0) && (
+  const reelReady = unread && !s.published && !rail && (reel.data?.status === "ready" || reel.data?.status === "failed") && reel.data?.failed_step !== "prepare";
+  const nextButton = reelReady ? <ReadReelButton scriptId={id} createdById={s.created_by_id} /> : publishButton || (next && !editing && !unread && !(step === "variations" && picked > 0 && writtenVariations(s).length === 0) && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
