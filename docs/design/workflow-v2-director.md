@@ -8,7 +8,7 @@ Two pieces: **1. Variations** (a new prompt step) and **2. no check is ever a de
 
 ## 1. Variations
 
-Reed approves his enhanced script, then asks for 0, 1 or 2 alternates. Each one tells the same story a slightly different way. His original never changes. New words appear only in the variations.
+Reed approves his enhanced script, then asks for 0, 1 or 2 alternates. Each one tells the same story a slightly different way. His original never changes. New words appear only in the variations. Editors can do the same with their own approved scripts (#190), so the prompt works on any approved script, not only Reed's.
 
 Reed's example: the altar reel becomes "she says hell no to a car he gifted, leaves with a richer guy, flashback of her saying she didn't care what she drove". It has the same arc and a payoff that fits.
 
@@ -20,6 +20,7 @@ Step name `variations`. The system prompt is `rules.md` + `variations.md` + a wo
 |---|---|
 | brand block | as today: tone, never-say, end line, required screens and product, moments |
 | `<script>` | the approved, enhanced original, numbered |
+| `<cast>` | the locked characters (char ids and names); each one stays in every variation |
 | `<length>` | the original's spoken words and estimated seconds (words ÷ 4.8) |
 | `<reference>` | optional: the reel the original adapts (live-action shots already removed) |
 | `<count>` | 1 or 2. With 0 there is no call. |
@@ -29,19 +30,19 @@ Step name `variations`. The system prompt is `rules.md` + `variations.md` + a wo
 ### Output (what Claude returns)
 
 ```
-Variations {
-  variations: [            # exactly <count> items
+ScriptVariations {
+  variations: [              # exactly <count> items
     {
-      title:    str        # 2–4 words, e.g. "The car"
-      premise:  str        # one sentence: what changes and how it pays off
-      script:   str        # the full script in house format (scene headings, NAME: lines, ★ lines)
-      changes:  [str]      # plain-language list of what differs from the original
+      title:          str    # 2–4 words for the library, e.g. "The car"
+      script:         str    # the full script in house format (scene headings, NAME: lines, ★ lines)
+      change_summary: str    # plain words: what's different from the original
+      payoff:         str    # one sentence: how this version pays off
     }
   ]
 }
 ```
 
-This needs Builder-Server's agreement: they store each variation as a new script version linked to the original, plus a status. The schema is in their hands now. It only becomes final when they say yes.
+This is Builder-Server's proposed schema (`script`, `change_summary`, `payoff`), plus `title` so the library can tell versions apart. They store each variation as a new script version linked to the original, with a status.
 
 ### Rules (variations.md)
 
@@ -50,8 +51,9 @@ This needs Builder-Server's agreement: they store each variation as a new script
 3. **The brand, kept.** Every required moment in the original is in each variation, with its `★` line and the same screen or product. The video ends on the brand's end line, word for word.
 4. **Live action never comes back.** If the original adapted a reel, its live-action slot is the end line in every variation.
 5. **Montages** follow the montage rules: the hero is in every shot, and the wealth payoffs build, he's part of them, and they're invented for this story.
-6. **Roughly the same length.** Spoken words within ±20% of the original.
+6. **Roughly the same length.** Spoken words within ±30% of the original.
 7. **Words.** The original's words are untouchable. A variation's words are new, but they don't copy the reference reel's on-screen text, and they never say anything the brand's "never say" list forbids.
+8. **The locked cast stays.** Every locked character is in every variation, in the same role.
 
 ### Checks (`check.variations`)
 
@@ -64,7 +66,8 @@ Each one says what to do next (see part 2 for fix vs advice).
 | a required moment's ★ line or screen is missing | fix | edit, or regenerate |
 | a `never say` phrase appears | fix | edit, or regenerate |
 | a live-action tag or segment appears | fix | edit, or regenerate |
-| spoken words outside ±20% of the original | advice | keep anyway, edit, or regenerate |
+| a locked character is dropped | fix | edit, or regenerate |
+| spoken words outside ±30% of the original | advice | keep anyway, edit, or regenerate |
 | too close to the original or the other variation (over 70% shared words) | advice | keep anyway, or regenerate with a note |
 | house format: a line isn't a scene heading, an action, `NAME: words` or a ★ line | advice | keep anyway, or edit |
 
@@ -74,11 +77,11 @@ The original's text is protected on the server, not by Claude. Builder-Server ne
 
 - **`fomo-altar-variations`**
   - Input: the approved altar remake (the done-test script), count 2.
-  - Expected: both end on fomo's end line, both keep the fomo trading screens and the montage, both are within ±20% of the original's words, the two premises differ, and neither copies the original's lines wholesale.
+  - Expected: both end on fomo's end line, both keep the fomo trading screens and the montage, both are within ±30% of the original's words, the two premises differ, and neither copies the original's lines wholesale.
   - Human check: does each one play the same arc with a payoff that fits?
 - **`ironpaws-pitbull1-variations`**
   - Input: Pitbull 1 (voiceover, peanut-butter bag), count 1.
-  - Expected: it stays voiceover, keeps the PB bag ★ line at the feeding moment, stays within ±20% of the original's words, and never names the chicken flavour.
+  - Expected: it stays voiceover, keeps the PB bag ★ line at the feeding moment, stays within ±30% of the original's words, and never names the chicken flavour.
 
 ### $0 dry run (no paid calls)
 
