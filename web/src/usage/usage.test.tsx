@@ -67,7 +67,7 @@ test("Usage: the period, search and sort live in the address and go to the serve
   expect(screen.queryByText(/on last/)).not.toBeInTheDocument(); // All time compares with nothing
   await userEvent.type(screen.getByRole("searchbox"), "iron");
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /usage/brands").length).toBeGreaterThan(1));
-  await userEvent.click(screen.getByRole("button", { name: "Show more" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Show more" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /usage/brands").length).toBeGreaterThan(2));
 });
 

@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
 
@@ -32,6 +32,7 @@ export function useBrandRows(a: { period: Period; q: string; archived: boolean; 
       return data;
     },
     getNextPageParam: (last) => last.next_cursor,
+    placeholderData: keepPreviousData, // the list stays while a search or sort loads
     retry: false,
   });
 }
@@ -62,6 +63,7 @@ export function useBrandVideos(brandId: number, f: VideoFilters) {
       return data;
     },
     getNextPageParam: (last) => last.next_cursor,
+    placeholderData: keepPreviousData,
     retry: false,
   });
 }
@@ -76,6 +78,7 @@ export function useBrandScripts(brandId: number, f: ScriptFilters) {
       return data;
     },
     getNextPageParam: (last) => last.next_cursor,
+    placeholderData: keepPreviousData,
     retry: false,
   });
 }
