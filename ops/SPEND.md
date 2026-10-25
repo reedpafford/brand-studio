@@ -16,3 +16,4 @@
 | 2026-10-24 | Producer | fomo "Home (rich)" screen: Nano Banana Pro 1K edit of home.png, balance $0.00 -> $348,920.15 (prediction far3fpbfhnrmy0d1dhn8sf5rf0) | 1 image | 0.15 | 0.15 | Reed ("Yes go ahead") |
 | 2026-10-24 | Producer | fomo trading-montage run 3 with #159 and Home (rich) (13 s, 480p): 3 Claude calls ($0.47 actual), 2 Nano Banana 2.1 stills, 2 Seedance takes 7 s + 6 s | 3 + 2 + 13 s | 2.00 | 1.88 (Seedance at estimate) | Reed ("Approved") |
 | 2026-10-24 | Producer | Excerpt batch total (Reed approved one more fomo montage re-run, ~$2, on top of the $8.30) | | 8.30 + ~2 | 9.68 | Reed |
+| 2026-10-25 | Producer | Altar remake (video A, Reed approved up to $10, over the weekly cap if needed): bride house-style sheet from Reed's image (Nano Banana Pro 2K, prediction hf3f48chpxrmy0d1e36vj2srm0) | 1 image | 0.15 | 0.15 | Reed ($10 remake) |
