@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useRail } from "../useMedia";
 import { Button } from "./Button";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input:not([disabled]), select, [tabindex]:not([tabindex="-1"])';
@@ -116,4 +117,9 @@ export function Dialog({
     </>,
     document.body,
   );
+}
+
+/** A side panel on desktop (from 1024), a bottom sheet on a phone. For forms that belong beside the page. */
+export function Panel(props: { title: string; onClose: () => void; children: ReactNode }) {
+  return useRail() ? <SidePanel {...props} /> : <Sheet {...props} />;
 }

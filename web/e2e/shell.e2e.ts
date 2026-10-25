@@ -30,11 +30,15 @@ test("the owner invites someone with a link, and they join", async ({ browser, p
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   await page.getByRole("link", { name: "Team" }).click();
+  await page.getByRole("button", { name: "Invite someone" }).click();
   await page.getByLabel("Email to invite").fill("ed@example.com");
   await page.getByRole("button", { name: "Create invite link" }).click();
   const link = await page.getByLabel("Invite link").inputValue();
   expect(link).toMatch(/\/invite\/.+/);
-  await expect(page.getByText("ed@example.com · editor · waiting")).toBeVisible();
+  await page.getByRole("button", { name: "Done" }).click();
+  // Invited as an editor (an owner would see dollars), so the role is checked as well as the email.
+  await expect(page.getByRole("region", { name: "Waiting invites" })).toContainText("ed@example.com");
+  await expect(page.getByRole("region", { name: "Waiting invites" })).toContainText("Editor");
 
   const guest = await browser.newContext();
   const guestPage = await guest.newPage();
@@ -45,8 +49,9 @@ test("the owner invites someone with a link, and they join", async ({ browser, p
   await guest.close();
 
   await page.reload();
-  await expect(page.getByText("ed@example.com · editor", { exact: true })).toBeVisible();
-  await expect(page.getByText("ed@example.com · editor · waiting")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "People" })).toContainText("ed@example.com");
+  await expect(page.getByRole("listitem").filter({ has: page.getByText("ed@example.com", { exact: true }) })).toContainText("Editor");
+  await expect(page.getByRole("region", { name: "Waiting invites" })).toHaveCount(0);
 });
 
 test("an editor sees the team but not the owner's controls", async ({ page }) => {
@@ -65,8 +70,8 @@ test("the owner removes a member, who can no longer sign in", async ({ page }) =
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo"); // wait for the landing page, or the sign-in redirect can replace the Team click
   await page.getByRole("link", { name: "Team" }).click();
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Remove Ed" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove Ed" })).toHaveCount(0);
 
   await openAccountMenu(page);
