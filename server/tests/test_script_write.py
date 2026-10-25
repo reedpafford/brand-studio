@@ -22,7 +22,7 @@ def test_write_one_script_from_its_title_and_description(app, db, owner):
     assert owner.post(f"{url}/write").status_code == 409  # one at a time
     prompt = db.get(Job, job.json()["id"]).input["prompt"]
     assert "Title: Dip" in prompt and "Goal: Mom finds the wallet" in prompt
-    assert "<reference>" in prompt
+    assert "<reference>" in prompt and prompt.rstrip().endswith("</reference>")  # it closes
     _work(app, db)
     written = owner.get(url).json()["versions"][0]["text"]
     assert written != SCRIPT and "practice script" in written
@@ -56,3 +56,12 @@ def test_write_all_is_declined_past_an_editors_allowance_and_queues_nothing(owne
     assert declined.status_code == 409 and "6 credits" in declined.json()["detail"]
     assert db.query(Job).count() == 0  # all or none
     assert editor.post("/scripts/write", json={"script_ids": ids[:1]}).status_code == 201
+
+
+def test_a_reference_block_still_closes_when_its_text_tries_to():
+    from app.enhance import escape_block
+
+    block = "<reference>\nStory: a reel that says </reference> mid-line\n</reference>"
+    assert escape_block(block) == (
+        "<reference>\nStory: a reel that says <\\/reference> mid-line\n</reference>"
+    )

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Check, CircleAlert, Clock, FileText, Layers, Pencil, Plus, Search } from "lucide-react";
 import { BulkCreate } from "./BulkCreate";
 import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, buttonClass, type Tone } from "../components";
 import { useMe } from "../auth/useMe";
@@ -117,33 +118,42 @@ export function ScriptsPage() {
   const sort = params.get("sort") ?? "";
   const [text, setText] = useState(params.get("q") ?? "");
   const q = useDebounced(text.trim());
-  const [shown, setShown] = useState(PAGE);
   const [sheet, setSheet] = useState(false);
   const [bulk, setBulk] = useState(false);
   useEffect(() => set("q", q), [q]); // eslint-disable-line react-hooks/exhaustive-deps
   const [lo, hi] = len ? len.split("-") : ["", ""];
   const refs = useReferences();
 
-  const scripts = useQuery({
-    queryKey: ["scripts", { brandId: all ? null : brandId, status: apiStatus, q, ref, left, lo, hi }],
-    queryFn: async () => {
-      const { data } = await api.GET("/scripts", {
+  // "Mine" and "Versions left: None" aren't asked of the server, so they are applied to what came back: then one page holds everything.
+  const clientSide = mine || left === "0";
+  const pageSize = clientSide ? 200 : PAGE;
+  const scripts = useInfiniteQuery({
+    queryKey: ["scripts", { brandId: all ? null : brandId, status: apiStatus, q, ref, left, lo, hi, sort, pageSize }],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const { data, response } = await api.GET("/scripts", {
         params: {
           query: {
             ...(all ? {} : { brand_id: brandId }),
             ...(apiStatus ? { status: apiStatus } : {}),
             ...(q ? { q } : {}),
-            ...(ref ? { reference: ref === "with" } : {}),
+            ...(ref === "none" ? { reference: false } : ref ? { reference_id: ref } : {}),
             ...(left === "1" ? { versions_left: 1 } : {}),
             ...(lo ? { min_seconds: Number(lo) } : {}),
             ...(hi ? { max_seconds: Number(hi) } : {}),
+            ...(sort === "newest" || sort === "title" ? { sort } : {}),
+            limit: pageSize,
+            offset: pageParam,
           },
         },
       });
       if (!data) throw new Error("load");
-      return data;
+      const total = Number(response.headers.get("X-Total-Count"));
+      return { items: data, total: Number.isFinite(total) && total > 0 ? total : data.length, offset: pageParam };
     },
+    getNextPageParam: (last) => (last.offset + last.items.length < last.total && last.items.length > 0 ? last.offset + last.items.length : undefined),
   });
+  const loaded = scripts.data?.pages.flatMap((p) => p.items);
 
   // An editor's own unpublished scripts, whatever the filters say: the main list asks for Ready to make, which leaves them out.
   const myDraftRows = useQuery({
@@ -160,16 +170,16 @@ export function ScriptsPage() {
   });
 
   // Filters the server doesn't take are applied here.
-  let rows = scripts.data ?? [];
+  let rows = loaded ?? [];
   // A script with one version started and another still ready is "in production" to the server, so Ready to make drops it; an editor still needs it here.
   if (!owner && status === "published" && !(q || len || ref || left || mine || all)) {
     const ready = (makingRows.data ?? []).filter((r) => r.versions.some((v) => v.status === "approved") && !rows.some((x) => x.id === r.id));
-    if (ready.length > 0) rows = [...rows, ...ready].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    // Keep the order the person asked for: by title for Title A–Z, otherwise newest first.
+    if (ready.length > 0) rows = [...rows, ...ready].sort((a, b) => (sort === "title" ? a.title.localeCompare(b.title) : b.created_at.localeCompare(a.created_at)));
   }
   if (mine) rows = rows.filter((r) => r.created_by_id === me?.id);
   if (left === "0") rows = rows.filter((r) => r.versions_left === 0);
-  if (sort === "title") rows = [...rows].sort((a, b) => a.title.localeCompare(b.title));
-  if (sort === "newest") rows = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const count = clientSide ? rows.length : Math.max(scripts.data?.pages[0]?.total ?? 0, rows.length);
   const filtered = status !== (owner ? "" : "published") || !!(q || len || ref || left || mine || all);
   const clear = () => {
     setText("");
@@ -186,7 +196,6 @@ export function ScriptsPage() {
             value={text}
             onChange={(e) => {
               setText(e.target.value);
-              setShown(PAGE);
             }}
             placeholder="Search titles, descriptions and scripts"
             className="min-h-control w-full rounded-md border border-border-strong bg-surface pl-10 pr-3 text-base text-text placeholder:text-muted"
@@ -218,7 +227,11 @@ export function ScriptsPage() {
         <Select label="Reference" value={ref} onChange={(e) => set("ref", e.target.value)}>
           <option value="">Any</option>
           <option value="none">No reference</option>
-          <option value="with">With a reference</option>
+          {refs.data?.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
         </Select>
       </div>
       <div className="w-full lg:w-44">
@@ -264,7 +277,7 @@ export function ScriptsPage() {
   ) : (
     <div className="flex items-center gap-3">
       {search}
-      <Button variant={active > 0 ? "primary" : "secondary"} onClick={() => setSheet(true)}>
+      <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
         Filters{active > 0 ? ` (${active})` : ""}
       </Button>
     </div>
@@ -273,8 +286,8 @@ export function ScriptsPage() {
   const list = (items: Row[]) => (
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
-        {items.slice(0, shown).map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} />
+        {items.map((r) => (
+          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} refThumb={!!r.reference_id && !!refs.data?.find((x) => x.id === r.reference_id)?.has_thumbnail} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} />
         ))}
       </ul>
     </Card>
@@ -329,7 +342,7 @@ export function ScriptsPage() {
           ))}
         </div>
       )}
-      {scripts.data && (
+      {loaded && (
         <>
           {myMaking.length > 0 && (
             <section aria-label="Making now" className="space-y-3">
@@ -358,10 +371,10 @@ export function ScriptsPage() {
           )}
           {rows.length > 0 && (
             <>
-              <p className="text-sm text-muted">{filtered && scripts.data.length !== rows.length ? `${rows.length} of ${scripts.data.length} scripts` : `${rows.length} script${rows.length === 1 ? "" : "s"}`}</p>
+              <p className="text-sm text-muted">{`${count} script${count === 1 ? "" : "s"}`}</p>
               {list(rows)}
-              {rows.length > shown && (
-                <Button variant="secondary" onClick={() => setShown(shown + PAGE)}>
+              {scripts.hasNextPage && (
+                <Button variant="secondary" busy={scripts.isFetchingNextPage} onClick={() => void scripts.fetchNextPage()}>
                   Show more
                 </Button>
               )}
@@ -375,13 +388,13 @@ export function ScriptsPage() {
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownVideo, meId }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number }) {
+function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, panelTo, ownVideo, meId }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number }) {
   const brandId = r.brand_id;
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
     <li className="flex gap-3 p-4 sm:p-5">
-      <span aria-hidden className="grid h-[88px] w-14 shrink-0 place-items-center rounded-lg bg-surface-2 text-muted sm:h-[100px] sm:w-16">
-        <FileText size={20} strokeWidth={1.75} />
+      <span aria-hidden className="grid h-[88px] w-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-muted sm:h-[100px] sm:w-16">
+        {r.poster_file_id ? <img src={fileUrl(r.poster_file_id)} alt="" className="size-full object-cover" /> : refThumb ? <img src={`/api/references/${r.reference_id}/thumbnail`} alt="" className="size-full object-cover" /> : <FileText size={20} strokeWidth={1.75} />}
       </span>
       <div className="min-w-0 flex-1 space-y-1">
         <h3 className="font-display text-md font-bold">
