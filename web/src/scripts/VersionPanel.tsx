@@ -43,6 +43,8 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   });
   // With no saved breakdown, starting one is a paid call; with one saved, making the version is free.
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
+  // An editor making their own script is billed to their weekly allowance; anyone else's script is billed to the video's budget (and Reed is never limited).
+  const spent = cost !== undefined && s?.created_by_id === me?.id && me?.role !== "owner" && !!allowance.data && allowance.data.quick_clip_credits_used + cost > allowance.data.quick_clip_credits_allowed;
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
   return (
@@ -81,7 +83,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           </section>
           {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
           {readyToMake ? (
-            <Button price={cost} ask={cost !== undefined && !!allowance.data && allowance.data.quick_clip_credits_used + cost > allowance.data.quick_clip_credits_allowed} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
+            <Button price={cost} disabled={spent} reason={spent ? `You've used this week's ${Math.round(allowance.data!.quick_clip_credits_allowed)} credits. It resets Monday.` : undefined} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
               Make this version
             </Button>
           ) : (

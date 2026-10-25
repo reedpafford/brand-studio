@@ -403,18 +403,34 @@ test("an In production chip opens the video for Reed and for its maker, and the 
   await vi.waitFor(() => expect(screen.getByLabelText("Version A, in production").closest("a")).toHaveAttribute("href", "/b/1/projects/31"));
 });
 
-test("an editor past the week's allowance sees Ask Reed to approve with the price", async () => {
+test("an editor past the week's allowance on their own script can't make it, and is told when it resets; on Reed's script the button just shows the price", async () => {
   setViewport(1440);
-  fakeServer({
+  const answers = (createdBy: number) => ({
     ...base,
-    "GET /auth/me": [200, editor],
-    "GET /scripts": [200, []],
-    "GET /scripts/7": [200, script({ versions: [v(0, "approved", { text: "Hi", has_breakdown: false })] })],
-    "GET /scripts/7/cast": [200, []],
-    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
-    "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }],
+    "GET /auth/me": [200, editor] as [number, unknown],
+    "GET /scripts": [200, []] as [number, unknown],
+    "GET /scripts/7": [200, script({ created_by_id: createdBy, versions: [v(0, "approved", { text: "Hi", has_breakdown: false })] })] as [number, unknown],
+    "GET /scripts/7/cast": [200, []] as [number, unknown],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]] as [number, unknown],
+    "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }] as [number, unknown],
   });
-  open("/b/1/scripts?make=7.0");
+  fakeServer(answers(2));
+  const { unmount } = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/scripts?make=7.0"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
-  expect(await within(panel).findByRole("button", { name: /Ask Reed to approve.*3 credits/ })).toBeInTheDocument();
+  const own = await within(panel).findByRole("button", { name: /Make this version.*3 credits/ });
+  await vi.waitFor(() => expect(own).toBeDisabled());
+  expect(within(panel).getByText("You've used this week's 145 credits. It resets Monday.")).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/Ask Reed/);
+  unmount();
+
+  fakeServer(answers(1));
+  open("/b/1/scripts?make=7.0");
+  const other = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  expect(await within(other).findByRole("button", { name: /Make this version.*3 credits/ })).toBeEnabled();
 });
