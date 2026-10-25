@@ -749,7 +749,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project_id}/unarchive": {
+    "/projects/{project_id}/release": {
         parameters: {
             query?: never;
             header?: never;
@@ -759,10 +759,36 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Unarchive Project
-         * @description Undo: the video comes back as it was (cancelled jobs stay cancelled; run them again).
+         * Release Project
+         * @description Put a started version back to "Ready to make": the owner, or the editor making it.
+         *     Produce-once holds because the video goes too: it is archived (kept, not deleted; jobs
+         *     that haven't started are cancelled, so their credits come back, and credits already used
+         *     stay used) and unlinked from the version, which anyone may then make afresh. Restore
+         *     undoes it while nobody has. A finished video can't be released.
          */
-        post: operations["unarchive_project_projects__project_id__unarchive_post"];
+        post: operations["release_project_projects__project_id__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Project
+         * @description Undo archive or release: the video comes back as it was (cancelled jobs stay
+         *     cancelled; run them again). A released video gets its version back unless someone has
+         *     started that version since; then it comes back on its own.
+         */
+        post: operations["restore_project_projects__project_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1300,13 +1326,34 @@ export interface paths {
         post?: never;
         /**
          * Delete Script
-         * @description Delete it, or archive it if a video was made from any version (videos stay).
+         * @description Delete it, undoably (Reed, 2026-10-25): it leaves every list but keeps its versions,
+         *     history, cast, reel files and videos, so Restore brings it back exactly as it was.
          */
         delete: operations["delete_script_scripts__script_id__delete"];
         options?: never;
         head?: never;
         /** Update Script */
         patch: operations["update_script_scripts__script_id__patch"];
+        trace?: never;
+    };
+    "/scripts/{script_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Script
+         * @description Undo a delete: who may delete it may restore it.
+         */
+        post: operations["restore_script_scripts__script_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/scripts/{script_id}/drafts/{slot}": {
@@ -1566,29 +1613,6 @@ export interface paths {
          *     one video, reserved for whoever starts it.
          */
         post: operations["produce_scripts__script_id__drafts__slot__produce_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/scripts/{script_id}/drafts/{slot}/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Release
-         * @description Put a started version back to "Ready to make": the owner, or the editor making it.
-         *     Produce-once holds because the version's video goes too: it is archived (its jobs that
-         *     haven't started are cancelled, so their credits come back) and unlinked from the version,
-         *     which anyone may then produce afresh. A finished video can't be released.
-         */
-        post: operations["release_scripts__script_id__drafts__slot__release_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6113,7 +6137,38 @@ export interface operations {
             };
         };
     };
-    unarchive_project_projects__project_id__unarchive_post: {
+    release_project_projects__project_id__release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_project_projects__project_id__restore_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -7208,6 +7263,37 @@ export interface operations {
             };
         };
     };
+    restore_script_scripts__script_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     write_draft_scripts__script_id__drafts__slot__put: {
         parameters: {
             query?: never;
@@ -7850,36 +7936,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProduceOut"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    release_scripts__script_id__drafts__slot__release_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                script_id: number;
-                slot: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -20,6 +20,7 @@ from app.models.credits import BUDGET_MULTIPLIER
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind
 from app.models.projects import Project, ProjectStatus
+from app.models.script_library import ScriptDraft
 from app.routes import references
 from app.routes.brands import get_brand
 from app.routes.files import get_file
@@ -236,13 +237,44 @@ def archive_project(
     return _out(db, project)
 
 
-@router.post("/{project_id}/unarchive", response_model=ProjectOut)
-def unarchive_project(
+@router.post("/{project_id}/release", response_model=ProjectOut)
+def release_project(
     project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    """Undo: the video comes back as it was (cancelled jobs stay cancelled; run them again)."""
+    """Put a started version back to "Ready to make": the owner, or the editor making it.
+    Produce-once holds because the video goes too: it is archived (kept, not deleted; jobs
+    that haven't started are cancelled, so their credits come back, and credits already used
+    stay used) and unlinked from the version, which anyone may then make afresh. Restore
+    undoes it while nobody has. A finished video can't be released."""
+    project = get_project(db, user, project_id)
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if draft is None:
+        raise HTTPException(409, "This video isn't made from a library version.")
+    if not (user.is_owner or draft.reserved_by_id == user.id):
+        raise HTTPException(403, "Only whoever is making it, or the owner, can release it.")
+    if project.finished_at:
+        raise HTTPException(409, "This video is done, so its version can't be released.")
+    archive(db, project)
+    project.script_draft_id, project.released_draft_id = None, draft.id
+    draft.reserved_by_id = None
+    db.commit()
+    return _out(db, project)
+
+
+@router.post("/{project_id}/restore", response_model=ProjectOut)
+def restore_project(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo archive or release: the video comes back as it was (cancelled jobs stay
+    cancelled; run them again). A released video gets its version back unless someone has
+    started that version since; then it comes back on its own."""
     project = _mine(db, user, project_id)
     project.archived_at = None
+    draft = db.get(ScriptDraft, project.released_draft_id) if project.released_draft_id else None
+    taken = draft and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id))
+    if draft is not None and not taken:
+        project.script_draft_id, project.released_draft_id = draft.id, None
+        draft.reserved_by_id = project.created_by_id
     db.commit()
     return _out(db, project)
 

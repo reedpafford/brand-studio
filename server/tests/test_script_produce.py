@@ -172,18 +172,30 @@ def test_produce_uses_the_scripts_own_imported_reel(owner, editor, db):
 def test_a_started_version_can_be_released_and_made_again(app, owner, editor, db):
     base, _ = _published(owner, db, target=40)
     made = editor.post(f"{base}/drafts/0/produce").json()  # its breakdown job is queued
+    pid = made["project_id"]
     two, _ = _second_editor(app, owner, db)
-    assert two.post(f"{base}/drafts/0/release").status_code == 403  # not theirs
-    assert editor.post(f"{base}/drafts/0/release").status_code == 204
+    assert two.post(f"/projects/{pid}/release").status_code == 403  # not theirs
+    released = editor.post(f"/projects/{pid}/release").json()
+    assert released["archived_at"] and released["script_draft_id"] is None
     assert db.get(Job, made["breakdown_job_id"]).status == "cancelled"  # credits come back
-    project = editor.get(f"/projects/{made['project_id']}").json()
-    assert project["archived_at"] and project["script_draft_id"] is None
-    assert project["credits_used"] == 0
+    assert released["credits_used"] == 0
     assert owner.get(base).json()["versions"][0]["status"] == "approved"  # Ready to make
     again = two.post(f"{base}/drafts/0/produce")
-    assert again.status_code == 201 and again.json()["project_id"] != made["project_id"]
-    assert editor.post(f"{base}/drafts/0/release").status_code == 403  # two's now
-    assert owner.post(f"{base}/drafts/0/release").status_code == 204  # the owner may
+    assert again.status_code == 201 and again.json()["project_id"] != pid
+    back = editor.post(f"/projects/{pid}/restore").json()  # Undo, too late: on its own
+    assert back["archived_at"] is None and back["script_draft_id"] is None
+    assert editor.post(f"/projects/{again.json()['project_id']}/release").status_code == 403
+    assert owner.post(f"/projects/{again.json()['project_id']}/release").status_code == 200
+
+
+def test_restore_right_after_release_gives_the_version_back(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    editor.post(f"/projects/{pid}/release")
+    back = editor.post(f"/projects/{pid}/restore").json()
+    assert back["script_draft_id"] is not None and back["archived_at"] is None
+    version = owner.get(base).json()["versions"][0]
+    assert (version["status"], version["project_id"]) == ("in_production", pid)
 
 
 def test_a_done_video_cant_be_released(owner, editor, db):
@@ -193,7 +205,7 @@ def test_a_done_video_cant_be_released(owner, editor, db):
 
     db.get(Project, pid).finished_at = utcnow()
     db.commit()
-    assert editor.post(f"{base}/drafts/0/release").status_code == 409
+    assert editor.post(f"/projects/{pid}/release").status_code == 409
 
 
 def test_a_video_can_be_archived_and_brought_back(app, owner, editor, db):
@@ -206,5 +218,13 @@ def test_a_video_can_be_archived_and_brought_back(app, owner, editor, db):
     assert paid.status_code == 409 and "archived" in paid.json()["detail"]
     assert [p["id"] for p in editor.get("/projects").json()] == []
     assert [p["id"] for p in editor.get("/projects?archived=true").json()] == [pid]
-    assert editor.post(f"/projects/{pid}/unarchive").json()["archived_at"] is None
+    assert editor.post(f"/projects/{pid}/restore").json()["archived_at"] is None
     assert [p["id"] for p in owner.get("/projects").json()] == [pid]
+
+
+def test_deleting_a_produced_script_keeps_its_video(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    assert owner.delete(base).status_code == 204
+    assert editor.get(f"/projects/{pid}").status_code == 200  # the video stays
+    assert owner.post(f"{base}/restore").json()["versions"][0]["project_id"] == pid

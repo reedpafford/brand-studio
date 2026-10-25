@@ -72,6 +72,11 @@ def held(db: Session, user: User) -> Decimal:
     return total
 
 
+def needs_upload(script: Script) -> bool:
+    """Prepared before watch copies existed, so it can't be watched: upload it again."""
+    return "watch" in remaining(script) and not (script.reel or {}).get("watch_file_id")
+
+
 def remaining(script: Script) -> list[str]:
     done = (script.reel or {}).get("done", [])
     return [s for s in STEPS if s not in done]
@@ -103,8 +108,9 @@ def watch_input(script: Script) -> dict:
             "prompt": prompts.reel_watch_input(said, shots(reel)),
             "system_instruction": prompts.watch_system(),
         },
-        "files": {"images": [reel["contact_file_id"]]},
-        "uploads": {"videos": [reel["video_file_id"]]},
+        # The small watch copy goes as a data: URL: Replicate file URLs to Gemini fail on and
+        # off (E001), the same video inline works (Producer, 2026-10-25).
+        "files": {"images": [reel["contact_file_id"]], "videos": [reel["watch_file_id"]]},
     }
 
 

@@ -21,7 +21,7 @@ from app.models.scripts import ScriptVersion
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.jobs import enqueue
-from app.routes.projects import _set_length, archive
+from app.routes.projects import _set_length
 from app.routes.references import for_script as script_reference
 from app.routes.script_library import Slot
 
@@ -108,26 +108,3 @@ def produce(
         db.rollback()
         raise
     return ProduceOut(project_id=project.id, breakdown_job_id=job.id)
-
-
-@router.post("/release", status_code=204)
-def release(
-    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
-):
-    """Put a started version back to "Ready to make": the owner, or the editor making it.
-    Produce-once holds because the version's video goes too: it is archived (its jobs that
-    haven't started are cancelled, so their credits come back) and unlinked from the version,
-    which anyone may then produce afresh. A finished video can't be released."""
-    script = lib.get_script(db, user, script_id)
-    draft = lib.get_draft(db, script, slot)
-    project = db.scalar(select(Project).where(Project.script_draft_id == draft.id))
-    if project is None:
-        raise HTTPException(409, "This version isn't being made.")
-    if not (user.is_owner or draft.reserved_by_id == user.id):
-        raise HTTPException(403, "Only whoever is making it, or the owner, can release it.")
-    if project.finished_at:
-        raise HTTPException(409, "This version's video is done, so it can't be released.")
-    archive(db, project)
-    project.script_draft_id = None
-    draft.reserved_by_id = None
-    db.commit()

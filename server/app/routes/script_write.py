@@ -59,8 +59,8 @@ def _plan(db: Session, script: Script) -> str:
     status, failed = reel_read.state(db, script)
     if status == "preparing":
         return "waiting"
-    if failed == "prepare":
-        return "failed"
+    if failed == "prepare" or reel_read.needs_upload(script):
+        return "failed"  # Write all says to upload the video (or untick it)
     if status == "reading":
         raise HTTPException(409, f"{script.title}: its reel is being read.")
     return "write" if status == "done" else "read"

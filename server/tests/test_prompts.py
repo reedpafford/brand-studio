@@ -776,3 +776,11 @@ def test_money_on_trading_screens_only_climbs():
     assert check.clip_prompts(bd, cp, 30, 10) == [
         "Advice: c2: shot 2.7's screen should read $12,900"
     ]
+
+
+def test_a_frames_only_watch_says_so_and_keeps_the_cuts_and_words():
+    _, _, transcript, cuts = altar_reel()
+    text = prompts.reel_watch_input(transcript, cuts, frames_only=True)
+    assert text.startswith("<watched_from>frames</watched_from>\n<cuts>\n1. 0.00–0.40")
+    assert text.split("\n", 1)[1] == prompts.reel_watch_input(transcript, cuts)
+    assert "**Frames only.**" in prompts.watch_system()
