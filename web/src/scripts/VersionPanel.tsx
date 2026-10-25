@@ -4,7 +4,7 @@ import { Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Badge, Button, Panel, Skeleton } from "../components";
+import { Badge, Button, Panel, Skeleton, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
@@ -86,7 +86,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           </section>
           {readyToMake && v.estimate_credits > 0 && (
             <p className="text-sm text-muted">
-              About {Math.round(v.estimate_credits)} credits to make
+              About {wholeCredits(v.estimate_credits)} credits to make
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
           )}

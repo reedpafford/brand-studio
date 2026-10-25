@@ -15,7 +15,7 @@ import { useRail } from "../useMedia";
 import { CastStep } from "./CastStep";
 import { DescriptionForm } from "./DescriptionForm";
 import { VariationsStep, variationsReason, writtenVariations } from "./VariationsStep";
-import { ReelBlock } from "./ReelImport";
+import { ReadReelButton, ReelBlock, useReelImport } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
 import { WRITING_STEPS, around, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
 import { useScript, usePatchScript, useWriteWords } from "./useScript";
@@ -31,6 +31,7 @@ export function ScriptFlowPage() {
   const { data: me } = useMe();
   const script = useScript(id);
   const patch = usePatchScript(id);
+  const reel = useReelImport(id);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [asking, setAsking] = useState(false); // the Publish confirmation, opened from the Next slot
   const [picked, setPicked] = useState(0); // variations chosen on that step, before any is written
@@ -68,7 +69,10 @@ export function ScriptFlowPage() {
       Publish {toPublish} version{toPublish === 1 ? "" : "s"}
     </Button>
   );
-  const nextButton = publishButton || (next && !editing && !(step === "variations" && picked > 0 && writtenVariations(s).length === 0) && (
+  // A script from a reel isn't ready to move on until the reel is read: Read this reel is the one amber button until then.
+  const unread = step === "description" && !!reel.data && reel.data.status !== "done";
+  const reelReady = unread && !s.published && !rail && (reel.data?.status === "ready" || reel.data?.status === "failed") && reel.data?.failed_step !== "prepare";
+  const nextButton = reelReady ? <ReadReelButton scriptId={id} createdById={s.created_by_id} /> : publishButton || (next && !editing && !unread && !(step === "variations" && picked > 0 && writtenVariations(s).length === 0) && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
@@ -192,7 +196,7 @@ function DescriptionStep({ script: s, brandName, onEditing, onDone }: { script: 
   );
   return (
     <div className="space-y-4">
-    <ReelBlock scriptId={s.id} published={s.published} />
+    <ReelBlock scriptId={s.id} published={s.published} createdById={s.created_by_id} />
     <Card className="max-w-[680px] space-y-4">
       <dl className="space-y-4">
         {row("Title", s.title)}

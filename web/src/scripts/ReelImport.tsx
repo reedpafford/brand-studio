@@ -1,11 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleAlert, Film, Link as LinkIcon, LoaderCircle, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Button, Card, Field } from "../components";
+import { Button, Card, Field, wholeCredits } from "../components";
+import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { useRail } from "../useMedia";
+import { useAllowanceStop } from "./useScript";
 
 const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
 const MAX_MB = 100;
@@ -113,15 +116,54 @@ export function useReelImport(scriptId: number) {
       if (!data) throw new Error("load");
       return data;
     },
-    refetchInterval: (q) => (q.state.data?.status === "preparing" ? 2000 : false),
+    refetchInterval: (q) => (q.state.data?.status === "preparing" || q.state.data?.status === "reading" ? 2000 : false),
   });
 }
 
-/** On the Description step: getting the reel, then what was found, or why it couldn't be got. */
-export function ReelBlock({ scriptId, published }: { scriptId: number; published: boolean }) {
+/** The paid read's rows. The server's steps are watch, write and cast; "Got the reel" and "Listening" are the free preparation. */
+const ROWS: { id: "got" | "heard" | "watch" | "write" | "cast"; label: string }[] = [
+  { id: "got", label: "Got the reel" },
+  { id: "heard", label: "Listening to the dialogue" },
+  { id: "watch", label: "Finding the shots and writing the breakdown" },
+  { id: "write", label: "Writing the script" },
+  { id: "cast", label: "Filling in the cast" },
+];
+
+/** What the server says is left this week, if it says the read doesn't fit. The usual wording comes from the allowance itself. */
+const notEnough = (e?: { credits: number; credits_left: number | null } | null) => (e && e.credits_left !== null && e.credits > e.credits_left ? "That's more than the credits you have left this week. It resets on Monday." : null);
+
+/** Read this reel · N credits (or Try again after a failed step): the one amber button of a prepared reel. On a phone it sits in the action bar, on desktop in the card. */
+export function ReadReelButton({ scriptId, createdById, className }: { scriptId: number; createdById: number | null; className?: string }) {
+  const reel = useReelImport(scriptId);
+  const queryClient = useQueryClient();
+  const r = reel.data;
+  const allowanceStop = useAllowanceStop({ created_by_id: createdById }, r?.estimate?.credits);
+  const read = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/scripts/{script_id}/import/read", { params: { path: { script_id: scriptId } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (d) => queryClient.setQueryData(["script-import", scriptId], d),
+  });
+  if (!r || (r.status !== "ready" && r.status !== "failed") || r.failed_step === "prepare") return null;
+  const stop = allowanceStop ?? notEnough(r.estimate);
+  return (
+    <div className="space-y-2">
+      <Button className={className} busy={read.isPending} disabled={!r.estimate || stop !== null} reason={stop} price={r.estimate?.credits} onClick={() => read.mutate()}>
+        {r.status === "failed" ? "Try again" : "Read this reel"}
+      </Button>
+      {read.isError && <p role="alert" className={errorClass}>{read.error.message}</p>}
+    </div>
+  );
+}
+
+/** On the Description step: getting the reel, the price to read it, the read's progress, and what came of it. */
+export function ReelBlock({ scriptId, published, createdById }: { scriptId: number; published: boolean; createdById: number | null }) {
   const reel = useReelImport(scriptId);
   const file = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const toast = useToast();
   const again = useMutation({
     mutationFn: async (f: File) => {
       if (f.size > MAX_MB * 1024 * 1024) throw new Error(`That file is over ${MAX_MB} MB. Use a shorter video.`);
@@ -139,9 +181,39 @@ export function ReelBlock({ scriptId, published }: { scriptId: number; published
     },
     onSuccess: (d) => queryClient.setQueryData(["script-import", scriptId], d),
   });
+  const rail = useRail();
   const r = reel.data;
+  // The read finished while this page was open: say so and bring the script in.
+  const was = useRef(r?.status);
+  useEffect(() => {
+    if (was.current === "reading" && r?.status === "done") {
+      toast("Reel read. Check the script and the cast.");
+      void queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] });
+      void queryClient.invalidateQueries({ queryKey: ["script-cast", scriptId] });
+      void queryClient.invalidateQueries({ queryKey: ["scripts"] });
+    }
+    was.current = r?.status;
+  }, [r?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!r) return null;
   const lines = r.transcript.length;
+  const facts = [r.seconds ? `${Math.round(r.seconds)} s` : null, r.shots ? `${r.shots} shot${r.shots === 1 ? "" : "s"}` : null, lines > 0 ? `${lines} line${lines === 1 ? "" : "s"} of dialogue` : "No dialogue (music only)"].filter(Boolean).join(" · ");
+  const thumb = (
+    <span aria-hidden className="grid h-32 w-[72px] shrink-0 place-items-center overflow-hidden rounded-md bg-surface-2 text-muted">
+      {r.contact_file_id ? <img src={fileUrl(r.contact_file_id)} alt="" className="size-full object-cover" /> : <Film size={20} strokeWidth={1.75} />}
+    </span>
+  );
+  const chooser = (button: string) => (
+    <>
+      <input ref={file} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a video file" className="sr-only" onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = ""; // so the same file can be chosen again
+          if (f) again.mutate(f);
+        }} />
+      <Button variant="secondary" icon={Upload} busy={again.isPending} onClick={() => file.current?.click()}>
+        {button}
+      </Button>
+    </>
+  );
   if (r.status === "preparing")
     return (
       <Card className="max-w-[680px]">
@@ -151,7 +223,8 @@ export function ReelBlock({ scriptId, published }: { scriptId: number; published
         </p>
       </Card>
     );
-  if (r.status === "failed") {
+  const step = r.failed_step;
+  if (r.status === "failed" && (!step || step === "prepare")) {
     // The server says what is wrong (a silent video, one over the size, a link it was refused); our words are only for when it says nothing. The code picks the button.
     const known = PROBLEMS[r.problem_code ?? ""];
     const p = { text: r.problem || known?.text || "We couldn't get that reel. Upload the video instead.", button: known?.button ?? "Upload a video" };
@@ -161,37 +234,68 @@ export function ReelBlock({ scriptId, published }: { scriptId: number; published
           <CircleAlert size={20} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
           {p.text}
         </p>
-        {!published && (
-          <>
-            <input ref={file} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a video file" className="sr-only" onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (f) again.mutate(f);
-            }} />
-            <Button variant="secondary" icon={Upload} busy={again.isPending} onClick={() => file.current?.click()}>
-              {p.button}
-            </Button>
-          </>
-        )}
+        {!published && chooser(p.button)}
         {again.isError && <p role="alert" className={errorClass}>{again.error.message}</p>}
+      </Card>
+    );
+  }
+  if (r.status === "ready" || r.status === "failed") {
+    // The server says which step didn't finish and what was charged; ours is only for when it says nothing.
+    const failedText = r.problem || (step === "watch" ? "The shots couldn't be found. Credits for the rest were returned." : step === "write" ? "The script didn't finish. Credits for this step were returned." : "The cast didn't finish. Credits for this step were returned.");
+    const tried = r.estimate?.tries ?? 0;
+    return (
+      <Card className="max-w-[680px] space-y-3">
+        <div className="flex gap-4">
+          {thumb}
+          <div className="min-w-0 space-y-1">
+            <p className="flex items-center gap-1 font-medium">
+              <Check size={20} strokeWidth={1.75} aria-hidden className="text-success" />
+              Got the reel
+            </p>
+            <p className="text-sm text-muted">{facts}</p>
+            {r.url && <p className="truncate text-sm text-muted">{r.url.replace(/^https?:\/\/(www\.)?/, "")}</p>}
+            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs about ${wholeCredits(r.estimate.credits)} credits. A step that is run again is charged again.${tried >= 2 ? ` It has been tried ${tried} times already.` : ""}` : `Reading it costs about ${wholeCredits(r.estimate.credits)} credits.`}</p>}
+          </div>
+        </div>
+        {r.status === "failed" && (
+          <p role="alert" className="flex items-start gap-2 text-danger">
+            <CircleAlert size={20} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
+            {failedText}
+          </p>
+        )}
+        {!published && rail && <ReadReelButton scriptId={scriptId} createdById={createdById} />}
+      </Card>
+    );
+  }
+  if (r.status === "reading") {
+    const done = new Set(["got", "heard", ...r.steps_done]);
+    const current = ROWS.find((row) => !done.has(row.id))?.id;
+    return (
+      <Card className="max-w-[680px] space-y-2">
+        <p className="font-medium">Reading the reel</p>
+        <ul aria-label="Reading the reel" className="space-y-1">
+          {ROWS.map((row) => (
+            <li key={row.id} className={`flex items-center gap-2 ${done.has(row.id) ? "" : row.id === current ? "" : "text-muted"}`}>
+              {done.has(row.id) ? <Check size={20} strokeWidth={1.75} aria-hidden className="text-success" /> : row.id === current ? <LoaderCircle size={20} strokeWidth={1.75} aria-hidden className="animate-spin motion-reduce:animate-none" /> : <span aria-hidden className="size-5 rounded-full border border-border" />}
+              <span>{row.label}</span>
+              <span className="sr-only">{done.has(row.id) ? "done" : row.id === current ? "now" : "next"}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm text-muted">It keeps going if you leave this page.</p>
       </Card>
     );
   }
   return (
     <Card className="flex max-w-[680px] gap-4">
-      <span aria-hidden className="grid h-32 w-[72px] shrink-0 place-items-center overflow-hidden rounded-md bg-surface-2 text-muted">
-        {r.contact_file_id ? <img src={fileUrl(r.contact_file_id)} alt="" className="size-full object-cover" /> : <Film size={20} strokeWidth={1.75} />}
-      </span>
+      {thumb}
       <div className="min-w-0 space-y-1">
         <p className="flex items-center gap-1 font-medium">
           <Check size={20} strokeWidth={1.75} aria-hidden className="text-success" />
-          Got the reel
+          Reel read
         </p>
-        <p className="text-sm text-muted">
-          {[r.seconds ? `${Math.round(r.seconds)} s` : null, r.shots ? `${r.shots} shot${r.shots === 1 ? "" : "s"}` : null, lines > 0 ? `${lines} line${lines === 1 ? "" : "s"} of dialogue` : "No dialogue (music only)"].filter(Boolean).join(" · ")}
-        </p>
-        {r.url && <p className="truncate text-sm text-muted">{r.url.replace(/^https?:\/\/(www\.)?/, "")}</p>}
-        <p className="text-sm text-muted">Reading it into a script comes next.</p>
+        <p className="text-sm text-muted">Imported · {facts}</p>
+        <p className="text-sm text-muted">The script and the cast are filled in. Check them, then approve.</p>
       </div>
     </Card>
   );
