@@ -1,6 +1,18 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 17:06 · #285 Clip prompts: the Keep line names the face shape and keeps a hair cue visible merged
+- 2026-10-25 17:06 · #283 Reel watch: the Gemini prompt, the ReelWatch schema and its checks merged
+- 2026-10-25 17:02 · #278 Script draft keeps the reel's dialogue word for word; "new lines" is a switch merged
+- 2026-10-25 16:58 · #287 Reel import spec: match the server (#282) merged
+- 2026-10-25 16:57 · #265 Version panel: variation of, planned by, clips and the estimate merged
+- 2026-10-25 16:54 · #282 Reel import 2/5: upload or link, and the free reel_prepare job merged
+- 2026-10-25 16:50 · #276 A Redo note never changes the dialogue merged
+- 2026-10-25 16:47 · #281 ops: HANDOFF/LOG refresh 2026-10-25 16:35Z (by the Producer) merged
+- 2026-10-25 16:47 · #284 Log the altar remake v3 ($6.99) merged
+- 2026-10-25 16:38 · #262 Variations: Undo approval, Remove, Earlier, and the running write from the job list merged
+- 2026-10-25 16:35 · #279 Reel import 1/5: migration 0031 and the script's own reel merged
+- 2026-10-25 16:32 · #277 Plan: reel import, the Director's part merged
 - 2026-10-25 16:32 · #280 AGENTS: context hygiene rules and current session IDs merged
 - 2026-10-25 16:35 · Decision (#280, Reed): context hygiene. A worker above about 60% of its context after a batch of PRs is restarted fresh by the Producer with a pushed-everything handoff; re-read HANDOFF and DECISIONS after any compaction.
 - 2026-10-25 16:23 · #259 Scripts: who is making a version, Making now, and version videos out of the old list merged
