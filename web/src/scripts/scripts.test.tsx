@@ -150,6 +150,7 @@ test("the script step saves the words as the original; Next needs them", async (
   open("/b/1/scripts/7?step=script");
   const next = await screen.findByRole("button", { name: "Next: Variations" });
   expect(next).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Paste or write it yourself" }));
   await userEvent.type(screen.getByLabelText("Your script"), "BO: Salmon?");
   await userEvent.click(screen.getByRole("button", { name: "Save script" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "BO: Salmon?" }));
