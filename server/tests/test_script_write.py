@@ -35,7 +35,8 @@ def test_write_one_script_from_its_title_and_description(app, db, owner):
 def test_write_all_after_bulk_create_with_its_estimate(app, db, owner):
     ids = _bulk(owner, 3)
     est = owner.post("/scripts/write/estimate", json={"script_ids": ids}).json()
-    assert est == {"count": 3, "credits": 9, "credits_left": None}  # the owner has no allowance
+    assert (est["count"], est["credits"], est["credits_left"]) == (3, 9, None)  # owner: no cap
+    assert (est["writing"], est["reading"], est["waiting"], est["failed"]) == (3, 0, [], [])
     jobs = owner.post("/scripts/write", json={"script_ids": ids})
     assert jobs.status_code == 201 and len(jobs.json()) == 3
     _work(app, db)

@@ -40,6 +40,21 @@ def latest(db: Session, job: Job) -> Script | None:
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
+def state(db: Session, script: Script) -> tuple[str, str | None]:
+    """(status, failed step): preparing | ready | reading | done | failed, worked out from the
+    import's latest job and what the script holds; the step is prepare, watch, write or cast."""
+    reel = script.reel or {}
+    job = db.get(Job, script.reel_job_id) if script.reel_job_id else None
+    step = (job.input.get("reel_step") if job else None) or "prepare"
+    if job and job.status in WAITING:
+        return ("preparing" if step == "prepare" else "reading"), None
+    if reel.get("problem") or not job or job.status != JobStatus.succeeded:
+        return "failed", step
+    if reel.get("failed_step"):
+        return "failed", reel["failed_step"]
+    return ("ready" if remaining(script) else "done"), None
+
+
 def held(db: Session, user: User) -> Decimal:
     """Credits held for the reel-read steps this person already paid for that aren't queued
     yet: while a chain step runs, the steps after it. A chain that fails or stops holds
