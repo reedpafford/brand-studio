@@ -70,7 +70,9 @@ def estimate(
     db: Session, workspace_id: int, kind: str, units: Decimal, input: dict | None = None
 ) -> Decimal:
     """Catalogue models (input names a "model") are priced from the catalogue; other job
-    kinds from the rates table."""
+    kinds from the rates table. Nothing to do (0 units, e.g. free reel prep) costs nothing."""
+    if not units:
+        return Decimal(0)
     model = get_model((input or {}).get("model", ""))
     if model:
         resolution = (input.get("input") or {}).get("resolution")

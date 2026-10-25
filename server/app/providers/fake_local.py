@@ -27,6 +27,18 @@ def _tag(prompt: str, name: str) -> str:
     return html.unescape(found.group(1)) if found else ""
 
 
+def two_scenes(path: Path, *, sound: bool = True) -> Path:
+    """A 6 s stand-in reel: 3 s of testsrc, then 3 s of smptebars (one cut at 3 s)."""
+    scenes = ["-f", "lavfi", "-i", "testsrc=s=160x284:d=3:r=10"]
+    scenes += ["-f", "lavfi", "-i", "smptebars=s=160x284:d=3:r=10"]
+    audio = ["-f", "lavfi", "-i", "sine=d=6"] if sound else []
+    joined = "[0:v][1:v]concat=n=2:v=1[v]"
+    args = ["ffmpeg", "-v", "error", *scenes, *audio, "-filter_complex", joined, "-map", "[v]"]
+    args += ["-map", "2:a", "-shortest"] if sound else []
+    subprocess.run([*args, "-pix_fmt", "yuv420p", "-y", str(path)], check=True)  # noqa: S603
+    return path
+
+
 def transcript(path: Path) -> list[dict]:
     """Stand-in transcription (no model download): two lines, whatever the video says."""
     return [
@@ -166,9 +178,16 @@ class FakeWriter:
         return {"suggestions": [], "notes": []}
 
     def _script_draft(self, prompt):
+        """A practice script; adapting a reel, it says the reel's lines word for word (each
+        by its speaker), unless <new_lines> asks for fresh ones."""
+        said = re.findall(r'\| ([^|:\n]+): "(.*)"$', _tag(prompt, "reference"), re.M)
+        keep = said and not _tag(prompt, "new_lines")
+        name = (re.split(r" \(| / ", who)[0].upper() for who, _ in said)  # "groom (likely)"
+        lines = [f"{n}: {line}" for n, (_, line) in zip(name, said, strict=True)] if keep else []
+        body = "\n".join(lines) or "HERO: This is a practice script."
         return {
             "drafts": [
-                {"hook_idea": hook, "script": f"[{hook}]\nHERO: This is a practice script."}
+                {"hook_idea": hook, "script": f"[{hook}]\n{body}"}
                 for hook in ("Local test hook A", "Local test hook B")
             ]
         }

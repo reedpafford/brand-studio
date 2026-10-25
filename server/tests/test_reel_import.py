@@ -1,7 +1,6 @@
 """Reel import, the free part: upload or link, then `reel_prepare` (probe, caps, cuts, contact
 sheet, transcript) on the local provider. Real ffmpeg; stand-in transcription and fetch."""
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -11,20 +10,9 @@ from app import reel
 from app.models.files import StoredFile
 from app.models.jobs import Job
 from app.providers.fake_local import refuse_link, transcript
+from app.providers.fake_local import two_scenes as _clip
 from app.providers.local import LocalProvider
 from app.worker import run_once
-
-
-def _clip(path: Path, *, sound: bool = True) -> Path:
-    """3 s of testsrc, then 3 s of smptebars: one cut at 3 s."""
-    scenes = ["-f", "lavfi", "-i", "testsrc=s=160x284:d=3:r=10"]
-    scenes += ["-f", "lavfi", "-i", "smptebars=s=160x284:d=3:r=10"]
-    audio = ["-f", "lavfi", "-i", "sine=d=6"] if sound else []
-    joined = "[0:v][1:v]concat=n=2:v=1[v]"
-    args = ["ffmpeg", "-v", "error", *scenes, *audio, "-filter_complex", joined, "-map", "[v]"]
-    args += ["-map", "2:a", "-shortest"] if sound else []
-    subprocess.run([*args, "-pix_fmt", "yuv420p", "-y", str(path)], check=True)  # noqa: S603
-    return path
 
 
 @pytest.fixture(scope="module")

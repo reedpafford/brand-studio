@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import breakdown, prompts
-from app.enhance import escape, project_context, project_screens
+from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
@@ -61,7 +61,7 @@ def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict |
     parts.append(breakdown.video_model_block(breakdown.video_model()))
     if project.reference_breakdown:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
-        parts.append(escape(ref))
+        parts.append(escape_block(ref))
     parts.append(f"<script>\n{escape(prompts.number_lines(draft.text))}\n</script>")
     return {
         "step": "breakdown",

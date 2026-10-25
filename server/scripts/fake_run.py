@@ -1,6 +1,7 @@
 """Make the two done-test videos end to end with the stand-in providers: free, no keys.
 Script Library (script, cast slots, breakdown preview, publish, produce, Assets), then
 storyboard, stills, clip prompts, takes, one cut-in and the final MP4, all through the API.
+Also reel import: one uploaded reel read and produced, two reel links through bulk create.
 Prints what came out; exits 1 if anything went wrong.
 
     cd server && uv run python -m scripts.fake_run
@@ -21,6 +22,7 @@ from app.db import Base
 from app.main import create_app
 from app.models.jobs import Job, JobStatus
 from app.providers import get_providers
+from app.providers.fake_local import two_scenes
 from app.settings import REPO_ROOT, Settings
 from app.worker import run_once
 
@@ -154,6 +156,65 @@ def write_all(c, work) -> None:
         ok(c.delete(f"/scripts/{script_id}"), "remove")
 
 
+def _upload(c, url: str, video: Path, **form) -> dict:
+    with video.open("rb") as f:
+        return ok(c.post(url, data=form, files={"file": ("reel.mp4", f, "video/mp4")}), url)
+
+
+def import_reel(c, work, video: Path) -> None:
+    """Reel import: upload a two-scene reel (free prep), read it at one price (stand-in
+    Gemini and Claude), approve and publish version A, and produce it once with its reel."""
+    print("\nreel import")
+    brand_id = c.get("/brands").json()[0]["id"]
+    sid = _upload(c, "/scripts/import/upload", video, brand_id=brand_id)["script_id"]
+    work()
+    ready = c.get(f"/scripts/{sid}/import").json()
+    if ready["status"] != "ready" or ready["shots"] != 2:
+        problems.append(f"reel import: prep gave {ready['status']}, {ready['shots']} shots")
+        return
+    credits = ready["estimate"]["credits"]
+    print(f"  {ready['seconds']:.0f} s, {ready['shots']} shots, {credits:.0f} credits")
+    ok(c.post(f"/scripts/{sid}/import/read"), "read the reel")
+    work()
+    if (done := c.get(f"/scripts/{sid}/import").json())["status"] != "done":
+        problems.append(f"reel import: read ended {done['status']} at {done['failed_step']}")
+        return
+    script = c.get(f"/scripts/{sid}").json()
+    version = script["versions"][0]
+    problems.extend(f"reel import: {p}" for p in version["problems"])
+    if not script["cast"]:
+        problems.append("reel import: cast read filled no slots")
+    ok(c.post(f"/scripts/{sid}/drafts/0/approve"), "approve")
+    ok(c.post(f"/scripts/{sid}/publish"), "publish")
+    made = ok(c.post(f"/scripts/{sid}/drafts/0/produce"), "produce")
+    ref = c.get(f"/projects/{made['project_id']}").json()["reference_breakdown"] or {}
+    if len(ref.get("shots", [])) != 2:
+        problems.append("reel import: the project didn't get the reel's breakdown")
+
+
+def bulk_reels(c, work, video: Path) -> None:
+    """Two reel links in bulk create; local runs can't reach Instagram, so each says to upload
+    the video, gets it, and Write all reads both at one total."""
+    print("\nbulk reel links")
+    brand_id = c.get("/brands").json()[0]["id"]
+    rows = [{"brand_id": brand_id, "reel_url": f"https://www.instagram.com/reel/Local{n}x/"}
+            for n in (1, 2)]  # fmt: skip
+    ids = [s["id"] for s in ok(c.post("/scripts/bulk", json={"scripts": rows}), "bulk links")]
+    work()
+    for sid in ids:
+        if c.get(f"/scripts/{sid}/import").json()["problem_code"] != "blocked":
+            problems.append(f"bulk reel links: script {sid} wasn't refused locally")
+        _upload(c, f"/scripts/{sid}/import/upload", video)
+        work()
+    price = ok(c.post("/scripts/write/estimate", json={"script_ids": ids}), "estimate")
+    print(f"  read {price['reading']} reels, {price['credits']:.0f} credits")
+    ok(c.post("/scripts/write", json={"script_ids": ids}), "write all reels")
+    work()
+    for sid in ids:
+        if c.get(f"/scripts/{sid}/import").json()["status"] != "done":
+            problems.append(f"bulk reel links: script {sid} wasn't read")
+
+
 def altar_script() -> str:
     """The reference reel's lines word for word, one ★ screen line, then fomo's end line."""
     lines = json.loads(REFERENCE.read_text())["lines"]
@@ -184,6 +245,9 @@ def main() -> int:
                      "email": "reed@example.com", "password": "correct horse battery"}  # fmt: skip
             ok(c.post("/auth/setup", json=owner), "setup")
             write_all(c, lambda: drain(app, providers))
+            video = two_scenes(Path(tmp) / "reel.mp4")
+            import_reel(c, lambda: drain(app, providers), video)
+            bulk_reels(c, lambda: drain(app, providers), video)
             pb = CASES["ironpaws-pitbull-1"]
             make(c, lambda: drain(app, providers), "iron", pb, "\n".join(pb["script"]), 160,
                  {"bag": "Peanut butter"})  # fmt: skip
