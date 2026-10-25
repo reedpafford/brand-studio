@@ -36,16 +36,16 @@ def owner_or_404(user: User = Depends(current_user)) -> User:
     return user
 
 
-class Before(BaseModel):
+class UsagePrevious(BaseModel):
     spend_usd: float
     finished: int
     cost_per_finished_usd: float | None
 
 
-class SummaryOut(BaseModel):
+class UsageSummaryOut(BaseModel):
     period: PeriodName
     starts_at: datetime | None  # null for all time
-    previous: Before | None  # last week or last month; null for all time
+    previous: UsagePrevious | None  # last week or last month; null for all time
     spend_usd: float  # every charge in the period, brands and not
     spend_estimated: bool  # some of it is an estimate (the provider didn't say)
     finished: int
@@ -54,7 +54,7 @@ class SummaryOut(BaseModel):
     unassigned_spend_usd: float  # "Not tied to one brand"
 
 
-class BrandRow(BaseModel):
+class UsageBrandRow(BaseModel):
     brand_id: int
     name: str
     colour: str | None
@@ -69,20 +69,20 @@ class BrandRow(BaseModel):
     last_activity_at: datetime | None
 
 
-class BrandsOut(BaseModel):
+class UsageBrandsOut(BaseModel):
     total: int
     next_cursor: str | None
-    items: list[BrandRow]
+    items: list[UsageBrandRow]
 
 
-class BrandOut(BrandRow):
-    previous: Before | None
+class UsageBrandOut(UsageBrandRow):
+    previous: UsagePrevious | None
     editors_active: int  # people who made videos for it in the period
 
 
-def _row(brand: Brand, f: usage.Figures) -> BrandRow:
+def _row(brand: Brand, f: usage.Figures) -> UsageBrandRow:
     b = brand.id
-    return BrandRow(
+    return UsageBrandRow(
         brand_id=b,
         name=brand.name,
         colour=(brand.colours or [None])[0],
@@ -107,19 +107,19 @@ def _before(db: Session, workspace_id: int, name: str, now: usage.Period, brand_
     if brand_id is ...:
         done = sum(f.finished.values())
         spent = sum(f.finished_spend.values())
-        return Before(
+        return UsagePrevious(
             spend_usd=usage.money(sum(f.spend.values())),
             finished=done,
             cost_per_finished_usd=usage.money(spent / done) if done else None,
         )
-    return Before(
+    return UsagePrevious(
         spend_usd=usage.money(f.spend.get(brand_id)),
         finished=f.finished.get(brand_id, 0),
         cost_per_finished_usd=f.cost_per(brand_id),
     )
 
 
-@router.get("/summary", response_model=SummaryOut)
+@router.get("/summary", response_model=UsageSummaryOut)
 def summary(
     period: PeriodName = "week",
     owner: User = Depends(owner_or_404),
@@ -128,7 +128,7 @@ def summary(
     now = usage.period(period)
     f = usage.figures(db, owner.workspace_id, now)
     done, spent = sum(f.finished.values()), sum(f.finished_spend.values())
-    return SummaryOut(
+    return UsageSummaryOut(
         period=period,
         starts_at=now.start,
         previous=_before(db, owner.workspace_id, period, now),
@@ -141,7 +141,7 @@ def summary(
     )
 
 
-@router.get("/brands", response_model=BrandsOut)
+@router.get("/brands", response_model=UsageBrandsOut)
 def brands(
     period: PeriodName = "week",
     q: str = "",
@@ -164,10 +164,12 @@ def brands(
     start = int(cursor) if cursor and cursor.isdigit() else 0
     page = rows[start : start + limit]
     more = start + limit < len(rows)
-    return BrandsOut(total=len(rows), next_cursor=str(start + limit) if more else None, items=page)
+    return UsageBrandsOut(
+        total=len(rows), next_cursor=str(start + limit) if more else None, items=page
+    )
 
 
-@router.get("/brands/{brand_id}", response_model=BrandOut)
+@router.get("/brands/{brand_id}", response_model=UsageBrandOut)
 def brand(
     brand_id: int,
     period: PeriodName = "week",
@@ -179,7 +181,7 @@ def brand(
         raise HTTPException(404, "No such brand.")
     now = usage.period(period)
     row = _row(found, usage.figures(db, owner.workspace_id, now))
-    return BrandOut(
+    return UsageBrandOut(
         **row.model_dump(),
         previous=_before(db, owner.workspace_id, period, now, brand_id),
         editors_active=usage.editors_active(db, brand_id, now),

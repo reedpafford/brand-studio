@@ -597,6 +597,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Summary */
+        get: operations["summary_usage_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brands
+         * @description Every brand in the workspace, including new ones with nothing yet. Paged over brands;
+         *     the figures are per brand, so the client never adds anything up.
+         */
+        get: operations["brands_usage_brands_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/brands/{brand_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Brand */
+        get: operations["brand_usage_brands__brand_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -3413,6 +3468,72 @@ export interface components {
             /** File Id */
             file_id: number;
         };
+        /** UsageBrandOut */
+        UsageBrandOut: {
+            /** Brand Id */
+            brand_id: number;
+            /** Name */
+            name: string;
+            /** Colour */
+            colour: string | null;
+            /** Archived */
+            archived: boolean;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Finished */
+            finished: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+            /** In Progress */
+            in_progress: number;
+            /** Scripts */
+            scripts: number;
+            /** Versions Left */
+            versions_left: number;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            previous: components["schemas"]["UsagePrevious"] | null;
+            /** Editors Active */
+            editors_active: number;
+        };
+        /** UsageBrandRow */
+        UsageBrandRow: {
+            /** Brand Id */
+            brand_id: number;
+            /** Name */
+            name: string;
+            /** Colour */
+            colour: string | null;
+            /** Archived */
+            archived: boolean;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Finished */
+            finished: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+            /** In Progress */
+            in_progress: number;
+            /** Scripts */
+            scripts: number;
+            /** Versions Left */
+            versions_left: number;
+            /** Last Activity At */
+            last_activity_at: string | null;
+        };
+        /** UsageBrandsOut */
+        UsageBrandsOut: {
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Items */
+            items: components["schemas"]["UsageBrandRow"][];
+        };
         /** UsageOut */
         UsageOut: {
             /** Id */
@@ -3436,6 +3557,38 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** UsagePrevious */
+        UsagePrevious: {
+            /** Spend Usd */
+            spend_usd: number;
+            /** Finished */
+            finished: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+        };
+        /** UsageSummaryOut */
+        UsageSummaryOut: {
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "week" | "month" | "all";
+            /** Starts At */
+            starts_at: string | null;
+            previous: components["schemas"]["UsagePrevious"] | null;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Finished */
+            finished: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+            /** In Progress */
+            in_progress: number;
+            /** Unassigned Spend Usd */
+            unassigned_spend_usd: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -4955,6 +5108,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageOut"][];
+                };
+            };
+        };
+    };
+    summary_usage_summary_get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageSummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    brands_usage_brands_get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+                q?: string;
+                archived?: boolean;
+                sort?: "spend" | "finished" | "cost" | "activity" | "name";
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageBrandsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    brand_usage_brands__brand_id__get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageBrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
