@@ -53,7 +53,7 @@ People (section)
 └──────────────────────────────────────────────────────────────────────┘
 Waiting invites (section)
 ┌──────────────────────────────────────────────────────────────────────┐
-│ jo@example.com · Editor · expires 31 Oct          [Copy link] [Cancel]│
+│ jo@example.com · Editor · expires 31 Oct  [Copy a new link] [Cancel]│
 └──────────────────────────────────────────────────────────────────────┘
 ```
 - **People:** 44px avatar (initial), name (body 600), email (meta), the role as a neutral badge ("Owner", "Editor"). **Remove** (ghost dense, `aria-label="Remove Sam"`) opens the danger dialog: "Remove Sam from the team? Their videos stay." **Keep them** / **Remove**.
