@@ -24,7 +24,7 @@ Changes to existing tables:
 
 Migrations, one linear chain after main's head (0021 today):
 
-- **0022_scripts**: `scripts`, `script_drafts` (with `title`, `change_summary`, `payoff`), `script_character_locks`, and `kept` (JSON, default `[]`) on `breakdowns`, `storyboard_frames` and `project_clips`.
+- **0022_scripts**: `scripts`, `script_drafts` (with `title`, `premise`, `changes`), `script_character_locks`, and `kept` (JSON, default `[]`) on `breakdowns`, `storyboard_frames` and `project_clips`.
 - **0023_project_from_script**: `projects.script_draft_id` (unique, nullable) and `planned_seconds` made nullable. No data moves.
 
 ## 2. API
@@ -101,11 +101,12 @@ Everything is in the caller's workspace, and another workspace gets 404 (`assert
   - an optional `<reference>` (reference_block, with live action removed);
   - `<count>`;
   - for regenerating one variation, also `<keep_apart>` (the other version's script) and `<note>` (Reed's note).
-- **Input** also includes the locked cast (char ids and names) and an optional note from Reed.
-- **Output:** `ScriptVariations {variations: [{title (2–4 words), script (house format), change_summary, payoff}]}`, with exactly `count` items.
+  - Agreed with the Director in #191; this is final.
+- **Input** also includes `<cast>`, the locked characters (char ids and names), which backs the "no locked character dropped" check.
+- **Output:** `Variations {variations: [{title (2–4 words), premise (one sentence), script (house format), changes: [str]}]}`, with exactly `count` items.
   - No id per variation is needed: the server puts them in slots 1 and 2 in order.
 - **Server side:**
-  - Each one is stored as a draft version (`script_drafts`) linked to the original, with title, change_summary, payoff and status.
+  - Each one is stored as a draft version (`script_drafts`) linked to the original, with title, premise, changes and status.
   - Approved versions are never written to.
   - `check.variations(original, result, screens, end_line, never_say, count)` runs, and its problems are shown on the version.
     - Problems to fix: the end line, required brand moments and their ★ screens, never-say, no live action, and no locked character dropped.
