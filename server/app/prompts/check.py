@@ -5,6 +5,7 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 `screens` maps screen id ('screen:12') to the moments it is required at."""
 
 import re
+from itertools import zip_longest
 
 from app.prompts import spoken_words
 from app.prompts.schemas import (
@@ -13,6 +14,7 @@ from app.prompts.schemas import (
     ClipPrompts,
     EnhanceResult,
     ImprovedPrompt,
+    ReelWatch,
     StoryboardFrames,
     Variations,
 )
@@ -424,8 +426,79 @@ def reference_lines(script: str, reel: list[str], new_lines: bool = False) -> li
     (Reed, #271). Advice lists each one changed or missing, so the editor can see the swap."""
     if new_lines:
         return []
-    said = "\n".join(re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M))
-    return [f"{ADVICE}the reel's line “{x}” is changed or missing" for x in reel if x not in said]
+    said = _plain("\n".join(re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M)))
+    return [f"{ADVICE}the reel's line “{x}” is changed or missing"
+            for x in reel if _plain(x) not in said]  # fmt: skip
+
+
+def _plain(text: str) -> str:
+    """Curly quotes as straight ones and whitespace evened out: a phone or a model may type
+    either, and only the words count."""
+    return _exact(text.translate(str.maketrans("‘’“”", "''\"\"")))
+
+
+def reel_watch(watch: ReelWatch, cuts: list[dict], transcript: list[dict]) -> list[str]:
+    """Gemini's read of an imported reel against prep's cut list [{n, start, end}] and
+    transcript [{start, end, text}]. Fixes: a shot that isn't one of the cuts, a speaker for a
+    line that doesn't exist. Advice: a line with no speaker, one person under two names, a line
+    in a live-action shot (it's dropped with the shot)."""
+    problems = []
+    got = [(s.n, s.start, s.end) for s in watch.shots]
+    want = [(c["n"], c["start"], c["end"]) for c in cuts]
+    off = [(w or g)[0] for w, g in zip_longest(want, got) if not (w and g and _same_cut(w, g))]
+    if off:
+        n = off[0]
+        problems.append(
+            f"shot {n} isn't the cut list's ({len(got)} shots, {len(want)} cuts); regenerate"
+        )
+    named = {}
+    for s in watch.speakers:
+        if not 1 <= s.line <= len(transcript):
+            problems.append(f"a speaker for line {s.line}, which the transcript doesn't have")
+        named.setdefault(s.line, s.speaker)
+    for n, x in enumerate(transcript, 1):
+        if not named.get(n, "").strip():
+            problems.append(f"{ADVICE}no speaker for “{x['text']}”; say who says it")
+    roles = {}
+    for name in dict.fromkeys(named.values()):
+        roles.setdefault(role_key(name), []).append(name)
+    problems += [f"{ADVICE}one person under {len(v)} names ({', '.join(v)}); use one"
+                 for v in roles.values() if len(v) > 1]  # fmt: skip
+    live = [s for s in watch.shots if s.live_action]
+    for x in transcript:
+        if any(s.start <= x["start"] < s.end for s in live):
+            problems.append(f"{ADVICE}“{x['text']}” is in a live-action shot, so it's dropped")
+    return problems
+
+
+def _same_cut(a: tuple, b: tuple) -> bool:
+    """Same shot number, times within 0.05 s (a model rounds; the server keeps prep's times)."""
+    return a[0] == b[0] and abs(a[1] - b[1]) <= 0.05 and abs(a[2] - b[2]) <= 0.05
+
+
+def role_key(name: str) -> str:
+    """'The bride (flashback)' and 'bride' are one person."""
+    return re.sub(r"^(the|a|an)\s+|\s*\(.*?\)", "", name.strip().lower()).strip()
+
+
+def reel_speakers(
+    script: str, speakers: list[str], cast: list[str] = (), end_line: str = ""
+) -> list[str]:
+    """No invented speakers in a draft that adapts an imported reel: it has no more speaking
+    characters than the reel (`speakers`, its kept shots' roles), not counting one who only
+    says the brand's end line. Names the reel or `cast` doesn't have are listed. Advice."""
+    said = {}
+    for m in re.finditer(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:\s*(.*)$", script, re.M):
+        said.setdefault(role_key(m.group(1)), []).append(m.group(2))
+    if end_line:
+        said = {k: v for k, v in said.items() if any(_exact(end_line) not in _exact(x) for x in v)}
+    reel = {role_key(x) for x in speakers if x.strip()}
+    if len(said) <= len(reel):
+        return []
+    known = reel | {role_key(x) for x in cast}
+    new = [k.title() for k in said if k not in known] or [k.title() for k in said]
+    return [f"{ADVICE}{len(said)} people speak, the reel has {len(reel)}; "
+            f"give {', '.join(new)}'s lines back to who says them in the reel"]  # fmt: skip
 
 
 REWORD = re.compile(

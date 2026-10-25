@@ -21,6 +21,8 @@ What each case is for:
 | fomo-adapt-altar | **Definition of done.** Reed's altar reel remade for fomo: same story, every line word for word, the montage as fomo trading with real screens, the live tag replaced by fomo's call to action |
 | ironpaws-pb-excerpt | 15 s excerpt: "mixed it into my food… peanut butter flavor… finished the bowl" with the real bag |
 | fomo-montage-excerpt | 12 s excerpt: only the altar reel's montage, as wordless fomo trading with the real screens |
+| reel-import-altar | Reel import: Gemini's watch of the altar reel (one shot per cut, shots 44–50 live action, speakers groom and bride, the rejection in the hook), then the draft keeps all 11 lines with no new speakers, then the cast slots |
+| reel-import-betty | Reel import of the Betty reel (De4ohoJolPe): the tag is live action, 3–5 speakers each under one name, the draft keeps every other line word for word |
 
 Iron Paws: a human-grade greens powder for dogs; the real bag is its required element, stored as a brand screen.
 
@@ -31,6 +33,8 @@ Answers in `results/v1` and `results/v2-partial` predate Reed's no-edit rule (th
 python -m evals.run <out> --cap-usd 2   # 11 Claude calls, key from STUDIO_ANTHROPIC_KEY
 python -m evals.score <out> "v1"
 ```
+The reel-import cases start with Gemini's watch, which runs on Replicate with the reel's video, not from `run.py`. Put its answer at `<out>/<case>.reel_watch.json` and the Claude steps run from it. `--print` writes the watch prompt when the case has a cut list (Betty's comes from prep).
+
 `run.py` accepts every Enhance suggestion before the next step, saves each answer to
 `<out>/<case>.<step>.json` (plus `<case>.script.txt` and `cost.json`), and stops at the cap.
 

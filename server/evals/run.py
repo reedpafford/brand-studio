@@ -3,7 +3,9 @@
 
 Usage (from server/): python -m evals.run <out dir> [--cap-usd 2] [--cases id ...] [--print]
 Key from STUDIO_ANTHROPIC_KEY. Stops before the next call once the cap is reached.
---print is free: it writes each first-round prompt to <case>.<step>.prompt.txt and calls nothing."""
+--print is free: it writes each first-round prompt to <case>.<step>.prompt.txt and calls nothing.
+Reel import cases start with Gemini's watch, which runs on Replicate with the reel's video
+(not from here): put its answer at <out>/<case>.reel_watch.json, then the Claude steps run."""
 
 import argparse
 import json
@@ -19,11 +21,15 @@ from app.prompts import (
     brand_block,
     cast_slots_input,
     number_lines,
+    reel_watch_input,
     reference_block,
+    schemas,
     system,
     variations_input,
+    watch_breakdown,
+    watch_system,
 )
-from evals.score import CASES
+from evals.score import CASES, reel_inputs
 
 # Room for long scripts (claude.ask streams, so this can exceed the unstreamed limit).
 LONG_MAX_TOKENS = 32000
@@ -82,6 +88,26 @@ def run_case(
     for step in case["steps"]:
         if not dry and sum(spent) >= cap:
             sys.exit(f"Stopped: spent ${sum(spent):.2f}, cap ${cap}.")
+        if step == "reel_watch":  # Gemini, on Replicate with the reel's video: not run from here
+            transcript, cuts = reel_inputs(case)
+            saved = out / f"{case['id']}.reel_watch.json"
+            if dry and cuts:
+                text = f"=== SYSTEM\n{watch_system()}\n\n=== USER\n"
+                text += (
+                    f"[the reel's video and contact sheet]\n{reel_watch_input(transcript, cuts)}\n"
+                )
+                (out / f"{case['id']}.reel_watch.prompt.txt").write_text(text)
+                print(f"{case['id']}.reel_watch: prompt written (free)", flush=True)
+            if dry and not cuts:
+                print(f"{case['id']}.reel_watch: needs the cut list from prep", flush=True)
+            if dry or not saved.exists():  # the later steps need Gemini's answer
+                print(
+                    f"{case['id']}: the next steps need {saved.name} from a Gemini run", flush=True
+                )
+                return
+            watch = schemas.ReelWatch.model_validate_json(saved.read_text())
+            reference = "\n" + reference_block(watch_breakdown(watch, transcript, cuts or []))
+            continue
         if step == "enhance":
             prompt = f"{brief}\n{cast}\n<script>\n{number_lines(script)}\n</script>"
         elif step == "script_draft":
@@ -93,9 +119,8 @@ def run_case(
         elif step == "cast_slots":
             if dry:  # needs the variations' answer
                 return
-            versions = {0: script} | {
-                i: v.script for i, v in enumerate(answers["variations"].variations, 1)
-            }
+            made = answers["variations"].variations if "variations" in answers else []
+            versions = {0: script} | {i: v.script for i, v in enumerate(made, 1)}
             prompt = cast_slots_input(versions, reference.strip(), case["cast"], case["brief"])
         elif step == "breakdown":
             (out / f"{case['id']}.script.txt").write_text(script)
