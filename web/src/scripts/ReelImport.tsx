@@ -8,7 +8,7 @@ import { Button, Card, Field } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
-const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels)\/[\w-]+/i;
+const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
 const MAX_MB = 100;
 const MAX_SECONDS = 90;
 
@@ -36,6 +36,7 @@ function postUpload(path: "/scripts/import/upload", form: Record<string, string>
 export function ReelPicker({ brandId }: { brandId: number }) {
   const [url, setUrl] = useState("");
   const [bad, setBad] = useState<string | null>(null);
+  const [newLines, setNewLines] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const toast = useToast();
@@ -47,7 +48,7 @@ export function ReelPicker({ brandId }: { brandId: number }) {
   };
   const fromLink = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/scripts/import/link", { body: { brand_id: brandId, url: url.trim() } });
+      const { data, error } = await api.POST("/scripts/import/link", { body: { brand_id: brandId, url: url.trim(), new_lines: newLines } });
       if (!data) throw new Error(errorText(error));
       return data;
     },
@@ -56,7 +57,7 @@ export function ReelPicker({ brandId }: { brandId: number }) {
   const fromFile = useMutation({
     mutationFn: async (f: File) => {
       if (f.size > MAX_MB * 1024 * 1024) throw new Error(`That file is over ${MAX_MB} MB. Use a shorter video.`);
-      const { data, error } = await postUpload("/scripts/import/upload", { brand_id: String(brandId) }, f);
+      const { data, error } = await postUpload("/scripts/import/upload", { brand_id: String(brandId), new_lines: String(newLines) }, f);
       if (!data) throw new Error(errorText(error));
       return data;
     },
@@ -88,6 +89,13 @@ export function ReelPicker({ brandId }: { brandId: number }) {
           Upload a video
         </Button>
         <span className="text-sm text-muted">MP4 or MOV, up to {MAX_SECONDS} seconds and {MAX_MB} MB</span>
+      </div>
+      <div className="space-y-1">
+        <label className="flex min-h-control items-center gap-3">
+          <input type="checkbox" role="switch" className="size-5" checked={newLines} onChange={(e) => setNewLines(e.target.checked)} />
+          Write new lines in the same style
+        </label>
+        <p className="text-sm text-muted">Off: keep the reel's lines and rewrite only what the brand swap needs.</p>
       </div>
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
     </Card>
