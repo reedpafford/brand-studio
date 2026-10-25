@@ -80,9 +80,13 @@ def clips_zip(
                 files.append((name, db.get(StoredFile, take.file_id).key))
     if not files:
         raise HTTPException(409, "There are no takes to download yet.")
+    storage = request.app.state.storage
+    if missing := [name for name, key in files if not storage.exists(key)]:
+        # Checked before sending, so a missing video never leaves a half-sent zip.
+        raise HTTPException(409, f"{missing[0]}'s video file is missing. Make that take again.")
     safe = re.sub(r"[^A-Za-z0-9 _-]", "", project.name).strip() or "clips"
     return StreamingResponse(
-        _stream(request.app.state.storage, files),
+        _stream(storage, files),
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{safe}.zip"'},
     )

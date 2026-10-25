@@ -5,6 +5,7 @@ import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
 import { NewProjectPage } from "./projects/NewProjectPage";
 import { ProjectPage } from "./projects/ProjectPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
+import { ScriptsPage } from "./scripts/ScriptsPage";
 import { ClipPage } from "./clip/ClipPage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
@@ -24,6 +25,7 @@ export function App() {
         <Route element={<Shell />}>
           <Route index element={<GoToBrand />} />
           <Route path="b/:brandId" element={<BrandHome />} />
+          <Route path="b/:brandId/scripts" element={<ScriptsPage />} />
           <Route path="b/:brandId/projects" element={<ProjectsPage />} />
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
           <Route path="b/:brandId/projects/:projectId" element={<ProjectPage />} />

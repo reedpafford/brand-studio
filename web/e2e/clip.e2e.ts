@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { emptyBrand, image, signIn } from "./helpers";
+import { emptyBrand, image, onBrand, signIn } from "./helpers";
 
 // Runs after brand.e2e.ts and library.e2e.ts. These cover the controls only: no test presses
 // Generate (paid generation is switched off on the test server). The screen with a
@@ -8,7 +8,7 @@ test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("banner")).toBeVisible();
+  await onBrand(page, "fomo"); // wait for the landing page, or the sign-in redirect can replace the click
   await page.getByRole("link", { name: "Quick clip" }).click();
   await expect(page.getByRole("heading", { name: "Quick clip", exact: true })).toBeVisible();
 });

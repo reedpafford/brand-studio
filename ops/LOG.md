@@ -1,6 +1,27 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 04:07 · #221 Redesign 13c/14: Team merged
+- 2026-10-25 04:07 · #219 Redesign 13b/14: Approvals merged
+- 2026-10-25 04:07 · #209 Redesign 12b/14: Brand Products and App screens merged
+- 2026-10-25 04:03 · #214 Cast slots step: prompt, schema, worked example, check and evals merged
+- 2026-10-25 04:03 · #202 Variations step: prompt, schema, worked example, check, evals and a free --print dry run merged
+- 2026-10-25 03:58 · #229 Library spec: phone Filters sheet; Reed sees editors' drafts merged
+- 2026-10-25 03:58 · #228 Team: fresh link for a waiting invite; owner sees each editor's weekly allowance merged
+- 2026-10-25 03:51 · #224 Workflow v2 PR 10: fake_run goes through the Script Library merged
+- 2026-10-25 03:51 · #223 Workflow v2 PR 9: download every clip as one zip merged
+- 2026-10-25 03:50 · #220 Workflow v2 PR 8: the Assets step merged
+- 2026-10-25 03:50 · #218 Workflow v2 PR 7: produce a library version (its project, once) merged
+- 2026-10-25 03:43 · #227 Log the cast-slot eval re-check ($0.13) merged
+- 2026-10-25 03:41 · #210 Altar remake fixes: quick-cut check only in montages (advice), CTA shows the rich screen, Keep holds identity merged
+- 2026-10-25 03:41 · #215 Workflow v2 PR 6b: "Advice: …" never blocks; Keep anyway is remembered merged
+- 2026-10-25 03:41 · #212 Workflow v2 PR 6: breakdown preview on a library version merged
+- 2026-10-25 03:41 · #211 Workflow v2 PR 5a: one weekly editor allowance (145 credits), declined past it merged
+- 2026-10-25 03:41 · #217 ops: HANDOFF/LOG refresh 2026-10-25 03:20Z merged (by the Producer)
+- 2026-10-25 03:41 · #222 Studio spec: editors read Team; Copy link waits for the server merged
+- 2026-10-25 03:41 · #213 Redesign 13a/14: Sign in, setup and invite merged
+- 2026-10-25 03:41 · #205 Redesign 12a/14: Brand frame and Look tab merged
+- 2026-10-25 · ops/SPEND.md: second reel remake (Betty, reel De4ohoJolPe, 50 s, up to $10 approved by Reed) total $8.81; cast-slot eval re-check $0.13; week total $26.43, over the $15 test cap with Reed's approval
 - 2026-10-25 03:07 · #216 Log the variations eval spend ($0.28) merged
 - 2026-10-25 02:58 · #186 Redesign 7b/14: Shots step merged
 - 2026-10-25 02:58 · #193 Redesign 4b/14: Videos home follow-up (step, line, poster, sections) merged

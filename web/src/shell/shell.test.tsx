@@ -36,17 +36,17 @@ const pickBrand = async (name: string) => {
   await userEvent.click(await screen.findByRole("menuitemradio", { name }));
 };
 
-test("the first brand opens on its Videos, and the switcher menu changes brand and keeps the section", async () => {
+test("the first brand opens on its Scripts, and the switcher menu changes brand and keeps the section", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []], "GET /library/character": [200, []] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /library/character": [200, []] });
   renderAt("/");
-  expect(await screen.findByRole("heading", { name: "Videos" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Scripts" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Brand: fomo" }));
   expect(screen.getByRole("menuitemradio", { name: "fomo" })).toHaveAttribute("aria-checked", "true");
   expect(screen.getByText("Brands are set up by Reed.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Iron Paws" }));
-  expect(await screen.findByText("No videos for Iron Paws yet")).toBeInTheDocument();
+  expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
   // Cast & places in one brand becomes Cast & places in the other.
   await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Cast & places" }));
@@ -57,12 +57,12 @@ test("the first brand opens on its Videos, and the switcher menu changes brand a
 });
 
 test("the brand's colour is applied, and cleared for a brand without one", async () => {
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1");
-  await screen.findByRole("heading", { name: "Videos" });
+  await screen.findByRole("heading", { name: "Scripts" });
   expect(document.documentElement.style.getPropertyValue("--brand")).toBe("#ff5500");
   await pickBrand("Iron Paws");
-  await screen.findByText("No videos for Iron Paws yet");
+  await screen.findByText("No scripts for Iron Paws yet.");
   expect(document.documentElement.style.getPropertyValue("--brand")).toBe("");
 });
 
@@ -77,9 +77,9 @@ test("the team page keeps the brand you were in", async () => {
 
 test("the last brand you used opens next time", async () => {
   localStorage.setItem("bs.lastBrand", "2");
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/");
-  expect(await screen.findByText("No videos for Iron Paws yet")).toBeInTheDocument();
+  expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
 });
 
 test("the owner can invite and gets the link once", async () => {
@@ -91,10 +91,11 @@ test("the owner can invite and gets the link once", async () => {
     "POST /team/invites": [201, { id: 3, email: "new@b.co", role: "editor", expires_at: "2026-11-01T12:00:00Z", token: "tok123" }],
   });
   renderAt("/team");
+  await userEvent.click(await screen.findByRole("button", { name: "Invite someone" }));
   await userEvent.type(await screen.findByLabelText("Email to invite"), "new@b.co");
   await userEvent.click(screen.getByRole("button", { name: "Create invite link" }));
   expect(await screen.findByLabelText("Invite link")).toHaveValue(`${location.origin}/invite/tok123`);
-  expect(screen.getByText(/Works once\. Expires/)).toBeInTheDocument();
+  expect(screen.getByText(/It works once and expires in 7 days\./)).toBeInTheDocument();
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
   await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
@@ -128,18 +129,20 @@ test("an unknown brand in the address does not pretend to be selected", async ()
 
 test("a failed remove tells you", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []], "DELETE /team/members/2": [500, {}] });
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   renderAt("/team");
   await userEvent.click(await screen.findByRole("button", { name: "Remove Eli" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Could not remove that person");
+  const ask = await screen.findByRole("alertdialog", { name: "Remove Eli from the team?" });
+  expect(within(ask).getByText("Their videos stay.")).toBeInTheDocument();
+  await userEvent.click(within(ask).getByRole("button", { name: "Remove" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't remove that person.");
 });
 
 test("on a phone there are four tabs, no More, and Reed gets an Approvals bell with the count", async () => {
   setViewport(390);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /projects": [200, []] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   const tabs = await screen.findByRole("navigation", { name: "Tabs" });
-  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Videos", "Quick clip", "Cast", "Brand"]);
+  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Scripts", "Quick clip", "Cast", "Brand"]);
   expect(within(tabs).getByRole("link", { name: "Cast" })).toHaveAttribute("href", "/b/1/library");
   expect(within(tabs).getByRole("link", { name: "Brand" })).toHaveAttribute("href", "/b/1/brand");
   expect(within(tabs).queryByRole("button", { name: "More" })).not.toBeInTheDocument();
@@ -149,7 +152,7 @@ test("on a phone there are four tabs, no More, and Reed gets an Approvals bell w
 
 test("an editor has no Approvals bell", async () => {
   setViewport(390);
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /projects": [200, []] });
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   await screen.findByRole("navigation", { name: "Tabs" });
   expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
@@ -179,7 +182,7 @@ test("the account menu has Team for Reed only, the theme choices, and Sign out; 
 
 test("an editor's account menu has no Team link", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /projects": [200, []] });
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
   expect(within(screen.getByRole("menu", { name: "Account" })).queryByRole("link", { name: "Team" })).not.toBeInTheDocument();
@@ -188,12 +191,12 @@ test("an editor's account menu has no Team link", async () => {
 
 test("on desktop the rail has the four brand sections, and Studio (Approvals with its count, Team) for Reed only", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
-  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Videos", "Quick clip", "Cast & places", "Brand", "Approvals", "Team"]);
-  expect(within(rail).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page");
+  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Scripts", "Quick clip", "Cast & places", "Brand", "Approvals", "Team"]);
+  expect(within(rail).getByRole("link", { name: "Scripts" })).toHaveAttribute("aria-current", "page");
   expect(await within(rail).findByRole("link", { name: /Approvals/ })).toHaveTextContent("1");
   expect(screen.getAllByRole("link", { name: /Approvals/ })).toHaveLength(2); // the rail item and the top-bar pill both go to /approvals
   expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
@@ -201,7 +204,7 @@ test("on desktop the rail has the four brand sections, and Studio (Approvals wit
 
 test("an editor's rail has no Studio group", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /projects": [200, []] });
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(within(rail).getAllByRole("link")).toHaveLength(4);
@@ -211,11 +214,11 @@ test("an editor's rail has no Studio group", async () => {
 
 test("between 1024 and 1279 the rail is icons only, each with a name", async () => {
   setViewport(1100);
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /projects": [200, []] });
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(within(rail).getByRole("link", { name: "Cast & places" })).toHaveAttribute("title", "Cast & places");
-  expect(within(rail).getByRole("link", { name: "Videos" }).textContent).toBe("");
+  expect(within(rail).getByRole("link", { name: "Scripts" }).textContent).toBe("");
 });
 
 test("the old Kit and Screens addresses land on the Brand page", async () => {
@@ -234,7 +237,7 @@ test("with no brands there is an empty state, not a blank page", async () => {
 
 test("offline, a banner says nothing was lost", async () => {
   vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   expect(await screen.findByText("You're offline.")).toBeInTheDocument();
   expect(screen.getByText("Reconnect to keep working; nothing was lost.")).toBeInTheDocument();

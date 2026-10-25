@@ -16,7 +16,7 @@ import { useProgress, videoQuery } from "./useProgress";
 type Project = NonNullable<ReturnType<typeof useProjectList>["data"]>[number];
 type Job = NonNullable<ReturnType<typeof useJobs>["data"]>[number];
 
-function useProjectList(brandId: number) {
+export function useProjectList(brandId: number) {
   return useQuery({
     queryKey: ["projects", brandId],
     queryFn: async () => {
@@ -191,5 +191,32 @@ export function ProjectsPage() {
         </>
       )}
     </main>
+  );
+}
+
+/** The Script library's "Videos made before scripts": the earlier videos stay reachable, and the earlier way to start one for now. */
+export function LegacyVideos({ brandId }: { brandId: number }) {
+  const projects = useProjectList(brandId);
+  const list = (projects.data ?? []).slice().sort((a, b) => b.id - a.id);
+  const jobs = useJobs();
+  const lastJob = (id: number) => (jobs.data ?? []).filter((j) => j.project_id === id).sort((a, b) => b.id - a.id)[0];
+  return (
+    <section className="space-y-3 border-t border-border pt-4" aria-label="Videos made before scripts">
+      {list.length > 0 && (
+        <details>
+          <summary className="flex min-h-control cursor-pointer items-center font-medium">Videos made before scripts ({list.length})</summary>
+          <ul className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            {list.map((p) => (
+              <li key={p.id}>
+                <VideoCard p={p} brandId={brandId} job={lastJob(p.id)} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <Link to={`/b/${brandId}/projects/new`} className={buttonClass("secondary")}>
+        New video (the earlier way)
+      </Link>
+    </section>
   );
 }

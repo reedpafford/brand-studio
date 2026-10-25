@@ -3,6 +3,7 @@
 import io
 import zipfile
 
+from app.models.files import StoredFile
 from tests.helpers import assert_hidden
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
@@ -31,6 +32,10 @@ def test_zip_of_picked_takes_or_every_take(app, db, editor, outsider, setup, cli
     every = _names(editor.get(f"{base}/clips.zip", params={"all_takes": True}))
     assert every == {"c1/take1.mp4": red, "c1/take2.mp4": blue}
     assert_hidden(outsider, [("GET", f"{base}/clips.zip")])
+    key = db.get(StoredFile, takes[1]["file_id"]).key
+    app.state.storage.delete(key)  # take 2's video went missing
+    gone = editor.get(f"{base}/clips.zip", params={"all_takes": True})
+    assert gone.status_code == 409 and gone.json()["detail"].startswith("c1/take2.mp4")
 
 
 def test_a_version_is_done_once_its_video_is_stitched(owner, editor, db):

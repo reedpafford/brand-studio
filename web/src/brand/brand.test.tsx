@@ -63,83 +63,93 @@ test("save is disabled until something changes", async () => {
   expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
 });
 
-test("adding a screen uploads the picture, then saves it with its tags", async () => {
-  const calls = fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, [brand]],
-    "GET /brands/1/screens": [200, []],
-    "POST /files": [201, { id: 9, filename: "home.png", content_type: "image/png", size: 3, created_at: "2026-10-23T00:00:00Z" }],
-    "POST /brands/1/screens": [201, { id: 4, name: "home", file_id: 9, tags: ["trading"], default_for: ["fomo-moment"], brand_id: 1 }],
-  });
-  renderAt("/b/1/screens");
-  await userEvent.click(await screen.findByRole("button", { name: "Add screen" }));
-  await userEvent.upload(await screen.findByLabelText("Screen image"), new File(["x"], "home.png", { type: "image/png" }));
-  await userEvent.type(screen.getByLabelText(/What it shows/), "Trading");
-  await userEvent.type(screen.getByLabelText(/moments/), "Fomo Moment");
-  await userEvent.click(screen.getByRole("button", { name: "Save screen" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/screens")).toBe(true));
-  expect(calls.find((c) => c.key === "POST /brands/1/screens")?.body).toEqual({
-    name: "home",
-    file_id: 9,
-    tags: ["trading"],
-    default_for: ["fomo-moment"],
-    product: "",
-    variant: "",
-  });
+const fileRow = { id: 9, filename: "home.png", content_type: "image/png", size: 3, created_at: "2026-10-23T00:00:00Z" };
+const bag = { id: 4, name: "Chicken bag", file_id: 9, tags: ["bag"], default_for: [], product: "bag", variant: "Chicken", brand_id: 1 };
+const withScreens = (rows: unknown[], more: Record<string, [number, unknown]> = {}) =>
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /brands/1/screens": [200, rows], ...more });
+
+test("Add screens takes several pictures; each is uploaded and saved as a screen named from its file", async () => {
+  const calls = withScreens([], { "POST /files": [201, fileRow], "POST /brands/1/screens": [201, { id: 4, name: "home", file_id: 9, tags: [], default_for: [], brand_id: 1 }] });
+  renderAt("/b/1/brand?tab=screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Add screens" }));
+  await userEvent.upload(await screen.findByLabelText("Screen images"), [new File(["x"], "home.png", { type: "image/png" }), new File(["y"], "chart.png", { type: "image/png" })]);
+  await userEvent.click(screen.getByRole("button", { name: "Add 2 screens" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /brands/1/screens")).toHaveLength(2));
+  expect(calls.filter((c) => c.key === "POST /brands/1/screens").map((c) => c.body)).toEqual([
+    { name: "home", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
+    { name: "chart", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
+  ]);
 });
 
-test("a refused upload shows the server's reason", async () => {
-  fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, [brand]],
-    "GET /brands/1/screens": [200, []],
-    "POST /files": [415, { detail: "That file type isn't supported." }],
-  });
-  renderAt("/b/1/screens");
-  await userEvent.click(await screen.findByRole("button", { name: "Add screen" }));
-  await userEvent.upload(await screen.findByLabelText("Screen image"), new File(["x"], "a.png", { type: "image/png" }));
-  await userEvent.click(screen.getByRole("button", { name: "Save screen" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("That file type isn't supported.");
+test("a refused upload shows the server's reason under that picture", async () => {
+  withScreens([], { "POST /files": [415, { detail: "That file type isn't supported." }] });
+  renderAt("/b/1/brand?tab=screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Add screens" }));
+  await userEvent.upload(await screen.findByLabelText("Screen images"), new File(["x"], "a.png", { type: "image/png" }));
+  await userEvent.click(screen.getByRole("button", { name: "Add screen" }));
+  expect(await screen.findByText("That file type isn't supported.")).toBeInTheDocument();
 });
 
-test("a screen can be a flavour of a product, and its product and variant are sent", async () => {
-  const calls = fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, [brand]],
-    "GET /brands/1/screens": [200, []],
-    "POST /files": [201, { id: 9, filename: "bag.png", content_type: "image/png", size: 3, created_at: "2026-10-23T00:00:00Z" }],
-    "POST /brands/1/screens": [201, { id: 4, name: "bag", file_id: 9, tags: [], default_for: [], product: "bag", variant: "Chicken", brand_id: 1 }],
-  });
-  renderAt("/b/1/screens");
-  await userEvent.click(await screen.findByRole("button", { name: "Add screen" }));
-  await userEvent.upload(await screen.findByLabelText("Screen image"), new File(["x"], "bag.png", { type: "image/png" }));
-  await userEvent.type(screen.getByLabelText(/Product/), "bag");
-  await userEvent.type(screen.getByLabelText(/Variant/), "Chicken");
-  await userEvent.click(screen.getByRole("button", { name: "Save screen" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/screens")?.body).toMatchObject({ product: "bag", variant: "Chicken" }));
+test("a screen tile opens its editor; tags, moments, product and flavour are saved together", async () => {
+  const calls = withScreens([bag], { "PATCH /brands/1/screens/4": [200, bag] });
+  renderAt("/b/1/brand?tab=screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Chicken bag" }));
+  const panel = await screen.findByRole("dialog", { name: "Edit Chicken bag" });
+  expect(within(panel).getByLabelText("Flavour")).toHaveValue("Chicken");
+  await userEvent.clear(within(panel).getByLabelText("Flavour"));
+  await userEvent.type(within(panel).getByLabelText("Flavour"), "Peanut butter");
+  await userEvent.type(within(panel).getByLabelText("Add to tags"), "Trading Chart{Enter}");
+  await userEvent.type(within(panel).getByLabelText("Add to always use this screen for"), "Buy moment{Enter}");
+  await userEvent.click(within(panel).getByRole("button", { name: "Save screen" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1/screens/4")?.body).toMatchObject({ product: "bag", variant: "Peanut butter", tags: ["bag", "trading-chart"], default_for: ["buy-moment"] }));
 });
 
-test("Edit opens a sheet with the screen's words and saves the changes, product and variant included", async () => {
-  const bag = { id: 4, name: "Chicken bag", file_id: 9, tags: ["bag"], default_for: [], product: "bag", variant: "Chicken", brand_id: 1 };
-  const calls = fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, [brand]],
-    "GET /brands/1/screens": [200, [bag]],
-    "PATCH /brands/1/screens/4": [200, bag],
-  });
-  renderAt("/b/1/screens");
-  expect(await screen.findByText("bag · Chicken")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Edit Chicken bag" }));
-  const dialog = await screen.findByRole("dialog", { name: "Edit Chicken bag" });
-  const variant = within(dialog).getByLabelText(/Variant/);
-  expect(variant).toHaveValue("Chicken");
-  // A form sheet's close button doesn't save, so it says Cancel, not Done.
-  expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-  expect(within(dialog).queryByRole("button", { name: "Done" })).not.toBeInTheDocument();
-  await userEvent.clear(variant);
-  await userEvent.type(variant, "Peanut butter");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1/screens/4")?.body).toMatchObject({ product: "bag", variant: "Peanut butter", tags: ["bag"] }));
+test("Delete screen asks first and says videos already made keep it", async () => {
+  const calls = withScreens([bag], { "DELETE /brands/1/screens/4": [204, null] });
+  renderAt("/b/1/brand?tab=screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Chicken bag" }));
+  await userEvent.click(within(await screen.findByRole("dialog", { name: "Edit Chicken bag" })).getByRole("button", { name: "Delete screen" }));
+  const ask = await screen.findByRole("alertdialog", { name: 'Delete the screen "Chicken bag"?' });
+  expect(within(ask).getByText("Videos already made keep it.")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "DELETE /brands/1/screens/4")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Delete screen" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /brands/1/screens/4")).toBe(true));
+});
+
+test("a screen always used for a moment says so on its tile", async () => {
+  withScreens([{ ...bag, default_for: ["buy-moment"] }]);
+  renderAt("/b/1/brand?tab=screens");
+  expect(await screen.findByText("buy moment")).toBeInTheDocument();
+});
+
+test("Products groups screens by product and lists their flavours; renaming a product renames it on every screen", async () => {
+  const peanut = { ...bag, id: 5, name: "Peanut bag", variant: "Peanut butter" };
+  const calls = withScreens([bag, peanut], { "PATCH /brands/1/screens/4": [200, bag], "PATCH /brands/1/screens/5": [200, peanut] });
+  renderAt("/b/1/brand?tab=products");
+  expect(await screen.findByRole("heading", { name: /bag/ })).toHaveTextContent("2 flavours");
+  expect(screen.getByRole("button", { name: "Chicken" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Peanut butter" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "More for bag" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Rename bag" }));
+  const panel = await screen.findByRole("dialog", { name: "Rename bag" });
+  await userEvent.clear(within(panel).getByLabelText("Product name"));
+  await userEvent.type(within(panel).getByLabelText("Product name"), "Treat bag");
+  await userEvent.click(within(panel).getByRole("button", { name: "Rename" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.startsWith("PATCH /brands/1/screens/"))).toHaveLength(2));
+  expect(calls.filter((c) => c.key.startsWith("PATCH")).map((c) => c.body)).toEqual([{ product: "Treat bag" }, { product: "Treat bag" }]);
+});
+
+test("Add product takes a name, a first flavour and its picture, and saves it as a screen of that product", async () => {
+  const calls = withScreens([], { "POST /files": [201, fileRow], "POST /brands/1/screens": [201, bag] });
+  renderAt("/b/1/brand?tab=products");
+  expect(await screen.findByText("No products yet.")).toBeInTheDocument();
+  await userEvent.click(screen.getAllByRole("button", { name: "Add product" })[0]);
+  const panel = await screen.findByRole("dialog", { name: "Add product" });
+  await userEvent.type(within(panel).getByLabelText("Product name"), "Bag");
+  await userEvent.type(within(panel).getByLabelText("Flavour"), "Chicken");
+  await userEvent.upload(within(panel).getByLabelText("Flavour picture file"), new File(["x"], "bag.png", { type: "image/png" }));
+  await userEvent.click(within(panel).getByRole("button", { name: "Add product" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/screens")?.body).toMatchObject({ product: "Bag", variant: "Chicken", name: "Bag Chicken" }));
 });
 
 test("the End line is shown and saved with the kit", async () => {
@@ -171,11 +181,11 @@ test("leaving Look with unsaved changes asks first; Keep editing stays, Leave go
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /brands/1/screens": [200, []] });
   renderAt("/b/1/brand");
   await userEvent.type(await screen.findByLabelText("Legal line"), "Not advice");
-  await userEvent.click(screen.getByRole("tab", { name: "App screens" }));
+  await userEvent.click(screen.getByRole("tab", { name: /^App screens/ }));
   const dialog = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
   await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
   expect(screen.getByLabelText("Legal line")).toHaveValue("Not advice");
-  await userEvent.click(screen.getByRole("tab", { name: "App screens" }));
+  await userEvent.click(screen.getByRole("tab", { name: /^App screens/ }));
   await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).getByRole("button", { name: "Leave" }));
   expect(await screen.findByText("No brand screens yet.")).toBeInTheDocument();
 });
@@ -192,4 +202,33 @@ test("a never-say word that was typed but not added is kept when you move on, an
   expect(ask.defaultPrevented).toBe(true);
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({ never_say: ["guaranteed"] }));
+});
+
+test("Bag and bag are one product, shown with the spelling most screens use; renaming sets one spelling on every screen", async () => {
+  const mk = (id: number, product: string, variant: string) => ({ ...bag, id, name: `${variant} ${product}`, product, variant });
+  const rows = [mk(4, "Bag", "Chicken"), mk(5, "bag", "Salmon"), mk(6, "Bag", "Peanut butter")];
+  const calls = withScreens(rows, { "PATCH /brands/1/screens/4": [200, rows[0]], "PATCH /brands/1/screens/5": [200, rows[1]], "PATCH /brands/1/screens/6": [200, rows[2]] });
+  renderAt("/b/1/brand?tab=products");
+  expect(await screen.findByRole("heading", { name: /Bag/ })).toHaveTextContent("3 flavours");
+  expect(screen.getAllByRole("heading", { level: 2 }).filter((h) => /bag/i.test(h.textContent ?? ""))).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "More for Bag" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Rename Bag" }));
+  const panel = await screen.findByRole("dialog", { name: "Rename Bag" });
+  await userEvent.clear(within(panel).getByLabelText("Product name"));
+  await userEvent.type(within(panel).getByLabelText("Product name"), "Treat bag");
+  await userEvent.click(within(panel).getByRole("button", { name: "Rename" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.startsWith("PATCH /brands/1/screens/"))).toHaveLength(3));
+});
+
+test("a tile shows its first moment and how many more", async () => {
+  withScreens([{ ...bag, default_for: ["trading", "win"] }]);
+  renderAt("/b/1/brand?tab=screens");
+  expect(await screen.findByText("trading +1")).toBeInTheDocument();
+});
+
+test("the Products tab counts Bag and bag as one product", async () => {
+  const mk = (id: number, product: string, variant: string) => ({ ...bag, id, name: `${variant} ${product}`, product, variant });
+  withScreens([mk(4, "Bag", "Chicken"), mk(5, "bag", "Salmon")]);
+  renderAt("/b/1/brand");
+  expect(await screen.findByRole("tab", { name: /^Products 1$/ })).toBeInTheDocument();
 });

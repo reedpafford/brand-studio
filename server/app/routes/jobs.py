@@ -17,6 +17,7 @@ from app.credits import (
     lock,
     needs_approval,
     over_allowance,
+    own_script,
 )
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -144,6 +145,8 @@ def enqueue(
         lock(db, Project, project.id)
         db.refresh(project)  # read its status after taking the lock
         check_video_cap(db, user, project, credits)
+        if own_script(db, project, user):
+            lock(db, User, user.id)  # it spends their weekly allowance, like a Quick clip
     else:
         lock(db, User, user.id)
         check_clip_cap(db, user, credits)
