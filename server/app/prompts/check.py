@@ -16,6 +16,10 @@ from app.prompts.schemas import (
 
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
+ADVICE = "Advice: "  # a problem that never blocks a step; the editor can keep it
+HIS = re.compile(
+    r"\b[A-Z][\w-]*'s (hands?|fingers?|thumbs?|phone|laptop|monitors?|screen|keys|car|desk)\b"
+)
 TAG = re.compile(r"^\[[A-Za-z ]+\] ")  # accepted Enhance lines: "[Camera] …", "[Brand screen] ★ …"
 SILENT = "Audio: no one speaks (no voices, narration or dialogue), only "
 AUDIO_LINE = re.compile(
@@ -86,8 +90,9 @@ def breakdown(
     for i, shot in enumerate(shots):
         # a montage is 3+ quick shots in a row; is this shot inside one?
         windows = [quick[k : k + 3] for k in range(max(0, i - 2), i + 1)]
-        if any(len(w) == 3 and all(w) for w in windows) and not shot.character_ids:
-            problems.append(f"shot {shot.id}: a montage shot without the main character")
+        his = shot.character_ids or shot.screen_ids or HIS.search(shot.action)  # hands, phone…
+        if any(len(w) == 3 and all(w) for w in windows) and not his:
+            problems.append(f"{ADVICE}shot {shot.id}: a montage shot without the main character")
     order = [shot.id for shot in shots]
     if [sid for clip in bd.clips for sid in clip.shot_ids] != order:
         problems.append("clips don't cover the shots once each, in order")

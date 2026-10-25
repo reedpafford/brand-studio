@@ -103,8 +103,13 @@ def test_breakdown_check_wants_the_main_character_in_every_montage_shot():
     shot = next(s for s in bd.scenes[1].shots if s.id == "2.7")
     shot.character_ids = []
     assert check.breakdown(script, bd, FOMO, 4, 30) == [
-        "shot 2.7: a montage shot without the main character"
+        "Advice: shot 2.7: a montage shot without the main character"
     ]
+    shot.action = "Malik's hands push open the glass door of a penthouse."
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []  # his hands count as him
+    shot.action, shot.screen_ids = "The phone shows the chart.", ["screen:2"]
+    shot.moment = "win"
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []  # so does his screen
     lone = bd.scenes[0].shots[1]  # 1.2: one quick empty insert between lines, not a montage
     assert not lone.line and not lone.character_ids and lone.seconds <= 0.6
 

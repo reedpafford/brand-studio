@@ -88,6 +88,14 @@ test("problems are listed in plain words and stop Next, with the reason", async 
   expect(next).toHaveAccessibleDescription("Fix the 2 problems in Shots first");
 });
 
+test("advice is listed but never stops Next", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: ["Advice: shot 1.2: a montage shot without the main character"] })] });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  expect(within(box).getByText("Advice: shot 1.2: a montage shot without the main character")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeEnabled();
+});
+
 test("a breakdown made for an older script is flagged and offers a new one", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ script_version: 3, stale: true })] });
   open();
