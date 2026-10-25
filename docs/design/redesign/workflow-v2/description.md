@@ -7,7 +7,7 @@ The video frame from #179 is reused.
 - **Header:**
   - ‹ Scripts
   - the title, with `Pencil` to rename
-  - a status badge: "Draft · only you can see it", or "Published · final" with `Lock`
+  - a status badge: "Draft · only you can see it" (Reed's drafts) or "Draft · only you and Reed can see it" (an editor's), or "Published · final" with `Lock`
 - **Step picker:** Description · Script · Directions · Variations · Characters · Breakdown · Publish.
   - Directions, Variations and Breakdown are optional. When skipped, they show a muted "Skipped" instead of a tick, and they don't block Next.
 - **Credits:**

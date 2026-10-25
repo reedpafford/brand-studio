@@ -350,3 +350,17 @@ def test_videos_from_an_editors_own_script_use_their_allowance(owner, editor, ed
     assert enqueue(db, ed, "video-480p", {}, units=30, project=reeds).status == (
         "needs_owner_approval"
     )
+
+
+def test_owner_sees_each_editors_allowance(owner, editor, ed, db):
+    enqueue(db, ed, "video-480p", {}, units=40)
+    assert owner.get("/credits/allowances").json() == [
+        {
+            "user_id": ed.id,
+            "name": "Ed",
+            "quick_clip_credits_used": 40,
+            "quick_clip_credits_allowed": 145,
+        }
+    ]
+    assert editor.get("/credits/allowances").status_code == 403
+    assert_no_dollars(owner, ["/credits/allowances"])

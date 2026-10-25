@@ -1,3 +1,5 @@
+from fastapi.testclient import TestClient
+
 from tests.conftest import PASSWORD
 
 
@@ -49,3 +51,18 @@ def test_other_workspace_owner_cannot_see_or_cancel_invites(owner, outsider):
     invite = owner.post("/team/invites", json={"email": "z@example.com"}).json()
     assert outsider.get("/team/invites").json() == []
     assert outsider.delete(f"/team/invites/{invite['id']}").status_code == 404
+
+
+def test_owner_gets_a_fresh_link_for_a_waiting_invite(app, owner, editor):
+    old = owner.post("/team/invites", json={"email": "z@example.com"}).json()
+    fresh = owner.post(f"/team/invites/{old['id']}/link")
+    assert fresh.status_code == 200 and fresh.json()["token"] != old["token"]
+    assert editor.post(f"/team/invites/{old['id']}/link").status_code == 403
+    with TestClient(app) as c:
+        body = {"name": "Zed", "password": PASSWORD}
+        assert (
+            c.post("/auth/accept-invite", json={**body, "token": old["token"]}).status_code >= 400
+        )
+        joined = c.post("/auth/accept-invite", json={**body, "token": fresh.json()["token"]})
+        assert joined.status_code == 201
+    assert owner.post(f"/team/invites/{old['id']}/link").status_code == 404  # accepted
