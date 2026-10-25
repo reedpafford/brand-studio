@@ -1,4 +1,4 @@
-as of d204142 · 2026-10-25 00:50 UTC
+as of 04d89e7 · 2026-10-25 01:25 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -40,10 +40,10 @@ as of d204142 · 2026-10-25 00:50 UTC
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
 - Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet.
 ## Open PRs (2, not counting the Scribe's own)
-- #180 Redesign 4/14: Videos home | Builder-Screens | in review (its base #178 is merged)
-- #179 Redesign 6/14: video frame | Builder-Screens | Designer review at 2dd23a2: 3 must-fixes (phone header takes 338 px; two amber buttons on the Script step; phone action-bar button not full width); head since moved to 030ab69
+- #180 Redesign 4/14: Videos home | Builder-Screens | Designer re-check at 90d1444: 1 must-fix (on phone and tablet the "New video" action bar has no bar: no padding, surface or top border, and the button isn't full width; fix once in `ActionBar`); a follow-up list (step badges, per-step line, real poster, In progress / Finished sections) is also due
+- #179 Redesign 6/14: video frame | Builder-Screens | Designer review at 2dd23a2: 3 must-fixes (phone header takes 338 px; two amber buttons on the Script step; phone action-bar button not full width); head since moved to dc5616c
 ## Next
-- Builder-Screens: fix #179's three Designer must-fixes; land #180; then redesign PRs 5, 7–14 (clip prompt review with "Looks good" before takes are paid for comes in PR 9, per the Designer).
+- Builder-Screens: fix #180's action bar and #179's three Designer must-fixes (put the full-width bar in `ActionBar` once); then redesign PRs 5, 7–14 (clip prompt review with "Looks good" before takes are paid for comes in PR 9, per the Designer).
 - Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (per the Producer), then the first live deploy runs on merge to main.
 - Director: further excerpt runs only with Producer approval, logged in ops/SPEND.md.
 - Explorer: nightly checks of test and live sites (later).
