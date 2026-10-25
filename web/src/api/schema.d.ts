@@ -652,6 +652,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/brands/{brand_id}/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brand Videos
+         * @description The brand's videos with their whole-life spend. The period picks which: done videos
+         *     finished in it, others with activity in it; all time lists everything.
+         */
+        get: operations["brand_videos_usage_brands__brand_id__videos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/brands/{brand_id}/scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brand Scripts
+         * @description The brand's scripts (drafts included, as the owner sees them), with what each cost.
+         */
+        get: operations["brand_scripts_usage_brands__brand_id__scripts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Charges
+         * @description Every charge, newest first, for checking one (the old "By job" list). The cursor is
+         *     the last row's id, so new charges never shift a page.
+         */
+        get: operations["charges_usage_charges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -3494,6 +3556,13 @@ export interface components {
             /** Editors Active */
             editors_active: number;
         };
+        /** UsageBrandRef */
+        UsageBrandRef: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** UsageBrandRow */
         UsageBrandRow: {
             /** Brand Id */
@@ -3530,6 +3599,33 @@ export interface components {
             /** Items */
             items: components["schemas"]["UsageBrandRow"][];
         };
+        /** UsageCharge */
+        UsageCharge: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            person: components["schemas"]["Who"] | null;
+            brand: components["schemas"]["UsageBrandRef"] | null;
+            /** What */
+            what: string;
+            /** Credits */
+            credits: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Estimated */
+            estimated: boolean;
+            /** Status */
+            status: string;
+        };
+        /** UsageChargesOut */
+        UsageChargesOut: {
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Items */
+            items: components["schemas"]["UsageCharge"][];
+        };
         /** UsageOut */
         UsageOut: {
             /** Id */
@@ -3563,6 +3659,56 @@ export interface components {
             /** Cost Per Finished Usd */
             cost_per_finished_usd: number | null;
         };
+        /** UsageScript */
+        UsageScript: {
+            /** Id */
+            id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Reference Id */
+            reference_id: string | null;
+            /** Published */
+            published: boolean;
+            /** Status */
+            status: string;
+            /** Created By Id */
+            created_by_id: number | null;
+            /** Created By Name */
+            created_by_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Versions */
+            versions: components["schemas"]["VersionSummary"][];
+            /** Versions Left */
+            versions_left: number;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+        };
+        /** UsageScriptsOut */
+        UsageScriptsOut: {
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Authors */
+            authors: components["schemas"]["Who"][];
+            /** Items */
+            items: components["schemas"]["UsageScript"][];
+        };
         /** UsageSummaryOut */
         UsageSummaryOut: {
             /**
@@ -3585,6 +3731,49 @@ export interface components {
             in_progress: number;
             /** Unassigned Spend Usd */
             unassigned_spend_usd: number;
+        };
+        /** UsageVideo */
+        UsageVideo: {
+            /** Project Id */
+            project_id: number;
+            /** Title */
+            title: string;
+            /** Script Id */
+            script_id: number | null;
+            /** Version Letter */
+            version_letter: string | null;
+            /** Legacy */
+            legacy: boolean;
+            person: components["schemas"]["Who"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_production" | "done" | "failed";
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Credits */
+            credits: number;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Last Activity At
+             * Format: date-time
+             */
+            last_activity_at: string;
+        };
+        /** UsageVideosOut */
+        UsageVideosOut: {
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** People */
+            people: components["schemas"]["Who"][];
+            /** Items */
+            items: components["schemas"]["UsageVideo"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -3636,6 +3825,13 @@ export interface components {
             take_ids: number[];
             /** Out Of Date */
             out_of_date: boolean;
+        };
+        /** Who */
+        Who: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /** InviteOut */
         app__routes__auth__InviteOut: {
@@ -5195,6 +5391,116 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageBrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    brand_videos_usage_brands__brand_id__videos_get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+                status?: "any" | "in_production" | "done" | "failed";
+                person_id?: number | null;
+                q?: string;
+                sort?: "activity" | "spend" | "finished" | "title";
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageVideosOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    brand_scripts_usage_brands__brand_id__scripts_get: {
+        parameters: {
+            query?: {
+                status?: "any" | "writing" | "ready" | "in_production" | "done";
+                author_id?: number | null;
+                q?: string;
+                sort?: "changed" | "spend" | "title";
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageScriptsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    charges_usage_charges_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageChargesOut"];
                 };
             };
             /** @description Validation Error */
