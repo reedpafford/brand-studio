@@ -1,4 +1,4 @@
-as of a8685b9 · 2026-10-25 02:20 UTC
+as of 5354c1b · 2026-10-25 02:25 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -41,8 +41,9 @@ as of a8685b9 · 2026-10-25 02:20 UTC
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
 - Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet.
 ## Workflow v2 (Reed's decisions, 2026-10-25, ops/DECISIONS.md)
-- Owner writes a script (title, description, optional reference reel), runs Enhance, picks 0–2 variations, locks characters, optionally previews the breakdown, and publishes to the Script Library. Editors pick a version and produce it once (max 3 videos per script). Editors can write their own scripts: $15 a week free generation each, beyond that declined. No final-video upload: download clips one by one or all at once, older takes too.
-## Open PRs (7, not counting the Scribe's own)
+- Owner writes a script (title, description, optional reference reel), runs Enhance, picks 0–2 variations, locks characters, optionally previews the breakdown, and publishes to the Script Library. Editors pick a version and produce it once (max 3 videos per script). Editors can write their own scripts: $15 a week free generation each, beyond that declined. Cast slots (#197): once the script and variations are approved, every named or recurring role is an optional cast slot; a locked slot is used as-is in every shot and version. No final-video upload: download clips one by one or all at once, older takes too.
+## Open PRs (8, not counting the Scribe's own)
+- #198 Workflow v2 re-spec 3: Variations, Characters, Publish | Designer | in review (docs)
 - #196 Montage check: hand and screen inserts count as the hero; never a dead end | Director | in review
 - #195 Workflow v2 re-spec 2: Description, New script, Bulk create | Designer | in review (docs)
 - #194 Workflow v2 re-spec 1: Script library | Designer | in review (docs)

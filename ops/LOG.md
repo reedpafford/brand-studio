@@ -1,6 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 02:10 · #197 Decisions: cast slots per script, shared across versions merged
+- 2026-10-25 · Decision in DECISIONS.md (#197): once a script and its variations are approved, the app lists every named or recurring role as an optional cast slot (main characters, helpers, rivals, family); a slot Reed locks to a look is used as-is in every shot and every version, unlocked slots are generated at the editor's Assets step; roles carry across all versions; background people are never cast slots.
 - 2026-10-25 02:06 · #192 Workflow v2 plan: Script library, writing flow, video flow on versions (design docs) merged
 - 2026-10-25 02:06 · #191 Plan: variations prompt and no dead-end checks (workflow v2, Director's part) merged
 - 2026-10-25 02:06 · #189 docs: workflow v2 server plan (Script Library, versions, locks, produce once) merged
