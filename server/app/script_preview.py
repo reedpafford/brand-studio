@@ -37,20 +37,26 @@ def stand_in_project(
     )
 
 
-def _slot_lines(db: Session, script: Script) -> str:
+def with_slots(db: Session, script_id: int, context: str, cast: dict | None = None) -> str:
+    """The context with the script's unlocked slots added to <cast> as slot:N lines, leaving
+    out any the video already cast (`cast`: the project's slot_cast)."""
     unlocked = db.scalars(
         select(ScriptCastSlot)
-        .where(ScriptCastSlot.script_id == script.id, ScriptCastSlot.library_item_id.is_(None))
+        .where(ScriptCastSlot.script_id == script_id, ScriptCastSlot.library_item_id.is_(None))
         .order_by(ScriptCastSlot.position)
     )
-    return "\n".join(f"slot:{s.id} | {s.role} | {s.description} (no look yet)" for s in unlocked)
+    lines = "\n".join(
+        f"slot:{s.id} | {s.role} | {s.description} (no look yet)"
+        for s in unlocked
+        if str(s.id) not in (cast or {})
+    )
+    return context.replace("\n</cast>", f"\n{escape(lines)}\n</cast>") if lines else context
 
 
 def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict | None) -> dict:
     project = stand_in_project(db, script, draft, reference)
     system, context = project_context(db, project, "breakdown")
-    if extra := _slot_lines(db, script):
-        context = context.replace("\n</cast>", f"\n{escape(extra)}\n</cast>")
+    context = with_slots(db, script.id, context)
     parts = [context, f"<places>\n{escape(breakdown._places(db, project))}\n</places>"]
     parts.append(breakdown.video_model_block(breakdown.video_model()))
     if project.reference_breakdown:
