@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { setViewport } from "../test/viewport";
 
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
@@ -82,8 +83,9 @@ test("problems are listed in plain words and stop Next, with the reason", async 
   open();
   const box = await screen.findByLabelText("Problems");
   expect(within(box).getByText("Shot 1.2 is a loss moment but shows no fomo screen.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Storyboard →" })).toBeDisabled();
-  expect(screen.getByText("Fix the 2 problems first.")).toBeInTheDocument();
+  const next = screen.getByRole("button", { name: "Next: Storyboard" });
+  expect(next).toBeDisabled();
+  expect(next).toHaveAccessibleDescription("Fix the 2 problems in Shots first");
 });
 
 test("a breakdown made for an older script is flagged and offers a new one", async () => {
@@ -91,7 +93,7 @@ test("a breakdown made for an older script is flagged and offers a new one", asy
   open();
   expect(await screen.findByText("Made for script v3. The script is now v5.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make a new breakdown · 6 credits" })).toBeInTheDocument();
-  expect(screen.getByText("Make a new breakdown first.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveAccessibleDescription("Make new shots first");
 });
 
 test("Redo asks first when the breakdown was edited, and a failed run says nothing was charged", async () => {
@@ -102,12 +104,14 @@ test("Redo asks first when the breakdown was edited, and a failed run says nothi
   expect(confirm).toHaveBeenCalledWith("Replace this breakdown? Your edits are kept in History.");
 });
 
-test("Breakdown stays locked until there is a script", async () => {
+test("Shots stay locked until there is a script", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/script": [404, { detail: "no script" }], "GET /projects/9/breakdown": [409, { detail: "Add a script first." }] });
   open();
-  const steps = await screen.findByRole("list", { name: "Stages" });
-  expect(within(steps).getByRole("button", { name: /Breakdown/ })).toBeDisabled();
-  expect(within(steps).getByRole("button", { name: /Breakdown/ })).toHaveAttribute("title", "Finish the script first");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  const shots = within(steps).getByRole("button", { name: "Shots" });
+  expect(shots).toHaveAttribute("aria-disabled", "true");
+  expect(shots).toHaveAccessibleDescription("Finish Script first");
 });
 
 const twoClips = () =>
@@ -129,8 +133,9 @@ test("editing a shot changes only the draft; Save sends the whole breakdown and 
   await userEvent.clear(screen.getByLabelText("Shot 1.1 seconds"));
   await userEvent.type(screen.getByLabelText("Shot 1.1 seconds"), "5");
   expect(screen.getByText("Clip c1 · 8 s")).toBeInTheDocument(); // 5 + 2.5 rounded up
-  expect(screen.getByRole("button", { name: "Next: Storyboard →" })).toBeDisabled();
-  expect(screen.getByText("Save your changes first.")).toBeInTheDocument();
+  const next = screen.getByRole("button", { name: "Next: Storyboard" });
+  expect(next).toBeDisabled();
+  expect(next).toHaveAccessibleDescription("Save your changes first.");
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
   const body = calls.find((c) => c.key === "PUT /projects/9/breakdown")?.body as { scenes: { shots: { id: string; action: string; seconds: number }[] }[]; clips: { seconds: number }[] };
@@ -191,7 +196,7 @@ test("Redo is a secondary button; Next is the only primary one", async () => {
   open();
   const redo = await screen.findByRole("button", { name: "Redo · 6 credits" });
   expect(redo).not.toHaveClass("bg-accent");
-  expect(screen.getByRole("button", { name: "Next: Storyboard →" })).toHaveClass("bg-accent");
+  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveClass("bg-accent");
 });
 
 test("a paid button asks Reed when the call would take the project past its budget", async () => {
@@ -258,7 +263,7 @@ describe("on a phone", () => {
 test("a clean breakdown opens the Storyboard step with Next", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()], "GET /projects/9/storyboard": [200, []] });
   open();
-  const next = await screen.findByRole("button", { name: "Next: Storyboard →" });
+  const next = await screen.findByRole("button", { name: "Next: Storyboard" });
   expect(next).toBeEnabled();
   await userEvent.click(next);
   expect(await screen.findByText("No frames yet.")).toBeInTheDocument();

@@ -1,107 +1,181 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, FileText, Pencil } from "lucide-react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
-import { backLink, pageTitle } from "../ui";
-import { useEnhance } from "./Enhance";
-import { useBreakdown } from "./BreakdownPane";
-import { useFrames } from "./StoryboardPane";
+import { api, errorText } from "../api/client";
+import { Button, Card, Field, Skeleton, StepPicker } from "../components";
+import { ActionBar } from "../shell/ActionBar";
+import { useRail } from "../useMedia";
+import { BreakdownPane } from "./BreakdownPane";
+import { BriefEditor } from "./BriefEditor";
+import { ClipsPane } from "./ClipsPane";
+import { Notes, useEnhance } from "./Enhance";
 import { EstimateNote } from "./EstimateNote";
+import { FinalPane } from "./FinalPane";
 import { Meter, WaitingBadge } from "./Meter";
-import { ScriptTab, useLatestScript } from "./ScriptTab";
-import { STAGES, StagePane, Stepper, firstUnfinished, lockReason, type Stage } from "./Workspace";
+import { ScriptPanel } from "./ScriptPanel";
+import { ScriptTab } from "./ScriptTab";
+import { StoryboardPane } from "./StoryboardPane";
+import { STEPS, firstUnfinished, lockReason, nextOf, stepFromParams, stepStates, type StepId } from "./steps";
+import { useProgress } from "./useProgress";
 
-/** One video: the stage steps along the top, the script always on the left, what to do next on the right. */
+/** One video: header with the credits, six steps, the step's work, one Next button, and the Script on demand. */
 export function ProjectPage() {
   const { brandId = "", projectId } = useParams();
   const id = Number(projectId);
   const [params, setParams] = useSearchParams();
-  const asked = params.get("stage") ?? (params.get("tab") === "script" ? "script" : "brief");
-  const stage = (STAGES.some((s) => s.id === asked) ? asked : "brief") as Stage;
-  const [pane, setPane] = useState<"script" | "stage">("script");
+  const step = stepFromParams(params);
+  const rail = useRail();
+  const queryClient = useQueryClient();
+  const [panel, setPanel] = useState(false);
   const [highlight, setHighlight] = useState<number[]>([]);
   const [line, setLine] = useState<number | null>(null);
+  const [dirty, setDirty] = useState(false); // unsaved edits in Shots
+  const [editingBrief, setEditingBrief] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const project = useQuery({
     queryKey: ["project", id],
     queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
   });
-  const script = useLatestScript(id);
+  const { progress, loading, script } = useProgress(id);
   const enhance = useEnhance(id, script.data?.version, script.data?.text);
-  const breakdown = useBreakdown(id, script.data?.version ?? 0);
-  const frames = useFrames(id);
-  if (project.isPending || script.isPending || breakdown.isPending || frames.isPending) return <p className="p-6 text-muted">Loading…</p>;
+  const rename = useMutation({
+    mutationFn: async (name: string) => {
+      const { error, response } = await api.PATCH("/projects/{project_id}", { params: { path: { project_id: id } }, body: { name } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: async () => {
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["project", id] }), queryClient.invalidateQueries({ queryKey: ["projects"] })]);
+      setRenaming(null);
+    },
+  });
+
+  if (project.isPending || loading)
+    return (
+      <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8" role="status" aria-label="Loading">
+        <Skeleton className="h-10 w-1/2" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-64" />
+      </div>
+    );
   const p = project.data;
-  if (!p) return <p className="p-6">That project doesn't exist.</p>;
-  const hasScript = !!script.data;
-  const ready = { script: hasScript, breakdown: !!breakdown.data, breakdownOk: !!breakdown.data && !breakdown.data.stale && breakdown.data.problems.length === 0, storyboardOk: !!frames.data?.length && frames.data.every((f) => f.approved && !f.stale) };
-  // A link to a stage that is locked lands on the first stage that is not finished yet.
-  if (lockReason(stage, ready) !== null) return <Navigate to={`?stage=${firstUnfinished(ready)}`} replace />;
-  const pick = (s: Stage) => {
-    setParams(s === "brief" ? {} : { stage: s });
-    setPane("stage"); // on a phone, choosing a stage shows it (the script tab would hide the change)
+  if (!p) return <p className="p-6">That video doesn't exist.</p>;
+  // A link to a step that is locked lands on the first step that is not finished yet.
+  if (lockReason(step, progress) !== null) return <Navigate to={`?stage=${firstUnfinished(progress)}`} replace />;
+
+  const pick = (to: string) => {
+    setParams(to === "brief" ? {} : { stage: to });
+    setPanel(false);
   };
-  const bd = breakdown.data;
-  const done: Stage[] = ["brief", ...(script.data ? (["script"] as Stage[]) : []), ...(bd && !bd.stale && bd.problems.length === 0 ? (["breakdown"] as Stage[]) : [])];
+  const showLines = (lines: number[]) => {
+    setHighlight(lines);
+    setLine(null);
+    setPanel(true);
+  };
+  const label = STEPS.find((s) => s.id === step)?.label;
+  const next = nextOf(step);
+  const nextReason = next ? (step === "shots" && dirty ? "Save your changes first." : lockReason(next.id, progress)) : null;
+  const nextButton = next && !(step === "brief" && editingBrief) && (
+    <Button disabled={nextReason !== null} reason={nextReason} onClick={() => pick(next.id)}>
+      Next: {next.label}
+    </Button>
+  );
+  const fromShotsOn = step !== "brief" && step !== "script";
 
   return (
-    <main className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
-      <Link to={`/b/${brandId}/projects`} className={backLink}>
-        ← Projects
+    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-8">
+      <Link to={`/b/${brandId}/projects`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
+        <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
+        Videos
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className={pageTitle}>{p.name}</h1>
-        <div className="w-full sm:w-72">
-          <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
-          <EstimateNote projectId={id} used={p.credits_used} budget={p.budget_credits} />
+        {renaming === null ? (
+          <h1 className="flex min-w-0 items-center gap-2 type-page">
+            <span className="min-w-0 break-words">{p.name}</span>
+            <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
+              <Pencil size={20} strokeWidth={1.75} aria-hidden />
+            </button>
+          </h1>
+        ) : (
+          <form
+            className="flex min-w-0 flex-1 flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (renaming.trim()) rename.mutate(renaming.trim());
+            }}
+          >
+            <div className="min-w-0 flex-1">
+              <Field label="Name" value={renaming} onChange={(e) => setRenaming(e.target.value)} error={rename.isError ? rename.error.message : null} maxLength={120} autoFocus />
+            </div>
+            <Button type="submit" busy={rename.isPending} disabled={!renaming.trim()}>
+              Save
+            </Button>
+            <Button variant="ghost" onClick={() => setRenaming(null)}>
+              Cancel
+            </Button>
+          </form>
+        )}
+        <div className="flex w-full items-start gap-3 sm:w-auto">
+          <div className="min-w-0 flex-1 sm:w-72">
+            <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+            <EstimateNote projectId={id} used={p.credits_used} budget={p.budget_credits} />
+          </div>
         </div>
       </div>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
-      <Stepper stage={stage} done={done} ready={ready} onPick={pick} />
-      <div role="tablist" className="flex gap-1 text-sm lg:hidden">
-        {(["script", "stage"] as const).map((t) => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={pane === t}
-            className={`min-h-11 flex-1 rounded-sm px-3 ${pane === t ? "bg-accent-soft font-medium text-accent-text" : "text-muted"}`}
-            onClick={() => setPane(t)}
-          >
-            {t === "script" ? "Script" : STAGES.find((s) => s.id === stage)?.label}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(360px,3fr)_minmax(320px,2fr)]">
-        <div className={pane === "script" ? "min-w-0" : "hidden min-w-0 lg:block"}>
-          <ScriptTab
-            projectId={id}
-            used={p.credits_used}
-            budget={p.budget_credits}
-            enhance={enhance}
-            highlight={highlight}
-            onLineClick={
-              stage === "breakdown"
-                ? (n) => {
-                    setLine(n);
-                    setHighlight([n]);
-                    setPane("stage");
-                  }
-                : undefined
-            }
-          />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <StepPicker steps={stepStates(step, progress)} onPick={pick} />
         </div>
-        <div className={pane === "stage" ? "min-w-0" : "hidden min-w-0 lg:block"}>
-          <StagePane stage={stage} brief={p} hasScript={hasScript} enhance={enhance} version={script.data?.version ?? 0} projectId={id} brandId={p.brand_id} name={p.name} used={p.credits_used}
-            budget={p.budget_credits}
-            line={line}
-            onShowLines={(lines) => {
-              setHighlight(lines);
-              setLine(null);
-              setPane("script");
-            }}
-            onPick={pick}
-          />
-        </div>
+        {fromShotsOn && (
+          <Button variant="secondary" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Script">
+            {rail ? "Script" : ""}
+          </Button>
+        )}
       </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h2 className="type-section">{label}</h2>
+        {rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
+      </div>
+      {step === "brief" && (
+        <Card>
+          <BriefEditor project={p} hasScript={progress.script} onEditing={setEditingBrief} />
+        </Card>
+      )}
+      {step === "script" && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0">
+            <ScriptTab projectId={id} used={p.credits_used} budget={p.budget_credits} enhance={enhance} />
+          </div>
+          <div className="min-w-0">
+            <Notes e={enhance} />
+          </div>
+        </div>
+      )}
+      {step === "shots" && <BreakdownPane projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />}
+      {step === "storyboard" && <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "clips" && <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "final" && <FinalPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
+      {panel && (
+        <ScriptPanel
+          projectId={id}
+          rail={rail}
+          highlight={highlight}
+          onLineClick={
+            step === "shots"
+              ? (n) => {
+                  setLine(n);
+                  setHighlight([n]);
+                  if (!rail) setPanel(false);
+                }
+              : undefined
+          }
+          onEdit={() => pick("script")}
+          onClose={() => setPanel(false)}
+        />
+      )}
     </main>
   );
 }
+
+export type { StepId };

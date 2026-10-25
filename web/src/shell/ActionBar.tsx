@@ -26,5 +26,5 @@ export function ActionBar({ children, phone }: { children: ReactNode; phone: boo
     return () => bump(-1);
   }, [phone, bump]);
   if (!phone) return <>{children}</>;
-  return node ? createPortal(children, node) : null;
+  return node ? createPortal(<div className="border-t border-border bg-surface px-4 py-3">{children}</div>, node) : null;
 }

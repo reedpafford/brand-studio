@@ -36,15 +36,6 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
     queryFn: async () => (await api.GET("/projects/{project_id}/clips", { params: { path } })).data ?? [],
     refetchInterval: () => (anyGoing ? 3000 : false),
   });
-  const video = useQuery({
-    queryKey: ["project-video", projectId],
-    queryFn: async () => {
-      const { data, response } = await api.GET("/projects/{project_id}/video", { params: { path } });
-      if (response.status === 404) return null;
-      if (!data) throw new Error("load");
-      return data;
-    },
-  });
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
   const refresh = () => {
@@ -115,20 +106,12 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
     },
     onSuccess: refresh, // the take and its approval stay; only the finished video goes out of date
   });
-  const stitch = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/video", { params: { path } });
-      if (!data) throw new Error(errorText(error));
-    },
-    onSuccess: refresh,
-  });
-
   if (clips.isPending || frames.isPending) return <p className="text-muted">Loading…</p>;
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
   const list = clips.data;
   const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${Math.round(n)} credits`);
-  const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error ?? stitch.error;
+  const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error;
   const takeCost = (c: Clip) => c.take_credits;
   const busyFor = (c: Clip) => going(takeJob(c.id)?.id);
   const missing = list.filter((c) => c.takes.length === 0 && c.problems.length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
@@ -158,8 +141,6 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
       </section>
     );
 
-  const left = list.length - approved;
-  const v = video.data;
   return (
     <div className="space-y-4" aria-label="Clips">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -211,27 +192,6 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
           );
         })}
       </ul>
-      <section className={`${card} space-y-2 text-sm`} aria-label="The video">
-        <h3 className="font-semibold">The video</h3>
-        {v ? (
-          <>
-            <video controls src={fileUrl(v.file_id)} className="max-h-96 rounded-sm" />
-            <p className="text-muted">{Math.round(list.reduce((n, c) => n + c.seconds, 0))} s · {props.aspect}</p>
-            <a className={`${btnSecondary} inline-flex min-h-11 items-center sm:min-h-9`} href={fileUrl(v.file_id)} download={`${props.projectName}.mp4`}>
-              Download MP4
-            </a>
-            {v.out_of_date && <p className="text-warning">Out of date. A take or an approval changed since.</p>}
-          </>
-        ) : (
-          <p className="text-muted">{left > 0 ? `${approved} of ${list.length} clips approved. Approve every clip to make the video (${left} left).` : "Every clip is approved."}</p>
-        )}
-        {(!v || v.out_of_date) && (
-          <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={left > 0 || stitch.isPending} onClick={() => stitch.mutate()}>
-            {stitch.isPending ? "Putting your clips together…" : v ? "Make the video again" : "Make the video"}
-          </button>
-        )}
-        {!v && left === 0 && <p className="text-muted">Free: it uses no credits.</p>}
-      </section>
     </div>
   );
 }

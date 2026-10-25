@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { setViewport } from "../test/viewport";
 
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
@@ -34,79 +35,122 @@ function open(query = "") {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("the script stays on the left while the stage changes on the right", async () => {
+/** The page's Script button (the one that opens the panel), not the Script step in the step list. */
+const scriptButton = () => screen.getAllByRole("button", { name: "Script" }).find((b) => !b.closest("ol")) as HTMLElement;
+
+test("a video has a header with the credits, six steps with ticks, and one Next button", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open();
-  expect(await screen.findByText("Mia scrolls her phone.")).toBeInTheDocument();
-  expect(screen.getByLabelText("Brief")).toHaveTextContent("Show the buy flow");
-  const steps = screen.getByRole("list", { name: "Stages" });
-  await userEvent.click(within(steps).getByRole("button", { name: /Enhance/ }));
-  expect(await screen.findByLabelText("Enhance stage")).toHaveTextContent("It never changes your words");
+  expect(await screen.findByRole("heading", { name: /Mia buys the dip/ })).toBeInTheDocument();
+  expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/projects");
+  expect(screen.getByText(/0 \/ 60 credits/)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Brief" })).toBeInTheDocument();
+  expect(screen.getByText("Show the buy flow")).toBeInTheDocument();
+  const steps = screen.getByRole("list", { name: "Steps" });
+  expect(within(steps).getAllByRole("button")).toHaveLength(6);
+  for (const name of ["Brief", "Script", "Shots", "Storyboard", "Clips", "Final video"]) expect(within(steps).getByRole("button", { name })).toBeInTheDocument();
+  expect(within(steps).getByRole("button", { name: "Brief" })).toHaveAttribute("aria-current", "step");
+  expect(screen.getByRole("button", { name: "Next: Script" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Next: Script" }));
+  expect(await screen.findByRole("heading", { name: "Script" })).toBeInTheDocument();
   expect(screen.getByText("Mia scrolls her phone.")).toBeInTheDocument();
 });
 
-test("done steps get a tick, and locked steps cannot be opened and say why", async () => {
+test("steps after the one you can reach are locked and say why; reachable ones can be opened", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
-  open("?stage=enhance");
-  const steps = await screen.findByRole("list", { name: "Stages" });
-  expect(within(steps).getByRole("button", { name: /✓ Brief/ })).toBeInTheDocument();
-  expect(within(steps).getByRole("button", { name: /✓ Script/ })).toBeInTheDocument();
-  expect(within(steps).getByRole("button", { name: /Enhance/ })).toHaveAttribute("aria-current", "step");
-  const clips = within(steps).getByRole("button", { name: "Clips" });
-  expect(clips).toBeDisabled();
-  expect(clips).toHaveAttribute("title", "Fix the breakdown first");
+  open("?stage=script");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  expect(within(steps).getByRole("button", { name: "Script" })).toHaveAttribute("aria-current", "step");
+  expect(within(steps).getByRole("button", { name: "Shots" })).not.toHaveAttribute("aria-disabled", "true");
+  const storyboard = within(steps).getByRole("button", { name: "Storyboard" });
+  expect(storyboard).toHaveAttribute("aria-disabled", "true");
+  expect(storyboard).toHaveAccessibleDescription("Make the shots first");
+  expect(within(steps).getByRole("button", { name: "Final video" })).toHaveAttribute("aria-disabled", "true");
+  await userEvent.click(storyboard);
+  expect(screen.getByRole("heading", { name: "Script" })).toBeInTheDocument(); // still here
 });
 
-test("without a script the next step waits for one", async () => {
+test("without a script Next is disabled and says why, and the later steps are locked", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/script": [404, { detail: "This project has no script yet." }] });
   open("?stage=script");
-  expect(await screen.findByText("Finish the script first.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Enhance →" })).toBeDisabled();
+  const next = await screen.findByRole("button", { name: "Next: Shots" });
+  expect(next).toBeDisabled();
+  expect(next).toHaveAccessibleDescription("Finish Script first");
 });
 
-test("on a phone a Stage menu replaces the steps, and Script / stage tabs switch panes", async () => {
+test("the old Enhance and Breakdown addresses open Script and Shots", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
-  open();
-  const menu = await screen.findByLabelText("Stage");
-  expect(within(menu).getByRole("option", { name: "Clips (fix the breakdown first)" })).toBeDisabled();
-  await userEvent.selectOptions(menu, "Enhance");
-  expect(await screen.findByLabelText("Enhance stage")).toBeInTheDocument();
-  expect(screen.getByRole("tab", { name: "Enhance" })).toBeInTheDocument();
-});
-
-test("Enhance stays locked until a script exists, and a link to it lands on the Script step", async () => {
-  fakeServer({ ...base, "GET /projects/9/script": [404, { detail: "This project has no script yet." }] });
   open("?stage=enhance");
-  expect(await screen.findByLabelText("Script stage")).toBeInTheDocument();
-  const steps = screen.getByRole("list", { name: "Stages" });
-  const enhance = within(steps).getByRole("button", { name: /Enhance/ });
-  expect(enhance).toBeDisabled();
-  expect(enhance).toHaveAttribute("title", "Finish the script first");
-  expect(within(screen.getByLabelText("Stage")).getByRole("option", { name: "Enhance (finish the script first)" })).toBeDisabled();
+  expect(await screen.findByRole("heading", { name: "Script" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Enhance/ })).toBeInTheDocument(); // Enhance now lives inside Script
 });
 
-test("a link to a stage that isn't open yet lands on the first unfinished one", async () => {
+test("a link to a locked step lands on the first unfinished one", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open("?stage=storyboard");
-  expect(await screen.findByLabelText("Breakdown")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Shots" })).toBeInTheDocument();
 });
 
-test("the guidance points at the script pane, not 'the left', so it reads right on a phone", async () => {
+test("from Shots on the script is a button: a side panel on desktop, read only, with Edit in Script", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
-  open("?stage=script");
-  expect(await screen.findByLabelText("Script stage")).toHaveTextContent("in the script pane");
-  expect(document.body.textContent).not.toMatch(/on the left/);
+  open("?stage=shots");
+  await screen.findByRole("heading", { name: "Shots" });
+  await userEvent.click(scriptButton());
+  const panel = await screen.findByRole("dialog", { name: "Script" });
+  expect(within(panel).getByText("Mia scrolls her phone.")).toBeInTheDocument();
+  await userEvent.click(within(panel).getByRole("button", { name: "Edit in Script" }));
+  expect(await screen.findByRole("heading", { name: "Script" })).toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
-test("choosing a stage on a phone shows that stage, not the script tab", async () => {
+test("the Script button is not on Brief or Script, where the script is the page", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open("?stage=script");
-  const tabs = await screen.findByRole("tablist");
-  await userEvent.click(within(tabs).getAllByRole("tab")[0]);
-  expect(within(tabs).getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
-  const steps = await screen.findByRole("list", { name: "Stages" });
-  await userEvent.click(within(steps).getByRole("button", { name: /Enhance/ }));
-  expect(within(tabs).getAllByRole("tab")[1]).toHaveAttribute("aria-selected", "true");
+  await screen.findByRole("heading", { name: "Script" });
+  expect(scriptButton()).toBeUndefined();
+});
+
+test("on a phone one step button opens a sheet of the six steps; there are no Script / step tabs", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /projects/9/script": [200, script] });
+  open("?stage=script");
+  const picker = await screen.findByRole("button", { name: /Step 2 of 6 · Script/ });
+  expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  await userEvent.click(picker);
+  const sheet = screen.getByRole("dialog", { name: "Steps" });
+  expect(within(sheet).getAllByRole("button")).toHaveLength(7); // six steps and the sheet's close button
+  expect(within(sheet).getAllByText("Make the shots first").length).toBeGreaterThan(0);
+  await userEvent.click(within(sheet).getByRole("button", { name: "Shots" }));
+  expect(await screen.findByRole("heading", { name: "Shots" })).toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Steps" })).not.toBeInTheDocument();
+});
+
+test("on a phone Next sits in the action bar above the tabs, and Script is an icon button", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /projects/9/script": [200, script] });
+  open("?stage=shots");
+  const next = await screen.findByRole("button", { name: /Next: Storyboard/ });
+  expect(next).toBeDisabled();
+  expect(scriptButton()).toBeDefined();
+});
+
+test("a video can be renamed", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /projects/9/script": [200, script], "PATCH /projects/9": [200, project] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Rename" }));
+  const name = screen.getByLabelText("Name");
+  await userEvent.clear(name);
+  await userEvent.type(name, "Mia sells the top");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toEqual({ name: "Mia sells the top" }));
 });
 
 const bag = (id: number, variant: string) => ({ id, brand_id: 1, name: `${variant} bag`, tags: [], default_for: [], product: "bag", variant, file_id: id });
@@ -123,7 +167,7 @@ test("the brief shows who is in it and which flavour, and can be edited after th
   expect(await screen.findByText("In it: Mia")).toBeInTheDocument();
   expect(screen.getByText("Bag: Chicken")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
-  // While editing, Save brief is the only primary: Next is hidden.
+  // While editing, Save brief is the only amber button: Next is hidden.
   expect(screen.queryByRole("button", { name: /Next: Script/ })).not.toBeInTheDocument();
   expect(screen.queryByText(/doesn't rewrite the script/)).not.toBeInTheDocument(); // no script yet
   await userEvent.click(await screen.findByRole("button", { name: "Peanut butter" }));
@@ -148,8 +192,8 @@ test("a refused brief edit shows the server's reason and Cancel leaves it as it 
 test("editing the brief after a script exists says saving does not rewrite the script, and Next is 44px on phones", async () => {
   fakeServer({ ...briefRoutes, "GET /projects/9/script": [200, script] });
   open();
-  const next = await screen.findByRole("button", { name: "Next: Script →" });
-  expect(next.className).toContain("min-h-11");
+  const next = await screen.findByRole("button", { name: "Next: Script" });
+  expect(next.className).toContain("min-h-control");
   await userEvent.click(screen.getByRole("button", { name: "Edit brief" }));
   expect(screen.getByText("Saving doesn't rewrite the script or the steps after it. Redo them if the change matters.")).toBeInTheDocument();
 });

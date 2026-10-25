@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { setViewport } from "../test/viewport";
 
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
@@ -49,11 +50,13 @@ function open(query = "?stage=clips") {
 afterEach(() => vi.unstubAllGlobals());
 
 test("Clips stay locked until every storyboard frame is approved", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [{ ...frames[0], approved: false }, frames[1]]] });
   open("?stage=script");
-  const steps = await screen.findByRole("list", { name: "Stages" });
-  expect(within(steps).getByRole("button", { name: /Clips/ })).toBeDisabled();
-  expect(within(steps).getByRole("button", { name: /Clips/ })).toHaveAttribute("title", "Approve every storyboard frame first");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  const clips = within(steps).getByRole("button", { name: "Clips" });
+  expect(clips).toHaveAttribute("aria-disabled", "true");
+  expect(clips).toHaveAccessibleDescription(/Approve every storyboard frame first/);
 });
 
 test("with no clips it offers to write the clip prompts, with the cost", async () => {
@@ -121,13 +124,15 @@ test("takes can be picked, and Looks good approves the picked one", async () => 
 });
 
 test("the video waits for every approval, says how many are left, then stitches for free", async () => {
+  setViewport(1440);
   fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({ approved: true, file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 }), clip({ id: 2, clip_id: "c2", seconds: 6 })]],
   });
   open();
-  expect(await screen.findByText("1 of 2 clips approved. Approve every clip to make the video (1 left).")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make the video" })).toBeDisabled();
+  const next = await screen.findByRole("button", { name: "Next: Final video" });
+  expect(next).toBeDisabled();
+  expect(next).toHaveAccessibleDescription("Approve every clip first (1 left)");
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
   const calls2 = fakeServer({
@@ -135,55 +140,59 @@ test("the video waits for every approval, says how many are left, then stitches 
     "GET /projects/9/clips": [200, [clip({ approved: true, file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]],
     "POST /projects/9/video": [201, { file_id: 90, take_ids: [5], out_of_date: false }],
   });
-  open();
+  open("?stage=final");
   const make = await screen.findByRole("button", { name: "Make the video" });
   await vi.waitFor(() => expect(make).toBeEnabled());
   await userEvent.click(make);
   await vi.waitFor(() => expect(calls2.some((c) => c.key === "POST /projects/9/video")).toBe(true));
 });
 
-test("a finished video can be played and downloaded, and says when it is out of date", async () => {
+test("a finished video is on the Final video step: it can be played and downloaded, and says when it is out of date", async () => {
+  setViewport(1440);
   fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({ approved: true, file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]],
     "GET /projects/9/video": [200, { file_id: 90, take_ids: [4], out_of_date: true }],
   });
-  open();
-  const box = await screen.findByLabelText("The video");
-  expect(within(box).getByRole("link", { name: "Download MP4" })).toHaveAttribute("download", "Mia buys the dip.mp4");
-  expect(within(box).getByText(/Out of date/)).toBeInTheDocument();
+  open("?stage=final");
+  const box = await screen.findByLabelText("Final video");
+  expect(within(box).getByRole("link", { name: "Download the older video" })).toHaveAttribute("download", "Mia buys the dip.mp4");
+  expect(within(box).getByText("Out of date", { selector: "span" })).toBeInTheDocument();
   expect(within(box).getByRole("button", { name: "Make the video again" })).toBeInTheDocument();
 });
 
 test("the storyboard's Next: Clips opens this step once every frame is approved", async () => {
   fakeServer({ ...base, "GET /projects/9/clips": [200, []] });
   open("?stage=storyboard");
-  const next = await screen.findByRole("button", { name: "Next: Clips →" });
+  const next = await screen.findByRole("button", { name: "Next: Clips" });
   await vi.waitFor(() => expect(next).toBeEnabled());
   await userEvent.click(next);
   expect(await screen.findByText("No clips yet.")).toBeInTheDocument();
 });
 
-test("an edited script makes the breakdown stale, which closes Clips again even with every frame approved", async () => {
+test("an edited script makes the shots stale, which closes Clips again even with every frame approved", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, { ...breakdown, stale: true, script_version: 3 }], "GET /projects/9/clips": [200, []] });
   open("?stage=clips");
-  expect(await screen.findByLabelText("Breakdown")).toBeInTheDocument(); // landed on the first unfinished step
-  const steps = screen.getByRole("list", { name: "Stages" });
-  expect(within(steps).getByRole("button", { name: /Clips/ })).toBeDisabled();
-  expect(within(steps).getByRole("button", { name: /Clips/ })).toHaveAttribute("title", "Fix the breakdown first");
+  expect(await screen.findByRole("heading", { name: "Shots" })).toBeInTheDocument(); // landed on the first unfinished step
+  const steps = screen.getByRole("list", { name: "Steps" });
+  const clips = within(steps).getByRole("button", { name: "Clips" });
+  expect(clips).toHaveAttribute("aria-disabled", "true");
+  expect(clips).toHaveAccessibleDescription("Make new shots first");
 });
 
-test("a breakdown with problems also keeps Clips closed, and without a script the reason is the script", async () => {
+test("shots with problems also keep Clips closed, and without a script the reason is the script", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, { ...breakdown, problems: ["Shot 1.2 shows no fomo screen."] }] });
   open("?stage=script");
-  const steps = await screen.findByRole("list", { name: "Stages" });
-  expect(within(steps).getByRole("button", { name: /Clips/ })).toHaveAttribute("title", "Fix the breakdown first");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  expect(within(steps).getByRole("button", { name: "Clips" })).toHaveAccessibleDescription("Fix the 1 problem in Shots first");
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
   fakeServer({ ...base, "GET /projects/9/script": [404, { detail: "none" }], "GET /projects/9/breakdown": [409, { detail: "Add a script first." }] });
   open("?stage=script");
-  const steps2 = await screen.findByRole("list", { name: "Stages" });
-  expect(within(steps2).getByRole("button", { name: /Clips/ })).toHaveAttribute("title", "Finish the script first");
+  const steps2 = await screen.findByRole("list", { name: "Steps" });
+  expect(within(steps2).getByRole("button", { name: "Clips" })).toHaveAccessibleDescription("Finish Script first");
 });
 
 test("Needs a change sends what's wrong with the next take, and the price is the server's", async () => {

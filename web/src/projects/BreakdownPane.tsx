@@ -22,7 +22,7 @@ export function useBreakdown(projectId: number, scriptVersion: number) {
   });
 }
 
-export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onNext: () => void }) {
+export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onDirty?: (dirty: boolean) => void }) {
   const { projectId, brandId, scriptVersion } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -109,5 +109,5 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
       </section>
     );
 
-  return <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} onNext={props.onNext} />;
+  return <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} onDirty={props.onDirty} />;
 }
