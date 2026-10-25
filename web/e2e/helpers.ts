@@ -44,9 +44,9 @@ export async function emptyBrand(page: Page, name = "Night Owl"): Promise<number
   return brands.find((b: { name: string }) => b.name === name).id;
 }
 
-/** A brand's home is its Videos list; the brand name shows in the switcher button in the top bar. */
+/** A brand's home is its Scripts library; the brand name shows in the switcher button in the top bar. */
 export async function onBrand(page: Page, name: string) {
-  await expect(page.getByRole("heading", { name: "Videos", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: `Brand: ${name}` })).toBeVisible();
 }
 

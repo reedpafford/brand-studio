@@ -103,7 +103,7 @@ test("an editor's navigation has no Approvals", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, editor] });
   open("/b/1/projects");
   const nav = await screen.findByRole("navigation", { name: "Main" });
-  await within(nav).findByRole("link", { name: "Videos" });
+  await within(nav).findByRole("link", { name: "Scripts" });
   expect(within(nav).queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
 });

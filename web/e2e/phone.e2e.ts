@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { onBrand, signIn } from "./helpers";
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -18,14 +18,15 @@ test("on a phone, the four bottom tabs reach every brand section and there is no
   await tabs.getByRole("link", { name: "Brand" }).click();
   await expect(page.getByRole("heading", { name: /^Brand kit/ })).toBeVisible();
 
-  await tabs.getByRole("link", { name: "Videos", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Videos", exact: true })).toBeVisible();
+  await tabs.getByRole("link", { name: "Scripts", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
   const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(widths.scroll).toBeLessThanOrEqual(widths.window);
 });
 
 test("on a phone, Reed reaches Approvals from the bell and Team from the account menu", async ({ page }) => {
   await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
   await page.getByRole("link", { name: /^Approvals/ }).click();
   await expect(page.getByRole("heading", { name: /^Approvals/ })).toBeVisible();
 

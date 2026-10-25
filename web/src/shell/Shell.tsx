@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChevronDown, Clapperboard, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
-import { Link, NavLink, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
+import { Bell, ChevronDown, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
@@ -13,8 +13,8 @@ import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
 
-const SECTIONS: { to: string; label: string; short: string; icon: LucideIcon }[] = [
-  { to: "projects", label: "Videos", short: "Videos", icon: Clapperboard },
+const SECTIONS: { to: string; also?: string; label: string; short: string; icon: LucideIcon }[] = [
+  { to: "scripts", also: "projects", label: "Scripts", short: "Scripts", icon: FileText },
   { to: "clip", label: "Quick clip", short: "Quick clip", icon: Zap },
   { to: "library", label: "Cast & places", short: "Cast", icon: Users },
   { to: "brand", label: "Brand", short: "Brand", icon: Palette },
@@ -24,6 +24,7 @@ const SECTIONS: { to: string; label: string; short: string; icon: LucideIcon }[]
 function sectionOf(pathname: string) {
   const m = /^\/b\/\d+\/([^/]+)/.exec(pathname)?.[1];
   if (m === "kit" || m === "screens") return "brand";
+  if (m === "projects") return "scripts";
   return m && SECTIONS.some((s) => s.to === m) ? m : "";
 }
 
@@ -279,20 +280,31 @@ function useSignOut() {
   });
 }
 
+/** A nav link that knows when it is current, including for the pages that belong under it (a video sits under Scripts). */
+function NavItem({ to, also, className, children, ...rest }: { to: string; also?: string; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
+  const { pathname } = useLocation();
+  const active = pathname === to || pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`));
+  return (
+    <Link to={to} className={className(active)} aria-current={active ? "page" : undefined} {...rest}>
+      {children}
+    </Link>
+  );
+}
+
 function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current: number | null; wide: boolean; owner: boolean; waiting: number | null }) {
-  const item = ({ isActive }: { isActive: boolean }) =>
+  const item = (isActive: boolean) =>
     `relative flex min-h-control items-center gap-3 rounded-md px-3 ${wide ? "" : "justify-center"} ${isActive ? "bg-surface-2 text-text before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-accent" : "text-muted hover:bg-surface-2 hover:text-text"}`;
-  const row = (to: string, label: string, Icon: LucideIcon, extra?: ReactNode) => (
-    <NavLink key={to} to={to} className={item} aria-label={wide ? undefined : label} title={wide ? undefined : label}>
+  const row = (to: string, label: string, Icon: LucideIcon, extra?: ReactNode, also?: string) => (
+    <NavItem key={to} to={to} also={also} className={item} aria-label={wide ? undefined : label} title={wide ? undefined : label}>
       <Icon size={20} strokeWidth={1.75} aria-hidden />
       {wide && <span>{label}</span>}
       {wide && extra}
-    </NavLink>
+    </NavItem>
   );
   return (
     <nav aria-label="Main" className={`sticky top-topbar h-[calc(100vh-var(--topbar-h))] shrink-0 overflow-y-auto border-r border-border bg-bg p-3 ${wide ? "w-rail" : "w-[72px]"}`}>
       {wide && brand && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">{brand.name}</p>}
-      {current && <div className="flex flex-col gap-1">{SECTIONS.map((s) => row(`/b/${current}/${s.to}`, s.label, s.icon))}</div>}
+      {current && <div className="flex flex-col gap-1">{SECTIONS.map((s) => row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also))}</div>}
       {owner && (
         <div className="mt-4 border-t border-border pt-2">
           {wide && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">Studio</p>}
@@ -307,15 +319,15 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
 }
 
 function Tabs({ current }: { current: number | null }) {
-  const tab = ({ isActive }: { isActive: boolean }) => `flex min-h-control flex-1 flex-col items-center justify-center gap-0.5 text-[11.5px] ${isActive ? "font-semibold text-accent-text" : "text-muted"}`;
+  const tab = (isActive: boolean) => `flex min-h-control flex-1 flex-col items-center justify-center gap-0.5 text-[11.5px] ${isActive ? "font-semibold text-accent-text" : "text-muted"}`;
   return (
     <nav aria-label="Tabs" style={{ height: "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
       {current &&
         SECTIONS.map((s) => (
-          <NavLink key={s.to} to={`/b/${current}/${s.to}`} className={tab}>
+          <NavItem key={s.to} to={`/b/${current}/${s.to}`} also={s.also} className={tab}>
             <s.icon size={20} strokeWidth={1.75} aria-hidden />
             {s.short}
-          </NavLink>
+          </NavItem>
         ))}
     </nav>
   );
@@ -330,11 +342,11 @@ export function GoToBrand() {
   return target ? <Navigate to={`/b/${target.id}`} replace /> : <Navigate to="/team" replace />;
 }
 
-/** A brand's home is its Videos list. */
+/** A brand's home is its Script library. */
 export function BrandHome() {
   const { brandId } = useParams();
   const { data: brands } = useBrands();
   if (!brands?.some((b) => b.id === Number(brandId))) return <p className="p-6">That brand doesn't exist.</p>;
-  return <Navigate to={`/b/${brandId}/projects`} replace />;
+  return <Navigate to={`/b/${brandId}/scripts`} replace />;
 }
 
