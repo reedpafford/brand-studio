@@ -157,3 +157,22 @@ test("an editor who opens Approvals sees no held work and no dollars", async () 
   expect(document.body.textContent).not.toMatch(/\$/);
   expect(screen.queryByText(/Clip take/)).not.toBeInTheDocument();
 });
+
+test("a held Quick clip says why it is held: past the editor's weekly allowance", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [held({ id: 60, project_id: null, step: null, kind: "video", created_by_name: "Sam", prompt_summary: "Mia hits the buy moment" })]], "GET /credits/limits": [200, { weekly_quick_clip_credits: 150, per_video_max_credits: 340 }] });
+  open();
+  expect(await screen.findByText("Past Sam's weekly allowance (150 credits)")).toBeInTheDocument();
+});
+
+test("if Approve all stops part way, the page refreshes and says how many went through", async () => {
+  fakeServer({
+    ...base,
+    "GET /jobs": [200, [held({}), held({ id: 51, credits: 40 })]],
+    "POST /jobs/50/approve": [200, held({ status: "queued" })],
+    "POST /jobs/51/approve": [409, { detail: "Over this week's limit." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /^Approve all/ }));
+  await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Approve all" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("1 of 2 went through. Over this week's limit.");
+});

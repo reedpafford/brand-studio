@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Check, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
@@ -45,6 +45,7 @@ export function ApprovalsPage() {
   // Dollars are for the owner only, so they come from the owner-only detail of each job.
   const details = useQueries({
     queries: held.heldJobs.map((j) => ({
+      enabled: me?.role === "owner",
       queryKey: ["job-detail", j.id],
       queryFn: async () => (await api.GET("/jobs/{job_id}/detail", { params: { path: { job_id: j.id } } })).data ?? null,
     })),
@@ -52,13 +53,18 @@ export function ApprovalsPage() {
   const usd = new Map(held.heldJobs.map((j, i) => [j.id, details[i]?.data?.cost_usd]));
   const approveAll = useMutation({
     mutationFn: async () => {
+      let done = 0;
+      const total = held.heldJobs.length + held.heldProjects.length;
+      const stop = (error: unknown) => new Error(`${done} of ${total} went through. ${errorText(error)}`);
       for (const j of held.heldJobs) {
         const { error, response } = await api.POST("/jobs/{job_id}/approve", { params: { path: { job_id: j.id } } });
-        if (!response.ok) throw new Error(errorText(error));
+        if (!response.ok) throw stop(error);
+        done += 1;
       }
       for (const p of held.heldProjects) {
         const { error, response } = await api.POST("/projects/{project_id}/approve", { params: { path: { project_id: p.id } } });
-        if (!response.ok) throw new Error(errorText(error));
+        if (!response.ok) throw stop(error);
+        done += 1;
       }
     },
     onSuccess: async () => {
@@ -66,7 +72,10 @@ export function ApprovalsPage() {
       await refresh();
       toast("All done.");
     },
-    onError: () => setAsking(false),
+    onError: async () => {
+      setAsking(false);
+      await refresh(); // what did go through leaves the list
+    },
   });
   if (me && me.role !== "owner") return <p className="p-6">Page not found.</p>;
   if (!me || held.isPending)
@@ -156,8 +165,8 @@ function useRefresh() {
 /** The picture a request is about. There is no thumbnail to show yet, so it is the kind of work on a quiet tile. */
 function Preview() {
   return (
-    <span className="grid h-24 w-full shrink-0 place-items-center rounded-lg bg-surface-2 text-muted sm:h-[170px] sm:w-24" aria-hidden>
-      <Sparkles size={24} strokeWidth={1.75} />
+    <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-surface-2 text-muted" aria-hidden>
+      <Sparkles size={20} strokeWidth={1.75} />
     </span>
   );
 }
@@ -185,9 +194,10 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
     },
     onError: () => setDeclining(false),
   });
+  const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
   const after = project && project.budget_credits > 0 ? ((project.credits_used + job.credits) / project.budget_credits) * 100 : null;
   return (
-    <li className="flex flex-col gap-3 p-4 text-sm sm:flex-row sm:p-5">
+    <li className="flex gap-3 p-4 text-sm sm:p-5">
       <Preview />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -208,6 +218,11 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
         <p className="tabular-nums">
           {whole(job.credits)} credits{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
         </p>
+        {!project && !job.step && limits.data && (
+          <p className="text-muted">
+            Past {who ? `${who}'s` : "the editor's"} weekly allowance ({whole(limits.data.weekly_quick_clip_credits)} credits)
+          </p>
+        )}
         {project && after !== null && <Meter used={project.credits_used + job.credits} budget={project.budget_credits} pct={after} />}
         {act.isError && <p role="alert" className={errorClass}>{act.error.message}</p>}
         <div className="flex gap-2 pt-1">
@@ -246,7 +261,7 @@ function ProjectRow({ project, heldJobs }: { project: Project; heldJobs: number 
     },
   });
   return (
-    <li className="flex flex-col gap-3 p-4 text-sm sm:flex-row sm:p-5">
+    <li className="flex gap-3 p-4 text-sm sm:p-5">
       <Preview />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
