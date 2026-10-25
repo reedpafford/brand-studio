@@ -6,7 +6,6 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import script_library as lib
@@ -15,7 +14,6 @@ from app.auth import current_user
 from app.credits import estimate
 from app.db import get_db
 from app.models.accounts import User
-from app.models.jobs import Job, JobStatus
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.references import load as load_reference
@@ -23,19 +21,11 @@ from app.routes.script_preview import EstimateOut
 from app.schemas import LongText
 
 router = APIRouter(prefix="/scripts/{script_id}/variations", tags=["script library"])
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 class VariationsIn(BaseModel):
     slots: Annotated[list[Literal[1, 2]], Field(min_length=1, max_length=2)] = [1, 2]
     note: LongText = ""  # what to change, e.g. "make the second one about a car"
-
-
-def running(db: Session, script_id: int) -> bool:
-    jobs = db.scalars(select(Job).where(Job.status.in_(WAITING), Job.kind == "write-claude"))
-    return any(
-        j.input.get("step") == "variations" and j.input.get("script_id") == script_id for j in jobs
-    )
 
 
 @router.get("/estimate", response_model=EstimateOut)
@@ -65,7 +55,7 @@ def write_variations(
         raise HTTPException(409, "Approve the original first.")
     if any(drafts.get(s) and drafts[s].status == "approved" for s in slots):
         raise HTTPException(409, "That variation is approved and can't change.")
-    if running(db, script.id):
+    if lib.writing(db, script.id, "variations"):
         raise HTTPException(409, "Variations are already being written for this script.")
     keep_apart = [d.text for s, d in drafts.items() if s and s not in slots and d.text.strip()]
     reference = load_reference(request, script.reference_id) if script.reference_id else None
