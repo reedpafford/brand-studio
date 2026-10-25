@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, StringConstraints
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import reel as media
@@ -123,6 +124,25 @@ def _new_script(db: Session, user: User, brand_id: int, title: str | None, new_l
     return script
 
 
+def _one_at_a_time(db: Session, user: User) -> None:
+    """One reel being prepared per person, so one editor can't fill the prep queue."""
+    waiting = select(Job.id).where(
+        Job.kind == "reel_prepare",
+        Job.created_by_id == user.id,
+        Job.status.in_((JobStatus.queued, JobStatus.running)),
+    )
+    if db.scalar(waiting.limit(1)):
+        raise HTTPException(409, "You have a reel being prepared. Try again when it's done.")
+
+
+def drop_files(request: Request, db: Session, reel: dict | None) -> None:
+    """Delete a reel's own files (its video and contact sheet), e.g. when it's replaced."""
+    for key in ("video_file_id", "contact_file_id"):
+        if (stored := db.get(StoredFile, (reel or {}).get(key) or 0)) is not None:
+            request.app.state.storage.delete(stored.key)
+            db.delete(stored)
+
+
 def _prepare(db: Session, user: User, script: Script, reel: dict, job_input: dict) -> None:
     """Queue the free `reel_prepare` job and point the script at it."""
     script.reel = reel
@@ -150,6 +170,7 @@ async def import_upload(
     db: Session = Depends(get_db),
 ):
     """A new script from an uploaded reel (mp4 or mov, up to 100 MB and 90 seconds)."""
+    _one_at_a_time(db, user)
     script = _new_script(db, user, brand_id, (title or "").strip(), new_lines)
     stored = await _store_video(request, user, db, file)
     reel = {"source": "upload", "video_file_id": stored.id}
@@ -164,6 +185,7 @@ def import_link(body: LinkIn, user: User = Depends(current_user), db: Session = 
     url = media.reel_link(body.url)
     if not url:
         raise HTTPException(422, "That isn't an Instagram reel link.")
+    _one_at_a_time(db, user)
     script = _new_script(db, user, body.brand_id, body.title, body.new_lines)
     _prepare(db, user, script, {"source": "link", "url": url}, {"url": url})
     return _out(db, script)
@@ -185,6 +207,8 @@ async def replace_with_upload(
         raise HTTPException(409, "This reel is still being prepared.")
     if script.reference_breakdown:
         raise HTTPException(409, "This reel has been read already.")
+    _one_at_a_time(db, user)
+    drop_files(request, db, script.reel)  # the old video and sheet aren't needed any more
     stored = await _store_video(request, user, db, file)
     reel = {"source": "upload", "url": script.reel.get("url"), "video_file_id": stored.id}
     _prepare(db, user, script, reel, {"video_key": stored.key})
@@ -208,6 +232,8 @@ def save_prepared(db: Session, job: Job) -> None:
     reel = {k: v for k, v in (script.reel or {}).items() if k not in ("problem", "problem_code")}
     if output.get("problem"):
         reel |= {"problem": output["problem"], "problem_code": output.get("problem_code")}
+        if (video := db.get(StoredFile, reel.pop("video_file_id", None) or 0)) is not None:
+            db.delete(video)  # an upload we can't read; the local provider removed its bytes
     else:
         files = dict(zip(output.get("files", []), output.get("file_ids", []), strict=False))
         reel |= {k: output[k] for k in ("seconds", "cuts", "stats", "transcript")}

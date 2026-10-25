@@ -13,13 +13,13 @@ from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
-from app.models.files import StoredFile
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.routes.brands import get_brand
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
+from app.routes.script_import import drop_files
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
@@ -353,12 +353,8 @@ def delete_script(
         db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
         db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(ids)))
         db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
-        reel = script.reel or {}
+        drop_files(request, db, script.reel)  # an imported reel's own files
         db.delete(script)
-        for key in ("video_file_id", "contact_file_id"):  # an imported reel's own files
-            if (stored := db.get(StoredFile, reel.get(key) or 0)) is not None:
-                request.app.state.storage.delete(stored.key)
-                db.delete(stored)
     db.commit()
 
 

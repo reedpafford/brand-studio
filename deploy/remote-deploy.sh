@@ -54,7 +54,7 @@ main() {
   done
   echo "::error::https://$domain/api/health did not answer within 5 minutes."
   docker compose ps -a
-  docker compose logs --tail 40 migrate api worker caddy
+  docker compose logs --tail 40 migrate api worker reel-worker caddy
   exit 1
 }
 main

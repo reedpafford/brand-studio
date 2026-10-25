@@ -8,10 +8,12 @@ import pytest
 from PIL import Image
 
 from app import reel
+from app.models.accounts import User
 from app.models.files import StoredFile
 from app.models.jobs import Job
 from app.providers.fake_local import refuse_link, transcript
 from app.providers.local import LocalProvider
+from app.routes.jobs import enqueue
 from app.worker import run_once
 
 
@@ -127,5 +129,42 @@ def test_wrong_file_type_and_deleting_the_script_removes_its_files(app, owner, d
 
 @pytest.mark.whisper
 def test_the_real_speech_model_runs(clip):  # opt in: uv run pytest -m whisper
+    reel.warm()  # what the reel worker does at start
     lines = reel.transcribe(clip)
     assert isinstance(lines, list) and all({"start", "end", "text"} <= set(x) for x in lines)
+
+
+def test_one_reel_prepared_at_a_time_per_person(owner, editor, clip):
+    assert _upload(editor, clip).status_code == 201
+    again = _upload(editor, clip)
+    assert again.status_code == 409 and "being prepared" in again.json()["detail"]
+    assert _upload(owner, clip).status_code == 201  # someone else's is fine
+
+
+def test_replaced_and_unreadable_uploads_leave_no_files(app, owner, db, clip, tmp_path):
+    sid = _upload(owner, clip).json()["script_id"]
+    _work(app, db)
+    old = owner.get(f"/scripts/{sid}/import").json()
+    assert _upload(owner, clip, url=f"/scripts/{sid}/import/upload").status_code == 200
+    db.expire_all()
+    assert db.get(StoredFile, old["video_file_id"]) is None
+    assert db.get(StoredFile, old["contact_file_id"]) is None
+    _work(app, db)
+    mute = _clip(tmp_path / "mute.mp4", sound=False)
+    bad = _upload(owner, mute).json()["script_id"]
+    _work(app, db)
+    assert owner.get(f"/scripts/{bad}/import").json()["video_file_id"] is None
+    db.expire_all()
+    assert db.query(StoredFile).count() == 2  # only the replacement's video and sheet
+    assert len([p for p in Path(app.state.settings.storage_dir).rglob("*") if p.is_file()]) == 2
+
+
+def test_a_worker_can_take_only_some_providers(app, owner, db, clip):
+    _upload(owner, clip)
+    user = db.get(User, 1)
+    other = enqueue(db, user, "image", {"input": {}}, provider="fake")
+    local = LocalProvider(app.state.storage, transcribe=transcript, fetch_link=refuse_link)
+    run_once(db, {"local": local}, app.state.storage, only={"local"})
+    db.expire_all()
+    assert db.get(Job, other.id).status == "queued"  # left for the other worker, not failed
+    assert db.query(Job).filter(Job.provider == "local").one().status == "succeeded"
