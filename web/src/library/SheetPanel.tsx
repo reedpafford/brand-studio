@@ -23,7 +23,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const phone = useMedia("(max-width: 639px)");
   const queryClient = useQueryClient();
   const path = { kind, item_id: item.id };
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
+  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["library", kind] }), queryClient.invalidateQueries({ queryKey: ["assets"] })]);
   const [redoing, setRedoing] = useState<string | null>(null);
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const price = models.data?.find((m) => m.id === MODEL)?.credits_per_unit?.[RESOLUTION];

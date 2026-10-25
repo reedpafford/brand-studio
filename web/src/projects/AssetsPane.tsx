@@ -1,0 +1,327 @@
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Lock } from "lucide-react";
+import { api, errorText, must } from "../api/client";
+import { fileUrl } from "../api/upload";
+import type { components } from "../api/schema";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Panel,
+  Select,
+  Skeleton,
+  useToast,
+} from "../components";
+import { SheetPanel } from "../library/SheetPanel";
+import { errorText as errorClass } from "../ui";
+import { FlavourPicker, useBriefChoices } from "./BriefPickers";
+
+type Asset = components["schemas"]["AssetOut"];
+
+export function useAssets(projectId: number) {
+  return useQuery({
+    queryKey: ["assets", projectId],
+    queryFn: async () =>
+      (
+        await api.GET("/projects/{project_id}/assets", {
+          params: { path: { project_id: projectId } },
+        })
+      ).data ?? [],
+  });
+}
+
+const STATUS: Record<
+  string,
+  { tone: "success" | "warning" | "neutral"; text: string }
+> = {
+  approved: { tone: "success", text: "Approved" },
+  needs_approval: { tone: "warning", text: "Needs your approval" },
+  drawing: { tone: "neutral", text: "Drawing…" },
+  waiting_for_owner: { tone: "warning", text: "Waiting for Reed" },
+  none: { tone: "warning", text: "Needs a look" },
+  missing: { tone: "warning", text: "Needs a look" },
+};
+
+function AssetCard({
+  asset,
+  projectId,
+  brandId,
+}: {
+  asset: Asset;
+  projectId: number;
+  brandId: number;
+}) {
+  const kind: "place" | "character" =
+    asset.kind === "place" ? "place" : "character";
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [pick, setPick] = useState("");
+  const id = asset.library_item_id;
+  const item = useQuery({
+    queryKey: ["library", kind, "item", id],
+    enabled: id !== null,
+    queryFn: async () =>
+      (
+        await api.GET("/library/{kind}/{item_id}", {
+          params: { path: { kind, item_id: id! } },
+        })
+      ).data ?? null,
+  });
+  const characters = useQuery({
+    queryKey: ["library", "character", brandId, false],
+    enabled:
+      asset.ref.startsWith("slot:") || (!asset.locked && kind === "character"),
+    queryFn: async () =>
+      (
+        await api.GET("/library/{kind}", {
+          params: { path: { kind: "character" }, query: { brand_id: brandId } },
+        })
+      ).data ?? [],
+  });
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["assets", projectId] }),
+      queryClient.invalidateQueries({ queryKey: ["library", kind] }),
+      queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] }),
+    ]);
+  const path = { kind, item_id: id ?? 0 };
+  const approve = useMutation({
+    mutationFn: () =>
+      must(
+        api.POST("/library/{kind}/{item_id}/sheet/approve", {
+          params: { path },
+        }),
+      ),
+    onSuccess: async () => {
+      await refresh();
+      toast(`${asset.role || asset.name} approved.`, async () => {
+        await api.DELETE("/library/{kind}/{item_id}/sheet/approve", {
+          params: { path },
+        });
+        await refresh();
+      });
+    },
+  });
+  const choose = useMutation({
+    mutationFn: async (itemId: number) => {
+      const slot = Number(asset.ref.split(":")[1]);
+      const { response, error } = await api.PUT(
+        "/projects/{project_id}/assets/slots/{slot_id}",
+        {
+          params: { path: { project_id: projectId, slot_id: slot } },
+          body: { library_item_id: itemId },
+        },
+      );
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: async () => {
+      setPick("");
+      await refresh();
+    },
+  });
+  const status = STATUS[asset.sheet_status] ?? STATUS.none;
+  const sheet = item.data?.sheet_file_id;
+  const ratio = kind === "place" ? "16 / 9" : "9 / 16";
+  const title = asset.role || asset.name;
+  const slotLeft =
+    asset.ref.startsWith("slot:") && asset.library_item_id === null;
+
+  return (
+    <section aria-label={title}>
+      <Card className="flex gap-4 sm:flex-col">
+        <div className="w-24 shrink-0 sm:w-full">
+          {sheet ? (
+            <img
+              src={fileUrl(sheet)}
+              alt={`Look of ${title}`}
+              className="w-full rounded-md bg-surface-2 object-cover"
+              style={{ aspectRatio: ratio }}
+            />
+          ) : id !== null && item.isPending ? (
+            <div
+              className="w-full animate-pulse rounded-md bg-surface-2"
+              style={{ aspectRatio: ratio }}
+            />
+          ) : (
+            <div
+              className="grid w-full place-items-center rounded-md bg-surface-2 text-sm text-muted"
+              style={{ aspectRatio: ratio }}
+            >
+              No look yet
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="font-medium">
+            {title}
+            {asset.name && asset.name !== title && (
+              <span className="text-muted"> · {asset.name}</span>
+            )}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {asset.locked ? (
+              <Badge icon={Lock}>Locked by Reed</Badge>
+            ) : slotLeft ? (
+              <Badge tone="warning">Needs a look</Badge>
+            ) : (
+              <Badge tone={status.tone}>{status.text}</Badge>
+            )}
+          </div>
+          {!asset.locked && slotLeft && (
+            <div className="space-y-2">
+              <Select
+                label="Use a Cast & places character"
+                value={pick}
+                onChange={(e) => setPick(e.target.value)}
+              >
+                <option value="">Choose…</option>
+                {(characters.data ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.sheet_status === "approved" ? "" : " · needs a look"}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                variant="secondary"
+                busy={choose.isPending}
+                disabled={!pick}
+                reason={pick ? undefined : "Choose a character first"}
+                onClick={() => choose.mutate(Number(pick))}
+              >
+                Use this character
+              </Button>
+            </div>
+          )}
+          {!asset.locked && id !== null && (
+            <div className="flex flex-wrap gap-2">
+              {asset.sheet_status === "needs_approval" && (
+                <Button
+                  busy={approve.isPending}
+                  onClick={() => approve.mutate()}
+                >
+                  Approve
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => setOpen(true)}>
+                {asset.sheet_status === "approved"
+                  ? "Change the look"
+                  : "Make the look"}
+              </Button>
+            </div>
+          )}
+          {(approve.error ?? choose.error) && (
+            <p role="alert" className={errorClass}>
+              {(approve.error ?? choose.error)!.message}
+            </p>
+          )}
+        </div>
+        {open && item.data && (
+          <Panel title={title} onClose={() => setOpen(false)}>
+            <SheetPanel
+              item={item.data}
+              kind={kind}
+              ensureSaved={async () => {}}
+            />
+          </Panel>
+        )}
+      </Card>
+    </section>
+  );
+}
+
+/** Everything this video needs on screen, approved before anything is drawn. */
+export function AssetsPane({
+  projectId,
+  brandId,
+  variants,
+}: {
+  projectId: number;
+  brandId: number;
+  variants: Record<string, string>;
+}) {
+  const assets = useAssets(projectId);
+  const queryClient = useQueryClient();
+  const picks = useBriefChoices(brandId, variants);
+  const flavour = useMutation({
+    mutationFn: async ([product, variant]: [string, string]) => {
+      const { response, error } = await api.PATCH("/projects/{project_id}", {
+        params: { path: { project_id: projectId } },
+        body: { product_variants: { ...variants, [product]: variant } },
+      });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+  });
+  if (assets.isPending)
+    return (
+      <div
+        role="status"
+        aria-label="Loading"
+        className="grid gap-4 lg:grid-cols-3"
+      >
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-64" />
+        ))}
+      </div>
+    );
+  const list = assets.data ?? [];
+  const cast = list.filter((a) => a.kind === "character");
+  const places = list.filter((a) => a.kind === "place");
+  const grid = (rows: Asset[]) => (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {rows.map((a) => (
+        <AssetCard
+          key={a.ref}
+          asset={a}
+          projectId={projectId}
+          brandId={brandId}
+        />
+      ))}
+    </div>
+  );
+  if (list.length === 0 && picks.products.size === 0)
+    return (
+      <EmptyState title="Nothing to approve">
+        The breakdown uses no characters or places. Go on to the storyboard.
+      </EmptyState>
+    );
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted tabular-nums" role="status">
+        {list.length} assets · {list.filter((a) => a.ready).length} approved
+      </p>
+      {cast.length > 0 && (
+        <section aria-label="Cast" className="space-y-3">
+          <h3 className="type-section">Cast</h3>
+          {grid(cast)}
+        </section>
+      )}
+      {places.length > 0 && (
+        <section aria-label="Places" className="space-y-3">
+          <h3 className="type-section">Places</h3>
+          {grid(places)}
+        </section>
+      )}
+      {picks.products.size > 0 && (
+        <section aria-label="Products" className="space-y-3">
+          <h3 className="type-section">Products</h3>
+          <FlavourPicker
+            products={picks.products}
+            chosen={picks.chosen}
+            onPick={(p, v) => flavour.mutate([p, v])}
+          />
+          {flavour.error && (
+            <p role="alert" className={errorClass}>
+              {flavour.error.message}
+            </p>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}

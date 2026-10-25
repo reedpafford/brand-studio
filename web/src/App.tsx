@@ -4,6 +4,7 @@ import { RequireAuth } from "./auth/RequireAuth";
 import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
 import { NewProjectPage } from "./projects/NewProjectPage";
 import { ProjectPage } from "./projects/ProjectPage";
+import { VideoPage } from "./projects/VideoPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
 import { NewScriptPage } from "./scripts/NewScriptPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
@@ -35,6 +36,7 @@ export function App() {
           <Route path="b/:brandId/projects" element={<ProjectsPage />} />
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
           <Route path="b/:brandId/projects/:projectId" element={<ProjectPage />} />
+          <Route path="b/:brandId/videos/:projectId" element={<VideoPage />} />
           <Route path="b/:brandId/brand" element={<BrandPage />} />
           <Route path="b/:brandId/kit" element={<ToBrand />} />
           <Route path="b/:brandId/screens" element={<ToBrand tab="screens" />} />
