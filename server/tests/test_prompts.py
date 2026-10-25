@@ -223,10 +223,11 @@ def test_eval_scoring_runs_the_variations_check(tmp_path):
     script = "\n".join(case["script"]).replace("Peanut butter flavor.", "Chicken flavor.")
     answer = {"variations": [{"title": "x", "premise": "x", "script": script, "changes": []}]}
     (tmp_path / "ironpaws-pitbull1-variations.variations.json").write_text(json.dumps(answer))
-    slots = [{"role": "Bruno, the pitbull (narrator)", "description": "x", "appears_in": [0, 1],
-              "recurring": True},
-             {"role": "The crowd at the dog park", "description": "x", "appears_in": [1],
-              "recurring": False}]  # fmt: skip
+    one = {"description": "x", "recurring": True}
+    slots = [
+        one | {"role": "Bruno, the pitbull (narrator)", "kind": "Main", "appears_in": [0, 1]},
+        one | {"role": "The crowd at the dog park", "kind": "Helper", "appears_in": [1]},
+    ]
     (tmp_path / "ironpaws-pitbull1-variations.cast_slots.json").write_text(
         json.dumps({"slots": slots})
     )
@@ -245,7 +246,7 @@ def test_cast_slots_keep_the_names_the_cast_and_scripts_use(tmp_path):
     case = next(c for c in CASES["cases"] if c["id"] == "ironpaws-pitbull1-variations")
     answer = {"variations": [{"title": "x", "premise": "x", "script": "x", "changes": []}]}
     (tmp_path / f"{case['id']}.variations.json").write_text(json.dumps(answer))
-    slot = {"description": "x", "appears_in": [0], "recurring": True}
+    slot = {"description": "x", "kind": "Main", "appears_in": [0], "recurring": True}
     slots = [slot | {"role": "The dog (narrator)"}, slot | {"role": "His owner"}]
     (tmp_path / f"{case['id']}.cast_slots.json").write_text(json.dumps({"slots": slots}))
     problems = score(tmp_path, case)
@@ -261,7 +262,7 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     }
     assert check.cast_slots(versions, result) == []
     assert check.cast_slots(versions, schemas.CastSlots(slots=[])) == ["no cast slots; regenerate"]
-    extra = {"description": "x", "recurring": False}
+    extra = {"description": "x", "kind": "Helper", "recurring": False}
     result.slots += [
         schemas.CastSlot(role="Wedding guests", appears_in=[0], **extra),
         schemas.CastSlot(role="Malik, again", appears_in=[3], **extra),
