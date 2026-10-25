@@ -17,6 +17,7 @@ from app.prompts.schemas import (
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
 ADVICE = "Advice: "  # a problem that never blocks a step; the editor can keep it
+
 HIS = re.compile(
     r"\b[A-Z][\w-]*'s (hands?|fingers?|thumbs?|phone|laptop|monitors?|screen|keys|car|desk)\b"
 )
@@ -137,7 +138,8 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
-        problems += [f"{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
+        if _montage(clip.shot_ids, shots):  # guests and crowds elsewhere are never cast
+            problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
         shape, _ = _shape(c.prompt, c.seconds)
         problems += [f"{c.clip_id}: {p}" for p in shape]
         problems += [
@@ -210,6 +212,12 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
 
 
 CAST = re.compile(r"\[Image\d+\] (?:is|are) ([A-Z][\w-]+)")  # "[Image2] is Malik."
+
+
+def _montage(ids: list[str], shots: dict) -> bool:
+    """3+ quick wordless shots in a row (the breakdown check's montage run)."""
+    quick = [not shots[i].line and shots[i].seconds <= 0.6 for i in ids]
+    return any(all(quick[k : k + 3]) for k in range(len(quick) - 2))
 
 
 def _cuts_name_someone(prompt: str) -> list[str]:

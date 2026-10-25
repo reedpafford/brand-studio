@@ -22,13 +22,17 @@ test.beforeEach(async ({ page }) => {
 test("brand kit text is saved and still there after a reload", async ({ page }) => {
   await page.getByRole("link", { name: "Brand", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
-  await page.getByLabel("Tone of voice").fill("Calm, confident, never hype.");
-  await page.getByLabel("Never say (one per line)").fill("guaranteed returns\nget rich quick");
+  await page.getByLabel("How we sound").fill("Calm, confident, never hype.");
+  for (const phrase of ["guaranteed returns", "get rich quick"]) {
+    await page.getByLabel("Add to never say").fill(phrase);
+    await page.getByLabel("Add to never say").press("Enter");
+  }
   await saveKit(page);
 
   await page.reload();
-  await expect(page.getByLabel("Tone of voice")).toHaveValue("Calm, confident, never hype.");
-  await expect(page.getByLabel("Never say (one per line)")).toHaveValue("guaranteed returns\nget rich quick");
+  await expect(page.getByLabel("How we sound")).toHaveValue("Calm, confident, never hype.");
+  await expect(page.getByRole("button", { name: "Remove guaranteed returns" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove get rich quick" })).toBeVisible();
 });
 
 test("an uploaded logo shows and survives a reload", async ({ page }) => {

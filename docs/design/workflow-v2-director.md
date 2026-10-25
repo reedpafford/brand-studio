@@ -138,3 +138,69 @@ Sorted:
 | Variations storage, versions, side-by-side review, regenerate with note | Builder-Server / Builder-Screens | their estimate |
 
 No paid calls in any of this. The paid eval (about $1.20) waits for the Producer.
+
+---
+
+## 3. Cast slots (Reed, #197)
+
+Once the script and its variations are approved, one Claude call reads every version and lists the **cast slots**: each named or recurring role the videos need a look for. Slots are shared across versions, so the groom in the original and the groom in a variation are one slot. Builder-Server stores them in `script_cast_slots` (#201) and matches this section.
+
+### Input
+
+Step `cast_slots`. The system prompt is `rules.md` + `cast_slots.md` + a worked example + the brand block. The user message:
+
+| Tag | What |
+|---|---|
+| `<version slot="0">` … | each approved version, numbered; slot 0 is the original, then 1 and 2 |
+| `<reference>` | optional: the reel the script adapts, so helpers from it (a mentor, a coach) are seen |
+
+### Output (final; Builder-Server matches this)
+
+```
+CastSlots {
+  slots: [                      # mains first, then in order of first appearance
+    {
+      role:        str          # the script's name and part, e.g. "Nate, the groom"; "Bruno, the pitbull (narrator)"
+      description: str          # a short look for drawing the sheet: age, build, hair or coat, signature outfit
+      appears_in:  [int]        # version slots the role is in, e.g. [0, 1, 2]
+      recurring:   bool         # true when the role is in two or more scenes or versions
+    }
+  ]
+}
+```
+
+### Rules (`cast_slots.md`)
+
+1. **Who is a slot:**
+   - the main characters;
+   - every named role;
+   - helpers (a mentor or coach, including ones from the reference), rivals and family;
+   - an animal that's a character (the pitbull).
+2. **Who never is:** background people (guests, crowds, admirers, extras) and one-shot functional people (the courier, the dealer's hand).
+3. **One slot per role across versions.** The same person under the same name is one slot, with every version listed in `appears_in`. A role only one variation adds gets its own slot with just that version.
+4. **Descriptions fit the scripts** (a 17-year-old stays 17) and are plain and drawable. No celebrity look-alikes, and no brand logos on clothes.
+
+The variations prompt already keeps every locked character in the same role, with the same name, in every version, so slots line up.
+
+### Checks (`check.cast_slots`)
+
+| Check | Kind | Way forward |
+|---|---|---|
+| no slots | fix | regenerate |
+| `appears_in` names a version that doesn't exist | fix | edit, or regenerate |
+| a slot's role reads as background (guest, crowd, admirer, extra, bystander, passer-by) | advice | keep anyway, or delete the slot |
+| a slot's name isn't found in a version it says it appears in | advice | keep anyway, or edit |
+| two slots with the same name | advice | keep anyway, or merge them |
+
+### Evals
+
+- **`fomo-altar-cast-slots`:** the altar remake plus its two variations (from the variations eval). Expected slots: Nate (the groom), Mia (the bride) and the rich rival. The admirers and guests are excluded.
+- **`ironpaws-pitbull1-cast-slots`:** Pitbull 1 plus one variation. Expected slots: Bruno (the pitbull, narrator) and his owner.
+
+### $0 dry run
+
+The worked example passes its own check in a unit test, `run.py --print` renders both cases, and Builder-Server's stand-in returns fixed slots.
+
+**Paid eval estimate:** 2 calls, about $0.40. It waits for the Producer.
+
+**ETA:** about 2 h after Builder-Server confirms this schema.
