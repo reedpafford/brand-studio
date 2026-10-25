@@ -280,11 +280,9 @@ export function ScriptsPage() {
           <h1 className="type-page">Scripts</h1>
         </div>
         <div className="flex items-center gap-2">
-          {owner && (
-            <Button variant="secondary" icon={Layers} onClick={() => setBulk(true)} aria-label={rail ? undefined : "Bulk create"}>
-              {rail ? "Bulk create" : ""}
-            </Button>
-          )}
+          <Button variant="secondary" icon={Layers} onClick={() => setBulk(true)} aria-label={rail ? undefined : "Bulk create"}>
+            {rail ? "Bulk create" : ""}
+          </Button>
           {rail && newScript}
         </div>
       </div>

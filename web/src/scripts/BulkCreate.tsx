@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardPaste, Plus, X } from "lucide-react";
 import { api, errorText } from "../api/client";
+import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
 import { Badge, Banner, Button, Field, Panel, Select, TextArea } from "../components";
 import { useToast } from "../toast";
@@ -20,7 +21,7 @@ export function parseList(text: string): Row[] {
     .map((line) => {
       const [first, ...rest] = line.split(/\s+[—–-]\s+/);
       const description = rest.join(" — ").trim();
-      if (!description) return { title: first.split(/\s+/).slice(0, 6).join(" "), description: first, reference: "" };
+      if (!description) return { title: first.split(/\s+/).slice(0, 6).join(" "), description: "", reference: "" };
       return { title: first.trim() || description.split(/\s+/).slice(0, 6).join(" "), description, reference: "" };
     });
 }
@@ -31,6 +32,9 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
   const [pasting, setPasting] = useState<string | null>(null);
   const [made, setMade] = useState<{ id: number; title: string }[] | null>(null);
   const refs = useReferences();
+  const { data: me } = useMe();
+  const editor = me?.role !== undefined && me.role !== "owner";
+  const week = useQuery({ enabled: editor, queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
   const toast = useToast();
   const queryClient = useQueryClient();
   const set = (i: number, patch: Partial<Row>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -58,6 +62,8 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
     queryKey: ["write-estimate", ids],
     queryFn: async () => (await api.POST("/scripts/write/estimate", { body: { script_ids: ids } })).data ?? null,
   });
+  // An editor is billed to their weekly allowance and is declined past it. There is no Ask Reed.
+  const stopped = editor && !!estimate.data && estimate.data.credits_left !== null && estimate.data.credits > estimate.data.credits_left;
   const writeAll = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/scripts/write", { body: { script_ids: ids } });
@@ -95,7 +101,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
             )}
           </div>
           {writeAll.isError && <Banner title={writeAll.error.message}>Nothing was charged.</Banner>}
-          <Button price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data} onClick={() => writeAll.mutate()} className="w-full">
+          <Button price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data || stopped} reason={stopped ? `You've used this week's ${Math.round(week.data?.quick_clip_credits_allowed ?? 0)} credits. It resets Monday.` : undefined} onClick={() => writeAll.mutate()} className="w-full">
             Write all scripts
           </Button>
           <Button variant="ghost" onClick={onClose} className="w-full">
