@@ -165,6 +165,7 @@ class FakeWriter:
             "slots": [
                 {
                     "role": name,
+                    "kind": "Main",
                     "description": "A practice look.",
                     "appears_in": slots,
                     "recurring": True,
