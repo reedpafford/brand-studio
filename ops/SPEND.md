@@ -16,3 +16,9 @@
 | 2026-10-24 | Producer | fomo "Home (rich)" screen: Nano Banana Pro 1K edit of home.png, balance $0.00 -> $348,920.15 (prediction far3fpbfhnrmy0d1dhn8sf5rf0) | 1 image | 0.15 | 0.15 | Reed ("Yes go ahead") |
 | 2026-10-24 | Producer | fomo trading-montage run 3 with #159 and Home (rich) (13 s, 480p): 3 Claude calls ($0.47 actual), 2 Nano Banana 2.1 stills, 2 Seedance takes 7 s + 6 s | 3 + 2 + 13 s | 2.00 | 1.88 (Seedance at estimate) | Reed ("Approved") |
 | 2026-10-24 | Producer | Excerpt batch total (Reed approved one more fomo montage re-run, ~$2, on top of the $8.30) | | 8.30 + ~2 | 9.68 | Reed |
+| 2026-10-25 | Producer | Altar remake (video A, Reed approved up to $10, over the weekly cap if needed): bride house-style sheet from Reed's image (Nano Banana Pro 2K, prediction hf3f48chpxrmy0d1e36vj2srm0) | 1 image | 0.15 | 0.15 | Reed ($10 remake) |
+| 2026-10-25 | Producer | Altar remake: Grant sheet, clifftop altar and sunset beach places (Nano Banana Pro 2K; predictions qfnenr2cx1rmw0d1e388agzpqm, rpp2q82cmhrmy0d1e38ajzc41m, v2byq22cc9rmt0d1e38b90rre0) | 3 images | 0.45 | 0.45 | Reed ($10 remake) |
+| 2026-10-25 | Producer | Altar remake (video A, 42 s, 480p) via the app on main e872e39: 3 Claude calls ($0.97 actual), 4 Nano Banana 2.1 stills, 4 Seedance takes (9+9+12+12 s), then 1 redo of c4 (12 s) so the CTA phone shows Home (rich) instead of $0.00 | 3 + 4 + 54 s | 6.10 | 6.66 (Seedance at estimate) | Reed ($10 remake) |
+| 2026-10-25 | Producer | Altar remake total (sheets and places included) | | 10.00 cap | 7.26 | Reed |
+| 2026-10-25 | Producer (for Director) | Variations eval on #202's prompt: fomo-altar-variations x2, ironpaws-pitbull1-variations x1 | 3 Claude calls | 1.20 | 0.28 | Reed ("ok on the two small tests") |
+| 2026-10-25 | Producer | Week total (Mon 19 to Sun 25 Oct): over the $15 test cap with Reed's approval | | 15.00 cap | 17.22 | Reed |

@@ -172,10 +172,11 @@ def test_variations_advice_covers_length_closeness_and_format():
     ]
     v.script = "# The sneakers\n" + "MALIK: Hi.\n" + end.join(["MALIK: ", ""])
     assert check.variations(original, result, {}, end, [], 1, []) == [
-        "variation 1 drops the ★ line for Home; put it back where it fits",
+        "variation 1 drops the ★ line for Home (rich); put it back where it fits",
         "variation 1 drops the ★ line for Token chart down; put it back where it fits",
         "variation 1 drops the ★ line for Token chart up; put it back where it fits",
         "Advice: variation 1 has 14 spoken words, the original 54",
+        "Advice: variation 1 runs 19 words in all, the original 195",
         "Advice: variation 1 is very close to the original; regenerate with a note",
         "Advice: variation 1: “# The sneakers” isn't house format",
     ]

@@ -4,9 +4,12 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useToast } from "../toast";
-import { useMedia } from "../useMedia";
+import { useMedia, useRail } from "../useMedia";
+import { ActionBar } from "../shell/ActionBar";
 import { Sheet } from "./Sheet";
-import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } from "../ui";
+import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User } from "lucide-react";
+import { Badge, Banner, Button, Menu, MenuItem } from "../components";
+import { errorText as errorClass, input } from "../ui";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
 const lines = (n: number[]) => (n.length === 0 ? "" : n.length === 1 ? `line ${n[0]}` : `lines ${Math.min(...n)}–${Math.max(...n)}`);
@@ -22,9 +25,9 @@ function EditableText({ value, label, onChange, children }: { value: string; lab
   return (
     <span>
       {children}{" "}
-      <button type="button" className={`${linkText} ${tap} text-xs`} aria-label={`Edit ${label}`} onClick={() => setEditing(true)}>
+      <Button type="button" variant="ghost" dense aria-label={`Edit ${label}`} onClick={() => setEditing(true)}>
         Edit
-      </button>
+      </Button>
     </span>
   );
 }
@@ -106,7 +109,7 @@ export function BreakdownView(props: {
   onShowLines: (lines: number[]) => void;
   onDirty?: (dirty: boolean) => void;
 }) {
-  const { row, projectId, scriptVersion, makeButton, name } = props;
+  const { row, projectId, makeButton, name } = props;
   const queryClient = useQueryClient();
   const toast = useToast();
   const { pieces, screens } = useBrandPieces(props.brandId);
@@ -114,9 +117,9 @@ export function BreakdownView(props: {
   const [open, setOpen] = useState<string[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
   const phone = useMedia("(max-width: 639px)");
+  const rail = useRail();
   const [problemsOpen, setProblemsOpen] = useState(false);
   const [sheetShot, setSheetShot] = useState<string | null>(null);
-  const [menu, setMenu] = useState<string | null>(null);
   const line = props.line;
 
   // A line picked in the script brings its shot into view.
@@ -163,17 +166,37 @@ export function BreakdownView(props: {
     return () => onDirty?.(false);
   }, [dirty, onDirty]);
 
+  // Desktop: a bar sticks to the bottom of the window. Below 1024 it takes the action bar's place (Next steps aside while edits are unsaved).
+  const bar = (
+    <div className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2"} role="group" aria-label="Unsaved changes">
+      <span className={rail ? "flex-1 text-sm" : "block text-sm text-muted"}>You have unsaved changes.</span>
+      <Button busy={save.isPending} onClick={() => save.mutate()}>
+        Save changes
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => {
+          setDraft(null);
+          setOpen([]);
+        }}
+      >
+        Discard
+      </Button>
+    </div>
+  );
+
   const problemList = (after?: () => void) => (
     <ul className="space-y-1 text-sm">
       {row.problems.map((p) => {
         const target = problemTarget(p);
         return (
           <li key={p} className="flex items-start gap-2">
-            <span aria-hidden>•</span>
-            <span className="flex-1">{p}</span>
+            <span className="flex-1 py-3">{p}</span>
             {target && (
-              <button
-                className={`underline ${tap}`}
+              <Button
+                variant="ghost"
+                dense
+                trailing={ChevronRight}
                 aria-label={`Go to: ${p}`}
                 onClick={() => {
                   after?.();
@@ -181,7 +204,7 @@ export function BreakdownView(props: {
                 }}
               >
                 Go to
-              </button>
+              </Button>
             )}
           </li>
         );
@@ -192,23 +215,25 @@ export function BreakdownView(props: {
   return (
     <div className="space-y-4" aria-label="Breakdown">
       {row.stale && (
-        <div className="space-y-2 rounded-md bg-warning-soft p-3 text-sm text-warning" role="status">
-          <p>Made for script v{row.script_version}. The script is now v{scriptVersion}.</p>
-          {makeButton("Make a new breakdown")}
-        </div>
+        <Banner tone="warning" title="These shots were made for an older script." action={makeButton("Make new shots", { primary: true })} />
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[length:var(--text-md)] font-semibold">
-          Breakdown <span className="font-normal text-muted">· {row.source === "edit" ? "edited" : "made by Claude"} for script v{row.script_version}</span>
-        </h2>
+        <p className="text-sm text-muted">
+          {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s of {props.plannedSeconds} s planned
+          <span className="sr-only"> · {row.source === "edit" ? "edited" : "made by Claude"}</span>
+        </p>
         {!row.stale && makeButton("Redo", { ask: row.source === "edit" || dirty ? "Replace this breakdown? Your edits are kept in History." : undefined })}
       </div>
       {props.failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
       {props.problem}
       {row.problems.length > 0 && phone && (
         <>
-          <button className="w-full rounded-md bg-danger-soft p-3 text-left text-sm text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
-            {row.problems.length} problem{row.problems.length === 1 ? "" : "s"} ▸
+          <button className="flex min-h-control w-full items-center gap-2 rounded-lg border border-danger bg-danger-soft px-3 text-left text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
+            <TriangleAlert size={20} strokeWidth={1.75} aria-hidden />
+            <span className="flex-1 font-medium">
+              {row.problems.length} problem{row.problems.length === 1 ? "" : "s"}
+            </span>
+            <ChevronRight size={20} strokeWidth={1.75} aria-hidden />
           </button>
           {problemsOpen && (
             <Sheet title={`Problems (${row.problems.length})`} onClose={() => setProblemsOpen(false)}>
@@ -218,8 +243,11 @@ export function BreakdownView(props: {
         </>
       )}
       {row.problems.length > 0 && !phone && (
-        <section className="space-y-1 rounded-md bg-danger-soft p-3 text-sm text-danger" aria-label="Problems">
-          <h3 className="font-semibold">Problems ({row.problems.length})</h3>
+        <section className="space-y-1 rounded-lg border border-danger bg-danger-soft p-4 text-sm" aria-label="Problems">
+          <h3 className="flex items-center gap-2 font-semibold text-danger">
+            <TriangleAlert size={20} strokeWidth={1.75} aria-hidden />
+            {row.problems.length} problem{row.problems.length === 1 ? "" : "s"} to fix before the storyboard
+          </h3>
           {problemList()}
         </section>
       )}
@@ -230,43 +258,93 @@ export function BreakdownView(props: {
           </EditableText>
         </p>
       )}
-      <p className="text-sm text-muted">
-        {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s (planned {props.plannedSeconds} s)
-      </p>
       {bd.scenes.map((scene) => (
-        <section key={scene.id} className="space-y-2" aria-label={`Scene ${scene.id}`}>
-          <h3 className="font-semibold">
-            <EditableText value={scene.heading} label={`scene ${scene.id} heading`} onChange={(v) => change((b) => setScene(b, scene.id, { heading: v }))}>
-              Scene {scene.id} — {scene.heading}
-            </EditableText>
-          </h3>
-          <p className="text-sm text-muted">
-            <EditableText value={scene.look} label={`scene ${scene.id} look`} onChange={(v) => change((b) => setScene(b, scene.id, { look: v }))}>
-              {scene.look || "No look yet"}
-            </EditableText>
-          </p>
+        <section key={scene.id} className="space-y-3" aria-label={`Scene ${scene.id}`}>
+          <div>
+            <p className="type-eyebrow text-muted">Scene {scene.id}</p>
+            <h3 className="font-script text-lg font-bold">
+              <EditableText value={scene.heading} label={`scene ${scene.id} heading`} onChange={(v) => change((b) => setScene(b, scene.id, { heading: v }))}>
+                {scene.heading}
+              </EditableText>
+            </h3>
+            <p className="text-sm text-muted">
+              <EditableText value={scene.look} label={`scene ${scene.id} look`} onChange={(v) => change((b) => setScene(b, scene.id, { look: v }))}>
+                {scene.look || "No look yet"}
+              </EditableText>
+            </p>
+          </div>
           {bd.clips
             .filter((c) => c.shot_ids.some((id) => scene.shots.some((s) => s.id === id)))
             .map((clip) => {
               const last = clip.id === bd.clips.at(-1)?.id;
               return (
-                <div key={clip.id} id={`clip-${clip.id}`} className={`rounded-md border border-border bg-surface ${ring(`clip-${clip.id}`)}`} aria-label={`Clip ${clip.id}`}>
-                  <div className="border-b border-border px-3 py-1 text-xs font-medium text-muted">
+                <div key={clip.id} id={`clip-${clip.id}`} className={`overflow-hidden rounded-xl border border-border bg-surface shadow-card ${ring(`clip-${clip.id}`)}`} aria-label={`Clip ${clip.id}`}>
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-2 font-display font-bold">
                     Clip {clip.id} · {clip.seconds} s
+                    {last && <Badge>End line</Badge>}
                   </div>
                   <ul className="divide-y divide-border">
                     {scene.shots.filter((s) => clip.shot_ids.includes(s.id)).map((s) => {
                       const editing = open.includes(s.id);
                       const lastInClip = clip.shot_ids.at(-1) === s.id;
+                      const canMove = !lastInClip || !last;
                       return (
-                        <li key={s.id} id={`shot-${s.id}`} className={`space-y-1 px-3 py-2 text-sm ${ring(`shot-${s.id}`)} ${line !== null && s.script_lines.includes(line) ? "bg-accent-soft" : ""}`} aria-label={`Shot ${s.id}`}>
-                          <div className="flex flex-wrap items-baseline gap-x-3">
-                            <span className="font-medium">{s.id}</span>
-                            <span className="text-muted">{s.seconds} s</span>
+                        <li key={s.id} id={`shot-${s.id}`} className={`space-y-1 px-4 py-3 ${ring(`shot-${s.id}`)} ${line !== null && s.script_lines.includes(line) ? "bg-accent-soft" : ""}`} aria-label={`Shot ${s.id}`}>
+                          <div className="flex flex-wrap items-center gap-x-3 text-sm">
+                            <span className="font-medium text-muted">{s.id}</span>
+                            <span className="tabular-nums">{s.seconds} s</span>
                             <span className="text-muted">{s.camera}</span>
-                            <button type="button" className={`ml-auto text-xs text-muted underline ${tap}`} aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines(s.script_lines)}>
-                              {lines(s.script_lines)} ◂
-                            </button>
+                            <span className="ml-auto flex items-center gap-1">
+                              <Button type="button" variant="ghost" dense aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines(s.script_lines)}>
+                                {lines(s.script_lines)[0].toUpperCase() + lines(s.script_lines).slice(1)}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                dense
+                                icon={Pencil}
+                                aria-label={`${editing && !phone ? "Done with" : "Edit"} shot ${s.id}`}
+                                onClick={() => (phone ? setSheetShot(s.id) : setOpen(editing ? open.filter((x) => x !== s.id) : [...open, s.id]))}
+                              >
+                                {editing && !phone ? "Done" : "Edit"}
+                              </Button>
+                              {canMove && (
+                                <Menu
+                                  title={`Shot ${s.id}`}
+                                  align="right"
+                                  trigger={(t) => (
+                                    <button type="button" {...t} aria-label={`More for shot ${s.id}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
+                                      <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
+                                    </button>
+                                  )}
+                                >
+                                  {(close) => (
+                                    <>
+                                      {!lastInClip && (
+                                        <MenuItem
+                                          onClick={() => {
+                                            close();
+                                            change((b) => splitAfter(b, s.id));
+                                          }}
+                                        >
+                                          Split clip {clip.id} after shot {s.id}
+                                        </MenuItem>
+                                      )}
+                                      {lastInClip && !last && (
+                                        <MenuItem
+                                          onClick={() => {
+                                            close();
+                                            change((b) => joinWithNext(b, clip.id));
+                                          }}
+                                        >
+                                          Join clip {clip.id} with the next clip
+                                        </MenuItem>
+                                      )}
+                                    </>
+                                  )}
+                                </Menu>
+                              )}
+                            </span>
                           </div>
                           <p>{s.action}</p>
                           {s.line && (
@@ -274,15 +352,15 @@ export function BreakdownView(props: {
                               {s.speaker ? `${s.speaker.toUpperCase()}: ` : ""}“{s.line}”
                             </p>
                           )}
-                          {s.reaction && <p className="text-muted">Reaction: {s.reaction}</p>}
+                          {s.reaction && <p className="text-sm text-muted">Reaction: {s.reaction}</p>}
                           <p className="flex flex-wrap gap-2 text-xs">
                             {s.character_ids.map((id) => (
-                              <span key={id} className="rounded-sm bg-surface-2 px-2 py-0.5">● {name(id)}</span>
+                              <Badge key={id} icon={User}>{name(id)}</Badge>
                             ))}
-                            {s.place_id && <span className="rounded-sm bg-surface-2 px-2 py-0.5">⌂ {name(s.place_id)}</span>}
-                            {s.moment && <span className="rounded-sm bg-accent-soft px-2 py-0.5 text-accent-text">{s.moment}</span>}
+                            {s.place_id && <Badge icon={MapPin}>{name(s.place_id)}</Badge>}
+                            {s.moment && <Badge tone="accent">{s.moment}</Badge>}
                             {s.screen_ids.map((id) => (
-                              <span key={id} className="rounded-sm bg-accent-soft px-2 py-0.5 text-accent-text">★ {name(id)}</span>
+                              <Badge key={id} tone="accent" icon={Smartphone}>{name(id)}</Badge>
                             ))}
                           </p>
                           {editing && !phone && <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
@@ -291,73 +369,21 @@ export function BreakdownView(props: {
                               <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />
                             </Sheet>
                           )}
-                          <div className="relative flex gap-3 text-xs">
-                            <button
-                              className={`${linkText} ${tap}`}
-                              aria-label={`${editing && !phone ? "Done with" : "Edit"} shot ${s.id}`}
-                              onClick={() => (phone ? setSheetShot(s.id) : setOpen(editing ? open.filter((x) => x !== s.id) : [...open, s.id]))}
-                            >
-                              {editing && !phone ? "Done" : "Edit"}
-                            </button>
-                            {phone ? (
-                              (!lastInClip || !last) && (
-                                <>
-                                  <button className={`${linkText} ${tap}`} aria-label={`More for shot ${s.id}`} aria-expanded={menu === s.id} onClick={() => setMenu(menu === s.id ? null : s.id)}>
-                                    ⋯
-                                  </button>
-                                  {menu === s.id && (
-                                    <button
-                                      role="menuitem"
-                                      className="absolute left-0 top-full z-10 mt-1 min-h-11 rounded-md border border-border bg-surface px-3 shadow-md"
-                                      aria-label={lastInClip ? `Join clip ${clip.id} with the next clip` : `Split clip ${clip.id} after shot ${s.id}`}
-                                      onClick={() => {
-                                        setMenu(null);
-                                        change((b) => (lastInClip ? joinWithNext(b, clip.id) : splitAfter(b, s.id)));
-                                      }}
-                                    >
-                                      {lastInClip ? "Join with next clip" : "Split clip after"}
-                                    </button>
-                                  )}
-                                </>
-                              )
-                            ) : (
-                              !lastInClip && (
-                                <button className={`${linkText} ${tap}`} aria-label={`Split clip ${clip.id} after shot ${s.id}`} onClick={() => change((b) => splitAfter(b, s.id))}>
-                                  Split clip after
-                                </button>
-                              )
-                            )}
-                          </div>
                         </li>
                       );
                     })}
                   </ul>
-                  <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-1 text-xs text-muted">
+                  <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-2 text-sm text-muted">
                     <EditableText value={clip.seam} label={`clip ${clip.id} seam`} onChange={(v) => change((b) => setSeam(b, clip.id, v))}>
-                      {clip.seam === "end" ? "end" : `ends: ${clip.seam}`}
+                      {clip.seam === "end" ? "End" : `Ends: ${clip.seam}`}
                     </EditableText>
-                    {!last && !phone && (
-                      <button className={`${linkText} ${tap}`} aria-label={`Join clip ${clip.id} with the next clip`} onClick={() => change((b) => joinWithNext(b, clip.id))}>
-                        Join with next clip
-                      </button>
-                    )}
                   </div>
                 </div>
               );
             })}
         </section>
       ))}
-      {dirty && (
-        <div className="sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 shadow-md" role="group" aria-label="Unsaved changes">
-          <span className="flex-1 text-sm">You have unsaved changes.</span>
-          <button className={btnPrimary} disabled={save.isPending} onClick={() => save.mutate()}>
-            Save
-          </button>
-          <button className={btnSecondary} onClick={() => { setDraft(null); setOpen([]); }}>
-            Discard
-          </button>
-        </div>
-      )}
+      {dirty && (rail ? bar : <ActionBar phone>{bar}</ActionBar>)}
       {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
     </div>
   );

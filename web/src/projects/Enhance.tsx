@@ -4,9 +4,10 @@ import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { useJobs } from "../clip/History";
 import { useToast } from "../toast";
-import { Sparkles } from "lucide-react";
-import { Button } from "../components";
-import { btnSecondary, card, errorText as errorClass, linkText } from "../ui";
+import { Check, ChevronDown, Sparkles, X } from "lucide-react";
+import { Button, Menu, MenuItem } from "../components";
+import { Elapsed } from "../clip/History";
+import { card, errorText as errorClass } from "../ui";
 import { Sheet } from "./Sheet";
 
 export type Mark = components["schemas"]["SuggestionOut"];
@@ -81,9 +82,9 @@ export function useEnhance(projectId: number, scriptVersion: number | undefined,
       const { data } = await must(api.POST("/projects/{project_id}/script/apply", { params: { path } }));
       return data?.script.version;
     },
-    onSuccess: async (made) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["script", projectId] });
-      toast(`Added ${acceptedCount} direction${acceptedCount === 1 ? "" : "s"} as v${made}.`, async () => {
+      toast(`Added ${acceptedCount} direction${acceptedCount === 1 ? "" : "s"}.`, async () => {
         await putScript(scriptText);
         queryClient.invalidateQueries({ queryKey: ["script", projectId] });
       });
@@ -101,40 +102,28 @@ export function useEnhance(projectId: number, scriptVersion: number | undefined,
 export type EnhanceState = ReturnType<typeof useEnhance>;
 
 function AcceptAll({ e }: { e: EnhanceState }) {
-  const [open, setOpen] = useState(false);
   const pending = e.marks.filter((m) => m.status === "pending");
   if (pending.length === 0) return null;
   const kinds = [...new Set(pending.map((m) => m.kind))];
   const run = (kind?: string) => {
     const ids = pending.filter((m) => !kind || m.kind === kind).map((m) => m.id);
-    setOpen(false);
     if (ids.length > 5 && !window.confirm(`Accept ${ids.length} suggestions?`)) return;
     e.acceptMany.mutate(ids);
   };
   return (
-    <span className="relative">
-      <button className={btnSecondary} aria-haspopup="menu" aria-expanded={open} aria-label="Accept all options" onClick={() => setOpen(!open)}>
-        <span className="hidden sm:inline">Accept all ▾</span>
-        <span className="sm:hidden" aria-hidden>⋯</span>
-      </button>
-      {open && (
-        <ul role="menu" className="absolute left-0 z-10 mt-1 w-56 rounded-md border border-border bg-surface p-1 text-sm shadow-md">
-          <li role="none">
-            <button role="menuitem" className="min-h-11 w-full rounded-sm px-3 text-left sm:min-h-9" onClick={() => run()}>
-              Accept all ({pending.length})
-            </button>
-          </li>
+    <Menu title="Accept all" trigger={(t) => <Button variant="ghost" {...t} trailing={ChevronDown} aria-label="Accept all options">Accept all</Button>}>
+      {(close) => (
+        <>
+          <MenuItem onClick={() => { close(); run(); }}>Accept all ({pending.length})</MenuItem>
           {kinds.length > 1 &&
             kinds.map((k) => (
-              <li key={k} role="none">
-                <button role="menuitem" className="min-h-11 w-full rounded-sm px-3 text-left sm:min-h-9" onClick={() => run(k)}>
-                  Accept all {KIND[k] ?? k} ({pending.filter((m) => m.kind === k).length})
-                </button>
-              </li>
+              <MenuItem key={k} onClick={() => { close(); run(k); }}>
+                Accept all {KIND[k] ?? k} ({pending.filter((m) => m.kind === k).length})
+              </MenuItem>
             ))}
-        </ul>
+        </>
       )}
-    </span>
+    </Menu>
   );
 }
 
@@ -143,7 +132,7 @@ function Chips({ e }: { e: EnhanceState }) {
   const live = e.marks.filter((m) => m.status !== "rejected");
   const kinds = [...new Set(live.map((m) => m.kind))];
   if (live.length === 0 || kinds.length < 2) return null;
-  const chip = (on: boolean) => `min-h-11 shrink-0 rounded-full border px-3 text-sm sm:min-h-8 ${on ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong bg-surface"}`;
+  const chip = (on: boolean) => `min-h-control shrink-0 rounded-full border px-3 text-sm lg:min-h-control-dense ${on ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong bg-surface"}`;
   return (
     <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Show">
       <button className={chip(e.filter === null)} aria-pressed={e.filter === null} onClick={() => e.setFilter(null)}>
@@ -207,28 +196,35 @@ export function EnhanceBar({ e }: { e: EnhanceState }) {
           disabled={e.running || e.start.isPending}
           onClick={() => (pending === 0 || window.confirm(`Replace the ${pending} waiting suggestions?`)) && e.start.mutate()}
         >
-          Enhance
+          Suggest directions
         </Button>
+        {e.marks.length > 0 && (
+          <span className="text-sm text-muted">
+            {pending + accepted} suggestion{pending + accepted === 1 ? "" : "s"}
+            {e.notes.length > 0 && ` · ${e.notes.length} note${e.notes.length === 1 ? "" : "s"}`}
+          </span>
+        )}
         <AcceptAll e={e} />
-        {accepted > 0 && (
-          <button className={btnSecondary} disabled={e.apply.isPending} onClick={() => e.apply.mutate()}>
-            Apply {accepted} accepted
-          </button>
-        )}
         {e.notes.length > 0 && (
-          <button className={`${btnSecondary} sm:hidden`} onClick={() => setNotesOpen(true)}>
+          <Button variant="ghost" className="lg:hidden" onClick={() => setNotesOpen(true)}>
             Notes ({e.notes.length})
-          </button>
+          </Button>
         )}
-        {e.running && <span className="text-sm text-muted">{e.last?.status === "needs_owner_approval" ? "Waiting for Reed to approve" : "Reading your script…"}</span>}
-        {e.marks.length > 0 && <span className="text-sm text-muted">{pending} suggestions waiting · {accepted} accepted</span>}
+        {e.running && <span className="text-sm text-muted">{e.last?.status === "needs_owner_approval" ? "Waiting for Reed to approve" : <>Reading your script… <Elapsed since={e.last?.created_at ?? new Date().toISOString()} /></>}</span>}
+        {e.marks.length > 0 && (
+          <span className="ml-auto">
+            <Button disabled={accepted === 0 || e.apply.isPending} reason={accepted === 0 ? "Accept at least one suggestion" : undefined} busy={e.apply.isPending} onClick={() => e.apply.mutate()}>
+              Add {accepted} direction{accepted === 1 ? "" : "s"}
+            </Button>
+          </span>
+        )}
       </div>
       <Chips e={e} />
       {e.marks.length > 0 && <p className="hidden text-xs text-muted sm:block">Keys: J / K next and previous, A accept, R reject, Esc to let go.</p>}
-      {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Applying adds the accepted directions as a new version. Suggestions you haven't decided on are dropped.</p>}
+      {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Adding keeps your accepted directions in the script. Suggestions you haven't decided on are dropped.</p>}
       {failed && (
         <p role="alert" className={errorClass}>
-          Enhance didn't finish. Your script is unchanged. Press Enhance to try again.
+          Suggestions didn't finish. Your script is unchanged. Press Suggest directions to try again.
         </p>
       )}
       {problem && <p role="alert" className={errorClass}>{problem.message}</p>}
@@ -276,13 +272,13 @@ export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
       <span className="text-xs text-muted">{KIND[mark.kind] ?? mark.kind}</span>
       <span className="ml-auto flex gap-3 sm:ml-0">
         {!accepted && (
-          <button className={`${btnSecondary} min-h-11 sm:min-h-8`} aria-label={`Accept: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "accept" })}>
+          <Button variant="secondary" dense icon={Check} aria-label={`Accept: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "accept" })}>
             Accept
-          </button>
+          </Button>
         )}
-        <button className={`${btnSecondary} min-h-11 sm:min-h-8`} aria-label={`${accepted ? "Remove" : "Reject"}: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "reject" })}>
+        <Button variant="ghost" dense icon={X} aria-label={`${accepted ? "Remove" : "Reject"}: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "reject" })}>
           {accepted ? "Remove" : "Reject"}
-        </button>
+        </Button>
       </span>
     </li>
   );
@@ -296,9 +292,9 @@ function NoteList({ e }: { e: EnhanceState }) {
       {e.notes.map((n) => (
         <li key={`${n.line}:${n.text}`} className="flex items-start gap-3">
           <span className="flex-1">Line {n.line}: {n.text}</span>
-          <button className={linkText} aria-label={`Got it: line ${n.line}`} onClick={() => e.dismiss(n)}>
+          <Button variant="ghost" dense aria-label={`Got it: line ${n.line}`} onClick={() => e.dismiss(n)}>
             Got it
-          </button>
+          </Button>
         </li>
       ))}
     </ul>

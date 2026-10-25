@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useId, type InputHTMLAttributes, type Ref, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { ChevronDown, CircleAlert } from "lucide-react";
 
 const box =
@@ -42,7 +42,7 @@ export function Field({ label, hint, error, counter, ...rest }: Common & Omit<In
   );
 }
 
-export function TextArea({ label, hint, error, counter, rows = 4, ...rest }: Common & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className">) {
+export function TextArea({ label, hint, error, counter, rows = 4, ...rest }: Common & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className"> & { ref?: Ref<HTMLTextAreaElement> }) {
   const id = useId();
   return (
     <Frame {...{ label, hint, error, counter, id }}>

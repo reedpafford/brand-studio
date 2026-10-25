@@ -92,6 +92,11 @@ def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
     ]
 
 
+def record_length(project: Project, bd: Breakdown) -> None:
+    """The newest breakdown sets the length when none was set (its clips added up)."""
+    project.breakdown_seconds = sum(clip.seconds for clip in bd.clips) or None
+
+
 def save_breakdown(db: Session, job: Job) -> None:
     """Store Claude's breakdown (with its problems) as the project's newest breakdown."""
     project = db.get(Project, job.input["project_id"])
@@ -102,6 +107,7 @@ def save_breakdown(db: Session, job: Job) -> None:
         )
     )
     bd = Breakdown.model_validate(job.output)
+    record_length(project, bd)
     db.add(
         BreakdownVersion(
             project_id=project.id,
