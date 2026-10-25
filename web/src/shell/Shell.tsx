@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChevronDown, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, ChevronDown, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
@@ -240,6 +240,12 @@ function AccountMenu() {
               Team
             </Link>
           )}
+          {me?.role === "owner" && (
+            <Link to="/usage" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
+              <ChartColumn size={20} strokeWidth={1.75} aria-hidden />
+              Usage
+            </Link>
+          )}
           <div role="group" aria-label="Theme" className="mt-1 border-t border-border pt-1">
             <p className="px-3 pt-2 text-xs font-bold uppercase tracking-[0.12em] text-muted">Theme</p>
             {THEMES.map((t) => (
@@ -311,6 +317,7 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
           <div className="flex flex-col gap-1">
             {row("/approvals", "Approvals", Bell, <Badge n={waiting} />)}
             {row("/team", "Team", UserPlus)}
+            {row("/usage", "Usage", ChartColumn)}
           </div>
         </div>
       )}
