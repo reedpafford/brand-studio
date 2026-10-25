@@ -4,7 +4,8 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useToast } from "../toast";
-import { useMedia } from "../useMedia";
+import { useMedia, useRail } from "../useMedia";
+import { ActionBar } from "../shell/ActionBar";
 import { Sheet } from "./Sheet";
 import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User } from "lucide-react";
 import { Badge, Banner, Button, Menu, MenuItem } from "../components";
@@ -116,6 +117,7 @@ export function BreakdownView(props: {
   const [open, setOpen] = useState<string[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
   const phone = useMedia("(max-width: 639px)");
+  const rail = useRail();
   const [problemsOpen, setProblemsOpen] = useState(false);
   const [sheetShot, setSheetShot] = useState<string | null>(null);
   const line = props.line;
@@ -163,6 +165,25 @@ export function BreakdownView(props: {
     onDirty?.(dirty);
     return () => onDirty?.(false);
   }, [dirty, onDirty]);
+
+  // Desktop: a bar sticks to the bottom of the window. Below 1024 it takes the action bar's place (Next steps aside while edits are unsaved).
+  const bar = (
+    <div className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2"} role="group" aria-label="Unsaved changes">
+      <span className={rail ? "flex-1 text-sm" : "block text-sm text-muted"}>You have unsaved changes.</span>
+      <Button busy={save.isPending} onClick={() => save.mutate()}>
+        Save changes
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => {
+          setDraft(null);
+          setOpen([]);
+        }}
+      >
+        Discard
+      </Button>
+    </div>
+  );
 
   const problemList = (after?: () => void) => (
     <ul className="space-y-1 text-sm">
@@ -362,17 +383,7 @@ export function BreakdownView(props: {
             })}
         </section>
       ))}
-      {dirty && (
-        <div className="sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 shadow-md" role="group" aria-label="Unsaved changes">
-          <span className="flex-1 text-sm">You have unsaved changes.</span>
-          <Button busy={save.isPending} onClick={() => save.mutate()}>
-            Save
-          </Button>
-          <Button variant="ghost" onClick={() => { setDraft(null); setOpen([]); }}>
-            Discard
-          </Button>
-        </div>
-      )}
+      {dirty && (rail ? bar : <ActionBar phone>{bar}</ActionBar>)}
       {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
     </div>
   );

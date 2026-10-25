@@ -134,10 +134,10 @@ test("editing a shot changes only the draft; Save sends the whole breakdown and 
   await userEvent.clear(screen.getByLabelText("Shot 1.1 seconds"));
   await userEvent.type(screen.getByLabelText("Shot 1.1 seconds"), "5");
   expect(screen.getByText("Clip c1 · 8 s")).toBeInTheDocument(); // 5 + 2.5 rounded up
-  const next = screen.getByRole("button", { name: "Next: Storyboard" });
-  expect(next).toBeDisabled();
-  expect(next).toHaveAccessibleDescription("Save your changes first.");
-  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  // On a phone Save and Discard take the action bar's place, so Next steps aside until the edits are saved.
+  expect(screen.queryByRole("button", { name: "Next: Storyboard" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Discard" }).closest("div.border-t")).toHaveClass("[&_button]:w-full");
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
   const body = calls.find((c) => c.key === "PUT /projects/9/breakdown")?.body as { scenes: { shots: { id: string; action: string; seconds: number }[] }[]; clips: { seconds: number }[] };
   expect(body.scenes[0].shots[0]).toMatchObject({ action: "Mia sips her coffee", seconds: 5 });
@@ -192,6 +192,18 @@ test("Discard throws the draft away", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Discard" }));
   expect(screen.queryByLabelText("Unsaved changes")).not.toBeInTheDocument();
   expect(screen.queryByText(/EXTRA/)).not.toBeInTheDocument();
+});
+
+test("on desktop Next waits, disabled, while edits are unsaved, and says why", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  await userEvent.type(screen.getByLabelText("Shot 1.1 camera"), " EXTRA");
+  const next = screen.getByRole("button", { name: "Next: Storyboard" });
+  expect(next).toBeDisabled();
+  expect(next).toHaveAccessibleDescription("Save your changes first.");
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
 });
 
 test("Redo is a secondary button; Next is the only primary one", async () => {
