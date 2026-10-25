@@ -77,7 +77,7 @@ export function ProjectPage() {
     setPanel(true);
   };
   const target = { id: id, name: p.name, creditsUsed: p.credits_used };
-  const menu = mayManage(p) && <VideoMenu title={p.name} onRelease={p.script_draft_id ? () => video.release(target) : undefined} onArchive={() => video.archive(target)} />;
+  const menu = mayManage(p) && <VideoMenu title={p.name} onRelease={p.script_draft_id ? () => video.release(target) : undefined} onArchive={p.script_draft_id ? undefined : () => video.archive(target)} />;
   const label = STEPS.find((s) => s.id === step)?.label;
   const next = nextOf(step);
   const nextReason = next ? (step === "shots" && dirty ? "Save your changes first." : lockReason(next.id, progress)) : null;

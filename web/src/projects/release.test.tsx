@@ -53,16 +53,23 @@ test("Release this version asks first, says what stays used, goes back to Script
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/restore")).toBe(true));
 });
 
-test("when nothing was spent the release text leaves the credits sentence out; Archive video has its own wording", async () => {
+test("when nothing was spent the release text leaves the credits sentence out, and a version video offers Release only, not Archive", async () => {
   setViewport(1440);
-  fakeServer(base({ "GET /projects/9": [200, project({ credits_used: 0 })], "POST /projects/9/archive": [200, {}] }));
+  fakeServer(base({ "GET /projects/9": [200, project({ credits_used: 0 })] }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon — B" }));
+  expect(screen.queryByRole("menuitem", { name: "Archive video" })).toBeNull();
   await userEvent.click(screen.getByRole("menuitem", { name: "Release this version" }));
   const release = await screen.findByRole("alertdialog");
   expect(release).not.toHaveTextContent("credits already used");
-  await userEvent.click(within(release).getByRole("button", { name: "Keep making it" }));
-  await userEvent.click(screen.getByRole("button", { name: "More for Bo tries salmon — B" }));
+});
+
+test("a video made before scripts offers Archive video, with its own wording, and no Release", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /projects/9": [200, project({ script_draft_id: null })], "POST /projects/9/archive": [200, {}] }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon — B" }));
+  expect(screen.queryByRole("menuitem", { name: "Release this version" })).toBeNull();
   await userEvent.click(screen.getByRole("menuitem", { name: "Archive video" }));
   const archive = await screen.findByRole("alertdialog", { name: 'Archive "Bo tries salmon — B"?' });
   expect(archive).toHaveTextContent("It leaves the lists. Its clips and downloads are kept, and you can restore it.");
