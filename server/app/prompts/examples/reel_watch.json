@@ -1,0 +1,724 @@
+{
+ "source": "the altar reel, docs/references/fomo-DehudnaAmce",
+ "note": "50 cuts, 11 transcript lines. Every cut is one shot with its own number and times. Two speakers, each under one name all reel long: the flashback and the echo are still 'bride', and the ex at the party is still 'bride'. Shot 44 morphs into real footage and 45–50 are phone video, so all seven are live action. Captions are described, never copied.",
+ "input": "<cuts>\n1. 0.00–0.40\n2. 0.40–0.82\n3. 0.82–1.07\n4. 1.07–1.17\n5. 1.17–1.55\n6. 1.55–2.30\n7. 2.30–2.75\n8. 2.75–3.25\n9. 3.25–4.33\n10. 4.33–4.88\n11. 4.88–6.05\n12. 6.05–7.83\n13. 7.83–9.30\n14. 9.30–10.67\n15. 10.67–14.05\n16. 14.05–17.42\n17. 17.42–17.88\n18. 17.88–18.38\n19. 18.38–18.83\n20. 18.83–19.33\n21. 19.33–19.58\n22. 19.58–19.83\n23. 19.83–20.22\n24. 20.22–20.47\n25. 20.47–20.92\n26. 20.92–21.55\n27. 21.55–21.75\n28. 21.75–22.13\n29. 22.13–22.33\n30. 22.33–22.67\n31. 22.67–22.92\n32. 22.92–23.17\n33. 23.17–23.42\n34. 23.42–23.72\n35. 23.72–23.97\n36. 23.97–24.25\n37. 24.25–24.75\n38. 24.75–25.05\n39. 25.05–25.30\n40. 25.30–29.15\n41. 29.15–31.08\n42. 31.08–34.08\n43. 34.08–42.67\n44. 42.67–42.95\n45. 42.95–43.22\n46. 43.22–43.55\n47. 43.55–43.95\n48. 43.95–44.33\n49. 44.33–44.85\n50. 44.85–45.02\n</cuts>\n<transcript>\n1| 0.00–0.36 I do.\n2| 0.48–1.08 HELL NO!\n3| 3.02–4.14 I'm marrying him!\n4| 4.46–4.70 What?!\n5| 10.48–12.66 I can't wait to spend forever with you.\n6| 13.46–14.52 Forever with you.\n7| 14.68–15.64 Forever with you.\n8| 15.90–16.66 Forever with you.\n9| 31.34–32.80 Nate? Nate?\n10| 32.90–33.30 Huh?!\n11| 40.70–42.90 Sorry, I'm fully booked.\n</transcript>",
+ "output": {
+  "logline": "A groom is dumped at the altar for a richer man, turns his heartbreak into a two-year hustle, and when his ex finds him again surrounded by admirers in a penthouse he tells her he's 'fully booked'.",
+  "style": "3D animated (Pixar-style CG)",
+  "hook": {
+   "seconds": 4.88,
+   "mechanic": "Cold open mid-climax: 'I do' answered by a screamed 'HELL NO!' in extreme close-up, 6 shots in the first 2.3 s, ring thrown and bouncing on the floor, public betrayal ('I'm marrying him!') - instant conflict, no setup."
+  },
+  "beats": [
+   {
+    "start": 0.0,
+    "end": 4.88,
+    "summary": "HOOK: altar humiliation. 'I do' -> bride screams 'HELL NO!', throws the ring, announces 'I'm marrying him!' -> groom 'What?!'",
+    "emotion": "shock, humiliation"
+   },
+   {
+    "start": 4.88,
+    "end": 9.3,
+    "summary": "Abandonment: bride leaves with the rival in a luxury car; groom left alone at the altar, picks up the ring.",
+    "emotion": "loneliness, defeat"
+   },
+   {
+    "start": 9.3,
+    "end": 17.42,
+    "summary": "Wound: puts on the ring, flashback 'I can't wait to spend forever with you', echoing 'forever with you' over his blank face.",
+    "emotion": "heartbreak -> quiet resolve"
+   },
+   {
+    "start": 17.42,
+    "end": 29.15,
+    "summary": "MONTAGE: wordless grind - laptop, camera, typing, packing orders across ever-bigger rooms/warehouses, walking warehouse aisles, then black suit, penthouse, skyline.",
+    "emotion": "determination -> success"
+   },
+   {
+    "start": 29.15,
+    "end": 31.08,
+    "summary": "Time jump card: '2 YEARS LATER...'",
+    "emotion": "anticipation"
+   },
+   {
+    "start": 31.08,
+    "end": 34.08,
+    "summary": "Reversal: ex and rival at a penthouse party spot him - 'Nate? Nate? Huh?!' - snap zoom on her shocked face.",
+    "emotion": "shock, regret"
+   },
+   {
+    "start": 34.08,
+    "end": 42.67,
+    "summary": "Payoff: Nate by the glass, women gather around him, push-in to his smug smile: 'Sorry, I'm fully booked.'",
+    "emotion": "triumph, smugness"
+   },
+   {
+    "start": 42.67,
+    "end": 45.03,
+    "summary": "Real-life tag: CG Nate morphs into the real creator; rapid handheld lifestyle flexes (car, balcony, apartment, supercars) under a caption.",
+    "emotion": "aspirational flex"
+   }
+  ],
+  "montage": {
+   "start": 17.42,
+   "end": 29.15,
+   "description": "Wordless, music-driven rise montage (11.7 s, 24 shots, median 0.3 s): hand on laptop, typing, camera to lens, POV typing, online store page, rapid match-cut taping/packing of parcels as the background swaps from bedroom to stockroom to big warehouse (one bg shows a rising bar chart), walking toward camera down warehouse aisles with match-cut background swaps, then a tracking shot of him in a black suit walking through a penthouse onto a night-skyline balcony."
+  },
+  "shots": [
+   {
+    "n": 1,
+    "start": 0.0,
+    "end": 0.4,
+    "framing": "wide three-shot, eye level",
+    "camera": "static",
+    "on_screen": "Groom (Nate: teen boy, backwards grey cap, tux), priest with book, bride (blonde, veil) at floral altar by the ocean",
+    "action": "Groom says his vows; bride turns away",
+    "emotion": "groom earnest; bride irritated",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 2,
+    "start": 0.4,
+    "end": 0.82,
+    "framing": "extreme close-up on bride's face, slight low angle",
+    "camera": "quick push-in",
+    "on_screen": "Bride",
+    "action": "Bride screams her refusal straight at camera",
+    "emotion": "rage, contempt",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 3,
+    "start": 0.82,
+    "end": 1.07,
+    "framing": "close-up, eye level",
+    "camera": "static",
+    "on_screen": "Groom",
+    "action": "Reacts to the refusal",
+    "emotion": "stunned, blank to shocked",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 4,
+    "start": 1.07,
+    "end": 1.17,
+    "framing": "close-up",
+    "camera": "static (6-frame flash shot)",
+    "on_screen": "Priest",
+    "action": "Reaction insert",
+    "emotion": "shocked",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 5,
+    "start": 1.17,
+    "end": 1.55,
+    "framing": "extreme close-up insert on hands",
+    "camera": "static, shallow focus, flowers bg",
+    "on_screen": "Bride's hands",
+    "action": "Bride pulls engagement ring off and flicks it away",
+    "emotion": "dismissive",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 6,
+    "start": 1.55,
+    "end": 2.3,
+    "framing": "ground-level close-up (low angle) by groom's shoes",
+    "camera": "static",
+    "on_screen": "Gold wedding band, groom's black shoes",
+    "action": "Ring falls and bounces on the marble floor, comes to rest",
+    "emotion": "humiliation (implied)",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 7,
+    "start": 2.3,
+    "end": 2.75,
+    "framing": "close-up",
+    "camera": "static",
+    "on_screen": "Groom",
+    "action": "Mouth falls open",
+    "emotion": "shock, hurt",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 8,
+    "start": 2.75,
+    "end": 3.25,
+    "framing": "medium group shot",
+    "camera": "static",
+    "on_screen": "Wedding guests (older couple in front)",
+    "action": "Guests gasp, hands over mouths",
+    "emotion": "shock, scandal",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 9,
+    "start": 3.25,
+    "end": 4.33,
+    "framing": "medium -> medium-full",
+    "camera": "fast whip-pan following bride's pointing arm down the aisle",
+    "on_screen": "Bride's arm (fg) then rival: tall man, long hair, navy suit, open collar",
+    "action": "Bride points at the rival standing among the guests; he smirks",
+    "emotion": "bride defiant; rival smug",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 10,
+    "start": 4.33,
+    "end": 4.88,
+    "framing": "close-up",
+    "camera": "static",
+    "on_screen": "Groom",
+    "action": "Grimaces, teeth clenched",
+    "emotion": "disbelief, anguish",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 11,
+    "start": 4.88,
+    "end": 6.05,
+    "framing": "medium",
+    "camera": "handheld-feel follow",
+    "on_screen": "Bride and rival, guests blurred",
+    "action": "They walk off together toward a white luxury car; bride glances back",
+    "emotion": "bride cold; rival pleased",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 12,
+    "start": 6.05,
+    "end": 7.83,
+    "framing": "wide, eye level",
+    "camera": "static locked-off",
+    "on_screen": "Bride, rival, white luxury sedan, driveway with hedges/palms",
+    "action": "Couple get in the car, it drives off, leaving the frame empty",
+    "emotion": "abandonment",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 13,
+    "start": 7.83,
+    "end": 9.3,
+    "framing": "wide, symmetrical, eye level",
+    "camera": "static; time passage via dissolves",
+    "on_screen": "Groom alone under floral arch, ocean behind",
+    "action": "He stands, bows his head, then kneels and picks up the ring",
+    "emotion": "loneliness, defeat",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 14,
+    "start": 9.3,
+    "end": 10.67,
+    "framing": "extreme close-up insert",
+    "camera": "static; light glint/sparkle on ring",
+    "on_screen": "Groom's hand",
+    "action": "Slips the gold band on his finger; it gleams",
+    "emotion": "bittersweet",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 15,
+    "start": 10.67,
+    "end": 14.05,
+    "framing": "medium two-shot, warm overexposed flashback",
+    "camera": "static, white-flash in, dissolve out",
+    "on_screen": "Groom (white tee, chain) and bride on a couch, holding hands",
+    "action": "She looks up at him, then rests her head on his shoulder",
+    "emotion": "tender, loving (memory)",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 16,
+    "start": 14.05,
+    "end": 17.42,
+    "framing": "close-up, eye level",
+    "camera": "static / very slow push",
+    "on_screen": "Groom in tux at the arch",
+    "action": "Looks down at the ring on his hand",
+    "emotion": "heartbroken, numb, then resolve",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 17,
+    "start": 17.42,
+    "end": 17.88,
+    "framing": "close-up insert",
+    "camera": "static",
+    "on_screen": "Groom's hand on a closed laptop",
+    "action": "Hand rests on the laptop - decision moment",
+    "emotion": "determination",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 18,
+    "start": 17.88,
+    "end": 18.38,
+    "framing": "medium, front, low-key light",
+    "camera": "static",
+    "on_screen": "Groom (white tee, chain, cap) at desk",
+    "action": "Typing on laptop",
+    "emotion": "focused",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 19,
+    "start": 18.38,
+    "end": 18.83,
+    "framing": "medium, front",
+    "camera": "static",
+    "on_screen": "Groom holding a DSLR camera at lens",
+    "action": "Shoots camera straight into lens",
+    "emotion": "focused",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 20,
+    "start": 18.83,
+    "end": 19.33,
+    "framing": "POV over-the-shoulder on hands",
+    "camera": "static",
+    "on_screen": "Laptop with a text document",
+    "action": "Typing",
+    "emotion": "focused",
+    "live_action": false,
+    "text_on_screen": "laptop screen (blurry)"
+   },
+   {
+    "n": 21,
+    "start": 19.33,
+    "end": 19.58,
+    "framing": "medium",
+    "camera": "static",
+    "on_screen": "Groom with a box",
+    "action": "Taping a parcel",
+    "emotion": "focused",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 22,
+    "start": 19.58,
+    "end": 19.83,
+    "framing": "insert on monitor",
+    "camera": "static",
+    "on_screen": "Desktop screen with an online-store page",
+    "action": "Store website shown",
+    "emotion": "progress",
+    "live_action": false,
+    "text_on_screen": "web page on screen"
+   },
+   {
+    "n": 23,
+    "start": 19.83,
+    "end": 20.22,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom",
+    "action": "Taping, new location (bedroom)",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 24,
+    "start": 20.22,
+    "end": 20.47,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom",
+    "action": "Taping a box, warmer room",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 25,
+    "start": 20.47,
+    "end": 20.92,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom",
+    "action": "Handling stacks of mailers",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 26,
+    "start": 20.92,
+    "end": 21.55,
+    "framing": "medium",
+    "camera": "static, match cut (motion blur)",
+    "on_screen": "Groom in stockroom",
+    "action": "Taping box fast",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 27,
+    "start": 21.55,
+    "end": 21.75,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom at label printer, shelves behind",
+    "action": "Taping / printing",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 28,
+    "start": 21.75,
+    "end": 22.13,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom",
+    "action": "Fast hands over machine (blur)",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 29,
+    "start": 22.13,
+    "end": 22.33,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom, bigger warehouse",
+    "action": "Taping large carton",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": "box marking"
+   },
+   {
+    "n": 30,
+    "start": 22.33,
+    "end": 22.67,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom, dark warehouse",
+    "action": "Taping box",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 31,
+    "start": 22.67,
+    "end": 22.92,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom, warm-lit room",
+    "action": "Taping box",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 32,
+    "start": 22.92,
+    "end": 23.17,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom in front of a wall screen with a green bar chart + rising red line",
+    "action": "Taping box",
+    "emotion": "grind / growth",
+    "live_action": false,
+    "text_on_screen": "chart on screen (no readable text)"
+   },
+   {
+    "n": 33,
+    "start": 23.17,
+    "end": 23.42,
+    "framing": "medium",
+    "camera": "static, match cut",
+    "on_screen": "Groom with laptop/spreadsheet in fg",
+    "action": "Taping, orders on screen",
+    "emotion": "grind",
+    "live_action": false,
+    "text_on_screen": "spreadsheet (unreadable)"
+   },
+   {
+    "n": 34,
+    "start": 23.42,
+    "end": 23.72,
+    "framing": "full shot, front",
+    "camera": "walk toward camera, background swaps via match cuts",
+    "on_screen": "Groom in white tee walking down a warehouse aisle",
+    "action": "Walks toward camera",
+    "emotion": "confident",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 35,
+    "start": 23.72,
+    "end": 23.97,
+    "framing": "full shot, front",
+    "camera": "match cut (bg swap)",
+    "on_screen": "Groom, small dim stockroom",
+    "action": "Walking",
+    "emotion": "confident",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 36,
+    "start": 23.97,
+    "end": 24.25,
+    "framing": "full shot, front",
+    "camera": "match cut (bg swap)",
+    "on_screen": "Groom, bright large warehouse",
+    "action": "Walking",
+    "emotion": "confident",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 37,
+    "start": 24.25,
+    "end": 24.75,
+    "framing": "full shot, front",
+    "camera": "match cut (bg swap)",
+    "on_screen": "Groom, tall racks",
+    "action": "Walking",
+    "emotion": "confident",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 38,
+    "start": 24.75,
+    "end": 25.05,
+    "framing": "full shot, front",
+    "camera": "match cut (bg swap)",
+    "on_screen": "Groom, blue-lit warehouse",
+    "action": "Walking",
+    "emotion": "confident",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 39,
+    "start": 25.05,
+    "end": 25.3,
+    "framing": "full shot, front",
+    "camera": "match cut (bg swap)",
+    "on_screen": "Groom, huge warehouse",
+    "action": "Walking",
+    "emotion": "confident",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 40,
+    "start": 25.3,
+    "end": 29.15,
+    "framing": "full -> wide, side then back",
+    "camera": "tracking shot following him",
+    "on_screen": "Groom now in all-black suit, penthouse interior -> balcony, night skyline",
+    "action": "Pushes through glass door, crosses penthouse, stops at the balcony rail looking at the city",
+    "emotion": "arrived, calm power",
+    "live_action": false,
+    "text_on_screen": ""
+   },
+   {
+    "n": 41,
+    "start": 29.15,
+    "end": 31.08,
+    "framing": "black card",
+    "camera": "static",
+    "on_screen": "Black screen",
+    "action": "Typewriter title",
+    "emotion": "suspense",
+    "live_action": false,
+    "text_on_screen": "white serif time-jump title card"
+   },
+   {
+    "n": 42,
+    "start": 31.08,
+    "end": 34.08,
+    "framing": "medium two-shot, eye level -> fast push to ECU",
+    "camera": "static then snap push-in on bride",
+    "on_screen": "Ex-bride (burgundy dress) and rival at a penthouse party, city at night",
+    "action": "She spots someone off-screen, does a double take; rival's jaw drops",
+    "emotion": "recognition -> shock, regret",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 43,
+    "start": 34.08,
+    "end": 42.67,
+    "framing": "wide -> medium close-up",
+    "camera": "static wide, then slow continuous push-in",
+    "on_screen": "Nate (black suit, cap, chain) leaning on glass wall; group of glamorous women walk in and surround him",
+    "action": "Women cling to him; he smiles smugly, answers to camera",
+    "emotion": "smug, unbothered, triumphant",
+    "live_action": false,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 44,
+    "start": 42.67,
+    "end": 42.95,
+    "framing": "full shot",
+    "camera": "static, morph transition",
+    "on_screen": "Semi-real CG Nate in a real-looking room (clothes racks, bat rug)",
+    "action": "3D character stands in the creator's room",
+    "emotion": "smug",
+    "live_action": true,
+    "text_on_screen": "yellow word-by-word caption of the line"
+   },
+   {
+    "n": 45,
+    "start": 42.95,
+    "end": 43.22,
+    "framing": "full shot",
+    "camera": "handheld, cross-dissolve/morph",
+    "on_screen": "Real creator replaces the CG character, same room",
+    "action": "Character -> real person reveal",
+    "emotion": "flex",
+    "live_action": true,
+    "text_on_screen": "short white slogan caption over the footage"
+   },
+   {
+    "n": 46,
+    "start": 43.22,
+    "end": 43.55,
+    "framing": "medium, in car",
+    "camera": "handheld",
+    "on_screen": "Real creator in a car, woman visible in next car window",
+    "action": "Gestures to camera",
+    "emotion": "flex",
+    "live_action": true,
+    "text_on_screen": "short white slogan caption over the footage"
+   },
+   {
+    "n": 47,
+    "start": 43.55,
+    "end": 43.95,
+    "framing": "medium-full from behind",
+    "camera": "handheld",
+    "on_screen": "Real creator on a high-rise balcony over water",
+    "action": "Raises both arms",
+    "emotion": "triumph",
+    "live_action": true,
+    "text_on_screen": "short white slogan caption over the footage"
+   },
+   {
+    "n": 48,
+    "start": 43.95,
+    "end": 44.33,
+    "framing": "wide interior",
+    "camera": "handheld pan",
+    "on_screen": "Luxury living room with LED lighting",
+    "action": "Lifestyle flex",
+    "emotion": "flex",
+    "live_action": true,
+    "text_on_screen": "short white slogan caption over the footage"
+   },
+   {
+    "n": 49,
+    "start": 44.33,
+    "end": 44.85,
+    "framing": "full shot from behind",
+    "camera": "handheld follow",
+    "on_screen": "Real creator walking in garage toward red supercars",
+    "action": "Walks to cars",
+    "emotion": "flex",
+    "live_action": true,
+    "text_on_screen": "short white slogan caption over the footage"
+   },
+   {
+    "n": 50,
+    "start": 44.85,
+    "end": 45.02,
+    "framing": "wide interior",
+    "camera": "handheld",
+    "on_screen": "Purple-LED gaming/room setup",
+    "action": "Final lifestyle flex, video ends (loops)",
+    "emotion": "flex",
+    "live_action": true,
+    "text_on_screen": "short white slogan caption over the footage"
+   }
+  ],
+  "speakers": [
+   {
+    "line": 1,
+    "speaker": "groom"
+   },
+   {
+    "line": 2,
+    "speaker": "bride"
+   },
+   {
+    "line": 3,
+    "speaker": "bride"
+   },
+   {
+    "line": 4,
+    "speaker": "groom"
+   },
+   {
+    "line": 5,
+    "speaker": "bride"
+   },
+   {
+    "line": 6,
+    "speaker": "bride"
+   },
+   {
+    "line": 7,
+    "speaker": "bride"
+   },
+   {
+    "line": 8,
+    "speaker": "bride"
+   },
+   {
+    "line": 9,
+    "speaker": "bride"
+   },
+   {
+    "line": 10,
+    "speaker": "bride"
+   },
+   {
+    "line": 11,
+    "speaker": "groom"
+   }
+  ],
+  "why_it_works": [
+   "Hook starts at the peak: the betrayal happens in the first second, with a screamed line and a jarring ECU - no context needed to feel it.",
+   "Universal revenge/glow-up arc (humiliation -> grind -> success -> ex regrets) in under 45 s; the viewer stays to see the payback promised by the setup.",
+   "Ultra-fast opening cuts (6 shots in 2.3 s) then slower emotional shots - pace mirrors shock then grief.",
+   "Repeated echo 'forever with you' turns the wound into motivation and bridges into the montage.",
+   "Montage is wordless, match-cut and musical: the same pose in ever-bigger settings shows scale of success with zero exposition.",
+   "'2 YEARS LATER' card + mirrored party scene sets up the reversal; the payoff line is short, quotable and smug."
+  ]
+ }
+}

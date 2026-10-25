@@ -9,7 +9,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
 import { beingMade } from "./ScriptsPage";
-import { useAllowanceStop, useScript } from "./useScript";
+import { useAllowanceStop, useScript, useWeek } from "./useScript";
 
 const LETTER = ["A", "B", "C"];
 const SHOWN = 8;
@@ -42,6 +42,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   // With no saved breakdown, starting one is a paid call; with one saved, making the version is free.
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
   const stop = useAllowanceStop(s, cost);
+  const week = useWeek(s); // an editor making their own script sees how much of the week is used
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
   return (
@@ -53,6 +54,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
         </div>
       ) : (
         <div className="space-y-5">
+          {v.variation_of && <p className="-mt-2 text-sm text-muted">Variation of {v.variation_of}</p>}
           <section aria-label="The words" className="space-y-2">
             <p className="whitespace-pre-wrap font-script leading-[1.6] [overflow-wrap:anywhere]">{(all ? lines : lines.slice(0, SHOWN)).join("\n")}</p>
             {lines.length > SHOWN && (
@@ -76,8 +78,18 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           </section>
           <section aria-label="Breakdown" className="space-y-1">
             <h3 className="text-sm font-medium text-muted">Breakdown</h3>
-            <p>{v.has_breakdown ? `Planned${v.seconds ? ` · ${Math.round(v.seconds)} s` : ""}` : "Planned automatically when you start"}</p>
+            <p>
+              {v.has_breakdown
+                ? [`Planned${v.planned_by ? ` by ${v.planned_by.name}` : ""}`, v.seconds ? `${Math.round(v.seconds)} s` : null, v.clips ? `${v.clips} clip${v.clips === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")
+                : "Planned automatically when you start"}
+            </p>
           </section>
+          {readyToMake && v.estimate_credits > 0 && (
+            <p className="text-sm text-muted">
+              About {Math.round(v.estimate_credits)} credits to make
+              {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
+            </p>
+          )}
           {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
           {readyToMake ? (
             <Button price={cost} disabled={stop !== null} reason={stop} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
