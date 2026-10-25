@@ -741,3 +741,27 @@ def test_the_keep_line_names_the_face_and_a_visible_hair_cue():
     text = prompts.system("clip_prompts")  # Nate drifted heavier in a cap (altar v3, 2026-10-25)
     assert "same face shape, skin tone, age and build" in text
     assert "keep a cue of it visible" in text
+
+
+def test_money_on_trading_screens_only_climbs():
+    _, bd = example("breakdown")
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    shots["2.7"].action = "Malik at the desk; the balance reads $380."  # below +$420
+    shots["2.4"].moment, shots["2.4"].action = "trading", "The token rockets up."
+    problems = [p for p in check.breakdown(script_of(example("breakdown")[0]), bd, FOMO, 4, 30)
+                if "$" in p or "reads" in p]  # fmt: skip
+    assert problems == [
+        "Advice: shot 2.4: say what the trading screen reads (e.g. “the balance reads $1,240”), "
+        "bigger than the shot before"
+    ]
+    shots["2.4"].action = "The token rockets up: the position reads +$420 (+38%)."
+    assert check._money_climbs(list(shots.values())) == [
+        "Advice: shot 2.7: the screen reads $380, less than shot 2.4; the money only climbs"
+    ]
+    _, cp = example("clip_prompts")
+    cp.clips[0].prompt = cp.clips[0].prompt.replace("the balance reads $12,400", "it reads $380")
+    assert check.clip_prompts(bd, cp, 30, 10) == []  # the clip says what its shot says
+    shots["2.7"].action = "Malik at the desk; the balance reads $12,900."
+    assert check.clip_prompts(bd, cp, 30, 10) == [
+        "Advice: c2: shot 2.7's screen should read $12,900"
+    ]
