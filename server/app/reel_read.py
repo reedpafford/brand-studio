@@ -109,7 +109,7 @@ def save_watch(db: Session, job: Job) -> None:
     problems = check.reel_watch(watch, shots(reel), reel["transcript"])
     if fixes := [p for p in problems if not p.startswith(check.ADVICE)]:
         raise ValueError(f"The watch answer doesn't fit the cuts: {fixes[0]}")
-    made = prompts.watch_breakdown(watch, reel["transcript"])
+    made = prompts.watch_breakdown(watch, reel["transcript"], shots(reel))
     script.reference_breakdown = checked({**made, "duration_seconds": reel["seconds"]})
     if not script.description:
         script.description = watch.logline
