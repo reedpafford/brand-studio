@@ -122,6 +122,25 @@ function AssetCard({
       await refresh();
     },
   });
+  // No character for this role yet: make one from the role's name, give it the role, then open its look.
+  const makeLook = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/library/{kind}", {
+        params: { path: { kind: "character" } },
+        body: {
+          name: asset.role,
+          notes: "",
+          brand_ids: [brandId],
+          image_file_ids: [],
+          source_photo_file_id: null,
+          outfits: [],
+        },
+      });
+      if (!data) throw new Error(errorText(error));
+      await choose.mutateAsync(data.id);
+    },
+    onSuccess: () => setOpen(true),
+  });
   const status = STATUS[asset.sheet_status] ?? STATUS.none;
   const sheet = item.data?.sheet_file_id;
   const ratio = kind === "place" ? "16 / 9" : "9 / 16";
@@ -172,28 +191,38 @@ function AssetCard({
           </div>
           {!asset.locked && slotLeft && (
             <div className="space-y-2">
-              <Select
-                label="Use a Cast & places character"
-                value={pick}
-                onChange={(e) => setPick(e.target.value)}
-              >
-                <option value="">Choose…</option>
-                {(characters.data ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.sheet_status === "approved" ? "" : " · needs a look"}
-                  </option>
-                ))}
-              </Select>
               <Button
-                variant="secondary"
-                busy={choose.isPending}
-                disabled={!pick}
-                reason={pick ? undefined : "Choose a character first"}
-                onClick={() => choose.mutate(Number(pick))}
+                busy={makeLook.isPending}
+                onClick={() => makeLook.mutate()}
               >
-                Use this character
+                Make a look
               </Button>
+              {(characters.data ?? []).length > 0 && (
+                <>
+                  <Select
+                    label="Use a Cast & places character"
+                    value={pick}
+                    onChange={(e) => setPick(e.target.value)}
+                  >
+                    <option value="">Choose…</option>
+                    {(characters.data ?? []).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.sheet_status === "approved" ? "" : " · needs a look"}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    variant="secondary"
+                    busy={choose.isPending}
+                    disabled={!pick}
+                    reason={pick ? undefined : "Choose a character first"}
+                    onClick={() => choose.mutate(Number(pick))}
+                  >
+                    Use this character
+                  </Button>
+                </>
+              )}
             </div>
           )}
           {!asset.locked && id !== null && (
@@ -213,9 +242,9 @@ function AssetCard({
               </Button>
             </div>
           )}
-          {(approve.error ?? choose.error) && (
+          {(approve.error ?? choose.error ?? makeLook.error) && (
             <p role="alert" className={errorClass}>
-              {(approve.error ?? choose.error)!.message}
+              {(approve.error ?? choose.error ?? makeLook.error)!.message}
             </p>
           )}
         </div>
@@ -276,7 +305,7 @@ export function AssetsPane({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {rows.map((a) => (
         <AssetCard
-          key={a.ref}
+          key={`${a.kind}-${a.role || a.ref}`}
           asset={a}
           projectId={projectId}
           brandId={brandId}
@@ -292,9 +321,6 @@ export function AssetsPane({
     );
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted tabular-nums" role="status">
-        {list.length} assets · {list.filter((a) => a.ready).length} approved
-      </p>
       {cast.length > 0 && (
         <section aria-label="Cast" className="space-y-3">
           <h3 className="type-section">Cast</h3>

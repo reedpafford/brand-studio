@@ -87,3 +87,18 @@ test("a role with no character picks one from the library", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Use this character" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
 });
+
+test("a role with no character can make one, so Assets is never a dead end", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", library_item_id: null, name: "", role: "Coach", sheet_status: "missing" })]],
+    "POST /library/character": [201, item({ id: 12, name: "Coach" })],
+    "PUT /projects/9/assets/slots/3": [200, []],
+  });
+  open();
+  expect(screen.queryByLabelText("Use a Cast & places character")).toBeNull();
+  await userEvent.click(await screen.findByRole("button", { name: "Make a look" }));
+  await vi.waitFor(() => expect(calls.map((c) => c.key)).toEqual(expect.arrayContaining(["POST /library/character", "PUT /projects/9/assets/slots/3"])));
+  expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", brand_ids: [1] });
+});
