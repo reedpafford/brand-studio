@@ -84,6 +84,24 @@ This week: 32 of 145 credits (meta, editors only)
 - **A draft:** the writing flow.
 - **Published:** the **script page**: the Publish step's summary, read-only, showing every version's card with its chip. The header has `Lock` "Published · final", and the secondary **Duplicate script**.
 
+## Delete script
+The server route is `DELETE /scripts/{id}`.
+- **Who sees it:**
+  - Reed: on any script.
+  - An editor: only on their own unpublished drafts.
+  - Anyone else: hidden, not disabled.
+- **Where:**
+  - In the script page's `Ellipsis` menu (the writing frame header, and the published script page): **Delete script** (danger text, `Trash2`).
+  - On each library row the person may delete: an `Ellipsis` icon button (36px desktop, 44px phone, `aria-label="More for Bo tries salmon"`) at the row's right, with the same item.
+- **Confirm first** (dialog on desktop, sheet on phone):
+  - No video made from it: "Delete "Bo tries salmon"?" with "Its versions and cast go too." Buttons **Delete** (danger) / **Keep it** (ghost).
+  - A video was made from any version: "Archive "Bo tries salmon"?" with "It leaves the library. The videos made from it stay, with their clips and downloads." Buttons **Archive** (danger) / **Keep it**.
+- **After:**
+  - The row leaves the list, and the script page goes back to Scripts.
+  - Toast: "Deleted "Bo tries salmon"." (or "Archived …") with **Undo**, for 8 s. Undo brings it back exactly as it was and puts the row back in place.
+  - If the call fails: toast "Couldn't delete it. Nothing changed." with **Try again**.
+- **Server:** Undo needs the script to still exist. So a delete only marks it (`deleted_at` or `archived`), and a restore route (`POST /scripts/{id}/restore`) clears it. Marked scripts can be removed for good later, after a day.
+
 ## Phone (390) and tablet (< 1024)
 - **Title row:** "Scripts" (page 26), plus an `Ellipsis` icon button that holds Bulk create.
 - **Allowance:** meta under the title (editors only).

@@ -107,3 +107,4 @@ Each spec has: purpose, desktop wireframe (1440), phone wireframe (390), states,
 4. Visible focus; labels on every input; icon buttons have `aria-label`.
 5. Editors see no `$` anywhere.
 6. Empty, loading and error states exist and match the spec copy.
+7. Can the user undo or delete what they just made? Every object a person creates has a way to remove it (delete or archive) and, after a delete or a big change, an Undo in the toast.
