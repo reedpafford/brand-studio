@@ -12,7 +12,8 @@ def main(path: str) -> None:
     model = WhisperModel("small", device="cpu", compute_type="int8")
     if path == "--warm":  # download and load it, nothing to transcribe
         return
-    segments, _ = model.transcribe(path, word_timestamps=True, vad_filter=True)
+    # No VAD: reels put music under every line, and VAD dropped 6 of the altar reel's 11 lines
+    segments, _ = model.transcribe(path, word_timestamps=True, vad_filter=False)
     lines = [
         {
             "start": round(s.start, 2),
