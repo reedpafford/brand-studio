@@ -13,6 +13,7 @@ export function MediaCard({
   meta,
   badge,
   image,
+  video,
   playable,
   aspect = "9 / 16",
   icon: Icon,
@@ -26,6 +27,8 @@ export function MediaCard({
   badge?: ReactNode;
   /** The picture's address; without one a placeholder panel shows. */
   image?: string | null;
+  /** Or a video file: its first frame is the picture. */
+  video?: string | null;
   /** A play button shows only on things that play. */
   playable?: boolean;
   aspect?: string;
@@ -40,7 +43,12 @@ export function MediaCard({
 }) {
   const media = (
     <>
-      {image ? (
+      {video ? (
+        <>
+          <video src={`${video}#t=0.1`} muted playsInline preload="metadata" aria-hidden className="absolute inset-0 size-full object-cover" />
+          <span className="absolute inset-0 bg-(image:--media-shade)" aria-hidden />
+        </>
+      ) : image ? (
         <>
           <img src={image} alt="" className="absolute inset-0 size-full object-cover" />
           <span className="absolute inset-0 bg-(image:--media-shade)" aria-hidden />
@@ -56,9 +64,9 @@ export function MediaCard({
           <Play size={20} strokeWidth={1.75} aria-hidden />
         </span>
       )}
-      <span className={`absolute inset-x-3 bottom-3 text-left ${image ? "text-on-media" : "text-text"}`}>
+      <span className={`absolute inset-x-3 bottom-3 text-left ${image || video ? "text-on-media" : "text-text"}`}>
         <span className="block font-display text-md font-bold">{title}</span>
-        {meta && <span className={`block text-sm ${image ? "" : "text-muted"}`}>{meta}</span>}
+        {meta && <span className={`block text-sm ${image || video ? "" : "text-muted"}`}>{meta}</span>}
       </span>
     </>
   );

@@ -7,6 +7,7 @@ import { Elapsed, useJobs } from "../clip/History";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
+import { blocking } from "./problems";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -114,7 +115,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
   const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error;
   const takeCost = (c: Clip) => c.take_credits;
   const busyFor = (c: Clip) => going(takeJob(c.id)?.id);
-  const missing = list.filter((c) => c.takes.length === 0 && c.problems.length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
+  const missing = list.filter((c) => c.takes.length === 0 && blocking(c.problems).length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
   const waitingForSheet = list.filter((c) => c.takes.length === 0 && blocks.forClip(c.clip_id).length > 0);
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
@@ -322,7 +323,7 @@ function ClipCard(props: {
             </button>
           )}
           {note === null && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || c.problems.length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || blocking(c.problems).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
             {verb}
             {price}
           </button>

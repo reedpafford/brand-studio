@@ -39,15 +39,15 @@ afterEach(() => vi.unstubAllGlobals());
 test("Enhance shows its cost and starts the run", async () => {
   const calls = fakeServer({ ...base, "POST /projects/9/script/enhance": [201, { id: 3, kind: "write-claude", status: "queued", credits: 3, project_id: 9 }] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Enhance · 3 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · 3 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/enhance")).toBe(true));
 });
 
 test("while Enhance runs the button is off and says why", async () => {
   fakeServer({ ...base, "GET /jobs": [200, [{ id: 3, kind: "write-claude", step: "enhance", status: "running", credits: 3, project_id: 9, created_at: "2026-10-23T10:00:00Z" }]] });
   open();
-  expect(await screen.findByText("Reading your script…")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /^Enhance/ })).toBeDisabled();
+  expect(await screen.findByText(/Reading your script…/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Suggest directions/ })).toBeDisabled();
 });
 
 test("suggestions sit under their lines as direction notes, and the script's own lines stay as they were", async () => {
@@ -85,7 +85,7 @@ test("accept and reject are sent; apply shows once something is accepted", async
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Accept: Slow push-in on her face." }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/1/accept")).toBe(true));
-  await userEvent.click(screen.getByRole("button", { name: "Apply 1 accepted" }));
+  await userEvent.click(screen.getByRole("button", { name: "Add 1 direction" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/apply")).toBe(true));
 });
 
@@ -105,8 +105,8 @@ test("a failed run says the script is unchanged; a switched-off server explains 
     "POST /projects/9/script/enhance": [503, { detail: "Generation is switched off on this server." }],
   });
   open();
-  expect(await screen.findByText(/Enhance didn't finish\. Your script is unchanged/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /^Enhance/ }));
+  expect(await screen.findByText(/Suggestions didn't finish\. Your script is unchanged/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Suggest directions/ }));
   expect(await screen.findByText("Generation is switched off on this server.")).toBeInTheDocument();
 });
 
@@ -150,8 +150,8 @@ test("Apply says how many directions were added, and Undo saves the earlier word
     "PUT /projects/9/script": [200, { ...script, version: 6 }],
   });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Apply 2 accepted" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Added 2 directions as v5.");
+  await userEvent.click(await screen.findByRole("button", { name: "Add 2 directions" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Added 2 directions.");
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/script")?.body).toEqual({ text: script.text }));
 });
@@ -177,7 +177,7 @@ test("tapping a suggestion opens a sheet with the Why, and the Notes chip opens 
 test("the helper says 'directions', and phones get a 'Why?' hint after a suggestion that has a reason", async () => {
   fakeServer({ ...base, "GET /projects/9/script/suggestions": [200, [mark({ status: "accepted" }), mark({ id: 2, line: 2 })]] });
   open();
-  expect(await screen.findByText(/Applying adds the accepted directions as a new version\./)).toBeInTheDocument();
+  expect(await screen.findByText(/Adding keeps your accepted directions in the script\./)).toBeInTheDocument();
   expect(screen.getByText("Why?")).toBeInTheDocument();
 });
 
