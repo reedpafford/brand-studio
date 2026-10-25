@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ellipsis, Trash2 } from "lucide-react";
-import createClient from "openapi-fetch";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Dialog, Menu, MenuItem } from "../components";
@@ -10,10 +9,6 @@ import { errorText as errorClass } from "../ui";
 
 type Target = { id: number; title: string; made: boolean };
 type Who = { created_by_id: number | null; published: boolean; title: string; id: number; versions: { project_id?: number | null }[] };
-
-// The restore route, until the server's schema has it (then this goes and `api` is used).
-type Paths = { "/scripts/{script_id}/restore": { post: { parameters: { path: { script_id: number } }; responses: { 200: { content: never }; 204: { content: never } } } } };
-const restoreApi = createClient<Paths>({ baseUrl: `${location.origin}/api`, credentials: "include", fetch: (req) => fetch(req) });
 
 /** Reed: any script. An editor: only their own unpublished drafts. Anyone else: not offered. */
 export function useMayDelete() {
@@ -34,7 +29,7 @@ export function useDeleteScript(onDeleted?: () => void) {
   const close = () => (setTarget(null), setProblem(null));
 
   const undo = (t: Target) => async () => {
-    const { response } = await restoreApi.POST("/scripts/{script_id}/restore", { params: { path: { script_id: t.id } } });
+    const { response } = await api.POST("/scripts/{script_id}/restore", { params: { path: { script_id: t.id } } });
     if (!response.ok) return toast(`Couldn't bring "${t.title}" back.`, undefined, "error");
     await refresh();
     toast(`Restored "${t.title}".`);
