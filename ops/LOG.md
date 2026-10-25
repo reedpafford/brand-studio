@@ -1,6 +1,11 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 16:32 · #280 AGENTS: context hygiene rules and current session IDs merged
+- 2026-10-25 16:35 · Decision (#280, Reed): context hygiene. A worker above about 60% of its context after a batch of PRs is restarted fresh by the Producer with a pushed-everything handoff; re-read HANDOFF and DECISIONS after any compaction.
+- 2026-10-25 16:23 · #259 Scripts: who is making a version, Making now, and version videos out of the old list merged
+- 2026-10-25 16:20 · #275 ops: HANDOFF/LOG refresh 2026-10-25 16:20Z (by the Producer) merged
+- 2026-10-25 16:19 · #274 Reel import spec: realistic sample prices merged
 - 2026-10-25 16:17 · #273 Plan: reel import (server) merged
 - 2026-10-25 16:17 · #272 Reel import spec merged
 - 2026-10-25 16:16 · #266 Scripts: Bulk create and Write all merged

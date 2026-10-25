@@ -26,4 +26,5 @@
 | 2026-10-25 | Producer | Betty remake (50 s, 480p) via the app on main ba0de97: 3 Claude calls ($1.07 actual), 5 Nano Banana 2.1 stills, 5 Seedance takes (15+10+8+12+5 s), then 1 redo of c1 (15 s) because Jade echoed Luna's line | 3 + 5 + 65 s | 6.50 | 7.91 (Seedance at estimate) | Reed ($10 remake) |
 | 2026-10-25 | Producer | Betty remake total (sheets and places included) | | 10.00 cap | 8.81 | Reed |
 | 2026-10-25 | Producer (for Director) | Cast-slot eval re-check after the Bruno/breed fix (#214 at 62b2967): ironpaws-pitbull1 only, now passes | 2 Claude calls | 0.13 | 0.13 | Reed ("ok on the two small tests"; both tests together $0.68 of ~$1.60) |
-| 2026-10-25 | Producer | Week total (Mon 19 to Sun 25 Oct): over the $15 test cap with Reed's approval | | 15.00 cap | 26.43 | Reed |
+| 2026-10-25 | Producer | Altar remake v3 (video A, 43 s, 480p) via the app on main bd3c8ab, with the #241 hook-first and montage-grind rules; reused the approved sheets and places: 3 Claude calls ($0.76), 4 Nano Banana 2.1 stills, 4 Seedance takes (6+10+15+12 s), then 1 redo of c3 (15 s) so the montage Nate matches his sheet | 3 + 4 + 58 s | 5.45 | 6.99 (Seedance at estimate) | Reed ("up to $10 over this week's test cap") |
+| 2026-10-25 | Producer | Week total (Mon 19 to Sun 25 Oct): over the $15 test cap with Reed's approval | | 15.00 cap | 33.42 | Reed |

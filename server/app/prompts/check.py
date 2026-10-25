@@ -493,3 +493,52 @@ def reel_speakers(
     new = [k.title() for k in said if k not in known] or [k.title() for k in said]
     return [f"{ADVICE}{len(said)} people speak, the reel has {len(reel)}; "
             f"give {', '.join(new)}'s lines back to who says them in the reel"]  # fmt: skip
+
+
+REWORD = re.compile(
+    r"\b(add|cut|remove|drop|change|reword|rewrite|replace|swap|new)\s+(?:[\w'-]+\s+){0,2}"
+    r"(line|lines|dialogue|words?)\b|\bsays? (something else|instead)\b",
+    re.I,
+)
+SPEAKS = re.compile(
+    r"\b([A-Z][a-z]+)(?: should| could| to)? (say|says|speak|speaks|talk|talks|shout|shouts|"
+    r"whisper|whispers|reply|replies|answer|answers)\b"
+)
+
+
+def _first(speaker: str) -> str:
+    return speaker.split(" (")[0].split()[0].lower()
+
+
+def redo_note(note: str, bd: Breakdown, clip_id: str) -> list[str]:
+    """A Redo note ("What's wrong?") changes how the take plays, never what is said: it can't
+    quote words the clip doesn't have, ask to add, cut or reword a line, or make someone speak
+    who has no line in this clip (Reed, 2026-10-25)."""
+    shots = {shot.id: shot for scene in bd.scenes for shot in scene.shots}
+    clip = next((c for c in bd.clips if c.id == clip_id), None)
+    ids = clip.shot_ids if clip else []
+    lines = [_exact(shots[i].line) for i in ids if i in shots and shots[i].line]
+    who = {
+        _first(shots[i].speaker) for i in ids if i in shots and shots[i].line and shots[i].speaker
+    }
+    known = {_first(shot.speaker) for shot in shots.values() if shot.speaker}
+    problems = []
+    for quote in QUOTED.findall(note):
+        if _exact(quote) not in lines:
+            problems.append(
+                f"The note quotes “{quote}”, which nobody says in this clip. A note can change "
+                "how a line is said, never its words."
+            )
+    if REWORD.search(note):
+        problems.append(
+            "The note changes what's said. The spoken lines stay exactly as written; say how "
+            "they should sound instead (louder, angrier, slower)."
+        )
+    for name, _ in SPEAKS.findall(note):
+        if name.lower() in known and name.lower() not in who:
+            problems.append(
+                f"{name} has no line in this clip, so the note can't make them speak."
+                if who
+                else "Nobody speaks in this clip, so the note can't add speech."
+            )
+    return list(dict.fromkeys(problems))
