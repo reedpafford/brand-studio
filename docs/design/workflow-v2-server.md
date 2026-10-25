@@ -80,10 +80,16 @@ Everything is in the caller's workspace, and another workspace gets 404 (`assert
     - `sheet_status` (today's: none / drawing / waiting_for_owner / needs_approval / approved).
   - Unlocked ones are drawn with today's `POST /library/{kind}/{id}/sheet` and approved with `/sheet/approve`.
   - Storyboard and takes already refuse until every sheet is approved, so nothing new is needed there.
-- **Final video**:
-  - `POST /projects/{id}/video` (today: stitch the picked takes);
-  - `PUT /projects/{id}/video` `{file_id}` (new: attach an edited cut uploaded through `/files`).
-  - Either one marks the version done in the library.
+- **Clips and the final video** (Reed, #190: no final-video upload):
+  - `POST /projects/{id}/video` stays: it stitches the picked takes and keeps the MP4.
+  - Making it marks the version done in the library.
+  - Every clip downloads singly: today's `GET /files/{id}` (with byte ranges since #144).
+  - Take history per clip is already kept. `ProjectClipOut.takes` lists every take (number and file), so older takes download the same way.
+  - New: `GET /projects/{id}/clips.zip`.
+    - A zip of every clip's picked take, named `c1-take2.mp4` and so on.
+    - It's streamed (built while sending, never held whole in memory) and checked against the workspace.
+    - No byte ranges. Videos are already compressed, so the zip stores them uncompressed.
+  - New: `?all_takes=1` on the zip adds every older take as `c1/take1.mp4`.
 
 **Variations job, input and output** (to agree with the Director; the prompt is theirs)
 
@@ -111,12 +117,20 @@ Everything is in the caller's workspace, and another workspace gets 404 (`assert
 
 "Editors run the full flow inside their credit limits with no extra approval" maps onto today's rules like this:
 
-- **Projects:**
-  - The budget is still 2× the estimate, and the per-video cap is still 729 credits.
-  - A project from the library starts **active**: no length approval (there is no length limit any more since #109).
-  - Inside the budget nothing waits.
-  - Going over the budget or the cap is the same held-for-owner path as today. That is the only time the owner is asked.
-- **Script-side Claude steps** (variations, regenerate, breakdown preview) aren't tied to a project. They come from the editor's **weekly allowance**, like Quick clips (about 3 credits each). Past the allowance they wait in Approvals, as today.
+Reed's rule (#190): there are two kinds of work, paid for differently.
+
+- **Videos from Reed's library versions** (owner-written scripts): as today.
+  - The budget is 2× the estimate, and the per-video cap is 729 credits ($75).
+  - The project starts **active**, because there's no length approval since #109.
+  - Going over the budget or the cap is held in Approvals for Reed.
+- **Editors' own work**: one shared **weekly editor allowance of 145 credits** ($15 at $0.1028 a credit) per editor.
+  - It covers Quick clips, Claude steps on their own scripts (variations, regenerate, breakdown) and every job on videos made from their own scripts.
+  - Past the allowance, generation is **declined**: a 409 with plain words, "This goes past your $15 for this week. It resets on Monday." It is never sent to Reed.
+  - The video's own 2× budget doesn't apply to editors' own scripts; the allowance is the limit. The 729 cap still applies.
+  - **This replaces today's 150-credit Quick clip allowance**, as the Producer suggested. The setting `weekly_quick_clip_credits` is renamed `weekly_editor_credits`, with a default of 145 and the owner still able to change it.
+  - It's one shared number because two pots would let an editor spend $30 a week, and one meter is simpler to show.
+  - **Behaviour change to note:** Quick clips past the allowance are declined instead of held for the owner. That follows "never sent to Reed". Today's held Quick clips stay in Approvals until decided.
+  - **A limit to know:** 145 credits a week is about 140 s of 480p clips, minus the Claude steps. So an editor's own long ad (150 s or more, with redos) can't be finished in one week. Reed's library versions don't have this limit.
 - **Owner:** never held, as today.
 
 ## 4. Long videos
@@ -153,11 +167,11 @@ Each PR is small, has tests, and regenerates `schema.d.ts` where the API changes
 | 2 | Scripts and versions CRUD, word locks, history, roles; `GET /scripts` with filters and search | M |
 | 3 | `POST /scripts/bulk` | S |
 | 4 | Character locks | S |
-| 5 | Variations job (estimate, run, regenerate) using the Director's schema; allowance billing | M |
+| 5 | Weekly editor allowance (145 credits, declined past it, replaces the Quick clip allowance), then the variations job (estimate, run, regenerate) using the Director's schema | M |
 | 6 | Breakdown preview on a version (run, edit, save) | S |
 | 7 | Produce from a version (project created, breakdown copied or run, one per version) | M |
 | 8 | Assets step listing (locked or unlocked, sheet status) | S |
-| 9 | Final video attach (`PUT /projects/{id}/video`), plus library status "done" | S |
+| 9 | Clips zip (`GET /projects/{id}/clips.zip`, streamed, with `all_takes`), plus library status "done" | S |
 | 10 | "New project" shortcut through scripts; `fake_run` updated to go through the library | S |
 
 Every PR keeps `scripts/fake_run.py` green.
@@ -165,8 +179,13 @@ Every PR keeps `scripts/fake_run.py` green.
 - **Dependencies:** PRs 1 → 2 → (3, 4, 5, 6 in any order) → 7 → (8, 9) → 10.
 - **ETA:** about one working day of agent time for all ten, with PRs 1, 2 and 7 the longest. Builder-Screens can start the library list once PR 2 is up.
 
-## Open questions for Reed
+## Decided by Reed (#190)
 
-1. Should an editor be able to see and produce from the owner's **unpublished** scripts? Planned: no, only published ones.
-2. Once a version is produced, can its saved breakdown still change for that video? Planned: the project gets its own copy, and the library version stays as Reed approved it.
-3. Variations job billing: planned from the weekly allowance for editors. Should Reed's own variations show in Spend like other owner calls? Planned: yes, as usage, with no approval.
+- No final-video upload. Clips download singly or as a zip (picked takes, optionally every take), and the stitched MP4 is kept.
+- Editors' own scripts get $15 (145 credits) a week, declined past it. This plan merges that with the Quick clip allowance into one weekly editor allowance.
+- Editors can make variations of their own scripts.
+
+## Still open (planned answer in brackets)
+
+1. Can an editor see and produce from the owner's unpublished scripts? (No, only published ones.)
+2. Once a version is produced, can its saved breakdown still change for that video? (The project gets its own copy, and the library version stays as Reed approved it.)
