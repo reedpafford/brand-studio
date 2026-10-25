@@ -148,15 +148,18 @@ def _new_script(db: Session, user: User, brand_id: int, title: str | None, new_l
     return script
 
 
-def _one_at_a_time(db: Session, user: User) -> None:
-    """One reel being prepared per person, so one editor can't fill the prep queue."""
+def one_at_a_time(
+    db: Session, user: User, busy: str = "You have a reel being prepared. Try again when it's done."
+) -> None:
+    """One reel (or one bulk batch) being prepared per person, so one editor can't fill the
+    prep queue."""
     waiting = select(Job.id).where(
         Job.kind == "reel_prepare",
         Job.created_by_id == user.id,
         Job.status.in_((JobStatus.queued, JobStatus.running)),
     )
     if db.scalar(waiting.limit(1)):
-        raise HTTPException(409, "You have a reel being prepared. Try again when it's done.")
+        raise HTTPException(409, busy)
 
 
 def drop_files(db: Session, reel: dict | None) -> list[str]:
@@ -203,7 +206,7 @@ async def import_upload(
     db: Session = Depends(get_db),
 ):
     """A new script from an uploaded reel (mp4 or mov, up to 100 MB and 90 seconds)."""
-    _one_at_a_time(db, user)
+    one_at_a_time(db, user)
     script = _new_script(db, user, brand_id, (title or "").strip(), new_lines)
     stored = await _store_video(request, user, db, file)
     reel = {"source": "upload", "video_file_id": stored.id}
@@ -218,7 +221,7 @@ def import_link(body: LinkIn, user: User = Depends(current_user), db: Session = 
     url = media.reel_link(body.url)
     if not url:
         raise HTTPException(422, "That isn't an Instagram reel link.")
-    _one_at_a_time(db, user)
+    one_at_a_time(db, user)
     script = _new_script(db, user, body.brand_id, body.title, body.new_lines)
     prepare(db, user, script, {"source": "link", "url": url}, {"url": url})
     return _out(db, script, user)
@@ -240,7 +243,7 @@ async def replace_with_upload(
         raise HTTPException(409, "This reel is still being prepared or read.")
     if script.reference_breakdown:
         raise HTTPException(409, "This reel has been read already.")
-    _one_at_a_time(db, user)
+    one_at_a_time(db, user)
     stored = await _store_video(request, user, db, file)  # checked before anything goes
     old = drop_files(db, script.reel)  # the old video and sheet aren't needed any more
     reel = {"source": "upload", "url": script.reel.get("url"), "video_file_id": stored.id}

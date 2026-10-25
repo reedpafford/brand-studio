@@ -20,7 +20,7 @@ from app.routes.brands import get_brand
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
-from app.routes.script_import import UNTITLED, delete_bytes, drop_files, prepare
+from app.routes.script_import import UNTITLED, delete_bytes, drop_files, one_at_a_time, prepare
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
@@ -308,6 +308,10 @@ def create_many(
                 raise HTTPException(422, "Give it a title.")
         except HTTPException as exc:
             raise HTTPException(exc.status_code, f"Row {n}: {exc.detail}") from None
+    if any(links):  # one batch at a time; its fetches are spaced by the reel worker
+        one_at_a_time(
+            db, user, "Your last reels are still being prepared. Try again when they're done."
+        )
     made = []
     for item, url in zip(body.scripts, links, strict=True):
         script = Script(
