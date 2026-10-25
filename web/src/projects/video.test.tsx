@@ -111,4 +111,18 @@ test("advice on a clip can be kept anyway; kept advice says so", async () => {
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/keep")?.body).toEqual({ problem: advice }));
   expect(screen.getByText("Kept · Reed will see it")).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: /Keep it anyway/ })).toHaveLength(1);
+
+test("a role with no character can make one, so Assets is never a dead end", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", library_item_id: null, name: "", role: "Coach", sheet_status: "missing" })]],
+    "POST /library/character": [201, item({ id: 12, name: "Coach" })],
+    "PUT /projects/9/assets/slots/3": [200, []],
+  });
+  open();
+  expect(screen.queryByLabelText("Use a Cast & places character")).toBeNull();
+  await userEvent.click(await screen.findByRole("button", { name: "Make a look" }));
+  await vi.waitFor(() => expect(calls.map((c) => c.key)).toEqual(expect.arrayContaining(["POST /library/character", "PUT /projects/9/assets/slots/3"])));
+  expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", brand_ids: [1] });
 });
