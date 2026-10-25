@@ -746,6 +746,7 @@ def test_the_keep_line_names_the_face_and_a_visible_hair_cue():
 
 
 def test_money_on_trading_screens_only_climbs():
+    assert "**Money climbs.**" in prompts.system("script_draft")  # imported reels too
     _, bd = example("breakdown")
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
     shots["2.7"].action = "Malik at the desk; the balance reads $380."  # below +$420
@@ -786,4 +787,3 @@ def test_a_frames_only_watch_says_so_and_keeps_the_cuts_and_words():
     assert text.startswith("<watched_from>frames</watched_from>\n<cuts>\n1. 0.00–0.40")
     assert text.split("\n", 1)[1] == prompts.reel_watch_input(transcript, cuts)
     assert "**Frames only.**" in prompts.watch_system()
-    assert "**Money climbs.**" in prompts.system("script_draft")  # imported reels too
