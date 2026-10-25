@@ -57,7 +57,7 @@ def catalogue(root: str) -> dict[str, tuple[ReferenceOut, Path]]:
     return dict(sorted(out.items(), key=lambda kv: (not kv[1][0].brand, kv[0])))
 
 
-def _find(request: Request, ref_id: str) -> tuple[ReferenceOut, Path]:
+def find(request: Request, ref_id: str) -> tuple[ReferenceOut, Path]:
     found = catalogue(request.app.state.settings.references_dir).get(ref_id)
     if not found:
         raise HTTPException(404, "No such reference reel.")
@@ -66,7 +66,7 @@ def _find(request: Request, ref_id: str) -> tuple[ReferenceOut, Path]:
 
 def load(request: Request, ref_id: str) -> dict:
     """The reel's breakdown as a project stores it (checked and trimmed), tagged with its id."""
-    _, folder = _find(request, ref_id)
+    _, folder = find(request, ref_id)
     return checked({**json.loads((folder / "BREAKDOWN.json").read_text()), "source_id": ref_id})
 
 
@@ -77,7 +77,7 @@ def list_references(request: Request):
 
 @router.get("/{ref_id}/thumbnail", response_class=FileResponse)
 def thumbnail(ref_id: str, request: Request):
-    ref, folder = _find(request, ref_id)
+    ref, folder = find(request, ref_id)
     if not ref.has_thumbnail:
         raise HTTPException(404, "This reel has no contact sheet.")
     return FileResponse(folder / "contact.jpg", media_type="image/jpeg")
