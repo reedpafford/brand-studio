@@ -59,7 +59,7 @@ class ScriptDraftText(Entity, Base):
     )
     text: Mapped[str] = mapped_column(Text)
     title: Mapped[str] = mapped_column(String(200), default="")
-    source: Mapped[str] = mapped_column(String(20))  # edit | variations
+    source: Mapped[str] = mapped_column(String(20))  # edit | variations | write
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
 

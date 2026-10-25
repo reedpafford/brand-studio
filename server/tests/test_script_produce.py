@@ -116,3 +116,20 @@ def test_a_declined_breakdown_leaves_the_version_free(editor, db):
     db.query(Job).delete()
     db.commit()
     assert editor.post(f"{base}/drafts/0/produce").status_code == 201
+
+
+def test_a_produced_version_names_its_editor_and_the_video_its_version(owner, editor, db):
+    """For the library's "In production · Ed" chip, and to keep script videos out of
+    "Videos made before scripts"."""
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    assert owner.get("/scripts").json()[0]["versions"][0]["editor"] is None
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    ed = editor.get("/auth/me").json()
+    row = next(s for s in owner.get("/scripts").json() if f"/scripts/{s['id']}" == base)
+    assert row["versions"][0]["editor"] == {"id": ed["id"], "name": "Ed"}
+    draft_id = db.get(Project, pid).script_draft_id
+    assert draft_id is not None
+    assert editor.get(f"/projects/{pid}").json()["script_draft_id"] == draft_id
+    fomo = owner.get("/brands").json()[0]["id"]
+    older = owner.post("/projects", json={"brand_id": fomo, "name": "Old way"}).json()
+    assert older["script_draft_id"] is None
