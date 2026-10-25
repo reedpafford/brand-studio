@@ -95,4 +95,4 @@ def test_a_job_that_ran_after_a_failure_clears_it(owner, editor, db):
     _job(db, pid, JobStatus.failed)
     _job(db, pid, JobStatus.succeeded)
     assert _row(owner, pid)["flag"] is None
-    assert _row(owner, pid)["credits_used"] == 8
+    assert _row(owner, pid)["credits_used"] == 4  # the failed job was refunded, as for the gate

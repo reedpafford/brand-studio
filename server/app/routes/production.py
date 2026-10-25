@@ -18,6 +18,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.auth import current_user
+from app.credits import COUNTED
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand
@@ -104,7 +105,8 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
         select(
             Job.project_id,
             func.max(Job.id),
-            func.coalesce(func.sum(Job.credits), 0),
+            # counted like the budget gate: failed and cancelled jobs were refunded
+            func.coalesce(func.sum(case((Job.status.in_(COUNTED), Job.credits), else_=0)), 0),
             func.max(Job.created_at),
             func.max(Job.finished_at),
         ).group_by(Job.project_id),
@@ -114,13 +116,13 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
         j.project_id: j
         for j in db.scalars(select(Job).where(Job.id.in_([v[0] for v in jobs.values()])))
     }
-    stuck = _grouped(
-        db,
-        select(Job.project_id, func.min(Job.created_at))
-        .where(Job.status.in_(WAITING), Job.created_at < now - STUCK)
-        .group_by(Job.project_id),
-        ids,
-    )
+    stuck: dict[int, Job] = {}  # each video's longest-waiting job
+    for job in db.scalars(
+        select(Job)
+        .where(Job.project_id.in_(ids), Job.status.in_(WAITING), Job.created_at < now - STUCK)
+        .order_by(Job.created_at.desc())
+    ):
+        stuck[job.project_id] = job
     spent = _grouped(
         db,
         select(Job.project_id, func.sum(Usage.cost_usd))
@@ -140,7 +142,7 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
         select(
             StoryboardFrame.project_id,
             func.max(StoryboardFrame.created_at),
-            func.min(StoryboardFrame.file_id),
+            func.max(StoryboardFrame.file_id),  # the newest still (file ids only grow)
         ).group_by(StoryboardFrame.project_id),
         ids,
     )
@@ -200,7 +202,8 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
             row.flag_job = JOB_NAMES.get(job.input.get("step", ""), "A step")
             row.flag_problem = job.error
         elif pid in stuck:
-            row.flag, row.flag_since = "stuck", stuck[pid][0]
+            row.flag, row.flag_since = "stuck", stuck[pid].created_at
+            row.flag_job = JOB_NAMES.get(stuck[pid].input.get("step", ""), "A step")
         elif now - last > IDLE:
             row.flag, row.flag_since = "idle", last
         out.append(row)
