@@ -1,6 +1,20 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 05:12 · #246 ops: HANDOFF/LOG refresh 2026-10-25 05:20Z merged (by the Producer)
+- 2026-10-25 05:12 · #236 Script library 3: Characters and Publish merged
+- 2026-10-25 04:42 · #244 Library spec: editors see the versions they're making at the top merged
+- 2026-10-25 04:41 · #241 Grind before the payoff; the hook opens on the inciting exchange; cast slot kind merged
+- 2026-10-25 04:36 · #230 Script library 2: New script, the writing frame and Description merged
+- 2026-10-25 04:27 · #238 Usage spec: the brand tracker merged
+- 2026-10-25 04:27 · #234 Workflow v2 5b-1: variations of a library script merged
+- 2026-10-25 04:22 · #232 Field counters never wrap merged
+- 2026-10-25 04:22 · #226 Script library 1: the Scripts home (list, filters, search) merged
+- 2026-10-25 04:16 · #237 Decisions: remake verdict, montage and altar-hook rules, brand tracker merged
+- 2026-10-25 04:15 · #235 ops: HANDOFF/LOG refresh 2026-10-25 04:20Z merged (by the Producer)
+- 2026-10-25 04:15 · #233 Writing frame spec: step 5 is Cast merged
+- 2026-10-25 04:15 · #231 QA follow-ups: zip refuses a missing take, allowance lock, sheet and label wording merged
+- 2026-10-25 · Decisions in DECISIONS.md (#237): Reed's verdict on the two remakes (altar, video A; Betty): both close, neither passed yet. Montage rule for every video from now on: show more grinding before the big payoff. Altar hook: the proposal and the immediate "no" must be on screen first. Re-run the altar reel with both fixes after the weekly cap resets (Monday), estimate first, up to $10; Betty waits for the montage rule. Brand tracker on the Usage page (owner only, editors never see dollars): per brand spend and finished videos this week, month and all time, cost per finished video, scripts and versions left, videos in progress; "finished" means the library's "Video done".
 - 2026-10-25 04:07 · #221 Redesign 13c/14: Team merged
 - 2026-10-25 04:07 · #219 Redesign 13b/14: Approvals merged
 - 2026-10-25 04:07 · #209 Redesign 12b/14: Brand Products and App screens merged
