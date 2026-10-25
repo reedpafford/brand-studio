@@ -88,3 +88,19 @@ def test_write_all_is_all_or_none_over_reading_too(app, owner, editor, db, clip)
     declined = editor.post("/scripts/write", json={"script_ids": ids})
     assert declined.status_code == 409 and "10 credits" in declined.json()["detail"]
     assert db.query(Job).filter(Job.kind != "reel_prepare").count() == 0
+
+
+def test_write_all_holds_every_reels_read(app, owner, editor, db, clip):
+    """QA on #292: each reel's later steps are held from the press, so nothing else spends
+    them first."""
+    owner.put(
+        "/credits/limits", json={"weekly_quick_clip_credits": 14, "per_video_max_credits": 729}
+    )
+    ids = [s["id"] for s in _bulk(editor, [{"reel_url": u} for u in LINKS[:2]]).json()]
+    plain = _bulk(editor, [{"title": "Plain"}]).json()[0]["id"]
+    _drain(app, db, clip)
+    assert editor.post("/scripts/write", json={"script_ids": ids}).status_code == 201
+    over = editor.post(f"/scripts/{plain}/write")  # 2 x 7 held, though only 2 watches queued
+    assert over.status_code == 409 and "credits" in over.json()["detail"]
+    _drain(app, db, clip)
+    assert all(editor.get(f"/scripts/{i}/import").json()["status"] == "done" for i in ids)

@@ -2664,6 +2664,11 @@ export interface components {
             credits: number;
             /** Credits Left */
             credits_left: number | null;
+            /**
+             * Tries
+             * @default 0
+             */
+            tries: number;
         };
         /** FileOut */
         FileOut: {

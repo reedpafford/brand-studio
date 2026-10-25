@@ -548,6 +548,24 @@ test("Variations: an editor on their own script past the week's allowance can't 
   expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
 });
 
+test("the version panel says what it is a variation of, who planned the breakdown, how many clips, and about what it costs", async () => {
+  setViewport(1440);
+  const detail = script({ versions: [v(0, "done", { project_id: 5 }), v(1, "approved", { text: "B words", has_breakdown: true, seconds: 28, clips: 4, planned_by: { id: 1, name: "Reed" }, variation_of: "A", estimate_credits: 210 })] });
+  fakeServer({
+    ...base,
+    "GET /scripts": [200, [script({ versions: [v(0, "done", { project_id: 5 }), v(1, "approved")] })]],
+    "GET /scripts/7": [200, detail],
+    "GET /scripts/7/cast": [200, []],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
+  });
+  open("/b/1/scripts?make=7.1");
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" });
+  expect(await within(panel).findByText("Variation of A")).toBeInTheDocument();
+  expect(within(panel).getByText("Planned by Reed · 28 s · 4 clips")).toBeInTheDocument();
+  expect(within(panel).getByText("About 210 credits to make")).toBeInTheDocument();
+  expect(within(panel).getByRole("button", { name: "Make this version" })).not.toHaveTextContent(/credit/); // a saved breakdown is free
+});
+
 test("Variations: an approved variation can be un-approved, and a draft can be removed after a question", async () => {
   setViewport(1440);
   const both = approvedOriginal([ver(1, { text: "B words", status: "approved" }), ver(2, { text: "C words" })]);
