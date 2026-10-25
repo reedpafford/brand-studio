@@ -1,4 +1,4 @@
-as of 04d89e7 · 2026-10-25 01:25 UTC
+as of a8685b9 · 2026-10-25 02:20 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -16,7 +16,8 @@ as of 04d89e7 · 2026-10-25 01:25 UTC
 - Invite page polish: "Sign in" wording, a failed check says try again (#163); login and invite page specs updated (#164).
 - fomo "Home (rich)" brand screen for the got-rich payoff (#167); montage clips use at most 3 screens (#168); step-by-step phone-friendly deploy guide for Reed in `deploy/README.md` (#166).
 - Redesign docs (`docs/design/redesign/`): phase 1 structure map and top 10 changes (#170, approved by Reed), phase 2 three visual directions (#173; Reed picked B, Screening room), phase 3 Screening room design system, screen specs and a 14-PR build order (#174, `phase3/README.md`). Quick clip bar no longer covers the form; 44px phone fields (#172).
-- Redesign build (14 PRs, `docs/design/redesign/phase3/README.md`): 1/14 Screening room tokens and fonts, dark by default (#175); 2/14 shared parts in `web/src/components/` (#176); 3/14 app shell with top bar, rail and phone tab bar (#178). Screens still on the old layout until PRs 4–13.
+- Redesign build (14 PRs, `docs/design/redesign/phase3/README.md`): 1/14 Screening room tokens and fonts, dark by default (#175); 2/14 shared parts in `web/src/components/` (#176); 3/14 app shell with top bar, rail and phone tab bar (#178). 4/14 Videos home (#180); 6/14 video frame (#179). Screens still on the old layout until the rest land.
+- Workflow v2 plan docs (#189 server plan, #191 Director plan, #192 design) and Quick clip specs (#184, #187). Planned only; nothing of workflow v2 is built yet.
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
 - Director prompts/evals (#30, #36, #41, #54, #75); Iron Paws + fomo seeds (#27, #39); browser tests (#19, #86, #49, #52, #61, #65, #71, #73, #76).
 - Design specs: Breakdown, Storyboard, Clips, Approvals (#79, #80); Prompting guides and FIT rows (#53, #70); house style and gold references from @nateassets (#96).
@@ -39,11 +40,19 @@ as of 04d89e7 · 2026-10-25 01:25 UTC
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
 - Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet.
-## Open PRs (2, not counting the Scribe's own)
-- #180 Redesign 4/14: Videos home | Builder-Screens | Designer re-check at 90d1444: 1 must-fix (on phone and tablet the "New video" action bar has no bar: no padding, surface or top border, and the button isn't full width; fix once in `ActionBar`); a follow-up list (step badges, per-step line, real poster, In progress / Finished sections) is also due
-- #179 Redesign 6/14: video frame | Builder-Screens | Designer review at 2dd23a2: 3 must-fixes (phone header takes 338 px; two amber buttons on the Script step; phone action-bar button not full width); head since moved to dc5616c
+## Workflow v2 (Reed's decisions, 2026-10-25, ops/DECISIONS.md)
+- Owner writes a script (title, description, optional reference reel), runs Enhance, picks 0–2 variations, locks characters, optionally previews the breakdown, and publishes to the Script Library. Editors pick a version and produce it once (max 3 videos per script). Editors can write their own scripts: $15 a week free generation each, beyond that declined. No final-video upload: download clips one by one or all at once, older takes too.
+## Open PRs (7, not counting the Scribe's own)
+- #196 Montage check: hand and screen inserts count as the hero; never a dead end | Director | in review
+- #195 Workflow v2 re-spec 2: Description, New script, Bulk create | Designer | in review (docs)
+- #194 Workflow v2 re-spec 1: Script library | Designer | in review (docs)
+- #193 Redesign 4b/14: Videos home follow-up (step, line, poster, sections) | Builder-Screens | in review
+- #186 Redesign 7b/14: Shots step (stacked on #185) | Builder-Screens | Designer review at 920ce36: 1 must-fix (on phone and tablet the Save / Discard bar sits behind the tab bar)
+- #185 Redesign 7a/14: Script step | Builder-Screens | Designer re-check passed (1e00b89)
+- #183 Redesign 10/14: Quick clip | Builder-Screens | Designer re-check at 9c920fe: 1 must-fix (desktop layout from #172 not back: remove the inner scroll, make the footer sticky)
 ## Next
-- Builder-Screens: fix #180's action bar and #179's three Designer must-fixes (put the full-width bar in `ActionBar` once); then redesign PRs 5, 7–14 (clip prompt review with "Looks good" before takes are paid for comes in PR 9, per the Designer).
+- Builder-Screens: fix #186's Save bar and #183's desktop layout; land #185, #193; then the remaining redesign PRs (clip prompt review with "Looks good" before takes are paid for comes in PR 9).
+- Builder-Server / Director / Designer: workflow v2 build per #189, #191, #192 and the re-specs #194, #195; land #196.
 - Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (per the Producer), then the first live deploy runs on merge to main.
 - Director: further excerpt runs only with Producer approval, logged in ops/SPEND.md.
 - Explorer: nightly checks of test and live sites (later).

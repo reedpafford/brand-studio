@@ -1,6 +1,17 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 02:06 · #192 Workflow v2 plan: Script library, writing flow, video flow on versions (design docs) merged
+- 2026-10-25 02:06 · #191 Plan: variations prompt and no dead-end checks (workflow v2, Director's part) merged
+- 2026-10-25 02:06 · #189 docs: workflow v2 server plan (Script Library, versions, locks, produce once) merged
+- 2026-10-25 01:59 · #190 Decisions: Reed's answers on downloads, editor allowance, editor variations merged
+- 2026-10-25 01:56 · #188 Decisions: Reed's owner and editor workflow merged
+- 2026-10-25 01:55 · #187 Quick clip spec: no inner scroll in the settings panel merged
+- 2026-10-25 01:54 · #184 Quick clip spec: elapsed time, Reuse on cards, no Send to a video merged
+- 2026-10-25 01:53 · #180 Redesign 4/14: Videos home merged
+- 2026-10-25 01:24 · #179 Redesign 6/14: video frame merged
+- 2026-10-25 01:22 · #182 ops: HANDOFF/LOG refresh 2026-10-25 01:25Z merged (by the Producer)
+- 2026-10-25 · Decisions in DECISIONS.md (#188, #190): Reed's workflow v2. Owner flow: title and description, Script (write, paste or adapt from a reference), Enhance, 0–2 Variations, character locks, optional Breakdown preview, publish to a Script Library. Editor flow: pick a version, Breakdown, Assets, Storyboard, Generate, fix clips, download. Each version is produced once (max 3 videos per script). Editors can write their own scripts with $15 a week of free generation each (about 145 credits); beyond that is declined. No final-video upload: editors download clips one by one or all at once, older takes too. Montage check: hand and screen inserts count as the hero and no check is a dead end.
 - 2026-10-25 00:41 · #181 ops: HANDOFF/LOG refresh 2026-10-25 00:50Z merged (by the Producer)
 - 2026-10-25 00:30 · #178 Redesign 3/14: app shell merged
 - 2026-10-24 21:21 · #176 Redesign 2/14: shared parts merged
