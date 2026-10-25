@@ -154,7 +154,7 @@ function Studio({ models }: { models: Model[] }) {
   const seg = (on: boolean) => `min-h-control min-w-16 flex-1 rounded-md border px-3 font-medium ${on ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong bg-surface-2 hover:bg-surface-3"}`;
   const allowanceLine = allowance.data && (
     <p className="text-sm tabular-nums text-muted">
-      This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits
+      Your own work this week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits
     </p>
   );
   const footer = (

@@ -4,6 +4,7 @@ import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { Elapsed, useJobs } from "../clip/History";
+import { useMe } from "../auth/useMe";
 import { Sheet } from "../projects/Sheet";
 import { useMedia } from "../useMedia";
 import { useToast } from "../toast";
@@ -35,9 +36,11 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const failed = last?.status === "failed" && !drawing;
   const photo = item.source_photo_file_id;
   const cost = price === undefined ? "" : ` · ${credits(price)}`;
-  // Past the weekly allowance, the sheet is held for Reed instead of starting.
-  const over = price !== undefined && !!allowance.data && allowance.data.quick_clip_credits_used + price > allowance.data.quick_clip_credits_allowed;
-  const ask = over ? "Ask Reed to approve" : null;
+  // Past an editor's weekly allowance the server declines a new sheet, so don't offer one.
+  const { data: me } = useMe();
+  const a = allowance.data;
+  const over = me?.role === "editor" && price !== undefined && !!a && a.quick_clip_credits_used + price > a.quick_clip_credits_allowed;
+  const declined = over && a ? `You've used this week's ${Math.round(a.quick_clip_credits_allowed)} credits. It resets Monday.` : null;
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -83,8 +86,8 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
         <textarea className={input} rows={3} maxLength={500} value={redoing ?? ""} onChange={(e) => setRedoing(e.target.value)} />
       </label>
       <div className="flex flex-wrap gap-2">
-        <button className={`${btnPrimary} ${btn}`} disabled={make.isPending} onClick={() => make.mutate((redoing ?? "").trim())}>
-          {ask ?? "Redo"}
+        <button className={`${btnPrimary} ${btn}`} disabled={make.isPending || !!declined} onClick={() => make.mutate((redoing ?? "").trim())}>
+          Redo
           {cost}
         </button>
         <button className={`${btnSecondary} ${btn}`} onClick={() => setRedoing(null)}>
@@ -129,13 +132,14 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           {failed && <p className="text-danger">Didn't finish · credits returned</p>}
           {drawing && <p className="text-muted">A sheet is being made.</p>}
           {held && <p className="text-warning">The sheet starts when Reed says yes. You can't ask for another meanwhile.</p>}
+          {declined && !drawing && !held && <p className="text-warning">{declined}</p>}
         </div>
       </div>
       {!drawing && !held && status === "none" && (photo || kind === "place") && (
         <div className="space-y-2">
           <p>{photo ? "Turn this photo into a house-style sheet?" : "Make a sheet from the notes?"}</p>
-          <button className={`${btnPrimary} ${btn}`} disabled={make.isPending} onClick={() => make.mutate("")}>
-            {ask ?? (failed ? "Try again" : "Make house-style sheet")}
+          <button className={`${btnPrimary} ${btn}`} disabled={make.isPending || !!declined} onClick={() => make.mutate("")}>
+            {failed ? "Try again" : "Make house-style sheet"}
             {cost}
           </button>
         </div>
@@ -154,8 +158,8 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
             </button>
           )}
           {redoing === null && (
-            <button className={`${btnSecondary} ${btn}`} onClick={() => setRedoing("")}>
-              {ask ?? "Redo"}
+            <button className={`${btnSecondary} ${btn}`} disabled={!!declined} onClick={() => setRedoing("")}>
+              Redo
               {cost}
             </button>
           )}

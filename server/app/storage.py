@@ -8,6 +8,7 @@ class Storage(Protocol):
     def put(self, key: str, data: bytes) -> None: ...
     def get(self, key: str) -> bytes: ...
     def delete(self, key: str) -> None: ...
+    def exists(self, key: str) -> bool: ...
 
 
 class LocalStorage:
@@ -30,3 +31,6 @@ class LocalStorage:
 
     def delete(self, key: str) -> None:
         self._path(key).unlink(missing_ok=True)
+
+    def exists(self, key: str) -> bool:
+        return self._path(key).is_file()

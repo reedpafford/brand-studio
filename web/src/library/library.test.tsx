@@ -284,10 +284,11 @@ test("a sheet held for the owner says Waiting for Reed to approve, not Drawing, 
   expect(screen.queryByRole("button", { name: /Make house-style sheet|Ask Reed|Approve|Redo/ })).not.toBeInTheDocument();
 });
 
-test("past the weekly allowance the button says Ask Reed to approve with the price", async () => {
-  fakeServer({ ...sheetBase, "GET /credits/me": [200, { quick_clip_credits_used: 149, quick_clip_credits_allowed: 150 }], "GET /library/character/5": [200, sheetItem] });
+test("past an editor's weekly allowance the sheet button is off and says why", async () => {
+  fakeServer({ ...sheetBase, "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }], "GET /library/character/5": [200, sheetItem] });
   renderAt("/b/1/library/characters/5");
-  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 1.5 credits" })).toBeInTheDocument();
+  expect(await screen.findByText("You've used this week's 145 credits. It resets Monday.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make house-style sheet · 1.5 credits" })).toBeDisabled();
 });
 
 test("a character's photo at creation is the source photo for its sheet, not a loose image", async () => {
