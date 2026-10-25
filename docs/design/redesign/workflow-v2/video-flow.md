@@ -24,6 +24,12 @@ The #179 frame (the one-line phone header, step picker, one Next, Back) with **5
 - **Checks:** the montage check counts hand and screen inserts, and no problem is a dead end.
   - Every problem has **Go to**, plus either a fix in place or **Keep it anyway** (ghost). Keep it anyway marks the problem "Kept · Reed will see it" (meta) and stops it blocking Next.
   - Only the $75 cap blocks for good.
+  - **Advice is shown apart from problems** (Reed, 2026-10-25). This applies to the breakdown, storyboard frames and clips alike.
+    - Problems that need fixing stay as they are: danger rows with **Go to**.
+    - Advice (lines the server marks "Advice: …") goes under one closed disclosure, **Advice (3)**. It's neutral in tone (`text-muted`, `ChevronRight`/`ChevronDown`, no danger colour), sits under the problems, and its count leaves out advice already kept.
+    - Open, each advice line shows without the "Advice: " prefix. It has **Keep anyway** (ghost dense, 44px on phone), and **Go to** when it points at a shot.
+    - A kept line stays in the list, muted, with "Kept" for Reed ("Kept · Reed will see it" for an editor).
+    - Advice never blocks Next. When there are no problems and no advice, nothing shows.
 - **Next: Assets.**
 
 ## 2. Assets (new)
