@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.credits import week_start
 from app.db import utcnow
+from app.models.clips import ProjectClip
 from app.models.jobs import Job, Usage
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
@@ -157,3 +158,115 @@ def editors_active(db: Session, brand_id: int, when: Period) -> int:
             Job.brand_id == brand_id, Job.project_id.is_not(None), *when.has(Job.created_at)
         )
     )
+
+
+# --- Lists (spec items 6-8): a brand's videos and scripts, and every charge ---
+
+STEPS = {
+    "script_draft": "Script drafts",
+    "enhance": "Script suggestions",
+    "breakdown": "Breakdown",
+    "storyboard": "Storyboard",
+    "frame": "Storyboard still",
+    "clip_prompts": "Clip prompts",
+    "clip_take": "Clip take",
+    "variations": "Script variations",
+    "cast_slots": "Reading the cast",
+    "improve": "Improve a prompt",
+    "sheet": "A look",
+}
+LETTERS = "ABC"
+
+
+def video_title(db: Session, project: Project) -> tuple[str, int | None, str | None]:
+    """'{script title} · {letter}' for a video from the library, else its own name;
+    with the script id and letter (None for an earlier-style video)."""
+    if project.script_draft_id:
+        draft = db.get(ScriptDraft, project.script_draft_id)
+        script = db.get(Script, draft.script_id)
+        letter = LETTERS[draft.slot]
+        return f"{script.title} · {letter}", script.id, letter
+    return project.name, None, None
+
+
+def what(db: Session, job: Job) -> str:
+    """A charge in plain words: 'Clip take · Bo tries salmon · B', 'Quick clip'."""
+    step = job.input.get("step")
+    if job.project_id is not None:
+        title, _, _ = video_title(db, db.get(Project, job.project_id))
+        clip = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+        if step == "clip_take" and clip:
+            return f"Clip {clip.clip_id.lstrip('c')} take · {title}"
+        return f"{STEPS.get(step, 'Video')} · {title}"
+    if job.input.get("script_id"):
+        script = db.get(Script, job.input["script_id"])
+        return f"{STEPS.get(step, 'Script')} · {script.title}" if script else STEPS.get(step, "")
+    if job.input.get("script_draft_id"):
+        draft = db.get(ScriptDraft, job.input["script_draft_id"])
+        script = db.get(Script, draft.script_id) if draft else None
+        return f"Breakdown preview · {script.title}" if script else "Breakdown preview"
+    return STEPS.get(step, "Quick clip")
+
+
+def project_totals(db: Session, project_ids: list[int]) -> tuple[dict, dict, dict, dict]:
+    """Per project: lifetime dollars, whether any is estimated, credits, last job time."""
+    from app.credits import COUNTED
+
+    spend, guessed, credits, last = {}, {}, {}, {}
+    if not project_ids:
+        return spend, guessed, credits, last
+    rows = db.execute(
+        select(
+            Job.project_id, func.sum(Usage.cost_usd), func.sum(case((Usage.estimated, 1), else_=0))
+        )
+        .join(Job, Job.id == Usage.job_id)
+        .where(Job.project_id.in_(project_ids))
+        .group_by(Job.project_id)
+    ).all()
+    for pid, total, est in rows:
+        spend[pid], guessed[pid] = Decimal(total or 0), bool(est)
+    rows = db.execute(
+        select(
+            Job.project_id,
+            func.sum(case((Job.status.in_(COUNTED), Job.credits), else_=0)),
+            func.max(Job.created_at),
+        )
+        .where(Job.project_id.in_(project_ids))
+        .group_by(Job.project_id)
+    ).all()
+    for pid, total, at in rows:
+        credits[pid], last[pid] = Decimal(total or 0), at
+    return spend, guessed, credits, last
+
+
+def video_status(db: Session, project: Project) -> str:
+    """The library's words: done, failed (the last job failed, nothing running), in_production."""
+    if project.finished_at:
+        return "done"
+    last = db.scalar(
+        select(Job).where(Job.project_id == project.id).order_by(Job.id.desc()).limit(1)
+    )
+    return "failed" if last is not None and last.status == "failed" else "in_production"
+
+
+def script_spend(db: Session, script: Script) -> tuple[Decimal, bool]:
+    """Writing the script (its own jobs) plus every video made from its versions, lifetime."""
+    drafts = list(db.scalars(select(ScriptDraft.id).where(ScriptDraft.script_id == script.id)))
+    projects = list(db.scalars(select(Project.id).where(Project.script_draft_id.in_(drafts))))
+    rows = db.execute(
+        select(Job, Usage.cost_usd, Usage.estimated)
+        .join(Usage, Usage.job_id == Job.id)
+        .where(Job.brand_id == script.brand_id)
+    ).all()
+    total, guessed = Decimal(0), False
+    for job, cost, est in rows:
+        mine = job.project_id in projects or (
+            job.project_id is None
+            and (
+                job.input.get("script_id") == script.id
+                or job.input.get("script_draft_id") in drafts
+            )
+        )
+        if mine:
+            total, guessed = total + Decimal(cost or 0), guessed or bool(est)
+    return total, guessed

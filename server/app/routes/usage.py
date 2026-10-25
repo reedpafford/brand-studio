@@ -9,11 +9,17 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import script_library as lib
 from app import usage
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.models.brands import Brand
+from app.models.jobs import Job, Usage
+from app.models.projects import Project
+from app.models.script_library import Script
+from app.routes.script_library import ScriptRow
+from app.routes.script_library import _out as library_row
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 PeriodName = Literal["week", "month", "all"]
@@ -186,3 +192,260 @@ def brand(
         previous=_before(db, owner.workspace_id, period, now, brand_id),
         editors_active=usage.editors_active(db, brand_id, now),
     )
+
+
+# --- Lists: a brand's videos and scripts, and every charge (spec items 6-8) ---
+
+
+class Who(BaseModel):
+    id: int
+    name: str
+
+
+def _who(db: Session, user_id: int | None) -> Who | None:
+    found = db.get(User, user_id) if user_id else None
+    return Who(id=found.id, name=found.name) if found else None
+
+
+def _page(rows: list, cursor: str | None, limit: int) -> tuple[list, str | None]:
+    start = int(cursor) if cursor and cursor.isdigit() else 0
+    more = start + limit < len(rows)
+    return rows[start : start + limit], str(start + limit) if more else None
+
+
+def _brand(db: Session, owner: User, brand_id: int) -> Brand:
+    found = db.get(Brand, brand_id)
+    if not found or found.workspace_id != owner.workspace_id:
+        raise HTTPException(404, "No such brand.")
+    return found
+
+
+class UsageVideo(BaseModel):
+    project_id: int
+    title: str  # "Bo tries salmon · B", or the video's own name
+    script_id: int | None
+    version_letter: str | None
+    legacy: bool  # made before scripts
+    person: Who | None
+    status: Literal["in_production", "done", "failed"]
+    spend_usd: float  # its whole life
+    spend_estimated: bool
+    credits: float
+    finished_at: datetime | None
+    last_activity_at: datetime
+
+
+class UsageVideosOut(BaseModel):
+    total: int
+    next_cursor: str | None
+    people: list[Who]  # for the Who filter
+    items: list[UsageVideo]
+
+
+VIDEO_SORTS = {
+    "activity": lambda v: -v.last_activity_at.timestamp(),
+    "spend": lambda v: -v.spend_usd,
+    "finished": lambda v: -(v.finished_at.timestamp() if v.finished_at else 0),
+    "title": lambda v: v.title.lower(),
+}
+
+
+@router.get("/brands/{brand_id}/videos", response_model=UsageVideosOut)
+def brand_videos(
+    brand_id: int,
+    period: PeriodName = "week",
+    status: Literal["any", "in_production", "done", "failed"] = "any",
+    person_id: int | None = None,
+    q: str = "",
+    sort: Literal["activity", "spend", "finished", "title"] = "activity",
+    cursor: str | None = None,
+    limit: int = Query(25, ge=1, le=100),
+    owner: User = Depends(owner_or_404),
+    db: Session = Depends(get_db),
+):
+    """The brand's videos with their whole-life spend. The period picks which: done videos
+    finished in it, others with activity in it; all time lists everything."""
+    _brand(db, owner, brand_id)
+    when = usage.period(period)
+    projects = list(db.scalars(select(Project).where(Project.brand_id == brand_id)))
+    spend, guessed, credits, last = usage.project_totals(db, [p.id for p in projects])
+    videos, people = [], {}
+    for p in projects:
+        title, script_id, letter = usage.video_title(db, p)
+        state = usage.video_status(db, p)
+        active = max(filter(None, [last.get(p.id), p.created_at]))
+        moment = p.finished_at if state == "done" else active
+        if when.start is not None and moment < when.start:
+            continue
+        person = _who(db, p.created_by_id)
+        if person:
+            people[person.id] = person
+        videos.append(
+            UsageVideo(
+                project_id=p.id,
+                title=title,
+                script_id=script_id,
+                version_letter=letter,
+                legacy=script_id is None,
+                person=person,
+                status=state,
+                spend_usd=usage.money(spend.get(p.id)),
+                spend_estimated=guessed.get(p.id, False),
+                credits=float(credits.get(p.id, 0)),
+                finished_at=p.finished_at,
+                last_activity_at=active,
+            )
+        )
+    shown = [
+        v
+        for v in videos
+        if (status == "any" or v.status == status)
+        and (person_id is None or (v.person and v.person.id == person_id))
+        and q.strip().lower() in v.title.lower()
+    ]
+    shown.sort(key=VIDEO_SORTS[sort])
+    page, more = _page(shown, cursor, limit)
+    return UsageVideosOut(
+        total=len(shown),
+        next_cursor=more,
+        people=sorted(people.values(), key=lambda w: w.name.lower()),
+        items=page,
+    )
+
+
+class UsageScript(ScriptRow):
+    spend_usd: float  # writing it plus every video made from it, whole life
+    spend_estimated: bool
+    changed_at: datetime
+
+
+class UsageScriptsOut(BaseModel):
+    total: int
+    next_cursor: str | None
+    authors: list[Who]  # for the Author filter
+    items: list[UsageScript]
+
+
+SCRIPT_STATUS = {"writing": "draft", "ready": "published", "in_production": "in_production"}
+
+
+@router.get("/brands/{brand_id}/scripts", response_model=UsageScriptsOut)
+def brand_scripts(
+    brand_id: int,
+    status: Literal["any", "writing", "ready", "in_production", "done"] = "any",
+    author_id: int | None = None,
+    q: str = "",
+    sort: Literal["changed", "spend", "title"] = "changed",
+    cursor: str | None = None,
+    limit: int = Query(25, ge=1, le=100),
+    owner: User = Depends(owner_or_404),
+    db: Session = Depends(get_db),
+):
+    """The brand's scripts (drafts included, as the owner sees them), with what each cost."""
+    _brand(db, owner, brand_id)
+    scripts = db.scalars(
+        select(Script).where(Script.brand_id == brand_id, Script.archived.is_(False))
+    )
+    rows, authors = [], {}
+    for script in scripts:
+        row = library_row(db, script, full=False)
+        total, guessed = usage.script_spend(db, script)
+        changed = max(
+            filter(None, [script.created_at, *(d.approved_at for d in lib.drafts(db, script))])
+        )
+        if who := _who(db, script.created_by_id):
+            authors[who.id] = who
+        rows.append(
+            UsageScript(
+                **row.model_dump(),
+                spend_usd=usage.money(total),
+                spend_estimated=guessed,
+                changed_at=changed,
+            )
+        )
+    wanted = SCRIPT_STATUS.get(status, status)
+    shown = [
+        r
+        for r in rows
+        if (status == "any" or r.status == wanted)
+        and (author_id is None or r.created_by_id == author_id)
+        and q.strip().lower() in r.title.lower()
+    ]
+    keys = {
+        "changed": lambda r: -r.changed_at.timestamp(),
+        "spend": lambda r: -r.spend_usd,
+        "title": lambda r: r.title.lower(),
+    }
+    shown.sort(key=keys[sort])
+    page, more = _page(shown, cursor, limit)
+    return UsageScriptsOut(
+        total=len(shown),
+        next_cursor=more,
+        authors=sorted(authors.values(), key=lambda w: w.name.lower()),
+        items=page,
+    )
+
+
+class UsageBrandRef(BaseModel):
+    id: int
+    name: str
+
+
+class UsageCharge(BaseModel):
+    at: datetime
+    person: Who | None
+    brand: UsageBrandRef | None  # null: not tied to one brand
+    what: str  # "Clip 3 take · Bo tries salmon · B", "Quick clip"
+    credits: float
+    cost_usd: float
+    estimated: bool
+    status: str
+
+
+class UsageChargesOut(BaseModel):
+    next_cursor: str | None
+    items: list[UsageCharge]
+
+
+@router.get("/charges", response_model=UsageChargesOut)
+def charges(
+    brand_id: int | None = None,
+    cursor: str | None = None,
+    limit: int = Query(50, ge=1, le=200),
+    owner: User = Depends(owner_or_404),
+    db: Session = Depends(get_db),
+):
+    """Every charge, newest first, for checking one (the old "By job" list). The cursor is
+    the last row's id, so new charges never shift a page."""
+    query = (
+        select(Usage, Job)
+        .join(Job, Job.id == Usage.job_id)
+        .where(Usage.workspace_id == owner.workspace_id)
+        .order_by(Usage.id.desc())
+    )
+    if brand_id is not None:
+        query = query.where(Job.brand_id == brand_id)
+    if cursor and cursor.isdigit():
+        query = query.where(Usage.id < int(cursor))
+    rows = db.execute(query.limit(limit + 1)).all()
+    names = {
+        b.id: b.name
+        for b in db.scalars(select(Brand).where(Brand.workspace_id == owner.workspace_id))
+    }
+    items = [
+        UsageCharge(
+            at=row.created_at,
+            person=_who(db, job.created_by_id),
+            brand=UsageBrandRef(id=job.brand_id, name=names[job.brand_id])
+            if job.brand_id
+            else None,
+            what=usage.what(db, job),
+            credits=float(job.credits),
+            cost_usd=float(round(row.cost_usd, 4)),
+            estimated=row.estimated,
+            status=str(job.status),
+        )
+        for row, job in rows[:limit]
+    ]
+    more = str(rows[limit - 1][0].id) if len(rows) > limit else None
+    return UsageChargesOut(next_cursor=more, items=items)
