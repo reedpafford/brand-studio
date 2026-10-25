@@ -42,7 +42,7 @@ FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"
     r"\b(leggings|laps?|thighs?|cleavage|crust\w*|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
     re.I,
 )
-MONEY = re.compile(r"\+?\$\d[\d,]*(?:\.\d+)?")  # "+$42", "$1,240", "$348,920.15"
+MONEY = re.compile(r"[+\-−]?\$\d+(?:,\d{3})*(?:\.\d+)?(?:\s?[kKmM]\b)?")  # "+$42", "−$80", "$348k"
 SETTINGS_WORDS = re.compile(r"\b\d+:\d+\b|\b(480|720|1080)p\b")
 
 
@@ -143,31 +143,45 @@ def _money(shot) -> bool:
     return bool(shot.screen_ids) and (shot.moment or "").startswith(("trading", "win"))
 
 
+def _figure(text: str) -> tuple[str, float, str] | None:
+    """The first money figure in a shot: ('pnl' for a signed gain or loss, else 'balance'),
+    its value ('$348k' is 348,000; a loss is negative) and the text as written."""
+    if not (m := MONEY.search(text)):
+        return None
+    found, sign = m.group(), m.group()[0] if m.group()[0] in "+-−" else ""
+    value = float(re.search(r"\d+(?:,\d{3})*(?:\.\d+)?", found).group().replace(",", ""))
+    value *= {"k": 1e3, "m": 1e6}.get(found[-1].lower(), 1)
+    return ("pnl" if sign else "balance"), (-value if sign in ("-", "−") else value), found
+
+
 def _money_climbs(shots: list) -> list[str]:
     """Reed (altar v3, 2026-10-25): the balance and P&L climb with the chart, shot by shot,
     to a clearly large payoff (six figures or more, any number). A trading insert states what
-    its screen reads, and no screen's figure is below the last (a loss shot is exempt). Advice."""
-    problems, last = [], None
+    its screen reads; a balance is never below the last balance, a gain never below the last
+    gain (a loss, or a loss shot, is exempt). Advice."""
+    problems, last = [], {}
     for shot in shots:
         if not shot.screen_ids or shot.moment == "loss":
             continue
-        found = MONEY.search(shot.action)
-        if not found:
+        if not (fig := _figure(shot.action)):
             if _money(shot) and shot.moment.startswith("trading"):
                 problems.append(
                     f"{ADVICE}shot {shot.id}: say what the trading screen reads "
                     "(e.g. “the balance reads $1,240”), bigger than the shot before"
                 )
             continue
-        figure = float(found.group().lstrip("+$").replace(",", ""))
-        if last and figure < last[1]:
+        kind, value, found = fig
+        if value < 0:  # a red day
+            continue
+        if kind in last and value < last[kind][1]:
             problems.append(
-                f"{ADVICE}shot {shot.id}: the screen reads {found.group()}, less than shot "
-                f"{last[0]}; the money only climbs"
+                f"{ADVICE}shot {shot.id}: the screen reads {found}, less than shot "
+                f"{last[kind][0]}; the money only climbs"
             )
-        last = (shot.id, figure)
-    if last and any((s.moment or "").startswith("win") for s in shots) and last[1] < 100_000:
-        problems.append(f"{ADVICE}shot {last[0]}: the payoff reads under $100,000; make it "
+        last[kind] = (shot.id, value)
+    top = last.get("balance") or last.get("pnl")
+    if top and any((s.moment or "").startswith("win") for s in shots) and top[1] < 100_000:
+        problems.append(f"{ADVICE}shot {top[0]}: the payoff reads under $100,000; make it "
                         "clearly large (six figures or more)")  # fmt: skip
     return problems
 

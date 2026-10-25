@@ -754,10 +754,15 @@ def test_money_on_trading_screens_only_climbs():
         "Advice: shot 2.4: say what the trading screen reads (e.g. “the balance reads $1,240”), "
         "bigger than the shot before"
     ]
-    shots["2.4"].action = "The token rockets up: the position reads +$420 (+38%)."
+    shots["2.4"].action = "The token rockets up: the balance reads $420."
     assert check._money_climbs(list(shots.values())) == [
         "Advice: shot 2.7: the screen reads $380, less than shot 2.4; the money only climbs"
     ]
+    shots["2.4"].action = "A red tick first: the position reads −$80, then it turns."  # a loss
+    shots["2.7"].action = "Malik at the desk; the position reads +$40 on a $12,400 balance."
+    shots["3.2"].action = "Malik's phone slides to Tasha; the balance reads $348k."
+    assert check._money_climbs(list(shots.values())) == []  # gains and balances apart
+    shots["2.4"].action = "The token rockets up: the position reads +$420 (+38%)."
     shots["3.2"].action = "Malik's phone slides across the counter to Tasha."  # no payoff figure
     shots["2.7"].action = "Malik at the desk; the balance reads $12,400."
     shots["2.4"].moment = "win"
