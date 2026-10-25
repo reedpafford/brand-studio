@@ -71,7 +71,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     clips = list(db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)))
     clips = [c for c in clips if bd and c.breakdown_id == bd.id]
     planned = bd.data["clips"] if bd_ok else []
-    n_clips = len(planned) or math.ceil(project.planned_seconds / CLIP_SECONDS_GUESS)
+    n_clips = len(planned) or math.ceil(project.estimate_credits / CLIP_SECONDS_GUESS)
     claude, still = _claude(db, project), _still(db, project)
 
     stills_left = (len([f for f in frames if not f.file_id]) if frames else n_clips) * still
@@ -79,7 +79,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     if clips:
         seconds_left = sum(c.seconds for c in clips if not c.picked_take_id)
     else:
-        seconds_left = sum(c["seconds"] for c in planned) or project.planned_seconds
+        seconds_left = sum(c["seconds"] for c in planned) or int(project.estimate_credits)
     clips_done = bool(clips) and all(c.picked_take_id for c in clips)
     rows = [
         ("script", script is not None, claude, "one Claude call to draft it"),

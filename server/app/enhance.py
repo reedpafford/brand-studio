@@ -50,6 +50,12 @@ def screen_name(s: BrandScreen) -> str:
     return f"{s.name} ({s.variant})" if s.variant.lower() not in s.name.lower() else s.name
 
 
+def _length(project: Project) -> str:
+    if project.planned_seconds:
+        return f"{project.planned_seconds} s"
+    return "not set (the breakdown decides)"
+
+
 def project_context(db: Session, project: Project, step: str) -> tuple[list[str], str]:
     """What every script-flow call starts with: the fixed system parts (step rules, then the
     brand; cached together) and the <brief> and <cast> for the user message."""
@@ -68,7 +74,7 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
     cast = [db.get(LibraryItem, i) for i in project.cast_ids]
     brief = (
         f"Goal: {project.goal or '-'}\nPlatform: {project.platform or '-'}\n"
-        f"Aspect: {project.aspect_ratio}\nPlanned length: {project.planned_seconds} s\n"
+        f"Aspect: {project.aspect_ratio}\nPlanned length: {_length(project)}\n"
         f"Format: {project.format or '-'}"
     )
     cast_lines = "\n".join(f"char:{c.id} | {c.name} | {c.notes}" for c in cast if c)

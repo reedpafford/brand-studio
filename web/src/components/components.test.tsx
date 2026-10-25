@@ -53,7 +53,7 @@ test("a disabled button says why on the line under it, and a busy one cannot be 
   expect(click).not.toHaveBeenCalled();
 });
 
-test("every button is at least 44px; a dense secondary drops to 36px only from sm up", () => {
+test("every button is at least 44px; a dense secondary drops to 36px only from lg (the rail layout) up", () => {
   render(
     <>
       <Button>Primary</Button>
@@ -67,7 +67,7 @@ test("every button is at least 44px; a dense secondary drops to 36px only from s
   );
   expect(screen.getByRole("button", { name: "Primary" }).className).toContain("min-h-control");
   expect(screen.getByRole("button", { name: "Dense" }).className).toContain("min-h-control");
-  expect(screen.getByRole("button", { name: "Dense" }).className).toContain("sm:min-h-control-dense");
+  expect(screen.getByRole("button", { name: "Dense" }).className).toContain("lg:min-h-control-dense");
   expect(screen.getByRole("button", { name: "Dense primary" }).className).not.toContain("control-dense"); // amber buttons are always 44px
 });
 

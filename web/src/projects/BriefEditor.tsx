@@ -101,8 +101,8 @@ export function BriefEditor({ project, hasScript, onEditing }: { project: Projec
       </label>
       <label className="block">
         Planned length (seconds)
-        <input className={input} type="number" required min={1} max={longest} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} />
-        <span className="block text-muted">Budget: {seconds * 2} credits (twice the length).</span>
+        <input className={input} type="number" required min={1} max={longest} value={seconds ?? ""} onChange={(e) => setSeconds(Number(e.target.value))} />
+        <span className="block text-muted">Budget: {(seconds ?? 0) * 2} credits (twice the length).</span>
       </label>
       <CastPicker characters={characters.data} cast={cast} onChange={setCast} />
       <FlavourPicker products={products} chosen={chosen} onPick={(product, variant) => setPicks({ ...picks, [product]: variant })} />

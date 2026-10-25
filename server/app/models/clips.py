@@ -17,6 +17,7 @@ class ProjectClip(Entity, Base):
     prompt: Mapped[str] = mapped_column(Text)
     references: Mapped[list[dict]] = mapped_column(JSON, default=list)  # {kind, id, role}
     problems: Mapped[list[str]] = mapped_column(JSON, default=list)
+    kept: Mapped[list[str]] = mapped_column(JSON, default=list)  # "Advice: …" kept anyway
     file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # the picked take's video
     picked_take_id: Mapped[int | None] = mapped_column(ForeignKey("clip_takes.id", use_alter=True))
     approved: Mapped[bool] = mapped_column(default=False)  # the picked take looks good

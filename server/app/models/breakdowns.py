@@ -15,4 +15,5 @@ class BreakdownVersion(Entity, Base):
     job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
     data: Mapped[dict] = mapped_column(JSON)  # app.prompts.schemas.Breakdown
     problems: Mapped[list[str]] = mapped_column(JSON, default=list)  # from check.breakdown
+    kept: Mapped[list[str]] = mapped_column(JSON, default=list)  # "Advice: …" kept anyway
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))

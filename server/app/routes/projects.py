@@ -49,7 +49,7 @@ class ProjectIn(BriefPatch):
     reference_id: str | None = None  # a reel from GET /references: its breakdown is copied in
     brand_id: int
     name: Name
-    planned_seconds: int = Field(gt=0, le=3600)
+    planned_seconds: int | None = Field(None, gt=0, le=3600)  # null: the breakdown decides
 
 
 class ProjectPatch(BriefPatch):
@@ -62,7 +62,8 @@ class ProjectOut(BaseModel):
     id: int
     brand_id: int
     name: str
-    planned_seconds: int
+    planned_seconds: int | None  # a set length; null: the breakdown decides
+    breakdown_seconds: int | None  # the newest breakdown's length
     status: ProjectStatus
     goal: str
     platform: str
@@ -95,6 +96,7 @@ def _out(db: Session, project: Project) -> ProjectOut:
         brand_id=project.brand_id,
         name=project.name,
         planned_seconds=project.planned_seconds,
+        breakdown_seconds=project.breakdown_seconds,
         status=project.status,
         **{f: getattr(project, f) for f in BRIEF_FIELDS},
         estimate_credits=project.estimate_credits,
@@ -144,9 +146,11 @@ def _check_variants(db: Session, brand_id: int, chosen: dict[str, str]) -> dict[
     return chosen
 
 
-def _set_length(db: Session, user: User, project: Project, seconds: int) -> None:
+def _set_length(db: Session, user: User, project: Project, seconds: int | None) -> None:
     limits = get_limits(db, user.workspace_id)
-    if seconds * BUDGET_MULTIPLIER > limits.per_video_max_credits:  # budget = 2x 480p seconds
+    if (
+        seconds is not None and seconds * BUDGET_MULTIPLIER > limits.per_video_max_credits
+    ):  # budget = 2x 480p seconds
         longest = limits.per_video_max_credits // BUDGET_MULTIPLIER
         raise HTTPException(
             422,
@@ -209,7 +213,7 @@ def update_project(
     project = get_project(db, user, project_id)
     if body.name is not None:
         project.name = body.name
-    if body.planned_seconds is not None:
+    if "planned_seconds" in body.model_fields_set:  # null clears it: the breakdown decides
         _set_length(db, user, project, body.planned_seconds)
     _set_brief(db, user, project, body.model_dump(exclude_unset=True))
     if body.reference_id:
