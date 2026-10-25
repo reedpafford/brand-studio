@@ -33,9 +33,9 @@ or  [Upload  Upload a video]   MP4 or MOV, up to 3 minutes (meta)
 - **When it's in, a preview card replaces the inputs:**
   ```
   ┌ [9:16 thumb 72×128] │ instagram.com/reel/DehudnaAmce · 45 s          [Change] (ghost) ┐
-  │                     │ Reading it costs 64 credits (meta)                             │
+  │                     │ Reading it costs about 7 credits (meta)                         │
   └─────────────────────┴────────────────────────────────────────────────────────────────┘
-  [Read this reel · 64 credits]   (amber)
+  [Read this reel · 7 credits]   (amber)
   ```
 - **The one amber button is Read this reel · N credits.** The price comes from the length (`GET /references/import/estimate`).
   - **Reed:** always enabled. There's no video yet, so no video budget applies.
@@ -158,8 +158,8 @@ Bulk create (`description.md`) gets a mode switch at the top: a segmented contro
   - It also gets each reel (free), so lengths are known.
   - Rows that couldn't be fetched stay as drafts marked "Couldn't get the reel" (danger), with **Upload the video** in the draft's Description.
 - **Drafts made:** each draft with its chip ("Reel · 45 s", or "Couldn't get the reel"), then one total:
-  - "About 712 credits: reading 5 reels (380) and writing 5 scripts (332)" (meta). A failed row isn't counted.
-  - The amber **Write all scripts · 712 credits** reads each reel, then writes each script and its cast.
+  - "About 35 credits: reading 5 reels (5) and writing 5 scripts and casts (30)" (meta). A failed row isn't counted.
+  - The amber **Write all scripts · 35 credits** reads each reel, then writes each script and its cast.
   - For an editor, the same total is checked against the week. Past it, the button is disabled with the reason, and there's no Ask Reed. The server runs all or none, as for Write all.
 - **After Write all:** the library rows show "A · Reading the reel…", then "A · Writing". The toast reads "Reading 5 reels and writing their scripts. They'll show as drafts when they're ready."
 - **Phone:** the same, in the sheet. The mode control is full width, and the amber button is in the action bar.
