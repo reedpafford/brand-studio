@@ -56,3 +56,5 @@ def test_a_slot_has_a_kind(owner):
     assert (slot["kind"], slot["appears_in"]) == ("Helper", [])
     assert owner.patch(f"{url}/{slot['id']}", json={"kind": "Rival"}).json()[0]["kind"] == "Rival"
     assert owner.post(url, json={"role": "X", "kind": "Extra"}).status_code == 422
+    plain = owner.post(url, json={"role": "Coach 2", "description": ""}).json()  # no kind sent
+    assert plain[-1]["kind"] == "Main"
