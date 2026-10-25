@@ -1132,6 +1132,30 @@ export interface paths {
          * @description Lock a version's words for good.
          */
         post: operations["approve_draft_scripts__script_id__drafts__slot__approve_post"];
+        /**
+         * Unapprove Draft
+         * @description Undo approval while the script isn't published: the words can change again.
+         */
+        delete: operations["unapprove_draft_scripts__script_id__drafts__slot__approve_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Draft History
+         * @description A version's earlier texts, newest first. To bring one back, write it as the words.
+         */
+        get: operations["draft_history_scripts__script_id__drafts__slot__history_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2374,6 +2398,26 @@ export interface components {
              */
             smart: boolean;
         };
+        /** EarlierText */
+        EarlierText: {
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+            /** Title */
+            title: string;
+            /** Words */
+            words: number;
+            /** Source */
+            source: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string;
+        };
         /** EditorAllowanceOut */
         EditorAllowanceOut: {
             /** Quick Clip Credits Used */
@@ -2693,6 +2737,10 @@ export interface components {
             project_clip_id?: number | null;
             /** Library Item Id */
             library_item_id?: number | null;
+            /** Script Id */
+            script_id?: number | null;
+            /** Script Draft Id */
+            script_draft_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -2761,6 +2809,10 @@ export interface components {
             project_clip_id?: number | null;
             /** Library Item Id */
             library_item_id?: number | null;
+            /** Script Id */
+            script_id?: number | null;
+            /** Script Draft Id */
+            script_draft_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -6445,6 +6497,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unapprove_draft_scripts__script_id__drafts__slot__approve_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_history_scripts__script_id__drafts__slot__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarlierText"][];
                 };
             };
             /** @description Validation Error */

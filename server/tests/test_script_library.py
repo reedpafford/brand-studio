@@ -105,3 +105,28 @@ def test_bulk_create_is_all_or_none(owner):
     bad = owner.post("/scripts/bulk", json={"scripts": [rows[1], {**rows[0], "brand_id": 999}]})
     assert bad.status_code == 404 and bad.json()["detail"].startswith("Row 2:")
     assert len(owner.get("/scripts").json()) == 2  # the bad batch added nothing
+
+
+def test_undo_approval_and_earlier_texts_until_published(owner, editor):
+    """#250: approve and undo per version, and a version's earlier texts to bring back."""
+    made = _make(owner, text=SCRIPT)
+    url = f"/scripts/{made['id']}"
+    owner.put(f"{url}/drafts/0", json={"text": SCRIPT + "\nMOM: Wow."})
+    owner.put(f"{url}/drafts/0", json={"text": "MOM: Third try."})
+    history = owner.get(f"{url}/drafts/0/history").json()
+    assert [h["text"] for h in history] == [SCRIPT + "\nMOM: Wow.", SCRIPT]  # newest first
+    assert history[0]["source"] == "edit" and history[0]["created_by_name"] == "Reed"
+    owner.put(f"{url}/drafts/0", json={"text": history[1]["text"]})  # bring the first back
+    assert owner.get(url).json()["versions"][0]["text"] == SCRIPT
+    owner.post(f"{url}/drafts/0/approve")
+    undone = owner.delete(f"{url}/drafts/0/approve").json()
+    assert undone["versions"][0]["status"] == "draft"
+    assert owner.put(f"{url}/drafts/0", json={"text": SCRIPT}).status_code == 200  # editable
+    owner.put(f"{url}/drafts/1", json={"text": "NATE: A variation."})
+    assert owner.delete(f"{url}/drafts/1").status_code == 200  # a variation can be removed
+    owner.post(f"{url}/drafts/0/approve")
+    owner.post(f"{url}/publish")
+    final = owner.delete(f"{url}/drafts/0/approve")
+    assert final.status_code == 409 and "Duplicate" in final.json()["detail"]
+    assert editor.get(f"{url}/drafts/0/history").status_code == 200  # published: visible
+    assert editor.delete(f"{url}/drafts/0/approve").status_code in (403, 409)

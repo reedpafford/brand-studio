@@ -44,6 +44,8 @@ class JobOut(BaseModel):
     frame_id: int | None = None  # storyboard frame a still render is for
     project_clip_id: int | None = None  # project clip a take is for
     library_item_id: int | None = None  # character or place a sheet is for
+    script_id: int | None = None  # library script a writing, variations or cast step is for
+    script_draft_id: int | None = None  # library version a breakdown preview is for
     model_id: str | None = None
     brand_id: int | None = None
     duration: int | None = None
@@ -88,6 +90,8 @@ class JobOut(BaseModel):
             "frame_id": job.input.get("frame_id"),
             "project_clip_id": job.input.get("project_clip_id"),
             "library_item_id": job.input.get("library_item_id"),
+            "script_id": job.input.get("script_id"),
+            "script_draft_id": job.input.get("script_draft_id"),
             "model_id": job.input.get("model"),
             "brand_id": job.input.get("brand_id"),
             **{k: given.get(k) for k in ("duration", "aspect_ratio", "resolution")},
