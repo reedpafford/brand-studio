@@ -16,7 +16,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.enhance import save_suggestions
     from app.routes.improve import save_improved
     from app.routes.sheets import save_sheet
-    from app.script_cast_suggest import save_cast_slots
+    from app.script_cast_read import save_cast_slots
     from app.script_variations import save_variations
     from app.storyboard import save_frames, save_still
 

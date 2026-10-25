@@ -47,3 +47,12 @@ def test_published_cast_is_final_and_others_are_kept_out(owner, editor, outsider
     assert [s["role"] for s in editor.get(url).json()] == ["Nate"]
     assert editor.post(url, json={"role": "Mom"}).status_code == 403
     assert owner.patch(f"{url}/{slot}", json={"role": "x"}).status_code == 409  # final
+
+
+def test_a_slot_has_a_kind(owner):
+    made = _make(owner, text=SCRIPT)
+    url = f"/scripts/{made['id']}/cast"
+    slot = owner.post(url, json={"role": "Coach", "kind": "Helper"}).json()[0]
+    assert (slot["kind"], slot["appears_in"]) == ("Helper", [])
+    assert owner.patch(f"{url}/{slot['id']}", json={"kind": "Rival"}).json()[0]["kind"] == "Rival"
+    assert owner.post(url, json={"role": "X", "kind": "Extra"}).status_code == 422

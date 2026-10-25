@@ -387,8 +387,10 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
             ScriptCastSlot(
                 script_id=copy.id,
                 role=slot.role,
+                kind=slot.kind,
                 description=slot.description,
                 position=slot.position,
+                appears_in=slot.appears_in,
                 library_item_id=slot.library_item_id,
                 sheet_file_id=slot.sheet_file_id,
                 locked_by_id=slot.locked_by_id,

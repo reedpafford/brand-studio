@@ -2,7 +2,7 @@
 its versions. Each is optional. A locked slot uses one library character and the sheet it had
 when locked, as-is in every version; unlocked slots are made at the editor's Assets step."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, StringConstraints
@@ -21,15 +21,18 @@ from app.sheets import require_sheet
 
 router = APIRouter(prefix="/scripts/{script_id}/cast", tags=["script library"])
 Role = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+SlotKind = Literal["Main", "Helper", "Rival", "Family"]
 
 
 class SlotIn(BaseModel):
     role: Role
+    kind: SlotKind = "Main"
     description: LongText = ""
 
 
 class SlotPatch(BaseModel):
     role: Role | None = None
+    kind: SlotKind | None = None
     description: LongText | None = None
     position: int | None = None
 
@@ -41,8 +44,10 @@ class LockIn(BaseModel):
 class SlotOut(BaseModel):
     id: int
     role: str
+    kind: str  # Main, Helper, Rival or Family
     description: str
     position: int
+    appears_in: list[int]  # version slots the last cast read found it in; [] = not any more
     library_item_id: int | None  # locked to this character
     sheet_file_id: int | None  # the look used in every version
     locked: bool
@@ -58,8 +63,10 @@ def slots(db: Session, script: Script) -> list[SlotOut]:
         SlotOut(
             id=s.id,
             role=s.role,
+            kind=s.kind,
             description=s.description,
             position=s.position,
+            appears_in=s.appears_in or [],
             library_item_id=s.library_item_id,
             sheet_file_id=s.sheet_file_id,
             locked=s.library_item_id is not None,

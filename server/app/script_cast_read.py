@@ -1,6 +1,7 @@
-"""Cast-slot suggestions (Reed, #197): Claude reads every approved version and lists the roles
-that need a look. A suggested role the script already has keeps its slot (a locked one stays
-locked); new roles join as unlocked slots. The list's order sets the slots' order."""
+"""Reading the cast (Reed, #197): Claude reads every approved version and lists the roles
+that need a look. A role the script already has keeps its slot (a locked one stays
+locked); new roles join as unlocked slots. The list's order sets the slots' order. Each slot
+records the versions it's in; one the read no longer finds is kept with none."""
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -74,10 +75,14 @@ def save_cast_slots(db: Session, job: Job) -> None:
     for made in result.slots:
         slot = have.pop(made.role.lower(), None)
         if slot is None:
-            slot = ScriptCastSlot(script_id=script.id, role=made.role[:120])
+            kind = getattr(made, "kind", None) or ("Main" if made.recurring else "Helper")
+            slot = ScriptCastSlot(script_id=script.id, role=made.role[:120], kind=kind)
             db.add(slot)
         if not slot.description:
             slot.description = made.description
+        slot.appears_in = sorted(set(made.appears_in))
         order.append(slot)
+    for slot in have.values():
+        slot.appears_in = []  # the script doesn't name it any more
     for position, slot in enumerate([*order, *have.values()], 1):  # others keep their order
         slot.position = position
