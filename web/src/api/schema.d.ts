@@ -872,6 +872,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scripts
+         * @description The Script Library: what the caller may see, newest first, filtered.
+         */
+        get: operations["list_scripts_scripts_get"];
+        put?: never;
+        /** Create Script */
+        post: operations["create_script_scripts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Script */
+        get: operations["read_script_scripts__script_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Script
+         * @description Delete it, or archive it if a video was made from any version (videos stay).
+         */
+        delete: operations["delete_script_scripts__script_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Script */
+        patch: operations["update_script_scripts__script_id__patch"];
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Draft
+         * @description Write or edit a version's words (draft only). Slot 0 is the original; 1 and 2 are
+         *     variations, written here by hand or by the variations step.
+         */
+        put: operations["write_draft_scripts__script_id__drafts__slot__put"];
+        post?: never;
+        /**
+         * Remove Draft
+         * @description Remove a variation that isn't approved yet. The original can't be removed.
+         */
+        delete: operations["remove_draft_scripts__script_id__drafts__slot__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Draft
+         * @description Lock a version's words for good.
+         */
+        post: operations["approve_draft_scripts__script_id__drafts__slot__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish
+         * @description Put it in the team's library. Every version must be approved first; after this it's
+         *     final (duplicate it to change it).
+         */
+        post: operations["publish_scripts__script_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate
+         * @description A private copy to change: same brand, reel, words and cast slots, as drafts.
+         */
+        post: operations["duplicate_scripts__script_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/script/enhance": {
         parameters: {
             query?: never;
@@ -1435,7 +1564,7 @@ export interface components {
         };
         /** ApplyOut */
         ApplyOut: {
-            script: components["schemas"]["ScriptOut"];
+            script: components["schemas"]["app__routes__scripts__ScriptOut"];
         };
         /** Body_upload_files_post */
         Body_upload_files_post: {
@@ -1693,6 +1822,13 @@ export interface components {
              * @default []
              */
             skip_screen_ids: number[];
+        };
+        /** DraftIn */
+        DraftIn: {
+            /** Text */
+            text: string;
+            /** Target Seconds */
+            target_seconds?: number | null;
         };
         /** DraftOut */
         DraftOut: {
@@ -2592,28 +2728,48 @@ export interface components {
             /** Variant */
             variant?: string | null;
         };
-        /** ScriptIn */
-        ScriptIn: {
-            /** Text */
-            text: string;
+        /** ScriptPatch */
+        ScriptPatch: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Reference Id */
+            reference_id?: string | null;
+            /** Reference Replace */
+            reference_replace?: string | null;
         };
-        /** ScriptOut */
-        ScriptOut: {
-            /** Version */
-            version: number;
-            /** Source */
-            source: string;
-            /** Words */
-            words: number;
+        /** ScriptRow */
+        ScriptRow: {
+            /** Id */
+            id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Reference Id */
+            reference_id: string | null;
+            /** Published */
+            published: boolean;
+            /** Status */
+            status: string;
             /** Created By Id */
             created_by_id: number | null;
+            /** Created By Name */
+            created_by_name: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
-            /** Text */
-            text: string;
+            /** Versions */
+            versions: components["schemas"]["VersionSummary"][];
+            /** Versions Left */
+            versions_left: number;
         };
         /** SetupIn */
         SetupIn: {
@@ -2805,6 +2961,19 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** VersionSummary */
+        VersionSummary: {
+            /** Slot */
+            slot: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Seconds */
+            seconds: number;
+            /** Project Id */
+            project_id: number | null;
+        };
         /** VideoOut */
         VideoOut: {
             /** File Id */
@@ -2836,6 +3005,121 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ScriptIn */
+        app__routes__script_library__ScriptIn: {
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Reference Id */
+            reference_id?: string | null;
+            /**
+             * Reference Replace
+             * @default
+             */
+            reference_replace: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+        };
+        /** ScriptOut */
+        app__routes__script_library__ScriptOut: {
+            /** Id */
+            id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Reference Id */
+            reference_id: string | null;
+            /** Published */
+            published: boolean;
+            /** Status */
+            status: string;
+            /** Created By Id */
+            created_by_id: number | null;
+            /** Created By Name */
+            created_by_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Versions */
+            versions: components["schemas"]["app__routes__script_library__VersionOut"][];
+            /** Versions Left */
+            versions_left: number;
+            /** Notes */
+            notes: string;
+            /** Reference Replace */
+            reference_replace: string;
+        };
+        /** VersionOut */
+        app__routes__script_library__VersionOut: {
+            /** Slot */
+            slot: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Seconds */
+            seconds: number;
+            /** Project Id */
+            project_id: number | null;
+            /** Text */
+            text: string;
+            /** Words */
+            words: number;
+            /** Target Seconds */
+            target_seconds: number | null;
+            /** Premise */
+            premise: string;
+            /** Changes */
+            changes: string[];
+            /** Problems */
+            problems: string[];
+            /** Has Breakdown */
+            has_breakdown: boolean;
+            /** Approved At */
+            approved_at: string | null;
+        };
+        /** ScriptIn */
+        app__routes__scripts__ScriptIn: {
+            /** Text */
+            text: string;
+        };
+        /** ScriptOut */
+        app__routes__scripts__ScriptOut: {
+            /** Version */
+            version: number;
+            /** Source */
+            source: string;
+            /** Words */
+            words: number;
+            /** Created By Id */
+            created_by_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Text */
+            text: string;
         };
         /** VersionOut */
         app__routes__scripts__VersionOut: {
@@ -4583,7 +4867,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
                 };
             };
             /** @description Validation Error */
@@ -4608,7 +4892,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ScriptIn"];
+                "application/json": components["schemas"]["app__routes__scripts__ScriptIn"];
             };
         };
         responses: {
@@ -4618,7 +4902,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
                 };
             };
             /** @description Validation Error */
@@ -4653,7 +4937,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
                 };
             };
             /** @description Validation Error */
@@ -4716,7 +5000,334 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_scripts_scripts_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+                status?: string | null;
+                q?: string;
+                reference?: boolean | null;
+                versions_left?: number | null;
+                min_seconds?: number | null;
+                max_seconds?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_script_scripts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__routes__script_library__ScriptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_script_scripts__script_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_script_scripts__script_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_script_scripts__script_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_draft_scripts__script_id__drafts__slot__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_draft_scripts__script_id__drafts__slot__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_draft_scripts__script_id__drafts__slot__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_scripts__script_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    duplicate_scripts__script_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
                 };
             };
             /** @description Validation Error */
@@ -4999,7 +5610,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
                 };
             };
             /** @description Validation Error */
