@@ -1,5 +1,7 @@
 # Usage (owner) and credits (editor)
 
+> Replaced by `docs/design/redesign/phase3/screens/usage.md` (the brand tracker, 2026-10-25). Kept for history.
+
 Rule: 1 credit = 1 s of 480p video. Editors see credits and % of budget only. The owner sees dollars, only on this page.
 
 ## Credits meter (everyone, project header and Projects cards)
