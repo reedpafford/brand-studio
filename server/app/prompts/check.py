@@ -42,6 +42,7 @@ FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"
     r"\b(leggings|laps?|thighs?|cleavage|crust\w*|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
     re.I,
 )
+MONEY = re.compile(r"\+?\$\d[\d,]*(?:\.\d+)?")  # "+$42", "$1,240", "$348,920.15"
 SETTINGS_WORDS = re.compile(r"\b\d+:\d+\b|\b(480|720|1080)p\b")
 
 
@@ -92,6 +93,7 @@ def breakdown(
         needed = {sid for sid, moments in screens.items() if shot.moment in moments}
         if needed and not needed & set(shot.screen_ids):
             problems.append(f"shot {shot.id}: '{shot.moment}' moment without its screen")
+    problems += _money_climbs(shots)
     quick = [not shot.line and shot.seconds <= 0.6 for shot in shots]  # wordless, fast
     for i, shot in enumerate(shots):
         # a montage is 3+ quick shots in a row; is this shot inside one?
@@ -136,6 +138,40 @@ def breakdown(
     return problems
 
 
+def _money(shot) -> bool:
+    """A trading or win insert, where the money on screen tells the story."""
+    return bool(shot.screen_ids) and (shot.moment or "").startswith(("trading", "win"))
+
+
+def _money_climbs(shots: list) -> list[str]:
+    """Reed (altar v3, 2026-10-25): the balance and P&L climb with the chart, shot by shot,
+    to a clearly large payoff (six figures or more, any number). A trading insert states what
+    its screen reads, and no screen's figure is below the last (a loss shot is exempt). Advice."""
+    problems, last = [], None
+    for shot in shots:
+        if not shot.screen_ids or shot.moment == "loss":
+            continue
+        found = MONEY.search(shot.action)
+        if not found:
+            if _money(shot) and shot.moment.startswith("trading"):
+                problems.append(
+                    f"{ADVICE}shot {shot.id}: say what the trading screen reads "
+                    "(e.g. “the balance reads $1,240”), bigger than the shot before"
+                )
+            continue
+        figure = float(found.group().lstrip("+$").replace(",", ""))
+        if last and figure < last[1]:
+            problems.append(
+                f"{ADVICE}shot {shot.id}: the screen reads {found.group()}, less than shot "
+                f"{last[0]}; the money only climbs"
+            )
+        last = (shot.id, figure)
+    if last and any((s.moment or "").startswith("win") for s in shots) and last[1] < 100_000:
+        problems.append(f"{ADVICE}shot {last[0]}: the payoff reads under $100,000; make it "
+                        "clearly large (six figures or more)")  # fmt: skip
+    return problems
+
+
 def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: int) -> list[str]:
     shots = {shot.id: shot for scene in bd.scenes for shot in scene.shots}
     clips = {clip.id: clip for clip in bd.clips}
@@ -159,6 +195,9 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                     problems.append(f"{c.clip_id}: shot {sid}'s screen {screen} isn't attached")
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
+            if _money(shot):
+                problems += [f"{ADVICE}{c.clip_id}: shot {sid}'s screen should read {x}"
+                             for x in MONEY.findall(shot.action) if x not in c.prompt]  # fmt: skip
             said = [_exact(q) for q in QUOTED.findall(c.prompt)]
             line = _exact(shot.line or "")
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
