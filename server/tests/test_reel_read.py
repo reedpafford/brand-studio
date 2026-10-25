@@ -198,6 +198,10 @@ def test_a_reel_prepared_before_watch_copies_asks_for_a_new_upload(app, owner, d
     db.commit()
     refused = owner.post(f"{url}/import/read")
     assert refused.status_code == 409 and "Upload the video again" in refused.json()["detail"]
+    all_of_them = owner.post("/scripts/write", json={"script_ids": [script.id]})
+    assert all_of_them.json()["detail"] == (
+        "1 reel needs the video uploaded again. Upload it or untick it."
+    )
     assert db.query(Job).count() == 1  # nothing paid queued
 
 
@@ -231,7 +235,7 @@ def test_a_failing_video_watch_retries_then_watches_from_frames_charged_once(
     ]  # fmt: skip
     frames = watches[-1].input
     assert "videos" not in frames["files"] and len(frames["files"]["images"]) >= 2
-    assert "No video this time" in frames["input"]["prompt"]
+    assert frames["input"]["prompt"].startswith("<watched_from>frames</watched_from>")
     from app.credits import quick_clip_used
     from app.models.accounts import User
 

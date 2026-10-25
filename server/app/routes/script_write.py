@@ -34,7 +34,7 @@ class WriteManyEstimate(BaseModel):
     reading: int = 0  # scripts whose imported reel is read first (watch, write, cast read)
     writing: int = 0  # scripts that are simply written
     waiting: list[int] = []  # reels still being prepared: Write all waits for them
-    failed: list[int] = []  # reels that couldn't be fetched: upload the video or untick them
+    failed: list[int] = []  # reels that need the video uploaded (fetch failed, or too old)
 
 
 def _price(db: Session, user: User) -> Decimal:
@@ -147,10 +147,8 @@ def write_many(
         are = "reel is" if waiting == 1 else "reels are"
         raise HTTPException(409, f"{waiting} {are} still being prepared. Try again shortly.")
     if failed := plans.count("failed"):
-        it = "reel" if failed == 1 else "reels"
-        raise HTTPException(
-            409, f"{failed} {it} couldn't be fetched. Upload the video or untick it."
-        )
+        it = "reel needs" if failed == 1 else "reels need"
+        raise HTTPException(409, f"{failed} {it} the video uploaded again. Upload it or untick it.")
     costs = [_cost(db, user, s, p) for s, p in zip(scripts, plans, strict=True)]
     total, left = sum(costs, Decimal(0)), credits_left(db, user)
     if left is not None and total > left:

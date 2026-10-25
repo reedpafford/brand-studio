@@ -243,7 +243,10 @@ def test_transcription_keeps_lines_spoken_over_music(monkeypatch, capsys):
     assert asked["vad_filter"] is False and said == ["I do.", "Huh?!"]  # the invented one dropped
 
 
-def test_frame_grids_hold_three_frames_a_shot_within_geminis_limits(clip, tmp_path):
+def test_frame_grids_hold_three_frames_a_shot_within_geminis_limits(clip, tmp_path, monkeypatch):
+    labels, label = [], reel._label
+    monkeypatch.setattr(reel, "_label", lambda f, text: labels.append(text) or label(f, text))
     grids = reel.frame_grids(clip, reel.cuts(clip), reel.probe(clip), tmp_path)
     assert len(grids) == 1 and grids[0].stat().st_size < 7 * 1024 * 1024
     assert Image.open(grids[0]).width == 3 * 240  # one row per shot, three frames across
+    assert labels[0].startswith("1 · ") and labels[0].endswith("s")  # shot number and time

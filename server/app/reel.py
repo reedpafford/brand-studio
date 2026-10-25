@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 MAX_MB = 100
 MAX_SECONDS = 90
@@ -167,21 +167,31 @@ GRIDS = 9  # with the contact sheet, the 10 images Gemini takes
 ROWS = 12  # shots per grid at most; longer reels are sampled
 
 
+def _label(frame: Image.Image, text: str) -> Image.Image:
+    draw = ImageDraw.Draw(frame)
+    box = draw.textbbox((4, 4), text)
+    draw.rectangle((box[0] - 2, box[1] - 2, box[2] + 2, box[3] + 2), fill=(0, 0, 0))
+    draw.text((4, 4), text, fill=(255, 255, 255))
+    return frame
+
+
 def frame_grids(path: Path, cut_times: list[float], seconds: float, folder: Path) -> list[Path]:
     """For watching from pictures when video won't go through: each shot as one row of three
-    frames (near its start, middle and end), in order, up to 12 shots per JPEG and 9 JPEGs."""
-    spans = _spans(cut_times, seconds)
+    frames (near its start, middle and end), each marked with its shot number and time, in
+    order, up to 12 shots per JPEG and 9 JPEGs."""
+    spans = list(enumerate(_spans(cut_times, seconds), 1))
     if len(spans) > GRIDS * ROWS:  # sample evenly, keeping the order
         spans = [spans[i * len(spans) // (GRIDS * ROWS)] for i in range(GRIDS * ROWS)]
     per = ROWS  # as few pictures as possible
     grids = []
     for g in range(0, len(spans), per):
         tiles = []
-        for n, (a, b) in enumerate(spans[g : g + per]):
+        for shot, (a, b) in spans[g : g + per]:
             for k, f in enumerate((0.15, 0.5, 0.85)):
-                frame = _grab(path, a + (b - a) * f, folder / f"g{g}-{n}-{k}.jpg", 240)
+                t = a + (b - a) * f
+                frame = _grab(path, t, folder / f"g{shot}-{k}.jpg", 240)
                 if frame:
-                    tiles.append(frame)
+                    tiles.append(_label(frame, f"{shot} · {t:.2f}s"))
         if tiles:
             grids.append(_tile(tiles, 3, folder / f"grid{len(grids)}.jpg"))
     return grids

@@ -98,11 +98,6 @@ def shots(reel: dict) -> list[dict]:
 
 
 VIDEO_TRIES = 2  # the video watch, then one retry, before watching from frames
-FRAMES_NOTE = (
-    "No video this time: the images are the contact sheet, then frame grids where each row "
-    "is one shot, in order, with three frames near its start, middle and end. The dialogue "
-    "is the transcript."
-)
 
 
 def watch_input(script: Script, mode: str = "video", attempt: int = 1) -> dict:
@@ -111,10 +106,9 @@ def watch_input(script: Script, mode: str = "video", attempt: int = 1) -> dict:
     model's own upload to Google fails too), the contact sheet and frame grids only."""
     reel = script.reel
     said = [{**x, "text": escape(x["text"])} for x in reel["transcript"]]
-    prompt = prompts.reel_watch_input(said, shots(reel))
+    prompt = prompts.reel_watch_input(said, shots(reel), frames_only=mode == "frames")
     files = {"images": [reel["contact_file_id"]], "videos": [reel["watch_file_id"]]}
-    if mode == "frames":
-        prompt = f"{prompt}\n<note>{FRAMES_NOTE}</note>"
+    if mode == "frames":  # the watch prompt's rule 7 says how to read them
         files = {"images": [reel["contact_file_id"], *reel.get("grid_file_ids", [])][:10]}
     return {
         "step": "reel_watch",
