@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
+import { useMe } from "../auth/useMe";
 import type { components } from "../api/schema";
 
 export type Script = components["schemas"]["app__routes__script_library__ScriptOut"];
@@ -48,4 +49,13 @@ export function useWriteWords(id: number) {
       return queryClient.invalidateQueries({ queryKey: ["scripts"] });
     },
   });
+}
+
+/** Why a paid step is stopped for this person, or null. An editor on their own script is billed to their weekly allowance and is declined past it (there is no Ask Reed); anyone else's script is billed to the video's budget, and Reed is never limited. */
+export function useAllowanceStop(script: { created_by_id: number | null } | null | undefined, cost: number | undefined): string | null {
+  const { data: me } = useMe();
+  const allowance = useQuery({ enabled: me?.role !== undefined && me.role !== "owner", queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
+  const a = allowance.data;
+  if (cost === undefined || !a || !script || script.created_by_id !== me?.id || me?.role === "owner") return null;
+  return a.quick_clip_credits_used + cost > a.quick_clip_credits_allowed ? `You've used this week's ${Math.round(a.quick_clip_credits_allowed)} credits. It resets Monday.` : null;
 }

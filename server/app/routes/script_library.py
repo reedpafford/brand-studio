@@ -56,12 +56,18 @@ class DraftIn(BaseModel):
     target_seconds: int | None = Field(None, gt=0, le=3600)  # null: the breakdown decides
 
 
+class Person(BaseModel):
+    id: int
+    name: str
+
+
 class VersionSummary(BaseModel):
     slot: int
     status: str  # draft | approved | in_production | clips_ready | done
     title: str
     seconds: int  # the saved breakdown's, else the target, else spoken words at 4.8 a second
     project_id: int | None  # the video made from it
+    editor: Person | None = None  # who's making it (reserved it), once in production
 
 
 class VersionOut(VersionSummary):
@@ -97,6 +103,11 @@ class ScriptOut(ScriptRow):
     cast: list[SlotOut]  # roles shared by every version, locked or not
 
 
+def _person(db: Session, user_id: int | None) -> Person | None:
+    user = db.get(User, user_id) if user_id else None
+    return Person(id=user.id, name=user.name) if user else None
+
+
 def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | VersionOut:
     status, project_id = lib.version_status(db, draft)
     base = dict(
@@ -105,6 +116,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         title=draft.title,
         seconds=lib.seconds(draft),
         project_id=project_id,
+        editor=_person(db, draft.reserved_by_id) if project_id else None,
     )
     if not full:
         return VersionSummary(**base)
