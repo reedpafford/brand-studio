@@ -28,3 +28,15 @@
 - 2026-10-23 Models: Claude Opus 5.5 writes/directs; Seedance 2.5 video, Nano Banana 2.1/Pro pictures, Gemini 3.5 Flash watching, all via Replicate.
 - 2026-10-24 Reed approved the redesign structure (phase 1, #170); clip prompts are always reviewable before takes are paid for.
 - 2026-10-24 Reed picked redesign direction B, Screening room (#173).
+- 2026-10-25 Reed's workflow (plan before building; generation itself does not change):
+  - Owner flow (writing): title + description (brand, optional reference reel, notes) → Script (write, paste, or adapt from the reference) → Enhance (Reed's words never change) → Variations → Lock characters → optional Breakdown preview → Publish to the Script Library.
+  - Variations: Reed picks 0, 1 or 2 alternates of his script. Same high-level story; scenes, beats, lines and payoff may change slightly to fit (e.g. the altar reel becomes "she says hell no to a car he gifted, leaves with a richer guy, flashback of her saying she didn't care what she drove", same arc, a payoff that fits). Reviewed side by side; approve, edit or regenerate each. After approval no version's words change.
+  - Character locks: any character can be locked to a look (sheet). Locked = used as-is in every version. Unlocked = generated at the editor's asset step.
+  - Breakdown preview (optional, per version): Reed can run the breakdown before publishing, see planned length, scenes and shots, and edit them (timing, shots, splits/joins). It is saved with the version and the editor starts from it. If skipped, it runs automatically when the editor starts.
+  - Length is not set up front: the breakdown decides it unless Reed sets one. Long ads must be possible under the $75 per-video cap.
+  - Editor flow (production): pick a version from the library → Breakdown (Reed's if saved, else automatic; sets shots and length) → Assets (locked characters preloaded; unlocked ones generated for the editor to approve) → Storyboard → Generate → fix bad clips → upload the final video.
+  - Each version is produced once (max 3 videos per script: the original plus up to 2 variations). The library shows each version's status.
+  - Editors can also write their own scripts and run the full flow inside their credit limits, with no extra approval.
+  - Script Library: easy to browse, search and filter (brand, status, length, reference, versions left), with bulk creation.
+  - Fix the "montage shot without the main character" check: hand and screen inserts count, and no check is ever a dead end.
+  - Clear done states and Back/Next between every step.
