@@ -252,7 +252,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.slice(0, shown).map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.status === "draft" && (owner || r.created_by_id === me?.id)} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} />
+          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} />
         ))}
       </ul>
     </Card>
@@ -350,7 +350,7 @@ function ScriptItem({ row: r, brandName, refName, narrow, mayOpen }: { row: Row;
       <div className="min-w-0 flex-1 space-y-1">
         <h3 className="font-display text-md font-bold">
           {mayOpen ? (
-            <Link to={`/b/${brandId}/scripts/${r.id}`} className="hover:underline">
+            <Link to={`/b/${brandId}/scripts/${r.id}${r.published ? "?step=publish" : ""}`} className="hover:underline">
               {r.title}
             </Link>
           ) : (
