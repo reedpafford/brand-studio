@@ -69,6 +69,11 @@ class ScriptDraft(BaseModel):
         description="The full script in the house format, sized to the planned length at about "
         "4.8 spoken words per second while someone speaks, with silent beats between."
     )
+    changed_lines: list[str] = Field(
+        default_factory=list,
+        description="When adapting a reference: each of its spoken lines this draft rewrites "
+        "for the brand swap, as written in the draft (not the end line). Empty otherwise.",
+    )
 
 
 class ScriptDrafts(BaseModel):
@@ -245,3 +250,72 @@ class ClipPrompts(BaseModel):
 
 class ImprovedPrompt(BaseModel):
     prompt: str = Field(description="The video prompt, in the shape the system prompt shows.")
+
+
+# --- Reel watch: Gemini reads an imported reel (reel import, Reed #270). Not a Claude step:
+# Gemini gets this schema as JSON in its prompt (`prompts.watch_system()`) and the server
+# validates the answer with ReelWatch. Words and times come from prep, never from Gemini. ---
+
+
+class WatchHook(BaseModel):
+    seconds: float = Field(description="Where the hook ends, in seconds (usually 1–5).")
+    mechanic: str = Field(
+        description="What grabs in those seconds, e.g. \"'I do' → 'HELL NO!': rejected at "
+        'the altar, ring thrown".'
+    )
+
+
+class WatchBeat(BaseModel):
+    start: float
+    end: float
+    summary: str = Field(description="What happens in this beat, one sentence.")
+    emotion: str = Field(description="The feeling, e.g. 'shock, humiliation'.")
+
+
+class WatchMontage(BaseModel):
+    start: float
+    end: float
+    description: str = Field(
+        description="The wordless run: what it shows, its device (e.g. match cuts, same pose "
+        "in a bigger world) and how it ends."
+    )
+
+
+class WatchShot(BaseModel):
+    n: int = Field(description="The shot's number from <cuts>, unchanged.")
+    start: float = Field(description="From <cuts>, unchanged.")
+    end: float = Field(description="From <cuts>, unchanged.")
+    framing: str = Field(description="Shot size and angle, e.g. 'close-up, low angle'.")
+    camera: str = Field(description="Movement, e.g. 'static', 'push in', 'whip pan'.")
+    on_screen: str = Field(
+        description="Who and what is in frame: each person's look (age, hair, outfit), the "
+        "place, key props."
+    )
+    action: str = Field(description="What happens in the shot.")
+    emotion: str = Field(description="The faces and bodies, in words, e.g. 'groom stunned'.")
+    live_action: bool = Field(
+        description="True for real footage (a real person, phone video, a real room), even "
+        "inside an animated reel, and for a morph into it."
+    )
+    text_on_screen: str = Field(
+        description="Captions or text seen, described briefly so they can be ignored; '' if none."
+    )
+
+
+class WatchSpeaker(BaseModel):
+    line: int = Field(description="The line's number from <transcript>.")
+    speaker: str = Field(
+        description="Who says it: one role name per person, the same all reel long ('groom', "
+        "'bride'); 'narrator (V.O.)' for a voice nobody on screen speaks."
+    )
+
+
+class ReelWatch(BaseModel):
+    logline: str = Field(description="One sentence: who, the turn, the payoff.")
+    style: str = Field(description="The look, e.g. '3D animated (Pixar-style CG)'.")
+    hook: WatchHook
+    beats: list[WatchBeat] = Field(description="5–10 story beats in order, covering the reel.")
+    montage: WatchMontage | None = Field(description="The run of quick wordless shots, or null.")
+    shots: list[WatchShot] = Field(description="Exactly one per entry in <cuts>, in order.")
+    speakers: list[WatchSpeaker] = Field(description="Exactly one per <transcript> line.")
+    why_it_works: list[str] = Field(description="3–6 short reasons it holds a viewer.")

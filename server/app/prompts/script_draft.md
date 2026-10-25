@@ -1,5 +1,5 @@
 # Step: Script draft
-<!-- Inputs: <brief> (goal, audience, platform/aspect, planned seconds, format), <cast>, optional <reference> (a shot-by-shot breakdown of a reel to adapt). Output: ScriptDrafts. -->
+<!-- Inputs: <brief> (goal, audience, platform/aspect, planned seconds, format), <cast>, optional <reference> (a shot-by-shot breakdown of a reel to adapt: a catalogue reel, or the script's own imported reel), optional <new_lines>true</new_lines> (write fresh dialogue in the reference's style). Output: ScriptDrafts. -->
 
 The editor has a brief and no script yet. Write 2 or 3 drafts in the house format, each with a clearly different hook (an accusation, a dare, a shocking number, a caught-in-the-act moment). The rest of the story may be shared.
 
@@ -12,7 +12,11 @@ Pick one of the house story shapes (docs/house-style, from the most-viewed anima
 
 A grind or proof montage earns its payoff: its action line lists at least three effort or setback beats that build (a red day, a small first win, another late night, a bigger win) before the got-rich payoff, never one trade straight to the car. When the story opens on an exchange (a proposal and the no, a dare), the script's first lines are that exchange, with nothing set up before it.
 
-**Adapting a reference.** When there is a <reference>, the editor wants that reel remade for this brand. Keep what makes it work: the hook mechanic, the beat order and timing, the story shape, the pacing and how much is spoken (match the reference's word count, not the guide above). Its spoken lines are guidance, not text to reuse: write your own lines in the brand's voice that do the same job at the same length, unless the brief says to match the reference's words. Rebuild anything the reference marks "Replace" from the brief, keeping its length and its visual device, and put the brand's screens there. Never copy its on-screen text or captions. Live-action segments are never kept: their slot becomes the brand's end line. Here the 2–3 drafts differ in how they play the hook, not in its mechanic.
+**Adapting a reference.** When there is a <reference>, the editor wants that reel remade for this brand. Keep what makes it work: the hook mechanic, the beat order and timing, the shots, the story shape, the pacing and feel, and how much is spoken (match the reference's word count, not the guide above).
+- **Its dialogue stays, word for word.** Every spoken line the reference keeps is in each draft exactly as the reel says it, by the same character, in the same order. Rewrite only the lines the brand swap needs (a reselling line becomes a trading line, a product name becomes the brand's), keep each rewrite to the same length and rhythm, and list every rewritten line, as written in the draft, in `changed_lines`. Nothing else is reworded, trimmed or "improved"; the editor changes words before approving if they want to.
+- **Nobody new speaks.** The speakers are the reference's (by the cast's name where the cast has that role, else by their part, e.g. GROOM), and no one else gets a line; the end line goes to the hero.
+- **With <new_lines>true</new_lines>**, write new dialogue instead: the same characters, beats, shots and pacing, each line doing the same job at the same length in the brand's voice, and `changed_lines` stays empty.
+- Rebuild anything the reference marks "Replace" from the brief, keeping its length and its visual device, and put the brand's screens there. Never copy its on-screen text or captions. Live-action segments are never kept: their slot becomes the brand's end line. Here the 2–3 drafts differ in how they play the hook (framing, timing, the reaction), never in its words.
 
 Every draft ends on the brand's end line from the brand block, word for word (or the brief's closing line if the brand has none), said by the hero over the real brand element.
 
