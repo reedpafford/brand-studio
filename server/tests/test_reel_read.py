@@ -119,18 +119,16 @@ def _write_job(db) -> Job:
     return next(j for j in db.query(Job) if j.input.get("step") == "script_draft")
 
 
-def test_version_a_lists_reel_lines_it_lost_as_advice(app, owner, db, clip):
+def test_version_a_keeps_the_reels_lines_by_its_speakers(app, owner, db, clip):
     url = _ready(app, owner, db, clip)
     owner.post(f"{url}/import/read")
     _drain(app, db)
     job = _write_job(db)
     assert job.input["reel_lines"] == ["Will you marry me?", "No."]
-    assert "<new_lines>" not in job.input["prompt"]
+    assert "<new_lines>" not in job.input["prompt"] and "</reference>" in job.input["prompt"]
     version = owner.get(url).json()["versions"][0]
-    assert version["changed_lines"] == []
-    assert version["problems"][0] == (
-        "Advice: the reel's line “Will you marry me?” is changed or missing"
-    )
+    assert "GROOM: Will you marry me?\nBRIDE: No." in version["text"]
+    assert (version["changed_lines"], version["problems"]) == ([], [])  # nothing lost
 
 
 def test_new_lines_tells_the_writer_and_skips_the_word_check(app, owner, db, clip):

@@ -25,7 +25,7 @@ def test_write_one_script_from_its_title_and_description(app, db, owner):
     assert "<reference>" in prompt and prompt.rstrip().endswith("</reference>")  # it closes
     _work(app, db)
     written = owner.get(url).json()["versions"][0]["text"]
-    assert written != SCRIPT and "practice script" in written
+    assert written != SCRIPT and "BRIDE: HELL NO!" in written  # the stand-in keeps reel lines
     (earlier,) = owner.get(f"{url}/drafts/0/history").json()
     assert (earlier["text"], earlier["source"]) == (SCRIPT, "write")
     owner.post(f"{url}/drafts/0/approve")
