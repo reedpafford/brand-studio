@@ -13,7 +13,8 @@ from app.db import Base, Entity
 
 USD_PER_CREDIT = Decimal("0.1028")  # Seedance 2.5 480p, per second
 BUDGET_MULTIPLIER = 2
-DEFAULT_WEEKLY_QUICK_CLIP_CREDITS = Decimal(150)  # per editor, Mon-Sun (UTC)
+# Per editor, Mon-Sun (UTC): Quick clips plus everything on their own scripts ($15, Reed).
+DEFAULT_WEEKLY_QUICK_CLIP_CREDITS = Decimal(145)
 DEFAULT_PER_VIDEO_MAX_CREDITS = 729  # Reed: $75 per video at most (floored), owner included
 
 

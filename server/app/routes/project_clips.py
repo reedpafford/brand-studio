@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import clip_prompts, clip_takes, cut_in
+from app import advice, clip_prompts, clip_takes, cut_in
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -71,6 +71,7 @@ class ProjectClipOut(BaseModel):
     prompt: str
     references: list[Reference]
     problems: list[str]
+    kept: list[str]  # advice kept anyway (never blocks)
     file_id: int | None  # the picked take's video
     takes: list[TakeOut]
     picked_take_id: int | None
@@ -195,7 +196,7 @@ def generate(
     """Make a new take of this clip (a paid video job, counted against the project budget and
     its per-video cap). A clip with problems must be fixed first."""
     project, row = _clip(db, user, project_id, clip_id)
-    if row.problems:
+    if advice.blocking(row.problems):  # "Advice: …" never blocks
         raise HTTPException(409, "Fix this clip's problems first.")
     if _stale(db, row, _newest_breakdown(db, project)):
         raise HTTPException(
@@ -271,6 +272,21 @@ def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[st
     return [
         f"{c.clip_id}/{i.shot_id}" for c in clips for i in cut_in.inserts(db, project, c) if i.on
     ]
+
+
+@router.post("/clips/{clip_id}/keep", response_model=ProjectClipOut)
+def keep_clip_advice(
+    project_id: int,
+    clip_id: int,
+    body: advice.KeepIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Keep anyway: this clip's advice stays as it is."""
+    project, row = _clip(db, user, project_id, clip_id)
+    advice.keep(row, body.problem)
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
 
 
 @router.delete("/clips/{clip_id}/approve", response_model=ProjectClipOut)

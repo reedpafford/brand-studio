@@ -96,6 +96,26 @@ def create_invite(
     )
 
 
+@router.post("/invites/{invite_id}/link", response_model=NewInviteOut)
+def new_invite_link(
+    invite_id: int,
+    request: Request,
+    owner: User = Depends(owner_only),
+    db: Session = Depends(get_db),
+):
+    """A fresh link for a waiting invite (only a hash of the old one is kept, so it can't be
+    shown again). The old link stops working; the new one lasts the usual days."""
+    invite = db.get(Invite, invite_id)
+    if not invite or invite.workspace_id != owner.workspace_id or invite.accepted_at:
+        raise HTTPException(404, "No such invite.")
+    raw, invite.token_hash = new_token()
+    invite.expires_at = utcnow() + timedelta(days=request.app.state.settings.invite_days)
+    db.commit()
+    return NewInviteOut(
+        id=invite.id, email=invite.email, role=invite.role, expires_at=invite.expires_at, token=raw
+    )
+
+
 @router.delete("/invites/{invite_id}", status_code=204)
 def cancel_invite(
     invite_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)

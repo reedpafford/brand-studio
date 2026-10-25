@@ -51,6 +51,12 @@ def _places(db: Session, project: Project) -> str:
 
 def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     system, context = project_context(db, project, "breakdown")
+    if project.script_draft_id:  # from the library: its unlocked slots, cast at Assets
+        from app import script_preview
+        from app.models.script_library import ScriptDraft
+
+        draft = db.get(ScriptDraft, project.script_draft_id)
+        context = script_preview.with_slots(db, draft.script_id, context, project.slot_cast)
     parts = [context, f"<places>\n{escape(_places(db, project))}\n</places>"]
     parts.append(video_model_block(video_model()))
     if project.reference_breakdown:
@@ -92,8 +98,20 @@ def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
     ]
 
 
+def record_length(project: Project, bd: Breakdown) -> None:
+    """The newest breakdown sets the length when none was set (its clips added up)."""
+    project.breakdown_seconds = sum(clip.seconds for clip in bd.clips) or None
+
+
 def save_breakdown(db: Session, job: Job) -> None:
-    """Store Claude's breakdown (with its problems) as the project's newest breakdown."""
+    """Store Claude's breakdown (with its problems) as the project's newest breakdown, or on
+    the library version it previews (workflow v2)."""
+    if draft_id := job.input.get("script_draft_id"):
+        from app import script_preview
+        from app.models.script_library import ScriptDraft
+
+        script_preview.save(db, db.get(ScriptDraft, draft_id), Breakdown.model_validate(job.output))
+        return
     project = db.get(Project, job.input["project_id"])
     version = db.scalar(
         select(ScriptVersion).where(
@@ -102,6 +120,7 @@ def save_breakdown(db: Session, job: Job) -> None:
         )
     )
     bd = Breakdown.model_validate(job.output)
+    record_length(project, bd)
     db.add(
         BreakdownVersion(
             project_id=project.id,

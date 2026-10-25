@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
-import { btnPrimary, btnSecondary, input, pageTitle } from "../ui";
+import { Sparkles } from "lucide-react";
+import { Button, TextArea } from "../components";
+import { ActionBar } from "../shell/ActionBar";
+import { useMedia } from "../useMedia";
 import { BrandPieces, useBrandPieces, type Piece } from "./BrandPieces";
 import { ImproveDialog } from "./Improve";
 import { History, isRendering, useJobs } from "./History";
@@ -41,6 +44,8 @@ function Studio({ models }: { models: Model[] }) {
   const { data: brands } = useBrands();
   const brand = brands?.find((b) => b.id === brandId);
   const toast = useToast();
+  const rail = useMedia("(min-width: 1024px)");
+  const promptBox = useRef<HTMLTextAreaElement>(null);
   const first = models.find((m) => m.default) ?? models[0];
   const [model, setModel] = useState(first);
   const [settings, setSettings] = useState<Settings>(defaultSettings(first));
@@ -146,112 +151,137 @@ function Studio({ models }: { models: Model[] }) {
     setSettings(next);
     if (notes.length) toast(notes.join(" "));
   };
-  const seg = (on: boolean) => `min-h-11 rounded-sm border px-3 sm:min-h-9 ${on ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong bg-surface"}`;
+  const seg = (on: boolean) => `min-h-control min-w-16 flex-1 rounded-md border px-3 font-medium ${on ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong bg-surface-2 hover:bg-surface-3"}`;
+  const allowanceLine = allowance.data && (
+    <p className="text-sm tabular-nums text-muted">
+      This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits
+    </p>
+  );
+  const footer = (
+    <div className="space-y-1">
+      <Button
+        price={credits}
+        ask={!!estimate.data?.needs_owner_approval}
+        busy={generate.isPending}
+        disabled={reason !== null}
+        reason={reason}
+        onClick={() => generate.mutate()}
+        className="w-full"
+      >
+        Generate
+      </Button>
+      {!reason && estimate.data?.needs_owner_approval && <p className="text-center text-sm text-warning">{estimate.data.reason}</p>}
+      {generate.isError && <p role="alert" className="text-center text-sm text-danger">{generate.error.message}</p>}
+    </div>
+  );
 
   return (
-    <main className="mx-auto grid max-w-6xl gap-6 p-4 pb-32 sm:p-6 lg:grid-cols-[360px_1fr]">
-      <h1 className={`${pageTitle} lg:col-span-2`}>Quick clip · {brand?.name}</h1>
-      <section aria-label="Clip settings" className="space-y-4 lg:self-start lg:space-y-0 lg:rounded-md lg:border lg:border-border lg:bg-surface lg:p-6">
-        {/* On desktop the page scrolls (no hidden inner scroll); Generate stays at the bottom of the window with a shadow above it, and sits in the flow at the end so the last field scrolls clear of it. */}
-        <div className="space-y-4 lg:pb-6">
-        <div className="space-y-1 text-sm">
-          <div className="font-medium">Model</div>
-          <ModelPicker models={models} value={model} onChange={switchModel} />
+    <main className="mx-auto grid max-w-content gap-6 p-4 sm:p-6 lg:grid-cols-[400px_1fr]">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 lg:col-span-2">
+        <div>
+          <p className="type-eyebrow text-muted">{brand?.name}</p>
+          <h1 className="type-page">Quick clip</h1>
         </div>
-        <label className="block text-sm">
-          <span className="flex justify-between font-medium">
-            Prompt <span className="font-normal text-muted">{prompt.length}/{MAX_PROMPT.toLocaleString()}</span>
-          </span>
-          <textarea className={input} rows={6} maxLength={MAX_PROMPT} value={prompt} onChange={(e) => { setPrompt(e.target.value); setImproved(false); }} />
-          <span className="text-muted">Who's in it, what happens, how the camera moves.</span>
-        </label>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={prompt.trim().length < 8} onClick={() => setImproving(true)}>
-            ✦ Improve prompt
-          </button>
-          {before !== null && (
-            <button
-              type="button"
-              className={`${btnSecondary} min-h-11 border-transparent sm:min-h-9`}
-              onClick={() => {
-                setPrompt(before);
-                setImproved(false);
-                setBefore(null);
-              }}
-            >
-              Undo improve
-            </button>
-          )}
-        </div>
-        {improving && (
-          <ImproveDialog
-            body={body}
-            onClose={() => setImproving(false)}
-            onUse={(text) => {
-              setBefore(prompt);
-              setPrompt(text);
-              setImproved(true);
-              setImproving(false);
+        {allowanceLine}
+      </div>
+      <section aria-label="Clip settings" className="flex flex-col lg:self-start lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:shadow-card">
+        <div className="space-y-5 lg:p-5">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Model</div>
+            <ModelPicker models={models} value={model} onChange={switchModel} />
+          </div>
+          <TextArea
+            ref={promptBox}
+            label="What happens"
+            rows={6}
+            maxLength={MAX_PROMPT}
+            counter={`${prompt.length} / ${MAX_PROMPT.toLocaleString()}`}
+            hint="Who's in it, what happens, how the camera moves."
+            value={prompt}
+            onChange={(e) => {
+              setPrompt(e.target.value);
+              setImproved(false);
             }}
           />
-        )}
-        <BrandPieces
-          all={pieces}
-          chosen={chosen}
-          max={maxRefs}
-          onAdd={(p) => {
-            setPicked([...picked, p]);
-            setDismissed(dismissed.filter((k) => k !== p.key));
-          }}
-          onRemove={(key) => {
-            setPicked(picked.filter((c) => c.key !== key));
-            setDismissed([...dismissed, key]);
-          }}
-        />
-        <fieldset className="space-y-1 text-sm">
-          <legend className="font-medium">Shape</legend>
           <div className="flex flex-wrap gap-2">
-            {model.aspect_ratios.map((a) => (
-              <button key={a} type="button" aria-pressed={a === settings.aspect} className={seg(a === settings.aspect)} onClick={() => setSettings({ ...settings, aspect: a })}>
-                {a}
-              </button>
-            ))}
+            <Button variant="ghost" icon={Sparkles} disabled={prompt.trim().length < 8} onClick={() => setImproving(true)}>
+              Improve prompt
+            </Button>
+            {before !== null && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setPrompt(before);
+                  setImproved(false);
+                  setBefore(null);
+                }}
+              >
+                Undo improve
+              </Button>
+            )}
           </div>
-        </fieldset>
-        <label className="block text-sm">
-          <span className="flex justify-between font-medium">
-            Length <span className="font-normal">{settings.duration}s</span>
-          </span>
-          <input type="range" className="w-full accent-[var(--accent)]" min={model.duration?.min ?? 1} max={model.duration?.max ?? 30} value={settings.duration} onChange={(e) => setSettings({ ...settings, duration: Number(e.target.value) })} />
-          <span className="flex justify-between text-muted">
-            <span>{model.duration?.min ?? 1}s</span>
-            <span>{model.duration?.max ?? 30}s</span>
-          </span>
-        </label>
-        <fieldset className="space-y-1 text-sm">
-          <legend className="font-medium">Quality</legend>
-          <div className="flex flex-wrap gap-2">
-            {model.resolutions.map((r) => (
-              <button key={r} type="button" aria-pressed={r === settings.resolution} className={seg(r === settings.resolution)} onClick={() => setSettings({ ...settings, resolution: r })}>
-                {r}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        {allowance.data && <p className="text-sm text-muted">Quick clips this week: {allowance.data?.quick_clip_credits_used} of {allowance.data?.quick_clip_credits_allowed} credits used.</p>}
+          {improving && (
+            <ImproveDialog
+              body={body}
+              onClose={() => setImproving(false)}
+              onUse={(text) => {
+                setBefore(prompt);
+                setPrompt(text);
+                setImproved(true);
+                setImproving(false);
+              }}
+            />
+          )}
+          <BrandPieces
+            all={pieces}
+            chosen={chosen}
+            max={maxRefs}
+            onAdd={(p) => {
+              setPicked([...picked, p]);
+              setDismissed(dismissed.filter((k) => k !== p.key));
+            }}
+            onRemove={(key) => {
+              setPicked(picked.filter((c) => c.key !== key));
+              setDismissed([...dismissed, key]);
+            }}
+          />
+          <fieldset className="space-y-1">
+            <legend className="text-sm font-medium">Shape</legend>
+            <div className="flex flex-wrap gap-2">
+              {model.aspect_ratios.map((a) => (
+                <button key={a} type="button" aria-pressed={a === settings.aspect} className={seg(a === settings.aspect)} onClick={() => setSettings({ ...settings, aspect: a })}>
+                  {a}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <label className="block">
+            <span className="flex justify-between text-sm font-medium">
+              Length <span className="font-normal tabular-nums">{settings.duration} s</span>
+            </span>
+            <input type="range" className="block h-control w-full accent-accent" min={model.duration?.min ?? 1} max={model.duration?.max ?? 30} value={settings.duration} onChange={(e) => setSettings({ ...settings, duration: Number(e.target.value) })} />
+            <span className="flex justify-between text-sm tabular-nums text-muted">
+              <span>{model.duration?.min ?? 1} s</span>
+              <span>{model.duration?.max ?? 30} s</span>
+            </span>
+          </label>
+          <fieldset className="space-y-1">
+            <legend className="text-sm font-medium">Quality</legend>
+            <div className="flex flex-wrap gap-2">
+              {model.resolutions.map((r) => (
+                <button key={r} type="button" aria-pressed={r === settings.resolution} className={seg(r === settings.resolution)} onClick={() => setSettings({ ...settings, resolution: r })}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          </fieldset>
         </div>
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 space-y-1 md:bottom-0 border-t border-border bg-surface p-4 shadow-md lg:sticky lg:bottom-0 lg:-mx-6 lg:-mb-6 lg:rounded-b-md lg:border-t lg:border-border lg:bg-surface lg:px-6 lg:py-4 lg:shadow-[0_-10px_12px_-10px_rgb(0_0_0/0.18)]">
-          <button className={`${btnPrimary} min-h-11 w-full`} disabled={reason !== null || generate.isPending} onClick={() => generate.mutate()}>
-            {generate.isPending ? "Sending…" : `${estimate.data?.needs_owner_approval ? "Ask Reed to approve" : "Generate"} · ${credits} credits`}
-          </button>
-          {reason && <p className="text-sm text-muted">{reason}</p>}
-          {!reason && estimate.data?.needs_owner_approval && <p className="text-sm text-warning">{estimate.data.reason}</p>}
-          {generate.isError && <p role="alert" className="text-sm text-danger">{generate.error.message}</p>}
-        </div>
+        {/* Desktop: the page scrolls, and the footer sticks to the bottom of the window inside the panel, never over a field. Phone: it is the action bar. */}
+        {rail ? <div className="sticky bottom-0 rounded-b-xl border-t border-border bg-surface p-5 shadow-[0_-10px_12px_-10px_rgb(0_0_0/0.18)]">{footer}</div> : <ActionBar phone>{footer}</ActionBar>}
       </section>
       <section aria-label="History" className="space-y-3">
-        <h2 className="text-[length:var(--text-md)] font-semibold">History</h2>
-        <History brandName={brand?.name ?? "brand"} onTryAgain={tryAgain} />
+        <h2 className="type-section">History</h2>
+        <History brandName={brand?.name ?? "brand"} onTryAgain={tryAgain} onStart={() => promptBox.current?.focus()} />
       </section>
     </main>
   );

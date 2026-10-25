@@ -126,13 +126,12 @@ def test_sheet_rules(app, editor, outsider):
         app.state.settings.generation_enabled = True
 
 
-def test_sheet_held_for_the_owner_says_so(owner, editor):
+def test_sheet_past_the_weekly_allowance_is_declined(owner, editor):
     owner.put(
         "/credits/limits", json={"weekly_quick_clip_credits": 1, "per_video_max_credits": 729}
     )
     mia = editor.post("/library/character", json={"name": "Mia", "notes": "teen trader"}).json()
     url = f"/library/character/{mia['id']}"
-    held = editor.post(f"{url}/sheet", json={}).json()
-    assert held["status"] == "needs_owner_approval"
-    assert editor.get(url).json()["sheet_status"] == "waiting_for_owner"
-    assert editor.post(f"{url}/sheet", json={}).status_code == 409  # still one at a time
+    declined = editor.post(f"{url}/sheet", json={})
+    assert declined.status_code == 409 and "this week's 1 credits" in declined.json()["detail"]
+    assert editor.get(url).json()["sheet_status"] == "none"  # nothing queued or held

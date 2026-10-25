@@ -1,0 +1,396 @@
+"""The Script Library (workflow v2): scripts owned by a brand, each with up to three versions
+(the original in slot 0 and up to two variations). Rules: `app/script_library.py`."""
+
+from datetime import datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field, StringConstraints
+from sqlalchemy import delete, or_, select
+from sqlalchemy.orm import Session
+
+from app import script_library as lib
+from app.auth import current_user, user_name
+from app.db import get_db, utcnow
+from app.models.accounts import User
+from app.models.projects import Project
+from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
+from app.routes.brands import get_brand
+from app.routes.references import find as find_reference
+from app.routes.script_cast import SlotOut, slots
+from app.routes.scripts import ScriptText
+from app.schemas import LongText
+
+router = APIRouter(prefix="/scripts", tags=["script library"])
+Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+Slot = Annotated[int, Field(ge=0, le=lib.MAX_SLOT)]
+
+
+class ScriptIn(BaseModel):
+    brand_id: int
+    title: Title
+    description: LongText = ""
+    notes: LongText = ""
+    reference_id: str | None = None  # a reel from GET /references
+    reference_replace: LongText = ""
+    text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
+
+
+class BulkIn(BaseModel):
+    """Bulk create (Reed): titles, descriptions and an optional reel only; nothing is written
+    until "Write all"."""
+
+    scripts: list[ScriptIn] = Field(min_length=1, max_length=50)
+
+
+class ScriptPatch(BaseModel):
+    title: Title | None = None
+    description: LongText | None = None
+    notes: LongText | None = None
+    reference_id: str | None = None
+    reference_replace: LongText | None = None
+
+
+class DraftIn(BaseModel):
+    text: ScriptText
+    target_seconds: int | None = Field(None, gt=0, le=3600)  # null: the breakdown decides
+
+
+class VersionSummary(BaseModel):
+    slot: int
+    status: str  # draft | approved | in_production | clips_ready | done
+    title: str
+    seconds: int  # the saved breakdown's, else the target, else spoken words at 4.8 a second
+    project_id: int | None  # the video made from it
+
+
+class VersionOut(VersionSummary):
+    text: str
+    words: int
+    target_seconds: int | None
+    premise: str
+    changes: list[str]
+    problems: list[str]
+    has_breakdown: bool
+    approved_at: datetime | None
+
+
+class ScriptRow(BaseModel):
+    id: int
+    brand_id: int
+    title: str
+    description: str
+    reference_id: str | None
+    published: bool
+    status: str  # draft | published | in_production | done
+    created_by_id: int | None
+    created_by_name: str
+    created_at: datetime
+    versions: list[VersionSummary]
+    versions_left: int  # approved versions not produced yet
+
+
+class ScriptOut(ScriptRow):
+    notes: str
+    reference_replace: str
+    versions: list[VersionOut]
+    cast: list[SlotOut]  # roles shared by every version, locked or not
+
+
+def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | VersionOut:
+    status, project_id = lib.version_status(db, draft)
+    base = dict(
+        slot=draft.slot,
+        status=status,
+        title=draft.title,
+        seconds=lib.seconds(draft),
+        project_id=project_id,
+    )
+    if not full:
+        return VersionSummary(**base)
+    return VersionOut(
+        **base,
+        text=draft.text,
+        words=len(draft.text.split()),
+        target_seconds=draft.target_seconds,
+        premise=draft.premise,
+        changes=draft.changes,
+        problems=draft.problems,
+        has_breakdown=draft.breakdown is not None,
+        approved_at=draft.approved_at,
+    )
+
+
+def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOut:
+    versions = [_version(db, d, full) for d in lib.drafts(db, script)]
+    statuses = [v.status for v in versions]
+    row = dict(
+        id=script.id,
+        brand_id=script.brand_id,
+        title=script.title,
+        description=script.description,
+        reference_id=script.reference_id,
+        published=script.published,
+        status=lib.script_status(script, statuses),
+        created_by_id=script.created_by_id,
+        created_by_name=user_name(db, script.created_by_id),
+        created_at=script.created_at,
+        versions=versions,
+        versions_left=statuses.count("approved"),
+    )
+    if not full:
+        return ScriptRow(**row)
+    return ScriptOut(
+        **row,
+        notes=script.notes,
+        reference_replace=script.reference_replace,
+        cast=slots(db, script),
+    )
+
+
+def _check_reference(request: Request, ref_id: str | None) -> None:
+    if ref_id:
+        find_reference(request, ref_id)  # 404 if it isn't in the catalogue
+
+
+@router.get("", response_model=list[ScriptRow])
+def list_scripts(
+    brand_id: int | None = None,
+    status: str | None = None,
+    q: str = "",
+    reference: bool | None = None,  # true: adapted from a reel; false: not
+    versions_left: int | None = None,  # at least this many versions left to produce
+    min_seconds: int | None = None,
+    max_seconds: int | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """The Script Library: what the caller may see, newest first, filtered."""
+    query = select(Script).where(Script.workspace_id == user.workspace_id, ~Script.archived)
+    if not user.is_owner:
+        query = query.where(or_(Script.published, Script.created_by_id == user.id))
+    if brand_id is not None:
+        query = query.where(Script.brand_id == brand_id)
+    if reference is not None:
+        query = query.where(
+            Script.reference_id.is_not(None) if reference else Script.reference_id.is_(None)
+        )
+    if q.strip():
+        like = f"%{q.strip()}%"
+        in_text = select(ScriptDraft.script_id).where(ScriptDraft.text.ilike(like))
+        query = query.where(
+            or_(Script.title.ilike(like), Script.description.ilike(like), Script.id.in_(in_text))
+        )
+    rows = [_out(db, s, full=False) for s in db.scalars(query.order_by(Script.id.desc()))]
+    if status:
+        rows = [r for r in rows if r.status == status]
+    if versions_left is not None:
+        rows = [r for r in rows if r.versions_left >= versions_left]
+    if min_seconds is not None or max_seconds is not None:
+        lo, hi = min_seconds or 0, max_seconds or 10**6
+        rows = [r for r in rows if any(lo <= v.seconds <= hi for v in r.versions)]
+    return rows
+
+
+@router.post("", response_model=ScriptOut, status_code=201)
+def create_script(
+    body: ScriptIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    get_brand(db, user, body.brand_id)
+    _check_reference(request, body.reference_id)
+    script = Script(
+        workspace_id=user.workspace_id,
+        created_by_id=user.id,
+        **body.model_dump(exclude={"text"}),
+    )
+    db.add(script)
+    db.flush()
+    db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip()))
+    db.commit()
+    return _out(db, script)
+
+
+@router.post("/bulk", response_model=list[ScriptRow], status_code=201)
+def create_many(
+    body: BulkIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Up to 50 scripts at once, all or none: a plain error names the first bad row."""
+    for n, item in enumerate(body.scripts, 1):
+        try:
+            get_brand(db, user, item.brand_id)
+            _check_reference(request, item.reference_id)
+        except HTTPException as exc:
+            raise HTTPException(exc.status_code, f"Row {n}: {exc.detail}") from None
+    made = []
+    for item in body.scripts:
+        script = Script(
+            workspace_id=user.workspace_id,
+            created_by_id=user.id,
+            **item.model_dump(exclude={"text"}),
+        )
+        db.add(script)
+        db.flush()
+        db.add(ScriptDraft(script_id=script.id, slot=0, text=item.text.strip()))
+        made.append(script)
+    db.commit()
+    return [_out(db, s, full=False) for s in made]
+
+
+@router.get("/{script_id}", response_model=ScriptOut)
+def read_script(script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return _out(db, lib.get_script(db, user, script_id))
+
+
+@router.patch("/{script_id}", response_model=ScriptOut)
+def update_script(
+    script_id: int,
+    body: ScriptPatch,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    values = body.model_dump(exclude_unset=True)
+    if "reference_id" in values:
+        _check_reference(request, values["reference_id"])
+    for field, value in values.items():
+        if value is not None or field == "reference_id":
+            setattr(script, field, value)
+    db.commit()
+    return _out(db, script)
+
+
+@router.delete("/{script_id}", status_code=204)
+def delete_script(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Delete it, or archive it if a video was made from any version (videos stay)."""
+    script = lib.get_script(db, user, script_id)
+    if not (user.is_owner or (script.created_by_id == user.id and not script.published)):
+        raise HTTPException(403, "Only its author (before publishing) or the owner can remove it.")
+    ids = [d.id for d in lib.drafts(db, script)]
+    if ids and db.scalar(select(Project.id).where(Project.script_draft_id.in_(ids)).limit(1)):
+        script.archived = True
+    else:
+        db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
+        db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
+        db.delete(script)
+    db.commit()
+
+
+@router.put("/{script_id}/drafts/{slot}", response_model=ScriptOut)
+def write_draft(
+    script_id: int,
+    slot: Slot,
+    body: DraftIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Write or edit a version's words (draft only). Slot 0 is the original; 1 and 2 are
+    variations, written here by hand or by the variations step."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    draft = db.scalar(
+        select(ScriptDraft).where(ScriptDraft.script_id == script.id, ScriptDraft.slot == slot)
+    )
+    if draft and draft.status == "approved":
+        raise HTTPException(409, "These words are approved and can't change.")
+    if not draft:
+        draft = ScriptDraft(script_id=script.id, slot=slot)
+        db.add(draft)
+    draft.text, draft.target_seconds = body.text, body.target_seconds
+    db.commit()
+    return _out(db, script)
+
+
+@router.post("/{script_id}/drafts/{slot}/approve", response_model=ScriptOut)
+def approve_draft(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Lock a version's words for good."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    draft = lib.get_draft(db, script, slot)
+    if not draft.text.strip():
+        raise HTTPException(422, "Write the script first.")
+    if draft.status != "approved":
+        draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), user.id
+        db.commit()
+    return _out(db, script)
+
+
+@router.delete("/{script_id}/drafts/{slot}", response_model=ScriptOut)
+def remove_draft(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Remove a variation that isn't approved yet. The original can't be removed."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    draft = lib.get_draft(db, script, slot)
+    if slot == 0 or draft.status == "approved":
+        raise HTTPException(409, "Only a variation that isn't approved yet can be removed.")
+    db.delete(draft)
+    db.commit()
+    return _out(db, script)
+
+
+@router.post("/{script_id}/publish", response_model=ScriptOut)
+def publish(script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Put it in the team's library. Every version must be approved first; after this it's
+    final (duplicate it to change it)."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    versions = lib.drafts(db, script)
+    if not versions or any(d.status != "approved" for d in versions):
+        raise HTTPException(409, "Approve or remove every version first.")
+    script.published = True
+    db.commit()
+    return _out(db, script)
+
+
+@router.post("/{script_id}/duplicate", response_model=ScriptOut, status_code=201)
+def duplicate(script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """A private copy to change: same brand, reel, words and cast slots, as drafts."""
+    source = lib.get_script(db, user, script_id)
+    copy = Script(
+        workspace_id=user.workspace_id,
+        brand_id=source.brand_id,
+        title=f"{source.title} (copy)"[:200],
+        description=source.description,
+        notes=source.notes,
+        reference_id=source.reference_id,
+        reference_replace=source.reference_replace,
+        created_by_id=user.id,
+    )
+    db.add(copy)
+    db.flush()
+    for d in lib.drafts(db, source):
+        db.add(
+            ScriptDraft(
+                script_id=copy.id,
+                slot=d.slot,
+                text=d.text,
+                target_seconds=d.target_seconds,
+                title=d.title,
+                premise=d.premise,
+                changes=d.changes,
+                breakdown=d.breakdown,
+                breakdown_problems=d.breakdown_problems,
+            )
+        )
+    for slot in db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == source.id)):
+        db.add(
+            ScriptCastSlot(
+                script_id=copy.id,
+                role=slot.role,
+                description=slot.description,
+                position=slot.position,
+                library_item_id=slot.library_item_id,
+                sheet_file_id=slot.sheet_file_id,
+                locked_by_id=slot.locked_by_id,
+            )
+        )
+    db.commit()
+    return _out(db, copy)

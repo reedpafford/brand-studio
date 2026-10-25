@@ -17,5 +17,6 @@ class StoryboardFrame(Entity, Base):
     prompt: Mapped[str] = mapped_column(Text)
     reference_ids: Mapped[list[str]] = mapped_column(JSON, default=list)  # "char:5", "screen:2"
     problems: Mapped[list[str]] = mapped_column(JSON, default=list)
+    kept: Mapped[list[str]] = mapped_column(JSON, default=list)  # "Advice: …" kept anyway
     file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # the rendered still
     approved: Mapped[bool] = mapped_column(default=False)  # cleared on edit or a new still

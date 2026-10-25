@@ -1,6 +1,24 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 03:07 · #216 Log the variations eval spend ($0.28) merged
+- 2026-10-25 02:58 · #186 Redesign 7b/14: Shots step merged
+- 2026-10-25 02:58 · #193 Redesign 4b/14: Videos home follow-up (step, line, poster, sections) merged
+- 2026-10-25 02:58 · #207 Workflow v2 PR 4: cast slots per script merged
+- 2026-10-25 02:58 · #206 Workflow v2 PR 3: bulk create scripts merged
+- 2026-10-25 02:58 · #204 Workflow v2 PR 2: Script Library API (scripts, versions, approve, publish, duplicate) merged
+- 2026-10-25 02:58 · #203 Plan: cast slots step (Reed, #197) merged
+- 2026-10-25 02:58 · #200 Workflow v2 re-spec 4: making a video (Breakdown, Assets, Storyboard, Clips, Downloads) merged
+- 2026-10-25 02:58 · #198 Workflow v2 re-spec 3: Variations, Characters, Publish merged
+- 2026-10-25 02:58 · #195 Workflow v2 re-spec 2: Description, New script, Bulk create merged
+- 2026-10-25 02:58 · #194 Workflow v2 re-spec 1: Script library merged
+- 2026-10-25 02:58 · #201 Workflow v2 PR 1: Script Library tables; length optional, set by the breakdown merged
+- 2026-10-25 02:58 · #185 Redesign 7a/14: Script step merged
+- 2026-10-25 02:57 · #183 Redesign 10/14: Quick clip merged
+- 2026-10-25 02:50 · #208 Spend log: fomo altar remake (video A), $7.26 of $10 merged
+- 2026-10-25 02:50 · ops/SPEND.md: altar remake (video A, 42 s) run; remake total $7.26 of Reed's $10; week total $17.22, over the $15 test cap with Reed's approval
+- 2026-10-25 02:25 · #199 ops: HANDOFF/LOG refresh 2026-10-25 02:25Z merged (by the Producer)
+- 2026-10-25 02:25 · #196 Montage check: hand and screen inserts count as the hero; it's advice, never a dead end merged
 - 2026-10-25 02:10 · #197 Decisions: cast slots per script, shared across versions merged
 - 2026-10-25 · Decision in DECISIONS.md (#197): once a script and its variations are approved, the app lists every named or recurring role as an optional cast slot (main characters, helpers, rivals, family); a slot Reed locks to a look is used as-is in every shot and every version, unlocked slots are generated at the editor's Assets step; roles carry across all versions; background people are never cast slots.
 - 2026-10-25 02:06 · #192 Workflow v2 plan: Script library, writing flow, video flow on versions (design docs) merged

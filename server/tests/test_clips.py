@@ -47,11 +47,12 @@ def test_estimate_auto_attaches_moment_screens(editor, fomo):
     assert dip.json()["auto_screen_ids"] == [fomo["screen"]]
 
 
-def test_estimate_warns_when_owner_must_approve(editor, fomo, db):
+def test_estimate_says_when_the_weekly_allowance_is_used(editor, fomo, db):
     ed = db.query(User).filter_by(role=Role.editor).one()
-    enqueue(db, ed, "video-480p", {}, units=148)
-    body = editor.post("/clips/estimate", json=_clip(fomo)).json()
-    assert body["needs_owner_approval"] is True and "approve" in body["reason"]
+    enqueue(db, ed, "video-480p", {}, units=143)
+    r = editor.post("/clips/estimate", json=_clip(fomo))
+    assert r.status_code == 409 and r.json()["detail"].startswith("You've used this week's 145")
+    assert editor.post("/clips", json=_clip(fomo)).status_code == 409  # declined, not held
 
 
 def test_create_returns_job_with_safe_summary(editor, fomo, db):

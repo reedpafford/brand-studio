@@ -182,6 +182,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/team/invites/{invite_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Invite Link
+         * @description A fresh link for a waiting invite (only a hash of the old one is kept, so it can't be
+         *     shown again). The old link stops working; the new one lasts the usual days.
+         */
+        post: operations["new_invite_link_team_invites__invite_id__link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/team/invites/{invite_id}": {
         parameters: {
             query?: never;
@@ -701,6 +722,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/credits/allowances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Editor Allowances
+         * @description Each editor's weekly credits used and allowed (owner only).
+         */
+        get: operations["editor_allowances_credits_allowances_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/estimate": {
         parameters: {
             query?: never;
@@ -866,6 +907,285 @@ export interface paths {
         get: operations["read_version_projects__project_id__script_versions__version__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scripts
+         * @description The Script Library: what the caller may see, newest first, filtered.
+         */
+        get: operations["list_scripts_scripts_get"];
+        put?: never;
+        /** Create Script */
+        post: operations["create_script_scripts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Many
+         * @description Up to 50 scripts at once, all or none: a plain error names the first bad row.
+         */
+        post: operations["create_many_scripts_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Script */
+        get: operations["read_script_scripts__script_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Script
+         * @description Delete it, or archive it if a video was made from any version (videos stay).
+         */
+        delete: operations["delete_script_scripts__script_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Script */
+        patch: operations["update_script_scripts__script_id__patch"];
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Draft
+         * @description Write or edit a version's words (draft only). Slot 0 is the original; 1 and 2 are
+         *     variations, written here by hand or by the variations step.
+         */
+        put: operations["write_draft_scripts__script_id__drafts__slot__put"];
+        post?: never;
+        /**
+         * Remove Draft
+         * @description Remove a variation that isn't approved yet. The original can't be removed.
+         */
+        delete: operations["remove_draft_scripts__script_id__drafts__slot__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Draft
+         * @description Lock a version's words for good.
+         */
+        post: operations["approve_draft_scripts__script_id__drafts__slot__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish
+         * @description Put it in the team's library. Every version must be approved first; after this it's
+         *     final (duplicate it to change it).
+         */
+        post: operations["publish_scripts__script_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate
+         * @description A private copy to change: same brand, reel, words and cast slots, as drafts.
+         */
+        post: operations["duplicate_scripts__script_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Slots */
+        get: operations["list_slots_scripts__script_id__cast_get"];
+        put?: never;
+        /** Add Slot */
+        post: operations["add_slot_scripts__script_id__cast_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/{slot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Slot */
+        delete: operations["remove_slot_scripts__script_id__cast__slot_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit Slot
+         * @description Rename it, describe it, or move it in the list.
+         */
+        patch: operations["edit_slot_scripts__script_id__cast__slot_id__patch"];
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/{slot_id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lock
+         * @description Lock the role to a character's approved look; it's used as-is in every version.
+         */
+        post: operations["lock_scripts__script_id__cast__slot_id__lock_post"];
+        /**
+         * Unlock
+         * @description Unlock it: the editor makes this character at the Assets step.
+         */
+        delete: operations["unlock_scripts__script_id__cast__slot_id__lock_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Preview */
+        get: operations["read_preview_scripts__script_id__drafts__slot__breakdown_get"];
+        /**
+         * Save Preview
+         * @description Save an edited breakdown on the version. Its problems are shown, never blocking.
+         */
+        put: operations["save_preview_scripts__script_id__drafts__slot__breakdown_put"];
+        /**
+         * Run Preview
+         * @description Run the breakdown on this version's words (a paid Claude call; an editor's own work
+         *     comes from their weekly allowance). It replaces any saved breakdown when it finishes.
+         */
+        post: operations["run_preview_scripts__script_id__drafts__slot__breakdown_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/breakdown/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Estimate
+         * @description What running the breakdown costs (one Claude call), before pressing it.
+         */
+        get: operations["preview_estimate_scripts__script_id__drafts__slot__breakdown_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/produce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Produce
+         * @description Start production of an approved version of a published script. Each version makes
+         *     one video, reserved for whoever starts it.
+         */
+        post: operations["produce_scripts__script_id__drafts__slot__produce_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1072,6 +1392,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/breakdown/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Advice
+         * @description Keep anyway: this advice on the newest breakdown stays as it is (never blocks).
+         */
+        post: operations["keep_advice_projects__project_id__breakdown_keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/storyboard": {
         parameters: {
             query?: never;
@@ -1125,8 +1465,8 @@ export interface paths {
         /**
          * Render
          * @description Queue the still for one frame (a paid image job, counted against the project budget).
-         *     A frame with problems must be fixed first. An optional Redo note goes into this render's
-         *     prompt only.
+         *     A frame with problems must be fixed first ("Advice: …" never blocks). An optional Redo
+         *     note goes into this render's prompt only.
          */
         post: operations["render_projects__project_id__storyboard_frames__frame_id__render_post"];
         delete?: never;
@@ -1151,6 +1491,26 @@ export interface paths {
         post: operations["approve_projects__project_id__storyboard_frames__frame_id__approve_post"];
         /** Unapprove */
         delete: operations["unapprove_projects__project_id__storyboard_frames__frame_id__approve_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/frames/{frame_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Frame Advice
+         * @description Keep anyway: this frame's advice stays as it is.
+         */
+        post: operations["keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1296,6 +1656,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Clip Advice
+         * @description Keep anyway: this clip's advice stays as it is.
+         */
+        post: operations["keep_clip_advice_projects__project_id__clips__clip_id__keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/video": {
         parameters: {
             query?: never;
@@ -1311,6 +1691,65 @@ export interface paths {
          * @description Stitch the picked takes, in clip order, into one MP4. Free: no credits, no provider.
          */
         post: operations["make_video_projects__project_id__video_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clips Zip */
+        get: operations["clips_zip_projects__project_id__clips_zip_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Assets
+         * @description Cast slots first (locked, then unlocked), then the breakdown's other characters and
+         *     its places, each once.
+         */
+        get: operations["list_assets_projects__project_id__assets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/slots/{slot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cast Slot
+         * @description Give an unlocked slot its character: it joins the cast, and the newest breakdown's
+         *     slot:N becomes char:M (saved as a new breakdown version).
+         */
+        put: operations["cast_slot_projects__project_id__assets_slots__slot_id__put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1366,7 +1805,8 @@ export interface paths {
         put?: never;
         /**
          * Estimate Clip
-         * @description What Generate would cost, and whether it would wait for the owner. Nothing is queued.
+         * @description What Generate would cost. Nothing is queued. Past the editor's weekly allowance it
+         *     answers 409 with the same plain words Generate would (never sent to the owner).
          */
         post: operations["estimate_clip_clips_estimate_post"];
         delete?: never;
@@ -1435,7 +1875,26 @@ export interface components {
         };
         /** ApplyOut */
         ApplyOut: {
-            script: components["schemas"]["ScriptOut"];
+            script: components["schemas"]["app__routes__scripts__ScriptOut"];
+        };
+        /** AssetOut */
+        AssetOut: {
+            /** Kind */
+            kind: string;
+            /** Ref */
+            ref: string;
+            /** Role */
+            role: string;
+            /** Library Item Id */
+            library_item_id: number | null;
+            /** Name */
+            name: string;
+            /** Locked */
+            locked: boolean;
+            /** Sheet Status */
+            sheet_status: string;
+            /** Ready */
+            ready: boolean;
         };
         /** Body_upload_files_post */
         Body_upload_files_post: {
@@ -1600,8 +2059,19 @@ export interface components {
             breakdown: components["schemas"]["Breakdown"];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** Stale */
             stale: boolean;
+        };
+        /**
+         * BulkIn
+         * @description Bulk create (Reed): titles, descriptions and an optional reel only; nothing is written
+         *     until "Write all".
+         */
+        BulkIn: {
+            /** Scripts */
+            scripts: components["schemas"]["app__routes__script_library__ScriptIn"][];
         };
         /** Clip */
         Clip: {
@@ -1694,6 +2164,13 @@ export interface components {
              */
             skip_screen_ids: number[];
         };
+        /** DraftIn */
+        DraftIn: {
+            /** Text */
+            text: string;
+            /** Target Seconds */
+            target_seconds?: number | null;
+        };
         /** DraftOut */
         DraftOut: {
             /** Job Id */
@@ -1717,22 +2194,16 @@ export interface components {
              */
             smart: boolean;
         };
-        /** EstimateOut */
-        EstimateOut: {
-            /** Credits */
-            credits: number;
-            /** Needs Owner Approval */
-            needs_owner_approval: boolean;
-            /** Reason */
-            reason: string;
-            /** Auto Screen Ids */
-            auto_screen_ids: number[];
-            /** Reference Images */
-            reference_images: number;
-            /** Reference Videos */
-            reference_videos: number;
-            /** Reference Audios */
-            reference_audios: number;
+        /** EditorAllowanceOut */
+        EditorAllowanceOut: {
+            /** Quick Clip Credits Used */
+            quick_clip_credits_used: number;
+            /** Quick Clip Credits Allowed */
+            quick_clip_credits_allowed: number;
+            /** User Id */
+            user_id: number;
+            /** Name */
+            name: string;
         };
         /** FileOut */
         FileOut: {
@@ -1771,6 +2242,8 @@ export interface components {
             reference_ids: string[];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** File Id */
             file_id: number | null;
             /** Approved */
@@ -2131,6 +2604,11 @@ export interface components {
          * @enum {string}
          */
         JobStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "needs_owner_approval";
+        /** KeepIn */
+        KeepIn: {
+            /** Problem */
+            problem: string;
+        };
         /**
          * Kind
          * @enum {string}
@@ -2149,6 +2627,11 @@ export interface components {
             weekly_quick_clip_credits: number;
             /** Per Video Max Credits */
             per_video_max_credits: number;
+        };
+        /** LockIn */
+        LockIn: {
+            /** Library Item Id */
+            library_item_id: number;
         };
         /** LoginIn */
         LoginIn: {
@@ -2271,6 +2754,23 @@ export interface components {
              */
             file_ids: number[];
         };
+        /** PreviewOut */
+        PreviewOut: {
+            breakdown: components["schemas"]["Breakdown"] | null;
+            /** Problems */
+            problems: string[];
+            /** Seconds */
+            seconds: number;
+            /** Running */
+            running: boolean;
+        };
+        /** ProduceOut */
+        ProduceOut: {
+            /** Project Id */
+            project_id: number;
+            /** Breakdown Job Id */
+            breakdown_job_id: number | null;
+        };
         /** ProjectClipIn */
         ProjectClipIn: {
             /** Prompt */
@@ -2292,6 +2792,8 @@ export interface components {
             references: components["schemas"]["Reference"][];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** File Id */
             file_id: number | null;
             /** Takes */
@@ -2349,7 +2851,7 @@ export interface components {
             /** Name */
             name: string;
             /** Planned Seconds */
-            planned_seconds: number;
+            planned_seconds?: number | null;
         };
         /** ProjectOut */
         ProjectOut: {
@@ -2360,7 +2862,9 @@ export interface components {
             /** Name */
             name: string;
             /** Planned Seconds */
-            planned_seconds: number;
+            planned_seconds: number | null;
+            /** Breakdown Seconds */
+            breakdown_seconds: number | null;
             status: components["schemas"]["ProjectStatus"];
             /** Goal */
             goal: string;
@@ -2590,28 +3094,48 @@ export interface components {
             /** Variant */
             variant?: string | null;
         };
-        /** ScriptIn */
-        ScriptIn: {
-            /** Text */
-            text: string;
+        /** ScriptPatch */
+        ScriptPatch: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Reference Id */
+            reference_id?: string | null;
+            /** Reference Replace */
+            reference_replace?: string | null;
         };
-        /** ScriptOut */
-        ScriptOut: {
-            /** Version */
-            version: number;
-            /** Source */
-            source: string;
-            /** Words */
-            words: number;
+        /** ScriptRow */
+        ScriptRow: {
+            /** Id */
+            id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Reference Id */
+            reference_id: string | null;
+            /** Published */
+            published: boolean;
+            /** Status */
+            status: string;
             /** Created By Id */
             created_by_id: number | null;
+            /** Created By Name */
+            created_by_name: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
-            /** Text */
-            text: string;
+            /** Versions */
+            versions: components["schemas"]["VersionSummary"][];
+            /** Versions Left */
+            versions_left: number;
         };
         /** SetupIn */
         SetupIn: {
@@ -2702,6 +3226,47 @@ export interface components {
              * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
+        };
+        /** SlotCastIn */
+        SlotCastIn: {
+            /** Library Item Id */
+            library_item_id: number;
+        };
+        /** SlotIn */
+        SlotIn: {
+            /** Role */
+            role: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** SlotOut */
+        SlotOut: {
+            /** Id */
+            id: number;
+            /** Role */
+            role: string;
+            /** Description */
+            description: string;
+            /** Position */
+            position: number;
+            /** Library Item Id */
+            library_item_id: number | null;
+            /** Sheet File Id */
+            sheet_file_id: number | null;
+            /** Locked */
+            locked: boolean;
+        };
+        /** SlotPatch */
+        SlotPatch: {
+            /** Role */
+            role?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Position */
+            position?: number | null;
         };
         /** StageOut */
         StageOut: {
@@ -2803,6 +3368,19 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** VersionSummary */
+        VersionSummary: {
+            /** Slot */
+            slot: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Seconds */
+            seconds: number;
+            /** Project Id */
+            project_id: number | null;
+        };
         /** VideoOut */
         VideoOut: {
             /** File Id */
@@ -2822,6 +3400,23 @@ export interface components {
             email: string;
             role: components["schemas"]["Role"];
         };
+        /** EstimateOut */
+        app__routes__clips__EstimateOut: {
+            /** Credits */
+            credits: number;
+            /** Needs Owner Approval */
+            needs_owner_approval: boolean;
+            /** Reason */
+            reason: string;
+            /** Auto Screen Ids */
+            auto_screen_ids: number[];
+            /** Reference Images */
+            reference_images: number;
+            /** Reference Videos */
+            reference_videos: number;
+            /** Reference Audios */
+            reference_audios: number;
+        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -2834,6 +3429,128 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ScriptIn */
+        app__routes__script_library__ScriptIn: {
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Reference Id */
+            reference_id?: string | null;
+            /**
+             * Reference Replace
+             * @default
+             */
+            reference_replace: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+        };
+        /** ScriptOut */
+        app__routes__script_library__ScriptOut: {
+            /** Id */
+            id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Reference Id */
+            reference_id: string | null;
+            /** Published */
+            published: boolean;
+            /** Status */
+            status: string;
+            /** Created By Id */
+            created_by_id: number | null;
+            /** Created By Name */
+            created_by_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Versions */
+            versions: components["schemas"]["app__routes__script_library__VersionOut"][];
+            /** Versions Left */
+            versions_left: number;
+            /** Notes */
+            notes: string;
+            /** Reference Replace */
+            reference_replace: string;
+            /** Cast */
+            cast: components["schemas"]["SlotOut"][];
+        };
+        /** VersionOut */
+        app__routes__script_library__VersionOut: {
+            /** Slot */
+            slot: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Seconds */
+            seconds: number;
+            /** Project Id */
+            project_id: number | null;
+            /** Text */
+            text: string;
+            /** Words */
+            words: number;
+            /** Target Seconds */
+            target_seconds: number | null;
+            /** Premise */
+            premise: string;
+            /** Changes */
+            changes: string[];
+            /** Problems */
+            problems: string[];
+            /** Has Breakdown */
+            has_breakdown: boolean;
+            /** Approved At */
+            approved_at: string | null;
+        };
+        /** EstimateOut */
+        app__routes__script_preview__EstimateOut: {
+            /** Credits */
+            credits: number;
+        };
+        /** ScriptIn */
+        app__routes__scripts__ScriptIn: {
+            /** Text */
+            text: string;
+        };
+        /** ScriptOut */
+        app__routes__scripts__ScriptOut: {
+            /** Version */
+            version: number;
+            /** Source */
+            source: string;
+            /** Words */
+            words: number;
+            /** Created By Id */
+            created_by_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Text */
+            text: string;
         };
         /** VersionOut */
         app__routes__scripts__VersionOut: {
@@ -3149,6 +3866,37 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewInviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_invite_link_team_invites__invite_id__link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4402,6 +5150,26 @@ export interface operations {
             };
         };
     };
+    editor_allowances_credits_allowances_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorAllowanceOut"][];
+                };
+            };
+        };
+    };
     project_estimate_projects__project_id__estimate_get: {
         parameters: {
             query?: never;
@@ -4581,7 +5349,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
                 };
             };
             /** @description Validation Error */
@@ -4606,7 +5374,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ScriptIn"];
+                "application/json": components["schemas"]["app__routes__scripts__ScriptIn"];
             };
         };
         responses: {
@@ -4616,7 +5384,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
                 };
             };
             /** @description Validation Error */
@@ -4651,7 +5419,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
                 };
             };
             /** @description Validation Error */
@@ -4714,7 +5482,733 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_scripts_scripts_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+                status?: string | null;
+                q?: string;
+                reference?: boolean | null;
+                versions_left?: number | null;
+                min_seconds?: number | null;
+                max_seconds?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_script_scripts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__routes__script_library__ScriptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_many_scripts_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_script_scripts__script_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_script_scripts__script_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_script_scripts__script_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_draft_scripts__script_id__drafts__slot__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_draft_scripts__script_id__drafts__slot__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_draft_scripts__script_id__drafts__slot__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_scripts__script_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    duplicate_scripts__script_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_slots_scripts__script_id__cast_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_slot_scripts__script_id__cast_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_slot_scripts__script_id__cast__slot_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_slot_scripts__script_id__cast__slot_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lock_scripts__script_id__cast__slot_id__lock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LockIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlock_scripts__script_id__cast__slot_id__lock_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_preview_scripts__script_id__drafts__slot__breakdown_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_preview_scripts__script_id__drafts__slot__breakdown_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Breakdown"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_preview_scripts__script_id__drafts__slot__breakdown_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_estimate_scripts__script_id__drafts__slot__breakdown_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_preview__EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    produce_scripts__script_id__drafts__slot__produce_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProduceOut"];
                 };
             };
             /** @description Validation Error */
@@ -4997,7 +6491,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScriptOut"];
+                    "application/json": components["schemas"]["app__routes__scripts__ScriptOut"];
                 };
             };
             /** @description Validation Error */
@@ -5095,6 +6589,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_advice_projects__project_id__breakdown_keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
                 };
             };
             /** @description Validation Error */
@@ -5289,6 +6818,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5578,6 +7143,42 @@ export interface operations {
             };
         };
     };
+    keep_clip_advice_projects__project_id__clips__clip_id__keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_video_projects__project_id__video_get: {
         parameters: {
             query?: never;
@@ -5627,6 +7228,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clips_zip_projects__project_id__clips_zip_get: {
+        parameters: {
+            query?: {
+                all_takes?: boolean;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_assets_projects__project_id__assets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cast_slot_projects__project_id__assets_slots__slot_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotCastIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
                 };
             };
             /** @description Validation Error */
@@ -5723,7 +7422,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EstimateOut"];
+                    "application/json": components["schemas"]["app__routes__clips__EstimateOut"];
                 };
             };
             /** @description Validation Error */

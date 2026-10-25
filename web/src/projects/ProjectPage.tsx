@@ -75,7 +75,9 @@ export function ProjectPage() {
   const label = STEPS.find((s) => s.id === step)?.label;
   const next = nextOf(step);
   const nextReason = next ? (step === "shots" && dirty ? "Save your changes first." : lockReason(next.id, progress)) : null;
-  const nextButton = next && !(step === "brief" && editingBrief) && (
+  // While directions are accepted but not added yet, "Add N directions" is the amber button, so Next steps aside.
+  const adding = step === "script" && enhance.marks.some((m) => m.status === "accepted");
+  const nextButton = next && !(step === "brief" && editingBrief) && !adding && !(step === "shots" && dirty && !rail) && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => pick(next.id)}>
       Next: {next.label}
     </Button>
@@ -83,7 +85,7 @@ export function ProjectPage() {
   const fromShotsOn = step !== "brief" && step !== "script";
 
   return (
-    <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
+    <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : step === "shots" && dirty ? "pb-48" : "pb-28"}`}>
       {rail ? (
         <Link to={`/b/${brandId}/projects`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
           <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
@@ -183,7 +185,7 @@ export function ProjectPage() {
           </div>
         </div>
       )}
-      {step === "shots" && <BreakdownPane projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />}
+      {step === "shots" && <BreakdownPane projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />}
       {step === "storyboard" && <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
       {step === "clips" && <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "final" && <FinalPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}

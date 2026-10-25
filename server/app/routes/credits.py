@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user, owner_only
 from app.credits import get_limits, get_rate, quick_clip_used
 from app.db import get_db
-from app.models.accounts import User
+from app.models.accounts import Role, User
 from app.models.credits import CreditLimits, CreditRate
 from app.schemas import Name
 
@@ -42,6 +42,11 @@ class LimitsOut(BaseModel):
 class AllowanceOut(BaseModel):
     quick_clip_credits_used: float
     quick_clip_credits_allowed: float
+
+
+class EditorAllowanceOut(AllowanceOut):
+    user_id: int
+    name: str
 
 
 @router.get("/rates", response_model=list[RateOut])
@@ -93,3 +98,23 @@ def my_allowance(user: User = Depends(current_user), db: Session = Depends(get_d
         quick_clip_credits_used=quick_clip_used(db, user),
         quick_clip_credits_allowed=get_limits(db, user.workspace_id).weekly_quick_clip_credits,
     )
+
+
+@router.get("/allowances", response_model=list[EditorAllowanceOut])
+def editor_allowances(owner: User = Depends(owner_only), db: Session = Depends(get_db)):
+    """Each editor's weekly credits used and allowed (owner only)."""
+    allowed = get_limits(db, owner.workspace_id).weekly_quick_clip_credits
+    editors = db.scalars(
+        select(User)
+        .where(User.workspace_id == owner.workspace_id, User.active, User.role == Role.editor)
+        .order_by(User.id)
+    )
+    return [
+        EditorAllowanceOut(
+            user_id=e.id,
+            name=e.name,
+            quick_clip_credits_used=quick_clip_used(db, e),
+            quick_clip_credits_allowed=allowed,
+        )
+        for e in editors
+    ]
