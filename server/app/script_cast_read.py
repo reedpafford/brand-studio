@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import prompts
-from app.enhance import escape, project_context
+from app.enhance import escape, escape_block, project_context
 from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
@@ -52,7 +52,7 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     brief = f"{script.title}: {script.description}" if script.description else script.title
     message = prompts.cast_slots_input(
         {slot: escape(text) for slot, text in _versions(db, script).items()},
-        reference=escape(ref),
+        reference=escape_block(ref),
         cast=[escape(line) for line, _ in _cast(db, script)],
         brief=escape(brief),
     )
