@@ -100,8 +100,12 @@ def write_one(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Claude writes the original's words from the title, description, cast and reel."""
-    return _queue(db, user, request, _writable(db, user, script_id))
+    """Claude writes the original's words from the title, description, cast and reel. A
+    script made from an imported reel is written by reading the reel (QA-2), not from here."""
+    script = _writable(db, user, script_id)
+    if _plan(db, script) != "write":
+        raise HTTPException(409, "Read the reel first.")
+    return _queue(db, user, request, script)
 
 
 @router.post("/write/estimate", response_model=WriteManyEstimate)
