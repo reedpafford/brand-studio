@@ -372,8 +372,12 @@ class EarlierText(BaseModel):
 def draft_history(
     script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    """A version's earlier texts, newest first. To bring one back, write it as the words."""
-    draft = lib.get_draft(db, lib.get_script(db, user, script_id), slot)
+    """A version's earlier texts, newest first (the newest 20). To bring one back, write it
+    as the words. Only the script's author and the owner see them; others see the final words."""
+    script = lib.get_script(db, user, script_id)
+    if not (user.is_owner or script.created_by_id == user.id):
+        raise HTTPException(403, "Only the script's author and the owner see its earlier texts.")
+    draft = lib.get_draft(db, script, slot)
     rows = db.scalars(
         select(ScriptDraftText)
         .where(ScriptDraftText.draft_id == draft.id)
