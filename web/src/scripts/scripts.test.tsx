@@ -354,3 +354,24 @@ test("the draft badge says who can see it: you, you and Reed, or whose draft it 
   open("/b/1/scripts/7");
   expect(await screen.findByText("Draft · Sam's, not published")).toBeInTheDocument();
 });
+
+test("a Ready to make chip opens the version panel, and Make this version reserves it and opens the video at Breakdown", async () => {
+  setViewport(1440);
+  const full = { ...script({ versions: [v(0, "approved", { text: "INT. KITCHEN\nBo sniffs the salmon.", has_breakdown: false })] }) };
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]],
+    "GET /scripts/7": [200, full],
+    "GET /scripts/7/cast": [200, [{ id: 1, role: "Bo", locked: true, sheet_file_id: null }]],
+    "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: 3 }],
+    "GET /projects/55": [404, { detail: "x" }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  expect(within(panel).getByText(/Bo sniffs the salmon/)).toBeInTheDocument();
+  expect(within(panel).getByText("Bo · Locked look")).toBeInTheDocument();
+  expect(within(panel).getByText("Planned automatically when you start")).toBeInTheDocument();
+  await userEvent.click(within(panel).getByRole("button", { name: "Make this version" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
+});

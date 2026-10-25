@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, CircleAlert, Clock, FileText, Pencil, Plus, Search } from "lucide-react";
+import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
@@ -97,6 +98,8 @@ export function ScriptsPage() {
       },
       { replace: true },
     );
+  const panelTo = (id: number, slot: number) => `?${new URLSearchParams({ ...Object.fromEntries(params), make: `${id}.${slot}` })}`;
+  const making = /^(\d+)\.(\d+)$/.exec(params.get("make") ?? "");
   // An editor starts on what is ready to make; Reed on everything.
   const status = params.get("status") ?? (owner ? "" : "published");
   const apiStatus = status === "any" ? "" : status;
@@ -252,7 +255,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.slice(0, shown).map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.status === "draft" && (owner || r.created_by_id === me?.id)} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} />
+          <ScriptItem key={r.id} mayOpen={r.status === "draft" && (owner || r.created_by_id === me?.id)} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} panelTo={panelTo} />
         ))}
       </ul>
     </Card>
@@ -335,11 +338,12 @@ export function ScriptsPage() {
         </>
       )}
       <LegacyVideos brandId={brandId} />
+      {making && <VersionPanel scriptId={Number(making[1])} slot={Number(making[2])} brandId={brandId} onClose={() => set("make", "")} />}
     </main>
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, narrow, mayOpen }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean }) {
+function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string }) {
   const brandId = r.brand_id;
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
@@ -364,6 +368,8 @@ function ScriptItem({ row: r, brandName, refName, narrow, mayOpen }: { row: Row;
             const s = STATUS[v.status] ?? { label: v.status, tone: "neutral" as Tone };
             const letter = LETTER[v.slot] ?? String(v.slot + 1);
             const label = `${letter} · ${s.label}`;
+            // Ready (or being made) opens the version panel; a made video opens the video; a draft opens its writing flow.
+            const to = v.status === "approved" || v.status === "in_production" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
             const chip = (
               <Badge tone={s.tone} icon={s.icon}>
                 {label}
@@ -371,8 +377,8 @@ function ScriptItem({ row: r, brandName, refName, narrow, mayOpen }: { row: Row;
             );
             return (
               <li key={v.slot}>
-                {v.project_id || (v.status === "draft" && mayOpen) ? (
-                  <Link to={v.project_id ? `/b/${brandId}/projects/${v.project_id}` : `/b/${brandId}/scripts/${r.id}`} aria-label={`Version ${letter}, ${s.label.toLowerCase()}`} className={`inline-flex items-center ${narrow ? "min-h-control" : "min-h-9"} rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`}>
+                {to ? (
+                  <Link to={to} aria-label={`Version ${letter}, ${s.label.toLowerCase()}`} className={`inline-flex items-center ${narrow ? "min-h-control" : "min-h-9"} rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`}>
                     {chip}
                   </Link>
                 ) : (

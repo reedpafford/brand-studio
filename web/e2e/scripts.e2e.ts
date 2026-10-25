@@ -37,4 +37,11 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
   await expect(page.getByText("Published. 1 version is ready to make.")).toBeVisible();
   await expect(page.getByText("A · Ready to make")).toBeVisible();
+
+  // A ready version opens its panel; Make this version reserves it and opens the video at Breakdown.
+  await page.getByRole("link", { name: "Version A, ready to make" }).click();
+  const panel = page.getByRole("dialog", { name: "Bo tries salmon · Version A" });
+  await expect(panel).toContainText("Salmon? Again?");
+  await panel.getByRole("button", { name: "Make this version" }).click();
+  await expect(page).toHaveURL(/\/projects\/\d+\?step=breakdown/);
 });
