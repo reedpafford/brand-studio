@@ -105,3 +105,73 @@ def test_bulk_create_is_all_or_none(owner):
     bad = owner.post("/scripts/bulk", json={"scripts": [rows[1], {**rows[0], "brand_id": 999}]})
     assert bad.status_code == 404 and bad.json()["detail"].startswith("Row 2:")
     assert len(owner.get("/scripts").json()) == 2  # the bad batch added nothing
+
+
+def test_undo_approval_and_earlier_texts_until_published(owner, editor):
+    """#250: approve and undo per version, and a version's earlier texts to bring back."""
+    made = _make(owner, text=SCRIPT)
+    url = f"/scripts/{made['id']}"
+    owner.put(f"{url}/drafts/0", json={"text": SCRIPT + "\nMOM: Wow."})
+    owner.put(f"{url}/drafts/0", json={"text": "MOM: Third try."})
+    history = owner.get(f"{url}/drafts/0/history").json()
+    assert [h["text"] for h in history] == [SCRIPT + "\nMOM: Wow.", SCRIPT]  # newest first
+    assert history[0]["source"] == "edit" and history[0]["created_by_name"] == "Reed"
+    owner.put(f"{url}/drafts/0", json={"text": history[1]["text"]})  # bring the first back
+    assert owner.get(url).json()["versions"][0]["text"] == SCRIPT
+    owner.post(f"{url}/drafts/0/approve")
+    undone = owner.delete(f"{url}/drafts/0/approve").json()
+    assert undone["versions"][0]["status"] == "draft"
+    assert owner.put(f"{url}/drafts/0", json={"text": SCRIPT}).status_code == 200  # editable
+    owner.put(f"{url}/drafts/1", json={"text": "NATE: A variation."})
+    assert owner.delete(f"{url}/drafts/1").status_code == 200  # a variation can be removed
+    owner.post(f"{url}/drafts/0/approve")
+    owner.post(f"{url}/publish")
+    final = owner.delete(f"{url}/drafts/0/approve")
+    assert final.status_code == 409 and "Duplicate" in final.json()["detail"]
+    assert editor.get(f"{url}/drafts/0/history").status_code == 403  # author and owner only
+    assert editor.delete(f"{url}/drafts/0/approve").status_code in (403, 409)
+
+
+def test_a_version_keeps_its_newest_20_earlier_texts(owner, editor):
+    made = _make(owner, text="MOM: Take 0.")
+    url = f"/scripts/{made['id']}"
+    for n in range(1, 23):
+        owner.put(f"{url}/drafts/0", json={"text": f"MOM: Take {n}."})
+    history = owner.get(f"{url}/drafts/0/history").json()
+    assert len(history) == 20
+    assert (history[0]["text"], history[-1]["text"]) == ("MOM: Take 21.", "MOM: Take 2.")
+    mine = _make(editor, text="NATE: One.")
+    editor.put(f"/scripts/{mine['id']}/drafts/0", json={"text": "NATE: Two."})
+    assert len(editor.get(f"/scripts/{mine['id']}/drafts/0/history").json()) == 1  # the author
+
+
+def test_library_sort_page_reel_filter_and_name(owner):
+    """Builder-Screens' gaps: sort, page with a total, the reel by id, and its name."""
+    _make(owner, title="Bus", text=SCRIPT)
+    _make(owner, title="Altar", text=SCRIPT, reference_id="fomo-DehudnaAmce")
+    _make(owner, title="Cafe", text=SCRIPT)
+    page = owner.get("/scripts", params={"sort": "title", "limit": 2})
+    assert [s["title"] for s in page.json()] == ["Altar", "Bus"]
+    assert page.headers["x-total-count"] == "3"
+    rest = owner.get("/scripts", params={"sort": "title", "limit": 2, "offset": 2}).json()
+    assert [s["title"] for s in rest] == ["Cafe"]
+    reel = owner.get("/scripts", params={"reference_id": "fomo-DehudnaAmce"}).json()
+    assert [s["title"] for s in reel] == ["Altar"] and reel[0]["reference_name"]
+    assert reel[0]["poster_file_id"] is None  # no finished video yet
+
+
+def test_library_pages_in_the_query_and_builds_only_the_page(owner, monkeypatch):
+    from app.routes import script_library as route
+
+    for title in ("A", "B", "C", "D"):
+        _make(owner, title=title, text=SCRIPT)
+    built = []
+    real = route._out
+    monkeypatch.setattr(route, "_out", lambda db, s, **kw: built.append(s.id) or real(db, s, **kw))
+    page = owner.get("/scripts", params={"limit": 2, "offset": 1})
+    assert [s["title"] for s in page.json()] == ["C", "B"]  # newest first
+    assert page.headers["x-total-count"] == "4" and len(built) == 2
+    built.clear()
+    left = owner.get("/scripts", params={"sort": "versions_left", "limit": 1})
+    assert left.headers["x-total-count"] == "4" and len(left.json()) == 1
+    assert len(built) == 4  # worked out from each script's versions, so every row is built

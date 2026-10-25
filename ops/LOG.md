@@ -1,6 +1,18 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 15:09 · #253 Cast: Kind on each role, and where it appears merged
+- 2026-10-25 14:53 · #254 Library versions: undo approval, and a version's earlier texts merged
+- 2026-10-25 14:48 · #250 Script library: the Variations step merged
+- 2026-10-25 14:43 · #252 Usage tracker 3b: a brand's videos and scripts, and every charge merged
+- 2026-10-25 14:39 · #249 Version panel: who's making a version, and which version a video came from merged
+- 2026-10-25 14:28 · #251 Studio spec: Copy a new link; phone invite rows stack merged
+- 2026-10-25 14:26 · #247 Usage tracker 3a: summary, brands and one brand (owner only) merged
+- 2026-10-25 14:26 · #245 Usage tracker 2/3: when a video became "Video done" merged
+- 2026-10-25 14:26 · #242 Usage tracker 1/3: every charge records its brand merged
+- 2026-10-25 14:25 · #239 Workflow v2 5b-2: read the cast (slots with kind and versions) merged
+- 2026-10-25 14:18 · #243 Version panel: Make this version merged
+- 2026-10-25 14:13 · #248 ops: HANDOFF/LOG refresh 2026-10-25 14:20Z (by the Producer) merged
 - 2026-10-25 05:12 · #246 ops: HANDOFF/LOG refresh 2026-10-25 05:20Z merged (by the Producer)
 - 2026-10-25 05:12 · #236 Script library 3: Characters and Publish merged
 - 2026-10-25 04:42 · #244 Library spec: editors see the versions they're making at the top merged

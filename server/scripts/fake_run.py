@@ -137,6 +137,23 @@ def make(c, work, brand: str, case: dict, script: str, planned: int, variants=No
             problems.append(f"video is {length} s, clips add up to {sum(seconds)} s")
 
 
+def write_all(c, work) -> None:
+    """Bulk create two scripts from titles, then Write all (stand-in Claude writes the words)."""
+    print("\nwrite all")
+    brand_id = c.get("/brands").json()[0]["id"]
+    rows = [{"brand_id": brand_id, "title": f"Idea {n}", "description": "Mom finds the wallet"}
+            for n in (1, 2)]  # fmt: skip
+    ids = [s["id"] for s in ok(c.post("/scripts/bulk", json={"scripts": rows}), "bulk create")]
+    price = ok(c.post("/scripts/write/estimate", json={"script_ids": ids}), "estimate")
+    print(f"  {price['count']} scripts, {price['credits']:.0f} credits")
+    ok(c.post("/scripts/write", json={"script_ids": ids}), "write all")
+    work()
+    for script_id in ids:
+        if not c.get(f"/scripts/{script_id}").json()["versions"][0]["text"].strip():
+            problems.append(f"write all: script {script_id} has no words")
+        ok(c.delete(f"/scripts/{script_id}"), "remove")
+
+
 def altar_script() -> str:
     """The reference reel's lines word for word, one ★ screen line, then fomo's end line."""
     lines = json.loads(REFERENCE.read_text())["lines"]
@@ -166,6 +183,7 @@ def main() -> int:
             owner = {"setup_token": token, "workspace_name": "Studio", "name": "Reed",
                      "email": "reed@example.com", "password": "correct horse battery"}  # fmt: skip
             ok(c.post("/auth/setup", json=owner), "setup")
+            write_all(c, lambda: drain(app, providers))
             pb = CASES["ironpaws-pitbull-1"]
             make(c, lambda: drain(app, providers), "iron", pb, "\n".join(pb["script"]), 160,
                  {"bag": "Peanut butter"})  # fmt: skip

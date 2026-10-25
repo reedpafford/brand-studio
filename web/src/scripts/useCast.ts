@@ -25,7 +25,7 @@ export function useCastActions(scriptId: number) {
   const path = { script_id: scriptId };
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-cast", scriptId] }), queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] })]);
   const add = useMutation({
-    mutationFn: async (a: { role: string; description: string }) => {
+    mutationFn: async (a: { role: string; kind?: "Main" | "Helper" | "Rival" | "Family"; description: string }) => {
       const { data, error } = await api.POST("/scripts/{script_id}/cast", { params: { path }, body: a });
       if (!data) throw new Error(errorText(error));
       return data;
@@ -33,7 +33,7 @@ export function useCastActions(scriptId: number) {
     onSuccess: refresh,
   });
   const edit = useMutation({
-    mutationFn: async (a: { id: number; role?: string; description?: string }) => {
+    mutationFn: async (a: { id: number; role?: string; kind?: "Main" | "Helper" | "Rival" | "Family"; description?: string }) => {
       const { id, ...body } = a;
       const { error, response } = await api.PATCH("/scripts/{script_id}/cast/{slot_id}", { params: { path: { ...path, slot_id: id } }, body });
       if (!response.ok) throw new Error(errorText(error));

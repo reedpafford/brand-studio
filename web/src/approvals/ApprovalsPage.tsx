@@ -194,7 +194,9 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
     },
     onError: () => setDeclining(false),
   });
-  const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
+  // Each editor's own week, from the owner-only allowances.
+  const allowances = useQuery({ queryKey: ["allowances"], queryFn: async () => (await api.GET("/credits/allowances")).data ?? [] });
+  const week = allowances.data?.find((a) => a.user_id === job.created_by_id);
   const after = project && project.budget_credits > 0 ? ((project.credits_used + job.credits) / project.budget_credits) * 100 : null;
   return (
     <li className="flex gap-3 p-4 text-sm sm:p-5">
@@ -218,9 +220,9 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
         <p className="tabular-nums">
           {whole(job.credits)} credits{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
         </p>
-        {!project && !job.step && limits.data && (
-          <p className="text-muted">
-            Past {who ? `${who}'s` : "the editor's"} weekly allowance ({whole(limits.data.weekly_quick_clip_credits)} credits)
+        {!project && !job.step && week && (
+          <p className="text-muted tabular-nums">
+            {who ? `${who}'s` : "The editor's"} quick clips this week: {whole(week.quick_clip_credits_used)} of {whole(week.quick_clip_credits_allowed)} credit{week.quick_clip_credits_allowed === 1 ? "" : "s"}
           </p>
         )}
         {project && after !== null && <Meter used={project.credits_used + job.credits} budget={project.budget_credits} pct={after} />}

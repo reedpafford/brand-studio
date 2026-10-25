@@ -219,7 +219,7 @@ const chars = [
   { id: 4, name: "Mia", image_file_ids: [11], sheet_status: "approved" },
   { id: 5, name: "Bo", image_file_ids: [], sheet_status: "none" },
 ];
-const slot = (o: object = {}) => ({ id: 31, role: "Mia", description: "Late 20s, confident.", position: 0, library_item_id: null, sheet_file_id: null, locked: false, ...o });
+const slot = (o: object = {}) => ({ id: 31, role: "Mia", kind: "Main", appears_in: [0, 1, 2], description: "Late 20s, confident.", position: 0, library_item_id: null, sheet_file_id: null, locked: false, ...o });
 const withWords = (o: object = {}) => full({ versions: [{ ...full().versions[0], text: "MIA: Hell no!", words: 3, status: "draft" }], ...o });
 
 test("Cast: a role can be added, locked to a character with an approved sheet, and unlocked; Bo needs a sheet first", async () => {
@@ -234,6 +234,8 @@ test("Cast: a role can be added, locked to a character with an approved sheet, a
   });
   open("/b/1/scripts/7?step=cast");
   expect(await screen.findByText("1 role · 0 locked")).toBeInTheDocument();
+  expect(screen.getByText("Main")).toBeInTheDocument();
+  expect(screen.getByText("In A, B and C")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Lock Mia to a look" }));
   const panel = await screen.findByRole("dialog", { name: "Lock Mia to a look" });
   expect(within(panel).getByRole("button", { name: "Bo needs an approved sheet" })).toBeDisabled();
@@ -242,8 +244,9 @@ test("Cast: a role can be added, locked to a character with an approved sheet, a
   await userEvent.click(screen.getByRole("button", { name: "Add a role" }));
   const add = await screen.findByRole("dialog", { name: "Add a role" });
   await userEvent.type(within(add).getByLabelText("Role"), "Bo");
+  await userEvent.selectOptions(within(add).getByLabelText("Kind"), "Helper");
   await userEvent.click(within(add).getByRole("button", { name: "Add role" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/cast")?.body).toMatchObject({ role: "Bo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/cast")?.body).toMatchObject({ role: "Bo", kind: "Helper" }));
 });
 
 test("Cast: a locked role says so, with Change and Unlock; Remove role asks first", async () => {
