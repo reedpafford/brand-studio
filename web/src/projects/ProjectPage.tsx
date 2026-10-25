@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, FileText, Pencil } from "lucide-react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Button, Card, Field, Skeleton, StepPicker } from "../components";
 import { ActionBar } from "../shell/ActionBar";
@@ -13,6 +13,7 @@ import { Notes, useEnhance } from "./Enhance";
 import { EstimateNote } from "./EstimateNote";
 import { FinalPane } from "./FinalPane";
 import { Meter, WaitingBadge } from "./Meter";
+import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ScriptTab } from "./ScriptTab";
 import { StoryboardPane } from "./StoryboardPane";
@@ -27,6 +28,9 @@ export function ProjectPage() {
   const step = stepFromParams(params);
   const rail = useRail();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const mayManage = useMayManageVideo();
+  const video = useVideoActions(() => navigate(`/b/${brandId}/scripts`));
   const [panel, setPanel] = useState(false);
   const [highlight, setHighlight] = useState<number[]>([]);
   const [line, setLine] = useState<number | null>(null);
@@ -72,6 +76,8 @@ export function ProjectPage() {
     setLine(null);
     setPanel(true);
   };
+  const target = { id: id, name: p.name, creditsUsed: p.credits_used };
+  const menu = mayManage(p) && <VideoMenu title={p.name} onRelease={p.script_draft_id ? () => video.release(target) : undefined} onArchive={() => video.archive(target)} />;
   const label = STEPS.find((s) => s.id === step)?.label;
   const next = nextOf(step);
   const nextReason = next ? (step === "shots" && dirty ? "Save your changes first." : lockReason(next.id, progress)) : null;
@@ -107,6 +113,7 @@ export function ProjectPage() {
                 <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
                   <Pencil size={20} strokeWidth={1.75} aria-hidden />
                 </button>
+                {menu}
               </>
             ) : (
               <span className="flex-1 truncate type-card">Rename</span>
@@ -148,6 +155,7 @@ export function ProjectPage() {
         )}
         {rail && (
           <div className="flex w-auto items-start gap-3">
+            {menu}
             <div className="min-w-0 w-72">
               <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
               <EstimateNote projectId={id} used={p.credits_used} budget={p.budget_credits} />
@@ -155,6 +163,7 @@ export function ProjectPage() {
           </div>
         )}
       </div>
+      {video.dialog}
       {p.status === "needs_owner_approval" && <WaitingBadge />}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
