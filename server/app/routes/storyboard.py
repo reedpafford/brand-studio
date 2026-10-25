@@ -14,6 +14,7 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
+from app.prompts import check
 from app.prompts.schemas import Frame
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
@@ -161,7 +162,7 @@ def render(
     A frame with problems must be fixed first. An optional Redo note goes into this render's
     prompt only."""
     project, frame = _frame(db, user, project_id, frame_id)
-    if frame.problems:
+    if check.blocking(frame.problems):  # advice never blocks
         raise HTTPException(409, "Fix this frame's problems first.")
     if _stale(db, project, frame):
         raise HTTPException(

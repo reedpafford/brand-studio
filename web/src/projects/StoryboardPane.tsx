@@ -9,6 +9,7 @@ import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkTex
 import { useMedia } from "../useMedia";
 import { Sheet } from "./Sheet";
 import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
+import { blocking } from "./problems";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -111,7 +112,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   if (frames.isPending) return <p className="text-muted">Loading…</p>;
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const list = frames.data;
-  const missing = list.filter((f) => f.file_id === null && !f.problems.length && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
+  const missing = list.filter((f) => f.file_id === null && !blocking(f.problems).length && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${n} credits`);
@@ -313,7 +314,7 @@ function FrameCard(props: {
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {f.file_id === null ? (
-              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || f.problems.length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
+              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
                 {verb}
                 {price}
               </button>
@@ -321,12 +322,12 @@ function FrameCard(props: {
               <>
                 <button
                   className={`${btnSecondary} min-h-11 sm:min-h-9`}
-                  disabled={props.busy || (!f.approved && (f.stale || f.problems.length > 0))}
+                  disabled={props.busy || (!f.approved && (f.stale || blocking(f.problems).length > 0))}
                   onClick={() => props.onApprove(!f.approved)}
                 >
                   {f.approved ? "Undo approve" : "Approve"}
                 </button>
-                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || f.problems.length > 0 || props.blockers.length > 0} onClick={() => setRedo(redo === null ? "" : null)} aria-expanded={redo !== null}>
+                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => setRedo(redo === null ? "" : null)} aria-expanded={redo !== null}>
                   {verb}
                   {price}
                 </button>

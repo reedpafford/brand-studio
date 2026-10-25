@@ -19,6 +19,7 @@ from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
@@ -195,7 +196,7 @@ def generate(
     """Make a new take of this clip (a paid video job, counted against the project budget and
     its per-video cap). A clip with problems must be fixed first."""
     project, row = _clip(db, user, project_id, clip_id)
-    if row.problems:
+    if check.blocking(row.problems):  # advice never blocks
         raise HTTPException(409, "Fix this clip's problems first.")
     if _stale(db, row, _newest_breakdown(db, project)):
         raise HTTPException(
