@@ -197,7 +197,8 @@ export function ProjectsPage() {
 /** The Script library's "Videos made before scripts": the earlier videos stay reachable, and the earlier way to start one for now. */
 export function LegacyVideos({ brandId }: { brandId: number }) {
   const projects = useProjectList(brandId);
-  const list = (projects.data ?? []).slice().sort((a, b) => b.id - a.id);
+  // A video made from a library version lives with its script, not here.
+  const list = (projects.data ?? []).filter((p) => !p.script_draft_id).sort((a, b) => b.id - a.id);
   const jobs = useJobs();
   const lastJob = (id: number) => (jobs.data ?? []).filter((j) => j.project_id === id).sort((a, b) => b.id - a.id)[0];
   return (
