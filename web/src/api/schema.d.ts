@@ -1845,7 +1845,11 @@ export interface paths {
          * @description Keep anyway: this advice on the newest breakdown stays as it is (never blocks).
          */
         post: operations["keep_advice_projects__project_id__breakdown_keep_post"];
-        delete?: never;
+        /**
+         * Unkeep Advice
+         * @description Undo Keep anyway on the newest breakdown's advice (?problem=, the text as shown).
+         */
+        delete: operations["unkeep_advice_projects__project_id__breakdown_keep_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1949,7 +1953,11 @@ export interface paths {
          * @description Keep anyway: this frame's advice stays as it is.
          */
         post: operations["keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post"];
-        delete?: never;
+        /**
+         * Unkeep Frame Advice
+         * @description Undo Keep anyway on this frame's advice (?problem=, the text as shown).
+         */
+        delete: operations["unkeep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2109,7 +2117,11 @@ export interface paths {
          * @description Keep anyway: this clip's advice stays as it is.
          */
         post: operations["keep_clip_advice_projects__project_id__clips__clip_id__keep_post"];
-        delete?: never;
+        /**
+         * Unkeep Clip Advice
+         * @description Undo Keep anyway on this clip's advice (?problem=, the text as shown).
+         */
+        delete: operations["unkeep_clip_advice_projects__project_id__clips__clip_id__keep_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2336,6 +2348,11 @@ export interface components {
             ready: boolean;
             /** Slot Id */
             slot_id?: number | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -8425,6 +8442,39 @@ export interface operations {
             };
         };
     };
+    unkeep_advice_projects__project_id__breakdown_keep_delete: {
+        parameters: {
+            query: {
+                problem: string;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     frames_projects__project_id__storyboard_get: {
         parameters: {
             query?: never;
@@ -8642,6 +8692,40 @@ export interface operations {
                 "application/json": components["schemas"]["KeepIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unkeep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_delete: {
+        parameters: {
+            query: {
+                problem: string;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -8946,6 +9030,40 @@ export interface operations {
                 "application/json": components["schemas"]["KeepIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unkeep_clip_advice_projects__project_id__clips__clip_id__keep_delete: {
+        parameters: {
+            query: {
+                problem: string;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
