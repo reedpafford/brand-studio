@@ -577,3 +577,24 @@ test("a video made from a library version isn't listed under Videos made before 
   const section = await screen.findByRole("region", { name: "Videos made before scripts" });
   expect(await within(section).findByText("Videos made before scripts (1)")).toBeInTheDocument();
 });
+
+test("a script with one version started and another still ready stays in the editor's main list", async () => {
+  setViewport(1440);
+  const half = script({ id: 5, title: "Half made", status: "in_production", versions: [v(0, "in_production", { project_id: 40, editor: { id: 2, name: "Sam" } }), v(1, "approved")] });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+      const url = new URL(req.url);
+      const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
+      const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+      if (key === "GET /scripts") return ok(url.searchParams.get("status") === "in_production" ? [half] : []); // Ready to make leaves it out
+      if (key === "GET /auth/me") return ok(editor);
+      return ok(key in base ? base[key][1] : []);
+    }),
+  );
+  open();
+  expect(await screen.findByRole("region", { name: "Making now" })).toBeInTheDocument();
+  expect(screen.queryByText("No scripts ready to make yet.")).not.toBeInTheDocument();
+  expect(screen.getAllByText("Half made")).toHaveLength(2); // under Making now and in the list
+});

@@ -156,6 +156,11 @@ export function ScriptsPage() {
 
   // Filters the server doesn't take are applied here.
   let rows = scripts.data ?? [];
+  // A script with one version started and another still ready is "in production" to the server, so Ready to make drops it; an editor still needs it here.
+  if (!owner && status === "published" && !(q || len || ref || left || mine || all)) {
+    const ready = (makingRows.data ?? []).filter((r) => r.versions.some((v) => v.status === "approved") && !rows.some((x) => x.id === r.id));
+    if (ready.length > 0) rows = [...rows, ...ready].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
   if (mine) rows = rows.filter((r) => r.created_by_id === me?.id);
   if (left === "0") rows = rows.filter((r) => r.versions_left === 0);
   if (sort === "title") rows = [...rows].sort((a, b) => a.title.localeCompare(b.title));
