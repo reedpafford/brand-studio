@@ -40,6 +40,8 @@ class LocalProvider:
             return Result("succeeded", **made)
         except reel.Refused as no:  # a plain reason, saved on the script; nothing to retry
             shutil.rmtree(folder, ignore_errors=True)
+            if input.get("video_key"):  # an upload we can't read: don't keep it
+                self.storage.delete(input["video_key"])
             return Result("succeeded", output={"problem": no.message, "problem_code": no.code})
         except Exception:
             shutil.rmtree(folder, ignore_errors=True)

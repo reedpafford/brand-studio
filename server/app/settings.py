@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     fake_providers: bool = False
     # Background worker
     worker_poll_seconds: float = 2.0
+    # Which providers' jobs this worker takes, e.g. ["local"] for a reel-prep worker; empty: all.
+    worker_providers: list[str] = []
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 
