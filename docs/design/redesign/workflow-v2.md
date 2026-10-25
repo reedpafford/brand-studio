@@ -112,7 +112,7 @@ A video is made **from one version**. It opens from a library chip ("Make this v
 | 4 Videos home (#180) | **Re-spec** | Becomes the Script library (section 2). The poster card style is reused in library rows. |
 | 5 New video | **Re-spec** | Becomes writing step 1, Description: no length, no cast or flavour picking (characters come from the script). |
 | 8 Storyboard, 9 Clips and Final video | **Re-spec (small)** | Same screens. Add Assets before Storyboard and the version context in the header. Final video becomes **Downloads** (all clips as .zip, the whole video, older takes per clip). |
-| New | **Spec** | Script library, Variations side by side, Characters (locks), Publish, Assets, Bulk create. |
+| New | **Spec** | Script library, Variations side by side, Cast (locks), Publish, Assets, Bulk create. |
 
 ## 6. Decided (Reed, 2026-10-25)
 | | Decision | What it means on screen |
@@ -121,7 +121,7 @@ A video is made **from one version**. It opens from a library chip ("Make this v
 | b | Clip prompts are reviewed before takes are paid for | Clips keeps **Write clip prompts** → Looks good / Edit → **Make the takes · N credits**. |
 | c | A version is reserved for the editor who starts it | Its library chip reads "In production (Sam)". Others see it, but can't start it. |
 | d | Variations are written together at one price; each Regenerate is paid | The Variations step shows **Write 2 variations · N credits** (or 1), and **Regenerate · N credits** per version. |
-| e | One locked look per character | The Characters step shows one sheet picker per character. |
+| e | One locked look per role | The Cast step shows one "Lock to a look" per role. |
 | f | Editors' scripts are private until published; editors can make variations and locks on their own scripts | The library's "Mine" filter shows drafts. Others only see an editor's script once it's published. |
 | g | Bulk create takes titles, descriptions and an optional reel. Nothing is written until **Write all** | Bulk create makes drafts. **Write all scripts · N credits** shows its estimate first. |
 | h | The budget is set at Breakdown: twice its estimate, at most $75 | There's no length up front. The cap message shows at Breakdown. |
@@ -153,7 +153,7 @@ This is for the Producer to scope; the web can't do it alone.
 3. **Build order** once the server pieces exist:
    - library (read-only first)
    - writing flow
-   - Variations and Characters
+   - Variations and Cast
    - Publish
    - video flow on versions (Assets)
    - bulk create
