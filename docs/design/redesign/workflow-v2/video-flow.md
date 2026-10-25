@@ -99,7 +99,41 @@ Each clip (section)
   | Error | "The download didn't start. Nothing was lost." **Try again** |
   | Not reachable | Before every clip is approved: "Approve every clip first (1 left)" |
 
+## Release this version, and Archive video (gaps #5)
+Each version is made only once, so a version started by mistake must be able to go back.
+
+**Release this version**
+- **Who:** the editor who reserved it, or Reed. It's only shown while the version is in production (not once it's "Video done").
+- **Where:**
+  - In the video header's `Ellipsis` menu: **Release this version** (`Undo2`).
+  - Also on Reed's In production rows, in a row `Ellipsis` menu.
+- **Confirm** (dialog on desktop, sheet on phone):
+  - Title: "Release version B?"
+  - Body: "It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted. The 84 credits already used stay used."
+  - When nothing was spent, the last sentence is left out.
+  - Buttons: **Release** (danger) / **Keep making it** (ghost).
+- **After:**
+  - The page goes to Scripts. The chip reads "B · Ready to make" again.
+  - Toast: "Version B is ready to make again." with **Undo** (8 s). Undo reserves it for the same person and restores the video at the step it was on.
+  - Starting it again later makes a new video from the version, with Reed's saved breakdown if there is one.
+
+**Archive video**
+- **Who:** Reed on any video. An editor on videos made from their own scripts.
+- **When:** for a video that's "Video done" or made before scripts. (A version still in production is released instead, which archives its video.)
+- **Where:** the video header's `Ellipsis` menu: **Archive video** (`Archive`).
+- **Confirm:**
+  - "Archive "Bo tries salmon · B"? It leaves the lists. Its clips and downloads are kept, and you can restore it."
+  - Buttons: **Archive** (danger) / **Keep it** (ghost).
+- **After:**
+  - Toast: "Archived "Bo tries salmon · B"." with **Undo** (8 s).
+  - A done version keeps its "Video done" chip, because it was made once. The chip opens the archived video read-only, with a banner "Archived" and **Restore** (secondary).
+- **Finding it later:** Usage → a brand → Videos gets the status **Archived**. Each archived row has **Restore**.
+
 ## Data the screens need (server)
+- **Release and archive:**
+  - `POST /projects/{id}/release`: archives the video and puts the version back to Ready to make. It refuses once the version is "Video done".
+  - `POST /projects/{id}/archive` and `POST /projects/{id}/restore`. Restore after a release reserves the version again for the same person, and refuses if someone else has started it since: "Sam started version B again, so this video can't come back."
+  - Archived videos keep every take and file.
 - **The video:** a video made from a version, holding its own copy of the breakdown, plus shape and platform.
 - **Budget:** set when the breakdown is made (twice its estimate, capped at $75). Editors' own scripts are charged to their weekly allowance instead, and refused past it.
 - **Kept problems:** a "keep anyway" flag per breakdown problem.
