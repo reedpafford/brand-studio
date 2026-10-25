@@ -1,0 +1,88 @@
+"""Breakdown preview on a library version (workflow v2): the same breakdown step as a project,
+run on the version's words with the script's brand, reel and cast slots, saved on the version.
+The editor starts from it when the version is produced.
+
+Locked slots appear as their characters (char:N). Unlocked slots appear as slot:N (no look
+yet); the Assets step gives them characters when the version is produced."""
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app import breakdown, prompts
+from app.enhance import escape, project_context, project_screens
+from app.models.brands import Brand
+from app.models.projects import Project
+from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
+from app.prompts import check
+from app.prompts.schemas import Breakdown
+
+
+def stand_in_project(
+    db: Session, script: Script, draft: ScriptDraft, reference: dict | None = None
+) -> Project:
+    """A project that is never saved, so the project-based context and checks work as-is.
+    `reference` is the script's reel breakdown (`references.load`), if it has one."""
+    slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
+    return Project(
+        workspace_id=script.workspace_id,
+        brand_id=script.brand_id,
+        name=script.title,
+        goal=script.description,
+        planned_seconds=draft.target_seconds,
+        aspect_ratio="9:16",
+        cast_ids=[s.library_item_id for s in slots if s.library_item_id],
+        product_variants={},
+        reference_breakdown=reference,
+        reference_replace=script.reference_replace,
+    )
+
+
+def _slot_lines(db: Session, script: Script) -> str:
+    unlocked = db.scalars(
+        select(ScriptCastSlot)
+        .where(ScriptCastSlot.script_id == script.id, ScriptCastSlot.library_item_id.is_(None))
+        .order_by(ScriptCastSlot.position)
+    )
+    return "\n".join(f"slot:{s.id} | {s.role} | {s.description} (no look yet)" for s in unlocked)
+
+
+def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict | None) -> dict:
+    project = stand_in_project(db, script, draft, reference)
+    system, context = project_context(db, project, "breakdown")
+    if extra := _slot_lines(db, script):
+        context = context.replace("\n</cast>", f"\n{escape(extra)}\n</cast>")
+    parts = [context, f"<places>\n{escape(breakdown._places(db, project))}\n</places>"]
+    parts.append(breakdown.video_model_block(breakdown.video_model()))
+    if project.reference_breakdown:
+        ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
+        parts.append(escape(ref))
+    parts.append(f"<script>\n{escape(prompts.number_lines(draft.text))}\n</script>")
+    return {
+        "step": "breakdown",
+        "script_draft_id": draft.id,
+        "system": system,
+        "prompt": "\n".join(parts),
+        "max_tokens": 32000,
+    }
+
+
+def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> list[str]:
+    project = stand_in_project(db, script, draft)
+    screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
+    m = breakdown.video_model()
+    end_line = db.get(Brand, script.brand_id).end_line
+    found = check.breakdown(draft.text, bd, screens, m.duration.min, m.duration.max, end_line)
+    slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
+    known_slots = {f"slot:{s.id}" for s in slots}
+    unknown = [
+        p
+        for p in breakdown.unknown_ids(db, project, bd)
+        if p.split("unknown ")[-1] not in known_slots
+    ]
+    return found + unknown
+
+
+def save(db: Session, draft: ScriptDraft, bd: Breakdown) -> None:
+    script = db.get(Script, draft.script_id)
+    draft.breakdown = bd.model_dump()
+    draft.breakdown_problems = problems(db, script, draft, bd)
