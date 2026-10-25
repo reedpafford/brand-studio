@@ -200,9 +200,45 @@ def test_eval_scoring_runs_the_variations_check(tmp_path):
     script = "\n".join(case["script"]).replace("Peanut butter flavor.", "Chicken flavor.")
     answer = {"variations": [{"title": "x", "premise": "x", "script": script, "changes": []}]}
     (tmp_path / "ironpaws-pitbull1-variations.variations.json").write_text(json.dumps(answer))
+    slots = [{"role": "Bruno, the pitbull (narrator)", "description": "x", "appears_in": [0, 1],
+              "recurring": True},
+             {"role": "The crowd at the dog park", "description": "x", "appears_in": [1],
+              "recurring": False}]  # fmt: skip
+    (tmp_path / "ironpaws-pitbull1-variations.cast_slots.json").write_text(
+        json.dumps({"slots": slots})
+    )
     assert score(tmp_path, case) == [
         "variation 1 says “chicken”, which the brand never says",
         "Advice: variation 1 is very close to the original; regenerate with a note",
+        "Advice: The crowd at the dog park: sounds like background people, who are never cast",
+        "no slot matching any of ['owner']",
+        "a slot for 'crowd'",
+    ]
+
+
+def test_cast_slots_example_passes_and_each_check_says_what_to_do():
+    ex, result = example("cast_slots")
+    versions = {
+        int(n): "\n".join(line.split("| ", 1)[1] for line in body.splitlines())
+        for n, body in re.findall(r'<version slot="(\d)">\n(.*?)\n</version>', ex["input"], re.S)
+    }
+    assert check.cast_slots(versions, result) == []
+    assert check.cast_slots(versions, schemas.CastSlots(slots=[])) == ["no cast slots; regenerate"]
+    extra = {"description": "x", "recurring": False}
+    result.slots += [
+        schemas.CastSlot(role="Wedding guests", appears_in=[0], **extra),
+        schemas.CastSlot(role="Malik, again", appears_in=[3], **extra),
+    ]
+    assert check.cast_slots(versions, result) == [
+        "Advice: Wedding guests: sounds like background people, who are never cast",
+        "Malik, again: version 3 doesn't exist; edit or regenerate",
+        "Advice: two slots are called Malik; merge them",
+    ]
+    dre = schemas.CastSlots(
+        slots=[schemas.CastSlot(role="Dre, the rival", appears_in=[0, 1], **extra)]
+    )
+    assert check.cast_slots({0: "DRE: Nice car.", 1: "MALIK: Mine now."}, dre) == [
+        "Advice: Dre, the rival: “Dre” isn't in version 1"
     ]
 
 

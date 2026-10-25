@@ -21,6 +21,7 @@ SCHEMAS = {
     "clip_prompts": schemas.ClipPrompts,
     "improve": schemas.ImprovedPrompt,
     "variations": schemas.Variations,
+    "cast_slots": schemas.CastSlots,
 }
 
 
@@ -219,4 +220,16 @@ def variations_input(
         parts.append(f"<keep_apart>\n{keep_apart}\n</keep_apart>")
     if note:
         parts.append(f"<note>{note}</note>")
+    return "\n".join(parts)
+
+
+def cast_slots_input(versions: dict[int, str], reference: str = "") -> str:
+    """The user message for the cast_slots step: every approved version, numbered, by slot
+    (0 = the original), and optionally reference_block(...) for helpers from the reel."""
+    parts = [
+        f'<version slot="{slot}">\n{number_lines(text)}\n</version>'
+        for slot, text in sorted(versions.items())
+    ]
+    if reference:
+        parts.append(reference)
     return "\n".join(parts)

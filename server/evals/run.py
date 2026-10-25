@@ -17,6 +17,7 @@ from app.claude import ask, make_client
 from app.prompts import (
     SCHEMAS,
     brand_block,
+    cast_slots_input,
     number_lines,
     reference_block,
     system,
@@ -87,6 +88,13 @@ def run_case(
             prompt = f"{brief}\n{cast}{reference}"
         elif step == "variations":
             prompt = variations_input(script, case["cast"], case["count"], reference.strip())
+        elif step == "cast_slots":
+            if dry:  # needs the variations' answer
+                return
+            versions = {0: script} | {
+                i: v.script for i, v in enumerate(answers["variations"].variations, 1)
+            }
+            prompt = cast_slots_input(versions, reference.strip())
         elif step == "breakdown":
             (out / f"{case['id']}.script.txt").write_text(script)
             prompt = f"{brief}\n{cast}\n{places}\n{video_model()}{reference}\n"
