@@ -1,7 +1,14 @@
 """Producing a library version: its project, once, with the saved breakdown or a new one."""
 
+from fastapi.testclient import TestClient
+
+from app import credits
+from app.models.accounts import User
 from app.models.jobs import Job
-from tests.conftest import upload
+from app.models.projects import Project
+from app.models.script_library import ScriptDraft
+from app.routes.jobs import enqueue
+from tests.conftest import PASSWORD, upload
 from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_script_library import SCRIPT, _make
@@ -60,3 +67,52 @@ def test_only_approved_versions_of_published_scripts(owner, editor):
     assert owner.post(url).json()["detail"] == "Publish this script first."
     owner.put(f"/scripts/{made['id']}/drafts/1", json={"text": SCRIPT + "\nMOM: Fine."})
     assert editor.post(url).status_code == 404  # private until published
+
+
+def _editors_script(editor) -> str:
+    made = _make(editor, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    assert editor.post(f"{base}/drafts/0/approve").status_code == 200
+    assert editor.post(f"{base}/publish").status_code == 200
+    return base
+
+
+def _second_editor(app, owner, db):
+    token = owner.post("/team/invites", json={"email": "two@example.com"}).json()["token"]
+    client = TestClient(app)
+    r = client.post(
+        "/auth/accept-invite", json={"token": token, "name": "Two", "password": PASSWORD}
+    )
+    assert r.status_code == 201, r.text
+    return client, db.query(User).filter_by(email="two@example.com").one()
+
+
+def test_only_the_author_uses_their_allowance_for_a_script(app, owner, editor, db):
+    """QA #218: another editor's script runs on the video's budget, never the producer's
+    allowance (so a spent allowance doesn't decline it, and it isn't billed there)."""
+    base = _editors_script(editor)
+    two, second = _second_editor(app, owner, db)
+    enqueue(db, second, "video-480p", {}, units=145)  # Two's allowance is spent
+    made = two.post(f"{base}/drafts/0/produce")
+    assert made.status_code == 201, made.text
+    project = db.get(Project, made.json()["project_id"])
+    assert not credits.own_script(db, project, second)
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+    assert credits.own_script(db, project, ed)  # the author's, were they producing it
+
+
+def test_a_declined_breakdown_leaves_the_version_free(editor, db):
+    """QA #218: past the allowance the breakdown is declined and nothing is kept: no
+    project, no reservation, so the version can be produced later."""
+    base = _editors_script(editor)
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+    enqueue(db, ed, "video-480p", {}, units=145)
+    declined = editor.post(f"{base}/drafts/0/produce")
+    assert declined.status_code == 409
+    assert declined.json()["detail"] == "You've used this week's 145 credits. It resets Monday."
+    db.expire_all()
+    assert db.query(Project).count() == 0 and db.query(ScriptDraft).one().reserved_by_id is None
+    assert editor.get(base).json()["versions_left"] == 1
+    db.query(Job).delete()
+    db.commit()
+    assert editor.post(f"{base}/drafts/0/produce").status_code == 201
