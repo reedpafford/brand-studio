@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
-import { api, errorText, must } from "../api/client";
+import { Link } from "react-router-dom";
+import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
 import {
@@ -9,12 +10,9 @@ import {
   Button,
   Card,
   EmptyState,
-  Panel,
   Select,
   Skeleton,
-  useToast,
 } from "../components";
-import { SheetPanel } from "../library/SheetPanel";
 import { errorText as errorClass } from "../ui";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
 
@@ -56,8 +54,6 @@ function AssetCard({
   const kind: "place" | "character" =
     asset.kind === "place" ? "place" : "character";
   const queryClient = useQueryClient();
-  const toast = useToast();
-  const [open, setOpen] = useState(false);
   const [pick, setPick] = useState("");
   const id = asset.library_item_id;
   const item = useQuery({
@@ -87,33 +83,6 @@ function AssetCard({
       queryClient.invalidateQueries({ queryKey: ["library", kind] }),
       queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] }),
     ]);
-  const path = { kind, item_id: id ?? 0 };
-  const approve = useMutation({
-    mutationFn: () =>
-      must(
-        api.POST("/library/{kind}/{item_id}/sheet/approve", {
-          params: { path },
-        }),
-      ),
-    onSuccess: async () => {
-      await refresh();
-      toast(`${asset.role || asset.name} approved.`, async () => {
-        await api.DELETE("/library/{kind}/{item_id}/sheet/approve", {
-          params: { path },
-        });
-        await refresh();
-      });
-    },
-  });
-  const unapprove = useMutation({
-    mutationFn: () =>
-      must(
-        api.DELETE("/library/{kind}/{item_id}/sheet/approve", {
-          params: { path },
-        }),
-      ),
-    onSuccess: refresh,
-  });
   const choose = useMutation({
     mutationFn: async (itemId: number) => {
       const slot = Number(asset.ref.split(":")[1]);
@@ -131,7 +100,7 @@ function AssetCard({
       await refresh();
     },
   });
-  // No character for this role yet: make one from the role's name, give it the role, then open its look.
+  // No character for this role yet: make one from the role and give it to the slot. It joins the brand's Cast & places, where its look is made and approved.
   const makeLook = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/library/{kind}", {
@@ -148,7 +117,6 @@ function AssetCard({
       if (!data) throw new Error(errorText(error));
       await choose.mutateAsync(data.id);
     },
-    onSuccess: () => setOpen(true),
   });
   const status = STATUS[asset.sheet_status] ?? STATUS.none;
   const sheet = item.data?.sheet_file_id;
@@ -234,47 +202,22 @@ function AssetCard({
               )}
             </div>
           )}
-          {!asset.locked && id !== null && (
-            <div className="flex flex-wrap gap-2">
-              {asset.sheet_status === "needs_approval" && (
-                <Button
-                  busy={approve.isPending}
-                  onClick={() => approve.mutate()}
-                >
-                  Approve
-                </Button>
-              )}
-              {asset.sheet_status === "approved" ? (
-                // An approved look is not redrawn here: a picked character is shared with every video.
-                <Button
-                  variant="secondary"
-                  busy={unapprove.isPending}
-                  onClick={() => unapprove.mutate()}
-                >
-                  Undo approval
-                </Button>
-              ) : (
-                <Button variant="secondary" onClick={() => setOpen(true)}>
-                  Make the look
-                </Button>
-              )}
-            </div>
-          )}
-          {(approve.error ?? unapprove.error ?? choose.error ?? makeLook.error) && (
+          {!asset.locked &&
+            id !== null &&
+            asset.sheet_status !== "approved" && (
+              <Link
+                to={`/b/${brandId}/library/${kind === "place" ? "places" : "characters"}/${id}`}
+                className="inline-flex min-h-control items-center text-accent-text hover:underline sm:min-h-control-dense"
+              >
+                Make its look in Cast &amp; places
+              </Link>
+            )}
+          {(choose.error ?? makeLook.error) && (
             <p role="alert" className={errorClass}>
-              {(approve.error ?? unapprove.error ?? choose.error ?? makeLook.error)!.message}
+              {(choose.error ?? makeLook.error)!.message}
             </p>
           )}
         </div>
-        {open && item.data && (
-          <Panel title={title} onClose={() => setOpen(false)}>
-            <SheetPanel
-              item={item.data}
-              kind={kind}
-              ensureSaved={async () => {}}
-            />
-          </Panel>
-        )}
       </Card>
     </section>
   );
