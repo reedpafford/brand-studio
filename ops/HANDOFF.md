@@ -1,4 +1,4 @@
-as of a4e601f · 2026-10-25 16:10 UTC
+as of 88d720c · 2026-10-25 16:35 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -22,6 +22,9 @@ as of a4e601f · 2026-10-25 16:10 UTC
 - Library and writing flow: Characters and Publish steps (#236); Scripts home with list, filters and search (#226), New script, writing frame and Description (#230), variations of a library script (#234), field counters never wrap (#232), QA follow-ups on zip, allowance lock and wording (#231); Prompts: grind before the payoff, hook opens on the inciting exchange, cast slot kinds (#241). Specs: Usage brand tracker (#238), editors see the versions they're making at the top of the library (#244), writing frame step 5 is Cast (#233), Reed's remake verdict and rules (#237).
 - Library and usage, continued: cast read `POST /scripts/{id}/cast/read` with slot kind and "appears in" (#239, #253); version panel (#243) and its server fields, `versions[].editor`, `script_draft_id` on projects, jobs say which script or version they're for (#249); Variations step: None/1/2, write at one price, compare, approve each (#250); undo approval and a version's earlier texts (#254); Usage tracker: every charge records its brand (#242), when a video became "Video done", only a full download of every picked take counts (#245), summary, brands and one brand, owner only (#247), a brand's videos, scripts and every charge as paged lists (#252). Specs: Copy a new link and stacked invite rows on phones (#251).
 - Library and usage, latest: Write all, `POST /scripts/{id}/write` and `POST /scripts/write` (up to 50, an editor's weekly allowance must cover the total) (#255); version panel fields: estimate, "Variation of A", clips, who planned it (#257); library list gaps: poster, "Didn't finish", reel filter and name, sort and page (#260), paged in the query (#264); usage lists in fewer queries (#258); Team "Copy a new link" and the held-clip line (#240); `fake_run` covers bulk create and Write all (#263); Writing spec: Bulk create is a side panel on desktop (#267).
+- Screens, latest: the Usage brand tracker screen (#256) and Bulk create and Write all (#266; open to editors too, with Write all disabled past their allowance, per the Producer). Reel import (Reed, ops/DECISIONS.md #270, #271): paste a reel link or upload the video in New script; the app downloads, transcribes, detects shots and fills the script (reel's dialogue kept word for word by default) and cast slots; several links pasted in Bulk create each become a draft; cost shown first. Spec (#272) and server plan (#273) are merged; build comes after the open PRs land.
+- Also merged: Scripts "Making now", who is making a version, version videos out of the old list (#259); reel import spec with realistic sample prices, a read is about 7 credits (#274).
+- Context hygiene (Reed, 2026-10-25, `ops/AGENTS.md`, #280): a worker that finishes a batch of PRs above about 60% of its context, or has compacted repeatedly, is restarted fresh by the Producer; the old worker pushes everything and lists its open PRs and unopened branches; after any compaction re-read this file and `ops/DECISIONS.md`. The current session table lives in `ops/AGENTS.md`.
 - Redesign, continued: Brand frame and Look (#205), Products and App screens (#209), Sign in / setup / invite (#213), Approvals (#219), Team (#221).
 - More redesign: Script step (#185), Shots step (#186), Videos home follow-up (#193), Quick clip (#183).
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
@@ -48,17 +51,18 @@ as of a4e601f · 2026-10-25 16:10 UTC
 - Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet. Video A (fomo altar remake, 42 s) ran on main e872e39: $7.26 of Reed's $10 remake budget per ops/SPEND.md (week total $17.22, over the $15 test cap with Reed's approval); a variations eval cost $0.28. Reed's verdict on the remake is not recorded on GitHub yet. A second reel remake (Betty, reel De4ohoJolPe, 50 s) ran with Reed's approval of up to $10: $8.81 total per ops/SPEND.md; week total $26.43. Reed's verdict (ops/DECISIONS.md, #237): both remakes close, neither passed yet; the altar reel is re-run after the weekly cap resets Monday with the grind-before-payoff and hook fixes (estimate first, up to $10); Betty waits for the montage rule.
 ## Workflow v2 (Reed's decisions, 2026-10-25, ops/DECISIONS.md)
 - Owner writes a script (title, description, optional reference reel), runs Enhance, picks 0–2 variations, locks characters, optionally previews the breakdown, and publishes to the Script Library. Editors pick a version and produce it once (max 3 videos per script). Editors can write their own scripts: $15 a week free generation each, beyond that declined. Cast slots (#197): once the script and variations are approved, every named or recurring role is an optional cast slot; a locked slot is used as-is in every shot and version. No final-video upload: download clips one by one or all at once, older takes too.
-## Open PRs (6, not counting the Scribe's own)
-- #268 Scripts library: paging, reel filter, sort, poster, Didn't finish | Builder-Screens | in review
-- #266 Scripts: Bulk create and Write all | Builder-Screens | Designer pass at d1cade3 (head since moved to dc3dcb6); spec gap: Bulk create is Reed-only, the spec lets editors use it too (follow-up if the Producer agrees)
-- #265 Version panel: variation of, planned by, clips and the estimate | Builder-Screens | Designer pass at cb6d433 (current head)
-- #262 Variations: Undo approval, Remove, Earlier, and the running write from the job list | Builder-Screens | Designer pass at 5b8b31e (current head)
-- #259 Scripts: who is making a version, Making now, and version videos out of the old list | Builder-Screens | Designer pass at 99cc1ec (head since moved to 7b2d592)
-- #256 Usage: the brand tracker | Builder-Screens | Designer pass at 4db47af (head since moved to d8cb68e)
+## Open PRs (7, not counting the Scribe's own)
+- #279 Reel import 1/5: migration 0031 and the script's own reel | Builder-Server | QA pass at a5737b3 (current head)
+- #278 Script draft keeps the reel's dialogue word for word; "new lines" is a switch | Director | in review
+- #277 Plan: reel import, the Director's part | Director | in review
+- #276 A Redo note never changes the dialogue | Director | fix: QA must-fix at 8f63171 (the check blocks harmless notes such as "Please speak more slowly"); head since moved to f6c3617
+- #268 Scripts library: paging, reel filter, sort, poster, Didn't finish | Builder-Screens | in review (head now c4b4976)
+- #265 Version panel: variation of, planned by, clips and the estimate | Builder-Screens | Designer pass at cb6d433 (head since moved to 914a924)
+- #262 Variations: Undo approval, Remove, Earlier, and the running write from the job list | Builder-Screens | Designer pass at 5b8b31e (head since moved to 5c9ab4a)
 ## Next
-- Builder-Server: no server PR open. Note from QA on #255: an editor viewing someone else's published script gets 403 from the history route, so the screens must not ask for it.
-- Builder-Screens: land #256, #259, #262, #265, #266, #268; Bulk create for editors if the Producer agrees.
-- Director: re-run the altar reel after the cap resets Monday (estimate first, up to $10); Betty after the montage rule; paid runs only with Producer approval, logged in ops/SPEND.md.
+- Builder-Server: land #279, then reel import 2/5 onward per the plan in #273. Note from QA on #255: an editor viewing someone else's published script gets 403 from the history route, so the screens must not ask for it.
+- Builder-Screens: land #262, #265, #268; then the reel import screens (#272).
+- Director: fix #276 (QA's two changes: only count known names as speakers, narrow the reword check, add a test); land #278 and #277; re-run the altar reel after the cap resets Monday (estimate first, up to $10); Betty after the montage rule; paid runs only with Producer approval, logged in ops/SPEND.md.
 - Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (per the Producer); Reed's verdict on the new altar version.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed

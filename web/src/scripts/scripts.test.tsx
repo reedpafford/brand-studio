@@ -400,7 +400,7 @@ test("Variations side by side: changed lines are marked, a draft can be approved
   const marked = Array.from(b.querySelectorAll("span.bg-mark")).map((e) => e.textContent);
   expect(marked).toEqual(["SCENE 1 — SHOWROOM"]);
   expect(screen.getByRole("button", { name: /Next: Cast/ })).toBeDisabled();
-  expect(screen.getByRole("button", { name: /Next: Cast/ })).toHaveAccessibleDescription("Approve variation B first.");
+  expect(screen.getByRole("button", { name: /Next: Cast/ })).toHaveAccessibleDescription("Approve or remove variation B first.");
   await userEvent.click(within(b).getByRole("button", { name: "Approve" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/1/approve")).toBe(true));
 });
@@ -546,6 +546,152 @@ test("Variations: an editor on their own script past the week's allowance can't 
   const write = await screen.findByRole("button", { name: /Write 1 variation/ });
   await vi.waitFor(() => expect(write).toBeDisabled());
   expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
+});
+
+test("Variations: an approved variation can be un-approved, and a draft can be removed after a question", async () => {
+  setViewport(1440);
+  const both = approvedOriginal([ver(1, { text: "B words", status: "approved" }), ver(2, { text: "C words" })]);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, both],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /scripts/7/drafts/2/history": [200, []],
+    "DELETE /scripts/7/drafts/1/approve": [200, approvedOriginal([ver(1, { text: "B words" }), ver(2, { text: "C words" })])],
+    "DELETE /scripts/7/drafts/2": [200, approvedOriginal([ver(1, { text: "B words", status: "approved" })])],
+  });
+  open("/b/1/scripts/7?step=variations");
+  const b = await screen.findByLabelText("Version B", { exact: true });
+  await userEvent.click(within(b).getByRole("button", { name: "Undo approval" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/1/approve")).toBe(true));
+  const c = screen.getByLabelText("Version C", { exact: true });
+  await userEvent.click(within(c).getByRole("button", { name: "More for version C" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Remove variation C" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Remove variation C?" });
+  expect(within(ask).getByText("It won't be made.")).toBeInTheDocument();
+  await userEvent.click(within(ask).getByRole("button", { name: "Remove" }));
+  await vi.waitFor(() => expect(calls.some((c2) => c2.key === "DELETE /scripts/7/drafts/2")).toBe(true));
+});
+
+test("Variations: earlier texts of a draft can be brought back", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, approvedOriginal([ver(1, { text: "B now" })])],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /scripts/7/drafts/1/history": [200, [{ id: 5, text: "B before", title: "", words: 2, source: "variations", created_at: "2026-10-25T10:00:00Z", created_by_name: "Reed" }, { id: 6, text: "B now", title: "", words: 2, source: "edit", created_at: "2026-10-25T11:00:00Z", created_by_name: "Reed" }]],
+    "PUT /scripts/7/drafts/1": [200, approvedOriginal([ver(1, { text: "B before" })])],
+  });
+  open("/b/1/scripts/7?step=variations");
+  const b = await screen.findByLabelText("Version B", { exact: true });
+  await userEvent.click(await within(b).findByRole("button", { name: "Earlier: 1" })); // the text on screen isn't listed
+  expect(await screen.findByText("B before")).toBeInTheDocument(); // the first line that differs, to tell entries apart
+  await userEvent.click(await screen.findByRole("menuitem", { name: /written · 2 words/ }));
+  expect(await screen.findByText("Brought back the written text from earlier.")).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/1")?.body).toEqual({ text: "B before" }));
+});
+
+test("Variations: a write that is going for this script shows as writing from the job list alone", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /scripts/7": [200, approvedOriginal()],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /jobs": [200, [{ id: 3, kind: "write-claude", step: "variations", script_id: 7, status: "running", credits: 6, project_id: null, created_at: "2026-10-25T10:00:00Z" }, { id: 4, kind: "write-claude", step: "variations", script_id: 8, status: "running", credits: 6, project_id: null, created_at: "2026-10-25T10:00:00Z" }]],
+  });
+  open("/b/1/scripts/7?step=variations");
+  expect(await screen.findByRole("status", { name: "Writing variations" })).toBeInTheDocument();
+});
+
+test("Variations: a write going for another script doesn't stop this one", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /scripts/7": [200, approvedOriginal()],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /jobs": [200, [{ id: 4, kind: "write-claude", step: "variations", script_id: 8, status: "running", credits: 6, project_id: null, created_at: "2026-10-25T10:00:00Z" }]],
+  });
+  open("/b/1/scripts/7?step=variations");
+  expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument();
+  expect(screen.queryByRole("status", { name: "Writing variations" })).not.toBeInTheDocument();
+});
+
+test("Variations: another editor's script doesn't offer Earlier texts, and never asks for them", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /auth/me": [200, editor],
+    "GET /scripts/7": [200, { ...approvedOriginal([ver(1, { text: "B now" })]), created_by_id: 1 }],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /scripts/7/drafts/1/history": [403, { detail: "No" }],
+  });
+  open("/b/1/scripts/7?step=variations");
+  await screen.findByLabelText("Version B", { exact: true });
+  expect(screen.queryByRole("button", { name: /Earlier/ })).not.toBeInTheDocument();
+  expect(calls.some((c) => c.key === "GET /scripts/7/drafts/1/history")).toBe(false);
+});
+
+test("an In production chip names who is making it; yours opens your video, someone else's opens the panel that says so", async () => {
+  setViewport(1440);
+  const rows = [script({ versions: [v(0, "in_production", { project_id: 31, editor: { id: 2, name: "Sam" } }), v(1, "in_production", { project_id: 32, editor: { id: 3, name: "Jo" } })] })];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, rows], "GET /scripts/7": [200, { ...script(), versions: rows[0].versions.map((x) => ({ ...x, text: "Hi" })) }], "GET /scripts/7/cast": [200, []] });
+  open();
+  // (The fake answers the Making now list with the same rows, so the script shows twice.)
+  expect((await screen.findAllByText("A · In production · you")).length).toBeGreaterThan(0);
+  expect(screen.getAllByText("B · In production · Jo").length).toBeGreaterThan(0);
+  expect(screen.getAllByLabelText("Version A, in production by you")[0].closest("a")).toHaveAttribute("href", "/b/1/projects/31");
+  await userEvent.click(screen.getAllByLabelText("Version B, in production by Jo")[0]);
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" });
+  expect(await within(panel).findByText("Jo is making this version.")).toBeInTheDocument();
+  expect(within(panel).queryByRole("button", { name: /Make this version/ })).not.toBeInTheDocument();
+});
+
+test("an editor's own started versions are under Making now, even when the list is only Ready to make", async () => {
+  setViewport(1440);
+  const mine = script({ id: 5, title: "Sam's reel", versions: [v(0, "in_production", { project_id: 40, editor: { id: 2, name: "Sam" } })] });
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, [mine]] });
+  open();
+  const section = await screen.findByRole("region", { name: "Making now" });
+  expect(within(section).getByText("Sam's reel")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "GET /scripts")).toBe(true);
+});
+
+test("a video made from a library version isn't listed under Videos made before scripts", async () => {
+  const mk = (id: number, o: object = {}) => ({ id, brand_id: 1, name: `Reel ${id}`, planned_seconds: 30, status: "active", goal: "", platform: "", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null, estimate_credits: 0, budget_credits: 0, credits_used: 0, budget_pct: 0, ...o });
+  fakeServer({ ...base, "GET /scripts": [200, []], "GET /projects": [200, [mk(1), mk(2, { script_draft_id: 9 })]] });
+  open();
+  const section = await screen.findByRole("region", { name: "Videos made before scripts" });
+  expect(await within(section).findByText("Videos made before scripts (1)")).toBeInTheDocument();
+});
+
+test("a script with one version started and another still ready stays in the editor's main list", async () => {
+  setViewport(1440);
+  const half = script({ id: 5, title: "Half made", status: "in_production", versions: [v(0, "in_production", { project_id: 40, editor: { id: 2, name: "Sam" } }), v(1, "approved")] });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+      const url = new URL(req.url);
+      const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
+      const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+      if (key === "GET /scripts") return ok(url.searchParams.get("status") === "in_production" ? [half] : []); // Ready to make leaves it out
+      if (key === "GET /auth/me") return ok(editor);
+      return ok(key in base ? base[key][1] : []);
+    }),
+  );
+  open();
+  expect(await screen.findByRole("region", { name: "Making now" })).toBeInTheDocument();
+  expect(screen.queryByText("No scripts ready to make yet.")).not.toBeInTheDocument();
+  expect(screen.getAllByText("Half made")).toHaveLength(2); // under Making now and in the list
+});
+
+test("Making now keeps a version whose clips are ready too", async () => {
+  setViewport(1440);
+  const mine = script({ id: 5, title: "Clips ready reel", versions: [v(0, "clips_ready", { project_id: 40, editor: { id: 2, name: "Sam" } })] });
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, [mine]] });
+  open();
+  const section = await screen.findByRole("region", { name: "Making now" });
+  expect(within(section).getByText("Clips ready reel")).toBeInTheDocument();
+  expect(within(section).getByText("A · In production · you")).toBeInTheDocument();
 });
 
 test("Bulk create: pasted lines become rows, every row needs a title and what it's for, then drafts are made and Write all asks Claude at one price", async () => {

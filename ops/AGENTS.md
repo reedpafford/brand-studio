@@ -23,6 +23,24 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 - One test per behaviour; no snapshot dumps. Delete tests with the code they cover.
 - ops/ files: HANDOFF under 60 lines, LOG trimmed monthly, DECISIONS one line each.
 
+## Context hygiene (Reed, 2026-10-25)
+- **When to restart:** when a worker finishes a batch of PRs and is above about 60% of its context (or has auto-compacted repeatedly), the Producer restarts it fresh instead of letting it compact mid-task.
+- **How:** the old worker pushes everything and lists its open PRs and unopened branches, with a short handoff. The new session starts from HANDOFF, DECISIONS, this file and those PRs, and takes over watching them. The Producer sends everyone (Status Desk included) the new session ID and updates the table below, then archives the old session.
+- **After any compaction:** re-read ops/HANDOFF.md and ops/DECISIONS.md before acting.
+
+## Sessions (current)
+| Agent | Session |
+|---|---|
+| Builder-Server | session_018dLQ8ebqVoMUp8bEcDnRdm |
+| Builder-Screens | session_013xVoaqhuxDbQHgFs6wFfHp |
+| QA (server, prompts) | session_01L3trFnC1utKkDjLLTxrx71 |
+| QA-2 (web) | session_0151NB9uZupi8GLzzTbeAtEv |
+| Designer | session_018EZgdP2tfyzLp1eHTwPkJJ |
+| Director | session_01HeFuWAEdxcgfha4QYoAC3Z |
+| Scribe | session_01KaFbhckt39bp16rrK4Ncoa |
+| Release | session_01BGZgB9afnDnbYURA7D11gk |
+| Status Desk | session_01GYxBJctxeeNdzejMuRiCW6 |
+
 ## Limits
 - Paid calls only within the $15/week cap, logged in ops/SPEND.md, asked through the Producer.
 - Never touch story-studio or its live server.

@@ -19,6 +19,12 @@ class Script(Entity, Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     reference_id: Mapped[str | None] = mapped_column(String(80))  # a GET /references reel
     reference_replace: Mapped[str] = mapped_column(Text, default="")
+    # Reel import (docs/design/reel-import-server.md): the reel's own breakdown, wins over
+    # reference_id; `reel` holds the video, transcript and cuts; the latest import job.
+    reference_breakdown: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
+    reel: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
+    reel_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
+    new_lines: Mapped[bool] = mapped_column(default=False)  # "Write new lines in the same style"
     published: Mapped[bool] = mapped_column(default=False)  # editors see others' once published
     archived: Mapped[bool] = mapped_column(default=False)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))

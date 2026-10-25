@@ -1,6 +1,19 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 16:32 · #280 AGENTS: context hygiene rules and current session IDs merged
+- 2026-10-25 16:35 · Decision (#280, Reed): context hygiene. A worker above about 60% of its context after a batch of PRs is restarted fresh by the Producer with a pushed-everything handoff; re-read HANDOFF and DECISIONS after any compaction.
+- 2026-10-25 16:23 · #259 Scripts: who is making a version, Making now, and version videos out of the old list merged
+- 2026-10-25 16:20 · #275 ops: HANDOFF/LOG refresh 2026-10-25 16:20Z (by the Producer) merged
+- 2026-10-25 16:19 · #274 Reel import spec: realistic sample prices merged
+- 2026-10-25 16:17 · #273 Plan: reel import (server) merged
+- 2026-10-25 16:17 · #272 Reel import spec merged
+- 2026-10-25 16:16 · #266 Scripts: Bulk create and Write all merged
+- 2026-10-25 16:13 · #269 ops: HANDOFF/LOG refresh 2026-10-25 16:10Z (by the Producer) merged
+- 2026-10-25 16:12 · #271 Decisions: keep the reference's dialogue by default; bulk reel links merged
+- 2026-10-25 16:12 · #270 Decisions: reel import in New script; redo notes can't change dialogue merged
+- 2026-10-25 16:11 · #256 Usage: the brand tracker merged
+- 2026-10-25 16:20 · Decisions (#270, #271): reel import in New script (link or upload, cost first); redo notes can't change dialogue; a script adapting a reference keeps the reel's dialogue word for word by default; several reel links in Bulk create each become a draft.
 - 2026-10-25 15:44 · #267 Writing spec: Bulk create is a side panel on desktop merged
 - 2026-10-25 15:36 · #264 Page the Script Library list in the query merged
 - 2026-10-25 15:32 · #263 fake_run: cover Write all on the stand-ins merged

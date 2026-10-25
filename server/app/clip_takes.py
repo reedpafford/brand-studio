@@ -71,7 +71,8 @@ def _with_note(prompt: str, note: str) -> str:
     if not note:
         return prompt
     lines = prompt.rstrip().splitlines()
-    return "\n".join([*lines[:-1], f"Change from the last take: {note}", lines[-1]])
+    keep = "The spoken lines stay exactly as written above; nobody else speaks."
+    return "\n".join([*lines[:-1], f"Change from the last take: {note} {keep}", lines[-1]])
 
 
 def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
