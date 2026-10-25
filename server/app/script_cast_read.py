@@ -71,9 +71,13 @@ def save_cast_slots(db: Session, job: Job) -> None:
         return  # published scripts are final
     result = CastSlots.model_validate(job.output)
     have = {s.role.lower(): s for s in _slots(db, script)}
-    order = []
+    order, done = [], {}
     for made in result.slots:
-        slot = have.pop(made.role.lower(), None)
+        key = made.role.lower()
+        if key in done:  # Claude listed a role twice: one slot, in either's versions
+            done[key].appears_in = sorted({*done[key].appears_in, *made.appears_in})
+            continue
+        slot = have.pop(key, None)
         if slot is None:
             kind = getattr(made, "kind", None) or ("Main" if made.recurring else "Helper")
             slot = ScriptCastSlot(script_id=script.id, role=made.role[:120], kind=kind)
@@ -82,6 +86,7 @@ def save_cast_slots(db: Session, job: Job) -> None:
             slot.description = made.description
         slot.appears_in = sorted(set(made.appears_in))
         order.append(slot)
+        done[key] = slot
     for slot in have.values():
         slot.appears_in = []  # the script doesn't name it any more
     for position, slot in enumerate([*order, *have.values()], 1):  # others keep their order

@@ -2,6 +2,7 @@
 
 from app.models.jobs import Job
 from app.models.script_library import Script
+from app.script_cast_read import save_cast_slots
 from tests.conftest import upload
 from tests.helpers import with_sheet
 from tests.test_script_library import SCRIPT, _make
@@ -60,3 +61,23 @@ def test_publish_waits_for_a_read_and_a_late_result_is_dropped(app, db, owner):
     db.commit()
     _work(app, db)
     assert owner.get(base).json()["cast"] == []
+
+
+def test_a_role_listed_twice_is_one_slot(db, owner):
+    """QA #239: Claude naming a role twice merges it, instead of failing after the paid call."""
+    made = _make(owner, text=SCRIPT)
+    script = db.get(Script, made["id"])
+    row = {"description": "teen", "recurring": True}
+    job = Job(  # the finished job as the worker hands it over (not saved)
+        input={"step": "cast_slots", "script_id": script.id},
+        output={
+            "slots": [
+                {**row, "role": "Nate", "appears_in": [0]},
+                {**row, "role": "nate", "appears_in": [1]},
+            ]
+        },
+    )
+    save_cast_slots(db, job)
+    db.commit()
+    cast = owner.get(f"/scripts/{made['id']}").json()["cast"]
+    assert [(s["role"], s["appears_in"]) for s in cast] == [("Nate", [0, 1])]
