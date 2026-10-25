@@ -350,7 +350,7 @@ function ScriptItem({ row: r, brandName, refName, narrow, mayOpen }: { row: Row;
       <div className="min-w-0 flex-1 space-y-1">
         <h3 className="font-display text-md font-bold">
           {mayOpen ? (
-            <Link to={`/b/${brandId}/scripts/${r.id}`} className="hover:underline">
+            <Link to={`/b/${brandId}/scripts/${r.id}${r.published ? "?step=publish" : ""}`} className="hover:underline">
               {r.title}
             </Link>
           ) : (

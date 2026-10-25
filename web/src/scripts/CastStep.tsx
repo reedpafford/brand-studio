@@ -31,7 +31,7 @@ export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; br
         </div>
       )}
       {cast.data && slots.length === 0 && (
-        <EmptyState icon={Users} title="No roles yet." action={!readOnly ? <Button onClick={() => setAdding(true)}>Add a role</Button> : undefined}>
+        <EmptyState icon={Users} title="No roles yet." action={!readOnly ? <Button variant="secondary" onClick={() => setAdding(true)}>Add a role</Button> : undefined}>
           Everyone will be made at Assets. Add a role to lock one look for it in every version.
         </EmptyState>
       )}

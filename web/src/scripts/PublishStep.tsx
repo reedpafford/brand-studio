@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Info, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -14,12 +13,11 @@ const LETTER = ["A", "B", "C"];
 const NAME = ["Original", "Variation", "Variation"];
 
 /** Step 7: a card per version, then Publish. After it the words are final; a published script can only be duplicated. */
-export function PublishStep({ script: s, brandId }: { script: Script; brandId: number }) {
+export function PublishStep({ script: s, brandId, asking, onAsking }: { script: Script; brandId: number; asking: boolean; onAsking: (v: boolean) => void }) {
   const cast = useCast(s.id);
   const toast = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [asking, setAsking] = useState(false);
   const versions = s.versions.filter((v) => v.text.trim() !== "");
   const slots = cast.data ?? [];
   const publish = useMutation({
@@ -39,7 +37,7 @@ export function PublishStep({ script: s, brandId }: { script: Script; brandId: n
       toast(`Published. ${versions.length} version${versions.length === 1 ? "" : "s"} ${versions.length === 1 ? "is" : "are"} ready to make.`);
       navigate(`/b/${brandId}/scripts`);
     },
-    onError: () => setAsking(false),
+    onError: () => onAsking(false),
   });
   const duplicate = useMutation({
     mutationFn: async () => {
@@ -57,8 +55,7 @@ export function PublishStep({ script: s, brandId }: { script: Script; brandId: n
   return (
     <div className="space-y-4">
       {s.published ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <Badge icon={Lock}>Published · final</Badge>
+        <div>
           <Button variant="secondary" icon={Copy} busy={duplicate.isPending} onClick={() => duplicate.mutate()}>
             Duplicate script
           </Button>
@@ -82,8 +79,8 @@ export function PublishStep({ script: s, brandId }: { script: Script; brandId: n
                 <div>
                   <dt className="font-medium text-muted">Words</dt>
                   <dd className="flex items-center gap-1">
-                    <Check size={16} strokeWidth={1.75} aria-hidden className="text-success" />
-                    {v.status === "draft" ? "Approved when you publish" : "Approved"}
+                    {v.status !== "draft" && <Check size={16} strokeWidth={1.75} aria-hidden className="text-success" />}
+                    {v.status === "draft" ? "When you publish" : "Approved"}
                   </dd>
                 </div>
                 <div>
@@ -108,17 +105,10 @@ export function PublishStep({ script: s, brandId }: { script: Script; brandId: n
           </li>
         ))}
       </ul>
-      {!s.published && (
-        <>
-          <Button disabled={versions.length === 0} reason={versions.length === 0 ? "Write the script first" : undefined} onClick={() => setAsking(true)}>
-            Publish {versions.length} version{versions.length === 1 ? "" : "s"}
-          </Button>
-          {asking && (
-            <Dialog title={`Publish ${versions.length} version${versions.length === 1 ? "" : "s"} of ${s.title}?`} cancelLabel="Not yet" actionLabel="Publish" busy={publish.isPending} onCancel={() => setAsking(false)} onConfirm={() => publish.mutate()}>
-              Their words become final.
-            </Dialog>
-          )}
-        </>
+      {asking && !s.published && (
+        <Dialog title={`Publish ${versions.length} version${versions.length === 1 ? "" : "s"} of ${s.title}?`} cancelLabel="Not yet" actionLabel="Publish" busy={publish.isPending} onCancel={() => onAsking(false)} onConfirm={() => publish.mutate()}>
+          Their words become final.
+        </Dialog>
       )}
     </div>
   );

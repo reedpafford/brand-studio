@@ -30,6 +30,7 @@ export function ScriptFlowPage() {
   const script = useScript(id);
   const patch = usePatchScript(id);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false); // the Publish confirmation, opened from the Next slot
   const [editing, setEditing] = useState(false); // a form is open on this step: its own button is the amber one
   const allowance = useQuery({
     enabled: me?.role !== undefined && me.role !== "owner",
@@ -57,11 +58,17 @@ export function ScriptFlowPage() {
   const { prev, next } = around(step);
   const nextReason = !next ? null : (step === "script" || step === "description") && !hasWords(s) && step === "script" ? "Write or paste the script first" : null;
   const label = WRITING_STEPS[at].label;
-  const nextButton = next && !editing && (
+  const toPublish = s.versions.filter((v) => v.text.trim() !== "").length;
+  const publishButton = step === "publish" && !s.published && (
+    <Button disabled={toPublish === 0} reason={toPublish === 0 ? "Write the script first" : undefined} onClick={() => setAsking(true)}>
+      Publish {toPublish} version{toPublish === 1 ? "" : "s"}
+    </Button>
+  );
+  const nextButton = publishButton || (next && !editing && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
-  );
+  ));
   const backButton = prev && (
     <Button variant="ghost" icon={ChevronLeft} aria-label={rail ? undefined : "Back"} onClick={() => go(prev.id)}>
       {rail ? "Back" : ""}
@@ -140,7 +147,7 @@ export function ScriptFlowPage() {
       {step === "description" && <DescriptionStep script={s} brandName={brandName} onEditing={setEditing} onDone={() => toast("Description saved.")} />}
       {step === "script" && <ScriptStep scriptId={id} script={s} onEditing={setEditing} />}
       {step === "cast" && <CastStep scriptId={id} brandId={brandId} readOnly={s.published} />}
-      {step === "publish" && <PublishStep script={s} brandId={brandId} />}
+      {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}
     </main>
   );
 }
