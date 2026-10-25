@@ -23,7 +23,7 @@ const LETTER = ["A", "B", "C"];
 /** A version someone has started and not finished: its words are being made into a video. */
 export const beingMade = (status: string) => status === "in_production" || status === "clips_ready";
 
-const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof Check }> = {
+export const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof Check }> = {
   draft: { label: "Writing", tone: "neutral", icon: Pencil },
   approved: { label: "Ready to make", tone: "accent" },
   in_production: { label: "In production", tone: "warning", icon: Clock },
@@ -73,7 +73,7 @@ const lengthText = (versions: Version[]) => {
   return lo === hi ? `about ${lo} s` : `about ${lo}–${hi} s`;
 };
 
-function useDebounced<T>(value: T, ms = 300) {
+export function useDebounced<T>(value: T, ms = 300) {
   const [settled, setSettled] = useState(value);
   useEffect(() => {
     const t = setTimeout(() => setSettled(value), ms);

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import prompts
+from app import script_library as lib
 from app.enhance import escape, project_context, project_screens
 from app.models.brands import Brand
 from app.models.jobs import Job
@@ -90,6 +91,7 @@ def save_variations(db: Session, job: Job) -> None:
         if not draft:
             draft = ScriptDraft(script_id=script.id, slot=slot)
             db.add(draft)
+        lib.keep_text(db, draft, made.script, "variations", job.created_by_id)
         draft.text, draft.title, draft.premise = made.script, made.title, made.premise
         draft.changes, draft.problems, draft.job_id = made.changes, _mine(found, n), job.id
-        draft.breakdown, draft.breakdown_problems = None, []  # made for the old words
+        draft.breakdown, draft.breakdown_problems, draft.breakdown_by_id = None, [], None

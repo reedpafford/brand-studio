@@ -67,3 +67,18 @@ def test_preview_follows_the_script_rules(app, owner, editor):
         assert editor.post(f"/scripts/{mine['id']}/drafts/0/breakdown").status_code == 503
     finally:
         app.state.settings.generation_enabled = True
+
+
+def test_a_version_shows_its_estimate_clips_planner_and_original(owner, db):
+    """The version panel (#243)."""
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    owner.put(f"{base}/drafts/0", json={"text": SCRIPT, "target_seconds": 40})
+    owner.put(f"{base}/drafts/1", json={"text": SCRIPT + "\nNATE: Fine."})
+    first, second = owner.get(base).json()["versions"]
+    assert (first["variation_of"], second["variation_of"]) == (None, "A")
+    assert (first["estimate_credits"], first["clips"], first["planned_by"]) == (40, 0, None)
+    owner.put(f"{base}/drafts/0/breakdown", json=BREAKDOWN)
+    first = owner.get(base).json()["versions"][0]
+    assert first["clips"] == len(BREAKDOWN["clips"]) and first["planned_by"]["name"] == "Reed"
+    assert first["estimate_credits"] == sum(c["seconds"] for c in BREAKDOWN["clips"])

@@ -158,10 +158,10 @@ test("an editor who opens Approvals sees no held work and no dollars", async () 
   expect(screen.queryByText(/Clip take/)).not.toBeInTheDocument();
 });
 
-test("a held Quick clip says why it is held: past the editor's weekly allowance", async () => {
-  fakeServer({ ...base, "GET /jobs": [200, [held({ id: 60, project_id: null, step: null, kind: "video", created_by_name: "Sam", prompt_summary: "Mia hits the buy moment" })]], "GET /credits/limits": [200, { weekly_quick_clip_credits: 150, per_video_max_credits: 340 }] });
+test("a held Quick clip says why it is held: that editor's week, from the allowances", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [held({ id: 60, project_id: null, step: null, kind: "video", created_by_id: 7, created_by_name: "Sam", prompt_summary: "Mia hits the buy moment" })]], "GET /credits/allowances": [200, [{ user_id: 7, name: "Sam", quick_clip_credits_used: 10, quick_clip_credits_allowed: 1 }]] });
   open();
-  expect(await screen.findByText("Past Sam's weekly allowance (150 credits)")).toBeInTheDocument();
+  expect(await screen.findByText("Sam's quick clips this week: 10 of 1 credit")).toBeInTheDocument();
 });
 
 test("if Approve all stops part way, the page refreshes and says how many went through", async () => {

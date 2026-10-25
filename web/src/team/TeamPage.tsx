@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
 import { api, errorText } from "../api/client";
@@ -116,14 +116,16 @@ export function TeamPage() {
           <Card className="p-0 sm:p-0">
             <ul className="divide-y divide-border">
               {invites.data.map((i) => (
-                <li key={i.id} className="flex flex-wrap items-center gap-3 p-3 text-sm sm:px-5">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{i.email}</span>
+                <li key={i.id} className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:px-5">
+                  <span className="min-w-0 sm:flex-1">
+                    <span className="block break-all font-medium">{i.email}</span>
                     <span className="block text-muted">{ROLE[i.role as keyof typeof ROLE] ?? i.role} · expires {day(i.expires_at)}</span>
                   </span>
-                  <Button variant="ghost" dense aria-label={`Cancel invite for ${i.email}`} busy={cancel.isPending} onClick={() => cancel.mutate(i.id)}>
-                    Cancel
-                  </Button>
+                  <CopyLink id={i.id} email={i.email}>
+                    <Button variant="ghost" dense aria-label={`Cancel invite for ${i.email}`} busy={cancel.isPending} onClick={() => cancel.mutate(i.id)}>
+                      Cancel
+                    </Button>
+                  </CopyLink>
                 </li>
               ))}
             </ul>
@@ -137,6 +139,48 @@ export function TeamPage() {
         </Dialog>
       )}
     </main>
+  );
+}
+
+/** A waiting invite's link can't be shown again (only a hash is kept), so Copy link asks for a fresh one: the old link stops working. */
+function CopyLink({ id, email, children }: { id: number; email: string; children?: ReactNode }) {
+  const toast = useToast();
+  const [copied, setCopied] = useState(false);
+  const [byHand, setByHand] = useState<string | null>(null); // the link, shown to copy by hand when the clipboard says no
+  const fresh = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/team/invites/{invite_id}/link", { params: { path: { invite_id: id } } });
+      if (!data) throw new Error(errorText(error));
+      return `${location.origin}/invite/${data.token}`;
+    },
+    onSuccess: async (link) => {
+      try {
+        await navigator.clipboard.writeText(link);
+        setByHand(null);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        toast("Link copied. The old link no longer works.");
+      } catch {
+        setByHand(link);
+        toast("Couldn't copy the link. It's below, to copy by hand.", undefined, "error");
+      }
+    },
+    onError: (e) => toast(e.message, undefined, "error"),
+  });
+  return (
+    <>
+      <span className="flex gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
+        <Button variant="secondary" dense className="whitespace-nowrap" icon={copied ? Check : Copy} aria-label={`Copy a new link for ${email}`} busy={fresh.isPending} onClick={() => fresh.mutate()}>
+          {copied ? "Copied" : "Copy a new link"}
+        </Button>
+        {children}
+      </span>
+      {byHand && (
+        <span className="basis-full">
+          <Field label={`Invite link for ${email}`} readOnly value={byHand} onFocus={(e) => e.currentTarget.select()} />
+        </span>
+      )}
+    </>
   );
 }
 
