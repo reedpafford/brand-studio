@@ -79,8 +79,7 @@ def save_cast_slots(db: Session, job: Job) -> None:
             continue
         slot = have.pop(key, None)
         if slot is None:
-            kind = getattr(made, "kind", None) or ("Main" if made.recurring else "Helper")
-            slot = ScriptCastSlot(script_id=script.id, role=made.role[:120], kind=kind)
+            slot = ScriptCastSlot(script_id=script.id, role=made.role[:120], kind=made.kind)
             db.add(slot)
         if not slot.description:
             slot.description = made.description

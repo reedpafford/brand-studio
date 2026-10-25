@@ -67,7 +67,7 @@ def test_a_role_listed_twice_is_one_slot(db, owner):
     """QA #239: Claude naming a role twice merges it, instead of failing after the paid call."""
     made = _make(owner, text=SCRIPT)
     script = db.get(Script, made["id"])
-    row = {"description": "teen", "recurring": True}
+    row = {"description": "teen", "recurring": True, "kind": "Main"}
     job = Job(  # the finished job as the worker hands it over (not saved)
         input={"step": "cast_slots", "script_id": script.id},
         output={
