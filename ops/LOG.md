@@ -1,6 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 21:14 · #314 ops: HANDOFF/LOG refresh 2026-10-25 21:15Z (by the Producer) merged
+- 2026-10-25 21:14 · #313 Reel transcription: no VAD, so lines over music are kept merged
 - 2026-10-25 21:05 · #308 Library drafts: 12 fomo scripts from catalogue reels merged
 - 2026-10-25 21:05 · #311 Seed refresh loads script drafts from the repo into the library merged
 - 2026-10-25 21:05 · #312 Delete script spec, a basics audit of every object, and an undo/delete review rule merged
