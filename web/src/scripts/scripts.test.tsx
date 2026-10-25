@@ -584,7 +584,9 @@ test("Variations: earlier texts of a draft can be brought back", async () => {
   open("/b/1/scripts/7?step=variations");
   const b = await screen.findByLabelText("Version B", { exact: true });
   await userEvent.click(await within(b).findByRole("button", { name: "Earlier: 1" })); // the text on screen isn't listed
+  expect(await screen.findByText("B before")).toBeInTheDocument(); // the first line that differs, to tell entries apart
   await userEvent.click(await screen.findByRole("menuitem", { name: /written · 2 words/ }));
+  expect(await screen.findByText("Brought back the written text from earlier.")).toBeInTheDocument();
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/1")?.body).toEqual({ text: "B before" }));
 });
 

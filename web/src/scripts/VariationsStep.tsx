@@ -22,6 +22,12 @@ export function changedLines(original: string, text: string): boolean[] {
   return text.split("\n").map((l) => l.trim() !== "" && !had.has(l.trim()));
 }
 
+/** The first line of an earlier text that the text on screen doesn't have, so earlier entries can be told apart. */
+export const firstDifference = (now: string, earlier: string) => {
+  const had = new Set(now.split("\n").map((l) => l.trim()));
+  return earlier.split("\n").map((l) => l.trim()).find((l) => l !== "" && !had.has(l)) ?? "";
+};
+
 /** The variations written so far (slots 1 and 2 with words). */
 export const writtenVariations = (s: Script) => s.versions.filter((v) => v.slot > 0 && v.text.trim() !== "");
 
@@ -227,6 +233,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const toast = useToast();
   const letter = LETTER[v.slot];
   const final = published;
   const earlier = useQuery({
@@ -272,6 +279,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
               >
                 {(close) => (
                   <MenuItem
+                    danger
                     onClick={() => {
                       close();
                       setRemoving(true);
@@ -347,10 +355,13 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
                       key={e.id}
                       onClick={() => {
                         close();
-                        act.edit.mutate({ slot: v.slot, text: e.text });
+                        act.edit.mutate({ slot: v.slot, text: e.text }, { onSuccess: () => toast(`Brought back the ${e.source === "variations" ? "written" : "edited"} text from earlier.`) });
                       }}
                     >
-                      {new Date(e.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {e.source === "variations" ? "written" : "edited"} · {e.words} words
+                      <span className="block">
+                        {new Date(e.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {e.source === "variations" ? "written" : "edited"} · {e.words} words
+                      </span>
+                      <span className="block max-w-64 truncate text-xs text-muted">{firstDifference(v.text, e.text)}</span>
                     </MenuItem>
                   ))
                 }
