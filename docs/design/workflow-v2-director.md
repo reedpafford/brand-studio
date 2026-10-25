@@ -30,19 +30,19 @@ Step name `variations`. The system prompt is `rules.md` + `variations.md` + a wo
 ### Output (what Claude returns)
 
 ```
-ScriptVariations {
-  variations: [              # exactly <count> items
+Variations {
+  variations: [            # exactly <count> items, in slot order (1, 2)
     {
-      title:          str    # 2–4 words for the library, e.g. "The car"
-      script:         str    # the full script in house format (scene headings, NAME: lines, ★ lines)
-      change_summary: str    # plain words: what's different from the original
-      payoff:         str    # one sentence: how this version pays off
+      title:    str        # 2–4 words for the library, e.g. "The car"
+      premise:  str        # one sentence: what changes and how it pays off
+      script:   str        # the full script in house format (scene headings, NAME: lines, ★ lines)
+      changes:  [str]      # plain-language list of what differs from the original
     }
   ]
 }
 ```
 
-This is Builder-Server's proposed schema (`script`, `change_summary`, `payoff`), plus `title` so the library can tell versions apart. They store each variation as a new script version linked to the original, with a status.
+Agreed with Builder-Server (#189, 74cf8da). No id: results fill slots 1 and 2 in order, and a regenerate replaces one slot (with `<keep_apart>` and `<note>`). They store title, premise and changes on each draft version and never write to an approved one.
 
 ### Rules (variations.md)
 
