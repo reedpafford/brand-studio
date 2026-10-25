@@ -86,6 +86,8 @@ def run_case(
             prompt = f"{brief}\n{cast}\n<script>\n{number_lines(script)}\n</script>"
         elif step == "script_draft":
             prompt = f"{brief}\n{cast}{reference}"
+            if case.get("new_lines"):
+                prompt += "\n<new_lines>true</new_lines>"
         elif step == "variations":
             prompt = variations_input(script, case["cast"], case["count"], reference.strip())
         elif step == "cast_slots":

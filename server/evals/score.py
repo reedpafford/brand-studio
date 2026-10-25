@@ -64,9 +64,8 @@ def score(out: Path, case: dict) -> list[str]:
             words = len(" ".join(spoken).split())
             if not lo <= words <= hi:
                 problems.append(f"draft {i}: {words} spoken words, expected {lo}–{hi}")
-            said = "\n".join(spoken)
-            problems += [f"draft {i}: the reference's line “{x}” isn't kept word for word"
-                         for x in ref_lines if x not in said]  # fmt: skip
+            problems += [f"draft {i}: {p}" for p in check.reference_lines(
+                draft.script, ref_lines, case.get("new_lines", False))]  # fmt: skip
             if (end := exp.get("end_line")) and end not in draft.script:
                 problems.append(f"draft {i}: doesn't end on the brand's end line")
 
