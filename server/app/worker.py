@@ -27,7 +27,7 @@ from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
 from app.references import fit_image
-from app.steps import save_step_result
+from app.steps import save_step_result, step_failed
 from app.storage import LocalStorage, Storage
 
 log = logging.getLogger("worker")
@@ -162,6 +162,9 @@ def _finish(
         if new == JobStatus.succeeded and job.input.get("step"):
             db.refresh(job)
             save_step_result(db, job)
+        elif new == JobStatus.failed and job.input.get("step"):
+            db.refresh(job)
+            step_failed(db, job)
     db.commit()
     return True
 
