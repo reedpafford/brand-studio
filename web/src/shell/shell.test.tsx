@@ -242,3 +242,20 @@ test("offline, a banner says nothing was lost", async () => {
   expect(await screen.findByText("You're offline.")).toBeInTheDocument();
   expect(screen.getByText("Reconnect to keep working; nothing was lost.")).toBeInTheDocument();
 });
+
+test("a waiting invite has Copy link: it asks for a fresh link and copies it, and says the old one stops working", async () => {
+  const calls = fakeServer({
+    "GET /auth/me": [200, owner],
+    "GET /brands": [200, brands],
+    "GET /team/members": [200, members],
+    "GET /team/invites": [200, [{ id: 3, email: "jo@b.co", role: "editor", expires_at: "2026-10-31T12:00:00Z" }]],
+    "POST /team/invites/3/link": [200, { id: 3, email: "jo@b.co", role: "editor", expires_at: "2026-11-01T12:00:00Z", token: "fresh9" }],
+  });
+  renderAt("/team");
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  await userEvent.click(await screen.findByRole("button", { name: "Copy link for jo@b.co" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /team/invites/3/link")).toBe(true));
+  await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(`${location.origin}/invite/fresh9`));
+  expect(await screen.findByText("Link copied. The old link no longer works.")).toBeInTheDocument();
+});

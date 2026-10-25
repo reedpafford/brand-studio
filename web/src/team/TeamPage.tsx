@@ -121,6 +121,7 @@ export function TeamPage() {
                     <span className="block truncate font-medium">{i.email}</span>
                     <span className="block text-muted">{ROLE[i.role as keyof typeof ROLE] ?? i.role} · expires {day(i.expires_at)}</span>
                   </span>
+                  <CopyLink id={i.id} email={i.email} />
                   <Button variant="ghost" dense aria-label={`Cancel invite for ${i.email}`} busy={cancel.isPending} onClick={() => cancel.mutate(i.id)}>
                     Cancel
                   </Button>
@@ -137,6 +138,35 @@ export function TeamPage() {
         </Dialog>
       )}
     </main>
+  );
+}
+
+/** A waiting invite's link can't be shown again (only a hash is kept), so Copy link asks for a fresh one: the old link stops working. */
+function CopyLink({ id, email }: { id: number; email: string }) {
+  const toast = useToast();
+  const [copied, setCopied] = useState(false);
+  const fresh = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/team/invites/{invite_id}/link", { params: { path: { invite_id: id } } });
+      if (!data) throw new Error(errorText(error));
+      return `${location.origin}/invite/${data.token}`;
+    },
+    onSuccess: async (link) => {
+      try {
+        await navigator.clipboard.writeText(link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        toast("Link copied. The old link no longer works.");
+      } catch {
+        toast("Couldn't copy the link. Try again.", undefined, "error");
+      }
+    },
+    onError: (e) => toast(e.message, undefined, "error"),
+  });
+  return (
+    <Button variant="secondary" dense icon={copied ? Check : Copy} aria-label={`Copy link for ${email}`} busy={fresh.isPending} onClick={() => fresh.mutate()}>
+      {copied ? "Copied" : "Copy link"}
+    </Button>
   );
 }
 
