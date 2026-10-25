@@ -87,3 +87,28 @@ test("a role with no character picks one from the library", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Use this character" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
 });
+
+const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], kept: [], file_id: 40, approved: true, stale: false };
+const clip = (o: object) => ({ id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
+const toClips = { ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown] };
+
+test("a clip's prompt is read and marked Looks good before its take can be made", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({})]] });
+  open("?step=clips");
+  expect(await screen.findByText("Bo sniffs the salmon")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 looks good" }));
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
+});
+
+test("advice on a clip can be kept anyway; kept advice says so", async () => {
+  setViewport(1440);
+  const advice = "Advice: the hook is slow";
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ problems: [advice] }), clip({ id: 4, clip_id: "c2", problems: [advice], kept: [advice] })]], "POST /projects/9/clips/3/keep": [200, clip({})] });
+  open("?step=clips");
+  await userEvent.click(await screen.findByRole("button", { name: `Keep it anyway: ${advice}` }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/keep")?.body).toEqual({ problem: advice }));
+  expect(screen.getByText("Kept · Reed will see it")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /Keep it anyway/ })).toHaveLength(1);
+});

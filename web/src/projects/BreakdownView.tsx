@@ -1,3 +1,4 @@
+import { KeepControl, useKeep } from "./Keep";
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
@@ -121,6 +122,7 @@ export function BreakdownView(props: {
   const [problemsOpen, setProblemsOpen] = useState(false);
   const [sheetShot, setSheetShot] = useState<string | null>(null);
   const line = props.line;
+  const keep = useKeep(projectId, { of: "breakdown" });
 
   // A line picked in the script brings its shot into view.
   useEffect(() => {
@@ -192,6 +194,7 @@ export function BreakdownView(props: {
         return (
           <li key={p} className="flex items-start gap-2">
             <span className="flex-1 py-3">{p}</span>
+            <KeepControl problem={p} kept={row.kept} onKeep={keep.mutate} busy={keep.isPending} />
             {target && (
               <Button
                 variant="ghost"

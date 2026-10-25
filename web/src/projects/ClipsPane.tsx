@@ -8,19 +8,46 @@ import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkTex
 import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
 import { blocking } from "./problems";
+import { KeepControl, useKeep } from "./Keep";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
 const ratio = (a: string) => a.replace(":", " / ");
 
+const hash = (t: string) => [...t].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7).toString(36);
+/** Prompts the editor has read and marked "Looks good" (per browser; editing a prompt asks again). */
+function useReviewed(projectId: number) {
+  const key = `bs-prompts-ok-${projectId}`;
+  const read = () => {
+    try {
+      return new Set<string>(JSON.parse(localStorage.getItem(key) ?? "[]"));
+    } catch {
+      return new Set<string>();
+    }
+  };
+  const [ok, setOk] = useState(read);
+  const id = (c: Clip) => `${c.id}:${hash(c.prompt)}`;
+  const mark = (c: Clip) => {
+    const next = new Set(ok).add(id(c));
+    setOk(next);
+    try {
+      localStorage.setItem(key, JSON.stringify([...next]));
+    } catch {
+      /* private window: it just asks again next time */
+    }
+  };
+  return { has: (c: Clip) => ok.has(id(c)), mark };
+}
+
 /** One video clip per breakdown clip: make takes, pick and approve one, then stitch them into the video. */
-export function ClipsPane(props: { projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
+export function ClipsPane(props: { review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
   const { projectId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
   const jobs = useJobs();
   const frames = useFrames(projectId);
   const blocks = useSheetBlocks(projectId, props.brandId);
+  const reviewed = useReviewed(projectId);
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
@@ -115,7 +142,10 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
   const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error;
   const takeCost = (c: Clip) => c.take_credits;
   const busyFor = (c: Clip) => going(takeJob(c.id)?.id);
-  const missing = list.filter((c) => c.takes.length === 0 && blocking(c.problems).length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
+  // In the new flow every prompt is read and marked "Looks good" before takes are paid for.
+  const toRead = (c: Clip) => !!props.review && c.takes.length === 0 && !reviewed.has(c);
+  const unread = list.filter(toRead).length;
+  const missing = list.filter((c) => c.takes.length === 0 && !toRead(c) && blocking(c.problems).length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
   const waitingForSheet = list.filter((c) => c.takes.length === 0 && blocks.forClip(c.clip_id).length > 0);
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
@@ -151,7 +181,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
         {missing.length > 0 && (
           <button
             className={`${btnPrimary} min-h-11 sm:min-h-9`}
-            disabled={generate.isPending}
+            disabled={generate.isPending || unread > 0}
             onClick={async () => {
               for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
             }}
@@ -161,6 +191,7 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
           </button>
         )}
       </div>
+      {unread > 0 && <p className="text-sm text-muted">Read each prompt and press Looks good before the takes are made ({unread} left).</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       {waitingForSheet.length > 0 && (
         <p className="text-sm text-warning">
@@ -174,12 +205,15 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
             <ClipCard
               key={c.id}
               clip={c}
+              projectId={projectId}
               aspect={props.aspect}
               poster={frames.data?.find((f) => f.clip_id === c.clip_id)?.file_id ?? null}
               projectName={props.projectName}
               job={job}
               busy={busyFor(c)}
               blockers={blocks.forClip(c.clip_id)}
+              toRead={toRead(c)}
+              onLooksGood={() => reviewed.mark(c)}
               brandId={props.brandId}
               cost={takeCost(c)}
               over={over(takeCost(c))}
@@ -199,12 +233,15 @@ export function ClipsPane(props: { projectId: number; brandId: number; aspect: s
 
 function ClipCard(props: {
   clip: Clip;
+  projectId: number;
   aspect: string;
   poster: number | null;
   projectName: string;
   job: { status: string; created_at: string } | undefined;
   busy: boolean;
   blockers: Blocker[];
+  toRead: boolean;
+  onLooksGood: () => void;
   brandId: number;
   cost: number | undefined;
   over: boolean;
@@ -216,6 +253,7 @@ function ClipCard(props: {
   onSave: (prompt: string) => void;
 }) {
   const { clip: c } = props;
+  const keep = useKeep(props.projectId, { of: "clip", id: c.id });
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const failed = props.job?.status === "failed";
@@ -246,10 +284,14 @@ function ClipCard(props: {
         )}
       </div>
       <SheetWarning blockers={props.blockers} brandId={props.brandId} />
+      {props.toRead && <p className="whitespace-pre-wrap rounded-md bg-surface-2 p-3" aria-label={`Prompt for clip ${c.clip_id}`}>{c.prompt}</p>}
       {c.problems.length > 0 && (
-        <ul className="list-disc pl-5 text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
+        <ul className="text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
           {c.problems.map((p) => (
-            <li key={p}>{p}</li>
+            <li key={p} className="flex flex-wrap items-center gap-x-2">
+              <span>{p}</span>
+              <KeepControl problem={p} kept={c.kept} onKeep={keep.mutate} busy={keep.isPending} />
+            </li>
           ))}
         </ul>
       )}
@@ -322,8 +364,13 @@ function ClipCard(props: {
               Undo approval
             </button>
           )}
+          {props.toRead && (
+            <button className={`${btnPrimary} min-h-11 sm:min-h-9`} aria-label={`Prompt for ${c.clip_id} looks good`} onClick={props.onLooksGood}>
+              Looks good
+            </button>
+          )}
           {note === null && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || blocking(c.problems).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.toRead || props.busy || blocking(c.problems).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
             {verb}
             {price}
           </button>
