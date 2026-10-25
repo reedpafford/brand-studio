@@ -263,3 +263,14 @@ def test_a_deleted_script_is_gone_for_editors(owner, editor):
     assert owner.get(url).status_code == 404  # the owner too, until restored
     owner.post(f"{url}/restore")
     assert editor.get(url).status_code == 200
+
+
+def test_deleted_scripts_have_their_own_list(owner, editor):
+    """Restore from a list, not only the toast: each sees the deleted ones they may restore."""
+    mine = _make(editor, title="Mine", text=SCRIPT)
+    reeds = _make(owner, title="Reed's", text=SCRIPT)
+    editor.delete(f"/scripts/{mine['id']}")
+    owner.delete(f"/scripts/{reeds['id']}")
+    assert [s["title"] for s in editor.get("/scripts?deleted=true").json()] == ["Mine"]
+    assert [s["title"] for s in owner.get("/scripts?deleted=true").json()] == ["Reed's", "Mine"]
+    assert owner.get("/scripts").json() == []

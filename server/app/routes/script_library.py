@@ -213,12 +213,18 @@ def list_scripts(
     versions_left: int | None = None,  # at least this many versions left to produce
     min_seconds: int | None = None,
     max_seconds: int | None = None,
+    deleted: bool = False,  # true: the deleted scripts instead, to restore from a list
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     """The Script Library: what the caller may see, newest first, filtered."""
-    query = select(Script).where(Script.workspace_id == user.workspace_id, ~Script.archived)
-    if not user.is_owner:
+    query = select(Script).where(
+        Script.workspace_id == user.workspace_id,
+        Script.archived if deleted else ~Script.archived,
+    )
+    if not user.is_owner and deleted:  # only the ones they could restore: their own
+        query = query.where(Script.created_by_id == user.id, ~Script.published)
+    elif not user.is_owner:
         query = query.where(or_(Script.published, Script.created_by_id == user.id))
     if brand_id is not None:
         query = query.where(Script.brand_id == brand_id)

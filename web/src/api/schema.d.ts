@@ -6916,6 +6916,7 @@ export interface operations {
                 versions_left?: number | null;
                 min_seconds?: number | null;
                 max_seconds?: number | null;
+                deleted?: boolean;
             };
             header?: never;
             path?: never;
