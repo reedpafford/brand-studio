@@ -1,6 +1,9 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 21:19 · Decisions (#321, Reed): library stocked today from reels by agents (unpublished drafts for Reed to publish); owner-only In production view; Delete scripts with Undo; the basics audit approved in an order (1 Script step writes from the reference or with Claude, 2 release a version and archive a video, 3 Delete with Undo and archived scripts restorable, 4 Cast step, 5 Enhance in the writing flow, 6 new editor video flow, 7 the P2s); review rule: can the user undo or delete what they just made?
+- 2026-10-25 21:19 · #321 ops: Reed's audit order and library decisions; Builder-Screens-2 joins merged
+- 2026-10-25 21:15 · #317 ops: HANDOFF/LOG refresh 2026-10-25 21:30Z (by the Producer) merged
 - 2026-10-25 21:14 · #314 ops: HANDOFF/LOG refresh 2026-10-25 21:15Z (by the Producer) merged
 - 2026-10-25 21:14 · #313 Reel transcription: no VAD, so lines over music are kept merged
 - 2026-10-25 21:05 · #308 Library drafts: 12 fomo scripts from catalogue reels merged
