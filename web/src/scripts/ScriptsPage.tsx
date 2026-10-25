@@ -20,6 +20,9 @@ const PAGE = 30;
 const LETTER = ["A", "B", "C"];
 
 /** A version's status in words, with a tone as the second signal. Never an internal word. */
+/** A version someone has started and not finished: its words are being made into a video. */
+export const beingMade = (status: string) => status === "in_production" || status === "clips_ready";
+
 const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof Check }> = {
   draft: { label: "Writing", tone: "neutral", icon: Pencil },
   approved: { label: "Ready to make", tone: "accent" },
@@ -280,7 +283,7 @@ export function ScriptsPage() {
       New script
     </Link>
   );
-  const myMaking = (makingRows.data ?? []).filter((r) => r.versions.some((v) => v.status === "in_production" && v.editor?.id === me?.id));
+  const myMaking = (makingRows.data ?? []).filter((r) => r.versions.some((v) => beingMade(v.status) && v.editor?.id === me?.id));
   const myDrafts = (myDraftRows.data ?? []).filter((r) => r.created_by_id === me?.id);
 
   return (
@@ -388,10 +391,10 @@ function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownV
           {r.versions.map((v) => {
             const s = STATUS[v.status] ?? { label: v.status, tone: "neutral" as Tone };
             const letter = LETTER[v.slot] ?? String(v.slot + 1);
-            const by = v.status === "in_production" && v.editor ? (v.editor.id === meId ? "you" : v.editor.name) : null;
+            const by = beingMade(v.status) && v.editor ? (v.editor.id === meId ? "you" : v.editor.name) : null;
             const label = `${letter} · ${s.label}${by ? ` · ${by}` : ""}`;
             // Ready opens the version panel; so does a version someone else is making. Your own video, and any video for Reed, opens the video; a draft opens its writing flow.
-            const to = v.status === "in_production" && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
+            const to = beingMade(v.status) && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
             const chip = (
               <Badge tone={s.tone} icon={s.icon}>
                 {label}

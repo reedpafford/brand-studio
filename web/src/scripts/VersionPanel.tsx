@@ -8,6 +8,7 @@ import { Badge, Button, Panel, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
+import { beingMade } from "./ScriptsPage";
 import { useAllowanceStop, useScript } from "./useScript";
 
 const LETTER = ["A", "B", "C"];
@@ -83,7 +84,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
               Make this version
             </Button>
           ) : (
-            <p className="text-sm text-muted">{v.status === "in_production" ? `${v.editor?.name ?? "Someone"} is making this version.` : "This version isn't ready to make."}</p>
+            <p className="text-sm text-muted">{beingMade(v.status) ? `${v.editor?.name ?? "Someone"} is making this version.` : "This version isn't ready to make."}</p>
           )}
         </div>
       )}

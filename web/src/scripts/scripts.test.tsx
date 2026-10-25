@@ -598,3 +598,13 @@ test("a script with one version started and another still ready stays in the edi
   expect(screen.queryByText("No scripts ready to make yet.")).not.toBeInTheDocument();
   expect(screen.getAllByText("Half made")).toHaveLength(2); // under Making now and in the list
 });
+
+test("Making now keeps a version whose clips are ready too", async () => {
+  setViewport(1440);
+  const mine = script({ id: 5, title: "Clips ready reel", versions: [v(0, "clips_ready", { project_id: 40, editor: { id: 2, name: "Sam" } })] });
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, [mine]] });
+  open();
+  const section = await screen.findByRole("region", { name: "Making now" });
+  expect(within(section).getByText("Clips ready reel")).toBeInTheDocument();
+  expect(within(section).getByText("A · In production · you")).toBeInTheDocument();
+});
