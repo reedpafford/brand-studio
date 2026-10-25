@@ -34,6 +34,7 @@ from app.routes import (
     sheets,
     storyboard,
     team,
+    usage,
 )
 from app.routes.scripts import MAX_DOC_BYTES
 from app.settings import Settings, check_production, get_settings
@@ -58,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         library,
         sheets,
         jobs,
+        usage,
         projects,
         credits,
         estimate,
