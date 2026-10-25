@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
+import { Bell, Clapperboard, Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useHeld } from "../approvals/useHeld";
+import { Badge, Banner, Button, EmptyState, MediaCard, Skeleton, buttonClass } from "../components";
 import { useBrands } from "../shell/useBrands";
-import { btnPrimary, card, pageTitle } from "../ui";
-import { Meter, WaitingBadge } from "./Meter";
+import { Meter } from "./Meter";
 
 export function ProjectsPage() {
   const brandId = Number(useParams().brandId);
   const { data: brands } = useBrands();
+  const held = useHeld();
   const name = brands?.find((b) => b.id === brandId)?.name ?? "this brand";
   const projects = useQuery({
     queryKey: ["projects", brandId],
@@ -17,44 +20,65 @@ export function ProjectsPage() {
       return data;
     },
   });
-  const newButton = (
-    <Link to={`/b/${brandId}/projects/new`} className={`${btnPrimary} inline-block`}>
+  const list = projects.data;
+  const newVideo = (
+    <Link to={`/b/${brandId}/projects/new`} className={buttonClass("primary")}>
+      <Plus size={20} strokeWidth={1.75} aria-hidden />
       New video
     </Link>
   );
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className={pageTitle}>Projects</h1>
-        {projects.data && projects.data.length > 0 && newButton}
+    <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">
+      {held.owner && held.count > 0 && (
+        <Banner tone="info" title={`${held.count} ${held.count === 1 ? "request is" : "requests are"} waiting for you`} action={<Link to="/approvals" className={buttonClass("secondary")}><Bell size={20} strokeWidth={1.75} aria-hidden />Review</Link>} />
+      )}
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="type-eyebrow text-muted">{name}</p>
+          <h1 className="type-page">Videos</h1>
+        </div>
+        {list && list.length > 0 && <span className="hidden sm:block">{newVideo}</span>}
       </div>
       {projects.isError && (
-        <p role="alert" className="text-sm text-danger">
-          Could not load the projects. Try again.
-        </p>
+        <Banner title="Couldn't load your videos." action={<Button variant="secondary" onClick={() => void projects.refetch()}>Try again</Button>}>
+          Check your connection.
+        </Banner>
       )}
-      {projects.data?.length === 0 && (
-        <div className={`${card} space-y-3`}>
-          <p className="text-[length:var(--text-xl)] font-semibold">No videos for {name} yet.</p>
-          <p className="text-muted">Start from a brief or a script.</p>
-          {newButton}
+      {projects.isPending && (
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="aspect-[9/14] rounded-lg" />
+          ))}
         </div>
       )}
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.data?.map((p) => (
-          <li key={p.id}>
-            <Link to={`/b/${brandId}/projects/${p.id}`} className={`${card} block space-y-2 hover:border-border-strong`}>
-              <span className="block text-[length:var(--text-md)] font-semibold">{p.name}</span>
-              <span className="block text-sm text-muted">
-                {p.planned_seconds}s · {p.aspect_ratio || "9:16"}
-              </span>
-              {p.status === "needs_owner_approval" && <WaitingBadge />}
-              <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {list?.length === 0 && (
+        <EmptyState icon={Clapperboard} title={`No videos for ${name} yet`} action={newVideo}>
+          Start from a brief: what it's for, who's in it and how long. Claude helps with the script.
+        </EmptyState>
+      )}
+      {list && list.length > 0 && (
+        <>
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            {list.map((p) => (
+              <li key={p.id}>
+                <MediaCard
+                  to={`/b/${brandId}/projects/${p.id}`}
+                  label={`${p.name}, ${p.planned_seconds} s, ${p.aspect_ratio || "9:16"}`}
+                  title={p.name}
+                  meta={`${p.planned_seconds}s · ${p.aspect_ratio || "9:16"}`}
+                  aspect="9 / 14"
+                  icon={Clapperboard}
+                  badge={p.status === "needs_owner_approval" ? <Badge tone="warning">Waiting for Reed to approve</Badge> : undefined}
+                >
+                  <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+                </MediaCard>
+              </li>
+            ))}
+          </ul>
+          <div className="sm:hidden">{newVideo}</div>
+        </>
+      )}
     </main>
   );
 }

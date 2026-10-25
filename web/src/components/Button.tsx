@@ -14,6 +14,9 @@ const look: Record<Variant, string> = {
   danger: "border border-danger bg-danger-soft text-danger hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
 };
 
+/** The same look as a Button, for a link that downloads or goes somewhere (an <a>). */
+export const buttonClass = (variant: Variant = "primary") => `${base} ${look[variant]} min-h-control px-4`;
+
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> & {
   variant?: Variant;
   /** Desktop-only secondary controls may be 36px; phones are always 44px. */
