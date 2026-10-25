@@ -70,7 +70,7 @@ const lengthText = (versions: Version[]) => {
   return lo === hi ? `about ${lo} s` : `about ${lo}–${hi} s`;
 };
 
-function useDebounced<T>(value: T, ms = 300) {
+export function useDebounced<T>(value: T, ms = 300) {
   const [settled, setSettled] = useState(value);
   useEffect(() => {
     const t = setTimeout(() => setSettled(value), ms);
