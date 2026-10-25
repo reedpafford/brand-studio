@@ -199,7 +199,19 @@ Every PR keeps `scripts/fake_run.py` green.
 - Editors' own scripts get $15 (145 credits) a week, declined past it. This plan merges that with the Quick clip allowance into one weekly editor allowance.
 - Editors can make variations of their own scripts.
 
-## Still open (the Producer is putting these defaults to Reed)
+## Reed's go (2026-10-25), with the Producer's defaults
 
-1. Can an editor see and produce from the owner's unpublished scripts? (No, only published ones.)
-2. Once a version is produced, can its saved breakdown still change for that video? (The project gets its own copy, and the library version stays as Reed approved it.)
+These answers decide the build; where they differ from the text above, they win.
+
+- **Downloads only:** no final-video upload.
+- **Prompt review before takes:** the editor reviews clip prompts before any take, as today.
+- **Reserving a version:** a version is reserved for the editor who starts it (`produce` records them; others get 409).
+- **Variations:** one price for owners and editors, and each regenerate is paid.
+- **Looks:** one locked look per character.
+- **Editors' scripts:** private until published; editors make variations and locks on their own.
+- **Bulk create:** titles, descriptions and an optional reel only. Nothing is written until "Write all", which shows an estimate first.
+- **Library budget:** set at Breakdown, as 2× that breakdown's estimate, never above 729.
+- **Published versions are final:** duplicate one to change it.
+- **Producing:** editors produce only published scripts.
+- **The project's breakdown:** a produced project keeps its own copy of the breakdown.
+- **Editor allowance:** one shared weekly editor allowance of 145 credits, declined past it.
