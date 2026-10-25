@@ -1578,7 +1578,8 @@ export interface paths {
         put?: never;
         /**
          * Estimate Clip
-         * @description What Generate would cost, and whether it would wait for the owner. Nothing is queued.
+         * @description What Generate would cost. Nothing is queued. Past the editor's weekly allowance it
+         *     answers 409 with the same plain words Generate would (never sent to the owner).
          */
         post: operations["estimate_clip_clips_estimate_post"];
         delete?: never;
