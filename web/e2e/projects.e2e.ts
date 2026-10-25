@@ -21,7 +21,8 @@ test("a brief becomes a project that is listed with its credit meter", async ({ 
 
   await page.getByRole("main").getByRole("link", { name: "Videos", exact: true }).click();
   const card = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: /Launch teaser/ }) });
-  await expect(card).toContainText("20s · 1:1");
+  await expect(card).toContainText("Brief"); // the step it is at
+  await expect(card).toContainText("Brief written");
   await expect(card).toContainText("credits");
   await expect(card).not.toContainText("$");
 });
