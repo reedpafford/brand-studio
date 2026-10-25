@@ -13,6 +13,7 @@ from app.catalogue import CatalogueModel, get_model
 from app.providers import NetworkError, NotStarted, Result, UsageItem
 
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
+EXTENSIONS = {"video/mp4": ".mp4", "video/quicktime": ".mov"}
 # Replicate metrics that report what was produced, by price unit.
 METRIC_FOR_UNIT = {"second": "video_output_duration_seconds", "image": "image_count"}
 
@@ -54,6 +55,12 @@ class ReplicateProvider:
         model = _model(input)
         body = {"version": model.provider_version, "input": input["input"]}
         return self._call("POST", "/predictions", json=body)["id"]
+
+    def upload(self, data: bytes, content_type: str) -> str:
+        """Put a file on Replicate (`POST /files`, free) for a model input too big for a data
+        URL, e.g. a reel's video for Gemini. Returns the URL predictions read it from."""
+        files = {"content": ("reel" + EXTENSIONS.get(content_type, ""), data, content_type)}
+        return self._call("POST", "/files", files=files)["urls"]["get"]
 
     def poll(self, ref: str) -> Result:
         p = self._call("GET", f"/predictions/{ref}")

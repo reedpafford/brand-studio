@@ -8,10 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app import reel_read, script_write
 from app import script_library as lib
-from app import script_write
 from app.auth import current_user
-from app.credits import estimate, get_limits, quick_clip_used
+from app.credits import credits_left, estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.models.script_library import Script
@@ -31,6 +31,10 @@ class WriteManyEstimate(BaseModel):
     count: int
     credits: float  # all of them together
     credits_left: float | None  # an editor's weekly allowance left; null for the owner
+    reading: int = 0  # scripts whose imported reel is read first (watch, write, cast read)
+    writing: int = 0  # scripts that are simply written
+    waiting: list[int] = []  # reels still being prepared: Write all waits for them
+    failed: list[int] = []  # reels that couldn't be fetched: upload the video or untick them
 
 
 def _price(db: Session, user: User) -> Decimal:
@@ -47,10 +51,27 @@ def _writable(db: Session, user: User, script_id: int, row: str = "") -> Script:
     return script
 
 
-def _left(db: Session, user: User) -> Decimal | None:
-    if user.is_owner:
-        return None
-    return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
+def _plan(db: Session, script: Script) -> str:
+    """write | read | waiting | failed: what Write all does with this script. A script with
+    an unread imported reel reads it first (its own write is part of the read)."""
+    if script.reel is None:
+        return "write"
+    status, failed = reel_read.state(db, script)
+    if status == "preparing":
+        return "waiting"
+    if failed == "prepare":
+        return "failed"
+    if status == "reading":
+        raise HTTPException(409, f"{script.title}: its reel is being read.")
+    return "write" if status == "done" else "read"
+
+
+def _cost(db: Session, user: User, script: Script, plan: str) -> Decimal:
+    if plan == "write":
+        return _price(db, user)
+    if plan == "failed":  # can't run until the video is uploaded: not in the total
+        return Decimal(0)
+    return reel_read.price(db, user, reel_read.remaining(script))
 
 
 def _queue(db: Session, user: User, request: Request, script: Script):
@@ -89,13 +110,17 @@ def write_many_estimate(
 ):
     """What writing these scripts costs, and an editor's allowance left, before pressing."""
     ids = list(dict.fromkeys(body.script_ids))
-    for script_id in ids:
-        lib.get_script(db, user, script_id)
-    left = _left(db, user)
+    scripts = [lib.get_script(db, user, script_id) for script_id in ids]
+    plans = [_plan(db, s) for s in scripts]
+    left = credits_left(db, user)
     return WriteManyEstimate(
         count=len(ids),
-        credits=_price(db, user) * len(ids),
+        credits=sum((_cost(db, user, s, p) for s, p in zip(scripts, plans, strict=True)), 0),
         credits_left=None if left is None else max(left, Decimal(0)),
+        reading=plans.count("read"),
+        writing=plans.count("write"),
+        waiting=[s.id for s, p in zip(scripts, plans, strict=True) if p == "waiting"],
+        failed=[s.id for s, p in zip(scripts, plans, strict=True) if p == "failed"],
     )
 
 
@@ -108,15 +133,31 @@ def write_many(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Write all: one call per script. Every script is checked first, and an editor's
-    allowance must cover them all; otherwise nothing is queued."""
+    """Write all: one call per script, or the reel read (watch, write, cast read) for a script
+    with an unread imported reel. Every script is checked first, and an editor's allowance
+    must cover them all; otherwise nothing is queued. Refused while a reel isn't ready."""
     ids = list(dict.fromkeys(body.script_ids))
     scripts = [_writable(db, user, s, f"Row {n}: ") for n, s in enumerate(ids, 1)]
-    total, left = _price(db, user) * len(scripts), _left(db, user)
+    plans = [_plan(db, s) for s in scripts]
+    if waiting := plans.count("waiting"):
+        are = "reel is" if waiting == 1 else "reels are"
+        raise HTTPException(409, f"{waiting} {are} still being prepared. Try again shortly.")
+    if failed := plans.count("failed"):
+        it = "reel" if failed == 1 else "reels"
+        raise HTTPException(
+            409, f"{failed} {it} couldn't be fetched. Upload the video or untick it."
+        )
+    costs = [_cost(db, user, s, p) for s, p in zip(scripts, plans, strict=True)]
+    total, left = sum(costs, Decimal(0)), credits_left(db, user)
     if left is not None and total > left:
         raise HTTPException(
             409,
             f"Writing these takes {total:.0f} credits and you have {max(left, 0):.0f} left "
             "this week. It resets Monday.",
         )
-    return [_queue(db, user, request, s) for s in scripts]
+    return [
+        reel_read.queue(db, user, s, reel_read.remaining(s)[0])
+        if p == "read"
+        else _queue(db, user, request, s)
+        for s, p in zip(scripts, plans, strict=True)
+    ]

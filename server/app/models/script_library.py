@@ -48,6 +48,8 @@ class ScriptDraft(Entity, Base):
     premise: Mapped[str] = mapped_column(Text, default="")
     changes: Mapped[list[str]] = mapped_column(JSON, default=list)
     problems: Mapped[list[str]] = mapped_column(JSON, default=list)  # from check.variations
+    # Adapting a reel: the lines Claude rewrote for the brand swap (the screens mark them).
+    changed_lines: Mapped[list[str]] = mapped_column(JSON, default=list)
     job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))  # the job that wrote it
     # Optional breakdown preview, saved with the version; the editor starts from it.
     breakdown: Mapped[dict | None] = mapped_column(JSON)

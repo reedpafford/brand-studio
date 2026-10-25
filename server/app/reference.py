@@ -27,6 +27,7 @@ class RefShot(BaseModel):
     camera: str = Text
     action: str = Text
     emotion: str = Text
+    on_screen: str = Field("", max_length=2000)  # who and what is in frame (imported reels)
     speaker: str | None = None
     line: str | None = Field(None, max_length=2000)
     style: str = Field("", max_length=2000)  # live-action shots are dropped (reference_block)

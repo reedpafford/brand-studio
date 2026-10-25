@@ -403,7 +403,8 @@
     "The live-action tag is gone; the video ends on fomo's call to action over the real fomo screen.",
     "Same pacing as the reference: hook shots under 0.5 s, montage around 0.3–0.5 s; no captions, no '2 YEARS LATER' card text.",
     "Opens on the proposal and the no: “I do.” and “HELL NO!” on screen in the first shots, no establishing or guest cutaways before them.",
-    "The montage grinds before the payoff: a red day, a small win, another late night, a bigger win, then the fast got-rich run."
+    "The montage grinds before the payoff: a red day, a small win, another late night, a bigger win, then the fast got-rich run.",
+    "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance."
    ],
    "expect": {
     "drafts": [
@@ -427,7 +428,8 @@
     "opening_lines": [
      "I do.",
      "HELL NO!"
-    ]
+    ],
+    "min_money_figures": 3
    }
   },
   {
@@ -489,7 +491,8 @@
     "Nate in every shot, no empty rooms: trading at night, the win, escalating payoffs he's part of (keys, the car, the penthouse door, the balcony), cut with the real fomo screens.",
     "The got-rich beat shows a big portfolio balance (hundreds of thousands) on the fomo Home screen, not a coin price.",
     "Ends on the skyline arrival in the black suit.",
-    "At least three grind beats (late nights, a red day, a small then a bigger win) before the fast got-rich run."
+    "At least three grind beats (late nights, a red day, a small then a bigger win) before the fast got-rich run.",
+    "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance."
    ],
    "expect": {
     "drafts": [
@@ -509,7 +512,8 @@
      "empty room",
      "does not",
      "says"
-    ]
+    ],
+    "min_money_figures": 3
    }
   },
   {

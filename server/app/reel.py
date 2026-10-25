@@ -8,6 +8,7 @@ import json
 import re
 import subprocess  # noqa: S404 - fixed argument lists, never a shell
 import sys
+import time
 from pathlib import Path
 
 from PIL import Image
@@ -16,6 +17,7 @@ MAX_MB = 100
 MAX_SECONDS = 90
 SCENE = 0.3  # ffmpeg scene score that counts as a cut
 FETCH_TIMEOUT = 90
+FETCH_PAUSE = 5  # seconds after each Instagram fetch
 TRANSCRIBE_TIMEOUT = 180
 LINK = re.compile(
     r"https://(?:www\.)?instagram\.com/(?:reels?|p)/([A-Za-z0-9_-]{5,40})/?(?:\?\S*)?"
@@ -53,6 +55,8 @@ def fetch(url: str, folder: Path) -> Path:
         done = _run(args, FETCH_TIMEOUT)
     except subprocess.TimeoutExpired:
         raise Refused("blocked", BLOCKED) from None
+    finally:
+        time.sleep(FETCH_PAUSE)  # several links in a row look less like a bot when spaced
     if done.returncode != 0 or not out.is_file():
         private = re.search(r"private|unavailable|removed|not exist", done.stderr, re.I)
         raise Refused("gone", GONE) if private else Refused("blocked", BLOCKED)

@@ -132,6 +132,10 @@ def score(out: Path, case: dict) -> list[str]:
         opening = " | ".join(s.line or "" for s in shots[:3])
         problems += [f"the opening shots don't say “{x}”"
                      for x in exp.get("opening_lines", []) if x not in opening]  # fmt: skip
+        figures = sum(1 for s in shots if check._money(s) and check.MONEY.search(s.action))
+        if figures < exp.get("min_money_figures", 0):
+            problems.append(f"{figures} trading shots say what they read, expected "
+                            f"{exp['min_money_figures']}+")  # fmt: skip
         screen_shots = sum(1 for s in shots if s.screen_ids)
         if screen_shots < exp.get("min_screen_shots", 0):
             problems.append(

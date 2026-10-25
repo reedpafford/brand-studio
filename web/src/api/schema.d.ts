@@ -1098,8 +1098,9 @@ export interface paths {
         put?: never;
         /**
          * Write Many
-         * @description Write all: one call per script. Every script is checked first, and an editor's
-         *     allowance must cover them all; otherwise nothing is queued.
+         * @description Write all: one call per script, or the reel read (watch, write, cast read) for a script
+         *     with an unread imported reel. Every script is checked first, and an editor's allowance
+         *     must cover them all; otherwise nothing is queued. Refused while a reel isn't ready.
          */
         post: operations["write_many_scripts_write_post"];
         delete?: never;
@@ -1180,6 +1181,28 @@ export interface paths {
         get: operations["read_import_scripts__script_id__import_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/import/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Reel
+         * @description Read this reel: watch, write and cast read, priced together and paid for once. An
+         *     editor's allowance must cover every step left, or nothing runs. After a failed step,
+         *     pressing again retries from it at the price of what's left.
+         */
+        post: operations["read_reel_scripts__script_id__import_read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2444,11 +2467,44 @@ export interface components {
         /**
          * BulkIn
          * @description Bulk create (Reed): titles, descriptions and an optional reel only; nothing is written
-         *     until "Write all".
+         *     until "Write all". A row with a reel link fetches and prepares that reel (free).
          */
         BulkIn: {
             /** Scripts */
-            scripts: components["schemas"]["app__routes__script_library__ScriptIn"][];
+            scripts: components["schemas"]["BulkRow"][];
+        };
+        /** BulkRow */
+        BulkRow: {
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Reference Id */
+            reference_id?: string | null;
+            /**
+             * Reference Replace
+             * @default
+             */
+            reference_replace: string;
+            /** New Lines */
+            new_lines?: boolean | null;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Reel Url */
+            reel_url?: string | null;
         };
         /** Clip */
         Clip: {
@@ -2602,6 +2658,18 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** Estimate */
+        Estimate: {
+            /** Credits */
+            credits: number;
+            /** Credits Left */
+            credits_left: number | null;
+            /**
+             * Tries
+             * @default 0
+             */
+            tries: number;
+        };
         /** FileOut */
         FileOut: {
             /** Id */
@@ -2661,7 +2729,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "preparing" | "ready" | "failed";
+            status: "preparing" | "ready" | "reading" | "done" | "failed";
             /** Source */
             source: string;
             /** Url */
@@ -2688,6 +2756,14 @@ export interface components {
             problem: string;
             /** Problem Code */
             problem_code?: string | null;
+            /**
+             * Steps Done
+             * @default []
+             */
+            steps_done: string[];
+            /** Failed Step */
+            failed_step?: string | null;
+            estimate?: components["schemas"]["Estimate"] | null;
         };
         /** ImproveIn */
         ImproveIn: {
@@ -4143,6 +4219,26 @@ export interface components {
             credits: number;
             /** Credits Left */
             credits_left: number | null;
+            /**
+             * Reading
+             * @default 0
+             */
+            reading: number;
+            /**
+             * Writing
+             * @default 0
+             */
+            writing: number;
+            /**
+             * Waiting
+             * @default []
+             */
+            waiting: number[];
+            /**
+             * Failed
+             * @default []
+             */
+            failed: number[];
         };
         /** WriteManyIn */
         WriteManyIn: {
@@ -4292,6 +4388,8 @@ export interface components {
             changes: string[];
             /** Problems */
             problems: string[];
+            /** Changed Lines */
+            changed_lines: string[];
             /** Has Breakdown */
             has_breakdown: boolean;
             /** Approved At */
@@ -6734,6 +6832,37 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_reel_scripts__script_id__import_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

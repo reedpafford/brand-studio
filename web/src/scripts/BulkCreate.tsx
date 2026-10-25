@@ -4,8 +4,9 @@ import { ClipboardPaste, Plus, X } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
-import { Badge, Banner, Button, Field, Panel, Select, TextArea } from "../components";
+import { Badge, Banner, Button, Field, Panel, Select, TextArea, wholeCredits } from "../components";
 import { useToast } from "../toast";
+import { weekStop } from "./useScript";
 import { errorText as errorClass } from "../ui";
 
 type Row = { title: string; description: string; reference: string };
@@ -96,12 +97,12 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
             </p>
             {estimate.data && (
               <p className="text-sm text-muted">
-                About {Math.round(estimate.data.credits)} credits ({estimate.data.count} script{estimate.data.count === 1 ? "" : "s"} × {Math.round(estimate.data.credits / Math.max(estimate.data.count, 1))})
+                About {wholeCredits(estimate.data.credits)} credits ({estimate.data.count} script{estimate.data.count === 1 ? "" : "s"} × {wholeCredits(estimate.data.credits / Math.max(estimate.data.count, 1))})
               </p>
             )}
           </div>
           {writeAll.isError && <Banner title={writeAll.error.message}>Nothing was charged.</Banner>}
-          <Button price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data || stopped} reason={stopped ? `You've used this week's ${Math.round(week.data?.quick_clip_credits_allowed ?? 0)} credits. It resets Monday.` : undefined} onClick={() => writeAll.mutate()} className="w-full">
+          <Button price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data || stopped} reason={stopped && week.data && estimate.data ? weekStop(week.data, estimate.data.credits) : stopped ? "That's more than the credits you have left this week. It resets on Monday." : undefined} onClick={() => writeAll.mutate()} className="w-full">
             Write all scripts
           </Button>
           <Button variant="ghost" onClick={onClose} className="w-full">
