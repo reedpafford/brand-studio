@@ -34,12 +34,14 @@ const ago = (t: string) => (/ (min|h|days)$/.test(t) ? `${t} ago` : t);
 function reason(r: Row) {
   if (r.flag === "failed") return `${STEPS[r.step]}: ${r.flag_problem ?? "the last job didn't finish."}`;
   if (r.flag === "stuck") return `${r.flag_job ?? "Working"} for ${r.flag_since ? span(r.flag_since) : "a while"}`;
-  return `For ${r.flag_since ? Math.max(2, Math.floor(mins(r.flag_since) / 1440)) : 2} days`;
+  return `Nothing for ${r.flag_since ? Math.max(2, Math.floor(mins(r.flag_since) / 1440)) : 2} days`;
 }
-const label = (r: Row) => `${r.script.title}, version ${r.letter}, ${r.editor.name}, at ${STEPS[r.step]}${r.flag ? `, ${FLAGS[r.flag].label.toLowerCase()}` : ""}`;
+/** Who started it; the server says nobody when that person is gone. */
+const who = (r: Row) => r.editor?.name ?? "Someone";
+const label = (r: Row) => `${r.script.title}, version ${r.letter}, ${who(r)}, at ${STEPS[r.step]}${r.flag ? `, ${FLAGS[r.flag].label.toLowerCase()}` : ""}`;
 const nearBudget = (r: Row) => r.budget_credits > 0 && r.credits_used / r.budget_credits >= 0.9;
 
-const Dot = () => <span aria-hidden className="size-3 shrink-0 rounded-full bg-brand" />;
+const Dot = ({ colour }: { colour?: string }) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-brand" style={colour ? { background: colour } : undefined} />;
 
 function Poster({ id, size }: { id: number | null; size: string }) {
   return (
@@ -74,6 +76,7 @@ export function ProductionPage() {
   const rail = useRail();
   const [params, setParams] = useSearchParams();
   const { data: brands } = useBrands();
+  const colour = (id: number) => brands?.find((b) => b.id === id)?.colours?.[0];
   const brand = params.get("brand") ?? "";
   const editor = params.get("editor") ?? "";
   const attention = params.get("attention") === "1";
@@ -96,7 +99,8 @@ export function ProductionPage() {
   const { query, rows, total } = useProduction({ brand, editor, attention, q, sort });
   // Everyone with a video in the list, kept as filters narrow it.
   const [people, setPeople] = useState(new Map<number, string>());
-  if (rows.some((r) => people.get(r.editor.id) !== r.editor.name)) setPeople(new Map([...people, ...rows.map((r): [number, string] => [r.editor.id, r.editor.name])]));
+  const seen = rows.flatMap((r): [number, string][] => (r.editor ? [[r.editor.id, r.editor.name]] : []));
+  if (seen.some(([id, name]) => people.get(id) !== name)) setPeople(new Map([...people, ...seen]));
 
   if (isPending) return null;
   if (!owner || summary.error?.message === "404" || query.error?.message === "404") return <p className="p-6">Page not found.</p>;
@@ -184,7 +188,7 @@ export function ProductionPage() {
         </div>
       )}
       {empty}
-      {rows.length > 0 && (rail ? <Table rows={rows} showBrand={!brand} /> : <Cards rows={rows} />)}
+      {rows.length > 0 && (rail ? <Table rows={rows} showBrand={!brand} colour={colour} /> : <Cards rows={rows} colour={colour} />)}
       {query.hasNextPage && (
         <Button variant="secondary" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()} className="w-full lg:w-auto">
           Show more
@@ -205,7 +209,7 @@ export function ProductionPage() {
   );
 }
 
-function Table({ rows, showBrand }: { rows: Row[]; showBrand: boolean }) {
+function Table({ rows, showBrand, colour }: { rows: Row[]; showBrand: boolean; colour: (id: number) => string | undefined }) {
   const cols = showBrand ? "grid-cols-[minmax(0,2.6fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_20px]" : "grid-cols-[minmax(0,2.6fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_20px]";
   return (
     <Card className="p-0 sm:p-0">
@@ -228,11 +232,11 @@ function Table({ rows, showBrand }: { rows: Row[]; showBrand: boolean }) {
               </span>
               {showBrand && (
                 <span className="flex min-w-0 items-center gap-2">
-                  <Dot />
+                  <Dot colour={colour(r.brand.id)} />
                   <span className="min-w-0 break-words">{r.brand.name}</span>
                 </span>
               )}
-              <span className="min-w-0 break-words">{r.editor.name}</span>
+              <span className="min-w-0 break-words">{who(r)}</span>
               <span>{STEPS[r.step]}</span>
               <span className="text-right">{lastText(r.last_activity_at)}</span>
               <span className="text-right">
@@ -252,7 +256,7 @@ function Table({ rows, showBrand }: { rows: Row[]; showBrand: boolean }) {
   );
 }
 
-function Cards({ rows }: { rows: Row[] }) {
+function Cards({ rows, colour }: { rows: Row[]; colour: (id: number) => string | undefined }) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2">
       {rows.map((r) => (
@@ -263,8 +267,8 @@ function Cards({ rows }: { rows: Row[] }) {
               <span className="min-w-0 flex-1 space-y-1">
                 <span className="block break-words font-display text-md font-bold">{r.script.title} · {r.letter}</span>
                 <span className="flex items-center gap-2 text-sm text-muted">
-                  <Dot />
-                  <span className="min-w-0 break-words">{r.brand.name} · {r.editor.name}</span>
+                  <Dot colour={colour(r.brand.id)} />
+                  <span className="min-w-0 break-words">{r.brand.name} · {who(r)}</span>
                 </span>
                 <span className="block text-sm text-muted">{STEPS[r.step]} · {ago(lastText(r.last_activity_at))}</span>
                 <span className="block text-sm text-muted tabular-nums">

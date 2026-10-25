@@ -47,7 +47,7 @@ test("In production: a row per video links to it, flagged rows say why, and the 
   expect(link).toHaveAttribute("href", "/b/1/projects/11");
   expect(within(link).getByText("Clips: take 2 of clip 3 didn't finish. Credits were returned.")).toBeInTheDocument();
   expect(screen.getByText("Drawing the frames for 52 min")).toBeInTheDocument();
-  expect(screen.getByText("For 3 days")).toBeInTheDocument();
+  expect(screen.getByText("Nothing for 3 days")).toBeInTheDocument();
   expect(within(screen.getByRole("link", { name: /Midnight snack/ })).queryByText(/Stuck|Didn't|No activity/)).toBeNull();
   expect(within(link).getByText("380 of 420")).toHaveAttribute("title", "Close to the budget. Going over needs your approval.");
   expect(screen.getByText("96 of 210")).not.toHaveAttribute("title");
@@ -115,4 +115,11 @@ test("In production: a refresh updates rows in place and never reorders them", a
   expect(await screen.findByText("Making the takes for 40 min")).toBeInTheDocument();
   const titles = screen.getAllByRole("link", { name: /version/ }).map((l) => l.getAttribute("aria-label")?.split(",")[0]);
   expect(titles).toEqual(["Bo tries salmon", "Midnight snack"]);
+});
+
+test("In production: a video whose editor is gone still lists, as Someone's", async () => {
+  setViewport(1440);
+  fakeServer(base([row({ editor: null })]));
+  open();
+  expect(await screen.findByRole("link", { name: "Bo tries salmon, version B, Someone, at Clips" })).toBeInTheDocument();
 });

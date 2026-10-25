@@ -1,36 +1,13 @@
 import { useState } from "react";
 import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import createClient from "openapi-fetch";
+import { api } from "../api/client";
+import type { components, operations } from "../api/schema";
 import { useMe } from "../auth/useMe";
 
-export type Step = "breakdown" | "assets" | "storyboard" | "clips" | "downloads";
-export type Flag = "failed" | "stuck" | "idle";
-export type Row = {
-  project_id: number;
-  brand: { id: number; name: string };
-  script: { id: number; title: string };
-  letter: string;
-  editor: { id: number; name: string };
-  step: Step;
-  last_activity_at: string;
-  credits_used: number;
-  budget_credits: number;
-  spent_usd: number;
-  poster_file_id: number | null;
-  flag: Flag | null;
-  flag_since: string | null;
-  flag_job: string | null;
-  flag_problem: string | null;
-};
-export type Sort = "attention" | "activity" | "credits" | "budget";
+export type Row = components["schemas"]["ProductionRow"];
+export type Step = Row["step"];
+export type Sort = NonNullable<NonNullable<operations["in_production_production_get"]["parameters"]["query"]>["sort"]>;
 export type Filters = { brand: string; editor: string; attention: boolean; q: string; sort: Sort };
-
-// The spec's shapes, until the server's schema has them (then these go and `api` is used).
-type Paths = {
-  "/production": { get: { parameters: { query?: { brand_id?: number; editor_id?: number; attention?: boolean; q?: string; sort?: Sort; limit?: number; offset?: number } }; responses: { 200: { content: { "application/json": Row[] } } } } };
-  "/production/summary": { get: { responses: { 200: { content: { "application/json": { in_production: number; needs_attention: number } } } } } };
-};
-const production = createClient<Paths>({ baseUrl: `${location.origin}/api`, credentials: "include", fetch: (req) => fetch(req) });
 
 const PAGE = 25;
 const REFRESH = 30_000;
@@ -42,7 +19,7 @@ export function useProductionSummary(enabled = true) {
     queryKey: ["production", "summary"],
     refetchInterval: REFRESH,
     queryFn: async () => {
-      const { data, response } = await production.GET("/production/summary");
+      const { data, response } = await api.GET("/production/summary");
       if (!data) throw new Error(response.status === 404 ? "404" : "load");
       return data;
     },
@@ -73,7 +50,7 @@ export function useProduction(f: Filters) {
     initialPageParam: 0,
     refetchInterval: REFRESH,
     queryFn: async ({ pageParam }) => {
-      const { data, response } = await production.GET("/production", {
+      const { data, response } = await api.GET("/production", {
         params: { query: { ...(f.brand ? { brand_id: Number(f.brand) } : {}), ...(f.editor ? { editor_id: Number(f.editor) } : {}), ...(f.attention ? { attention: true } : {}), ...(f.q ? { q: f.q } : {}), sort: f.sort, limit: PAGE, offset: pageParam } },
       });
       if (!data) throw new Error(response.status === 404 ? "404" : "load");
