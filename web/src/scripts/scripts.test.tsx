@@ -611,3 +611,42 @@ test("Making now keeps a version whose clips are ready too", async () => {
   expect(within(section).getByText("Clips ready reel")).toBeInTheDocument();
   expect(within(section).getByText("A · In production · you")).toBeInTheDocument();
 });
+
+test("the library pages from the server: the total comes from its header, and Show more asks for the next rows", async () => {
+  setViewport(1440);
+  const asked: string[] = [];
+  const all = Array.from({ length: 35 }, (_, i) => script({ id: 100 + i, title: `Script ${i + 1}` }));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+      const url = new URL(req.url);
+      const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
+      const json = (body: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json", ...headers } });
+      if (key === "GET /scripts") {
+        asked.push(`${url.searchParams.get("offset")}/${url.searchParams.get("limit")}/${url.searchParams.get("reference_id") ?? ""}/${url.searchParams.get("sort") ?? ""}`);
+        const off = Number(url.searchParams.get("offset") ?? 0);
+        return json(all.slice(off, off + Number(url.searchParams.get("limit") ?? 30)), { "X-Total-Count": String(all.length) });
+      }
+      return json(key === "GET /auth/me" ? owner : (base[key]?.[1] ?? []));
+    }),
+  );
+  open("/b/1/scripts?ref=altar&sort=title");
+  expect(await screen.findByText("35 scripts")).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(30);
+  await userEvent.click(screen.getByRole("button", { name: "Show more" }));
+  await vi.waitFor(() => expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(35));
+  expect(asked).toEqual(["0/30/altar/title", "30/30/altar/title"]);
+  expect(screen.queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+});
+
+test("a row shows its poster once a video is finished, the reel's name from the server, and a failed version as Didn't finish that opens its video", async () => {
+  setViewport(1440);
+  const row = script({ poster_file_id: 77, reference_name: "The altar reel", versions: [v(0, "failed", { project_id: 5 })] });
+  fakeServer({ ...base, "GET /scripts": [200, [row]] });
+  open();
+  expect(await screen.findByText(/Ref: The altar reel/)).toBeInTheDocument();
+  expect(document.querySelector("img[src*='77']")).not.toBeNull();
+  expect(screen.getByText("A · Didn't finish")).toBeInTheDocument();
+  expect(screen.getByLabelText("Version A, didn't finish").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
+});
