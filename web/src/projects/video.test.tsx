@@ -151,3 +151,16 @@ test("an approved look is not redrawn here; it can be taken back", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Undo approval" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/sheet/approve")).toBe(true));
 });
+
+test("one-press Make storyboard asks Reed when the writing plus the stills pass the budget, not only the writing", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 590, budget_credits: 600 }],
+    "GET /projects/9/assets": [200, []],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image", unit: "image", credits_per_unit: 4 }]],
+    "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
+  });
+  open("?step=storyboard");
+  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 15 credits" })).toBeInTheDocument();
+});
