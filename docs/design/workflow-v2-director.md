@@ -29,20 +29,7 @@ Step name `variations`. The system prompt is `rules.md` + `variations.md` + a wo
 
 ### Output (what Claude returns)
 
-```
-Variations {
-  variations: [            # exactly <count> items, in slot order (1, 2)
-    {
-      title:    str        # 2–4 words for the library, e.g. "The car"
-      premise:  str        # one sentence: what changes and how it pays off
-      script:   str        # the full script in house format (scene headings, NAME: lines, ★ lines)
-      changes:  [str]      # plain-language list of what differs from the original
-    }
-  ]
-}
-```
-
-Final, agreed with Builder-Server: #189 at bd48caa is the source of truth. No id: results fill slots 1 and 2 in order, and a regenerate replaces one slot (with `<keep_apart>` and `<note>`). They store title, premise and changes on each draft version and never write to an approved one.
+The exact output schema lives in Builder-Server's plan (#189), and that file is the source of truth. This doc doesn't copy it, so the two can't drift. It holds exactly `<count>` items in slot order (1, 2), with no id: a title (2–4 words, for the library), the script in house format, and a short plain-language account of what changed and how it pays off. A regenerate replaces one slot, with `<keep_apart>` and `<note>`. Builder-Server stores each variation as a draft version and never writes to an approved one. The prompt and checks will use whatever field names #189 has when it merges.
 
 ### Rules (variations.md)
 
