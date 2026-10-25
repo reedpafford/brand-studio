@@ -116,12 +116,12 @@ for (const width of [1440, 390]) {
     ).toBeVisible({ timeout: 90_000 });
     await page.getByRole("button", { name: "✓ Looks good" }).first().click();
     await page.getByRole("button", { name: /Next: Downloads/ }).click();
-    await page
-      .getByRole("button", { name: "Make the video", exact: true })
-      .click();
+    // The whole video is put together by itself.
     await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible({
       timeout: 60_000,
     });
+    const zip = await page.request.get(`/api/projects/${id}/clips.zip`);
+    expect(zip.headers()["content-type"]).toBe("application/zip");
     const sizes = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
       window: document.documentElement.clientWidth,
