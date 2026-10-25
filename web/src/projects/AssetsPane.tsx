@@ -105,6 +105,15 @@ function AssetCard({
       });
     },
   });
+  const unapprove = useMutation({
+    mutationFn: () =>
+      must(
+        api.DELETE("/library/{kind}/{item_id}/sheet/approve", {
+          params: { path },
+        }),
+      ),
+    onSuccess: refresh,
+  });
   const choose = useMutation({
     mutationFn: async (itemId: number) => {
       const slot = Number(asset.ref.split(":")[1]);
@@ -235,16 +244,25 @@ function AssetCard({
                   Approve
                 </Button>
               )}
-              <Button variant="secondary" onClick={() => setOpen(true)}>
-                {asset.sheet_status === "approved"
-                  ? "Change the look"
-                  : "Make the look"}
-              </Button>
+              {asset.sheet_status === "approved" ? (
+                // An approved look is not redrawn here: a picked character is shared with every video.
+                <Button
+                  variant="secondary"
+                  busy={unapprove.isPending}
+                  onClick={() => unapprove.mutate()}
+                >
+                  Undo approval
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => setOpen(true)}>
+                  Make the look
+                </Button>
+              )}
             </div>
           )}
-          {(approve.error ?? choose.error ?? makeLook.error) && (
+          {(approve.error ?? unapprove.error ?? choose.error ?? makeLook.error) && (
             <p role="alert" className={errorClass}>
-              {(approve.error ?? choose.error ?? makeLook.error)!.message}
+              {(approve.error ?? unapprove.error ?? choose.error ?? makeLook.error)!.message}
             </p>
           )}
         </div>

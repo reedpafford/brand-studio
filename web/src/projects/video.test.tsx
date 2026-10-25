@@ -102,3 +102,13 @@ test("a role with no character can make one, so Assets is never a dead end", asy
   await vi.waitFor(() => expect(calls.map((c) => c.key)).toEqual(expect.arrayContaining(["POST /library/character", "PUT /projects/9/assets/slots/3"])));
   expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", brand_ids: [1] });
 });
+
+test("an approved look is not redrawn here; it can be taken back", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]], "GET /library/character/5": [200, item({ sheet_status: "approved" })], "DELETE /library/character/5/sheet/approve": [200, item({})] });
+  open();
+  expect(await screen.findByText("Approved")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Change the look|Make the look/ })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Undo approval" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/sheet/approve")).toBe(true));
+});
