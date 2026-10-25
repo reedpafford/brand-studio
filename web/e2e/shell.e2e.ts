@@ -10,7 +10,7 @@ test("the brand switcher changes brand and is remembered", async ({ page }) => {
 
   await switchBrand(page, "Iron Paws");
   await onBrand(page, "Iron Paws");
-  await expect(page).toHaveURL(/\/b\/\d+\/projects$/);
+  await expect(page).toHaveURL(/\/b\/\d+\/scripts$/);
 
   await page.goto("/");
   await onBrand(page, "Iron Paws");

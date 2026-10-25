@@ -1,0 +1,148 @@
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, expect, test, vi } from "vitest";
+import { App } from "../App";
+import { fakeServer } from "../test/server";
+import { setViewport } from "../test/viewport";
+
+const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
+const editor = { id: 2, email: "sam@b.co", name: "Sam", role: "editor", workspace_id: 1 };
+const brands = [{ id: 1, name: "Iron Paws", colours: [] }, { id: 2, name: "fomo", colours: [] }];
+const v = (slot: number, status: string, o: object = {}) => ({ slot, status, title: "Bo tries salmon", seconds: 0, project_id: null, ...o });
+const script = (o: object = {}) => ({
+  id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog finally loving Iron Paws salmon.", reference_id: "altar", published: true, status: "published",
+  created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 2, versions: [v(0, "done", { seconds: 24, project_id: 5 }), v(1, "approved", { seconds: 30 }), v(2, "in_production")], ...o,
+});
+const base: Record<string, [number, unknown]> = {
+  "GET /auth/me": [200, owner],
+  "GET /brands": [200, brands],
+  "GET /references": [200, [{ id: "altar", name: "The altar reel", logline: "", seconds: 45, style: "", brand: "", has_thumbnail: false }]],
+  "GET /projects": [200, []],
+};
+
+function open(path = "/b/1/scripts") {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+test("a script is one row: its title, description, reference, length range and a chip for every version in words", async () => {
+  fakeServer({ ...base, "GET /scripts": [200, [script()]] });
+  open();
+  expect(await screen.findByRole("heading", { name: "Bo tries salmon" })).toBeInTheDocument();
+  expect(screen.getByText("Show a picky dog finally loving Iron Paws salmon.")).toBeInTheDocument();
+  expect(screen.getByText(/Ref: The altar reel · 24–30 s · 2 versions left to make/)).toBeInTheDocument();
+  expect(screen.getByText("A · Video done")).toBeInTheDocument();
+  expect(screen.getByText("B · Ready to make")).toBeInTheDocument();
+  expect(screen.getByText("C · In production")).toBeInTheDocument();
+  expect(screen.getByLabelText("Version A, video done").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
+  expect(screen.getByText("1 script")).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\bv\d\b|project/i);
+});
+
+test("an editor starts on Ready to make, and Reed on everything; the brand home is the library", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []] });
+  open("/b/1");
+  await screen.findByRole("heading", { name: "Scripts" });
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));
+  expect(screen.getByLabelText("Status")).toHaveValue("published");
+  expect(await screen.findByText("No scripts ready to make yet.")).toBeInTheDocument();
+});
+
+test("filters and search are sent to the server and live in the address; Clear filters resets them", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts?status=in_production&len=15-30");
+  await screen.findByRole("heading", { name: "Scripts" });
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));
+  expect(screen.getByLabelText("Status")).toHaveValue("in_production");
+  expect(screen.getByLabelText("Length")).toHaveValue("15-30");
+  expect(await screen.findByText("Nothing matches these filters.")).toBeInTheDocument();
+  await userEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]);
+  expect(screen.getByLabelText("Status")).toHaveValue("");
+  expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
+});
+
+test("search waits for typing to stop, then asks the server", async () => {
+  const calls = fakeServer({ ...base, "GET /scripts": [200, [script()]] });
+  open();
+  await userEvent.type(await screen.findByRole("searchbox"), "salmon");
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /scripts").length).toBeGreaterThan(1));
+});
+
+test("a failed load says so with Try again", async () => {
+  fakeServer({ ...base, "GET /scripts": [500, { detail: "boom" }] });
+  open();
+  expect(await screen.findByText("Couldn't load your scripts.", {}, { timeout: 10_000 })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+}, 20_000);
+
+test("videos made before scripts stay reachable under a closed disclosure", async () => {
+  const old = { id: 9, brand_id: 1, name: "Old reel", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 60, credits_used: 5, budget_pct: 8 };
+  fakeServer({ ...base, "GET /scripts": [200, []], "GET /projects": [200, [old]] });
+  open();
+  const section = await screen.findByRole("region", { name: "Videos made before scripts" });
+  expect(await within(section).findByText("Videos made before scripts (1)")).toBeInTheDocument();
+  expect(within(section).getByRole("link", { name: "New video (the earlier way)" })).toHaveAttribute("href", "/b/1/projects/new");
+});
+
+test("on a phone the filters sit behind one Filters button that opens a sheet, and says how many are on", async () => {
+  fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts?status=done");
+  const button = await screen.findByRole("button", { name: "Filters (1)" });
+  await userEvent.click(button);
+  const sheet = await screen.findByRole("dialog", { name: "Filters" });
+  expect(within(sheet).getByLabelText("Status")).toHaveValue("done");
+});
+
+/** A fake server whose list honours ?status (and the brand), like the real one. */
+function honouringServer(rows: ReturnType<typeof script>[]) {
+  const answers: Record<string, unknown> = { ...Object.fromEntries(Object.entries(base).map(([k, [, body]]) => [k, body])), "GET /auth/me": editor };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+      const url = new URL(req.url);
+      const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
+      if (key === "GET /scripts") {
+        const status = url.searchParams.get("status");
+        const out = rows.filter((r) => !status || r.status === status);
+        return new Response(JSON.stringify(out), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return new Response(JSON.stringify(answers[key] ?? { detail: "not faked" }), { status: key in answers ? 200 : 404, headers: { "content-type": "application/json" } });
+    }),
+  );
+}
+
+test("an editor's own draft shows under Your drafts even though the list asks for Ready to make", async () => {
+  setViewport(1440);
+  honouringServer([
+    script({ id: 1, title: "Sam's draft", status: "draft", published: false, created_by_id: 2, created_by_name: "Sam", versions: [v(0, "draft")] }),
+    script({ id: 2, title: "Reed's published one", status: "published", created_by_id: 1 }),
+  ]);
+  open();
+  const drafts = await screen.findByRole("region", { name: "Your drafts" });
+  expect(within(drafts).getByText("Sam's draft")).toBeInTheDocument();
+  expect(await screen.findByText("Reed's published one")).toBeInTheDocument();
+  expect(screen.getAllByText("Sam's draft")).toHaveLength(1); // not listed twice
+});
+
+test("a script's age is in plain words", async () => {
+  const { age } = await import("./ScriptsPage");
+  const now = new Date("2026-10-25T12:00:00Z").getTime();
+  expect(age("2026-10-25T11:59:59Z", now)).toBe("just now");
+  expect(age("2026-10-25T11:55:00Z", now)).toBe("5 min ago");
+  expect(age("2026-10-25T09:00:00Z", now)).toBe("3 h ago");
+  expect(age("2026-10-24T09:00:00Z", now)).toBe("yesterday");
+  expect(age("2026-10-22T09:00:00Z", now)).toBe("3 days ago");
+  expect(age("2026-09-01T09:00:00Z", now)).toMatch(/1 Sep|Sep 1/);
+});

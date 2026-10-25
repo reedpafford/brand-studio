@@ -4,8 +4,8 @@ import { emptyBrand, signIn } from "./helpers";
 test("a brief becomes a project that is listed with its credit meter", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
-  await page.goto(`/b/${await emptyBrand(page)}`);
-  await expect(page).toHaveURL(/\/projects$/);
+  // The earlier video list is still there while the Script library grows around it.
+  await page.goto(`/b/${await emptyBrand(page)}/projects`);
   await expect(page.getByText("No videos for Night Owl yet")).toBeVisible();
 
   await page.getByRole("link", { name: "New video" }).click();
