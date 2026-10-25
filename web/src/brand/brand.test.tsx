@@ -189,3 +189,17 @@ test("leaving Look with unsaved changes asks first; Keep editing stays, Leave go
   await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).getByRole("button", { name: "Leave" }));
   expect(await screen.findByText("No brand screens yet.")).toBeInTheDocument();
 });
+
+test("a never-say word that was typed but not added is kept when you move on, and a reload asks while there are unsaved changes", async () => {
+  const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "PATCH /brands/1": [200, brand] });
+  renderAt("/b/1/brand");
+  const box = await screen.findByLabelText("Add to never say");
+  await userEvent.type(box, "guaranteed");
+  await userEvent.tab(); // moving on adds it
+  expect(screen.getByRole("button", { name: "Remove guaranteed" })).toBeInTheDocument();
+  const ask = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(ask);
+  expect(ask.defaultPrevented).toBe(true);
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({ never_say: ["guaranteed"] }));
+});

@@ -92,6 +92,13 @@ export function useReportDirty(dirty: boolean) {
     setDirty(dirty);
     return () => setDirty(false);
   }, [dirty, setDirty]);
+  // Reloading or closing the tab asks too.
+  useEffect(() => {
+    if (!dirty) return;
+    const ask = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", ask);
+    return () => window.removeEventListener("beforeunload", ask);
+  }, [dirty]);
 }
 
 /** The old /kit and /screens addresses land on the Brand page. */
