@@ -135,12 +135,21 @@ def _one_at_a_time(db: Session, user: User) -> None:
         raise HTTPException(409, "You have a reel being prepared. Try again when it's done.")
 
 
-def drop_files(request: Request, db: Session, reel: dict | None) -> None:
-    """Delete a reel's own files (its video and contact sheet), e.g. when it's replaced."""
+def drop_files(db: Session, reel: dict | None) -> list[str]:
+    """Delete a reel's own file rows (its video and contact sheet), e.g. when it's replaced.
+    Returns their storage keys: delete those bytes only once the deletion is committed, so a
+    refused request never leaves a row whose bytes are gone."""
+    keys = []
     for key in ("video_file_id", "contact_file_id"):
         if (stored := db.get(StoredFile, (reel or {}).get(key) or 0)) is not None:
-            request.app.state.storage.delete(stored.key)
+            keys.append(stored.key)
             db.delete(stored)
+    return keys
+
+
+def delete_bytes(request: Request, keys: list[str]) -> None:
+    for key in keys:
+        request.app.state.storage.delete(key)
 
 
 def _prepare(db: Session, user: User, script: Script, reel: dict, job_input: dict) -> None:
@@ -208,10 +217,11 @@ async def replace_with_upload(
     if script.reference_breakdown:
         raise HTTPException(409, "This reel has been read already.")
     _one_at_a_time(db, user)
-    drop_files(request, db, script.reel)  # the old video and sheet aren't needed any more
-    stored = await _store_video(request, user, db, file)
+    stored = await _store_video(request, user, db, file)  # checked before anything goes
+    old = drop_files(db, script.reel)  # the old video and sheet aren't needed any more
     reel = {"source": "upload", "url": script.reel.get("url"), "video_file_id": stored.id}
-    _prepare(db, user, script, reel, {"video_key": stored.key})
+    _prepare(db, user, script, reel, {"video_key": stored.key})  # commits
+    delete_bytes(request, old)
     return _out(db, script)
 
 

@@ -168,3 +168,29 @@ def test_a_worker_can_take_only_some_providers(app, owner, db, clip):
     db.expire_all()
     assert db.get(Job, other.id).status == "queued"  # left for the other worker, not failed
     assert db.query(Job).filter(Job.provider == "local").one().status == "succeeded"
+
+
+def test_a_refused_replacement_keeps_the_old_reel_whole(app, owner, db, clip):
+    """QA on #288: a replacement that's refused (415) leaves the old video's row and bytes."""
+    sid = _upload(owner, clip).json()["script_id"]
+    _work(app, db)
+    old = owner.get(f"/scripts/{sid}/import").json()
+    files = {"file": ("notes.txt", b"not a video", "text/plain")}
+    refused = owner.post(f"/scripts/{sid}/import/upload", files=files)
+    assert refused.status_code == 415
+    assert owner.get(f"/files/{old['video_file_id']}").content == clip.read_bytes()
+    assert owner.get(f"/scripts/{sid}/import").json()["status"] == "ready"
+
+
+def test_the_deployed_workers_cover_every_provider():
+    """Release on #288: the workers' lists are allowlists, so a new provider must be in one."""
+    import json
+    import re
+
+    from app.providers import get_providers
+    from app.settings import REPO_ROOT, Settings
+
+    compose = (REPO_ROOT / "deploy/docker-compose.yml").read_text()
+    lists = re.findall(r"BS_WORKER_PROVIDERS: '(\[.*?\])'", compose)
+    covered = {name for found in lists for name in json.loads(found)}
+    assert covered == set(get_providers(Settings()))

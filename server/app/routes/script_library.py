@@ -19,7 +19,7 @@ from app.routes.brands import get_brand
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
-from app.routes.script_import import drop_files
+from app.routes.script_import import delete_bytes, drop_files
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
@@ -347,15 +347,17 @@ def delete_script(
     if not (user.is_owner or (script.created_by_id == user.id and not script.published)):
         raise HTTPException(403, "Only its author (before publishing) or the owner can remove it.")
     ids = [d.id for d in lib.drafts(db, script)]
+    old: list[str] = []
     if ids and db.scalar(select(Project.id).where(Project.script_draft_id.in_(ids)).limit(1)):
         script.archived = True
     else:
         db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
         db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(ids)))
         db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
-        drop_files(request, db, script.reel)  # an imported reel's own files
+        old = drop_files(db, script.reel)  # an imported reel's own files
         db.delete(script)
     db.commit()
+    delete_bytes(request, old)
 
 
 @router.put("/{script_id}/drafts/{slot}", response_model=ScriptOut)
