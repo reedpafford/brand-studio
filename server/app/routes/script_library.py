@@ -2,11 +2,11 @@
 (the original in slot 0 and up to two variations). Rules: `app/script_library.py`."""
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app import script_library as lib
@@ -16,6 +16,7 @@ from app.models.accounts import User
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.routes.brands import get_brand
+from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
 from app.routes.scripts import ScriptText
@@ -63,7 +64,7 @@ class Person(BaseModel):
 
 class VersionSummary(BaseModel):
     slot: int
-    status: str  # draft | approved | in_production | clips_ready | done
+    status: str  # draft | approved | in_production | clips_ready | failed | done
     title: str
     seconds: int  # the saved breakdown's, else the target, else spoken words at 4.8 a second
     project_id: int | None  # the video made from it
@@ -79,6 +80,10 @@ class VersionOut(VersionSummary):
     problems: list[str]
     has_breakdown: bool
     approved_at: datetime | None
+    variation_of: str | None = None  # "A": a variation of the original; null for the original
+    estimate_credits: float = 0  # to make it: 1 credit a second (480p), from its length
+    clips: int = 0  # in the saved breakdown
+    planned_by: Person | None = None  # who saved the breakdown
 
 
 class ScriptRow(BaseModel):
@@ -94,6 +99,8 @@ class ScriptRow(BaseModel):
     created_at: datetime
     versions: list[VersionSummary]
     versions_left: int  # approved versions not produced yet
+    poster_file_id: int | None = None  # the first still of its newest finished video
+    reference_name: str | None = None  # the reel it adapts, by name
 
 
 class ScriptOut(ScriptRow):
@@ -130,6 +137,10 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         problems=draft.problems,
         has_breakdown=draft.breakdown is not None,
         approved_at=draft.approved_at,
+        variation_of="A" if draft.slot else None,
+        estimate_credits=lib.seconds(draft),
+        clips=len((draft.breakdown or {}).get("clips", [])),
+        planned_by=_person(db, draft.breakdown_by_id) if draft.breakdown else None,
     )
 
 
@@ -165,12 +176,26 @@ def _check_reference(request: Request, ref_id: str | None) -> None:
         find_reference(request, ref_id)  # 404 if it isn't in the catalogue
 
 
+SORTS = {
+    "newest": lambda r: -r.id,
+    "title": lambda r: r.title.lower(),
+    "seconds": lambda r: max((v.seconds for v in r.versions), default=0),
+    "versions_left": lambda r: -r.versions_left,
+}
+
+
 @router.get("", response_model=list[ScriptRow])
 def list_scripts(
+    request: Request,
+    response: Response,
     brand_id: int | None = None,
     status: str | None = None,
     q: str = "",
     reference: bool | None = None,  # true: adapted from a reel; false: not
+    reference_id: str | None = None,  # adapted from this reel
+    sort: Literal["newest", "title", "seconds", "versions_left"] = "newest",
+    limit: int | None = Query(None, ge=1, le=200),  # a page; X-Total-Count has the total
+    offset: int = Query(0, ge=0),
     versions_left: int | None = None,  # at least this many versions left to produce
     min_seconds: int | None = None,
     max_seconds: int | None = None,
@@ -183,6 +208,8 @@ def list_scripts(
         query = query.where(or_(Script.published, Script.created_by_id == user.id))
     if brand_id is not None:
         query = query.where(Script.brand_id == brand_id)
+    if reference_id is not None:
+        query = query.where(Script.reference_id == reference_id)
     if reference is not None:
         query = query.where(
             Script.reference_id.is_not(None) if reference else Script.reference_id.is_(None)
@@ -193,14 +220,31 @@ def list_scripts(
         query = query.where(
             or_(Script.title.ilike(like), Script.description.ilike(like), Script.id.in_(in_text))
         )
-    rows = [_out(db, s, full=False) for s in db.scalars(query.order_by(Script.id.desc()))]
-    if status:
-        rows = [r for r in rows if r.status == status]
-    if versions_left is not None:
-        rows = [r for r in rows if r.versions_left >= versions_left]
-    if min_seconds is not None or max_seconds is not None:
-        lo, hi = min_seconds or 0, max_seconds or 10**6
-        rows = [r for r in rows if any(lo <= v.seconds <= hi for v in r.versions)]
+    computed = status or {versions_left, min_seconds, max_seconds} != {None}
+    if not computed and sort in ("newest", "title"):  # page in the query: build only the page
+        total = db.scalar(select(func.count()).select_from(query.subquery()))
+        order = [func.lower(Script.title)] if sort == "title" else []
+        query = query.order_by(*order, Script.id.desc()).offset(offset).limit(limit)
+        rows = [_out(db, s, full=False) for s in db.scalars(query)]
+    else:  # status, versions left and seconds come from each script's versions
+        rows = [_out(db, s, full=False) for s in db.scalars(query.order_by(Script.id.desc()))]
+        if status:
+            rows = [r for r in rows if r.status == status]
+        if versions_left is not None:
+            rows = [r for r in rows if r.versions_left >= versions_left]
+        if min_seconds is not None or max_seconds is not None:
+            lo, hi = min_seconds or 0, max_seconds or 10**6
+            rows = [r for r in rows if any(lo <= v.seconds <= hi for v in r.versions)]
+        rows.sort(key=SORTS[sort])
+        total = len(rows)
+        rows = rows[offset : offset + limit] if limit else rows[offset:]
+    response.headers["X-Total-Count"] = str(total)
+    names = {
+        ref.id: ref.name for ref, _ in catalogue(request.app.state.settings.references_dir).values()
+    }
+    for row in rows:
+        row.poster_file_id = lib.poster(db, db.get(Script, row.id))
+        row.reference_name = names.get(row.reference_id) if row.reference_id else None
     return rows
 
 
@@ -355,7 +399,7 @@ class EarlierText(BaseModel):
     text: str
     title: str
     words: int
-    source: str  # edit | variations: what replaced it
+    source: str  # edit | variations | write: what replaced it
     created_at: datetime  # when it was replaced
     created_by_name: str
 
@@ -364,8 +408,12 @@ class EarlierText(BaseModel):
 def draft_history(
     script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    """A version's earlier texts, newest first. To bring one back, write it as the words."""
-    draft = lib.get_draft(db, lib.get_script(db, user, script_id), slot)
+    """A version's earlier texts, newest first (the newest 20). To bring one back, write it
+    as the words. Only the script's author and the owner see them; others see the final words."""
+    script = lib.get_script(db, user, script_id)
+    if not (user.is_owner or script.created_by_id == user.id):
+        raise HTTPException(403, "Only the script's author and the owner see its earlier texts.")
+    draft = lib.get_draft(db, script, slot)
     rows = db.scalars(
         select(ScriptDraftText)
         .where(ScriptDraftText.draft_id == draft.id)
@@ -443,6 +491,7 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
                 changes=d.changes,
                 breakdown=d.breakdown,
                 breakdown_problems=d.breakdown_problems,
+                breakdown_by_id=d.breakdown_by_id,
             )
         )
     for slot in db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == source.id)):

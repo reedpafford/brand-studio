@@ -44,7 +44,7 @@ The amber button is **Create script**, or **Next: Script** once the draft exists
 
 **Done state:** after saving, the step shows a read view, with each field as label and value, plus **Edit description** (secondary, `Pencil`). Once the script is published, the read view stays and there's no Edit (decision i).
 
-## Bulk create (a sheet on phone, a dialog 640px wide on desktop)
+## Bulk create (a sheet on phone, a side panel on desktop)
 This is for making many drafts at once. **Nothing is written** until you press Write all (decision g).
 
 **Step 1, Add scripts:** a list of rows, starting with 3 empty rows.

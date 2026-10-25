@@ -239,34 +239,58 @@ def project_totals(db: Session, project_ids: list[int]) -> tuple[dict, dict, dic
     return spend, guessed, credits, last
 
 
-def video_status(db: Session, project: Project) -> str:
-    """The library's words: done, failed (the last job failed, nothing running), in_production."""
-    if project.finished_at:
-        return "done"
-    last = db.scalar(
-        select(Job).where(Job.project_id == project.id).order_by(Job.id.desc()).limit(1)
+def video_statuses(db: Session, projects: list[Project]) -> dict[int, str]:
+    """The library's words per video, in one query: done, failed (its last job failed),
+    or in_production."""
+    ids = [p.id for p in projects]
+    last = (
+        select(Job.project_id, func.max(Job.id).label("id"))
+        .where(Job.project_id.in_(ids))
+        .group_by(Job.project_id)
+        .subquery()
     )
-    return "failed" if last is not None and last.status == "failed" else "in_production"
-
-
-def script_spend(db: Session, script: Script) -> tuple[Decimal, bool]:
-    """Writing the script (its own jobs) plus every video made from its versions, lifetime."""
-    drafts = list(db.scalars(select(ScriptDraft.id).where(ScriptDraft.script_id == script.id)))
-    projects = list(db.scalars(select(Project.id).where(Project.script_draft_id.in_(drafts))))
-    rows = db.execute(
-        select(Job, Usage.cost_usd, Usage.estimated)
-        .join(Usage, Usage.job_id == Job.id)
-        .where(Job.brand_id == script.brand_id)
-    ).all()
-    total, guessed = Decimal(0), False
-    for job, cost, est in rows:
-        mine = job.project_id in projects or (
-            job.project_id is None
-            and (
-                job.input.get("script_id") == script.id
-                or job.input.get("script_draft_id") in drafts
-            )
+    failed = set(
+        db.scalars(
+            select(Job.project_id).join(last, last.c.id == Job.id).where(Job.status == "failed")
         )
-        if mine:
-            total, guessed = total + Decimal(cost or 0), guessed or bool(est)
-    return total, guessed
+    )
+    return {
+        p.id: "done" if p.finished_at else "failed" if p.id in failed else "in_production"
+        for p in projects
+    }
+
+
+def script_spends(db: Session, brand_id: int) -> dict[int, tuple[Decimal, bool]]:
+    """Per script of the brand, in one pass: writing it (its own jobs) plus every video made
+    from its versions, lifetime dollars and whether any is an estimate."""
+    draft_script = dict(
+        db.execute(
+            select(ScriptDraft.id, ScriptDraft.script_id)
+            .join(Script, Script.id == ScriptDraft.script_id)
+            .where(Script.brand_id == brand_id)
+        ).all()
+    )
+    project_script = {
+        pid: draft_script[did]
+        for pid, did in db.execute(
+            select(Project.id, Project.script_draft_id).where(
+                Project.script_draft_id.in_(list(draft_script))
+            )
+        ).all()
+    }
+    rows = db.execute(
+        select(Job.project_id, Job.input, Usage.cost_usd, Usage.estimated)
+        .join(Usage, Usage.job_id == Job.id)
+        .where(Job.brand_id == brand_id)
+    ).all()
+    out: dict[int, tuple[Decimal, bool]] = {}
+    for project_id, data, cost, est in rows:
+        if project_id is not None:
+            script_id = project_script.get(project_id)
+        else:
+            script_id = data.get("script_id") or draft_script.get(data.get("script_draft_id"))
+        if script_id is None:
+            continue
+        total, guessed = out.get(script_id, (Decimal(0), False))
+        out[script_id] = (total + Decimal(cost or 0), guessed or bool(est))
+    return out

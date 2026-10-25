@@ -133,3 +133,27 @@ def test_a_produced_version_names_its_editor_and_the_video_its_version(owner, ed
     fomo = owner.get("/brands").json()[0]["id"]
     older = owner.post("/projects", json={"brand_id": fomo, "name": "Old way"}).json()
     assert older["script_draft_id"] is None
+
+
+def test_a_version_whose_video_failed_says_so_and_a_done_one_has_a_poster(owner, editor, db):
+    from app.db import utcnow
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.storyboards import StoryboardFrame
+
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+    job = enqueue(db, ed, "video-480p", {}, project=db.get(Project, pid))
+    job.status = "failed"
+    db.commit()
+    script = owner.get(base).json()
+    assert script["versions"][0]["status"] == "failed"  # "Didn't finish"
+    still = upload(editor)
+    first = db.get(Project, pid)
+    breakdown_id = db.query(BreakdownVersion).filter_by(project_id=pid).one().id
+    db.add(StoryboardFrame(project_id=pid, breakdown_id=breakdown_id, clip_id="c1",
+                           shot_id="s1", prompt="x", file_id=still))  # fmt: skip
+    first.finished_at = utcnow()
+    db.commit()
+    row = next(s for s in owner.get("/scripts").json() if f"/scripts/{s['id']}" == base)
+    assert row["versions"][0]["status"] == "done" and row["poster_file_id"] == still
