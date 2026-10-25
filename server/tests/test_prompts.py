@@ -735,3 +735,9 @@ def test_eval_scores_a_reel_import_from_the_watch_to_the_cast(tmp_path):
         "draft 2: Advice: 3 people speak, the reel has 2; give Priest's lines back to who says "
         "them in the reel",
     ]
+
+
+def test_the_keep_line_names_the_face_and_a_visible_hair_cue():
+    text = prompts.system("clip_prompts")  # Nate drifted heavier in a cap (altar v3, 2026-10-25)
+    assert "same face shape, skin tone, age and build" in text
+    assert "keep a cue of it visible" in text
