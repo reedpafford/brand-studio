@@ -12,9 +12,13 @@ Live-action parts are dropped, as usual. The price shows before anything paid ru
 This adds to the Description step (`description.md`, field 3) and the writing flow. Mock: `reel-import.png`.
 
 ## Where it sits
-**Reference reel (optional)** in New script and in Description gets two tabs, kept in the URL as `?ref=library|import`:
-- **From the library:** the compact list as today, including reels imported before.
-- **Import a reel:** this spec. It's the default only when the library is empty.
+**New script** starts with a segmented switch above the form: **Describe it | Import a reel** (as built in #289).
+- **Describe it:** the Description form as today. Its **Reference reel (optional)** list includes reels imported before.
+- **Import a reel:** this spec. Instead of the form, it shows the link field, Upload, and the switch **Write new lines in the same style**:
+  - off by default
+  - helper (meta): "Off: keep the reel's lines and rewrite only what the brand swap needs."
+
+  Getting the reel creates the draft, and its Description fields are filled in later (§6).
 
 An imported reel is saved to the reel library, so anyone can pick it for another script later. Its name is the logline, and Reed can rename it.
 
