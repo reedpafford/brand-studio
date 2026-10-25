@@ -55,14 +55,13 @@ test("the five steps, and Storyboard waits until every asset is approved", async
   expect(screen.getByRole("button", { name: /Next: Storyboard/ })).toBeDisabled();
 });
 
-test("approving an asset opens the next step, and the toast can undo it", async () => {
+test("a look that needs approval points to Cast & places and never approves a shared character here", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "POST /library/character/5/sheet/approve": [200, item({ sheet_status: "approved" })] });
+  fakeServer(base);
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(true));
-  expect(await screen.findByText("Bo approved.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+  const card = await screen.findByLabelText("Bo");
+  expect(within(card).queryByRole("button")).toBeNull();
+  expect(within(card).getByRole("link", { name: "Make its look in Cast & places" })).toHaveAttribute("href", "/b/1/library/characters/5");
 });
 
 test("a locked role is already approved and has no buttons", async () => {
@@ -142,14 +141,14 @@ test("a role with no character can make one, so Assets is never a dead end", asy
   expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", brand_ids: [1] });
 });
 
-test("an approved look is not redrawn here; it can be taken back", async () => {
+test("an approved picked character shows no buttons: it is shared with every video", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]], "GET /library/character/5": [200, item({ sheet_status: "approved" })], "DELETE /library/character/5/sheet/approve": [200, item({})] });
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]], "GET /library/character/5": [200, item({ sheet_status: "approved" })] });
   open();
-  expect(await screen.findByText("Approved")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Change the look|Make the look/ })).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Undo approval" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/sheet/approve")).toBe(true));
+  const card = await screen.findByLabelText("Bo");
+  expect(within(card).getByText("Approved")).toBeInTheDocument();
+  expect(within(card).queryByRole("button")).toBeNull();
+  expect(within(card).queryByRole("link")).toBeNull();
 });
 
 test("one-press Make storyboard asks Reed when the writing plus the stills pass the budget, not only the writing", async () => {

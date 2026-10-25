@@ -69,7 +69,7 @@ export function VideoPage() {
       Next: {next.label}
     </Button>
   );
-  const meta = step === "assets" ? `${all.assets.total} assets · ${all.assets.ready} approved` : null;
+  const meta = step === "assets" ? `${all.assets.total} asset${all.assets.total === 1 ? "" : "s"} · ${all.assets.ready} approved` : null;
 
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
