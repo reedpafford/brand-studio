@@ -810,3 +810,26 @@ test("a pasted list: a line without a dash takes its first 6 words as the title 
     { title: "Bo walks to the park every", description: "", reference: "" }, // no purpose given: the row is outlined until it has one
   ]);
 });
+
+test("an editor's list keeps Title A–Z when a half-made script is added to it, and says '1 script' not '2 script'", async () => {
+  setViewport(1440);
+  const half = script({ id: 5, title: "Alpha half made", created_at: "2026-10-01T10:00:00Z", status: "in_production", versions: [v(0, "in_production", { project_id: 40, editor: { id: 2, name: "Sam" } }), v(1, "approved")] });
+  const zed = script({ id: 6, title: "Zed ready", created_at: "2026-10-20T10:00:00Z", versions: [v(0, "approved")] });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+      const url = new URL(req.url);
+      const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
+      const ok = (body: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json", ...headers } });
+      if (key === "GET /scripts") return url.searchParams.get("status") === "in_production" ? ok([half]) : ok([zed], { "X-Total-Count": "1" });
+      if (key === "GET /auth/me") return ok(editor);
+      return ok(base[key]?.[1] ?? []);
+    }),
+  );
+  open("/b/1/scripts?sort=title");
+  await screen.findByText("Zed ready");
+  const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+  expect(titles.indexOf("Alpha half made")).toBeLessThan(titles.indexOf("Zed ready"));
+  expect(screen.getByText("2 scripts")).toBeInTheDocument();
+});

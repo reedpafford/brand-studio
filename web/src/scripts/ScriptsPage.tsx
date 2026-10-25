@@ -174,10 +174,12 @@ export function ScriptsPage() {
   // A script with one version started and another still ready is "in production" to the server, so Ready to make drops it; an editor still needs it here.
   if (!owner && status === "published" && !(q || len || ref || left || mine || all)) {
     const ready = (makingRows.data ?? []).filter((r) => r.versions.some((v) => v.status === "approved") && !rows.some((x) => x.id === r.id));
-    if (ready.length > 0) rows = [...rows, ...ready].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    // Keep the order the person asked for: by title for Title A–Z, otherwise newest first.
+    if (ready.length > 0) rows = [...rows, ...ready].sort((a, b) => (sort === "title" ? a.title.localeCompare(b.title) : b.created_at.localeCompare(a.created_at)));
   }
   if (mine) rows = rows.filter((r) => r.created_by_id === me?.id);
   if (left === "0") rows = rows.filter((r) => r.versions_left === 0);
+  const count = clientSide ? rows.length : Math.max(scripts.data?.pages[0]?.total ?? 0, rows.length);
   const filtered = status !== (owner ? "" : "published") || !!(q || len || ref || left || mine || all);
   const clear = () => {
     setText("");
@@ -369,7 +371,7 @@ export function ScriptsPage() {
           )}
           {rows.length > 0 && (
             <>
-              <p className="text-sm text-muted">{`${clientSide ? rows.length : Math.max(scripts.data?.pages[0]?.total ?? 0, rows.length)} script${(clientSide ? rows.length : scripts.data?.pages[0]?.total ?? rows.length) === 1 ? "" : "s"}`}</p>
+              <p className="text-sm text-muted">{`${count} script${count === 1 ? "" : "s"}`}</p>
               {list(rows)}
               {scripts.hasNextPage && (
                 <Button variant="secondary" busy={scripts.isFetchingNextPage} onClick={() => void scripts.fetchNextPage()}>
