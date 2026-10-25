@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Check, CircleAlert, Clock, FileText, Layers, Pencil, Plus, Search } from "lucide-react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Archive, Check, CircleAlert, Clock, FileText, Layers, Pencil, Plus, Search } from "lucide-react";
 import { BulkCreate } from "./BulkCreate";
 import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
+import { api, errorText } from "../api/client";
+import { useToast } from "../toast";
 import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, buttonClass, type Tone } from "../components";
@@ -16,7 +17,7 @@ import { useRail } from "../useMedia";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
 
-type Row = components["schemas"]["ScriptRow"];
+type Row = components["schemas"]["ScriptRow"] & { removed_at?: string | null; purge_on?: string | null };
 type Version = Row["versions"][number];
 
 const PAGE = 30;
@@ -108,11 +109,23 @@ export function ScriptsPage() {
   const videos = useProjectList(brandId);
   const mayDelete = useMayDelete();
   const del = useDeleteScript();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [restoring, setRestoring] = useState<number | null>(null);
+  const restore = async (r: Row) => {
+    setRestoring(r.id);
+    const { error, response } = await api.POST("/scripts/{script_id}/restore", { params: { path: { script_id: r.id } } });
+    setRestoring(null);
+    if (!response.ok) return toast(errorText(error), undefined, "error");
+    await queryClient.invalidateQueries({ queryKey: ["scripts"] });
+    toast(`Restored "${r.title}".`);
+  };
   const ownVideo = (v: Version) => !!v.project_id && (owner || v.editor?.id === me?.id || videos.data?.find((p) => p.id === v.project_id)?.created_by_id === me?.id);
   const making = /^(\d+)\.(\d+)$/.exec(params.get("make") ?? "");
   // An editor starts on what is ready to make; Reed on everything.
   const status = params.get("status") ?? (owner ? "" : "published");
-  const apiStatus = status === "any" ? "" : status;
+  const removed = params.get("removed") === "1"; // only scripts that were deleted or archived
+  const apiStatus = removed || status === "any" ? "" : status;
   const len = params.get("len") ?? "";
   const ref = params.get("ref") ?? "";
   const left = params.get("left") ?? "";
@@ -131,13 +144,14 @@ export function ScriptsPage() {
   const clientSide = mine || left === "0";
   const pageSize = clientSide ? 200 : PAGE;
   const scripts = useInfiniteQuery({
-    queryKey: ["scripts", { brandId: all ? null : brandId, status: apiStatus, q, ref, left, lo, hi, sort, pageSize }],
+    queryKey: ["scripts", { brandId: all ? null : brandId, removed, status: apiStatus, q, ref, left, lo, hi, sort, pageSize }],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const { data, response } = await api.GET("/scripts", {
         params: {
           query: {
             ...(all ? {} : { brand_id: brandId }),
+            ...(removed ? ({ removed: 1 } as object) : {}), // until the schema lists it
             ...(apiStatus ? { status: apiStatus } : {}),
             ...(q ? { q } : {}),
             ...(ref === "none" ? { reference: false } : ref ? { reference_id: ref } : {}),
@@ -175,7 +189,7 @@ export function ScriptsPage() {
   // Filters the server doesn't take are applied here.
   let rows = loaded ?? [];
   // A script with one version started and another still ready is "in production" to the server, so Ready to make drops it; an editor still needs it here.
-  if (!owner && status === "published" && !(q || len || ref || left || mine || all)) {
+  if (!owner && !removed && status === "published" && !(q || len || ref || left || mine || all)) {
     const ready = (makingRows.data ?? []).filter((r) => r.versions.some((v) => v.status === "approved") && !rows.some((x) => x.id === r.id));
     // Keep the order the person asked for: by title for Title A–Z, otherwise newest first.
     if (ready.length > 0) rows = [...rows, ...ready].sort((a, b) => (sort === "title" ? a.title.localeCompare(b.title) : b.created_at.localeCompare(a.created_at)));
@@ -183,7 +197,7 @@ export function ScriptsPage() {
   if (mine) rows = rows.filter((r) => r.created_by_id === me?.id);
   if (left === "0") rows = rows.filter((r) => r.versions_left === 0);
   const count = clientSide ? rows.length : Math.max(scripts.data?.pages[0]?.total ?? 0, rows.length);
-  const filtered = status !== (owner ? "" : "published") || !!(q || len || ref || left || mine || all);
+  const filtered = removed || status !== (owner ? "" : "published") || !!(q || len || ref || left || mine || all);
   const clear = () => {
     setText("");
     setParams({}, { replace: true });
@@ -247,6 +261,9 @@ export function ScriptsPage() {
       <Button variant={mine ? "primary" : "secondary"} aria-pressed={mine} onClick={() => set("mine", mine ? "" : "1")}>
         Mine
       </Button>
+      <Button variant={removed ? "primary" : "secondary"} icon={Archive} aria-pressed={removed} onClick={() => set("removed", removed ? "" : "1")}>
+        Deleted and archived
+      </Button>
       {owner && (
         <div className="w-full lg:w-40">
           <Select label="Brand" value={all ? "all" : ""} onChange={(e) => set("brand", e.target.value)}>
@@ -271,7 +288,7 @@ export function ScriptsPage() {
       )}
     </>
   );
-  const active = [status !== (owner ? "" : "published"), !!len, !!ref, !!left, mine, all, !!sort].filter(Boolean).length;
+  const active = [removed, status !== (owner ? "" : "published"), !!len, !!ref, !!left, mine, all, !!sort].filter(Boolean).length;
   const filters = rail ? (
     <div className="flex flex-wrap items-end gap-3">
       {search}
@@ -290,7 +307,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} refThumb={!!r.reference_id && !!refs.data?.find((x) => x.id === r.reference_id)?.has_thumbnail} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} onDelete={mayDelete(r) ? () => del.ask(toTarget(r)) : undefined} />
+          <ScriptItem key={r.id} mayOpen={!removed && (r.published || owner || r.created_by_id === me?.id)} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} refThumb={!!r.reference_id && !!refs.data?.find((x) => x.id === r.reference_id)?.has_thumbnail} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} onDelete={!removed && mayDelete(r) ? () => del.ask(toTarget(r)) : undefined} removed={removed} onRestore={() => void restore(r)} restoring={restoring === r.id} />
         ))}
       </ul>
     </Card>
@@ -301,8 +318,8 @@ export function ScriptsPage() {
       New script
     </Link>
   );
-  const myMaking = (makingRows.data ?? []).filter((r) => r.versions.some((v) => beingMade(v.status) && v.editor?.id === me?.id));
-  const myDrafts = (myDraftRows.data ?? []).filter((r) => r.created_by_id === me?.id);
+  const myMaking = removed ? [] : (makingRows.data ?? []).filter((r) => r.versions.some((v) => beingMade(v.status) && v.editor?.id === me?.id));
+  const myDrafts = removed ? [] : (myDraftRows.data ?? []).filter((r) => r.created_by_id === me?.id);
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
@@ -359,12 +376,15 @@ export function ScriptsPage() {
               {list(myDrafts)}
             </section>
           )}
+          {rows.length === 0 && removed && (
+            <EmptyState icon={Archive} title="Nothing deleted or archived." action={<Button variant="ghost" onClick={() => set("removed", "")}>Show all scripts</Button>} />
+          )}
           {rows.length === 0 && !filtered && (
             <EmptyState icon={FileText} title={owner ? `No scripts for ${brand?.name ?? "this brand"} yet.` : "No scripts ready to make yet."}>
               {owner ? "Write a script once and make up to three videos from it." : "Reed publishes scripts here. You can also write your own."}
             </EmptyState>
           )}
-          {rows.length === 0 && filtered && (
+          {rows.length === 0 && filtered && !removed && (
             <div className="flex items-center gap-3">
               <p className="text-muted">Nothing matches these filters.</p>
               <Button variant="ghost" onClick={clear}>
@@ -392,7 +412,7 @@ export function ScriptsPage() {
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, panelTo, ownVideo, meId, onDelete }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number; onDelete?: () => void }) {
+function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, panelTo, ownVideo, meId, onDelete, removed, onRestore, restoring }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number; onDelete?: () => void; removed?: boolean; onRestore?: () => void; restoring?: boolean }) {
   const brandId = r.brand_id;
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
@@ -410,6 +430,12 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
             r.title
           )}
         </h3>
+        {removed && (
+          <p className="flex flex-wrap items-center gap-2">
+            <Badge>{r.removed_at ? `Deleted · ${age(r.removed_at)}` : "Archived"}</Badge>
+            <span className="text-sm text-muted">{r.purge_on ? `Removed for good on ${new Date(r.purge_on).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "Its videos are kept"}</span>
+          </p>
+        )}
         {r.description && <p className="truncate text-sm text-muted">{r.description}</p>}
         <p className="text-sm text-muted">{meta}</p>
         <ul className="flex flex-wrap gap-2 pt-1" aria-label="Versions">
@@ -419,7 +445,7 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
             const by = beingMade(v.status) && v.editor ? (v.editor.id === meId ? "you" : v.editor.name) : null;
             const label = `${letter} · ${s.label}${by ? ` · ${by}` : ""}`;
             // Ready opens the version panel; so does a version someone else is making. Your own video, and any video for Reed, opens the video; a draft opens its writing flow.
-            const to = beingMade(v.status) && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
+            const to = removed ? null : beingMade(v.status) && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
             const chip = (
               <Badge tone={s.tone} icon={s.icon}>
                 {label}
@@ -441,6 +467,13 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
           })}
         </ul>
       </div>
+      {removed && (
+        <div className="shrink-0">
+          <Button variant="secondary" dense busy={restoring} onClick={onRestore} aria-label={`Restore ${r.title}`}>
+            Restore
+          </Button>
+        </div>
+      )}
       {onDelete && (
         <div className="shrink-0">
           <ScriptMenu title={r.title} onDelete={onDelete} />
