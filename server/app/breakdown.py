@@ -110,7 +110,12 @@ def save_breakdown(db: Session, job: Job) -> None:
         from app import script_preview
         from app.models.script_library import ScriptDraft
 
-        script_preview.save(db, db.get(ScriptDraft, draft_id), Breakdown.model_validate(job.output))
+        script_preview.save(
+            db,
+            db.get(ScriptDraft, draft_id),
+            Breakdown.model_validate(job.output),
+            job.created_by_id,
+        )
         return
     project = db.get(Project, job.input["project_id"])
     version = db.scalar(

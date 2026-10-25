@@ -79,6 +79,10 @@ class VersionOut(VersionSummary):
     problems: list[str]
     has_breakdown: bool
     approved_at: datetime | None
+    variation_of: str | None = None  # "A": a variation of the original; null for the original
+    estimate_credits: float = 0  # to make it: 1 credit a second (480p), from its length
+    clips: int = 0  # in the saved breakdown
+    planned_by: Person | None = None  # who saved the breakdown
 
 
 class ScriptRow(BaseModel):
@@ -130,6 +134,10 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         problems=draft.problems,
         has_breakdown=draft.breakdown is not None,
         approved_at=draft.approved_at,
+        variation_of="A" if draft.slot else None,
+        estimate_credits=lib.seconds(draft),
+        clips=len((draft.breakdown or {}).get("clips", [])),
+        planned_by=_person(db, draft.breakdown_by_id) if draft.breakdown else None,
     )
 
 
@@ -355,7 +363,7 @@ class EarlierText(BaseModel):
     text: str
     title: str
     words: int
-    source: str  # edit | variations: what replaced it
+    source: str  # edit | variations | write: what replaced it
     created_at: datetime  # when it was replaced
     created_by_name: str
 
@@ -364,8 +372,12 @@ class EarlierText(BaseModel):
 def draft_history(
     script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    """A version's earlier texts, newest first. To bring one back, write it as the words."""
-    draft = lib.get_draft(db, lib.get_script(db, user, script_id), slot)
+    """A version's earlier texts, newest first (the newest 20). To bring one back, write it
+    as the words. Only the script's author and the owner see them; others see the final words."""
+    script = lib.get_script(db, user, script_id)
+    if not (user.is_owner or script.created_by_id == user.id):
+        raise HTTPException(403, "Only the script's author and the owner see its earlier texts.")
+    draft = lib.get_draft(db, script, slot)
     rows = db.scalars(
         select(ScriptDraftText)
         .where(ScriptDraftText.draft_id == draft.id)
@@ -443,6 +455,7 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
                 changes=d.changes,
                 breakdown=d.breakdown,
                 breakdown_problems=d.breakdown_problems,
+                breakdown_by_id=d.breakdown_by_id,
             )
         )
     for slot in db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == source.id)):

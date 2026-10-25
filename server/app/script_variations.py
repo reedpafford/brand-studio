@@ -94,4 +94,4 @@ def save_variations(db: Session, job: Job) -> None:
         lib.keep_text(db, draft, made.script, "variations", job.created_by_id)
         draft.text, draft.title, draft.premise = made.script, made.title, made.premise
         draft.changes, draft.problems, draft.job_id = made.changes, _mine(found, n), job.id
-        draft.breakdown, draft.breakdown_problems = None, []  # made for the old words
+        draft.breakdown, draft.breakdown_problems, draft.breakdown_by_id = None, [], None
