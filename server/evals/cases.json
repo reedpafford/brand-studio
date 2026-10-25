@@ -24,6 +24,18 @@
      ]
     },
     {
+     "id": 5,
+     "name": "Home (rich)",
+     "tags": [
+      "mobile",
+      "home",
+      "portfolio"
+     ],
+     "default_for": [
+      "win"
+     ]
+    },
+    {
      "id": 2,
      "name": "Token chart up",
      "tags": [
@@ -558,7 +570,7 @@
     "Wordless montage, Nate in every shot, trading his way up: Nate trading on his phone at night, the win, keys dropped into his palm, Nate behind the wheel, Nate pushing open a penthouse door in a black suit.",
     "★ fomo screen: Token chart up — fills the frame, a phone ding",
     "SCENE 3 — INT. PENTHOUSE — NIGHT, TWO YEARS LATER",
-    "★ fomo screen: Home — the portfolio balance reads $348,920.15, on Nate's phone",
+    "★ fomo screen: Home (rich) — the portfolio balance, on Nate's phone",
     "Mia and the rich man spot Nate across the party.",
     "MIA: Nate? Nate?",
     "MIA: Huh?!",
@@ -570,6 +582,7 @@
    "good": [
     "Each plays the same arc (dumped for a richer man, the grind, the reversal, the smug payoff) with its own premise, e.g. the car he gifted, and a payoff that fits it.",
     "The fomo screens and the montage stay, with new wealth payoffs; Nate and Mia stay; it ends on the end line.",
+    "About the same length as the original, action lines included (more action means more shots and cost).",
     "The two premises differ from each other and from the original."
    ],
    "expect": {}

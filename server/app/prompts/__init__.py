@@ -210,7 +210,8 @@ def variations_input(
     parts = [
         f"<script>\n{number_lines(script)}\n</script>",
         "<cast>\n" + "\n".join(cast) + "\n</cast>",
-        f"<length>{words} spoken words, about {round(words / 4.8)} s</length>",
+        f"<length>{words} spoken words (about {round(words / 4.8)} s of talk); "
+        f"{len(script.split())} words in all</length>",
     ]
     if reference:
         parts.append(reference)

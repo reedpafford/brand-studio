@@ -325,6 +325,9 @@ def variations(
             problems.append(
                 f"{ADVICE}{name} has {spoken_words(script)} spoken words, the original {words}"
             )
+        total, was = len(script.split()), len(original.split())
+        if was and abs(total - was) > 0.3 * was:
+            problems.append(f"{ADVICE}{name} runs {total} words in all, the original {was}")
         if _close(script, original):
             problems.append(f"{ADVICE}{name} is very close to the original; regenerate with a note")
         if bad := next((x for x in lines if LOOSE.match(x)), None):
