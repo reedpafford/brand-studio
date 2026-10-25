@@ -420,14 +420,18 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
 
 
 REWORD = re.compile(
-    r"\b(add|cut|remove|drop|change|reword|rewrite|replace|swap|new)\b[^.]{0,30}"
-    r"\b(line|lines|dialogue|words?)\b|\bsays? (something else|instead)\b",
+    r"\b(add|cut|remove|drop|change|reword|rewrite|replace|swap|new)\s+(?:[\w'-]+\s+){0,2}"
+    r"(line|lines|dialogue|words?)\b|\bsays? (something else|instead)\b",
     re.I,
 )
 SPEAKS = re.compile(
     r"\b([A-Z][a-z]+)(?: should| could| to)? (say|says|speak|speaks|talk|talks|shout|shouts|"
     r"whisper|whispers|reply|replies|answer|answers)\b"
 )
+
+
+def _first(speaker: str) -> str:
+    return speaker.split(" (")[0].split()[0].lower()
 
 
 def redo_note(note: str, bd: Breakdown, clip_id: str) -> list[str]:
@@ -438,8 +442,10 @@ def redo_note(note: str, bd: Breakdown, clip_id: str) -> list[str]:
     clip = next((c for c in bd.clips if c.id == clip_id), None)
     ids = clip.shot_ids if clip else []
     lines = [_exact(shots[i].line) for i in ids if i in shots and shots[i].line]
-    who = {(shots[i].speaker or "").split(" (")[0].split()[0].lower()
-           for i in ids if i in shots and shots[i].line and shots[i].speaker}  # fmt: skip
+    who = {
+        _first(shots[i].speaker) for i in ids if i in shots and shots[i].line and shots[i].speaker
+    }
+    known = {_first(shot.speaker) for shot in shots.values() if shot.speaker}
     problems = []
     for quote in QUOTED.findall(note):
         if _exact(quote) not in lines:
@@ -453,7 +459,7 @@ def redo_note(note: str, bd: Breakdown, clip_id: str) -> list[str]:
             "they should sound instead (louder, angrier, slower)."
         )
     for name, _ in SPEAKS.findall(note):
-        if name.lower() not in who:
+        if name.lower() in known and name.lower() not in who:
             problems.append(
                 f"{name} has no line in this clip, so the note can't make them speak."
                 if who

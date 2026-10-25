@@ -312,6 +312,14 @@ def test_a_redo_note_never_changes_what_is_said():
     assert check.redo_note("Make Tasha shout at him here too.", bd, "c2") == [
         "Tasha has no line in this clip, so the note can't make them speak."
     ]
+    for note in (  # QA on #276: notes about delivery or the shot, not the words
+        "Please speak more slowly.",
+        "Then speak louder.",
+        "Cut to a closer shot on his last line.",
+        "Add more energy to the lines.",
+        "Change the lighting on his words.",
+    ):
+        assert check.redo_note(note, bd, "c1") == [], note
 
 
 def test_nobody_speaks_unless_the_script_says_so():
