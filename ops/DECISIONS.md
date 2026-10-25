@@ -49,3 +49,13 @@
   - Every slot is optional. A slot Reed locks to a character look is used as-is in every shot and every version; unlocked slots are generated at the editor's Assets step.
   - Roles carry across all versions of a script, so a locked mentor looks the same in every variation.
   - Background people (guests, crowds, extras) are never cast slots; they are generated as part of each scene.
+- 2026-10-25 Reed's verdict on the two remakes (altar, video A; Betty): both close, neither passed yet.
+  - Montage rule (every video from now on): show more grinding before the big payoff: more beats of effort, late nights, setbacks and small wins building up, so the payoff feels earned. Goes into the breakdown and montage rules and the eval cases.
+  - Altar reel hook: the proposal moment and the immediate "no" must be clearly on screen before anything else happens.
+  - Re-run the altar reel with both fixes after the weekly cap resets (Monday), estimate first, up to $10. Betty waits for the montage rule. Reed gives a verdict on the new altar version.
+- 2026-10-25 Reed: brand tracker on the Usage page (owner only; editors never see dollars).
+  - Per brand: spend ($) and videos finished this week, this month and all time; cost per finished video; scripts in the library and versions left; videos in progress.
+  - Click a brand to see its scripts and videos.
+  - New brands appear automatically with no setup. It scales as brands, scripts and editors grow (paged lists, filters, nothing hard-coded to a brand).
+  - "Finished" = the library's "Video done": the final MP4 is made or the clips are downloaded (there is no upload, per the workflow answers). Producer's reading; Reed can change it.
+  - Designer specs it into the redesign first; Builder-Server adds what the server needs, with tests. Generation does not change.
