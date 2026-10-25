@@ -252,7 +252,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.slice(0, shown).map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.status === "draft" && (owner || r.created_by_id === me?.id)} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} />
+          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} />
         ))}
       </ul>
     </Card>
