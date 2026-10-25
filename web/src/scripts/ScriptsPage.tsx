@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, CircleAlert, Clock, FileText, Pencil, Plus, Search } from "lucide-react";
+import { Check, CircleAlert, Clock, FileText, Layers, Pencil, Plus, Search } from "lucide-react";
+import { BulkCreate } from "./BulkCreate";
 import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -115,6 +116,7 @@ export function ScriptsPage() {
   const q = useDebounced(text.trim());
   const [shown, setShown] = useState(PAGE);
   const [sheet, setSheet] = useState(false);
+  const [bulk, setBulk] = useState(false);
   useEffect(() => set("q", q), [q]); // eslint-disable-line react-hooks/exhaustive-deps
   const [lo, hi] = len ? len.split("-") : ["", ""];
   const refs = useReferences();
@@ -277,8 +279,16 @@ export function ScriptsPage() {
           <p className="type-eyebrow text-muted">{brand?.name}</p>
           <h1 className="type-page">Scripts</h1>
         </div>
-        {rail && newScript}
+        <div className="flex items-center gap-2">
+          {owner && (
+            <Button variant="secondary" icon={Layers} onClick={() => setBulk(true)} aria-label={rail ? undefined : "Bulk create"}>
+              {rail ? "Bulk create" : ""}
+            </Button>
+          )}
+          {rail && newScript}
+        </div>
       </div>
+      {bulk && <BulkCreate brandId={brandId} onClose={() => setBulk(false)} />}
       {!rail && <ActionBar phone>{newScript}</ActionBar>}
       {filters}
       {sheet && (
