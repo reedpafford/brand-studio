@@ -31,7 +31,7 @@ This week: 32 of 145 credits (meta, editors only)
 
   | Status | Tone | Icon | When |
   |---|---|---|---|
-  | Writing | neutral | `Pencil` | Not published (only the author sees it) |
+  | Writing | neutral | `Pencil` | Not published (the author sees it; Reed also sees editors' drafts) |
   | Ready to make | accent | none | Published, no video started |
   | In production · {name} | warning | `Clock` | Reserved by that editor (decision c) |
   | Video done | success | `Check` | Its video is made, or its clips are downloaded |
@@ -50,7 +50,7 @@ This week: 32 of 145 credits (meta, editors only)
   - The filters live in the URL (`?status=ready&len=15-30&mine=1`), so a filtered view can be shared or bookmarked.
 - **Search** matches the title, the description and the words of every version. It waits 300 ms after typing stops. A match inside a script's words shows a third meta line with the matching words in the script font, marked with `bg-mark`.
 - **Defaults:**
-  - **Reed:** no filters.
+  - **Reed:** no filters. Reed sees every script, editors' drafts included (Producer, decision f: private means private from other editors).
   - **An editor:** a "Your drafts" section at the top (their own unpublished scripts, if any). Under it, the list with **Status: Ready to make** applied.
 - **Count line:** "24 scripts" (meta), or "3 of 24 scripts" when filtered.
 
