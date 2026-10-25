@@ -771,3 +771,56 @@ test("a pasted list: a line without a dash takes its first 6 words as the title 
     { title: "Bo walks to the park every", description: "", reference: "" }, // no purpose given: the row is outlined until it has one
   ]);
 });
+
+const reelOut = (o: object = {}) => ({ script_id: 7, status: "ready", source: "link", url: "https://www.instagram.com/reel/Abc123/", seconds: 45, shots: 50, transcript: [{ text: "Hell no." }, { text: "I do." }], video_file_id: 3, contact_file_id: 4, problem: "", problem_code: null, ...o });
+
+test("New script: Import a reel takes a reel link or a video, checks the link first, and makes the script at once", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "POST /scripts/import/link": [201, reelOut({ status: "preparing" })], "GET /scripts/7": [200, full({ id: 7 })], "GET /scripts/7/import": [200, reelOut({ status: "preparing" })] });
+  open("/b/1/scripts/new");
+  await userEvent.click(await screen.findByRole("radio", { name: "Import a reel" }));
+  await userEvent.type(screen.getByLabelText("Paste an Instagram reel link"), "https://example.com/video");
+  await userEvent.click(screen.getByRole("button", { name: "Get the reel" }));
+  expect(await screen.findByText("That isn't an Instagram reel link.")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "POST /scripts/import/link")).toBe(false);
+  await userEvent.clear(screen.getByLabelText("Paste an Instagram reel link"));
+  await userEvent.type(screen.getByLabelText("Paste an Instagram reel link"), "https://www.instagram.com/reel/Abc123/");
+  await userEvent.click(screen.getByRole("button", { name: "Get the reel" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/import/link")?.body).toMatchObject({ brand_id: 1, url: "https://www.instagram.com/reel/Abc123/" }));
+  expect(await screen.findByText("Getting the reel…")).toBeInTheDocument();
+});
+
+test("a script made from a reel shows what was found, and a failed fetch says why and offers to upload", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut()] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("Got the reel")).toBeInTheDocument();
+  expect(screen.getByText("45 s · 50 shots · 2 lines of dialogue")).toBeInTheDocument();
+  expect(screen.getByText("instagram.com/reel/Abc123/")).toBeInTheDocument();
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "failed", problem_code: "blocked", problem: "x" })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("Instagram didn't let us download it. Upload the video instead.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Upload a video" })).toBeInTheDocument();
+});
+
+test("each reel problem has its own words and button", async () => {
+  setViewport(1440);
+  for (const [code, text, button] of [["gone", "That reel is private or was removed.", "Upload a video"], ["bad_file", "That file isn't a video we can read. Use an MP4 or MOV up to 90 seconds.", "Choose another file"], ["too_long", "That video is longer than 90 seconds. Reels up to 90 seconds can be read.", "Choose another file"]] as const) {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+    fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "failed", problem_code: code })] });
+    open("/b/1/scripts/7");
+    expect(await screen.findByText(text)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: button })).toBeInTheDocument();
+  }
+});
+
+test("a script that isn't from a reel has no reel block", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [404, { detail: "This script isn't made from a reel." }] });
+  open("/b/1/scripts/7");
+  await screen.findByRole("heading", { level: 1, name: /Bo tries salmon/ });
+  expect(screen.queryByText("Got the reel")).not.toBeInTheDocument();
+});

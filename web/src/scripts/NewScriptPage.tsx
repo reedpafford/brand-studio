@@ -1,10 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { DescriptionForm, type Description } from "./DescriptionForm";
+import { ReelPicker } from "./ReelImport";
 
 /** Step 1 before the script exists: Create script makes the draft and moves on to the script. */
 export function NewScriptPage() {
@@ -14,6 +16,7 @@ export function NewScriptPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const [mode, setMode] = useState<"describe" | "reel">("describe");
   const create = useMutation({
     mutationFn: async (d: Description) => {
       const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: d.title, description: d.description, notes: d.notes, reference_id: d.reference_id, reference_replace: d.reference_replace, text: "" } });
@@ -33,7 +36,20 @@ export function NewScriptPage() {
         Scripts
       </Link>
       <h1 className="type-page">New script</h1>
-      <DescriptionForm brandName={brand?.name} submitLabel="Create script" busy={create.isPending} error={create.isError ? create.error.message : null} onSubmit={(d) => create.mutate(d)} />
+      <div role="radiogroup" aria-label="How to start" className="inline-flex w-full rounded-lg border border-border bg-surface p-1 sm:w-auto">
+        {(
+          [
+            ["describe", "Describe it"],
+            ["reel", "Import a reel"],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} type="button" role="radio" aria-checked={mode === id} onClick={() => setMode(id)} className={`min-h-control flex-1 whitespace-nowrap rounded-md px-4 font-medium sm:flex-none ${mode === id ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {mode === "reel" ? <ReelPicker brandId={brandId} /> : null}
+      {mode === "describe" && <DescriptionForm brandName={brand?.name} submitLabel="Create script" busy={create.isPending} error={create.isError ? create.error.message : null} onSubmit={(d) => create.mutate(d)} />}
     </main>
   );
 }

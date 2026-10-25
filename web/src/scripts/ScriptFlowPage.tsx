@@ -15,6 +15,7 @@ import { useRail } from "../useMedia";
 import { CastStep } from "./CastStep";
 import { DescriptionForm } from "./DescriptionForm";
 import { VariationsStep, variationsReason, writtenVariations } from "./VariationsStep";
+import { ReelBlock } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
 import { WRITING_STEPS, around, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
 import { useScript, usePatchScript, useWriteWords } from "./useScript";
@@ -190,6 +191,8 @@ function DescriptionStep({ script: s, brandName, onEditing, onDone }: { script: 
     </div>
   );
   return (
+    <div className="space-y-4">
+    <ReelBlock scriptId={s.id} published={s.published} />
     <Card className="max-w-[680px] space-y-4">
       <dl className="space-y-4">
         {row("Title", s.title)}
@@ -203,6 +206,7 @@ function DescriptionStep({ script: s, brandName, onEditing, onDone }: { script: 
         </Button>
       )}
     </Card>
+    </div>
   );
 }
 
