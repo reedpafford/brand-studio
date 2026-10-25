@@ -3,7 +3,8 @@
 Runs on first setup. To import screens later: `python -m app.seed <folder> [brand-slug]`.
 After a manifest change (new screens, moments, tags), bring live databases up to date with
 `python -m app.seed refresh`: every workspace's launch brands get the new screens, and screens
-named in a manifest take its tags, moments and product/variant.
+named in a manifest take its tags, moments and product/variant. New script draft files
+(docs/references/**/DRAFT-<brand>.json) are added to the library once (app/seed_drafts.py).
 A folder may hold `screens.json`:
 {"file.png": {"name": "...", "tags": [...], "default_for": [...]}}.
 Without it, tags come from words in the filename (e.g. `trading-chart-up-mobile.png`).
@@ -154,6 +155,7 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
 
 def main(folder: str, slug: str = "fomo") -> None:
     from app.db import make_sessionmaker
+    from app.seed_drafts import import_drafts
     from app.settings import get_settings
     from app.storage import LocalStorage
 
@@ -164,6 +166,8 @@ def main(folder: str, slug: str = "fomo") -> None:
             for workspace_id in db.scalars(select(Workspace.id)).all():
                 seed_brands(db, workspace_id, storage, settings.brand_assets_dir)
             print("Launch brands brought up to date from the manifests.")
+            made = import_drafts(db, settings.references_dir)
+            print(f"Imported {made} new script drafts into the library.")
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:
