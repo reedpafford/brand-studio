@@ -73,12 +73,17 @@ def seconds(draft: ScriptDraft) -> int:
 
 
 def version_status(db: Session, draft: ScriptDraft) -> tuple[str, int | None]:
-    """draft | approved | in_production | clips_ready | done, and the project if produced."""
+    """draft | approved | in_production | clips_ready | failed | done, and its project."""
     project = db.scalar(select(Project).where(Project.script_draft_id == draft.id))
     if not project:
         return draft.status, None
     if project.finished_at:  # a final video, or the picked takes downloaded
         return "done", project.id
+    last = db.scalar(
+        select(Job.status).where(Job.project_id == project.id).order_by(Job.id.desc()).limit(1)
+    )
+    if last == JobStatus.failed:  # "Didn't finish": its last job failed, nothing is running
+        return "failed", project.id
     clips = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)).all()
     ready = bool(clips) and all(c.approved for c in clips)
     return ("clips_ready" if ready else "in_production"), project.id
@@ -88,7 +93,7 @@ def script_status(script: Script, statuses: list[str]) -> str:
     """draft (not published) | published | in_production | done (every approved version)."""
     if not script.published:
         return "draft"
-    made = [s for s in statuses if s in ("in_production", "clips_ready", "done")]
+    made = [s for s in statuses if s in ("in_production", "clips_ready", "failed", "done")]
     approved = [s for s in statuses if s != "draft"]
     if approved and all(s == "done" for s in approved):
         return "done"
@@ -130,3 +135,24 @@ def keep_text(db: Session, draft: ScriptDraft, new_text: str, source: str, user_
     ).all()
     if old:
         db.execute(delete(ScriptDraftText).where(ScriptDraftText.id.in_(old)))
+
+
+def poster(db: Session, script: Script) -> int | None:
+    """The first still of the newest finished video made from the script, for the library."""
+    from app.models.storyboards import StoryboardFrame
+
+    drafts = select(ScriptDraft.id).where(ScriptDraft.script_id == script.id)
+    project = db.scalar(
+        select(Project.id)
+        .where(Project.script_draft_id.in_(drafts), Project.finished_at.is_not(None))
+        .order_by(Project.finished_at.desc())
+        .limit(1)
+    )
+    if project is None:
+        return None
+    return db.scalar(
+        select(StoryboardFrame.file_id)
+        .where(StoryboardFrame.project_id == project, StoryboardFrame.file_id.is_not(None))
+        .order_by(StoryboardFrame.id)
+        .limit(1)
+    )
