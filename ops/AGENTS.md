@@ -41,6 +41,14 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Release | session_01BGZgB9afnDnbYURA7D11gk |
 | Status Desk | session_01GYxBJctxeeNdzejMuRiCW6 |
 
+## QA review checklist (every PR)
+- Tests: lint, typecheck and unit tests pass; the browser tests pass on the free stand-ins (`BS_FAKE_PROVIDERS`).
+- Nothing paid runs outside a test the Producer approved; every paid call is logged in ops/SPEND.md.
+- Editors never see dollars, and an editor past the weekly allowance is declined with the reason (never "Ask Reed").
+- Phones (390): no sideways scroll, every control at least 44px.
+- After a server API change, `schema.d.ts` is regenerated and committed.
+- Can the user undo or delete what they just made? (delete or archive, plus Undo after a delete or big change)
+
 ## Limits
 - Paid calls only within the $15/week cap, logged in ops/SPEND.md, asked through the Producer.
 - Never touch story-studio or its live server.
