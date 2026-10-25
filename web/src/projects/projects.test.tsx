@@ -44,7 +44,7 @@ test("the list shows each video with its credits, says when it is nearly or over
 test("an empty brand invites a first video", async () => {
   fakeServer({ ...base, "GET /projects": [200, []] });
   renderAt("/b/1/projects");
-  expect(await screen.findByText("No videos for fomo yet.")).toBeInTheDocument();
+  expect(await screen.findByText("No videos for fomo yet")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "New video" })).toHaveAttribute("href", "/b/1/projects/new");
 });
 
@@ -140,3 +140,29 @@ test("the upload is called Your own example video and says how it is used, so it
   expect(screen.getByText(/Claude does not watch it yet/)).toBeInTheDocument();
   expect(screen.queryByText("Reference video (optional)")).not.toBeInTheDocument();
 });
+
+test("the owner sees a banner when requests are waiting, and it goes to Approvals; editors never do", async () => {
+  fakeServer({
+    ...base,
+    "GET /auth/me": [200, { ...editor, role: "owner" }],
+    "GET /projects": [200, [project]],
+    "GET /jobs": [200, [{ id: 1, kind: "video", status: "needs_owner_approval", credits: 20, project_id: 9, brand_id: 1 }]],
+  });
+  renderAt("/b/1/projects");
+  expect(await screen.findByText("1 request is waiting for you")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/approvals");
+});
+
+test("each video is one link to its page, and a failed load says so and offers Try again", async () => {
+  fakeServer({ ...base, "GET /projects": [200, [project]] });
+  renderAt("/b/1/projects");
+  const card = await screen.findByRole("link", { name: "Mia buys the dip, 30 s, 9:16" });
+  expect(card).toHaveAttribute("href", "/b/1/projects/9");
+  expect(screen.queryByText(/waiting for you/)).not.toBeInTheDocument();
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  fakeServer({ ...base, "GET /projects": [500, { detail: "boom" }] });
+  renderAt("/b/1/projects");
+  expect(await screen.findByText("Couldn't load your videos.", {}, { timeout: 10_000 })).toBeInTheDocument(); // the query retries first
+  expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+}, 20_000);

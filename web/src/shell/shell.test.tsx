@@ -40,13 +40,13 @@ test("the first brand opens on its Videos, and the switcher menu changes brand a
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []], "GET /library/character": [200, []] });
   renderAt("/");
-  expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Videos" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Brand: fomo" }));
   expect(screen.getByRole("menuitemradio", { name: "fomo" })).toHaveAttribute("aria-checked", "true");
   expect(screen.getByText("Brands are set up by Reed.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Iron Paws" }));
-  expect(await screen.findByText("No videos for Iron Paws yet.")).toBeInTheDocument();
+  expect(await screen.findByText("No videos for Iron Paws yet")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
   // Cast & places in one brand becomes Cast & places in the other.
   await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Cast & places" }));
@@ -59,10 +59,10 @@ test("the first brand opens on its Videos, and the switcher menu changes brand a
 test("the brand's colour is applied, and cleared for a brand without one", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
   renderAt("/b/1");
-  await screen.findByRole("heading", { name: "Projects" });
+  await screen.findByRole("heading", { name: "Videos" });
   expect(document.documentElement.style.getPropertyValue("--brand")).toBe("#ff5500");
   await pickBrand("Iron Paws");
-  await screen.findByText("No videos for Iron Paws yet.");
+  await screen.findByText("No videos for Iron Paws yet");
   expect(document.documentElement.style.getPropertyValue("--brand")).toBe("");
 });
 
@@ -79,7 +79,7 @@ test("the last brand you used opens next time", async () => {
   localStorage.setItem("bs.lastBrand", "2");
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
   renderAt("/");
-  expect(await screen.findByText("No videos for Iron Paws yet.")).toBeInTheDocument();
+  expect(await screen.findByText("No videos for Iron Paws yet")).toBeInTheDocument();
 });
 
 test("the owner can invite and gets the link once", async () => {

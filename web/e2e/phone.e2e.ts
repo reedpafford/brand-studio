@@ -18,8 +18,8 @@ test("on a phone, the four bottom tabs reach every brand section and there is no
   await tabs.getByRole("link", { name: "Brand" }).click();
   await expect(page.getByRole("heading", { name: /^Brand kit/ })).toBeVisible();
 
-  await tabs.getByRole("link", { name: "Videos" }).click();
-  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await tabs.getByRole("link", { name: "Videos", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Videos", exact: true })).toBeVisible();
   const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(widths.scroll).toBeLessThanOrEqual(widths.window);
 });

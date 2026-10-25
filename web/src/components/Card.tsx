@@ -1,5 +1,6 @@
 import { Play } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 /** A panel: 16 padding on phones, 20 from sm, a hairline edge in dark mode. */
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -16,6 +17,8 @@ export function MediaCard({
   aspect = "9 / 16",
   icon: Icon,
   onOpen,
+  to,
+  label,
   children,
 }: {
   title: string;
@@ -29,6 +32,10 @@ export function MediaCard({
   /** What kind of thing this is: shown in the middle when there is no picture. */
   icon?: ComponentType<{ size?: number; strokeWidth?: number; "aria-hidden"?: boolean; className?: string }>;
   onOpen?: () => void;
+  /** Or a link: the whole picture opens this address. */
+  to?: string;
+  /** What a screen reader hears for a link card (default: the title). */
+  label?: string;
   children?: ReactNode;
 }) {
   const media = (
@@ -57,7 +64,11 @@ export function MediaCard({
   );
   return (
     <div className="flex flex-col gap-3">
-      {onOpen ? (
+      {to ? (
+        <Link to={to} aria-label={label ?? title} className="relative block w-full overflow-hidden rounded-lg border border-border bg-surface-2 shadow-card" style={{ aspectRatio: aspect }}>
+          {media}
+        </Link>
+      ) : onOpen ? (
         <button type="button" onClick={onOpen} aria-label={title} className="relative block w-full overflow-hidden rounded-lg border border-border bg-surface-2 shadow-card" style={{ aspectRatio: aspect }}>
           {media}
         </button>

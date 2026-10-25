@@ -6,7 +6,7 @@ test("a brief becomes a project that is listed with its credit meter", async ({ 
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
   await page.goto(`/b/${await emptyBrand(page)}`);
   await expect(page).toHaveURL(/\/projects$/);
-  await expect(page.getByText("No videos for Night Owl yet.")).toBeVisible();
+  await expect(page.getByText("No videos for Night Owl yet")).toBeVisible();
 
   await page.getByRole("link", { name: "New video" }).click();
   await page.getByLabel("Title").fill("Launch teaser");
@@ -20,7 +20,7 @@ test("a brief becomes a project that is listed with its credit meter", async ({ 
   await expect(page.getByText("1:1")).toBeVisible();
 
   await page.getByRole("main").getByRole("link", { name: "Videos", exact: true }).click();
-  const card = page.getByRole("link", { name: /Launch teaser/ });
+  const card = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: /Launch teaser/ }) });
   await expect(card).toContainText("20s · 1:1");
   await expect(card).toContainText("credits");
   await expect(card).not.toContainText("$");
