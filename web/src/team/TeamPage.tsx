@@ -1,16 +1,26 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Copy } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { btnPrimary, btnSecondary, card, errorText as errorClass, input, pageTitle } from "../ui";
+import { Badge, Banner, Button, Card, Dialog, Field, Panel, Select, Skeleton } from "../components";
+import { ActionBar } from "../shell/ActionBar";
+import { useToast } from "../toast";
+import { errorText as errorClass } from "../ui";
+import { useRail } from "../useMedia";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+const ROLE = { owner: "Owner", editor: "Editor" } as const;
 
 export function TeamPage() {
   const { data: me } = useMe();
   const isOwner = me?.role === "owner";
+  const rail = useRail();
+  const toast = useToast();
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["team"] });
+  const [inviting, setInviting] = useState(false);
+  const [removing, setRemoving] = useState<{ id: number; name: string } | null>(null);
 
   const members = useQuery({
     queryKey: ["team", "members"],
@@ -26,70 +36,108 @@ export function TeamPage() {
     queryFn: async () => (await api.GET("/team/invites")).data ?? [],
   });
   const remove = useMutation({
-    mutationFn: async (id: number) => {
-      const { response } = await api.DELETE("/team/members/{member_id}", { params: { path: { member_id: id } } });
+    mutationFn: async (m: { id: number; name: string }) => {
+      const { response } = await api.DELETE("/team/members/{member_id}", { params: { path: { member_id: m.id } } });
       if (!response.ok) throw new Error("remove");
+      return m.name;
     },
-    onSuccess: refresh,
+    onSuccess: async (name) => {
+      setRemoving(null);
+      await refresh();
+      toast(`${name} removed.`);
+    },
+    onError: () => setRemoving(null),
   });
   const cancel = useMutation({
     mutationFn: (id: number) => api.DELETE("/team/invites/{invite_id}", { params: { path: { invite_id: id } } }),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      await refresh();
+      toast("Invite cancelled.");
+    },
   });
+  const invite = isOwner && (
+    <Button onClick={() => setInviting(true)}>Invite someone</Button>
+  );
+  const onlyMe = members.data?.length === 1;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-8 p-6">
-      <section>
-        <h1 className={`${pageTitle} mb-3`}>Team</h1>
-        {(members.isError || remove.isError) && (
-          <p role="alert" className={errorClass}>
-            {remove.isError ? "Could not remove that person. Try again." : "Could not load the team. Try again."}
-          </p>
+    <main className="mx-auto max-w-[720px] space-y-6 p-4 sm:p-6">
+      <div className="flex items-end justify-between gap-3">
+        <h1 className="type-page">Team</h1>
+        {invite && rail && invite}
+      </div>
+      {invite && !rail && <ActionBar phone>{invite}</ActionBar>}
+      {(members.isError || remove.isError) && (
+        <Banner title={remove.isError ? "Couldn't remove that person." : "Couldn't load the team."} action={members.isError ? <Button variant="secondary" onClick={() => void members.refetch()}>Try again</Button> : undefined}>
+          {remove.isError ? "Try again." : "Check your connection."}
+        </Banner>
+      )}
+      <section className="space-y-3" aria-label="People">
+        <h2 className="type-section">People</h2>
+        {members.isPending && (
+          <div className="space-y-2" aria-label="Loading">
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+          </div>
         )}
-        <ul className="divide-y divide-border">
-          {members.data?.map((m) => (
-            <li key={m.id} className="flex items-center gap-3 py-2">
-              <span className="flex-1">
-                {m.name} <span className="text-sm text-muted">{m.email} · {m.role}</span>
-              </span>
-              {isOwner && m.id !== me?.id && (
-                <button
-                  className="text-sm underline"
-                  aria-label={`Remove ${m.name}`}
-                  onClick={() => window.confirm(`Remove ${m.name} from the team?`) && remove.mutate(m.id)}
-                >
-                  Remove
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
-      {isOwner && (
-        <section className={`${card} space-y-4`}>
-          <h2 className="text-[length:var(--text-md)] font-semibold">Invite someone</h2>
-          <InviteForm onDone={refresh} />
-          {invites.data && invites.data.length > 0 && (
+        {members.data && (
+          <Card className="p-0 sm:p-0">
             <ul className="divide-y divide-border">
-              {invites.data.map((i) => (
-                <li key={i.id} className="flex items-center gap-3 py-2 text-sm">
-                  <span className="flex-1">
-                    {i.email} · {i.role} · waiting, expires {day(i.expires_at)}
+              {members.data.map((m) => (
+                <li key={m.id} className="flex items-center gap-3 p-3 sm:px-5">
+                  <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft font-display font-bold text-accent-text">
+                    {m.name.slice(0, 1).toUpperCase()}
                   </span>
-                  <button className="underline" aria-label={`Cancel invite for ${i.email}`} onClick={() => cancel.mutate(i.id)}>
-                    Cancel
-                  </button>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">{m.name}</span>
+                    <span className="block truncate text-sm text-muted">{m.email}</span>
+                  </span>
+                  <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>
+                  {isOwner && m.id !== me?.id && (
+                    <Button variant="ghost" dense aria-label={`Remove ${m.name}`} onClick={() => setRemoving({ id: m.id, name: m.name })}>
+                      Remove
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
-          )}
+          </Card>
+        )}
+        {isOwner && onlyMe && <p className="text-sm text-muted">Invite your editors so they can make videos.</p>}
+      </section>
+      {isOwner && invites.data && invites.data.length > 0 && (
+        <section className="space-y-3" aria-label="Waiting invites">
+          <h2 className="type-section">Waiting invites</h2>
+          <Card className="p-0 sm:p-0">
+            <ul className="divide-y divide-border">
+              {invites.data.map((i) => (
+                <li key={i.id} className="flex flex-wrap items-center gap-3 p-3 text-sm sm:px-5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{i.email}</span>
+                    <span className="block text-muted">{ROLE[i.role as keyof typeof ROLE] ?? i.role} · expires {day(i.expires_at)}</span>
+                  </span>
+                  <Button variant="ghost" dense aria-label={`Cancel invite for ${i.email}`} busy={cancel.isPending} onClick={() => cancel.mutate(i.id)}>
+                    Cancel
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </Card>
         </section>
+      )}
+      {inviting && <InvitePanel onClose={() => setInviting(false)} onDone={refresh} />}
+      {removing && (
+        <Dialog title={`Remove ${removing.name} from the team?`} cancelLabel="Keep them" actionLabel="Remove" danger busy={remove.isPending} onCancel={() => setRemoving(null)} onConfirm={() => remove.mutate(removing)}>
+          Their videos stay.
+        </Dialog>
       )}
     </main>
   );
 }
 
-function InviteForm({ onDone }: { onDone: () => void }) {
+/** Email and role, then the link to send. The link is shown once. */
+function InvitePanel({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"editor" | "owner">("editor");
   const [copied, setCopied] = useState(false);
@@ -99,10 +147,10 @@ function InviteForm({ onDone }: { onDone: () => void }) {
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    onSuccess: () => {
-      setEmail("");
+    onSuccess: (data) => {
       setCopied(false);
       onDone();
+      toast(`Invite link made. Copy it and send it to ${data.email}.`);
     },
   });
   const link = invite.data && `${location.origin}/invite/${invite.data.token}`;
@@ -110,61 +158,41 @@ function InviteForm({ onDone }: { onDone: () => void }) {
     e.preventDefault();
     invite.mutate();
   };
-
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(link!);
       setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* clipboard blocked: the link is selectable below */
+      /* clipboard blocked: the link is selectable in the box */
     }
   };
-
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-        <input
-          className={`${input} min-h-11 sm:min-h-9`}
-          type="email"
-          required
-          placeholder="Email"
-          aria-label="Email to invite"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <div className="grid grid-cols-[auto_1fr] gap-2 sm:contents">
-          <select
-            aria-label="Role"
-            className={`${input} min-h-11 w-auto sm:min-h-9`}
-            value={role}
-            onChange={(e) => setRole(e.target.value as "editor" | "owner")}
-          >
+    <Panel title="Invite someone" onClose={onClose}>
+      {link ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted">Send this link to {invite.data.email}. It works once and expires in 7 days.</p>
+          <Field label="Invite link" readOnly value={link} onFocus={(e) => e.target.select()} />
+          <Button variant="secondary" icon={copied ? Check : Copy} className="w-full" onClick={copy}>
+            {copied ? "Copied" : "Copy link"}
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="space-y-4">
+          <Field label="Email to invite" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Select label="Role" value={role} onChange={(e) => setRole(e.target.value as "editor" | "owner")}>
             <option value="editor">Editor</option>
             <option value="owner">Owner</option>
-          </select>
-          <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={invite.isPending}>
+          </Select>
+          {invite.isError && <p role="alert" className={errorClass}>{invite.error.message}</p>}
+          <Button type="submit" busy={invite.isPending} className="w-full">
             Create invite link
-          </button>
-        </div>
-      </div>
-      {invite.isError && (
-        <p role="alert" className={errorClass}>
-          {invite.error.message}
-        </p>
+          </Button>
+        </form>
       )}
-      {link && (
-        <div className="space-y-2 text-sm">
-          <p>
-            Send this link to {invite.data.email}. Works once. Expires {day(invite.data.expires_at)}.
-          </p>
-          <div className="flex gap-2">
-            <input readOnly aria-label="Invite link" className={`${input} min-w-0 bg-surface-2`} value={link} onFocus={(e) => e.target.select()} />
-            <button type="button" className={`${btnSecondary} shrink-0`} onClick={copy}>
-              {copied ? "Copied" : "Copy link"}
-            </button>
-          </div>
-        </div>
-      )}
-    </form>
+    </Panel>
   );
 }
