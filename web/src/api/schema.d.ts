@@ -2349,7 +2349,7 @@ export interface components {
             /** Name */
             name: string;
             /** Planned Seconds */
-            planned_seconds: number;
+            planned_seconds?: number | null;
         };
         /** ProjectOut */
         ProjectOut: {
@@ -2360,7 +2360,9 @@ export interface components {
             /** Name */
             name: string;
             /** Planned Seconds */
-            planned_seconds: number;
+            planned_seconds: number | null;
+            /** Breakdown Seconds */
+            breakdown_seconds: number | null;
             status: components["schemas"]["ProjectStatus"];
             /** Goal */
             goal: string;
