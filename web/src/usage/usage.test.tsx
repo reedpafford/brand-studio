@@ -182,3 +182,20 @@ test("Usage cards say '1 version left' and '1 script' in the singular, and a bra
   expect(within(card).getByText("3 in progress · 1 script · 1 version left")).toBeInTheDocument();
   expect(card.querySelector("span[aria-hidden].bg-faint")).not.toBeNull();
 });
+
+test("a video title doesn't double its letter when the server already put it there", async () => {
+  setViewport(1440);
+  fakeServer(brandBase({ "GET /usage/brands/1/videos": [200, { total: 1, next_cursor: null, people: [], items: [video({ title: "Bo tries salmon · B" })] }] }));
+  open("/usage/brands/1");
+  expect(await screen.findByRole("link", { name: "Bo tries salmon · B" })).toBeInTheDocument();
+  expect(screen.queryByText(/· B · B/)).not.toBeInTheDocument();
+});
+
+test("on a phone a script card is one link, with one meta line under the chips", async () => {
+  fakeServer(brandBase());
+  open("/usage/brands/1?tab=scripts");
+  const title = await screen.findByRole("link", { name: "Bo tries salmon" });
+  expect(title).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
+  expect(title.className).toMatch(/after:absolute/); // the whole card is the link
+  expect(screen.getByText(/^Reed · \$19\.40 · 1 left · /)).toBeInTheDocument();
+});

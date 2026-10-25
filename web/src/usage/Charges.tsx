@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { Banner, Button, Select, Skeleton } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
@@ -17,8 +18,11 @@ export function Charges() {
   const charges = useCharges(open, brand);
   const items = charges.data?.pages.flatMap((p) => p.items) ?? [];
   return (
-    <details className="border-t border-border pt-3" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary className="flex min-h-control cursor-pointer items-center font-medium">Every charge</summary>
+    <details className="group border-t border-border pt-3" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className="flex min-h-control cursor-pointer list-none items-center gap-2 font-medium [&::-webkit-details-marker]:hidden">
+        <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
+        Every charge
+      </summary>
       <div className="mt-3 space-y-3">
         <div className="max-w-60">
           <Select label="Brand" value={brand ?? ""} onChange={(e) => setBrand(e.target.value ? Number(e.target.value) : null)}>
