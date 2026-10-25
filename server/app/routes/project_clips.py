@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import advice, clip_prompts, clip_takes, cut_in
 from app.auth import current_user
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -354,6 +354,7 @@ def make_video(
         created_by_id=user.id,
     )
     db.add(video)
+    project.finished_at = project.finished_at or utcnow()
     db.commit()
     return _video_out(db, video)
 
