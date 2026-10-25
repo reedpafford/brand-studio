@@ -32,6 +32,7 @@ export function ChipList(props: { label: string; items: string[]; onChange: (ite
           placeholder={props.placeholder}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onBlur={add} // words typed but not added are kept when you move on (or press Save)
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Upload } from "lucide-react";
 import { fileUrl, uploadFile } from "../api/upload";
-import { buttonClass } from "../components";
+import { Button, buttonClass } from "../components";
 import { errorText } from "../ui";
 
 /** A labelled image slot: a tile with the current image, and Replace (or Upload) to pick a new one. */
@@ -23,9 +23,9 @@ export function ImagePicker(props: { label: string; fileId: number | null; onCha
           <input type="file" accept="image/*" className="sr-only" aria-label={`${props.label} file`} onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
         </label>
         {props.fileId && (
-          <button type="button" className="inline-flex min-h-control items-center px-2 text-sm text-muted underline lg:min-h-control-dense" onClick={() => props.onChange(null)}>
+          <Button type="button" variant="ghost" dense onClick={() => props.onChange(null)}>
             Remove
-          </button>
+          </Button>
         )}
         {upload.isPending && <span className="text-sm text-muted">Uploading…</span>}
       </div>
