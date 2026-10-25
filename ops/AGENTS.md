@@ -33,9 +33,9 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 |---|---|
 | Builder-Server | session_018dLQ8ebqVoMUp8bEcDnRdm |
 | Builder-Screens | session_013xVoaqhuxDbQHgFs6wFfHp |
-| QA (server, prompts) | session_01L3trFnC1utKkDjLLTxrx71 |
+| QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
 | QA-2 (web) | session_0151NB9uZupi8GLzzTbeAtEv |
-| Designer | session_018EZgdP2tfyzLp1eHTwPkJJ |
+| Designer | session_01USbuJ9znkRnKbNV4cnJUNW |
 | Director | session_01HeFuWAEdxcgfha4QYoAC3Z |
 | Scribe | session_01KaFbhckt39bp16rrK4Ncoa |
 | Release | session_01BGZgB9afnDnbYURA7D11gk |
