@@ -1,6 +1,6 @@
 # Studio (Reed only): Approvals and Team
 
-Both pages live outside the brand: the rail shows the STUDIO group active, and the brand switcher stays as it was. Editors who open either URL see "Page not found". Dollars appear here and nowhere else.
+Both pages live outside the brand: the rail shows the STUDIO group active, and the brand switcher stays as it was. Editors who open Approvals see "Page not found". Editors can open Team read-only (people and waiting invites, no Invite, Remove or Cancel); it is not in their account menu. Dollars appear on Approvals and nowhere else.
 
 ## Approvals (`/approvals`)
 ### Desktop
@@ -57,8 +57,8 @@ Waiting invites (section)
 └──────────────────────────────────────────────────────────────────────┘
 ```
 - **People:** 44px avatar (initial), name (body 600), email (meta), the role as a neutral badge ("Owner", "Editor"). **Remove** (ghost dense, `aria-label="Remove Sam"`) opens the danger dialog: "Remove Sam from the team? Their videos stay." **Keep them** / **Remove**.
-- **Waiting invites:** email, role, "expires 31 Oct" (meta), **Copy link** (secondary dense, `Copy`; becomes "Copied" with `Check` for 2s) and **Cancel** (ghost dense).
-- **Invite someone** opens a dialog (sheet on phone): **Email**, **Role** (select: Editor, Owner; Editor first), amber **Create invite link**. Then the dialog shows the link in a read-only field (`aria-label="Invite link"`) with **Copy link** and the meta line "Send this link to them. It works once and expires in 7 days." and **Done** (ghost).
+- **Waiting invites:** email, role, "expires 31 Oct" (meta), **Copy link** (secondary dense, `Copy`; becomes "Copied" with `Check` for 2s; needs the invite list to return each waiting link, a server change, so it ships when that lands) and **Cancel** (ghost dense).
+- **Invite someone** opens a dialog (sheet on phone): **Email**, **Role** (select: Editor, Owner; Editor first), amber **Create invite link**. Then the dialog shows the link in a read-only field (`aria-label="Invite link"`) with **Copy link** and the meta line "Send this link to them. It works once and expires in 7 days." and **Done** (ghost). No toast while this panel is open: it already says it.
 
 ### Phone
 - People and invites as stacked rows. **Remove**, **Copy link** and **Cancel** are 44px. **Invite someone** in the action bar.

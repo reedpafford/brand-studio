@@ -42,7 +42,7 @@ test("sign-in rejects a wrong password, accepts the right one", async ({ page })
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert")).toHaveText("Wrong email or password.");
 
-  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expectSignedInAs(page, "Reed");
 });

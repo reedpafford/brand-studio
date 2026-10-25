@@ -95,6 +95,14 @@ test("Make clip queues a take", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/generate")).toBe(true));
 });
 
+test("advice on a clip is shown but never stops Make clip", async () => {
+  const advice = "Advice: c1: shot 6: a quick cut names nobody";
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ problems: [advice] })]] });
+  open();
+  expect(await screen.findByText(advice)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make clip · 24 credits" })).toBeEnabled();
+});
+
 test("a take still rendering shows on its own clip after a reload, with the time", async () => {
   fakeServer({
     ...base,
