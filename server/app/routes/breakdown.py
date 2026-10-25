@@ -92,6 +92,7 @@ def save(
     project, version = _working(db, user, project_id)
     if unknown := breakdown.unknown_ids(db, project, body):
         raise HTTPException(422, f"{unknown[0]}. Pick from the project's cast, places and screens.")
+    breakdown.record_length(project, body)
     row = BreakdownVersion(
         project_id=project.id,
         script_version=version.version,

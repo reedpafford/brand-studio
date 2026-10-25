@@ -185,7 +185,7 @@ export function ProjectPage() {
           </div>
         </div>
       )}
-      {step === "shots" && <BreakdownPane projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />}
+      {step === "shots" && <BreakdownPane projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />}
       {step === "storyboard" && <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
       {step === "clips" && <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "final" && <FinalPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
