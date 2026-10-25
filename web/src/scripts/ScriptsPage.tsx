@@ -21,6 +21,9 @@ const PAGE = 30;
 const LETTER = ["A", "B", "C"];
 
 /** A version's status in words, with a tone as the second signal. Never an internal word. */
+/** A version someone has started and not finished: its words are being made into a video. */
+export const beingMade = (status: string) => status === "in_production" || status === "clips_ready";
+
 export const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof Check }> = {
   draft: { label: "Writing", tone: "neutral", icon: Pencil },
   approved: { label: "Ready to make", tone: "accent" },
@@ -101,7 +104,7 @@ export function ScriptsPage() {
     );
   const panelTo = (id: number, slot: number) => `?${new URLSearchParams({ ...Object.fromEntries(params), make: `${id}.${slot}` })}`;
   const videos = useProjectList(brandId);
-  const ownVideo = (projectId: number) => owner || videos.data?.find((p) => p.id === projectId)?.created_by_id === me?.id;
+  const ownVideo = (v: Version) => !!v.project_id && (owner || v.editor?.id === me?.id || videos.data?.find((p) => p.id === v.project_id)?.created_by_id === me?.id);
   const making = /^(\d+)\.(\d+)$/.exec(params.get("make") ?? "");
   // An editor starts on what is ready to make; Reed on everything.
   const status = params.get("status") ?? (owner ? "" : "published");
@@ -149,8 +152,20 @@ export function ScriptsPage() {
     queryFn: async () => (await api.GET("/scripts", { params: { query: { ...(all ? {} : { brand_id: brandId }), status: "draft" } } })).data ?? [],
   });
 
+  // The versions an editor has reserved and not finished: the main list asks for Ready to make, which would drop a script once they start its last version.
+  const makingRows = useQuery({
+    enabled: !owner && me !== undefined,
+    queryKey: ["scripts", "making-now", all ? null : brandId],
+    queryFn: async () => (await api.GET("/scripts", { params: { query: { ...(all ? {} : { brand_id: brandId }), status: "in_production" } } })).data ?? [],
+  });
+
   // Filters the server doesn't take are applied here.
   let rows = scripts.data ?? [];
+  // A script with one version started and another still ready is "in production" to the server, so Ready to make drops it; an editor still needs it here.
+  if (!owner && status === "published" && !(q || len || ref || left || mine || all)) {
+    const ready = (makingRows.data ?? []).filter((r) => r.versions.some((v) => v.status === "approved") && !rows.some((x) => x.id === r.id));
+    if (ready.length > 0) rows = [...rows, ...ready].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
   if (mine) rows = rows.filter((r) => r.created_by_id === me?.id);
   if (left === "0") rows = rows.filter((r) => r.versions_left === 0);
   if (sort === "title") rows = [...rows].sort((a, b) => a.title.localeCompare(b.title));
@@ -259,7 +274,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.slice(0, shown).map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} />
+          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} />
         ))}
       </ul>
     </Card>
@@ -270,6 +285,7 @@ export function ScriptsPage() {
       New script
     </Link>
   );
+  const myMaking = (makingRows.data ?? []).filter((r) => r.versions.some((v) => beingMade(v.status) && v.editor?.id === me?.id));
   const myDrafts = (myDraftRows.data ?? []).filter((r) => r.created_by_id === me?.id);
 
   return (
@@ -315,6 +331,12 @@ export function ScriptsPage() {
       )}
       {scripts.data && (
         <>
+          {myMaking.length > 0 && (
+            <section aria-label="Making now" className="space-y-3">
+              <h2 className="type-section">Making now</h2>
+              {list(myMaking)}
+            </section>
+          )}
           {myDrafts.length > 0 && (
             <section aria-label="Your drafts" className="space-y-3">
               <h2 className="type-section">Your drafts</h2>
@@ -353,7 +375,7 @@ export function ScriptsPage() {
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownVideo }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (projectId: number) => boolean }) {
+function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownVideo, meId }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number }) {
   const brandId = r.brand_id;
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
@@ -377,9 +399,10 @@ function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownV
           {r.versions.map((v) => {
             const s = STATUS[v.status] ?? { label: v.status, tone: "neutral" as Tone };
             const letter = LETTER[v.slot] ?? String(v.slot + 1);
-            const label = `${letter} · ${s.label}`;
+            const by = beingMade(v.status) && v.editor ? (v.editor.id === meId ? "you" : v.editor.name) : null;
+            const label = `${letter} · ${s.label}${by ? ` · ${by}` : ""}`;
             // Ready opens the version panel; so does a version someone else is making. Your own video, and any video for Reed, opens the video; a draft opens its writing flow.
-            const to = v.status === "in_production" && !(v.project_id && ownVideo(v.project_id)) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
+            const to = beingMade(v.status) && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
             const chip = (
               <Badge tone={s.tone} icon={s.icon}>
                 {label}
@@ -388,11 +411,11 @@ function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownV
             return (
               <li key={v.slot}>
                 {to ? (
-                  <Link to={to} aria-label={`Version ${letter}, ${s.label.toLowerCase()}`} className={`inline-flex items-center ${narrow ? "min-h-control" : "min-h-9"} rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`}>
+                  <Link to={to} aria-label={`Version ${letter}, ${s.label.toLowerCase()}${by ? ` by ${by}` : ""}`} className={`inline-flex items-center ${narrow ? "min-h-control" : "min-h-9"} rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`}>
                     {chip}
                   </Link>
                 ) : (
-                  <span aria-label={`Version ${letter}, ${s.label.toLowerCase()}`} className="inline-flex">
+                  <span aria-label={`Version ${letter}, ${s.label.toLowerCase()}${by ? ` by ${by}` : ""}`} className="inline-flex">
                     {chip}
                   </span>
                 )}
