@@ -79,6 +79,10 @@ class VersionOut(VersionSummary):
     problems: list[str]
     has_breakdown: bool
     approved_at: datetime | None
+    variation_of: str | None = None  # "A": a variation of the original; null for the original
+    estimate_credits: float = 0  # to make it: 1 credit a second (480p), from its length
+    clips: int = 0  # in the saved breakdown
+    planned_by: Person | None = None  # who saved the breakdown
 
 
 class ScriptRow(BaseModel):
@@ -130,6 +134,10 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         problems=draft.problems,
         has_breakdown=draft.breakdown is not None,
         approved_at=draft.approved_at,
+        variation_of="A" if draft.slot else None,
+        estimate_credits=lib.seconds(draft),
+        clips=len((draft.breakdown or {}).get("clips", [])),
+        planned_by=_person(db, draft.breakdown_by_id) if draft.breakdown else None,
     )
 
 
@@ -443,6 +451,7 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
                 changes=d.changes,
                 breakdown=d.breakdown,
                 breakdown_problems=d.breakdown_problems,
+                breakdown_by_id=d.breakdown_by_id,
             )
         )
     for slot in db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == source.id)):

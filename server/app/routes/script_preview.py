@@ -106,6 +106,6 @@ def save_preview(
 ):
     """Save an edited breakdown on the version. Its problems are shown, never blocking."""
     _, draft = _version(db, user, script_id, slot, edit=True)
-    script_preview.save(db, draft, body)
+    script_preview.save(db, draft, body, user.id)
     db.commit()
     return _out(db, draft)

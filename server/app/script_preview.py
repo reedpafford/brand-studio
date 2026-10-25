@@ -88,7 +88,7 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
     return found + unknown
 
 
-def save(db: Session, draft: ScriptDraft, bd: Breakdown) -> None:
+def save(db: Session, draft: ScriptDraft, bd: Breakdown, by_id: int | None = None) -> None:
     script = db.get(Script, draft.script_id)
-    draft.breakdown = bd.model_dump()
+    draft.breakdown, draft.breakdown_by_id = bd.model_dump(), by_id
     draft.breakdown_problems = problems(db, script, draft, bd)
