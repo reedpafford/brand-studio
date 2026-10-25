@@ -65,7 +65,7 @@ export function ScreensTab() {
                   image={fileUrl(s.file_id)}
                   icon={Smartphone}
                   onOpen={() => setEditing(s)}
-                  badge={s.default_for.length > 0 ? <Badge tone="media" icon={Smartphone}>{s.default_for[0].replace(/[-_]+/g, " ")}</Badge> : undefined}
+                  badge={s.default_for.length > 0 ? <Badge tone="media" icon={Smartphone}><span className="sr-only lg:not-sr-only">{s.default_for[0].replace(/[-_]+/g, " ")}{s.default_for.length > 1 && ` +${s.default_for.length - 1}`}</span></Badge> : undefined}
                 />
               </li>
             ))}

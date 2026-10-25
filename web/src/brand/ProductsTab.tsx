@@ -8,7 +8,8 @@ import { Banner, Button, Card, EmptyState, Field, Menu, MenuItem, MediaCard, Ske
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { BrandAction } from "./BrandPage";
-import { Panel, ScreenEditor, useAddScreen, useScreens, type Screen } from "./screens";
+import { ImagePicker } from "./ImagePicker";
+import { Panel, ScreenEditor, groupProducts, useAddScreen, useScreens, type Screen } from "./screens";
 
 /** Products are the brand's screens grouped by their product field; each flavour is the screen marked for it. */
 export function ProductsTab() {
@@ -17,8 +18,7 @@ export function ProductsTab() {
   const [editing, setEditing] = useState<Screen | null>(null);
   const [adding, setAdding] = useState<{ product?: string } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const groups = new Map<string, Screen[]>();
-  for (const s of screens.data ?? []) if (s.product) groups.set(s.product, [...(groups.get(s.product) ?? []), s]);
+  const groups = groupProducts(screens.data ?? []);
   const addButton = <Button onClick={() => setAdding({})}>Add product</Button>;
   return (
     <div className="space-y-4">
@@ -31,13 +31,13 @@ export function ProductsTab() {
           ))}
         </div>
       )}
-      {screens.data && groups.size === 0 && (
+      {screens.data && groups.length === 0 && (
         <EmptyState icon={Package} title="No products yet." action={addButton}>
           Add a product and its flavours so briefs can pick them.
         </EmptyState>
       )}
-      {[...groups].map(([product, list]) => (
-        <Card key={product} className="space-y-3">
+      {groups.map(({ name: product, screens: list }) => (
+        <Card key={product.toLowerCase()} className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="type-section">
               {product} <span className="text-muted">· {list.length} flavour{list.length === 1 ? "" : "s"}</span>
@@ -74,7 +74,7 @@ export function ProductsTab() {
       ))}
       {editing && <ScreenEditor key={editing.id} brandId={brandId} screen={editing} onClose={() => setEditing(null)} />}
       {adding && <AddProduct brandId={brandId} product={adding.product} onClose={() => setAdding(null)} />}
-      {renaming && <RenameProduct brandId={brandId} product={renaming} screens={groups.get(renaming) ?? []} onClose={() => setRenaming(null)} />}
+      {renaming && <RenameProduct brandId={brandId} product={renaming} screens={groups.find((g) => g.name === renaming)?.screens ?? []} onClose={() => setRenaming(null)} />}
     </div>
   );
 }
@@ -85,17 +85,17 @@ function AddProduct({ brandId, product, onClose }: { brandId: number; product?: 
   const add = useAddScreen(brandId);
   const [name, setName] = useState(product ?? "");
   const [flavour, setFlavour] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const ready = !!file && name.trim() !== "" && flavour.trim() !== "";
+  const [fileId, setFileId] = useState<number | null>(null);
+  const ready = fileId !== null && name.trim() !== "" && flavour.trim() !== "";
   return (
     <Panel title={product ? `Add a flavour to ${product}` : "Add product"} onClose={onClose}>
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!file) return;
+          if (fileId === null) return;
           add.mutate(
-            { file, name: `${name.trim()} ${flavour.trim()}`, product: name.trim(), variant: flavour.trim() },
+            { fileId, name: `${name.trim()} ${flavour.trim()}`, product: name.trim(), variant: flavour.trim() },
             {
               onSuccess: () => {
                 toast(product ? `${flavour.trim()} added.` : `${name.trim()} added.`);
@@ -107,10 +107,7 @@ function AddProduct({ brandId, product, onClose }: { brandId: number; product?: 
       >
         {!product && <Field label="Product name" placeholder="e.g. Bag" value={name} onChange={(e) => setName(e.target.value)} />}
         <Field label="Flavour" placeholder="e.g. Chicken" value={flavour} onChange={(e) => setFlavour(e.target.value)} />
-        <label className="block text-sm font-medium">
-          Picture
-          <input type="file" accept="image/*" aria-label="Flavour picture" className="mt-1 block min-h-control w-full rounded-md border border-border-strong bg-surface p-2 text-sm font-normal" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        </label>
+        <ImagePicker label="Flavour picture" fileId={fileId} onChange={setFileId} />
         {add.isError && <p role="alert" className={errorClass}>{add.error.message}</p>}
         <Button type="submit" busy={add.isPending} disabled={!ready} className="w-full">
           {product ? "Add flavour" : "Add product"}

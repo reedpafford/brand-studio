@@ -67,6 +67,8 @@ test("a brand screen can be added, given tags and a moment, and deleted", async 
   await expect(tile.getByText("trading")).toBeVisible(); // the moment badge on its tile
 
   await tile.click();
+  // The tag was saved too: it is there when the screen is opened again.
+  await expect(page.getByRole("group", { name: "Tags" }).getByRole("button", { name: "Remove trading" })).toBeVisible();
   await page.getByRole("dialog", { name: "Edit buy-flow" }).getByRole("button", { name: "Delete screen" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete screen" }).click();
   await expect(page.getByText("No brand screens yet.")).toBeVisible();

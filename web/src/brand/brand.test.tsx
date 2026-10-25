@@ -147,7 +147,7 @@ test("Add product takes a name, a first flavour and its picture, and saves it as
   const panel = await screen.findByRole("dialog", { name: "Add product" });
   await userEvent.type(within(panel).getByLabelText("Product name"), "Bag");
   await userEvent.type(within(panel).getByLabelText("Flavour"), "Chicken");
-  await userEvent.upload(within(panel).getByLabelText("Flavour picture"), new File(["x"], "bag.png", { type: "image/png" }));
+  await userEvent.upload(within(panel).getByLabelText("Flavour picture file"), new File(["x"], "bag.png", { type: "image/png" }));
   await userEvent.click(within(panel).getByRole("button", { name: "Add product" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/screens")?.body).toMatchObject({ product: "Bag", variant: "Chicken", name: "Bag Chicken" }));
 });
@@ -202,4 +202,26 @@ test("a never-say word that was typed but not added is kept when you move on, an
   expect(ask.defaultPrevented).toBe(true);
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({ never_say: ["guaranteed"] }));
+});
+
+test("Bag and bag are one product, shown with the spelling most screens use; renaming sets one spelling on every screen", async () => {
+  const mk = (id: number, product: string, variant: string) => ({ ...bag, id, name: `${variant} ${product}`, product, variant });
+  const rows = [mk(4, "Bag", "Chicken"), mk(5, "bag", "Salmon"), mk(6, "Bag", "Peanut butter")];
+  const calls = withScreens(rows, { "PATCH /brands/1/screens/4": [200, rows[0]], "PATCH /brands/1/screens/5": [200, rows[1]], "PATCH /brands/1/screens/6": [200, rows[2]] });
+  renderAt("/b/1/brand?tab=products");
+  expect(await screen.findByRole("heading", { name: /Bag/ })).toHaveTextContent("3 flavours");
+  expect(screen.getAllByRole("heading", { level: 2 }).filter((h) => /bag/i.test(h.textContent ?? ""))).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "More for Bag" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Rename Bag" }));
+  const panel = await screen.findByRole("dialog", { name: "Rename Bag" });
+  await userEvent.clear(within(panel).getByLabelText("Product name"));
+  await userEvent.type(within(panel).getByLabelText("Product name"), "Treat bag");
+  await userEvent.click(within(panel).getByRole("button", { name: "Rename" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.startsWith("PATCH /brands/1/screens/"))).toHaveLength(3));
+});
+
+test("a tile shows its first moment and how many more", async () => {
+  withScreens([{ ...bag, default_for: ["trading", "win"] }]);
+  renderAt("/b/1/brand?tab=screens");
+  expect(await screen.findByText("trading +1")).toBeInTheDocument();
 });

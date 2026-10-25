@@ -19,6 +19,22 @@ export function useScreens(brandId: number) {
   });
 }
 
+/** Products from the screens' product field, grouped without regard to capitals ("Bag" and "bag" are one product).
+ *  The name shown is the spelling most screens use. */
+export function groupProducts(screens: Screen[]): { name: string; screens: Screen[] }[] {
+  const groups = new Map<string, Screen[]>();
+  for (const s of screens) {
+    const p = s.product.trim();
+    if (p) groups.set(p.toLowerCase(), [...(groups.get(p.toLowerCase()) ?? []), s]);
+  }
+  return [...groups.values()].map((list) => {
+    const count = new Map<string, number>();
+    for (const s of list) count.set(s.product.trim(), (count.get(s.product.trim()) ?? 0) + 1);
+    const name = [...count].sort((a, b) => b[1] - a[1])[0][0];
+    return { name, screens: list };
+  });
+}
+
 export const slug = (s: string) => s.trim().toLowerCase().replace(/\s+/g, "-");
 
 /** A side panel on desktop, a sheet on a phone. */
@@ -30,8 +46,8 @@ export function Panel(props: { title: string; onClose: () => void; children: Rea
 export function useAddScreen(brandId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (a: { file: File; name: string; product?: string; variant?: string }) => {
-      const stored = await uploadFile(a.file);
+    mutationFn: async (a: { file?: File; fileId?: number; name: string; product?: string; variant?: string }) => {
+      const stored = a.fileId !== undefined ? { id: a.fileId } : await uploadFile(a.file!);
       const { data, error } = await api.POST("/brands/{brand_id}/screens", {
         params: { path: { brand_id: brandId } },
         body: { name: a.name, file_id: stored.id, tags: [], default_for: [], product: a.product ?? "", variant: a.variant ?? "" },
@@ -52,12 +68,13 @@ export function ScreenEditor({ brandId, screen: sc, onClose }: { brandId: number
   const [product, setProduct] = useState(sc.product);
   const [variant, setVariant] = useState(sc.variant);
   const [asking, setAsking] = useState(false);
+  const known = groupProducts(useScreens(brandId).data ?? []).map((g) => g.name);
   const done = () => queryClient.invalidateQueries({ queryKey: ["screens", brandId] });
   const save = useMutation({
     mutationFn: async () => {
       const { error, response } = await api.PATCH("/brands/{brand_id}/screens/{screen_id}", {
         params: { path: { brand_id: brandId, screen_id: sc.id } },
-        body: { name, tags, default_for: moments, product: product.trim(), variant: variant.trim() },
+        body: { name, tags, default_for: moments, product: known.find((k) => k.toLowerCase() === product.trim().toLowerCase()) ?? product.trim(), variant: variant.trim() },
       });
       if (!response.ok) throw new Error(errorText(error));
     },
