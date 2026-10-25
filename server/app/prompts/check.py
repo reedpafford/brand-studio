@@ -376,6 +376,7 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
         for text in versions.values()
         for m in re.finditer(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:", text, re.M)
     }
+    speakers -= {"Voiceover", "Narrator", "Vo", "V.O.", "Off Screen", "All", "Both"}  # labels
     for name in dict.fromkeys([*cast, *sorted(speakers)]):
         if not re.search(rf"\b{re.escape(name.lower())}\b", roles):
             problems.append(f"{ADVICE}no slot carries the name {name}; use it in that role")

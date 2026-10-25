@@ -252,6 +252,8 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     dre = schemas.CastSlots(
         slots=[schemas.CastSlot(role="Dre, the rival", appears_in=[0, 1], **extra)]
     )
+    labels = {0: "DRE: Nice car.\nVOICEOVER: He won.\nNARRATOR (V.O.): Later.", 1: "DRE: Mine."}
+    assert check.cast_slots(labels, dre) == []  # speaker labels aren't names
     assert check.cast_slots({0: "DRE: Nice car.", 1: "MALIK: Mine now."}, dre) == [
         "Advice: no slot carries the name Malik; use it in that role",
         "Advice: Dre, the rival: “Dre” isn't in version 1",
