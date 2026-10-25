@@ -47,6 +47,9 @@ class LinkIn(BaseModel):
 class Estimate(BaseModel):
     credits: float  # every step still to run, together
     credits_left: float | None  # an editor's weekly allowance left; null for the owner
+    # How often the step it starts from has been tried already: a retry is charged again, so
+    # after 2 failed tries the screen says so before the next press.
+    tries: int = 0
 
 
 class ImportOut(BaseModel):
@@ -91,6 +94,7 @@ def _out(db: Session, script: Script, user: User) -> ImportOut:
         estimate = Estimate(
             credits=read.price(db, user, read.remaining(script)),
             credits_left=None if left is None else max(left, 0),
+            tries=(reel.get("tries") or {}).get(failed or "", 0),
         )
     return ImportOut(
         script_id=script.id,
