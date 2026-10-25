@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Lock, Pencil } from "lucide-react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Badge, Button, Card, Field, Skeleton, StepPicker, TextArea } from "../components";
@@ -18,6 +18,7 @@ import { VariationsStep, variationsReason, writtenVariations } from "./Variation
 import { ReadReelButton, ReelBlock, useReelImport } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
 import { WRITING_STEPS, around, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
+import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { useScript, usePatchScript, useWriteWords } from "./useScript";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
@@ -31,6 +32,9 @@ export function ScriptFlowPage() {
   const { data: me } = useMe();
   const script = useScript(id);
   const patch = usePatchScript(id);
+  const navigate = useNavigate();
+  const mayDelete = useMayDelete();
+  const del = useDeleteScript(() => navigate(`/b/${brandId}/scripts`));
   const reel = useReelImport(id);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [asking, setAsking] = useState(false); // the Publish confirmation, opened from the Next slot
@@ -134,7 +138,13 @@ export function ScriptFlowPage() {
             This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits
           </p>
         )}
+        {mayDelete(s) && (
+          <div className={allowance.data ? "" : "ml-auto"}>
+            <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />
+          </div>
+        )}
       </div>
+      {del.dialog}
       <StepPicker steps={stepStates(step, s)} onPick={(to) => go(to)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 className="type-section">{label}</h2>
