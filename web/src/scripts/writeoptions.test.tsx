@@ -39,7 +39,7 @@ test("an empty script with no reel offers Write with Claude at its price, and th
   setViewport(1440);
   const calls = fakeServer(base({ "POST /scripts/7/write": [201, { id: 90, kind: "write-claude", status: "queued", script_id: 7 }] }));
   open();
-  const write = await screen.findByRole("button", { name: "Write · 6 credits" });
+  const write = await screen.findByRole("button", { name: "Write with Claude · 6 credits" });
   expect(screen.getByRole("heading", { name: "Write with Claude" })).toBeInTheDocument();
   expect(screen.queryByRole("switch")).toBeNull();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
@@ -53,15 +53,18 @@ test("a script with a reel offers Write from the reference, and the same-style s
   const calls = fakeServer(base({ "GET /scripts/7": [200, script({ reference_id: "altar" })], "PATCH /scripts/7": [200, script({ reference_id: "altar", new_lines: true })] }));
   open();
   expect(await screen.findByRole("heading", { name: "Write from the reference" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Write from the reference · 6 credits" })).toBeInTheDocument();
+  expect(screen.getByText("Keeps the reel's lines word for word and rewrites only what the brand swap needs.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("switch", { name: "Write new lines in the same style" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ new_lines: true }));
+  expect(await screen.findByText("Writes new lines in the reel's voice and pacing. The shots and beats still follow the reel.")).toBeInTheDocument();
 });
 
 test("an editor past this week's allowance gets a disabled button and the reason, never Ask Reed", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /auth/me": [200, editor], "GET /scripts/7": [200, script({ created_by_id: 2 })], "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }] }));
   open();
-  const write = await screen.findByRole("button", { name: "Write · 6 credits" });
+  const write = await screen.findByRole("button", { name: "Write with Claude · 6 credits" });
   await vi.waitFor(() => expect(write).toBeDisabled());
   expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday.");
   expect(screen.queryByText(/Ask Reed/)).toBeNull();

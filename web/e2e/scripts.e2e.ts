@@ -66,7 +66,7 @@ test("an empty script with a reel is written from the reference, at the price sh
   expect(made.ok()).toBeTruthy();
   await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=script`);
   await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeVisible();
-  await page.getByRole("button", { name: /^Write · \d+ credits?$/ }).click();
+  await page.getByRole("button", { name: /^Write from the reference · \d+ credits?$/ }).click();
   await expect(page.getByRole("list", { name: "Script text" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeHidden();
 });

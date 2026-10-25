@@ -48,7 +48,7 @@ export function WriteOptions({ script: s, onOwn }: { script: Script; onOwn: () =
     <Card className="max-w-[680px] space-y-4">
       <div className="space-y-2">
         <h2 className="type-section">{label}</h2>
-        <p className="text-sm text-muted">{hasReel ? "Keeps the reel's lines word for word, swaps in the brand and ends with the brand's end line." : "Claude writes it from the description."}</p>
+        <p className="text-sm text-muted">{hasReel ? (s.new_lines ? "Writes new lines in the reel's voice and pacing. The shots and beats still follow the reel." : "Keeps the reel's lines word for word and rewrites only what the brand swap needs.") : "Claude writes it from the description."}</p>
         {hasReel && (
           <label className="flex min-h-control items-center gap-3">
             <input type="checkbox" role="switch" className="size-5" checked={s.new_lines} disabled={patch.isPending} onChange={(e) => patch.mutate({ new_lines: e.target.checked })} />
@@ -62,7 +62,7 @@ export function WriteOptions({ script: s, onOwn }: { script: Script; onOwn: () =
         )}
         {write.isError && <p role="alert" className={errorClass}>{write.error.message}</p>}
         <Button icon={Sparkles} price={credits} disabled={credits === undefined || stop !== null || patch.isPending} reason={stop} onClick={() => write.mutate()}>
-          {last?.status === "failed" ? "Try again" : "Write"}
+          {last?.status === "failed" ? "Try again" : label}
         </Button>
       </div>
       <div className="border-t border-border pt-3">
