@@ -66,8 +66,8 @@ def problems(db: Session, script: Script, job: Job) -> list[str]:
 
 def save_cast_slots(db: Session, job: Job) -> None:
     script = db.get(Script, job.input["script_id"])
-    if script is None:
-        return
+    if script is None or script.published or script.archived:
+        return  # published scripts are final
     result = CastSlots.model_validate(job.output)
     have = {s.role.lower(): s for s in _slots(db, script)}
     order = []

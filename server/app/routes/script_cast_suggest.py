@@ -16,7 +16,6 @@ from app.routes.jobs import JobOut, enqueue
 from app.routes.references import load as load_reference
 
 router = APIRouter(prefix="/scripts/{script_id}/cast/suggest", tags=["script library"])
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 class SuggestOut(BaseModel):
@@ -44,7 +43,7 @@ def read_suggestion(
     script = lib.get_script(db, user, script_id)
     done = _jobs(db, script.id, (JobStatus.succeeded,))
     return SuggestOut(
-        running=bool(_jobs(db, script.id, WAITING)),
+        running=lib.writing(db, script.id, "cast_slots"),
         problems=suggest.problems(db, script, done[0]) if done else [],
     )
 
@@ -61,7 +60,7 @@ def suggest_slots(
     script = lib.editable(user, lib.get_script(db, user, script_id))
     if not suggest.ready(db, script):
         raise HTTPException(409, "Approve the original first.")
-    if _jobs(db, script.id, WAITING):
+    if lib.writing(db, script.id, "cast_slots"):
         raise HTTPException(409, "Cast slots are already being suggested for this script.")
     reference = load_reference(request, script.reference_id) if script.reference_id else None
     data = suggest.job_input(db, script, reference)

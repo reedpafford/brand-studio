@@ -1,6 +1,7 @@
 """Cast-slot suggestions: Claude lists the roles; existing slots stay, new ones are added."""
 
 from app.models.jobs import Job
+from app.models.script_library import Script
 from tests.conftest import upload
 from tests.helpers import with_sheet
 from tests.test_script_library import SCRIPT, _make
@@ -47,3 +48,15 @@ def test_suggest_follows_the_script_rules(owner, editor):
     owner.post(f"/scripts/{made['id']}/publish")
     assert editor.get(url).status_code == 200
     assert editor.post(url).status_code in (403, 409)  # published: final
+
+
+def test_publish_waits_for_suggestions_and_a_late_result_is_dropped(app, db, owner):
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    owner.post(f"{base}/drafts/0/approve")
+    assert owner.post(f"{base}/cast/suggest").status_code == 201
+    assert owner.post(f"{base}/publish").status_code == 409  # still writing
+    db.query(Script).filter_by(id=made["id"]).update({"published": True})
+    db.commit()
+    _work(app, db)
+    assert owner.get(base).json()["cast"] == []
