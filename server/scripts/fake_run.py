@@ -178,7 +178,7 @@ def main() -> int:
         )
         app = create_app(settings)
         Base.metadata.create_all(app.state.sessionmaker.kw["bind"])
-        providers = get_providers(settings)
+        providers = get_providers(settings, app.state.storage)
         with TestClient(app) as c:
             owner = {"setup_token": token, "workspace_name": "Studio", "name": "Reed",
                      "email": "reed@example.com", "password": "correct horse battery"}  # fmt: skip

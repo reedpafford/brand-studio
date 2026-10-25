@@ -13,6 +13,7 @@ from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
+from app.models.files import StoredFile
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.routes.brands import get_brand
@@ -336,7 +337,10 @@ def update_script(
 
 @router.delete("/{script_id}", status_code=204)
 def delete_script(
-    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+    script_id: int,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
     """Delete it, or archive it if a video was made from any version (videos stay)."""
     script = lib.get_script(db, user, script_id)
@@ -349,7 +353,12 @@ def delete_script(
         db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
         db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(ids)))
         db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
+        reel = script.reel or {}
         db.delete(script)
+        for key in ("video_file_id", "contact_file_id"):  # an imported reel's own files
+            if (stored := db.get(StoredFile, reel.get(key) or 0)) is not None:
+                request.app.state.storage.delete(stored.key)
+                db.delete(stored)
     db.commit()
 
 
