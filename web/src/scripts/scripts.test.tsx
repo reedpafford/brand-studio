@@ -712,6 +712,45 @@ test("Making now keeps a version whose clips are ready too", async () => {
   expect(within(section).getByText("A · In production · you")).toBeInTheDocument();
 });
 
+test("the library pages from the server: the total comes from its header, and Show more asks for the next rows", async () => {
+  setViewport(1440);
+  const asked: string[] = [];
+  const all = Array.from({ length: 35 }, (_, i) => script({ id: 100 + i, title: `Script ${i + 1}` }));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+      const url = new URL(req.url);
+      const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
+      const json = (body: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json", ...headers } });
+      if (key === "GET /scripts") {
+        asked.push(`${url.searchParams.get("offset")}/${url.searchParams.get("limit")}/${url.searchParams.get("reference_id") ?? ""}/${url.searchParams.get("sort") ?? ""}`);
+        const off = Number(url.searchParams.get("offset") ?? 0);
+        return json(all.slice(off, off + Number(url.searchParams.get("limit") ?? 30)), { "X-Total-Count": String(all.length) });
+      }
+      return json(key === "GET /auth/me" ? owner : (base[key]?.[1] ?? []));
+    }),
+  );
+  open("/b/1/scripts?ref=altar&sort=title");
+  expect(await screen.findByText("35 scripts")).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(30);
+  await userEvent.click(screen.getByRole("button", { name: "Show more" }));
+  await vi.waitFor(() => expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(35));
+  expect(asked).toEqual(["0/30/altar/title", "30/30/altar/title"]);
+  expect(screen.queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+});
+
+test("a row shows its poster once a video is finished, the reel's name from the server, and a failed version as Didn't finish that opens its video", async () => {
+  setViewport(1440);
+  const row = script({ poster_file_id: 77, reference_name: "The altar reel", versions: [v(0, "failed", { project_id: 5 })] });
+  fakeServer({ ...base, "GET /scripts": [200, [row]] });
+  open();
+  expect(await screen.findByText(/Ref: The altar reel/)).toBeInTheDocument();
+  expect(document.querySelector("img[src*='77']")).not.toBeNull();
+  expect(screen.getByText("A · Didn't finish")).toBeInTheDocument();
+  expect(screen.getByLabelText("Version A, didn't finish").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
+});
+
 test("Bulk create: pasted lines become rows, every row needs a title and what it's for, then drafts are made and Write all asks Claude at one price", async () => {
   setViewport(1440);
   const calls = fakeServer({
@@ -770,6 +809,49 @@ test("a pasted list: a line without a dash takes its first 6 words as the title 
     { title: "Salmon night", description: "Bo meets salmon", reference: "" },
     { title: "Bo walks to the park every", description: "", reference: "" }, // no purpose given: the row is outlined until it has one
   ]);
+});
+
+test("an editor's list keeps Title A–Z when a half-made script is added to it, and says '1 script' not '2 script'", async () => {
+  setViewport(1440);
+  const half = script({ id: 5, title: "Alpha half made", created_at: "2026-10-01T10:00:00Z", status: "in_production", versions: [v(0, "in_production", { project_id: 40, editor: { id: 2, name: "Sam" } }), v(1, "approved")] });
+  const zed = script({ id: 6, title: "Zed ready", created_at: "2026-10-20T10:00:00Z", versions: [v(0, "approved")] });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+      const url = new URL(req.url);
+      const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
+      const ok = (body: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json", ...headers } });
+      if (key === "GET /scripts") return url.searchParams.get("status") === "in_production" ? ok([half]) : ok([zed], { "X-Total-Count": "1" });
+      if (key === "GET /auth/me") return ok(editor);
+      return ok(base[key]?.[1] ?? []);
+    }),
+  );
+  open("/b/1/scripts?sort=title");
+  await screen.findByText("Zed ready");
+  const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+  expect(titles.indexOf("Alpha half made")).toBeLessThan(titles.indexOf("Zed ready"));
+  expect(screen.getByText("2 scripts")).toBeInTheDocument();
+});
+
+test("a row without a finished video uses its reel's thumbnail as the poster", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /references": [200, [{ id: "altar", name: "The altar reel", logline: "", seconds: 45, style: "", brand: "", has_thumbnail: true }]],
+    "GET /scripts": [200, [script({ poster_file_id: null, reference_id: "altar", versions: [v(0, "approved")] })]],
+  });
+  open();
+  await screen.findByRole("heading", { name: "Bo tries salmon" });
+  await vi.waitFor(() => expect(document.querySelector("img[src='/api/references/altar/thumbnail']")).not.toBeNull());
+});
+
+test("the phone's Filters button stays on one line", async () => {
+  fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts?status=done");
+  const button = await screen.findByRole("button", { name: "Filters (1)" });
+  expect(button.className).toMatch(/whitespace-nowrap/);
+  expect(button.className).toMatch(/shrink-0/);
 });
 
 const reelOut = (o: object = {}) => ({ script_id: 7, status: "ready", source: "link", url: "https://www.instagram.com/reel/Abc123/", seconds: 45, shots: 50, transcript: [{ text: "Hell no." }, { text: "I do." }], video_file_id: 3, contact_file_id: 4, problem: "", problem_code: null, ...o });
