@@ -309,6 +309,8 @@ def test_an_adapted_draft_keeps_the_reels_lines_unless_new_lines_is_on():
         "Advice: the reel's line “Sorry, I'm fully booked.” is changed or missing"
     ]
     assert check.reference_lines(swapped, reel, new_lines=True) == []
+    curly = "NATE: Sorry, I’m  fully booked."  # a phone's apostrophe and a double space
+    assert check.reference_lines(curly, ["Sorry, I'm fully booked."]) == []
 
 
 def test_nobody_speaks_unless_the_script_says_so():

@@ -426,8 +426,15 @@ def reference_lines(script: str, reel: list[str], new_lines: bool = False) -> li
     (Reed, #271). Advice lists each one changed or missing, so the editor can see the swap."""
     if new_lines:
         return []
-    said = "\n".join(re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M))
-    return [f"{ADVICE}the reel's line “{x}” is changed or missing" for x in reel if x not in said]
+    said = _plain("\n".join(re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M)))
+    return [f"{ADVICE}the reel's line “{x}” is changed or missing"
+            for x in reel if _plain(x) not in said]  # fmt: skip
+
+
+def _plain(text: str) -> str:
+    """Curly quotes as straight ones and whitespace evened out: a phone or a model may type
+    either, and only the words count."""
+    return _exact(text.translate(str.maketrans("‘’“”", "''\"\"")))
 
 
 def reel_watch(watch: ReelWatch, cuts: list[dict], transcript: list[dict]) -> list[str]:
