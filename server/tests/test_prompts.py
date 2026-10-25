@@ -496,6 +496,8 @@ def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     clip.prompt = clip.prompt.replace("eyes red.", 'eyes red. Malik: "Okay, I know. It\'s 3:15."')
     shots[2].line, shots[4].line = "No.", "Okay, I know. It's 3:15."
     assert check.clip_prompts(bd, cp, 30, 10) == []
+    clip.prompt = clip.prompt.replace("eyes red.", "eyes red, a wall clock reading 3:12.")
+    assert check.clip_prompts(bd, cp, 30, 10) == []  # a clock outside the dialogue too
     shots[1].line = "No."  # a line said twice on purpose, quoted twice
     clip.prompt = clip.prompt.replace("eyes shut.", 'eyes shut. Malik (muttering): "No."')
     assert check.clip_prompts(bd, cp, 30, 10) == []
@@ -784,3 +786,4 @@ def test_a_frames_only_watch_says_so_and_keeps_the_cuts_and_words():
     assert text.startswith("<watched_from>frames</watched_from>\n<cuts>\n1. 0.00–0.40")
     assert text.split("\n", 1)[1] == prompts.reel_watch_input(transcript, cuts)
     assert "**Frames only.**" in prompts.watch_system()
+    assert "**Money climbs.**" in prompts.system("script_draft")  # imported reels too
