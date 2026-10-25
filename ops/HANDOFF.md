@@ -1,4 +1,4 @@
-as of af7f225 · 2026-10-25 05:20 UTC
+as of 3eeaf85 · 2026-10-25 14:20 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -19,7 +19,7 @@ as of af7f225 · 2026-10-25 05:20 UTC
 - Redesign build (14 PRs, `docs/design/redesign/phase3/README.md`): 1/14 Screening room tokens and fonts, dark by default (#175); 2/14 shared parts in `web/src/components/` (#176); 3/14 app shell with top bar, rail and phone tab bar (#178). 4/14 Videos home (#180); 6/14 video frame (#179). Screens still on the old layout until the rest land.
 - Workflow v2 plan docs (#189 server plan, #191 Director plan, #192 design) and Quick clip specs (#184, #187). Workflow v2 build so far: Script Library tables, length optional and set by the breakdown (#201), Script Library API with versions, approve, publish, duplicate (#204), bulk create (#206), cast slots per script (#207). Design re-specs 1–4 (#194, #195, #198, #200) and the cast slots plan (#203) are merged. Montage check is advice, never a dead end (#196).
 - Workflow v2 build, continued: weekly editor allowance 145 credits (#211), breakdown preview on a library version (#212), "Advice: …" never blocks and Keep anyway is remembered (#215), produce a library version once (#218), Assets step (#220), download every clip as one zip (#223), `fake_run` through the Script Library (#224), Team links and editors' weekly allowance for the owner (#228). Director prompts: Variations step (#202) and Cast slots step (#214); altar remake fixes (#210). Library spec: phone Filters sheet, Reed sees editors' drafts (#229); Studio spec (#222).
-- Library and writing flow: Scripts home with list, filters and search (#226), New script, writing frame and Description (#230), variations of a library script (#234), field counters never wrap (#232), QA follow-ups on zip, allowance lock and wording (#231); Prompts: grind before the payoff, hook opens on the inciting exchange, cast slot kinds (#241). Specs: Usage brand tracker (#238), editors see the versions they're making at the top of the library (#244), writing frame step 5 is Cast (#233), Reed's remake verdict and rules (#237).
+- Library and writing flow: Characters and Publish steps (#236); Scripts home with list, filters and search (#226), New script, writing frame and Description (#230), variations of a library script (#234), field counters never wrap (#232), QA follow-ups on zip, allowance lock and wording (#231); Prompts: grind before the payoff, hook opens on the inciting exchange, cast slot kinds (#241). Specs: Usage brand tracker (#238), editors see the versions they're making at the top of the library (#244), writing frame step 5 is Cast (#233), Reed's remake verdict and rules (#237).
 - Redesign, continued: Brand frame and Look (#205), Products and App screens (#209), Sign in / setup / invite (#213), Approvals (#219), Team (#221).
 - More redesign: Script step (#185), Shots step (#186), Videos home follow-up (#193), Quick clip (#183).
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
@@ -47,15 +47,15 @@ as of af7f225 · 2026-10-25 05:20 UTC
 ## Workflow v2 (Reed's decisions, 2026-10-25, ops/DECISIONS.md)
 - Owner writes a script (title, description, optional reference reel), runs Enhance, picks 0–2 variations, locks characters, optionally previews the breakdown, and publishes to the Script Library. Editors pick a version and produce it once (max 3 videos per script). Editors can write their own scripts: $15 a week free generation each, beyond that declined. Cast slots (#197): once the script and variations are approved, every named or recurring role is an optional cast slot; a locked slot is used as-is in every shot and version. No final-video upload: download clips one by one or all at once, older takes too.
 ## Open PRs (6, not counting the Scribe's own)
-- #245 Usage tracker 2/3: when a video became "Video done" | Builder-Server | QA at a54c9e9: 1 must-fix (a partial zip download marks the video done)
-- #243 Version panel: Make this version | Builder-Screens | Designer review at 8cf7d29: 2 must-fixes (your own version in production is a dead end; new videos are listed under "Videos made before scripts")
+- #247 Usage tracker 3a: summary, brands and one brand (owner only) | Builder-Server | in review
+- #245 Usage tracker 2/3: when a video became "Video done" | Builder-Server | QA at a54c9e9: 1 must-fix (a partial zip download marks the video done); head since moved to eb98a4f
+- #243 Version panel: Make this version | Builder-Screens | Designer review at 8cf7d29: 2 must-fixes (your own version in production is a dead end; new videos are listed under "Videos made before scripts"); head since moved to a27d458
 - #242 Usage tracker 1/3: every charge records its brand | Builder-Server | QA pass (e8777bf)
 - #240 Team Copy link and the held-clip line from allowances | Builder-Screens | in review
-- #239 Workflow v2 5b-2: read the cast (slots with kind and versions) | Builder-Server | QA pass (4ccd446); QA note: with #241 merged, `test_a_role_listed_twice_is_one_slot` needs `kind` on its slots
-- #236 Script library 3: Characters and Publish | Builder-Screens | Designer re-check passed (a0904bc); its base #230 is merged
+- #239 Workflow v2 5b-2: read the cast (slots with kind and versions) | Builder-Server | QA pass (4ccd446); QA note: its test needs `kind` on its slots now that #241 is merged
 ## Next
-- Builder-Server: fix #245's partial-download rule; land #242, #239 (add `kind` to its test), then usage tracker 3/3; add `script_draft_id` to `ProjectOut` (or `legacy=1`) and who reserved a version, for #243.
-- Builder-Screens: fix #243's two must-fixes; land #236 and #240; the Usage brand tracker screen.
+- Builder-Server: fix #245's partial-download rule; land #242, #239 (add `kind` to its test), #247, then the rest of the usage tracker; add `script_draft_id` to `ProjectOut` (or `legacy=1`) and who reserved a version, for #243.
+- Builder-Screens: fix #243's two must-fixes; land #240; the Usage brand tracker screen.
 - Director: re-run the altar reel after the cap resets Monday (estimate first, up to $10); Betty after the montage rule; paid runs only with Producer approval, logged in ops/SPEND.md.
 - Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (per the Producer); Reed's verdict on the new altar version.
 - Explorer: nightly checks of test and live sites (later).
