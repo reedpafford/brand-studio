@@ -819,8 +819,8 @@ export interface paths {
         /**
          * Restore Project
          * @description Undo archive or release: the video comes back as it was (cancelled jobs stay
-         *     cancelled; run them again). A released video gets its version back unless someone has
-         *     started that version since; then it comes back on its own.
+         *     cancelled; run them again). A released video gets its version back; once someone has
+         *     started that version again it can't come back (one video per version).
          */
         post: operations["restore_project_projects__project_id__restore_post"];
         delete?: never;
