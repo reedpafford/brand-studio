@@ -220,3 +220,32 @@ def test_new_lines_is_set_on_create_and_final_once_version_a_is_approved(owner):
     late = owner.patch(url, json={"new_lines": True})
     assert late.status_code == 409 and "Version A" in late.json()["detail"]
     assert owner.patch(url, json={"title": "Still fine"}).status_code == 200
+
+
+def test_delete_is_undoable_and_restore_gives_back_the_same_script(owner, editor):
+    made = _make(editor, text=SCRIPT)
+    url = f"/scripts/{made['id']}"
+    editor.put(f"{url}/drafts/1", json={"text": SCRIPT + "\nNATE: Fine."})
+    editor.post(f"{url}/cast", json={"role": "Mom"})
+    before = editor.get(url).json()
+    assert editor.delete(url).status_code == 204
+    assert editor.get("/scripts").json() == []  # gone from every list
+    assert editor.post(f"{url}/restore").status_code == 200
+    assert editor.get(url).json() == before
+    assert editor.post(f"{url}/restore").status_code == 409  # not deleted now
+
+
+def test_only_who_may_delete_may_restore(app, owner, editor, db):
+    from tests.test_script_produce import _second_editor
+
+    made = _make(owner, text=SCRIPT)  # Reed's published script: editors see it, can't restore
+    url = f"/scripts/{made['id']}"
+    owner.post(f"{url}/drafts/0/approve")
+    owner.post(f"{url}/publish")
+    owner.delete(url)
+    assert editor.post(f"{url}/restore").status_code == 403
+    assert owner.post(f"{url}/restore").json()["published"] is True  # exactly as it was
+    mine = _make(editor, text=SCRIPT)  # an editor's private draft: another editor can't reach it
+    editor.delete(f"/scripts/{mine['id']}")
+    two, _ = _second_editor(app, owner, db)
+    assert two.post(f"/scripts/{mine['id']}/restore").status_code == 404

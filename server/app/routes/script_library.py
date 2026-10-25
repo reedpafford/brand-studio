@@ -13,14 +13,13 @@ from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
-from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.reel import reel_link
 from app.routes.brands import get_brand
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
-from app.routes.script_import import UNTITLED, delete_bytes, drop_files, one_at_a_time, prepare
+from app.routes.script_import import UNTITLED, one_at_a_time, prepare
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
@@ -358,29 +357,35 @@ def update_script(
     return _out(db, script)
 
 
-@router.delete("/{script_id}", status_code=204)
-def delete_script(
-    script_id: int,
-    request: Request,
-    user: User = Depends(current_user),
-    db: Session = Depends(get_db),
-):
-    """Delete it, or archive it if a video was made from any version (videos stay)."""
+def _removable(db: Session, user: User, script_id: int) -> Script:
     script = lib.get_script(db, user, script_id)
     if not (user.is_owner or (script.created_by_id == user.id and not script.published)):
         raise HTTPException(403, "Only its author (before publishing) or the owner can remove it.")
-    ids = [d.id for d in lib.drafts(db, script)]
-    old: list[str] = []
-    if ids and db.scalar(select(Project.id).where(Project.script_draft_id.in_(ids)).limit(1)):
-        script.archived = True
-    else:
-        db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
-        db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(ids)))
-        db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
-        old = drop_files(db, script.reel)  # an imported reel's own files
-        db.delete(script)
+    return script
+
+
+@router.delete("/{script_id}", status_code=204)
+def delete_script(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Delete it, undoably (Reed, 2026-10-25): it leaves every list but keeps its versions,
+    history, cast, reel files and videos, so Restore brings it back exactly as it was."""
+    _removable(db, user, script_id).archived = True
+    # Purging long-deleted scripts (rows and reel files) would go here; not done yet.
     db.commit()
-    delete_bytes(request, old)
+
+
+@router.post("/{script_id}/restore", response_model=ScriptOut)
+def restore_script(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo a delete: who may delete it may restore it."""
+    script = _removable(db, user, script_id)
+    if not script.archived:
+        raise HTTPException(409, "This script isn't deleted.")
+    script.archived = False
+    db.commit()
+    return _out(db, script)
 
 
 @router.put("/{script_id}/drafts/{slot}", response_model=ScriptOut)

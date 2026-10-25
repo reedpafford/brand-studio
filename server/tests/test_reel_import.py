@@ -103,16 +103,16 @@ def test_a_refused_link_says_upload_instead_and_an_upload_fixes_it(app, owner, d
     assert ready["url"] == link["url"]
 
 
-def test_wrong_file_type_and_deleting_the_script_removes_its_files(app, owner, db, clip):
+def test_wrong_file_type_and_a_deleted_reel_keeps_its_files_to_restore(app, owner, db, clip):
     brand = owner.get("/brands").json()[0]["id"]
     files = {"file": ("a.png", b"\x89PNG\r\n\x1a\n", "image/png")}
     wrong = owner.post("/scripts/import/upload", data={"brand_id": brand}, files=files)
     assert wrong.status_code == 415
     sid = _upload(owner, clip).json()["script_id"]
     _work(app, db)
-    assert owner.delete(f"/scripts/{sid}").status_code == 204
-    db.expire_all()
-    assert db.query(StoredFile).count() == 0
+    assert owner.delete(f"/scripts/{sid}").status_code == 204  # undoable: nothing removed
+    assert owner.post(f"/scripts/{sid}/restore").status_code == 200
+    assert owner.get(f"/scripts/{sid}/import").json()["status"] == "ready"
 
 
 @pytest.mark.whisper

@@ -1263,13 +1263,34 @@ export interface paths {
         post?: never;
         /**
          * Delete Script
-         * @description Delete it, or archive it if a video was made from any version (videos stay).
+         * @description Delete it, undoably (Reed, 2026-10-25): it leaves every list but keeps its versions,
+         *     history, cast, reel files and videos, so Restore brings it back exactly as it was.
          */
         delete: operations["delete_script_scripts__script_id__delete"];
         options?: never;
         head?: never;
         /** Update Script */
         patch: operations["update_script_scripts__script_id__patch"];
+        trace?: never;
+    };
+    "/scripts/{script_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Script
+         * @description Undo a delete: who may delete it may restore it.
+         */
+        post: operations["restore_script_scripts__script_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/scripts/{script_id}/drafts/{slot}": {
@@ -7062,6 +7083,37 @@ export interface operations {
                 "application/json": components["schemas"]["ScriptPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_script_scripts__script_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
