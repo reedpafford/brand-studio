@@ -14,6 +14,7 @@ import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { CastStep } from "./CastStep";
 import { DescriptionForm } from "./DescriptionForm";
+import { VariationsStep, variationsReason } from "./VariationsStep";
 import { PublishStep } from "./PublishStep";
 import { WRITING_STEPS, around, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
 import { useScript, usePatchScript, useWriteWords } from "./useScript";
@@ -56,7 +57,7 @@ export function ScriptFlowPage() {
   };
   const at = WRITING_STEPS.findIndex((x) => x.id === step);
   const { prev, next } = around(step);
-  const nextReason = !next ? null : (step === "script" || step === "description") && !hasWords(s) && step === "script" ? "Write or paste the script first" : null;
+  const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : null;
   const label = WRITING_STEPS[at].label;
   const toPublish = s.versions.filter((v) => v.text.trim() !== "").length;
   const publishButton = step === "publish" && !s.published && (
@@ -146,6 +147,7 @@ export function ScriptFlowPage() {
       </div>
       {step === "description" && <DescriptionStep script={s} brandName={brandName} onEditing={setEditing} onDone={() => toast("Description saved.")} />}
       {step === "script" && <ScriptStep scriptId={id} script={s} onEditing={setEditing} />}
+      {step === "variations" && <VariationsStep script={s} own={mine} />}
       {step === "cast" && <CastStep scriptId={id} brandId={brandId} readOnly={s.published} />}
       {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}
     </main>

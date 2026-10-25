@@ -132,7 +132,7 @@ test("a draft script's page: title, a draft badge, seven steps with the unbuilt 
   expect(screen.getByText("Draft · only you can see it")).toBeInTheDocument(); // Reed on his own draft
   const steps = screen.getByRole("list", { name: "Steps" });
   expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Description", "Script", "Directions", "Variations", "Cast", "Breakdown", "Publish"]);
-  expect(within(steps).getByRole("button", { name: "Variations" })).toHaveAccessibleDescription("Coming soon");
+  expect(within(steps).getByRole("button", { name: "Directions" })).toHaveAccessibleDescription("Coming soon");
   expect(screen.getByText("Keep it warm.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Edit description" }));
   await userEvent.clear(screen.getByLabelText("Title"));
@@ -145,7 +145,7 @@ test("the script step saves the words as the original; Next needs them", async (
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, full()], "PUT /scripts/7/drafts/0": [200, full()] });
   open("/b/1/scripts/7?step=script");
-  const next = await screen.findByRole("button", { name: "Next: Cast" });
+  const next = await screen.findByRole("button", { name: "Next: Variations" });
   expect(next).toBeDisabled();
   await userEvent.type(screen.getByLabelText("Your script"), "BO: Salmon?");
   await userEvent.click(screen.getByRole("button", { name: "Save script" }));
@@ -354,4 +354,52 @@ test("the draft badge says who can see it: you, you and Reed, or whose draft it 
   fakeServer({ ...base, "GET /scripts/7": [200, full({ created_by_id: 2, created_by_name: "Sam" })] });
   open("/b/1/scripts/7");
   expect(await screen.findByText("Draft · Sam's, not published")).toBeInTheDocument();
+});
+
+const ver = (slot: number, o: object = {}) => ({ ...full().versions[0], slot, text: "", status: "draft", changes: [], ...o });
+const approvedOriginal = (extra: object[] = []) => full({ versions: [ver(0, { text: "SCENE 1 — CHURCH\nMIA: Hell no.\nShe walks out.", status: "approved" }), ...extra] });
+
+test("Variations: None skips them; 1 or 2 shows the price, approves the original and asks for the variations", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, approvedOriginal()],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "POST /scripts/7/variations": [201, { id: 90, kind: "write-claude", status: "queued", credits: 6, project_id: null }],
+    "GET /jobs": [200, []],
+  });
+  open("/b/1/scripts/7?step=variations");
+  expect(await screen.findByRole("radio", { name: "None", checked: true })).toBeInTheDocument();
+  expect(screen.getByText("Optional. Most scripts go out as one version.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Write/ })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("radio", { name: "2" }));
+  await userEvent.type(screen.getByLabelText("Direction (optional)"), "a car showroom");
+  await userEvent.click(await screen.findByRole("button", { name: /Write 2 variations.*6 credits/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/variations")?.body).toEqual({ slots: [1, 2], note: "a car showroom" }));
+  expect(await screen.findByRole("status", { name: "Writing variations" })).toBeInTheDocument();
+});
+
+test("Variations side by side: changed lines are marked, a draft can be approved, and Next waits for it", async () => {
+  setViewport(1440);
+  const withB = approvedOriginal([ver(1, { text: "SCENE 1 — SHOWROOM\nMIA: Hell no.\nShe walks out.", changes: ["a car showroom instead of the church"] })]);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, withB],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "POST /scripts/7/drafts/1/approve": [200, approvedOriginal([ver(1, { text: "x", status: "approved" })])],
+  });
+  open("/b/1/scripts/7?step=variations");
+  const b = await screen.findByLabelText("Version B");
+  expect(within(b).getByText("What changed: a car showroom instead of the church")).toBeInTheDocument();
+  const marked = Array.from(b.querySelectorAll("span.bg-mark")).map((e) => e.textContent);
+  expect(marked).toEqual(["SCENE 1 — SHOWROOM"]);
+  expect(screen.getByRole("button", { name: /Next: Cast/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Next: Cast/ })).toHaveAccessibleDescription("Approve variation B first.");
+  await userEvent.click(within(b).getByRole("button", { name: "Approve" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/1/approve")).toBe(true));
+});
+
+test("Variations: the lines that differ from the original are found by their words, ignoring blanks", async () => {
+  const { changedLines } = await import("./VariationsStep");
+  expect(changedLines("A\nB\nC", "A\nX\n\nC")).toEqual([false, true, false, false]);
 });
