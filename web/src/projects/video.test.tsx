@@ -100,6 +100,20 @@ test("a clip's prompt is read and marked Looks good before its take can be made"
   expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 looks good" }));
   expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
+  // The prompt stays, marked, and can be taken back.
+  expect(screen.getByText("Looks good")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 undo looks good" }));
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
+});
+
+test("a prompt shows pictures by name, never [Image1]", async () => {
+  setViewport(1440);
+  const references = [{ kind: "image", id: "frame:c1", role: "storyboard frame" }, { kind: "image", id: "char:5", role: "Bo's look" }];
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt: "[Image1] is the first frame. [Image2] eats.", references })]] });
+  open("?step=clips");
+  const prompt = await screen.findByLabelText("Prompt for clip c1");
+  expect(prompt).toHaveTextContent("First frame is the first frame. Bo's look eats.");
+  expect(prompt).not.toHaveTextContent("[Image");
 });
 
 test("advice on a clip can be kept anyway; kept advice says so", async () => {
@@ -111,6 +125,7 @@ test("advice on a clip can be kept anyway; kept advice says so", async () => {
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/keep")?.body).toEqual({ problem: advice }));
   expect(screen.getByText("Kept · Reed will see it")).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: /Keep it anyway/ })).toHaveLength(1);
+});
 
 test("a role with no character can make one, so Assets is never a dead end", async () => {
   setViewport(1440);
