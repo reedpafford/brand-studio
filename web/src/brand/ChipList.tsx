@@ -3,10 +3,10 @@ import { Plus, X } from "lucide-react";
 import { Button } from "../components";
 
 /** A list of short words as chips with an X, and a box to add another. */
-export function ChipList(props: { label: string; items: string[]; onChange: (items: string[]) => void; placeholder?: string; hint?: string }) {
+export function ChipList(props: { label: string; items: string[]; onChange: (items: string[]) => void; placeholder?: string; hint?: string; /** How a typed word is stored (e.g. as a tag with dashes). */ normalise?: (word: string) => string }) {
   const [text, setText] = useState("");
   const add = () => {
-    const v = text.trim();
+    const v = props.normalise ? props.normalise(text) : text.trim();
     if (v && !props.items.includes(v)) props.onChange([...props.items, v]);
     setText("");
   };
