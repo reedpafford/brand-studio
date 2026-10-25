@@ -24,7 +24,7 @@ Changes to existing tables:
 
 Migrations, one linear chain after main's head (0021 today):
 
-- **0022_scripts**: `scripts`, `script_drafts`, `script_character_locks`.
+- **0022_scripts**: `scripts`, `script_drafts` (with `title`, `premise`, `changes`), `script_character_locks`, and `kept` (JSON, default `[]`) on `breakdowns`, `storyboard_frames` and `project_clips`.
 - **0023_project_from_script**: `projects.script_draft_id` (unique, nullable) and `planned_seconds` made nullable. No data moves.
 
 ## 2. API
@@ -82,7 +82,7 @@ Everything is in the caller's workspace, and another workspace gets 404 (`assert
   - Storyboard and takes already refuse until every sheet is approved, so nothing new is needed there.
 - **Clips and the final video** (Reed, #190: no final-video upload):
   - `POST /projects/{id}/video` stays: it stitches the picked takes and keeps the MP4.
-  - Making it marks the version done in the library.
+  - **Library status "done"** = the stitched MP4 exists for the version's project. Before that, the status is "in production", and "clips ready" once every clip has an approved pick. The stitch is free and one click, so "done" means there's a final video.
   - Every clip downloads singly: today's `GET /files/{id}` (with byte ranges since #144).
   - Take history per clip is already kept. `ProjectClipOut.takes` lists every take (number and file), so older takes download the same way.
   - New: `GET /projects/{id}/clips.zip`.
@@ -91,18 +91,27 @@ Everything is in the caller's workspace, and another workspace gets 404 (`assert
     - No byte ranges. Videos are already compressed, so the zip stores them uncompressed.
   - New: `?all_takes=1` on the zip adds every older take as `c1/take1.mp4`.
 
-**Variations job, input and output** (to agree with the Director; the prompt is theirs)
+**Variations job, input and output** (agreed with the Director, #191; the prompt is theirs)
 
-- Input:
-  - the approved original's words (numbered);
-  - the brand block;
-  - the locked cast;
-  - the reference summary, if any;
-  - `count`;
-  - an optional note from Reed.
-- Output schema `ScriptVariations`: `{variations: [{script, change_summary, payoff}]}`.
-  - The same story arc, with scenes, beats, lines and payoff allowed to change slightly.
-  - Mechanical checks: house format, the brand end line, length within ±30% of the original's spoken words, and no locked character removed.
+- **The step:** `variations`, one Claude call. `count` is 1 or 2; 0 means no call.
+- **The user message the server builds:**
+  - the brand block (as for script_draft);
+  - `<script>` with the approved, enhanced original, numbered;
+  - `<length>` with the spoken words and the estimated seconds (words ÷ 4.8);
+  - an optional `<reference>` (reference_block, with live action removed);
+  - `<count>`;
+  - for regenerating one variation, also `<keep_apart>` (the other version's script) and `<note>` (Reed's note).
+- **Output:** `Variations {variations: [{title (2–4 words), premise (one sentence), script (house format), changes: [str]}]}`, with exactly `count` items.
+  - No id per variation is needed: the server puts them in slots 1 and 2 in order.
+- **Server side:**
+  - Each one is stored as a draft version (`script_drafts`) linked to the original, with title, premise, changes and status.
+  - Approved versions are never written to.
+  - `check.variations(original, result, screens, end_line, never_say, count)` runs, and its problems are shown on the version.
+  - The free stand-in (`fake_local`) returns a fixed variation that passes the checks.
+- **Advice, never a dead end** (the Director's part 2):
+  - A check message starting with `Advice: ` never blocks the breakdown Next, the frame render or the clip generate gates.
+  - It's shown with "Keep anyway", and each row (breakdown, frame, clip) stores `kept: list[str]`. Kept advice isn't shown again.
+  - Other problems keep blocking, as today. This adds a JSON column on `breakdowns`, `storyboard_frames` and `project_clips`, in migration 0022.
 
 ## 3. Roles
 
@@ -124,8 +133,8 @@ Reed's rule (#190): there are two kinds of work, paid for differently.
   - The project starts **active**, because there's no length approval since #109.
   - Going over the budget or the cap is held in Approvals for Reed.
 - **Editors' own work**: one shared **weekly editor allowance of 145 credits** ($15 at $0.1028 a credit) per editor.
-  - It covers Quick clips, Claude steps on their own scripts (variations, regenerate, breakdown) and every job on videos made from their own scripts.
-  - Past the allowance, generation is **declined**: a 409 with plain words, "This goes past your $15 for this week. It resets on Monday." It is never sent to Reed.
+  - It covers the whole flow: Quick clips, Claude steps on their own scripts (enhance, variations, regenerate, breakdown), and sheets, stills and takes for videos made from their own scripts.
+  - Past the allowance, generation is **declined**: a 409 with "You've used this week's 145 credits. It resets Monday." It is never sent to Reed.
   - The video's own 2× budget doesn't apply to editors' own scripts; the allowance is the limit. The 729 cap still applies.
   - **This replaces today's 150-credit Quick clip allowance**, as the Producer suggested. The setting `weekly_quick_clip_credits` is renamed `weekly_editor_credits`, with a default of 145 and the owner still able to change it.
   - It's one shared number because two pots would let an editor spend $30 a week, and one meter is simpler to show.
@@ -168,7 +177,7 @@ Each PR is small, has tests, and regenerates `schema.d.ts` where the API changes
 | 3 | `POST /scripts/bulk` | S |
 | 4 | Character locks | S |
 | 5 | Weekly editor allowance (145 credits, declined past it, replaces the Quick clip allowance), then the variations job (estimate, run, regenerate) using the Director's schema | M |
-| 6 | Breakdown preview on a version (run, edit, save) | S |
+| 6 | Breakdown preview on a version (run, edit, save); `Advice:` problems never block, with "Keep anyway" (`kept`) | S |
 | 7 | Produce from a version (project created, breakdown copied or run, one per version) | M |
 | 8 | Assets step listing (locked or unlocked, sheet status) | S |
 | 9 | Clips zip (`GET /projects/{id}/clips.zip`, streamed, with `all_takes`), plus library status "done" | S |
@@ -185,7 +194,7 @@ Every PR keeps `scripts/fake_run.py` green.
 - Editors' own scripts get $15 (145 credits) a week, declined past it. This plan merges that with the Quick clip allowance into one weekly editor allowance.
 - Editors can make variations of their own scripts.
 
-## Still open (planned answer in brackets)
+## Still open (the Producer is putting these defaults to Reed)
 
 1. Can an editor see and produce from the owner's unpublished scripts? (No, only published ones.)
 2. Once a version is produced, can its saved breakdown still change for that video? (The project gets its own copy, and the library version stays as Reed approved it.)
