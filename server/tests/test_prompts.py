@@ -297,6 +297,22 @@ def test_quick_cut_check_is_advice_and_only_inside_a_montage_clip():
     assert not [p for p in check.clip_prompts(bd, cp, 30, 10) if "names nobody" in p]
 
 
+def test_an_adapted_draft_keeps_the_reels_lines_unless_new_lines_is_on():
+    ex, result = example("script_draft")
+    assert "<reference>" in ex["input"]
+    path = Path(prompts.__file__).parents[3] / "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
+    reel = list(dict.fromkeys(x["text"] for x in json.loads(path.read_text())["lines"]))
+    for draft in result.drafts:
+        assert check.reference_lines(draft.script, reel) == []
+    swapped = result.drafts[0].script.replace("Sorry, I'm fully booked.", "Sorry, I'm busy.")
+    assert check.reference_lines(swapped, reel) == [
+        "Advice: the reel's line “Sorry, I'm fully booked.” is changed or missing"
+    ]
+    assert check.reference_lines(swapped, reel, new_lines=True) == []
+    curly = "NATE: Sorry, I’m  fully booked."  # a phone's apostrophe and a double space
+    assert check.reference_lines(curly, ["Sorry, I'm fully booked."]) == []
+
+
 def test_nobody_speaks_unless_the_script_says_so():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
@@ -554,7 +570,7 @@ def test_eval_scoring_checks_reference_words_and_the_end_line(tmp_path):
     (tmp_path / "fomo-adapt-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
     assert score(tmp_path, case) == [
         "draft 2: 25 spoken words, expected 35–65",
-        "draft 2: the reference's line “Sorry, I'm fully booked.” isn't kept word for word",
+        "draft 2: Advice: the reel's line “Sorry, I'm fully booked.” is changed or missing",
         "draft 2: doesn't end on the brand's end line",
     ]
 
@@ -608,3 +624,85 @@ def test_the_projects_product_is_a_required_asset_like_a_screen():
     assert "shot 1.1: 'feeding' moment without its screen" in problems
     bd.scenes[0].shots[0].screen_ids = ["product:2"]
     assert check.breakdown(script, bd, needs, 4, 30) == []
+
+
+def altar_reel():
+    from evals.score import CASES, reel_inputs
+
+    case = next(c for c in CASES["cases"] if c["id"] == "reel-import-altar")
+    ex = json.loads((EXAMPLES / "reel_watch.json").read_text())
+    return case, schemas.ReelWatch.model_validate(ex["output"]), *reel_inputs(case)
+
+
+def test_reel_watch_example_passes_and_becomes_the_scripts_reference():
+    _, watch, transcript, cuts = altar_reel()
+    assert check.reel_watch(watch, cuts, transcript) == []
+    ref = prompts.reference_block(prompts.watch_breakdown(watch, transcript))
+    assert '| groom: "I do."' in ref and '| bride: "HELL NO!"' in ref
+    assert "Shots 44–50 (42.67–45.02 s) are live action" in ref and "\n45. " not in ref
+    assert "caption" not in ref  # on-screen text never reaches the writer
+    text = prompts.watch_system()
+    assert text.startswith("# Step: Reel watch") and '"title": "ReelWatch"' in text
+
+
+def test_reel_watch_check_says_what_to_fix():
+    _, watch, transcript, cuts = altar_reel()
+    bad = watch.model_copy(deep=True)
+    del bad.shots[4]
+    bad.speakers[1].speaker = "the bride (flashback)"
+    bad.speakers[3] = schemas.WatchSpeaker(line=12, speaker="groom")
+    bad.shots[0].live_action = True
+    assert check.reel_watch(bad, cuts, transcript) == [
+        "shot 5 isn't the cut list's (49 shots, 50 cuts); regenerate",
+        "a speaker for line 12, which the transcript doesn't have",
+        "Advice: no speaker for “What?!”; say who says it",
+        "Advice: one person under 2 names (the bride (flashback), bride); use one",
+        "Advice: “I do.” is in a live-action shot, so it's dropped",
+    ]
+
+
+def test_an_imported_reels_draft_brings_in_no_new_speakers():
+    reel = ["groom", "bride", "groom"]
+    end = "Want to trade like me? Download fomo through the link in my bio."
+    draft = f"NATE: I do.\nBRIDE: HELL NO!\nBRIDE (V.O.): Forever with you.\nNATE: {end}"
+    assert check.reel_speakers(draft, reel, ["Nate"], end) == []
+    assert check.reel_speakers(draft + f"\nCREATOR: {end}", reel, ["Nate"], end) == []
+    extra = draft + "\nPRIEST: You may kiss the bride."
+    assert check.reel_speakers(extra, reel, ["Nate"], end) == [
+        "Advice: 3 people speak, the reel has 2; give Priest's lines back to who says them "
+        "in the reel"
+    ]
+
+
+def test_eval_scores_a_reel_import_from_the_watch_to_the_cast(tmp_path):
+    from evals.run import run_case
+    from evals.score import score
+
+    case, watch, _, _ = altar_reel()
+    run_case(None, case, tmp_path, [], Decimal(0), dry=True)  # free: writes the watch prompt
+    assert (
+        "<transcript>\n1| 0.00–0.36 I do."
+        in (tmp_path / "reel-import-altar.reel_watch.prompt.txt").read_text()
+    )
+    (tmp_path / "reel-import-altar.reel_watch.json").write_text(watch.model_dump_json())
+    end = case["expect"]["end_line"]
+    good = "\n".join([
+        "GROOM: I do.", "BRIDE: HELL NO!", "BRIDE: I'm marrying him!", "GROOM: What?!",
+        "BRIDE: I can't wait to spend forever with you.", "BRIDE (V.O.): Forever with you.",
+        "BRIDE: Nate? Nate?", "BRIDE: Huh?!", "GROOM: Sorry, I'm fully booked.", f"GROOM: {end}",
+    ])  # fmt: skip
+    drafts = [{"hook_idea": "x", "script": good}, {"hook_idea": "y", "script": good}]
+    (tmp_path / "reel-import-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
+    slots = [{"role": r, "description": "x", "kind": k, "appears_in": [0], "recurring": True}
+             for r, k in [("Groom", "Main"), ("Bride", "Main")]]  # fmt: skip
+    (tmp_path / "reel-import-altar.cast_slots.json").write_text(json.dumps({"slots": slots}))
+    assert score(tmp_path, case) == []
+    watch.shots[44].live_action = False
+    drafts[1]["script"] = good.replace("GROOM: What?!", "PRIEST: What?!")
+    (tmp_path / "reel-import-altar.reel_watch.json").write_text(watch.model_dump_json())
+    (tmp_path / "reel-import-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
+    assert score(tmp_path, case) == [
+        "live-action shots [44, 46, 47, 48, 49, 50], expected [44, 45, 46, 47, 48, 49, 50]",
+        "draft 2: Advice: 3 people speak, the reel has 2; give Priest's lines back to who says "
+        "them in the reel",
+    ]

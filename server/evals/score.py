@@ -10,9 +10,30 @@ import sys
 from pathlib import Path
 
 from app.catalogue import get_model
-from app.prompts import SCHEMAS, check, required
+from app.prompts import SCHEMAS, check, required, schemas
 
 CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
+ROOT = Path(__file__).parents[2]
+
+
+def reel_inputs(case: dict) -> tuple[list[dict], list[dict] | None]:
+    """An import case's transcript and cut list, as prep gives them: from a gold BREAKDOWN.json
+    or written in the case (cuts None until prep has run on the video)."""
+    reel = case["reel"]
+    if gold := reel.get("gold"):
+        bd = json.loads((ROOT / gold).read_text())
+        cuts = [{k: s[k] for k in ("n", "start", "end")} for s in bd["shots"]]
+        return [{k: x[k] for k in ("start", "end", "text")} for x in bd["lines"]], cuts
+    return reel["transcript"], reel["cuts"]
+
+
+def kept_lines(watch, transcript: list[dict]) -> tuple[list[str], list[str]]:
+    """The reel's lines and speakers outside its live-action shots (those are dropped)."""
+    live = [s for s in watch.shots if s.live_action]
+    who = {s.line: s.speaker for s in watch.speakers}
+    kept = [(x["text"], who.get(n, "")) for n, x in enumerate(transcript, 1)
+            if not any(s.start <= x["start"] < s.end for s in live)]  # fmt: skip
+    return list(dict.fromkeys(t for t, _ in kept)), [w for _, w in kept]
 
 
 def score(out: Path, case: dict) -> list[str]:
@@ -24,7 +45,7 @@ def score(out: Path, case: dict) -> list[str]:
         path = out / f"{case['id']}.{step}.json"
         if not path.exists():
             return [f"missing {path.name}"]
-        answers[step] = SCHEMAS[step].model_validate_json(path.read_text())
+        answers[step] = SCHEMAS.get(step, schemas.ReelWatch).model_validate_json(path.read_text())
     script = "\n".join(case["script"] or [])
 
     if e := answers.get("enhance"):
@@ -48,13 +69,38 @@ def score(out: Path, case: dict) -> list[str]:
             if any(word in note.text.lower() for note in e.notes):
                 problems.append(f"a note mentions '{word}', which this case shouldn't need")
 
+    ref_lines, speakers = [], None
+    if w := answers.get("reel_watch"):
+        transcript, cuts = reel_inputs(case)
+        cuts = cuts or [{"n": s.n, "start": s.start, "end": s.end} for s in w.shots]
+        ex, found = exp["watch"], check.reel_watch(w, cuts, transcript)
+        for line in ex.get("live_lines", []):
+            said = f"{check.ADVICE}“{line}” is in a live-action shot, so it's dropped"
+            if said in found:
+                found.remove(said)
+            else:
+                found.append(f"“{line}” isn't in a live-action shot")
+        problems += found
+        if (n := ex.get("shots")) and len(w.shots) != n:
+            problems.append(f"{len(w.shots)} shots, expected {n}")
+        live = [s.n for s in w.shots if s.live_action]
+        if "live_shots" in ex and live != ex["live_shots"]:
+            problems.append(f"live-action shots {live}, expected {ex['live_shots']}")
+        roles = sorted({check.role_key(s.speaker) for s in w.speakers})
+        if "speakers" in ex and roles != sorted(ex["speakers"]):
+            problems.append(f"speakers {roles}, expected {sorted(ex['speakers'])}")
+        if (lo_hi := ex.get("speaker_count")) and not lo_hi[0] <= len(roles) <= lo_hi[1]:
+            problems.append(f"{len(roles)} speakers ({', '.join(roles)}), expected {lo_hi}")
+        problems += [f"the hook doesn't mention '{x}'" for x in ex.get("hook_mentions", [])
+                     if x not in w.hook.mechanic.lower()]  # fmt: skip
+        ref_lines, speakers = kept_lines(w, transcript)
+
     if d := answers.get("script_draft"):
         lo, hi = exp["drafts"]
         if not lo <= len(d.drafts) <= hi:
             problems.append(f"{len(d.drafts)} drafts, expected {lo}–{hi}")
         lo, hi = exp["words_per_draft"]
-        ref_lines = []
-        if exp.get("reference_words"):
+        if exp.get("reference_words") and speakers is None:
             path = Path(__file__).parents[2] / case["reference"]["path"]
             ref_lines = list(
                 dict.fromkeys(x["text"] for x in json.loads(path.read_text())["lines"])
@@ -64,9 +110,12 @@ def score(out: Path, case: dict) -> list[str]:
             words = len(" ".join(spoken).split())
             if not lo <= words <= hi:
                 problems.append(f"draft {i}: {words} spoken words, expected {lo}–{hi}")
-            said = "\n".join(spoken)
-            problems += [f"draft {i}: the reference's line “{x}” isn't kept word for word"
-                         for x in ref_lines if x not in said]  # fmt: skip
+            problems += [f"draft {i}: {p}" for p in check.reference_lines(
+                draft.script, ref_lines, case.get("new_lines", False))]  # fmt: skip
+            if speakers is not None:
+                names = [c.split(" ", 1)[1].split(",")[0] for c in case["cast"]]
+                problems += [f"draft {i}: {p}" for p in check.reel_speakers(
+                    draft.script, speakers, names, exp.get("end_line", ""))]  # fmt: skip
             if (end := exp.get("end_line")) and end not in draft.script:
                 problems.append(f"draft {i}: doesn't end on the brand's end line")
 
@@ -103,6 +152,7 @@ def score(out: Path, case: dict) -> list[str]:
         problems += check.variations(script, v, screens, end, never, case["count"], names)
     if cs := answers.get("cast_slots"):
         made = answers.get("variations")
+        script = answers["script_draft"].drafts[0].script if "script_draft" in answers else script
         versions = (
             {0: script} | {i: x.script for i, x in enumerate(made.variations, 1)}
             if made
@@ -117,7 +167,7 @@ def score(out: Path, case: dict) -> list[str]:
         if (any_ := exp.get("slot_any")) and not any(w in roles for w in any_):
             problems.append(f"no slot matching any of {any_}")
         problems += [f"a slot for '{w}'" for w in exp.get("slots_absent", []) if w in roles]
-    saved = " ".join(a.model_dump_json() for a in answers.values()).lower()
+    saved = " ".join(a.model_dump_json() for k, a in answers.items() if k != "reel_watch").lower()
     problems += [
         f"copies '{w}' from the reference" for w in exp.get("forbid", []) if w.lower() in saved
     ]
