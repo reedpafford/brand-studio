@@ -826,3 +826,80 @@ test("a script that isn't from a reel has no reel block", async () => {
   await screen.findByRole("heading", { level: 1, name: /Bo tries salmon/ });
   expect(screen.queryByText("Got the reel")).not.toBeInTheDocument();
 });
+
+const est = (credits: number, left: number | null = null) => ({ credits, credits_left: left });
+
+test("a prepared reel shows its price and the one amber Read this reel · N credits; pressing it starts the read", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, full()],
+    "GET /scripts/7/import": [200, reelOut({ estimate: est(7) })],
+    "POST /scripts/7/import/read": [201, reelOut({ status: "reading", steps_done: [], estimate: est(7) })],
+  });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("Reading it costs about 7 credits.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Read this reel.*7 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/import/read")).toBe(true));
+  const rows = await screen.findByRole("list", { name: "Reading the reel" });
+  expect(within(rows).getByText("Finding the shots and writing the breakdown")).toBeInTheDocument();
+});
+
+test("while reading, finished steps are ticked and the current one spins", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "reading", steps_done: ["watch"], estimate: est(7) })] });
+  open("/b/1/scripts/7");
+  const rows = await screen.findByRole("list", { name: "Reading the reel" });
+  const row = (label: string) => within(rows).getByText(label).closest("li")!;
+  expect(row("Finding the shots and writing the breakdown")).toHaveTextContent("done");
+  expect(row("Writing the script")).toHaveTextContent("now");
+  expect(row("Filling in the cast")).toHaveTextContent("next");
+  expect(screen.getByText("It keeps going if you leave this page.")).toBeInTheDocument();
+});
+
+test("a failed step says which, that the credits were returned, offers Try again at the price left, and says a retried step is charged again", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, full()],
+    "GET /scripts/7/import": [200, reelOut({ status: "failed", failed_step: "write", steps_done: ["watch"], estimate: est(4) })],
+    "POST /scripts/7/import/read": [201, reelOut({ status: "reading", steps_done: ["watch"], estimate: est(4) })],
+  });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("The script didn't finish. Credits for this step were returned.")).toBeInTheDocument();
+  expect(screen.getByText(/A step that is run again is charged again\./)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Try again.*4 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/import/read")).toBe(true));
+});
+
+test("an editor who can't cover the read can't press it, and there is no Ask Reed", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /auth/me": [200, editor],
+    "GET /scripts/7": [200, full({ created_by_id: 2 })],
+    "GET /scripts/7/import": [200, reelOut({ estimate: est(7, 3) })],
+    "GET /credits/me": [200, { quick_clip_credits_used: 142, quick_clip_credits_allowed: 145 }],
+  });
+  open("/b/1/scripts/7");
+  const button = await screen.findByRole("button", { name: /Read this reel.*7 credits/ });
+  await vi.waitFor(() => expect(button).toBeDisabled());
+  expect(button).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
+  expect(document.body.textContent).not.toMatch(/Ask Reed/);
+});
+
+test("a read reel shows the done card", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("Reel read")).toBeInTheDocument();
+  expect(screen.getByText("The script and the cast are filled in. Check them, then approve.")).toBeInTheDocument();
+});
+
+test("Next waits until the reel is read, so Read this reel is the one amber button", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ estimate: est(7) })] });
+  open("/b/1/scripts/7");
+  await screen.findByRole("button", { name: /Read this reel/ });
+  expect(screen.queryByRole("button", { name: /^Next/ })).not.toBeInTheDocument();
+});
