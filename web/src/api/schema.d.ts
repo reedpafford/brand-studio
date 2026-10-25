@@ -2334,6 +2334,8 @@ export interface components {
             sheet_status: string;
             /** Ready */
             ready: boolean;
+            /** Slot Id */
+            slot_id?: number | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -3535,6 +3537,11 @@ export interface components {
             created_by_name: string;
             /** Script Draft Id */
             script_draft_id?: number | null;
+            /**
+             * Own Script
+             * @default false
+             */
+            own_script: boolean;
         };
         /** ProjectPatch */
         ProjectPatch: {

@@ -101,6 +101,16 @@ def test_only_the_author_uses_their_allowance_for_a_script(app, owner, editor, d
     assert credits.own_script(db, project, ed)  # the author's, were they producing it
 
 
+def test_a_video_says_whether_it_runs_on_the_viewers_allowance(owner, editor, db):
+    base = _editors_script(editor)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    assert editor.get(f"/projects/{pid}").json()["own_script"] is True
+    assert owner.get(f"/projects/{pid}").json()["own_script"] is False  # unlimited, no allowance
+    theirs, _ = _published(owner, db, breakdown=BREAKDOWN)
+    other = editor.post(f"{theirs}/drafts/0/produce").json()["project_id"]
+    assert editor.get(f"/projects/{other}").json()["own_script"] is False
+
+
 def test_a_declined_breakdown_leaves_the_version_free(editor, db):
     """QA #218: past the allowance the breakdown is declined and nothing is kept: no
     project, no reservation, so the version can be produced later."""
