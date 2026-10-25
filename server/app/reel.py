@@ -106,6 +106,30 @@ def stats(cut_times: list[float], seconds: float) -> dict:
     }
 
 
+WATCH_KBPS = (160, 40)  # video, audio: a 90 s reel comes out near 2.3 MB
+WATCH_MAX_MB = 6  # sent inline as a data: URL, so it must stay small
+
+
+def watch_copy(path: Path, folder: Path) -> Path:
+    """A small H.264/AAC copy that Gemini gets inline as a data: URL: short side 540 px,
+    24 fps, bitrate capped. The original stays for everything else (cuts, contact sheet,
+    transcript, download)."""
+    out = folder / "watch.mp4"
+    video, audio = WATCH_KBPS
+    small = "scale='if(gt(iw,ih),-2,540)':'if(gt(iw,ih),540,-2)',fps=24"
+    args = ["ffmpeg", "-v", "error", "-i", str(path), "-vf", small, "-c:v", "libx264"]
+    args += ["-preset", "veryfast", "-b:v", f"{video}k", "-maxrate", f"{video}k"]
+    args += ["-bufsize", f"{video * 2}k", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", f"{audio}k"]
+    done = _run([*args, "-movflags", "+faststart", "-y", str(out)], 180)
+    if done.returncode != 0 or not out.is_file():
+        raise RuntimeError(f"Making the watch copy failed ({done.returncode}).")
+    if out.stat().st_size > WATCH_MAX_MB * 1024 * 1024:  # the cap makes this very unlikely
+        raise Refused(
+            "bad_file", "This video can't be made small enough to read. Try a shorter one."
+        )
+    return out
+
+
 def contact_sheet(path: Path, cut_times: list[float], seconds: float, folder: Path) -> Path:
     """One frame from the middle of each shot (up to 60), tiled six across into one JPEG."""
     edges = [0.0, *cut_times, seconds]

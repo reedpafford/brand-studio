@@ -5,6 +5,17 @@ downloaded once into HF_HOME (a volume on the server)."""
 import json
 import sys
 
+# Without VAD, whisper can invent words over music-only or silent stretches. Those come back
+# as segments it thinks hold no speech and isn't sure of: whisper's own cut-offs.
+NO_SPEECH = 0.6
+LOW_LOGPROB = -1.0
+
+
+def heard(segment) -> bool:
+    """A real line, not one made up over music or silence."""
+    made_up = segment.no_speech_prob > NO_SPEECH and segment.avg_logprob < LOW_LOGPROB
+    return bool(segment.text.strip()) and not made_up
+
 
 def main(path: str) -> None:
     from faster_whisper import WhisperModel
@@ -22,7 +33,7 @@ def main(path: str) -> None:
             "speaker": None,
         }
         for s in segments
-        if s.text.strip()
+        if heard(s)
     ]
     json.dump(lines, sys.stdout)
 

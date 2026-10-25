@@ -146,9 +146,6 @@ class FakeMedia:
         self._jobs[ref] = {"kind": kind, **input.get("input", {})}
         return ref
 
-    def upload(self, data: bytes, content_type: str) -> str:
-        return f"fake-upload://{next(self._ids)}"
-
     def poll(self, ref: str) -> Result:
         # No usage: the job keeps its estimated credits and no fake dollars are recorded.
         if self._jobs[ref]["kind"] == "watch-gemini":

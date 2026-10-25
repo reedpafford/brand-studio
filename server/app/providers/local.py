@@ -58,7 +58,8 @@ class LocalProvider:
         seconds = reel.probe(video)
         cut_times = reel.cuts(video)
         files.append(reel.contact_sheet(video, cut_times, seconds, folder))
-        names.append("contact")
+        files.append(reel.watch_copy(video, folder))  # what Gemini gets: small enough for it
+        names += ["contact", "watch"]
         output = {
             "seconds": seconds,
             "cuts": cut_times,
