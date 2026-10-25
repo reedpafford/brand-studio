@@ -2872,6 +2872,13 @@ export interface components {
              */
             file_ids: number[];
         };
+        /** Person */
+        Person: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** PreviewOut */
         PreviewOut: {
             breakdown: components["schemas"]["Breakdown"] | null;
@@ -3018,6 +3025,8 @@ export interface components {
             created_by_id: number | null;
             /** Created By Name */
             created_by_name: string;
+            /** Script Draft Id */
+            script_draft_id?: number | null;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -3627,6 +3636,7 @@ export interface components {
             seconds: number;
             /** Project Id */
             project_id: number | null;
+            editor?: components["schemas"]["Person"] | null;
         };
         /** VideoOut */
         VideoOut: {
@@ -3754,6 +3764,7 @@ export interface components {
             seconds: number;
             /** Project Id */
             project_id: number | null;
+            editor?: components["schemas"]["Person"] | null;
             /** Text */
             text: string;
             /** Words */
