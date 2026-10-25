@@ -417,3 +417,12 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
                 problems.append(f"{ADVICE}two slots are called {name}; merge them")
             seen.add(name.lower())
     return problems
+
+
+def reference_lines(script: str, reel: list[str], new_lines: bool = False) -> list[str]:
+    """When a draft adapts a reference with new_lines off, every reel line stays word for word
+    (Reed, #271). Advice lists each one changed or missing, so the editor can see the swap."""
+    if new_lines:
+        return []
+    said = "\n".join(re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M))
+    return [f"{ADVICE}the reel's line “{x}” is changed or missing" for x in reel if x not in said]

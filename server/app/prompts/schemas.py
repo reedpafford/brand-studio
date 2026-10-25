@@ -69,6 +69,11 @@ class ScriptDraft(BaseModel):
         description="The full script in the house format, sized to the planned length at about "
         "4.8 spoken words per second while someone speaks, with silent beats between."
     )
+    changed_lines: list[str] = Field(
+        default_factory=list,
+        description="When adapting a reference: each of its spoken lines this draft rewrites "
+        "for the brand swap, as written in the draft (not the end line). Empty otherwise.",
+    )
 
 
 class ScriptDrafts(BaseModel):

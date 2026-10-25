@@ -297,6 +297,20 @@ def test_quick_cut_check_is_advice_and_only_inside_a_montage_clip():
     assert not [p for p in check.clip_prompts(bd, cp, 30, 10) if "names nobody" in p]
 
 
+def test_an_adapted_draft_keeps_the_reels_lines_unless_new_lines_is_on():
+    ex, result = example("script_draft")
+    assert "<reference>" in ex["input"]
+    path = Path(prompts.__file__).parents[3] / "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
+    reel = list(dict.fromkeys(x["text"] for x in json.loads(path.read_text())["lines"]))
+    for draft in result.drafts:
+        assert check.reference_lines(draft.script, reel) == []
+    swapped = result.drafts[0].script.replace("Sorry, I'm fully booked.", "Sorry, I'm busy.")
+    assert check.reference_lines(swapped, reel) == [
+        "Advice: the reel's line “Sorry, I'm fully booked.” is changed or missing"
+    ]
+    assert check.reference_lines(swapped, reel, new_lines=True) == []
+
+
 def test_nobody_speaks_unless_the_script_says_so():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
@@ -554,7 +568,7 @@ def test_eval_scoring_checks_reference_words_and_the_end_line(tmp_path):
     (tmp_path / "fomo-adapt-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
     assert score(tmp_path, case) == [
         "draft 2: 25 spoken words, expected 35–65",
-        "draft 2: the reference's line “Sorry, I'm fully booked.” isn't kept word for word",
+        "draft 2: Advice: the reel's line “Sorry, I'm fully booked.” is changed or missing",
         "draft 2: doesn't end on the brand's end line",
     ]
 
