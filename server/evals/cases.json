@@ -661,6 +661,222 @@
      "crowd"
     ]
    }
+  },
+  {
+   "id": "reel-import-altar",
+   "brand": "fomo",
+   "steps": [
+    "reel_watch",
+    "script_draft",
+    "cast_slots"
+   ],
+   "brief": "Imported reel: remake it for fomo with the same story, shots and dialogue. The hustle montage becomes a wordless fomo trading montage with the real screens, grinding before the payoff. The live-action tag becomes fomo's call to action. 9:16, about 45 s, stylized 3D animated.",
+   "cast": [],
+   "places": [],
+   "script": null,
+   "reel": {
+    "gold": "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
+   },
+   "good": [
+    "The watch reads like the gold BREAKDOWN.json: the same hook (the 'I do' and the 'HELL NO!'), the montage at 17.4–29.2 s, framing and camera in standard terms, captions described and never copied.",
+    "Two speakers, groom and bride, each under one name; the flashback and the echo are still the bride.",
+    "The draft keeps all 11 reel lines word for word and ends on fomo's call to action; no one new speaks.",
+    "Cast slots: the groom, the bride and the rival; no admirers or guests."
+   ],
+   "expect": {
+    "watch": {
+     "shots": 50,
+     "live_shots": [
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50
+     ],
+     "speakers": [
+      "groom",
+      "bride"
+     ],
+     "hook_mentions": [
+      "no"
+     ]
+    },
+    "drafts": [
+     2,
+     3
+    ],
+    "words_per_draft": [
+     35,
+     65
+    ],
+    "reference_words": true,
+    "end_line": "Want to trade like me? Download fomo through the link in my bio.",
+    "slot_any": [
+     "groom",
+     "nate"
+    ],
+    "slots_absent": [
+     "admirer",
+     "guest"
+    ],
+    "forbid": [
+     "BANDS > BRIDES"
+    ]
+   }
+  },
+  {
+   "id": "reel-import-betty",
+   "brand": "fomo",
+   "steps": [
+    "reel_watch",
+    "script_draft",
+    "cast_slots"
+   ],
+   "brief": "Imported reel: remake it for fomo with the same story, shots and dialogue. Kai teaches Eli to trade on fomo instead of pump.fun; the wordless montage becomes a fomo trading montage that grinds before the payoff (diner shifts, late nights, a red day, small wins, then the big one). The live-action tag becomes fomo's call to action. 9:16, about 52 s, stylized 3D animated.",
+   "cast": [],
+   "places": [],
+   "script": null,
+   "reel": {
+    "source": "Instagram reel De4ohoJolPe, 52.6 s, 1080x1080, 3D animated. Luna sells her mint-green hatchback Betty to Kai to pay Eli's fees; Kai teaches Eli to trade; a wordless montage of wins (28–38 s); Eli buys Betty back and takes Luna to a mansion; a ring box; a live-action-style tag. The video and the cut list come from prep at run time (the Producer has the video).",
+    "seconds": 52.6,
+    "cuts": null,
+    "transcript": [
+     {
+      "start": 0.0,
+      "end": 4.0,
+      "text": "You sold your car? For him?"
+     },
+     {
+      "start": 4.0,
+      "end": 6.0,
+      "text": "Why are you so mad?"
+     },
+     {
+      "start": 6.0,
+      "end": 8.0,
+      "text": "Bye, Betty. Fees paid."
+     },
+     {
+      "start": 8.0,
+      "end": 10.0,
+      "text": "She gave up her car for me."
+     },
+     {
+      "start": 10.0,
+      "end": 12.0,
+      "text": "I wasn't gonna waste it."
+     },
+     {
+      "start": 12.0,
+      "end": 14.0,
+      "text": "Please keep the car safe. I'll buy it back from you soon."
+     },
+     {
+      "start": 14.0,
+      "end": 16.0,
+      "text": "I can show you how."
+     },
+     {
+      "start": 16.0,
+      "end": 18.0,
+      "text": "Deposit, pick one, buy."
+     },
+     {
+      "start": 18.0,
+      "end": 20.0,
+      "text": "That's it? That's it?"
+     },
+     {
+      "start": 20.0,
+      "end": 22.0,
+      "text": "What do I even buy?"
+     },
+     {
+      "start": 22.0,
+      "end": 24.0,
+      "text": "We're scrolling all day. You already know what's trending."
+     },
+     {
+      "start": 24.0,
+      "end": 26.0,
+      "text": "That's why it's called attention marketing."
+     },
+     {
+      "start": 26.0,
+      "end": 28.0,
+      "text": "This is the one."
+     },
+     {
+      "start": 38.0,
+      "end": 40.0,
+      "text": "Betty?"
+     },
+     {
+      "start": 40.0,
+      "end": 42.0,
+      "text": "You kept her safe."
+     },
+     {
+      "start": 42.0,
+      "end": 44.0,
+      "text": "Whose house is this?"
+     },
+     {
+      "start": 44.0,
+      "end": 46.0,
+      "text": "Ours."
+     },
+     {
+      "start": 46.0,
+      "end": 48.0,
+      "text": "You kept it?"
+     },
+     {
+      "start": 48.0,
+      "end": 50.0,
+      "text": "I kept everything."
+     },
+     {
+      "start": 50.0,
+      "end": 52.0,
+      "text": "Link in bio, not financial advice."
+     }
+    ]
+   },
+   "good": [
+    "Speakers stay one name each through the reel (Luna, Eli, Kai or their parts); the car Betty never speaks.",
+    "The 28–38 s montage is read as wordless, and the end tag as live action.",
+    "The draft keeps every line but the tag word for word (they're already about trading, so none needs a swap), the montage is fomo trading with the real screens, and it ends on fomo's call to action.",
+    "Cast slots: Luna, Eli and Kai (Kai as a Helper); no mansion staff or crowd."
+   ],
+   "expect": {
+    "watch": {
+     "live_lines": [
+      "Link in bio, not financial advice."
+     ],
+     "speaker_count": [
+      3,
+      5
+     ]
+    },
+    "drafts": [
+     2,
+     3
+    ],
+    "words_per_draft": [
+     85,
+     125
+    ],
+    "reference_words": true,
+    "end_line": "Want to trade like me? Download fomo through the link in my bio.",
+    "slots_absent": [
+     "crowd",
+     "staff",
+     "betty"
+    ]
+   }
   }
  ]
 }

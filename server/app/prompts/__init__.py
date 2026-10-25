@@ -137,6 +137,53 @@ def reference_block(ref: dict, replace: str = "") -> str:
     return "\n".join(lines)
 
 
+def watch_system() -> str:
+    """Gemini's system prompt for watching an imported reel: reel_watch.md, its worked example
+    and the ReelWatch JSON schema (Gemini has no structured output on Replicate, so it's in the
+    text). The video and contact sheet go with the call; reel_watch_input(...) is the message."""
+    ex = json.loads((HERE / "examples" / "reel_watch.json").read_text())
+    schema = json.dumps(schemas.ReelWatch.model_json_schema())
+    return (
+        f"{(HERE / 'reel_watch.md').read_text()}\n\n## Worked example ({ex['source']})\n"
+        f"{ex['note']}\n\n<example_input>\n{ex['input']}\n</example_input>\n\n"
+        f"<example_output>\n{json.dumps(ex['output'])}\n</example_output>\n\n"
+        f"## Answer\nOnly JSON matching this schema, no other text:\n{schema}"
+    )
+
+
+def reel_watch_input(transcript: list[dict], cuts: list[dict]) -> str:
+    """Prep's cut list [{n, start, end}] and transcript [{start, end, text}], numbered."""
+    shots = [f"{c['n']}. {c['start']:.2f}–{c['end']:.2f}" for c in cuts]
+    said = [
+        f"{n}| {x['start']:.2f}–{x['end']:.2f} {x['text']}" for n, x in enumerate(transcript, 1)
+    ]
+    return "\n".join(["<cuts>", *shots, "</cuts>", "<transcript>", *said, "</transcript>"])
+
+
+def watch_breakdown(watch: "schemas.ReelWatch", transcript: list[dict]) -> dict:
+    """The watch answer plus prep's transcript as a BREAKDOWN.json-shaped dict, what
+    reference_block(...) and the script's `reference_breakdown` take. Each line goes into the
+    shot that holds its start; a live-action shot's style says so, and reference_block drops it."""
+    who = {s.line: s.speaker for s in watch.speakers}
+    lines = [x | {"speaker": who.get(n, "")} for n, x in enumerate(transcript, 1)]
+    shots, last = [], watch.shots[-1] if watch.shots else None
+    for s in watch.shots:
+        said = [x for x in lines if s.start <= x["start"] < (s.end if s is not last else 1e9)]
+        shot = s.model_dump(exclude={"live_action"}) | {"dur": round(s.end - s.start, 2)}
+        shot["style"] = "live action" if s.live_action else watch.style
+        shot["line"] = " / ".join(x["text"] for x in said)
+        shot["speaker"] = " / ".join(dict.fromkeys(x["speaker"] for x in said))
+        shots.append(shot)
+    first = next((x["text"] for x in lines if x["start"] < watch.hook.seconds), "")
+    return watch.model_dump(exclude={"shots", "speakers", "hook"}) | {
+        "source": "imported reel",
+        "duration_seconds": watch.shots[-1].end if watch.shots else 0.0,
+        "hook": watch.hook.model_dump() | {"first_line": first},
+        "shots": shots,
+        "lines": lines,
+    }
+
+
 def _live_action(shot: dict) -> bool:
     style = shot.get("style", "").lower()
     return "live action" in style or "photoreal" in style
