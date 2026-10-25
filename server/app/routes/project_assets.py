@@ -116,6 +116,10 @@ def cast_slot(
         raise HTTPException(409, f"{slot.role} is locked to one look for every version.")
     item = get_item(db, user, Kind.character, body.library_item_id)
     old = project.slot_cast.get(str(slot.id))
+    others = {s.library_item_id for s in _slots(db, project)}
+    others |= {v for k, v in project.slot_cast.items() if k != str(slot.id)}
+    if old in others:  # another role uses that character too: leave its shots alone
+        old = None
     project.slot_cast = {**project.slot_cast, str(slot.id): item.id}
     project.cast_ids = sorted({*(c for c in project.cast_ids if c != old), item.id})
     bd = _newest(db, project)
