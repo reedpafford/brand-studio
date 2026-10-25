@@ -55,14 +55,13 @@ test("the five steps, and Storyboard waits until every asset is approved", async
   expect(screen.getByRole("button", { name: /Next: Storyboard/ })).toBeDisabled();
 });
 
-test("approving an asset opens the next step, and the toast can undo it", async () => {
+test("a look that needs approval points to Cast & places and never approves a shared character here", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "POST /library/character/5/sheet/approve": [200, item({ sheet_status: "approved" })] });
+  fakeServer(base);
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(true));
-  expect(await screen.findByText("Bo approved.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+  const card = await screen.findByLabelText("Bo");
+  expect(within(card).queryByRole("button")).toBeNull();
+  expect(within(card).getByRole("link", { name: "Make its look in Cast & places" })).toHaveAttribute("href", "/b/1/library/characters/5");
 });
 
 test("a locked role is already approved and has no buttons", async () => {
@@ -108,11 +107,11 @@ test("a clip's prompt is read and marked Looks good before its take can be made"
 
 test("a prompt shows pictures by name, never [Image1]", async () => {
   setViewport(1440);
-  const references = [{ kind: "image", id: "frame:c1", role: "storyboard frame" }, { kind: "image", id: "char:5", role: "Bo's look" }];
-  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt: "[Image1] is the first frame. [Image2] eats.", references })]] });
+  const references = [{ kind: "image", id: "frame:c1", role: "frame:c1" }, { kind: "image", id: "char:5", role: "Bo's look" }, { kind: "image", id: "screen:2", role: "screen:2" }];
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt: "[Image1] is the first frame. [Image2] eats. [Image3] shows.", references })]] });
   open("?step=clips");
   const prompt = await screen.findByLabelText("Prompt for clip c1");
-  expect(prompt).toHaveTextContent("First frame is the first frame. Bo's look eats.");
+  expect(prompt).toHaveTextContent("First frame is the first frame. Bo's look eats. Picture 3 shows.");
   expect(prompt).not.toHaveTextContent("[Image");
 });
 
@@ -142,14 +141,14 @@ test("a role with no character can make one, so Assets is never a dead end", asy
   expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", brand_ids: [1] });
 });
 
-test("an approved look is not redrawn here; it can be taken back", async () => {
+test("an approved picked character shows no buttons: it is shared with every video", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]], "GET /library/character/5": [200, item({ sheet_status: "approved" })], "DELETE /library/character/5/sheet/approve": [200, item({})] });
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]], "GET /library/character/5": [200, item({ sheet_status: "approved" })] });
   open();
-  expect(await screen.findByText("Approved")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Change the look|Make the look/ })).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Undo approval" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/sheet/approve")).toBe(true));
+  const card = await screen.findByLabelText("Bo");
+  expect(within(card).getByText("Approved")).toBeInTheDocument();
+  expect(within(card).queryByRole("button")).toBeNull();
+  expect(within(card).queryByRole("link")).toBeNull();
 });
 
 test("one-press Make storyboard asks Reed when the writing plus the stills pass the budget, not only the writing", async () => {

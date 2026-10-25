@@ -55,9 +55,12 @@ function useReviewed(projectId: number) {
 function PromptText({ clip }: { clip: Clip }) {
   const [all, setAll] = useState(false);
   const images = clip.references.filter((r) => r.kind === "image");
+  // A picture is named by what it is for; the first frame is "frame:<clip>", and an id with a colon is never shown.
   const name = (n: number) => {
-    const role = images[n - 1]?.role;
-    return !role ? `Picture ${n}` : role === "storyboard frame" ? "First frame" : role;
+    const ref = images[n - 1];
+    if (!ref) return `Picture ${n}`;
+    if (ref.role === "storyboard frame" || ref.id.startsWith("frame:") || ref.role.startsWith("frame:")) return "First frame";
+    return ref.role && !ref.role.includes(":") ? ref.role : `Picture ${n}`;
   };
   const parts = clip.prompt.split(/(\[Image\d+\])/);
   return (
