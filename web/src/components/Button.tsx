@@ -42,7 +42,7 @@ export function Button({ variant = "primary", dense, busy, price, ask, reason, i
   const why = useId();
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
   const label = ask ? "Ask Reed to approve" : children;
-  const size = dense && variant !== "primary" ? "min-h-control px-4 sm:min-h-control-dense sm:px-3" : "min-h-control px-4";
+  const size = dense && variant !== "primary" ? "min-h-control px-4 lg:min-h-control-dense lg:px-3" : "min-h-control px-4";
   const button = (
     <button
       type={type}
