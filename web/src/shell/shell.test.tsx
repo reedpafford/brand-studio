@@ -40,7 +40,7 @@ test("the first brand opens on its Videos, and the switcher menu changes brand a
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []], "GET /library/character": [200, []] });
   renderAt("/");
-  expect(await screen.findByRole("heading", { name: "Videos", exact: true })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Videos" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Brand: fomo" }));
   expect(screen.getByRole("menuitemradio", { name: "fomo" })).toHaveAttribute("aria-checked", "true");
@@ -59,7 +59,7 @@ test("the first brand opens on its Videos, and the switcher menu changes brand a
 test("the brand's colour is applied, and cleared for a brand without one", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
   renderAt("/b/1");
-  await screen.findByRole("heading", { name: "Videos", exact: true });
+  await screen.findByRole("heading", { name: "Videos" });
   expect(document.documentElement.style.getPropertyValue("--brand")).toBe("#ff5500");
   await pickBrand("Iron Paws");
   await screen.findByText("No videos for Iron Paws yet");
@@ -193,7 +193,7 @@ test("on desktop the rail has the four brand sections, and Studio (Approvals wit
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
   expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Videos", "Quick clip", "Cast & places", "Brand", "Approvals", "Team"]);
-  expect(within(rail).getByRole("link", { name: "Videos", exact: true })).toHaveAttribute("aria-current", "page");
+  expect(within(rail).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page");
   expect(await within(rail).findByRole("link", { name: /Approvals/ })).toHaveTextContent("1");
   expect(screen.getAllByRole("link", { name: /Approvals/ })).toHaveLength(2); // the rail item and the top-bar pill both go to /approvals
   expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
@@ -215,7 +215,7 @@ test("between 1024 and 1279 the rail is icons only, each with a name", async () 
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(within(rail).getByRole("link", { name: "Cast & places" })).toHaveAttribute("title", "Cast & places");
-  expect(within(rail).getByRole("link", { name: "Videos", exact: true }).textContent).toBe("");
+  expect(within(rail).getByRole("link", { name: "Videos" }).textContent).toBe("");
 });
 
 test("the old Kit and Screens addresses land on the Brand page", async () => {

@@ -39,7 +39,7 @@ test("signing in lands on the app", async () => {
   await userEvent.type(screen.getByLabelText("Password"), "correct horse battery");
   signedIn["GET /auth/me"] = [200, me];
   await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(await screen.findByRole("heading", { name: "Videos", exact: true })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Videos" })).toBeInTheDocument();
   expect(calls.find((c) => c.key === "POST /auth/login")?.body).toEqual({
     email: "a@b.co",
     password: "correct horse battery",

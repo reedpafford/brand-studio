@@ -5,6 +5,8 @@ import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
 import { Badge, Banner, Button, EmptyState, MediaCard, Skeleton, buttonClass } from "../components";
 import { useBrands } from "../shell/useBrands";
+import { ActionBar } from "../shell/ActionBar";
+import { useMedia } from "../useMedia";
 import { Meter } from "./Meter";
 
 export function ProjectsPage() {
@@ -21,6 +23,7 @@ export function ProjectsPage() {
     },
   });
   const list = projects.data;
+  const phone = !useMedia("(min-width: 1024px)");
   const newVideo = (
     <Link to={`/b/${brandId}/projects/new`} className={buttonClass("primary")}>
       <Plus size={20} strokeWidth={1.75} aria-hidden />
@@ -38,7 +41,7 @@ export function ProjectsPage() {
           <p className="type-eyebrow text-muted">{name}</p>
           <h1 className="type-page">Videos</h1>
         </div>
-        {list && list.length > 0 && <span className="hidden sm:block">{newVideo}</span>}
+        {list && list.length > 0 && !phone && newVideo}
       </div>
       {projects.isError && (
         <Banner title="Couldn't load your videos." action={<Button variant="secondary" onClick={() => void projects.refetch()}>Try again</Button>}>
@@ -76,7 +79,7 @@ export function ProjectsPage() {
               </li>
             ))}
           </ul>
-          <div className="sm:hidden">{newVideo}</div>
+          {phone && <ActionBar phone>{newVideo}</ActionBar>}
         </>
       )}
     </main>
