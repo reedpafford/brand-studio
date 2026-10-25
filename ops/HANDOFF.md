@@ -1,4 +1,4 @@
-as of 2e3a037 · 2026-10-25 21:00 UTC
+as of 3610a95 · 2026-10-25 21:15 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -29,6 +29,7 @@ as of 2e3a037 · 2026-10-25 21:00 UTC
 - Also merged: Variations Undo approval, Remove, Earlier, and the running write from the job list (#262); version panel details: variation of, planned by, clips and the estimate (#265); a Redo note never changes the dialogue (#276); clip prompts' Keep line names the face shape and keeps a hair cue visible (#285).
 - Also merged: Scripts library paging, reel filter, sort, poster, Didn't finish (#268); the agents' session table has new QA and Designer sessions (#296, `ops/AGENTS.md`).
 - Also merged: the money check now handles losses, gains against balances and "$348k" (#305); the reel length cap has half a second of slack (#306); In production spec: an owner-only view of every version being made, with its step, credits and failed or stuck flags (#307, new from Reed); Builder-Screens restarted fresh, new session in the `ops/AGENTS.md` table (#309).
+- Also merged: 12 fomo library drafts from catalogue reels (#308) and the seed refresh that loads script drafts from the repo into the library (#311); the Delete script spec, a basics audit of every object, and a review rule that QA asks whether the user can undo or delete what they just made (#312, in the QA checklist in `ops/AGENTS.md`).
 - Redesign, continued: Brand frame and Look (#205), Products and App screens (#209), Sign in / setup / invite (#213), Approvals (#219), Team (#221).
 - More redesign: Script step (#185), Shots step (#186), Videos home follow-up (#193), Quick clip (#183).
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
@@ -57,13 +58,13 @@ as of 2e3a037 · 2026-10-25 21:00 UTC
 ## Workflow v2 (Reed's decisions, 2026-10-25, ops/DECISIONS.md)
 - Owner writes a script (title, description, optional reference reel), runs Enhance, picks 0–2 variations, locks characters, optionally previews the breakdown, and publishes to the Script Library. Editors pick a version and produce it once (max 3 videos per script). Editors can write their own scripts: $15 a week free generation each, beyond that declined. Cast slots (#197): once the script and variations are approved, every named or recurring role is an optional cast slot; a locked slot is used as-is in every shot and version. No final-video upload: download clips one by one or all at once, older takes too.
 ## Open PRs (2, not counting the Scribe's own)
-- #308 Library drafts: 12 fomo scripts from catalogue reels | Producer | in review
+- #313 Reel transcription: no VAD, so lines over music are kept | Builder-Server | QA pass at 79fabf1 (current head); QA risk for a follow-up: without VAD Whisper can invent text over music or silence, so drop segments it rates as no-speech or check the first real reel
 - #304 [On hold] Reel prep makes a small watch copy for Gemini | Builder-Server | on hold (title; per the Producer); QA pass at fdd5534 (current head)
 ## Next
-- Builder-Server (order, per the Producer): first the transcript fix (cause found: `vad_filter=True` drops lines spoken over music; the smaller speech model without it caught 10 of the altar reel's 11 lines); then the seed DRAFT loader so the 12 fomo drafts in #308 load into the Script Library; then `GET /production` and `/production/summary`.
+- Builder-Server (order, per the Producer): land #313 (the transcript fix); then `GET /production` and `/production/summary`; the QA follow-up on no-speech segments (#313).
 - Builder-Screens (order, per the Producer): first Reed's top-priority bug in the library Script step: it must offer "Write from the reference" (with the new-lines switch) and "Write with Claude", each priced first via `/scripts/{id}/write`, with paste kept; second the In production view (spec #307); then the rest of the reel import screens (review the breakdown, Read it again, the "Was:" marks, bulk reel links, the library chip).
 - Director: Betty after the montage rule; the reel-import evals per #277.
-- Producer: the Script Library is stocked today from reels by agents (free), not by in-app import (Reed): #308; the paid altar reel-import test, once the Replicate video-input outage is over (Reed's approval, up to $10, logged in ops/SPEND.md).
+- Producer: the paid altar reel-import test, once the Replicate video-input outage is over (Reed's approval, up to $10, logged in ops/SPEND.md).
 - Reed: tests the climbing-numbers montage rule on the live site; makes video B (Iron Paws Pitbull 1) himself on the live site.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
