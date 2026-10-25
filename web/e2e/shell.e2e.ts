@@ -36,7 +36,9 @@ test("the owner invites someone with a link, and they join", async ({ browser, p
   const link = await page.getByLabel("Invite link").inputValue();
   expect(link).toMatch(/\/invite\/.+/);
   await page.getByRole("button", { name: "Done" }).click();
+  // Invited as an editor (an owner would see dollars), so the role is checked as well as the email.
   await expect(page.getByRole("region", { name: "Waiting invites" })).toContainText("ed@example.com");
+  await expect(page.getByRole("region", { name: "Waiting invites" })).toContainText("Editor");
 
   const guest = await browser.newContext();
   const guestPage = await guest.newPage();
@@ -48,6 +50,7 @@ test("the owner invites someone with a link, and they join", async ({ browser, p
 
   await page.reload();
   await expect(page.getByRole("region", { name: "People" })).toContainText("ed@example.com");
+  await expect(page.getByRole("listitem").filter({ hasText: "ed@example.com" })).toContainText("Editor");
   await expect(page.getByRole("region", { name: "Waiting invites" })).toHaveCount(0);
 });
 

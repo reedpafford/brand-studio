@@ -91,8 +91,13 @@ export function TeamPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{m.name}</span>
                     <span className="block truncate text-sm text-muted">{m.email}</span>
+                    <span className="mt-1 inline-flex sm:hidden">
+                      <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>
+                    </span>
                   </span>
-                  <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>
+                  <span className="hidden sm:inline-flex">
+                    <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>
+                  </span>
                   {isOwner && m.id !== me?.id && (
                     <Button variant="ghost" dense aria-label={`Remove ${m.name}`} onClick={() => setRemoving({ id: m.id, name: m.name })}>
                       Remove
@@ -137,7 +142,6 @@ export function TeamPage() {
 
 /** Email and role, then the link to send. The link is shown once. */
 function InvitePanel({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const toast = useToast();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"editor" | "owner">("editor");
   const [copied, setCopied] = useState(false);
@@ -147,10 +151,9 @@ function InvitePanel({ onClose, onDone }: { onClose: () => void; onDone: () => v
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       setCopied(false);
       onDone();
-      toast(`Invite link made. Copy it and send it to ${data.email}.`);
     },
   });
   const link = invite.data && `${location.origin}/invite/${invite.data.token}`;
