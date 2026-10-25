@@ -186,19 +186,34 @@ def check_running(
             continue
 
 
-def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
+def _stored(db: Session, storage: Storage | None, job: Job, file_id: int) -> StoredFile:
+    stored = db.get(StoredFile, file_id)
+    if storage is None or not stored or stored.workspace_id != job.workspace_id:
+        raise RuntimeError(f"Reference file {file_id} is missing.")
+    return stored
+
+
+def _files_as_data(db: Session, storage: Storage | None, job: Job, provider=None) -> dict:
     """The job's input with its file ids (job.input["files"]) turned into data URLs. With
     `fit_images_to`, reference images are scaled down to that long side; `exact_file_ids`
-    (brand screens, products) stay lossless."""
+    (brand screens, products) stay lossless. Files too big for a data URL (a reel's video,
+    job.input["uploads"]) go up through the provider's own file upload first."""
     payload = dict(job.input)
+    for key, ids in (job.input.get("uploads") or {}).items():
+        urls = []
+        for file_id in ids:
+            stored = _stored(db, storage, job, file_id)
+            try:
+                urls.append(provider.upload(storage.get(stored.key), stored.content_type))
+            except NetworkError as exc:  # nothing was started, so trying again is safe
+                raise NotStarted(f"Upload failed: {exc!r}") from exc
+        payload["input"] = {**payload["input"], key: urls}
     max_side = job.input.get("fit_images_to")
     exact = set(job.input.get("exact_file_ids") or [])
     for key, ids in (job.input.get("files") or {}).items():
         urls = []
         for file_id in ids:
-            stored = db.get(StoredFile, file_id)
-            if storage is None or not stored or stored.workspace_id != job.workspace_id:
-                raise RuntimeError(f"Reference file {file_id} is missing.")
+            stored = _stored(db, storage, job, file_id)
             data, content_type = storage.get(stored.key), stored.content_type
             if max_side and key == "reference_images":
                 data, content_type = fit_image(data, content_type, max_side, file_id in exact)
@@ -236,7 +251,7 @@ def start_next(
     if getattr(provider, "sync", False):  # answers in the same call (e.g. Claude)
         return _run_sync(db, job, provider, storage)
     try:
-        ref = provider.submit(job.kind, _files_as_data(db, storage, job))
+        ref = provider.submit(job.kind, _files_as_data(db, storage, job, provider))
     except NotStarted as exc:
         db.refresh(job)
         if job.attempts < MAX_SUBMIT_TRIES:

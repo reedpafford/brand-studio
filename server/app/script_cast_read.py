@@ -43,7 +43,11 @@ def ready(db: Session, script: Script) -> bool:
     return 0 in _versions(db, script)
 
 
-def job_input(db: Session, script: Script, reference: dict | None) -> dict:
+def job_input(
+    db: Session, script: Script, reference: dict | None, versions: dict[int, str] | None = None
+) -> dict:
+    """`versions`: the texts to read (default: the approved ones; a reel import reads its
+    fresh draft A before anyone approves it)."""
     original = db.scalar(
         select(ScriptDraft).where(ScriptDraft.script_id == script.id, ScriptDraft.slot == 0)
     )
@@ -51,7 +55,7 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     ref = prompts.reference_block(reference, script.reference_replace) if reference else ""
     brief = f"{script.title}: {script.description}" if script.description else script.title
     message = prompts.cast_slots_input(
-        {slot: escape(text) for slot, text in _versions(db, script).items()},
+        {slot: escape(text) for slot, text in (versions or _versions(db, script)).items()},
         reference=escape(ref),
         cast=[escape(line) for line, _ in _cast(db, script)],
         brief=escape(brief),

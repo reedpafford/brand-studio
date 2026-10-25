@@ -47,7 +47,7 @@ def _writable(db: Session, user: User, script_id: int, row: str = "") -> Script:
     return script
 
 
-def _left(db: Session, user: User) -> Decimal | None:
+def credits_left(db: Session, user: User) -> Decimal | None:
     if user.is_owner:
         return None
     return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
@@ -91,7 +91,7 @@ def write_many_estimate(
     ids = list(dict.fromkeys(body.script_ids))
     for script_id in ids:
         lib.get_script(db, user, script_id)
-    left = _left(db, user)
+    left = credits_left(db, user)
     return WriteManyEstimate(
         count=len(ids),
         credits=_price(db, user) * len(ids),
@@ -112,7 +112,7 @@ def write_many(
     allowance must cover them all; otherwise nothing is queued."""
     ids = list(dict.fromkeys(body.script_ids))
     scripts = [_writable(db, user, s, f"Row {n}: ") for n, s in enumerate(ids, 1)]
-    total, left = _price(db, user) * len(scripts), _left(db, user)
+    total, left = _price(db, user) * len(scripts), credits_left(db, user)
     if left is not None and total > left:
         raise HTTPException(
             409,

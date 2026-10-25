@@ -138,13 +138,16 @@ def enqueue(
     units: Decimal | int = 1,
     project: Project | None = None,
     provider: str = "fake",
+    prepaid: bool = False,
 ) -> Job:
     """Queue a job for the worker. Feature code calls this; there is no public create route.
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. An
     editor's own work (outside a project, or on a video from their own script) past their
     weekly allowance is declined (409). Other jobs that would take a project over budget,
     or sit in a project still waiting for approval, wait as `needs_owner_approval`. The
-    check and the reservation are one locked transaction."""
+    check and the reservation are one locked transaction. `prepaid`: a later step of work the
+    editor already pressed for at its full price (the reel read chain), so the allowance isn't
+    checked again; caps, brand, credits and Usage stay as for any job."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if project is not None:
         lock(db, Project, project.id)
@@ -155,7 +158,7 @@ def enqueue(
     else:
         lock(db, User, user.id)
         check_clip_cap(db, user, credits)
-    if declined := over_allowance(db, user, project, credits):
+    if not prepaid and (declined := over_allowance(db, user, project, credits)):
         db.rollback()
         raise HTTPException(409, declined)
     over = needs_approval(db, user, project, credits)
