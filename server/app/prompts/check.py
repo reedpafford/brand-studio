@@ -144,14 +144,16 @@ def _money(shot) -> bool:
 
 
 def _money_climbs(shots: list) -> list[str]:
-    """Reed (altar v3, 2026-10-25): the balance and P&L climb with the chart, shot by shot.
-    A trading insert states what its screen reads, and no figure is below the last one (a
-    loss shot is exempt; a win may rely on the screen's own big balance). Advice."""
+    """Reed (altar v3, 2026-10-25): the balance and P&L climb with the chart, shot by shot,
+    to a clearly large payoff (six figures or more, any number). A trading insert states what
+    its screen reads, and no screen's figure is below the last (a loss shot is exempt). Advice."""
     problems, last = [], None
-    for shot in filter(_money, shots):
+    for shot in shots:
+        if not shot.screen_ids or shot.moment == "loss":
+            continue
         found = MONEY.search(shot.action)
         if not found:
-            if shot.moment.startswith("trading"):
+            if _money(shot) and shot.moment.startswith("trading"):
                 problems.append(
                     f"{ADVICE}shot {shot.id}: say what the trading screen reads "
                     "(e.g. “the balance reads $1,240”), bigger than the shot before"
@@ -164,6 +166,9 @@ def _money_climbs(shots: list) -> list[str]:
                 f"{last[0]}; the money only climbs"
             )
         last = (shot.id, figure)
+    if last and any((s.moment or "").startswith("win") for s in shots) and last[1] < 100_000:
+        problems.append(f"{ADVICE}shot {last[0]}: the payoff reads under $100,000; make it "
+                        "clearly large (six figures or more)")  # fmt: skip
     return problems
 
 

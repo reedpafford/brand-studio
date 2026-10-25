@@ -758,8 +758,14 @@ def test_money_on_trading_screens_only_climbs():
     assert check._money_climbs(list(shots.values())) == [
         "Advice: shot 2.7: the screen reads $380, less than shot 2.4; the money only climbs"
     ]
+    shots["3.2"].action = "Malik's phone slides across the counter to Tasha."  # no payoff figure
+    shots["2.7"].action = "Malik at the desk; the balance reads $12,400."
+    shots["2.4"].moment = "win"
+    assert check._money_climbs(list(shots.values())) == [
+        "Advice: shot 2.7: the payoff reads under $100,000; make it clearly large (six figures "
+        "or more)"
+    ]
     _, cp = example("clip_prompts")
-    cp.clips[0].prompt = cp.clips[0].prompt.replace("the balance reads $12,400", "it reads $380")
     assert check.clip_prompts(bd, cp, 30, 10) == []  # the clip says what its shot says
     shots["2.7"].action = "Malik at the desk; the balance reads $12,900."
     assert check.clip_prompts(bd, cp, 30, 10) == [
