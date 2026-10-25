@@ -182,6 +182,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/team/invites/{invite_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Invite Link
+         * @description A fresh link for a waiting invite (only a hash of the old one is kept, so it can't be
+         *     shown again). The old link stops working; the new one lasts the usual days.
+         */
+        post: operations["new_invite_link_team_invites__invite_id__link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/team/invites/{invite_id}": {
         parameters: {
             query?: never;
@@ -693,6 +714,26 @@ export interface paths {
          * @description This week's quick-clip credits used and allowed for the caller.
          */
         get: operations["my_allowance_credits_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credits/allowances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Editor Allowances
+         * @description Each editor's weekly credits used and allowed (owner only).
+         */
+        get: operations["editor_allowances_credits_allowances_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2152,6 +2193,17 @@ export interface components {
              * @default false
              */
             smart: boolean;
+        };
+        /** EditorAllowanceOut */
+        EditorAllowanceOut: {
+            /** Quick Clip Credits Used */
+            quick_clip_credits_used: number;
+            /** Quick Clip Credits Allowed */
+            quick_clip_credits_allowed: number;
+            /** User Id */
+            user_id: number;
+            /** Name */
+            name: string;
         };
         /** FileOut */
         FileOut: {
@@ -3832,6 +3884,37 @@ export interface operations {
             };
         };
     };
+    new_invite_link_team_invites__invite_id__link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewInviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_invite_team_invites__invite_id__delete: {
         parameters: {
             query?: never;
@@ -5063,6 +5146,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AllowanceOut"];
+                };
+            };
+        };
+    };
+    editor_allowances_credits_allowances_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorAllowanceOut"][];
                 };
             };
         };
