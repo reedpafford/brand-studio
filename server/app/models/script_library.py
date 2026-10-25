@@ -26,7 +26,8 @@ class Script(Entity, Base):
     reel_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
     new_lines: Mapped[bool] = mapped_column(default=False)  # "Write new lines in the same style"
     published: Mapped[bool] = mapped_column(default=False)  # editors see others' once published
-    archived: Mapped[bool] = mapped_column(default=False)
+    archived: Mapped[bool] = mapped_column(default=False)  # removed: deleted, undoable
+    deleted_at: Mapped[datetime | None]  # when; purged for good 30 days on (not built yet)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
 
