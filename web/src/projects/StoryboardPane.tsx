@@ -130,14 +130,16 @@ export function StoryboardPane(props: { oneStep?: boolean; clips?: number; proje
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${n} credits`);
-  const makeLabel = over(writeCost) ? "Ask Reed to approve" : list.length ? "Redo storyboard" : "Make storyboard";
+  // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
+  const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
+  const makeLabel = over(makeTotal) ? "Ask Reed to approve" : list.length ? "Redo storyboard" : "Make storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
   const err = make.error ?? render.error ?? edit.error ?? approve.error;
   const approvedCount = list.filter((f) => f.approved).length;
 
   const makeButton = (
     <button
-      className={list.length ? btnSecondary : btnPrimary}
+      className={`${list.length ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`}
       disabled={writingNow || make.isPending}
       onClick={() => {
         const made = list.filter((f) => f.file_id !== null).length;
@@ -147,7 +149,7 @@ export function StoryboardPane(props: { oneStep?: boolean; clips?: number; proje
       }}
     >
       {makeLabel}
-      {price(props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost)}
+      {price(makeTotal)}
     </button>
   );
 

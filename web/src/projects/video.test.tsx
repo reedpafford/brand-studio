@@ -142,6 +142,29 @@ test("a role with no character can make one, so Assets is never a dead end", asy
   expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", brand_ids: [1] });
 });
 
+test("an approved look is not redrawn here; it can be taken back", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]], "GET /library/character/5": [200, item({ sheet_status: "approved" })], "DELETE /library/character/5/sheet/approve": [200, item({})] });
+  open();
+  expect(await screen.findByText("Approved")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Change the look|Make the look/ })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Undo approval" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/sheet/approve")).toBe(true));
+});
+
+test("one-press Make storyboard asks Reed when the writing plus the stills pass the budget, not only the writing", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 590, budget_credits: 600 }],
+    "GET /projects/9/assets": [200, []],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image", unit: "image", credits_per_unit: 4 }]],
+    "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
+  });
+  open("?step=storyboard");
+  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 15 credits" })).toBeInTheDocument();
+});
+
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id });
 const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)], picked_take_id: 2 });
 
@@ -151,9 +174,9 @@ test("Downloads: the zip, the picked take and the older take each download", asy
   open("?step=downloads");
   const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
   expect(zip).toHaveAttribute("href", "/api/projects/9/clips.zip");
-  expect(screen.getByRole("link", { name: "Download clip c1 (bo-tries-salmon-b-clip-1.mp4)" })).toHaveAttribute("href", expect.stringContaining("/files/52"));
+  expect(screen.getByRole("link", { name: "Download clip 1 (bo-tries-salmon-b-clip-1.mp4)" })).toHaveAttribute("href", expect.stringContaining("/files/52"));
   expect(screen.getByText("Older takes (1)")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /Download clip c1 take 1/ })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Download clip 1 take 1/ })).toBeInTheDocument();
 });
 
 test("Downloads puts the clips together by itself the first time, for free", async () => {
@@ -176,4 +199,13 @@ test("a video made from a library version opens on the new page", async () => {
   );
   expect(await screen.findByRole("heading", { name: "Breakdown", level: 2 })).toBeInTheDocument();
   expect(screen.getByRole("list", { name: "Steps" })).toHaveTextContent("Downloads");
+});
+
+test("on a phone the zip button sits in the action bar", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
+  expect(zip.closest(".border-t.text-center")).not.toBeNull();
+  expect(screen.getByText("Made from: Clip 1 Take 2")).toBeInTheDocument();
 });
