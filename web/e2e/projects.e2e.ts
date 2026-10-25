@@ -19,7 +19,7 @@ test("a brief becomes a project that is listed with its credit meter", async ({ 
   await expect(page.getByText("Announce the new drop.")).toBeVisible();
   await expect(page.getByText("1:1")).toBeVisible();
 
-  await page.getByRole("link", { name: "← Projects" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Videos", exact: true }).click();
   const card = page.getByRole("link", { name: /Launch teaser/ });
   await expect(card).toContainText("20s · 1:1");
   await expect(card).toContainText("credits");

@@ -7,7 +7,7 @@ test("a script is pasted, edited into a new version, and an old version is resto
   const brandId = await emptyBrand(page, "Script Shop");
   const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Script test", planned_seconds: 20 } });
   expect(made.ok()).toBeTruthy();
-  await page.goto(`/b/${brandId}/projects/${(await made.json()).id}`);
+  await page.goto(`/b/${brandId}/projects/${(await made.json()).id}?stage=script`);
 
   await expect(page.getByText("No script yet.")).toBeVisible();
   await page.getByLabel("Your script").fill("SCENE 1 - KITCHEN\nMAX: Hello there.");
