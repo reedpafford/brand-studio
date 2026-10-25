@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import breakdown
+from app import advice, breakdown
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -28,6 +28,7 @@ class BreakdownOut(BaseModel):
     source: str
     breakdown: Breakdown
     problems: list[str]
+    kept: list[str]  # advice kept anyway (never blocks)
     stale: bool  # made for an older script version
 
 
@@ -38,6 +39,7 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         source=row.source,
         breakdown=row.data,
         problems=row.problems,
+        kept=row.kept or [],
         stale=row.script_version != working,
     )
 
@@ -67,9 +69,7 @@ def make(project_id: int, user: User = Depends(current_user), db: Session = Depe
     )
 
 
-@router.get("", response_model=BreakdownOut)
-def read(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    project, version = _working(db, user, project_id)
+def _newest(db: Session, project) -> BreakdownVersion:
     row = db.scalar(
         select(BreakdownVersion)
         .where(BreakdownVersion.project_id == project.id)
@@ -78,6 +78,27 @@ def read(project_id: int, user: User = Depends(current_user), db: Session = Depe
     )
     if not row:
         raise HTTPException(404, "This project has no breakdown yet.")
+    return row
+
+
+@router.get("", response_model=BreakdownOut)
+def read(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    project, version = _working(db, user, project_id)
+    return _out(_newest(db, project), version.version)
+
+
+@router.post("/keep", response_model=BreakdownOut)
+def keep_advice(
+    project_id: int,
+    body: advice.KeepIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Keep anyway: this advice on the newest breakdown stays as it is (never blocks)."""
+    project, version = _working(db, user, project_id)
+    row = _newest(db, project)
+    advice.keep(row, body.problem)
+    db.commit()
     return _out(row, version.version)
 
 

@@ -1330,6 +1330,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/breakdown/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Advice
+         * @description Keep anyway: this advice on the newest breakdown stays as it is (never blocks).
+         */
+        post: operations["keep_advice_projects__project_id__breakdown_keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/storyboard": {
         parameters: {
             query?: never;
@@ -1383,8 +1403,8 @@ export interface paths {
         /**
          * Render
          * @description Queue the still for one frame (a paid image job, counted against the project budget).
-         *     A frame with problems must be fixed first. An optional Redo note goes into this render's
-         *     prompt only.
+         *     A frame with problems must be fixed first ("Advice: …" never blocks). An optional Redo
+         *     note goes into this render's prompt only.
          */
         post: operations["render_projects__project_id__storyboard_frames__frame_id__render_post"];
         delete?: never;
@@ -1409,6 +1429,26 @@ export interface paths {
         post: operations["approve_projects__project_id__storyboard_frames__frame_id__approve_post"];
         /** Unapprove */
         delete: operations["unapprove_projects__project_id__storyboard_frames__frame_id__approve_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/frames/{frame_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Frame Advice
+         * @description Keep anyway: this frame's advice stays as it is.
+         */
+        post: operations["keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1548,6 +1588,26 @@ export interface paths {
          */
         put: operations["set_insert_projects__project_id__clips__clip_id__inserts__shot_id__put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/{clip_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Clip Advice
+         * @description Keep anyway: this clip's advice stays as it is.
+         */
+        post: operations["keep_clip_advice_projects__project_id__clips__clip_id__keep_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1859,6 +1919,8 @@ export interface components {
             breakdown: components["schemas"]["Breakdown"];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** Stale */
             stale: boolean;
         };
@@ -2029,6 +2091,8 @@ export interface components {
             reference_ids: string[];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** File Id */
             file_id: number | null;
             /** Approved */
@@ -2389,6 +2453,11 @@ export interface components {
          * @enum {string}
          */
         JobStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "needs_owner_approval";
+        /** KeepIn */
+        KeepIn: {
+            /** Problem */
+            problem: string;
+        };
         /**
          * Kind
          * @enum {string}
@@ -2565,6 +2634,8 @@ export interface components {
             references: components["schemas"]["Reference"][];
             /** Problems */
             problems: string[];
+            /** Kept */
+            kept: string[];
             /** File Id */
             file_id: number | null;
             /** Takes */
@@ -6285,6 +6356,41 @@ export interface operations {
             };
         };
     };
+    keep_advice_projects__project_id__breakdown_keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     frames_projects__project_id__storyboard_get: {
         parameters: {
             query?: never;
@@ -6466,6 +6572,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6732,6 +6874,42 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["InsertIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_clip_advice_projects__project_id__clips__clip_id__keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
             };
         };
         responses: {
