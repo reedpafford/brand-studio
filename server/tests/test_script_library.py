@@ -90,3 +90,18 @@ def test_other_workspace_cannot_see_scripts(owner, outsider):
         [("GET", url), ("PATCH", url, {"title": "x"}), ("DELETE", url), ("POST", f"{url}/publish")],
     )
     assert outsider.get("/scripts").json() == []
+
+
+def test_bulk_create_is_all_or_none(owner):
+    fomo = owner.get("/brands").json()[0]["id"]
+    rows = [
+        {"brand_id": fomo, "title": "Altar", "reference_id": "fomo-DehudnaAmce"},
+        {"brand_id": fomo, "title": "Bus", "description": "School bus, STONK flying"},
+    ]
+    made = owner.post("/scripts/bulk", json={"scripts": rows})
+    assert made.status_code == 201, made.text
+    assert [s["title"] for s in made.json()] == ["Altar", "Bus"]
+    assert all(s["versions"][0]["status"] == "draft" for s in made.json())  # nothing written yet
+    bad = owner.post("/scripts/bulk", json={"scripts": [rows[1], {**rows[0], "brand_id": 999}]})
+    assert bad.status_code == 404 and bad.json()["detail"].startswith("Row 2:")
+    assert len(owner.get("/scripts").json()) == 2  # the bad batch added nothing
