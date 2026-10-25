@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Ellipsis, Lock, Pencil, Plus, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { fileUrl } from "../api/upload";
-import { Banner, Badge, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem, Panel, Skeleton, TextArea } from "../components";
+import { Banner, Badge, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem, Panel, Select, Skeleton, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useBrandCharacters, useCast, useCastActions, type Slot } from "./useCast";
@@ -47,6 +47,7 @@ export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; br
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <h3 className="font-display text-md font-bold">{s.role}</h3>
+                      <Badge>{s.kind}</Badge>
                       {!readOnly && (
                         <button type="button" aria-label={`Rename ${s.role}`} onClick={() => setRenaming(s)} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
                           <Pencil size={16} strokeWidth={1.75} aria-hidden />
@@ -54,6 +55,7 @@ export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; br
                       )}
                     </div>
                     {s.description && <p className="line-clamp-2 text-sm text-muted">{s.description}</p>}
+                    {appearsText(s.appears_in) && <p className="text-sm text-muted">{appearsText(s.appears_in)}</p>}
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     {s.locked ? (
@@ -116,7 +118,7 @@ export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; br
         <RolePanel
           title={`Rename ${renaming.role}`}
           submit="Save role"
-          initial={{ role: renaming.role, description: renaming.description }}
+          initial={{ role: renaming.role, kind: (KINDS.find((k) => k === renaming.kind) ?? "Main"), description: renaming.description }}
           busy={act.edit.isPending}
           error={act.edit.isError ? act.edit.error.message : null}
           onClose={() => setRenaming(null)}
@@ -179,8 +181,19 @@ export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; br
   );
 }
 
-function RolePanel({ title, submit, initial, busy, error, onClose, onSubmit }: { title: string; submit: string; initial?: { role: string; description: string }; busy: boolean; error: string | null; onClose: () => void; onSubmit: (v: { role: string; description: string }) => void }) {
+const KINDS = ["Main", "Helper", "Rival", "Family"] as const;
+type Kind = (typeof KINDS)[number];
+type RoleForm = { role: string; kind: Kind; description: string };
+const LETTERS = ["A", "B", "C"];
+/** "In A, B and C" from the slots of the versions a role appears in. */
+const appearsText = (slots: number[]) => {
+  const l = slots.map((n) => LETTERS[n]).filter(Boolean);
+  return l.length === 0 ? "" : `In ${l.length === 1 ? l[0] : `${l.slice(0, -1).join(", ")} and ${l[l.length - 1]}`}`;
+};
+
+function RolePanel({ title, submit, initial, busy, error, onClose, onSubmit }: { title: string; submit: string; initial?: RoleForm; busy: boolean; error: string | null; onClose: () => void; onSubmit: (v: RoleForm) => void }) {
   const [role, setRole] = useState(initial?.role ?? "");
+  const [kind, setKind] = useState<Kind>(initial?.kind ?? "Main");
   const [description, setDescription] = useState(initial?.description ?? "");
   return (
     <Panel title={title} onClose={onClose}>
@@ -188,10 +201,15 @@ function RolePanel({ title, submit, initial, busy, error, onClose, onSubmit }: {
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (role.trim()) onSubmit({ role: role.trim(), description: description.trim() });
+          if (role.trim()) onSubmit({ role: role.trim(), kind, description: description.trim() });
         }}
       >
         <Field label="Role" placeholder="e.g. Mia" value={role} onChange={(e) => setRole(e.target.value)} />
+        <Select label="Kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+          {KINDS.map((k) => (
+            <option key={k}>{k}</option>
+          ))}
+        </Select>
         <TextArea label="Description" rows={3} placeholder="Late 20s, confident, says hell no at the altar." value={description} onChange={(e) => setDescription(e.target.value)} />
         {error && <p role="alert" className={errorClass}>{error}</p>}
         <Button type="submit" busy={busy} disabled={!role.trim()} className="w-full">

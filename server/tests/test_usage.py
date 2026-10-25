@@ -155,3 +155,15 @@ def test_a_brands_videos_scripts_and_every_charge(owner, editor, db):
     assert other["items"] == []
     for url in (f"/usage/brands/{fomo}/videos", f"/usage/brands/{fomo}/scripts", "/usage/charges"):
         assert editor.get(url).status_code == 404
+
+
+def test_a_brand_row_carries_its_first_kit_colour(owner):
+    fomo = owner.get("/brands").json()[0]["id"]
+    assert (
+        owner.patch(f"/brands/{fomo}", json={"colours": ["#1E90FF", "#FFFFFF"]}).status_code == 200
+    )
+    rows = {r["brand_id"]: r for r in owner.get("/usage/brands").json()["items"]}
+    assert rows[fomo]["colour"] == "#1E90FF"  # the dot's tint, as the web uses it
+    assert owner.get(f"/usage/brands/{fomo}").json()["colour"] == "#1E90FF"
+    owl = owner.post("/brands", json={"name": "Night Owl"}).json()["id"]
+    assert owner.get(f"/usage/brands/{owl}").json()["colour"] is None  # no colours in its kit
