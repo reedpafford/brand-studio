@@ -1,6 +1,7 @@
 """Reel import, the free part: upload or link, then `reel_prepare` (probe, caps, cuts, contact
 sheet, transcript) on the local provider. Real ffmpeg; stand-in transcription and fetch."""
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -143,8 +144,8 @@ def test_replaced_and_unreadable_uploads_leave_no_files(app, owner, db, clip, tm
     _work(app, db)
     assert owner.get(f"/scripts/{bad}/import").json()["video_file_id"] is None
     db.expire_all()
-    assert db.query(StoredFile).count() == 2  # only the replacement's video and sheet
-    assert len([p for p in Path(app.state.settings.storage_dir).rglob("*") if p.is_file()]) == 2
+    assert db.query(StoredFile).count() == 3  # only the replacement's video, sheet, watch copy
+    assert len([p for p in Path(app.state.settings.storage_dir).rglob("*") if p.is_file()]) == 3
 
 
 def test_a_worker_can_take_only_some_providers(app, owner, db, clip):
@@ -182,3 +183,23 @@ def test_the_deployed_workers_cover_every_provider():
     lists = re.findall(r"BS_WORKER_PROVIDERS: '(\[.*?\])'", compose)
     covered = {name for found in lists for name in json.loads(found)}
     assert covered == set(get_providers(Settings()))
+
+
+def test_gemini_gets_a_small_watch_copy(app, owner, db, clip, tmp_path):
+    """The first real read: Gemini refuses videos over about 4 MB, so prep makes a small
+    H.264 copy for it and keeps the original for everything else."""
+    budget = sum(reel.WATCH_KBPS) * 1000 / 8 * reel.MAX_SECONDS  # bytes at the cap, 90 s
+    assert budget < 3_000_000
+    copy = reel.watch_copy(clip, tmp_path)
+    probe = ["ffprobe", "-v", "error", "-show_entries", "stream=codec_name", "-of", "csv=p=0"]
+    streams = subprocess.run([*probe, str(copy)], capture_output=True, text=True).stdout.split()  # noqa: S603
+    assert "h264" in streams[0] and "aac" in streams[1]
+    sid = _upload(owner, clip).json()["script_id"]
+    _work(app, db)
+    ready = owner.get(f"/scripts/{sid}/import").json()
+    from app.models.script_library import Script
+    from app.reel_read import watch_input
+
+    watch_id = db.get(Script, sid).reel["watch_file_id"]
+    assert watch_id not in (None, ready["video_file_id"])
+    assert watch_input(db.get(Script, sid))["uploads"] == {"videos": [watch_id]}

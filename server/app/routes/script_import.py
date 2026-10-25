@@ -167,7 +167,7 @@ def drop_files(db: Session, reel: dict | None) -> list[str]:
     Returns their storage keys: delete those bytes only once the deletion is committed, so a
     refused request never leaves a row whose bytes are gone."""
     keys = []
-    for key in ("video_file_id", "contact_file_id"):
+    for key in ("video_file_id", "contact_file_id", "watch_file_id"):
         if (stored := db.get(StoredFile, (reel or {}).get(key) or 0)) is not None:
             keys.append(stored.key)
             db.delete(stored)
@@ -304,6 +304,7 @@ def save_prepared(db: Session, job: Job) -> None:
         files = dict(zip(output.get("files", []), output.get("file_ids", []), strict=False))
         reel |= {k: output[k] for k in ("seconds", "cuts", "stats", "transcript")}
         reel["contact_file_id"] = files.get("contact")
+        reel["watch_file_id"] = files.get("watch")
         if "video" in files:
             reel["video_file_id"] = files["video"]
     script.reel = reel

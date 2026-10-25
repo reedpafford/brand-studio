@@ -49,7 +49,7 @@ def test_one_price_then_watch_write_and_cast_in_turn(app, owner, db, clip):
     steps = [j.input.get("reel_step") for j in db.query(Job).order_by(Job.id)][1:]
     assert steps == ["watch", "write", "cast"]
     watch = db.query(Job).filter(Job.kind == "watch-gemini").one()
-    assert watch.input["uploads"] == {"videos": [ready["video_file_id"]]}
+    assert watch.input["uploads"]["videos"] != [ready["video_file_id"]]  # the small copy
     script = owner.get(url).json()
     assert script["reel_imported"] and script["versions"][0]["text"]
     assert script["description"].startswith("A proposal goes wrong")

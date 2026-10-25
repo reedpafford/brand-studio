@@ -104,7 +104,8 @@ def watch_input(script: Script) -> dict:
             "system_instruction": prompts.watch_system(),
         },
         "files": {"images": [reel["contact_file_id"]]},
-        "uploads": {"videos": [reel["video_file_id"]]},
+        # the small watch copy (Gemini refuses big videos); reels prepared before it: the original
+        "uploads": {"videos": [reel.get("watch_file_id") or reel["video_file_id"]]},
     }
 
 
