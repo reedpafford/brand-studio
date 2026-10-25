@@ -65,7 +65,7 @@ export function weekStop(a: { quick_clip_credits_used: number; quick_clip_credit
   if (a.quick_clip_credits_used + cost <= a.quick_clip_credits_allowed) return null;
   const allowed = Math.round(a.quick_clip_credits_allowed);
   // All of it used, or not enough left for this one: say which, with the numbers the header shows.
-  return a.quick_clip_credits_used >= a.quick_clip_credits_allowed ? `You've used this week's ${allowed} credits. It resets Monday.` : `That's more than this week's ${allowed} free credits (${Math.round(a.quick_clip_credits_used)} used). It resets on Monday.`;
+  return a.quick_clip_credits_used >= a.quick_clip_credits_allowed ? `You've used this week's ${allowed} credits. It resets on Monday.` : `That's more than this week's ${allowed} free credits (${Math.round(a.quick_clip_credits_used)} used). It resets on Monday.`;
 }
 
 /** Why a paid step is stopped for this person, or null. An editor on their own script is billed to their weekly allowance and is declined past it (there is no Ask Reed); anyone else's script is billed to the video's budget, and Reed is never limited. */

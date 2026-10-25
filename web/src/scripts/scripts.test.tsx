@@ -906,7 +906,7 @@ test("Next waits until the reel is read, so Read this reel is the one amber butt
 
 test("when the whole week is used the stop says so; when only this price doesn't fit it says how much is used", async () => {
   const { weekStop } = await import("./useScript");
-  expect(weekStop({ quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }, 3)).toBe("You've used this week's 145 credits. It resets Monday.");
+  expect(weekStop({ quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }, 3)).toBe("You've used this week's 145 credits. It resets on Monday.");
   expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 7)).toBe("That's more than this week's 10 free credits (7 used). It resets on Monday.");
   expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 3)).toBeNull();
 });
@@ -934,4 +934,12 @@ test("the estimate in words rounds up like the button's price", async () => {
   open("/b/1/scripts/7");
   expect(await screen.findByText("Reading it costs about 7 credits.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Read this reel.*7 credits/ })).toBeInTheDocument();
+});
+
+test("a step that failed twice says how often it has been tried before the next press, and the server's words for the failure are used", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "failed", failed_step: "watch", problem: "Watching the reel didn't finish. Nothing more was charged; try again.", estimate: { credits: 5, credits_left: null, tries: 2 } })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("Watching the reel didn't finish. Nothing more was charged; try again.")).toBeInTheDocument();
+  expect(screen.getByText(/It has been tried 2 times already\./)).toBeInTheDocument();
 });

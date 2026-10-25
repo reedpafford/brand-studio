@@ -130,7 +130,7 @@ const ROWS: { id: "got" | "heard" | "watch" | "write" | "cast"; label: string }[
 ];
 
 /** What the server says is left this week, if it says the read doesn't fit. The usual wording comes from the allowance itself. */
-const notEnough = (e?: { credits: number; credits_left: number | null } | null) => (e && e.credits_left !== null && e.credits > e.credits_left ? "That's more than the credits you have left this week. It resets Monday." : null);
+const notEnough = (e?: { credits: number; credits_left: number | null } | null) => (e && e.credits_left !== null && e.credits > e.credits_left ? "That's more than the credits you have left this week. It resets on Monday." : null);
 
 /** Read this reel · N credits (or Try again after a failed step): the one amber button of a prepared reel. On a phone it sits in the action bar, on desktop in the card. */
 export function ReadReelButton({ scriptId, createdById, className }: { scriptId: number; createdById: number | null; className?: string }) {
@@ -240,7 +240,9 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
     );
   }
   if (r.status === "ready" || r.status === "failed") {
-    const failedText = step === "watch" ? "The shots couldn't be found. Credits for the rest were returned." : step === "write" ? "The script didn't finish. Credits for this step were returned." : "The cast didn't finish. Credits for this step were returned.";
+    // The server says which step didn't finish and what was charged; ours is only for when it says nothing.
+    const failedText = r.problem || (step === "watch" ? "The shots couldn't be found. Credits for the rest were returned." : step === "write" ? "The script didn't finish. Credits for this step were returned." : "The cast didn't finish. Credits for this step were returned.");
+    const tried = r.estimate?.tries ?? 0;
     return (
       <Card className="max-w-[680px] space-y-3">
         <div className="flex gap-4">
@@ -252,7 +254,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
             </p>
             <p className="text-sm text-muted">{facts}</p>
             {r.url && <p className="truncate text-sm text-muted">{r.url.replace(/^https?:\/\/(www\.)?/, "")}</p>}
-            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs about ${wholeCredits(r.estimate.credits)} credits. A step that is run again is charged again.` : `Reading it costs about ${wholeCredits(r.estimate.credits)} credits.`}</p>}
+            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs about ${wholeCredits(r.estimate.credits)} credits. A step that is run again is charged again.${tried >= 2 ? ` It has been tried ${tried} times already.` : ""}` : `Reading it costs about ${wholeCredits(r.estimate.credits)} credits.`}</p>}
           </div>
         </div>
         {r.status === "failed" && (
