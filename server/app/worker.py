@@ -303,8 +303,8 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
     check_production(settings)
-    providers = get_providers(settings)
     storage = LocalStorage(settings.storage_dir)
+    providers = get_providers(settings, storage)
     sessions = make_sessionmaker(settings.database_url)
     with sessions() as db:
         recover(db, providers)

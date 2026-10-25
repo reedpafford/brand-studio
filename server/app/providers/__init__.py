@@ -48,13 +48,20 @@ class Provider(Protocol):
         """Download one output file: (bytes, content type)."""
 
 
-def get_providers(settings) -> dict[str, Provider]:
+def get_providers(settings, storage=None) -> dict[str, Provider]:
     from app.providers.fake import FakeProvider
+    from app.providers.local import LocalProvider
 
     if settings.fake_providers:
-        from app.providers.fake_local import FakeMedia, FakeWriter
+        from app.providers.fake_local import FakeMedia, FakeWriter, refuse_link, transcript
 
-        return {"fake": FakeProvider(), "replicate": FakeMedia(), "claude": FakeWriter()}
+        local = LocalProvider(storage, transcribe=transcript, fetch_link=refuse_link)
+        return {
+            "fake": FakeProvider(),
+            "replicate": FakeMedia(),
+            "claude": FakeWriter(),
+            "local": local,
+        }
     from app.providers.replicate import ReplicateProvider
 
     replicate = ReplicateProvider(
@@ -66,4 +73,5 @@ def get_providers(settings) -> dict[str, Provider]:
     from app.providers.claude import ClaudeProvider
 
     claude = ClaudeProvider(settings.anthropic_key.get_secret_value())
-    return {"fake": FakeProvider(), "replicate": replicate, "claude": claude}
+    local = LocalProvider(storage)
+    return {"fake": FakeProvider(), "replicate": replicate, "claude": claude, "local": local}

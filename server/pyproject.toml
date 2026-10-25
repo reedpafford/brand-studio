@@ -21,6 +21,8 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest>=9.1", "ruff>=0.17"]
+# Reel import in the worker image only (tests use stand-ins): yt-dlp and faster-whisper.
+reel = ["yt-dlp==2026.8.19", "faster-whisper==1.2.1", "av<19"]  # av 19 breaks faster-whisper 1.2.1
 
 [tool.uv]
 package = false
@@ -38,3 +40,5 @@ ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["whisper: runs the real speech model (needs the reel group; downloads ~460 MB)"]
+addopts = "-m 'not whisper'"
