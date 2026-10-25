@@ -4,12 +4,14 @@ import { fileUrl } from "../api/upload";
 import { Banner, Badge, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem, Panel, Select, Skeleton, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import type { Script } from "./useScript";
 import { FindRoles } from "./FindRoles";
 import { LockPanel } from "./LockPanel";
 import { useBrandCharacters, useCast, useCastActions, type Slot } from "./useCast";
 
 /** Step 5: the roles of the script, each with one locked look or none (made at Assets). Every role is optional. */
-export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; brandId: number; readOnly: boolean }) {
+export function CastStep({ script, brandId, readOnly }: { script: Script; brandId: number; readOnly: boolean }) {
+  const scriptId = script.id;
   const cast = useCast(scriptId);
   const chars = useBrandCharacters(brandId);
   const act = useCastActions(scriptId);
@@ -31,7 +33,7 @@ export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; br
           <Skeleton className="h-20" />
         </div>
       )}
-      {cast.data && !readOnly && <FindRoles scriptId={scriptId} hasRoles={slots.length > 0} />}
+      {cast.data && !readOnly && <FindRoles script={script} hasRoles={slots.length > 0} />}
       {cast.data && slots.length === 0 && (
         <EmptyState icon={Users} title="No roles yet." action={!readOnly ? <Button variant="secondary" onClick={() => setAdding(true)}>Add a role</Button> : undefined}>
           Everyone will be made at Assets. Add a role to lock one look for it in every version.

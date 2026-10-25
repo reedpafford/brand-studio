@@ -10,7 +10,7 @@ import { setViewport } from "../test/viewport";
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const script = {
   id: 7, brand_id: 1, title: "Bo tries salmon", description: "x", reference_id: null, reel_imported: false, new_lines: false, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0, notes: "", reference_replace: "", cast: [],
-  versions: [{ slot: 0, status: "draft", title: "x", seconds: 0, project_id: null, text: "MIA: Hell no!", words: 3, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }],
+  versions: [{ slot: 0, status: "approved", title: "x", seconds: 0, project_id: null, text: "MIA: Hell no!", words: 3, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }],
 };
 const slot = { id: 31, role: "Mia", kind: "Main", appears_in: [0], description: "Late 20s.", position: 0, library_item_id: null, sheet_file_id: null, locked: false };
 const char = (o: object = {}) => ({ id: 5, name: "Bo", image_file_ids: [], sheet_status: "none", sheet_file_id: null, ...o });
@@ -88,4 +88,30 @@ test("a sheet that needs approval is approved in the panel, and approving locks 
   await userEvent.click(within(panel).getByRole("button", { name: "Approve Bo's sheet" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/cast/31/lock")?.body).toEqual({ library_item_id: 5 }));
   expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(true);
+});
+
+test("Find roles waits for the script to be approved, and says so up front", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7": [200, { ...script, versions: [{ ...script.versions[0], status: "draft" }] }] }));
+  open();
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: /^Find roles in the script/ })).toHaveAccessibleDescription("Approve the script first"));
+  expect(screen.getByRole("button", { name: /^Find roles in the script/ })).toBeDisabled();
+});
+
+test("an editor past the week's allowance can't press Find roles", async () => {
+  setViewport(1440);
+  const editor = { ...owner, id: 2, role: "editor" };
+  fakeServer(base({ "GET /auth/me": [200, editor], "GET /scripts/7": [200, { ...script, created_by_id: 2 }], "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }] }));
+  open();
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: /^Find roles in the script/ })).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday."));
+  expect(screen.getByRole("button", { name: /^Find roles in the script/ })).toBeDisabled();
+});
+
+test("a refused Find roles shows the server's reason alone", async () => {
+  setViewport(1440);
+  fakeServer(base({ "POST /scripts/7/cast/read": [409, { detail: "The cast is already being read for this script." }] }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Find roles in the script · 4 credits" }));
+  expect(await screen.findByText("The cast is already being read for this script.")).toBeInTheDocument();
+  expect(screen.queryByText(/weren't found/)).toBeNull();
 });

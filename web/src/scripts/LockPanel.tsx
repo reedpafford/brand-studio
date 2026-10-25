@@ -76,11 +76,11 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
                 {status === "needs_approval" && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted">Check the sheet, then approve it to lock {slot.role}.</p>
-                    <div className="flex gap-2">
-                      <Button dense className="flex-1" aria-label={`Approve ${c.name}'s sheet`} busy={approve.isPending && approve.variables?.id === c.id} disabled={locking} onClick={() => approve.mutate(c)}>
+                    <div className="flex flex-col gap-2">
+                      <Button dense className="w-full" aria-label={`Approve ${c.name}'s sheet`} busy={approve.isPending && approve.variables?.id === c.id} disabled={locking} onClick={() => approve.mutate(c)}>
                         Approve
                       </Button>
-                      <Button variant="secondary" dense className="flex-1" aria-label={`Redo ${c.name}'s sheet`} disabled={stop !== null || make.isPending} onClick={() => make.mutate(c)}>
+                      <Button variant="secondary" dense className="w-full" aria-label={`Redo ${c.name}'s sheet`} disabled={stop !== null || make.isPending} onClick={() => make.mutate(c)}>
                         Redo{price !== undefined ? ` · ${creditsLabel(price)}` : ""}
                       </Button>
                     </div>
