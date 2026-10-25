@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, ChevronDown, Clapperboard, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
-import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, NavLink, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
@@ -65,6 +65,9 @@ function Frame() {
   const online = useOnline();
   const held = useHeld();
   const { count, setNode } = useActionBarSlot();
+  // Inside one video on a phone, the video's own header line replaces the brand bar.
+  const video = useMatch("/b/:brandId/projects/:projectId");
+  const inVideo = !rail && video !== null && /^\d+$/.test(video.params.projectId ?? "");
 
   useEffect(() => {
     if (fromUrl) rememberBrand(fromUrl);
@@ -106,7 +109,7 @@ function Frame() {
 
   return (
     <div className="min-h-screen bg-bg text-text">
-      <TopBar brands={brands ?? []} brand={brand} current={current} waiting={waiting} rail={rail} />
+      {!inVideo && <TopBar brands={brands ?? []} brand={brand} current={current} waiting={waiting} rail={rail} />}
       <div className="flex">
         {rail && <Rail brand={brand} current={current} wide={wide} owner={held.owner} waiting={waiting} />}
         {work}

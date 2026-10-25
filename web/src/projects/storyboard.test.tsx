@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { setViewport } from "../test/viewport";
 
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
@@ -107,12 +108,14 @@ test("paid buttons ask Reed when the project is close to its budget", async () =
   expect(await screen.findByRole("button", { name: "Ask Reed to approve · 6 credits" })).toBeInTheDocument();
 });
 
-test("Storyboard stays locked until there is a breakdown", async () => {
+test("Storyboard stays locked until there are shots", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }] });
   open("?stage=script");
-  const steps = await screen.findByRole("list", { name: "Stages" });
-  expect(within(steps).getByRole("button", { name: /Storyboard/ })).toBeDisabled();
-  expect(within(steps).getByRole("button", { name: /Storyboard/ })).toHaveAttribute("title", "Make the breakdown first");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  const storyboard = within(steps).getByRole("button", { name: "Storyboard" });
+  expect(storyboard).toHaveAttribute("aria-disabled", "true");
+  expect(storyboard).toHaveAccessibleDescription("Make the shots first");
 });
 
 test("after a reload, runs are recognised by their step and frame: frames being written, a still being drawn, one that failed", async () => {
@@ -132,21 +135,24 @@ test("after a reload, runs are recognised by their step and frame: frames being 
   expect(within(screen.getByLabelText("Frame c2")).getByText("Didn't finish · credits returned")).toBeInTheDocument();
 });
 
-test("the storyboard stays locked while the breakdown has problems or is out of date, and a link to it lands on the breakdown", async () => {
+test("the storyboard stays locked while the shots have problems or are out of date, and a link to it lands on Shots", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, { ...breakdown, problems: ["Shot 1.2 is a loss moment but shows no fomo screen."] }] });
   open();
-  expect(await screen.findByLabelText("Problems")).toBeInTheDocument(); // landed on the Breakdown step
-  const steps = screen.getByRole("list", { name: "Stages" });
-  expect(within(steps).getByRole("button", { name: /Storyboard/ })).toBeDisabled();
-  expect(within(steps).getByRole("button", { name: /Storyboard/ })).toHaveAttribute("title", "Fix the breakdown first");
-  expect(screen.getByRole("button", { name: "Next: Storyboard →" })).toBeDisabled();
+  expect(await screen.findByLabelText("Problems")).toBeInTheDocument(); // landed on the Shots step
+  const steps = screen.getByRole("list", { name: "Steps" });
+  const storyboard = within(steps).getByRole("button", { name: "Storyboard" });
+  expect(storyboard).toHaveAttribute("aria-disabled", "true");
+  expect(storyboard).toHaveAccessibleDescription("Fix the 1 problem in Shots first");
+  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeDisabled();
 });
 
-test("a breakdown made for an older script also keeps the storyboard locked", async () => {
+test("shots made for an older script also keep the storyboard locked", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, { ...breakdown, stale: true, script_version: 3 }] });
-  open("?stage=breakdown");
-  const steps = await screen.findByRole("list", { name: "Stages" });
-  expect(within(steps).getByRole("button", { name: /Storyboard/ })).toHaveAttribute("title", "Fix the breakdown first");
+  open("?stage=shots");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  expect(within(steps).getByRole("button", { name: "Storyboard" })).toHaveAccessibleDescription("Make new shots first");
 });
 
 test("Redo storyboard says the stills already made will be dropped", async () => {
@@ -185,8 +191,9 @@ test("a frame can't be approved while its breakdown has changed", async () => {
 test("Next: Clips waits until every frame is approved and says how many are left", async () => {
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ approved: true }), withStill({ id: 2, clip_id: "c2" }), withStill({ id: 3, clip_id: "c3" })]] });
   open();
-  expect(await screen.findByText("Approve all 3 frames first (2 left).")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Clips →" })).toBeDisabled();
+  const next = await screen.findByRole("button", { name: "Next: Clips" });
+  expect(next).toBeDisabled();
+  expect(next).toHaveAccessibleDescription("Approve every storyboard frame first (2 left)");
 });
 
 test("Redo asks what should change and sends it as the note for that render only", async () => {

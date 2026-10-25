@@ -23,7 +23,7 @@ export function useFrames(projectId: number) {
   });
 }
 
-export function StoryboardPane(props: { projectId: number; brandId: number; aspect: string; used: number; budget: number; onNext: () => void }) {
+export function StoryboardPane(props: { projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -119,7 +119,6 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
   const err = make.error ?? render.error ?? edit.error ?? approve.error;
   const approvedCount = list.filter((f) => f.approved).length;
-  const waiting = list.length - approvedCount;
 
   const makeButton = (
     <button
@@ -211,12 +210,6 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
           );
         })}
       </ul>
-      <div className="space-y-1">
-        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={waiting > 0 || list.some((f) => f.stale)} onClick={props.onNext}>
-          Next: Clips →
-        </button>
-        {waiting > 0 && <p className="text-sm text-muted">{`Approve all ${list.length} frame${list.length === 1 ? "" : "s"} first (${waiting} left).`}</p>}
-      </div>
       {lightbox && lightbox.file_id !== null && (
         <Sheet title={`Clip ${lightbox.clip_id} · shot ${lightbox.shot_id}`} onClose={() => setLightbox(null)}>
           <img src={fileUrl(lightbox.file_id)} alt={`Still for clip ${lightbox.clip_id}`} className="w-full rounded-md" />

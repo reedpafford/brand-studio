@@ -4,7 +4,9 @@ import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { useJobs } from "../clip/History";
 import { useToast } from "../toast";
-import { btnPrimary, btnSecondary, card, errorText as errorClass, linkText } from "../ui";
+import { Sparkles } from "lucide-react";
+import { Button } from "../components";
+import { btnSecondary, card, errorText as errorClass, linkText } from "../ui";
 import { Sheet } from "./Sheet";
 
 export type Mark = components["schemas"]["SuggestionOut"];
@@ -198,13 +200,15 @@ export function EnhanceBar({ e }: { e: EnhanceState }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          className={btnPrimary}
+        <Button
+          variant="secondary"
+          icon={Sparkles}
+          price={e.cost}
           disabled={e.running || e.start.isPending}
           onClick={() => (pending === 0 || window.confirm(`Replace the ${pending} waiting suggestions?`)) && e.start.mutate()}
         >
-          ✦ Enhance{e.cost !== undefined && ` · ${e.cost} credits`}
-        </button>
+          Enhance
+        </Button>
         <AcceptAll e={e} />
         {accepted > 0 && (
           <button className={btnSecondary} disabled={e.apply.isPending} onClick={() => e.apply.mutate()}>

@@ -24,7 +24,7 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
 
   // Enhance runs and finds nothing to add to this short script.
   await stage("enhance");
-  await page.getByRole("button", { name: /✦ Enhance/ }).click();
+  await page.getByRole("button", { name: /^Enhance/ }).click();
   await expect(page.getByText(/already reads well/)).toBeVisible({ timeout: 30_000 });
 
   // Breakdown: scenes, clips and shots, with no problems.
@@ -45,13 +45,14 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
   }
   await page.getByRole("button", { name: /Next: Clips/ }).click();
 
-  // Clips: write the prompts, make a take, approve it, make the video.
+  // Clips: write the prompts, make a take, approve it. Final video: put the clips together.
   await page.getByRole("button", { name: /Write clip prompts/ }).click();
   await expect(page.getByRole("listitem", { name: "Clip c1" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: /^Make clip/ }).first().click();
   await expect(page.getByRole("button", { name: "✓ Looks good" }).first()).toBeVisible({ timeout: 90_000 });
   await page.getByRole("button", { name: "✓ Looks good" }).first().click();
   await expect(page.getByRole("button", { name: "Undo approval" }).first()).toBeVisible();
+  await page.getByRole("button", { name: /Next: Final video/ }).click();
   await page.getByRole("button", { name: "Make the video", exact: true }).click();
   await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible({ timeout: 60_000 });
 

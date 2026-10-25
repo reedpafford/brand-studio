@@ -12,3 +12,6 @@ export function useMedia(query: string) {
   }, [query]);
   return matches;
 }
+
+/** The desktop layout (side rail, side panels) starts at 1024px; below it is the phone layout with bottom tabs. */
+export const useRail = () => useMedia("(min-width: 1024px)");
