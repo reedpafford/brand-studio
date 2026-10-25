@@ -801,7 +801,7 @@ test("a script made from a reel shows what was found, and a failed fetch says wh
   expect(screen.getByText("instagram.com/reel/Abc123/")).toBeInTheDocument();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
-  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "failed", problem_code: "blocked", problem: "x" })] });
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "failed", problem_code: "blocked", problem: "" })] });
   open("/b/1/scripts/7");
   expect(await screen.findByText("Instagram didn't let us download it. Upload the video instead.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Upload a video" })).toBeInTheDocument();
@@ -917,4 +917,13 @@ test("on a phone Read this reel takes the action bar, and is not in the card", a
   const button = await screen.findByRole("button", { name: /Read this reel.*7 credits/ });
   expect(screen.getAllByRole("button", { name: /Read this reel/ })).toHaveLength(1);
   expect(button.closest("main")).toBeNull(); // it sits in the shell's action bar, outside the page body
+});
+
+test("the server's own words for a problem are shown (a silent video isn't called unreadable), and the code only picks the button", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "failed", problem_code: "bad_file", problem: "This video has no sound. Reels are read from their dialogue, so use one with an audio track." })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("This video has no sound. Reels are read from their dialogue, so use one with an audio track.")).toBeInTheDocument();
+  expect(screen.queryByText(/isn't a video we can read/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Choose another file" })).toBeInTheDocument();
 });
