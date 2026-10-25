@@ -23,7 +23,7 @@ Quick clip (page 32)                                        This week: 132 of 60
 │ (reason line)                         │  │                                                     │
 └───────────────────────────────────────┘  └─────────────────────────────────────────────────────┘
 ```
-- **Panel:** fields in this order, 20px padding, 20px between fields. The footer is sticky to the bottom of the panel, never over a field: the panel scrolls inside itself above it (the #172 fix stays).
+- **Panel:** fields in this order, 20px padding, 20px between fields. The panel has no scroll of its own: the page scrolls. The footer is `sticky bottom-0` inside the panel (solid `bg-surface`, top border), so Generate stays in view at the bottom of the window but never covers a field (the #172 layout).
 - **Model:** a secondary select-style button showing the model's name and its one line. It opens a popover (sheet on phone) listing each model: name (card), one line (meta), "from N credits a second" (meta). No provider names.
 - **Brand pieces:** chips with a 24px picture and an `X` remove (`aria-label="Remove Bo"`). **＋ Add** opens a menu with tabs Characters · Places · Props · Screens · Upload. Screens set to "Always used for" a moment are added for you when the prompt mentions it, with a `Smartphone` icon and the meta line "Added because you mentioned the buy moment".
 - **Improve prompt:** dialog as today. The result is editable; **Use this** (amber inside the dialog) and **Keep mine** (ghost). Meta: "Nothing is made until you press Generate." After use, a ghost **Undo improve** sits next to the button.
