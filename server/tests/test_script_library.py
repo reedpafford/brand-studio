@@ -128,5 +128,18 @@ def test_undo_approval_and_earlier_texts_until_published(owner, editor):
     owner.post(f"{url}/publish")
     final = owner.delete(f"{url}/drafts/0/approve")
     assert final.status_code == 409 and "Duplicate" in final.json()["detail"]
-    assert editor.get(f"{url}/drafts/0/history").status_code == 200  # published: visible
+    assert editor.get(f"{url}/drafts/0/history").status_code == 403  # author and owner only
     assert editor.delete(f"{url}/drafts/0/approve").status_code in (403, 409)
+
+
+def test_a_version_keeps_its_newest_20_earlier_texts(owner, editor):
+    made = _make(owner, text="MOM: Take 0.")
+    url = f"/scripts/{made['id']}"
+    for n in range(1, 23):
+        owner.put(f"{url}/drafts/0", json={"text": f"MOM: Take {n}."})
+    history = owner.get(f"{url}/drafts/0/history").json()
+    assert len(history) == 20
+    assert (history[0]["text"], history[-1]["text"]) == ("MOM: Take 21.", "MOM: Take 2.")
+    mine = _make(editor, text="NATE: One.")
+    editor.put(f"/scripts/{mine['id']}/drafts/0", json={"text": "NATE: Two."})
+    assert len(editor.get(f"/scripts/{mine['id']}/drafts/0/history").json()) == 1  # the author

@@ -8,7 +8,7 @@
 import re
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.accounts import User
@@ -107,15 +107,26 @@ def writing(db: Session, script_id: int, step: str | None = None) -> bool:
     )
 
 
+HISTORY = 20  # earlier texts kept per version (Producer, 2026-10-25)
+
+
 def keep_text(db: Session, draft: ScriptDraft, new_text: str, source: str, user_id=None) -> None:
-    """Keep a version's current words before they're replaced, for its history."""
-    if draft.id and draft.text.strip() and draft.text != new_text:
-        db.add(
-            ScriptDraftText(
-                draft_id=draft.id,
-                text=draft.text,
-                title=draft.title,
-                source=source,
-                created_by_id=user_id,
-            )
+    """Keep a version's current words before they're replaced, for its history: the newest
+    HISTORY texts, the oldest dropped."""
+    if not (draft.id and draft.text.strip() and draft.text != new_text):
+        return
+    db.add(
+        ScriptDraftText(
+            draft_id=draft.id, text=draft.text, title=draft.title, source=source,
+            created_by_id=user_id,
         )
+    )  # fmt: skip
+    db.flush()
+    old = db.scalars(
+        select(ScriptDraftText.id)
+        .where(ScriptDraftText.draft_id == draft.id)
+        .order_by(ScriptDraftText.id.desc())
+        .offset(HISTORY)
+    ).all()
+    if old:
+        db.execute(delete(ScriptDraftText).where(ScriptDraftText.id.in_(old)))
