@@ -1,6 +1,7 @@
 """Make the two done-test videos end to end with the stand-in providers: free, no keys.
-Sheets, brief, script, breakdown, storyboard, stills, clip prompts, takes, one cut-in, the
-final MP4, all through the API. Prints what came out; exits 1 if anything went wrong.
+Script Library (script, cast slots, breakdown preview, publish, produce, Assets), then
+storyboard, stills, clip prompts, takes, one cut-in and the final MP4, all through the API.
+Prints what came out; exits 1 if anything went wrong.
 
     cd server && uv run python -m scripts.fake_run
 """
@@ -10,6 +11,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -56,19 +58,34 @@ def library(c, work, kind: str, text: str) -> int:
 
 
 def make(c, work, brand: str, case: dict, script: str, planned: int, variants=None) -> None:
+    """Through the Script Library (workflow v2): script, cast slots locked to sheets, the
+    breakdown preview, approve, publish, produce, Assets; then the usual project steps."""
     print(f"\n{case['id']} ({planned} s planned)")
     brand_id = next(b["id"] for b in c.get("/brands").json() if b["name"].lower().startswith(brand))
-    cast = [library(c, work, "character", x) for x in case["cast"]]
+    reel = Path(case["reference"]["path"]).parent.name if case.get("reference") else None
+    body = {"brand_id": brand_id, "title": case["id"], "text": script, "reference_id": reel}
+    lib = f"/scripts/{ok(c.post('/scripts', json=body), 'script')['id']}"
+    ok(c.put(f"{lib}/drafts/0", json={"text": script, "target_seconds": planned}), "target")
+    for x in case["cast"]:
+        item = library(c, work, "character", x)
+        slot = ok(c.post(f"{lib}/cast", json={"role": x.split(" ", 1)[1][:60]}), "slot")[-1]
+        ok(c.post(f"{lib}/cast/{slot['id']}/lock", json={"library_item_id": item}), "lock")
     for x in case["places"]:
         library(c, work, "place", x)
-    body = {"brand_id": brand_id, "name": case["id"], "planned_seconds": planned}
-    base = f"/projects/{ok(c.post('/projects', json=body), 'project')['id']}"
-    ok(c.patch(base, json={"cast_ids": cast, "product_variants": variants or {}}), "brief")
-    ok(c.put(f"{base}/script", json={"text": script}), "script")
-    ok(c.post(f"{base}/breakdown"), "breakdown")
+    ok(c.post(f"{lib}/drafts/0/breakdown"), "breakdown preview")
     work()
+    preview = c.get(f"{lib}/drafts/0/breakdown").json()
+    problems.extend(f"breakdown: {p}" for p in preview["problems"] if not p.startswith("Advice: "))
+    ok(c.post(f"{lib}/drafts/0/approve"), "approve")
+    ok(c.post(f"{lib}/publish"), "publish")
+    made = ok(c.post(f"{lib}/drafts/0/produce"), "produce")
+    if made.get("breakdown_job_id") is not None:
+        problems.append("produce ran a new breakdown instead of using the saved one")
+    base = f"/projects/{made['project_id']}"
+    ok(c.patch(base, json={"product_variants": variants or {}}), "brief")
+    waiting = [a["role"] for a in c.get(f"{base}/assets").json() if not a["ready"]]
+    problems.extend(f"assets: {role} isn't ready" for role in waiting)
     bd = c.get(f"{base}/breakdown").json()
-    problems.extend(f"breakdown: {p}" for p in bd["problems"])
     seconds = [x["seconds"] for x in bd["breakdown"]["clips"]]
     print(f"  {len(seconds)} clips {seconds} = {sum(seconds)} s")
     ok(c.post(f"{base}/storyboard", json={"per_shot": False}), "storyboard")

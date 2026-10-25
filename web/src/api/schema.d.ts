@@ -1130,6 +1130,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/produce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Produce
+         * @description Start production of an approved version of a published script. Each version makes
+         *     one video, reserved for whoever starts it.
+         */
+        post: operations["produce_scripts__script_id__drafts__slot__produce_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/script/enhance": {
         parameters: {
             query?: never;
@@ -1635,6 +1656,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clips Zip */
+        get: operations["clips_zip_projects__project_id__clips_zip_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Assets
+         * @description Cast slots first (locked, then unlocked), then the breakdown's other characters and
+         *     its places, each once.
+         */
+        get: operations["list_assets_projects__project_id__assets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/slots/{slot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cast Slot
+         * @description Give an unlocked slot its character: it joins the cast, and the newest breakdown's
+         *     slot:N becomes char:M (saved as a new breakdown version).
+         */
+        put: operations["cast_slot_projects__project_id__assets_slots__slot_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/improve": {
         parameters: {
             query?: never;
@@ -1755,6 +1835,25 @@ export interface components {
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
+        };
+        /** AssetOut */
+        AssetOut: {
+            /** Kind */
+            kind: string;
+            /** Ref */
+            ref: string;
+            /** Role */
+            role: string;
+            /** Library Item Id */
+            library_item_id: number | null;
+            /** Name */
+            name: string;
+            /** Locked */
+            locked: boolean;
+            /** Sheet Status */
+            sheet_status: string;
+            /** Ready */
+            ready: boolean;
         };
         /** Body_upload_files_post */
         Body_upload_files_post: {
@@ -2613,6 +2712,13 @@ export interface components {
             /** Running */
             running: boolean;
         };
+        /** ProduceOut */
+        ProduceOut: {
+            /** Project Id */
+            project_id: number;
+            /** Breakdown Job Id */
+            breakdown_job_id: number | null;
+        };
         /** ProjectClipIn */
         ProjectClipIn: {
             /** Prompt */
@@ -3068,6 +3174,11 @@ export interface components {
              * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
+        };
+        /** SlotCastIn */
+        SlotCastIn: {
+            /** Library Item Id */
+            library_item_id: number;
         };
         /** SlotIn */
         SlotIn: {
@@ -5976,6 +6087,38 @@ export interface operations {
             };
         };
     };
+    produce_scripts__script_id__drafts__slot__produce_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProduceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     enhance_projects__project_id__script_enhance_post: {
         parameters: {
             query?: never;
@@ -6982,6 +7125,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clips_zip_projects__project_id__clips_zip_get: {
+        parameters: {
+            query?: {
+                all_takes?: boolean;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_assets_projects__project_id__assets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cast_slot_projects__project_id__assets_slots__slot_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotCastIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
                 };
             };
             /** @description Validation Error */
