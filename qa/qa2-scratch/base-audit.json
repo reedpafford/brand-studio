@@ -1,0 +1,122 @@
+{
+ "/b/1/projects": {
+  "sideways": 0,
+  "small": [
+   "a[40] New video"
+  ]
+ },
+ "/b/1/projects/new": {
+  "sideways": 0,
+  "small": [
+   "button[40] Create project"
+  ]
+ },
+ "/b/1/kit": {
+  "sideways": 0,
+  "small": [
+   "button[19] Add colour",
+   "button[19] Remove",
+   "button[40] Save changes"
+  ]
+ },
+ "/b/1/screens": {
+  "sideways": 0,
+  "small": [
+   "button[40] Add screen"
+  ]
+ },
+ "/b/1/library/characters": {
+  "sideways": 0,
+  "small": [
+   "a[40] Characters",
+   "a[40] Places",
+   "a[40] Props",
+   "button[40] New character"
+  ]
+ },
+ "/b/1/clip": {
+  "sideways": 0,
+  "small": [
+   "a[16] Download",
+   "button[42] Add brand piece",
+   "input[16] range"
+  ]
+ },
+ "/team": {
+  "sideways": 0,
+  "small": []
+ },
+ "/approvals": {
+  "sideways": 0,
+  "small": []
+ },
+ "/b/4/projects/1?stage=brief": {
+  "sideways": 0,
+  "small": [
+   "button[40] ✦ Enhance · 3 credits"
+  ]
+ },
+ "/b/4/projects/1?stage=brief (stage pane)": {
+  "sideways": 0,
+  "small": []
+ },
+ "/b/4/projects/1?stage=script": {
+  "sideways": 0,
+  "small": [
+   "button[40] ✦ Enhance · 3 credits"
+  ]
+ },
+ "/b/4/projects/1?stage=script (stage pane)": {
+  "sideways": 0,
+  "small": [
+   "button[40] ✦ Enhance · 3 credits"
+  ]
+ },
+ "/b/4/projects/1?stage=enhance": {
+  "sideways": 0,
+  "small": [
+   "button[40] ✦ Enhance · 3 credits"
+  ]
+ },
+ "/b/4/projects/1?stage=enhance (stage pane)": {
+  "sideways": 0,
+  "small": []
+ },
+ "/b/4/projects/1?stage=breakdown": {
+  "sideways": 0,
+  "small": [
+   "button[16] Show line 1 in the breakdown",
+   "button[16] Show line 2 in the breakdown",
+   "button[16] Show line 3 in the breakdown",
+   "button[16] Show line 4 in the breakdown",
+   "button[16] Show line 5 in the breakdown",
+   "button[40] ✦ Enhance · 3 credits"
+  ]
+ },
+ "/b/4/projects/1?stage=breakdown (stage pane)": {
+  "sideways": 0,
+  "small": []
+ },
+ "/b/4/projects/1?stage=storyboard": {
+  "sideways": 0,
+  "small": [
+   "button[40] ✦ Enhance · 3 credits"
+  ]
+ },
+ "/b/4/projects/1?stage=storyboard (stage pane)": {
+  "sideways": 0,
+  "small": [
+   "button[42] Redo storyboard · 3 credits"
+  ]
+ },
+ "/b/4/projects/1?stage=clips": {
+  "sideways": 0,
+  "small": [
+   "button[40] ✦ Enhance · 3 credits"
+  ]
+ },
+ "/b/4/projects/1?stage=clips (stage pane)": {
+  "sideways": 0,
+  "small": []
+ }
+}
