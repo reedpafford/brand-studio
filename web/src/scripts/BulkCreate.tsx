@@ -4,7 +4,7 @@ import { ClipboardPaste, Plus, X } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
-import { Badge, Banner, Button, Field, Panel, Select, TextArea } from "../components";
+import { Badge, Banner, Button, Field, Panel, Select, TextArea, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { weekStop } from "./useScript";
 import { errorText as errorClass } from "../ui";
@@ -97,7 +97,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
             </p>
             {estimate.data && (
               <p className="text-sm text-muted">
-                About {Math.round(estimate.data.credits)} credits ({estimate.data.count} script{estimate.data.count === 1 ? "" : "s"} × {Math.round(estimate.data.credits / Math.max(estimate.data.count, 1))})
+                About {wholeCredits(estimate.data.credits)} credits ({estimate.data.count} script{estimate.data.count === 1 ? "" : "s"} × {wholeCredits(estimate.data.credits / Math.max(estimate.data.count, 1))})
               </p>
             )}
           </div>

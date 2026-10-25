@@ -927,3 +927,11 @@ test("the server's own words for a problem are shown (a silent video isn't calle
   expect(screen.queryByText(/isn't a video we can read/)).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Choose another file" })).toBeInTheDocument();
 });
+
+test("the estimate in words rounds up like the button's price", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ estimate: est(6.4) })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("Reading it costs about 7 credits.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Read this reel.*7 credits/ })).toBeInTheDocument();
+});

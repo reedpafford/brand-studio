@@ -4,7 +4,7 @@ import { Check, CircleAlert, Film, Link as LinkIcon, LoaderCircle, Upload } from
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Button, Card, Field } from "../components";
+import { Button, Card, Field, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
@@ -252,7 +252,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
             </p>
             <p className="text-sm text-muted">{facts}</p>
             {r.url && <p className="truncate text-sm text-muted">{r.url.replace(/^https?:\/\/(www\.)?/, "")}</p>}
-            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs about ${Math.round(r.estimate.credits)} credits. A step that is run again is charged again.` : `Reading it costs about ${Math.round(r.estimate.credits)} credits.`}</p>}
+            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs about ${wholeCredits(r.estimate.credits)} credits. A step that is run again is charged again.` : `Reading it costs about ${wholeCredits(r.estimate.credits)} credits.`}</p>}
           </div>
         </div>
         {r.status === "failed" && (
