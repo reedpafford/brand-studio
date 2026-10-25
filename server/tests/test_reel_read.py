@@ -36,7 +36,11 @@ def _ready(app, client, db, clip) -> str:
 def test_one_price_then_watch_write_and_cast_in_turn(app, owner, db, clip):
     url = _ready(app, owner, db, clip)
     ready = owner.get(f"{url}/import").json()
-    assert ready["status"] == "ready" and ready["estimate"] == {"credits": 7, "credits_left": None}
+    assert ready["status"] == "ready" and ready["estimate"] == {
+        "credits": 7,
+        "credits_left": None,
+        "tries": 0,
+    }
     started = owner.post(f"{url}/import/read")
     assert started.status_code == 201 and started.json()["status"] == "reading"
     _drain(app, db)
@@ -64,7 +68,11 @@ def test_an_editor_past_the_allowance_runs_nothing(app, owner, editor, db, clip)
         "/credits/limits", json={"weekly_quick_clip_credits": 5, "per_video_max_credits": 729}
     )
     url = _ready(app, editor, db, clip)
-    assert editor.get(f"{url}/import").json()["estimate"] == {"credits": 7, "credits_left": 5}
+    assert editor.get(f"{url}/import").json()["estimate"] == {
+        "credits": 7,
+        "credits_left": 5,
+        "tries": 0,
+    }
     declined = editor.post(f"{url}/import/read")
     assert declined.status_code == 409
     assert declined.json()["detail"] == "This reel needs 7 credits; you have 5 left this week."
@@ -93,6 +101,7 @@ def test_a_failed_watch_stops_and_a_new_press_retries_from_it(app, owner, db, cl
     assert (failed["status"], failed["failed_step"]) == ("failed", "watch")
     assert failed["problem"].startswith("Finding the shots didn't finish")
     assert failed["estimate"]["credits"] == 7 and db.query(Job).count() == 2  # no write queued
+    assert failed["estimate"]["tries"] == 1  # the screen warns a retry is charged again
     monkeypatch.setattr(check, "reel_watch", lambda w, c, t: [])
     assert owner.post(f"{url}/import/read").status_code == 201
     _drain(app, db)
@@ -132,3 +141,32 @@ def test_new_lines_tells_the_writer_and_skips_the_word_check(app, owner, db, cli
     assert "<new_lines>true</new_lines>" in _write_job(db).input["prompt"]
     problems = owner.get(f"/scripts/{sid}").json()["versions"][0]["problems"]
     assert not any("changed or missing" in p for p in problems)
+
+
+def test_the_whole_read_is_held_against_the_allowance_until_it_runs(app, owner, editor, db, clip):
+    """QA on #292: pressing Read holds all 7 credits, so nothing else can spend them first."""
+    owner.put(
+        "/credits/limits", json={"weekly_quick_clip_credits": 7, "per_video_max_credits": 729}
+    )
+    url = _ready(app, editor, db, clip)
+    other = _upload(editor, clip).json()["script_id"]
+    _drain(app, db)
+    assert editor.post(f"{url}/import/read").status_code == 201  # only its watch is queued
+    assert editor.get(f"/scripts/{other}/import").json()["estimate"]["credits_left"] == 0
+    over = editor.post(f"/scripts/{other}/write")
+    assert over.status_code == 409 and "credits" in over.json()["detail"]
+    _drain(app, db)
+    assert editor.get(f"{url}/import").json()["status"] == "done"  # its steps all ran
+
+
+def test_a_stopped_read_holds_nothing(app, owner, editor, db, clip, monkeypatch):
+    owner.put(
+        "/credits/limits", json={"weekly_quick_clip_credits": 10, "per_video_max_credits": 729}
+    )
+    url = _ready(app, editor, db, clip)
+    monkeypatch.setattr(check, "reel_watch", lambda w, c, t: ["shot 2 is missing"])
+    editor.post(f"{url}/import/read")
+    _drain(app, db)
+    status = editor.get(f"{url}/import").json()
+    assert status["failed_step"] == "watch"
+    assert status["estimate"]["credits_left"] == 9  # only the watch that ran is spent

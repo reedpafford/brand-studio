@@ -10,6 +10,7 @@ import re
 from decimal import Decimal
 
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import prompts, script_write
@@ -52,6 +53,23 @@ def state(db: Session, script: Script) -> tuple[str, str | None]:
     if reel.get("failed_step"):
         return "failed", reel["failed_step"]
     return ("ready" if remaining(script) else "done"), None
+
+
+def held(db: Session, user: User) -> Decimal:
+    """Credits held for the reel-read steps this person already paid for that aren't queued
+    yet: while a chain step runs, the steps after it. A chain that fails or stops holds
+    nothing, so nothing has to be given back."""
+    running = (
+        select(Script)
+        .join(Job, Job.id == Script.reel_job_id)
+        .where(Job.created_by_id == user.id, Job.status.in_(WAITING), Job.kind != "reel_prepare")
+    )
+    total = Decimal(0)
+    for script in db.scalars(running):
+        job = db.get(Job, script.reel_job_id)
+        later = [s for s in remaining(script) if s != job.input.get("reel_step")]
+        total += price(db, user, later)
+    return total
 
 
 def remaining(script: Script) -> list[str]:
@@ -108,7 +126,8 @@ def queue(db: Session, user: User, script: Script, step: str, prepaid: bool = Fa
     provider = "replicate" if step == "watch" else "claude"
     data = _job_input(db, script, step)
     job = enqueue(db, user, KIND[step], data, provider=provider, prepaid=prepaid)
-    script.reel = {k: v for k, v in script.reel.items() if k != "failed_step"}
+    tries = {**script.reel.get("tries", {}), step: script.reel.get("tries", {}).get(step, 0) + 1}
+    script.reel = {k: v for k, v in script.reel.items() if k != "failed_step"} | {"tries": tries}
     script.reel_job_id = job.id
     db.commit()
     return job
