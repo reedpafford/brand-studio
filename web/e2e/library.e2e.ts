@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { image, onBrand, signIn } from "./helpers";
+import { image, onBrand, signIn, switchBrand } from "./helpers";
 
 const MP3 = { name: "voice.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("ID3" + "0".repeat(32)) };
 
@@ -9,7 +9,7 @@ test.describe.configure({ mode: "serial" });
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
-  await page.getByRole("link", { name: "Library" }).click();
+  await page.getByRole("link", { name: "Cast & places" }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
 });
 
@@ -36,7 +36,7 @@ test("search narrows the list by name", async ({ page }) => {
 });
 
 test("a character is not in another brand's library", async ({ page }) => {
-  await page.getByLabel("Brand").selectOption({ label: "Iron Paws" });
+  await switchBrand(page, "Iron Paws");
   await expect(page.getByText("No characters for this brand yet.")).toBeVisible();
 });
 
@@ -53,7 +53,7 @@ test("editing keeps history, and an old version can be restored", async ({ page 
 
 test("a character always keeps at least one brand", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
-  await page.getByLabel("fomo").uncheck();
+  await page.getByLabel("fomo", { exact: true }).uncheck();
   await expect(page.getByText("Pick at least one brand.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
 });

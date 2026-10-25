@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("brand kit text is saved and still there after a reload", async ({ page }) => {
-  await page.getByRole("link", { name: "Kit" }).click();
+  await page.getByRole("link", { name: "Brand", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
   await page.getByLabel("Tone of voice").fill("Calm, confident, never hype.");
   await page.getByLabel("Never say (one per line)").fill("guaranteed returns\nget rich quick");
@@ -32,7 +32,7 @@ test("brand kit text is saved and still there after a reload", async ({ page }) 
 });
 
 test("an uploaded logo shows and survives a reload", async ({ page }) => {
-  await page.getByRole("link", { name: "Kit" }).click();
+  await page.getByRole("link", { name: "Brand", exact: true }).click();
   await page.getByLabel("Logo file").setInputFiles(image("logo.png"));
   await expect(page.getByRole("img", { name: "Logo" })).toBeVisible();
   await saveKit(page);
@@ -42,7 +42,8 @@ test("an uploaded logo shows and survives a reload", async ({ page }) => {
 });
 
 test("a brand screen can be added with tags and a moment", async ({ page }) => {
-  await page.getByRole("link", { name: "Screens" }).click();
+  await page.getByRole("link", { name: "Brand", exact: true }).click();
+  await page.getByRole("tab", { name: "App screens" }).click();
   await expect(page.getByText("No brand screens yet.")).toBeVisible();
   await page.getByRole("button", { name: "Add screen" }).click();
   await page.getByLabel("Screen image").setInputFiles(image("buy-flow.png"));
@@ -57,7 +58,8 @@ test("a brand screen can be added with tags and a moment", async ({ page }) => {
 });
 
 test("a brand screen can be deleted", async ({ page }) => {
-  await page.getByRole("link", { name: "Screens" }).click();
+  await page.getByRole("link", { name: "Brand", exact: true }).click();
+  await page.getByRole("tab", { name: "App screens" }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete buy-flow" }).click();
   await expect(page.getByText("No brand screens yet.")).toBeVisible();

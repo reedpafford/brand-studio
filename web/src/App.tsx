@@ -8,8 +8,7 @@ import { ProjectsPage } from "./projects/ProjectsPage";
 import { ClipPage } from "./clip/ClipPage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
-import { KitPage } from "./brand/KitPage";
-import { ScreensPage } from "./brand/ScreensPage";
+import { BrandPage, ToBrand } from "./brand/BrandPage";
 import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
 import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
@@ -28,8 +27,9 @@ export function App() {
           <Route path="b/:brandId/projects" element={<ProjectsPage />} />
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
           <Route path="b/:brandId/projects/:projectId" element={<ProjectPage />} />
-          <Route path="b/:brandId/kit" element={<KitPage />} />
-          <Route path="b/:brandId/screens" element={<ScreensPage />} />
+          <Route path="b/:brandId/brand" element={<BrandPage />} />
+          <Route path="b/:brandId/kit" element={<ToBrand />} />
+          <Route path="b/:brandId/screens" element={<ToBrand tab="screens" />} />
           <Route path="b/:brandId/library" element={<Navigate to="characters" replace />} />
           <Route path="b/:brandId/library/:kindSlug" element={<LibraryPage />} />
           <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />

@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { setViewport } from "../test/viewport";
 
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { ...owner, id: 2, name: "Eli", role: "editor" };
@@ -89,7 +90,8 @@ test("with nothing waiting it says so", async () => {
   expect(await screen.findByText("Nothing waiting.")).toBeInTheDocument();
 });
 
-test("the owner sees a count on Approvals in the top nav, an editor sees no Approvals link", async () => {
+test("the owner sees a count on Approvals in the top bar and the rail; an editor sees no Approvals link", async () => {
+  setViewport(1440);
   fakeServer({ ...base });
   open("/b/1/projects");
   const nav = await screen.findByRole("navigation", { name: "Main" });
@@ -97,11 +99,13 @@ test("the owner sees a count on Approvals in the top nav, an editor sees no Appr
 });
 
 test("an editor's navigation has no Approvals", async () => {
+  setViewport(1440);
   fakeServer({ ...base, "GET /auth/me": [200, editor] });
   open("/b/1/projects");
   const nav = await screen.findByRole("navigation", { name: "Main" });
-  await within(nav).findByRole("link", { name: "Projects" });
+  await within(nav).findByRole("link", { name: "Videos" });
   expect(within(nav).queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
 });
 
 test("a Quick clip row says Quick clip once", async () => {

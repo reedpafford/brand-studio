@@ -7,3 +7,4 @@ export { Banner, EmptyState, Skeleton } from "./Feedback";
 export { StepPicker, Tabs, type Step, type StepState, type Tab } from "./Nav";
 export { Dialog, Sheet, SidePanel } from "./Overlay";
 export { ToastProvider, useToast } from "./Toast";
+export { Menu, MenuItem } from "./Menu";

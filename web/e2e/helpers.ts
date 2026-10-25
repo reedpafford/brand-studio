@@ -21,7 +21,7 @@ export async function openAccountMenu(page: Page) {
 export async function expectSignedInAs(page: Page, name: string) {
   await openAccountMenu(page);
   await expect(page.getByRole("banner").getByText(name, { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   await page.keyboard.press("Escape");
 }
 
@@ -44,8 +44,14 @@ export async function emptyBrand(page: Page, name = "Night Owl"): Promise<number
   return brands.find((b: { name: string }) => b.name === name).id;
 }
 
-/** A brand's home is its Projects list; the brand name only shows in the Brand select. */
+/** A brand's home is its Videos list; the brand name shows in the switcher button in the top bar. */
 export async function onBrand(page: Page, name: string) {
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-  await expect(page.getByLabel("Brand").locator("option:checked")).toHaveText(name);
+  await expect(page.getByRole("button", { name: `Brand: ${name}` })).toBeVisible();
+}
+
+/** The brand switcher is a menu: open it, pick the brand. */
+export async function switchBrand(page: Page, name: string) {
+  await page.getByRole("button", { name: /^Brand: / }).click();
+  await page.getByRole("menuitemradio", { name }).click();
 }
