@@ -56,26 +56,27 @@ afterEach(() => vi.unstubAllGlobals());
 test("with no breakdown it offers to make one and shows the cost", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "POST /projects/9/breakdown": [201, { id: 8, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
   open();
-  expect(await screen.findByText("No breakdown yet.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Make breakdown · 6 credits" }));
+  expect(await screen.findByText("No shots yet")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Make shots · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown")).toBe(true));
-  expect(await screen.findByText("Breaking down your script…")).toBeInTheDocument();
+  expect(await screen.findByText(/Planning shots…/)).toBeInTheDocument();
 });
 
 test("the breakdown shows scenes, clips and shots with names, the spoken line and the star screens", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
   open();
   expect(await screen.findByText(/Hook: “Mia's coffee freezes mid-air as the chart drops\.”/)).toBeInTheDocument();
-  expect(screen.getByText("1 scene · 2 shots · 1 clip · 5 s (planned 30 s)")).toBeInTheDocument();
+  expect(screen.getByText(/1 scene · 2 shots · 1 clip · 5 s of 30 s planned/)).toBeInTheDocument();
   const clip = screen.getByLabelText("Clip c1");
   expect(within(clip).getByText("Clip c1 · 5 s")).toBeInTheDocument();
-  expect(within(clip).getByText("end")).toBeInTheDocument();
+  expect(within(clip).getByText("End")).toBeInTheDocument();
+  expect(within(clip).getByText("End line")).toBeInTheDocument();
   const second = within(clip).getByLabelText("Shot 1.2");
   expect(within(second).getByText("MIA: “Wait… it dipped?”")).toBeInTheDocument();
   expect(within(second).getByText("Reaction: eyes snap wide")).toBeInTheDocument();
-  expect(within(second).getByText("★ Chart down")).toBeInTheDocument();
-  expect(within(clip).getAllByText("● Mia")).toHaveLength(2);
-  expect(within(clip).getAllByText("⌂ Kitchen")).toHaveLength(2);
+  expect(within(second).getByText("Chart down")).toBeInTheDocument();
+  expect(within(clip).getAllByText("Mia")).toHaveLength(2);
+  expect(within(clip).getAllByText("Kitchen")).toHaveLength(2);
 });
 
 test("problems are listed in plain words and stop Next, with the reason", async () => {
@@ -91,8 +92,8 @@ test("problems are listed in plain words and stop Next, with the reason", async 
 test("a breakdown made for an older script is flagged and offers a new one", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ script_version: 3, stale: true })] });
   open();
-  expect(await screen.findByText("Made for script v3. The script is now v5.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make a new breakdown · 6 credits" })).toBeInTheDocument();
+  expect(await screen.findByText("These shots were made for an older script.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make new shots · 6 credits" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveAccessibleDescription("Make new shots first");
 });
 
@@ -157,16 +158,18 @@ test("picking a moment adds the screens that are always used for it", async () =
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
   await userEvent.selectOptions(screen.getByLabelText("Shot 1.1 moment"), "loss");
-  expect(within(screen.getByLabelText("Shot 1.1")).getAllByText("★ Chart down").length).toBeGreaterThan(0);
+  expect(within(screen.getByLabelText("Shot 1.1")).getAllByText("Chart down").length).toBeGreaterThan(0);
 });
 
 test("Split cuts a clip after a shot and Join puts it back together; ids and seconds follow", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Split clip c1 after shot 1.1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "More for shot 1.1" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Split clip c1 after shot 1.1" }));
   expect(screen.getByText("Clip c1 · 3 s")).toBeInTheDocument();
   expect(screen.getByText("Clip c2 · 3 s")).toBeInTheDocument(); // 2.5 rounded up
-  await userEvent.click(screen.getByRole("button", { name: "Join clip c1 with the next clip" }));
+  await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Join clip c1 with the next clip" }));
   expect(screen.getByText("Clip c1 · 6 s")).toBeInTheDocument();
   expect(screen.queryByText(/Clip c2/)).not.toBeInTheDocument();
 });
@@ -273,12 +276,12 @@ test("a breakdown run is recognised by its step, even after a reload; an Enhance
   const running = (step: string) => [{ id: 3, kind: "write-claude", step, status: "running", credits: 6, project_id: 9, created_at: "2026-10-23T10:00:00Z" }];
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("breakdown")] });
   open();
-  expect(await screen.findByText("Breaking down your script…")).toBeInTheDocument();
+  expect(await screen.findByText(/Planning shots…/)).toBeInTheDocument();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("enhance")] });
   open();
-  expect(await screen.findByText("No breakdown yet.")).toBeInTheDocument();
+  expect(await screen.findByText("No shots yet")).toBeInTheDocument();
 });
 
 test("every tap target on a shot is at least 44px tall below the sm width", async () => {
@@ -286,7 +289,7 @@ test("every tap target on a shot is at least 44px tall below the sm width", asyn
   open();
   for (const name of ["Edit shot 1.1", "Go to: Shot 1.2 is a loss moment but shows no fomo screen.", "Show line 2 in the script"]) {
     const el = await screen.findByRole("button", { name });
-    expect(el.className).toContain("min-h-11");
+    expect(el.className).toContain("min-h-control");
   }
   await userEvent.click(screen.getByRole("button", { name: "Edit shot 1.1" }));
   const mia = screen.getByLabelText("Mia");

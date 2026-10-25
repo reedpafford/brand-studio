@@ -3,7 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useJobs } from "../clip/History";
-import { btnPrimary, btnSecondary, card, errorText as errorClass } from "../ui";
+import { Clapperboard, RotateCcw } from "lucide-react";
+import { Badge, Banner, Button, EmptyState, Skeleton } from "../components";
+import { Elapsed } from "../clip/History";
+import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -64,8 +67,6 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
     const key = `${kind === "char" ? "character" : kind}-${n}`;
     return pieces.find((p) => p.key === key)?.name ?? id;
   };
-  const price = cost === undefined ? "" : ` · ${cost} credits`;
-
   if (current.isPending) return <p className="text-muted">Loading…</p>;
   if (current.isError) return <p role="alert" className={errorClass}>Could not load the breakdown. Try again.</p>;
   const row = current.data;
@@ -73,38 +74,54 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   // Paid buttons say so when this call would take the project past its budget; the server then holds it for approval.
   const overBudget = cost !== undefined && props.used + cost > props.budget;
   const makeButton = (label: string, opts: { ask?: string; primary?: boolean } = {}) => (
-    <button
-      className={`${opts.primary ? btnPrimary : btnSecondary} min-h-11 sm:min-h-9`}
-      disabled={running || make.isPending || asked}
+    <Button
+      variant={opts.primary ? "primary" : "secondary"}
+      icon={label === "Redo" ? RotateCcw : undefined}
+      price={cost}
+      ask={overBudget}
+      busy={make.isPending}
+      disabled={running || asked}
       onClick={() => {
         if (opts.ask && !window.confirm(opts.ask)) return;
         setAsked(false);
         make.mutate();
       }}
     >
-      {overBudget ? "Ask Reed to approve" : label}
-      {price}
-    </button>
+      {label}
+    </Button>
   );
   const problem = make.error ? <p role="alert" className={errorClass}>{make.error.message}</p> : null;
 
   if (running)
     return (
-      <section className={`${card} space-y-3`} aria-label="Breakdown">
-        <p className="text-muted">{mine?.status === "needs_owner_approval" ? "Waiting for Reed to approve" : "Breaking down your script…"}</p>
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-16 rounded-md bg-surface-2" aria-hidden />
+      <section className="space-y-3" aria-label="Shots">
+        {mine?.status === "needs_owner_approval" ? (
+          <Badge tone="warning">Waiting for Reed to approve</Badge>
+        ) : (
+          <p className="text-sm text-muted" role="status">
+            Planning shots…{" "}
+            {mine && <Elapsed since={mine.created_at} />}
+          </p>
+        )}
+        {[0, 1].map((i) => (
+          <Skeleton key={i} className="h-40" />
         ))}
       </section>
     );
 
   if (!row)
     return (
-      <section className={`${card} space-y-3`} aria-label="Breakdown">
-        <p className="text-[length:var(--text-xl)] font-semibold">No breakdown yet.</p>
-        <p className="text-muted">Claude splits your script into scenes, shots and clips. Nothing is generated yet.</p>
-        {failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
-        {makeButton(failed ? "Try again" : "Make breakdown", { primary: true })}
+      <section className="space-y-3" aria-label="Shots">
+        {failed && (
+          <Banner title="The shots didn't finish." action={makeButton("Try again")}>
+            Nothing was charged.
+          </Banner>
+        )}
+        {!failed && (
+          <EmptyState icon={Clapperboard} title="No shots yet" action={makeButton("Make shots", { primary: true })}>
+            Claude splits your script into scenes, shots and clips. Nothing is filmed yet.
+          </EmptyState>
+        )}
         {problem}
       </section>
     );
