@@ -1,19 +1,13 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Ellipsis, Undo2 } from "lucide-react";
-import createClient from "openapi-fetch";
-import { errorText } from "../api/client";
+import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Dialog, Menu, MenuItem } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
 export type VideoTarget = { id: number; name: string; letter?: string; creditsUsed: number };
-
-// The release, archive and restore routes, until the server's schema has them (then these go and `api` is used).
-type Post = { post: { parameters: { path: { project_id: number } }; responses: { 200: { content: never }; 204: { content: never } } } };
-type Paths = { "/projects/{project_id}/release": Post; "/projects/{project_id}/archive": Post; "/projects/{project_id}/restore": Post };
-const videos = createClient<Paths>({ baseUrl: `${location.origin}/api`, credentials: "include", fetch: (req) => fetch(req) });
 
 /** Reed on any video; an editor on the ones they made. */
 export function useMayManageVideo() {
@@ -32,7 +26,7 @@ export function useVideoActions(onGone?: () => void) {
   const close = () => (setAsk(null), setProblem(null));
 
   const undo = (t: VideoTarget) => async () => {
-    const { error, response } = await videos.POST("/projects/{project_id}/restore", { params: { path: { project_id: t.id } } });
+    const { error, response } = await api.POST("/projects/{project_id}/restore", { params: { path: { project_id: t.id } } });
     if (!response.ok) return toast(errorText(error) || `Couldn't bring "${t.name}" back.`, undefined, "error");
     await refresh();
     toast(`Brought back "${t.name}".`);
@@ -42,7 +36,7 @@ export function useVideoActions(onGone?: () => void) {
     const { kind, target: t } = ask;
     setBusy(true);
     setProblem(null);
-    const { error, response } = await videos.POST(kind === "release" ? "/projects/{project_id}/release" : "/projects/{project_id}/archive", { params: { path: { project_id: t.id } } });
+    const { error, response } = await api.POST(kind === "release" ? "/projects/{project_id}/release" : "/projects/{project_id}/archive", { params: { path: { project_id: t.id } } });
     setBusy(false);
     if (!response.ok) return setProblem(errorText(error));
     close();
