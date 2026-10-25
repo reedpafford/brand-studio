@@ -529,6 +529,88 @@
      "brindle"
     ]
    }
+  },
+  {
+   "id": "fomo-altar-variations",
+   "brand": "fomo",
+   "steps": [
+    "variations"
+   ],
+   "brief": "Two variations of the approved fomo altar remake (the done-test script).",
+   "cast": [
+    "char:1 Nate, the groom",
+    "char:2 Mia, the bride"
+   ],
+   "places": [],
+   "script": [
+    "SCENE 1 — INT. CHAPEL — DAY",
+    "NATE: I do.",
+    "MIA: HELL NO!",
+    "Mia throws the ring at Nate's feet and points at a rich man in the front row.",
+    "MIA: I'm marrying him!",
+    "NATE: What?!",
+    "Mia drives off with the rich man in a silver supercar. Nate stands alone at the altar and picks up the ring.",
+    "Nate slides the ring onto his finger. Flashback: Mia, smiling, holds his hands.",
+    "MIA: I can't wait to spend forever with you.",
+    "MIA (V.O.): Forever with you.",
+    "SCENE 2 — INT. NATE'S BEDROOM — NIGHT",
+    "★ fomo screen: Token chart down — on Nate's phone",
+    "Wordless montage, Nate in every shot, trading his way up: Nate trading on his phone at night, the win, keys dropped into his palm, Nate behind the wheel, Nate pushing open a penthouse door in a black suit.",
+    "★ fomo screen: Token chart up — fills the frame, a phone ding",
+    "SCENE 3 — INT. PENTHOUSE — NIGHT, TWO YEARS LATER",
+    "★ fomo screen: Home — the portfolio balance reads $348,920.15, on Nate's phone",
+    "Mia and the rich man spot Nate across the party.",
+    "MIA: Nate? Nate?",
+    "MIA: Huh?!",
+    "Women gather around Nate by the glass. He smiles.",
+    "NATE: Sorry, I'm fully booked.",
+    "NATE: Want to trade like me? Download fomo through the link in my bio."
+   ],
+   "count": 2,
+   "good": [
+    "Each plays the same arc (dumped for a richer man, the grind, the reversal, the smug payoff) with its own premise, e.g. the car he gifted, and a payoff that fits it.",
+    "The fomo screens and the montage stay, with new wealth payoffs; Nate and Mia stay; it ends on the end line.",
+    "The two premises differ from each other and from the original."
+   ],
+   "expect": {}
+  },
+  {
+   "id": "ironpaws-pitbull1-variations",
+   "brand": "iron-paws-pb",
+   "steps": [
+    "variations"
+   ],
+   "brief": "One variation of Iron Paws Pitbull 1 (voiceover, the peanut-butter bag).",
+   "cast": [
+    "char:1 Bruno, the pitbull (narrator)"
+   ],
+   "places": [],
+   "script": [
+    "Crusty eyes every morning. That is my gut breaking down.",
+    "Paws that never stop getting licked. That is also my gut breaking down.",
+    "Shedding that never slows down. That is my gut breaking down too.",
+    "Every night I would lick my paws and she would tell me to stop. I could not stop.",
+    "Every morning she would wipe the crust from my eyes and go make her coffee like it was just part of the routine.",
+    "Every week she would vacuum my fur off the couch, look at the pile, and wonder why it never slowed down.",
+    "She tried sprays. She tried shampoos. She switched my food twice. I watched her try everything. Nothing worked. She thought it was just how I was. And I had no way to tell her it was not.",
+    "All three of those were coming from the same place. My gut. When the bacterial balance in my gut collapses, my body loses the ability to filter toxins and keep inflammation under control. So it starts pushing everything it cannot handle out through every exit it has. The toxins came out through my eyes every night while I slept. The inflammation came out through my skin and settled in my paws. And my coat lost everything it needed to stay healthy. She was treating what she could see. But the source never changed.",
+    "Then one night she found something. A greens powder called Iron Paws. What made it different is that it did not go after the symptoms. It went after the gut where all of it was actually starting. It had the probiotics to rebuild the bacterial balance my gut had lost. Chlorella to flush out the toxins that had been spilling out through my eyes and skin. And chicory root to stabilize my gut lining so everything could finally rebuild from the inside.",
+    "She mixed it into my food that Thursday night without saying much. Peanut butter flavor. I finished the bowl before she even put it down.",
+    "★ Iron Paws product: Peanut butter bag — she scoops it into my bowl",
+    "A few weeks went by. One morning she came to wipe my eyes and stopped. There was nothing to wipe. She looked down at my paws. No redness. She ran her hand along my coat and just held it there for a second. Then she sat down next to me and said she was sorry she did not figure it out sooner. I licked her hand. We were good.",
+    "Human grade. Vet formulated. More than 3000 five star reviews on Amazon and over 10,000 dog owners added it to their routine last month alone.",
+    "You just did not know what the signs meant. But now you do. The link is below. Your pup has been waiting on you."
+   ],
+   "count": 1,
+   "never_say": [
+    "chicken"
+   ],
+   "good": [
+    "Still the dog's own voiceover, a different way into the same story: the signs, the failed fixes, the gut, the powder, the morning there's nothing to wipe.",
+    "The peanut-butter bag ★ line at the feeding moment; never the chicken flavour.",
+    "About the same length as the original."
+   ],
+   "expect": {}
   }
  ]
 }

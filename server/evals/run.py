@@ -1,8 +1,9 @@
 """Run the eval cases through Claude and save each answer for `score.py`. PAID: one run is
 12 calls (about $2). Only with the Producer's go-ahead, logged in ops/SPEND.md.
 
-Usage (from server/): python -m evals.run <out dir> [--cap-usd 2] [--cases id ...]
-Key from STUDIO_ANTHROPIC_KEY. Stops before the next call once the cap is reached."""
+Usage (from server/): python -m evals.run <out dir> [--cap-usd 2] [--cases id ...] [--print]
+Key from STUDIO_ANTHROPIC_KEY. Stops before the next call once the cap is reached.
+--print is free: it writes each first-round prompt to <case>.<step>.prompt.txt and calls nothing."""
 
 import argparse
 import json
@@ -13,7 +14,14 @@ from pathlib import Path
 
 from app.catalogue import get_model
 from app.claude import ask, make_client
-from app.prompts import SCHEMAS, brand_block, number_lines, reference_block, system
+from app.prompts import (
+    SCHEMAS,
+    brand_block,
+    number_lines,
+    reference_block,
+    system,
+    variations_input,
+)
 from evals.score import CASES
 
 # Room for long scripts (claude.ask streams, so this can exceed the unstreamed limit).
@@ -56,7 +64,9 @@ def video_model() -> str:
     )
 
 
-def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) -> None:
+def run_case(
+    client, case: dict, out: Path, spent: list[Decimal], cap: Decimal, dry: bool = False
+) -> None:
     brand = CASES["brands"][case["brand"]]
     brand_text = brand_block(brand["brand"], brand["screens"], brand.get("product"))
     cast = "<cast>\n" + "\n".join(case["cast"]) + "\n</cast>"
@@ -69,17 +79,21 @@ def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) 
         reference = "\n" + reference_block(json.loads(path.read_text()), ref["replace"])
     answers = {}
     for step in case["steps"]:
-        if sum(spent) >= cap:
+        if not dry and sum(spent) >= cap:
             sys.exit(f"Stopped: spent ${sum(spent):.2f}, cap ${cap}.")
         if step == "enhance":
             prompt = f"{brief}\n{cast}\n<script>\n{number_lines(script)}\n</script>"
         elif step == "script_draft":
             prompt = f"{brief}\n{cast}{reference}"
+        elif step == "variations":
+            prompt = variations_input(script, case["cast"], case["count"], reference.strip())
         elif step == "breakdown":
             (out / f"{case['id']}.script.txt").write_text(script)
             prompt = f"{brief}\n{cast}\n{places}\n{video_model()}{reference}\n"
             prompt += f"<script>\n{number_lines(script)}\n</script>"
         else:  # clip_prompts
+            if dry:  # needs the breakdown's answer
+                return
             bd = answers["breakdown"]
             screens = [
                 f'screen:{s["id"]} {brand["brand"]["name"]} "{s["name"]}"' for s in brand["screens"]
@@ -90,6 +104,11 @@ def run_case(client, case: dict, out: Path, spent: list[Decimal], cap: Decimal) 
             assets = case["cast"] + case["places"] + screens + frames
             prompt = f"{video_model()}\n<assets>\n" + "\n".join(assets) + "\n</assets>\n"
             prompt += f"<breakdown>\n{bd.model_dump_json()}\n</breakdown>"
+        if dry:
+            text = f"=== SYSTEM\n{system(step)}\n\n{brand_text}\n\n=== USER\n{prompt}\n"
+            (out / f"{case['id']}.{step}.prompt.txt").write_text(text)
+            print(f"{case['id']}.{step}: prompt written (free)", flush=True)
+            continue
         answer = ask(
             client,
             system=[system(step), brand_text],
@@ -112,15 +131,16 @@ def main() -> None:
     parser.add_argument("out", type=Path)
     parser.add_argument("--cap-usd", type=Decimal, default=Decimal(2))
     parser.add_argument("--cases", nargs="*", help="only these case ids (default: all)")
+    parser.add_argument("--print", action="store_true", help="write prompts only; no calls")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    client = make_client(os.environ.get("STUDIO_ANTHROPIC_KEY", ""))
+    client = None if args.print else make_client(os.environ.get("STUDIO_ANTHROPIC_KEY", ""))
     spent: list[Decimal] = []
     for case in CASES["cases"]:
         if args.cases and case["id"] not in args.cases:
             continue
         try:
-            run_case(client, case, args.out, spent, args.cap_usd)
+            run_case(client, case, args.out, spent, args.cap_usd, args.print)
         except Exception as exc:  # noqa: BLE001 - keep going; a failed case is a result
             print(f"{case['id']}: FAILED {exc}", flush=True)
     total = sum(spent)

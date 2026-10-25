@@ -93,6 +93,11 @@ def score(out: Path, case: dict) -> list[str]:
                          for w in exp.get("clip_absent", []) if w in shown]  # fmt: skip
             problems += [f"clip prompts never say '{w}'"
                          for w in exp.get("clip_present", []) if w not in shown]  # fmt: skip
+    if v := answers.get("variations"):
+        never = brand["brand"].get("never_say", []) + case.get("never_say", [])
+        names = [c.split(" ", 1)[1].split(",")[0].split(" (")[0] for c in case["cast"]]
+        end = brand["brand"].get("end_line", "")
+        problems += check.variations(script, v, screens, end, never, case["count"], names)
     saved = " ".join(a.model_dump_json() for a in answers.values()).lower()
     problems += [
         f"copies '{w}' from the reference" for w in exp.get("forbid", []) if w.lower() in saved

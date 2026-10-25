@@ -1,5 +1,6 @@
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -134,6 +135,74 @@ def test_breakdown_check_keeps_a_clip_to_three_screens():
     shot.screen_ids = ["screen:1"]
     assert check.breakdown(script, bd, FOMO, 4, 30) == [
         "clip c2: 4 screens; keep the 3 its beats need"
+    ]
+
+
+def _variation_case():
+    ex, result = example("variations")
+    original = script_of(ex)
+    fomo = {"end_line": "Want to trade like me? Download fomo through the link in my bio."}
+    return original, result, fomo["end_line"]
+
+
+def test_variations_example_passes_and_every_check_says_what_to_do():
+    original, result, end = _variation_case()
+    cast = ["Malik", "Tasha"]
+    assert check.variations(original, result, {}, end, ["can't lose"], 1, cast) == []
+    v = result.variations[0]
+    v.script = v.script.replace("★ fomo screen: Token chart down — on Malik's phone\n", "")
+    v.script = v.script.rsplit("\n", 1)[0] + "\nMALIK: You can't lose. Live-action tag here."
+    assert check.variations(original, result, {}, end, ["can't lose"], 2, cast) == [
+        "1 variations, 2 asked for; regenerate",
+        "variation 1 doesn't end on the brand's end line; add it as the last line",
+        "variation 1 drops the ★ line for Token chart down; put it back where it fits",
+        "variation 1 says “can't lose”, which the brand never says",
+        "variation 1 brings back live action; that slot is the end line",
+    ]
+
+
+def test_variations_advice_covers_length_closeness_and_format():
+    original, result, end = _variation_case()
+    v = result.variations[0]
+    v.script = original.replace("TASHA", "ROSE").replace("Tasha", "Rose")  # Tasha is gone
+    problems = check.variations(original, result, {}, end, [], 1, ["Malik", "Tasha", "Bruno"])
+    assert problems == [
+        "variation 1 drops Tasha, a locked character",  # Bruno isn't in the original: no flag
+        "Advice: variation 1 is very close to the original; regenerate with a note",
+    ]
+    v.script = "# The sneakers\n" + "MALIK: Hi.\n" + end.join(["MALIK: ", ""])
+    assert check.variations(original, result, {}, end, [], 1, []) == [
+        "variation 1 drops the ★ line for Home; put it back where it fits",
+        "variation 1 drops the ★ line for Token chart down; put it back where it fits",
+        "variation 1 drops the ★ line for Token chart up; put it back where it fits",
+        "Advice: variation 1 has 14 spoken words, the original 54",
+        "Advice: variation 1 is very close to the original; regenerate with a note",
+        "Advice: variation 1: “# The sneakers” isn't house format",
+    ]
+
+
+def test_eval_run_print_writes_the_variations_prompt_for_free(tmp_path):
+    from evals.run import run_case
+    from evals.score import CASES
+
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-altar-variations")
+    run_case(None, case, tmp_path, [], Decimal(0), dry=True)  # no client: nothing is called
+    text = (tmp_path / "fomo-altar-variations.variations.prompt.txt").read_text()
+    assert "# Step: Variations" in text and "<count>2</count>" in text
+    assert "<cast>\nchar:1 Nate, the groom\nchar:2 Mia, the bride\n</cast>" in text
+    assert "NATE: Sorry, I'm fully booked." in text
+
+
+def test_eval_scoring_runs_the_variations_check(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "ironpaws-pitbull1-variations")
+    script = "\n".join(case["script"]).replace("Peanut butter flavor.", "Chicken flavor.")
+    answer = {"variations": [{"title": "x", "premise": "x", "script": script, "changes": []}]}
+    (tmp_path / "ironpaws-pitbull1-variations.variations.json").write_text(json.dumps(answer))
+    assert score(tmp_path, case) == [
+        "variation 1 says “chicken”, which the brand never says",
+        "Advice: variation 1 is very close to the original; regenerate with a note",
     ]
 
 
