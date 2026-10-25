@@ -266,13 +266,14 @@ def restore_project(
     project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Undo archive or release: the video comes back as it was (cancelled jobs stay
-    cancelled; run them again). A released video gets its version back unless someone has
-    started that version since; then it comes back on its own."""
+    cancelled; run them again). A released video gets its version back; once someone has
+    started that version again it can't come back (one video per version)."""
     project = _mine(db, user, project_id)
-    project.archived_at = None
     draft = db.get(ScriptDraft, project.released_draft_id) if project.released_draft_id else None
-    taken = draft and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id))
-    if draft is not None and not taken:
+    if draft and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
+        raise HTTPException(409, "This version has been made again, so this video can't come back.")
+    project.archived_at = None
+    if draft is not None:
         project.script_draft_id, project.released_draft_id = draft.id, None
         draft.reserved_by_id = project.created_by_id
     db.commit()

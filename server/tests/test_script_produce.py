@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app import credits, prompts
 from app.models.accounts import User
-from app.models.jobs import Job
+from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.routes.jobs import enqueue
@@ -182,10 +182,25 @@ def test_a_started_version_can_be_released_and_made_again(app, owner, editor, db
     assert owner.get(base).json()["versions"][0]["status"] == "approved"  # Ready to make
     again = two.post(f"{base}/drafts/0/produce")
     assert again.status_code == 201 and again.json()["project_id"] != pid
-    back = editor.post(f"/projects/{pid}/restore").json()  # Undo, too late: on its own
-    assert back["archived_at"] is None and back["script_draft_id"] is None
+    late = editor.post(f"/projects/{pid}/restore")  # Undo, too late: the version is taken
+    assert late.status_code == 409 and "made again" in late.json()["detail"]
     assert editor.post(f"/projects/{again.json()['project_id']}/release").status_code == 403
     assert owner.post(f"/projects/{again.json()['project_id']}/release").status_code == 200
+
+
+def test_releasing_never_gives_the_allowance_back(editor, db):
+    """QA #328: an editor can't release their own video to spend their week again."""
+    base = _editors_script(editor)
+    made = editor.post(f"{base}/drafts/0/produce").json()
+    pid, me = made["project_id"], db.query(User).filter_by(role="editor").one()
+    db.get(Job, made["breakdown_job_id"]).status = JobStatus.succeeded  # credits really spent
+    db.commit()
+    spent = credits.quick_clip_used(db, me)
+    assert spent > 0
+    editor.post(f"/projects/{pid}/release")
+    db.expire_all()
+    assert credits.quick_clip_used(db, me) == spent
+    assert credits.own_script(db, db.get(Project, pid), me)  # still on their allowance
 
 
 def test_restore_right_after_release_gives_the_version_back(owner, editor, db):
