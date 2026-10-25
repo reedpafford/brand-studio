@@ -662,7 +662,7 @@ def altar_reel():
 def test_reel_watch_example_passes_and_becomes_the_scripts_reference():
     _, watch, transcript, cuts = altar_reel()
     assert check.reel_watch(watch, cuts, transcript) == []
-    ref = prompts.reference_block(prompts.watch_breakdown(watch, transcript))
+    ref = prompts.reference_block(prompts.watch_breakdown(watch, transcript, cuts))
     assert '| groom: "I do."' in ref and '| bride: "HELL NO!"' in ref
     assert "Shots 44–50 (42.67–45.02 s) are live action" in ref and "\n45. " not in ref
     assert "caption" not in ref  # on-screen text never reaches the writer
@@ -672,6 +672,10 @@ def test_reel_watch_example_passes_and_becomes_the_scripts_reference():
 
 def test_reel_watch_check_says_what_to_fix():
     _, watch, transcript, cuts = altar_reel()
+    near = watch.model_copy(deep=True)
+    near.shots[2].start, near.shots[2].end = 0.8, 1.1  # rounded by the model: still the cut
+    assert check.reel_watch(near, cuts, transcript) == []
+    assert prompts.watch_breakdown(near, transcript, cuts)["shots"][2]["start"] == 0.82
     bad = watch.model_copy(deep=True)
     del bad.shots[4]
     bad.speakers[1].speaker = "the bride (flashback)"

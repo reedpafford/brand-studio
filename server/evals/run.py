@@ -106,7 +106,7 @@ def run_case(
                 )
                 return
             watch = schemas.ReelWatch.model_validate_json(saved.read_text())
-            reference = "\n" + reference_block(watch_breakdown(watch, transcript))
+            reference = "\n" + reference_block(watch_breakdown(watch, transcript, cuts or []))
             continue
         if step == "enhance":
             prompt = f"{brief}\n{cast}\n<script>\n{number_lines(script)}\n</script>"

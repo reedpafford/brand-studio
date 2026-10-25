@@ -443,10 +443,11 @@ def reel_watch(watch: ReelWatch, cuts: list[dict], transcript: list[dict]) -> li
     line that doesn't exist. Advice: a line with no speaker, one person under two names, a line
     in a live-action shot (it's dropped with the shot)."""
     problems = []
-    got = [(s.n, round(s.start, 2), round(s.end, 2)) for s in watch.shots]
-    want = [(c["n"], round(c["start"], 2), round(c["end"], 2)) for c in cuts]
-    if got != want:
-        n = next((w or g)[0] for w, g in zip_longest(want, got) if w != g)
+    got = [(s.n, s.start, s.end) for s in watch.shots]
+    want = [(c["n"], c["start"], c["end"]) for c in cuts]
+    off = [(w or g)[0] for w, g in zip_longest(want, got) if not (w and g and _same_cut(w, g))]
+    if off:
+        n = off[0]
         problems.append(
             f"shot {n} isn't the cut list's ({len(got)} shots, {len(want)} cuts); regenerate"
         )
@@ -468,6 +469,11 @@ def reel_watch(watch: ReelWatch, cuts: list[dict], transcript: list[dict]) -> li
         if any(s.start <= x["start"] < s.end for s in live):
             problems.append(f"{ADVICE}“{x['text']}” is in a live-action shot, so it's dropped")
     return problems
+
+
+def _same_cut(a: tuple, b: tuple) -> bool:
+    """Same shot number, times within 0.05 s (a model rounds; the server keeps prep's times)."""
+    return a[0] == b[0] and abs(a[1] - b[1]) <= 0.05 and abs(a[2] - b[2]) <= 0.05
 
 
 def role_key(name: str) -> str:
