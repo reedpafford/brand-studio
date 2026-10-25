@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check } from "lucide-react";
+import { Badge, Button } from "../components";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
@@ -36,7 +38,47 @@ function useReviewed(projectId: number) {
       /* private window: it just asks again next time */
     }
   };
-  return { has: (c: Clip) => ok.has(id(c)), mark };
+  const unmark = (c: Clip) => {
+    const next = new Set(ok);
+    next.delete(id(c));
+    setOk(next);
+    try {
+      localStorage.setItem(key, JSON.stringify([...next]));
+    } catch {
+      /* private window */
+    }
+  };
+  return { has: (c: Clip) => ok.has(id(c)), mark, unmark };
+}
+
+/** The prompt as the editor reads it: script font, five lines with Show all, and each [ImageN] as the name of what it points at. */
+function PromptText({ clip }: { clip: Clip }) {
+  const [all, setAll] = useState(false);
+  const images = clip.references.filter((r) => r.kind === "image");
+  const name = (n: number) => {
+    const role = images[n - 1]?.role;
+    return !role ? `Picture ${n}` : role === "storyboard frame" ? "First frame" : role;
+  };
+  const parts = clip.prompt.split(/(\[Image\d+\])/);
+  return (
+    <div className="space-y-1">
+      <p className={`whitespace-pre-wrap rounded-md bg-surface-2 p-3 font-script leading-[1.6] [overflow-wrap:anywhere] ${all ? "" : "line-clamp-5"}`} aria-label={`Prompt for clip ${clip.clip_id}`}>
+        {parts.map((t, i) => {
+          const n = /^\[Image(\d+)\]$/.exec(t)?.[1];
+          return n ? (
+            <span key={i} className="mx-0.5 inline-block rounded-sm bg-accent-soft px-1.5 font-sans text-xs font-semibold text-accent-text">
+              {name(Number(n))}
+            </span>
+          ) : (
+            t
+          );
+        })}
+      </p>
+      <Button variant="ghost" dense onClick={() => setAll(!all)} aria-expanded={all}>
+        {all ? "Show less" : "Show all"}
+      </Button>
+    </div>
+  );
 }
 
 /** One video clip per breakdown clip: make takes, pick and approve one, then stitch them into the video. */
@@ -186,7 +228,7 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
               for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
             }}
           >
-            {over(allCost) ? "Ask Reed to approve" : "Make missing"}
+            {over(allCost) ? "Ask Reed to approve" : props.review ? "Make the takes" : "Make missing"}
             {price(allCost)}
           </button>
         )}
@@ -214,6 +256,8 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
               blockers={blocks.forClip(c.clip_id)}
               toRead={toRead(c)}
               onLooksGood={() => reviewed.mark(c)}
+              onUndoLooksGood={() => reviewed.unmark(c)}
+              showPrompt={!!props.review && c.takes.length === 0}
               brandId={props.brandId}
               cost={takeCost(c)}
               over={over(takeCost(c))}
@@ -241,7 +285,9 @@ function ClipCard(props: {
   busy: boolean;
   blockers: Blocker[];
   toRead: boolean;
+  showPrompt: boolean;
   onLooksGood: () => void;
+  onUndoLooksGood: () => void;
   brandId: number;
   cost: number | undefined;
   over: boolean;
@@ -284,7 +330,12 @@ function ClipCard(props: {
         )}
       </div>
       <SheetWarning blockers={props.blockers} brandId={props.brandId} />
-      {props.toRead && <p className="whitespace-pre-wrap rounded-md bg-surface-2 p-3" aria-label={`Prompt for clip ${c.clip_id}`}>{c.prompt}</p>}
+      {props.showPrompt && (
+        <div className="space-y-1">
+          {!props.toRead && <Badge tone="success" icon={Check}>Looks good</Badge>}
+          <PromptText clip={c} />
+        </div>
+      )}
       {c.problems.length > 0 && (
         <ul className="text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
           {c.problems.map((p) => (
@@ -364,10 +415,10 @@ function ClipCard(props: {
               Undo approval
             </button>
           )}
-          {props.toRead && (
-            <button className={`${btnPrimary} min-h-11 sm:min-h-9`} aria-label={`Prompt for ${c.clip_id} looks good`} onClick={props.onLooksGood}>
-              Looks good
-            </button>
+          {props.showPrompt && (
+            <Button variant="secondary" icon={props.toRead ? Check : undefined} aria-label={`Prompt for ${c.clip_id} ${props.toRead ? "looks good" : "undo looks good"}`} onClick={props.toRead ? props.onLooksGood : props.onUndoLooksGood}>
+              {props.toRead ? "Looks good" : "Undo"}
+            </Button>
           )}
           {note === null && (
             <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.toRead || props.busy || blocking(c.problems).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>

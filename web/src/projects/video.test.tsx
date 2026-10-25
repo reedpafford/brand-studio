@@ -100,6 +100,20 @@ test("a clip's prompt is read and marked Looks good before its take can be made"
   expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 looks good" }));
   expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
+  // The prompt stays, marked, and can be taken back.
+  expect(screen.getByText("Looks good")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 undo looks good" }));
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
+});
+
+test("a prompt shows pictures by name, never [Image1]", async () => {
+  setViewport(1440);
+  const references = [{ kind: "image", id: "frame:c1", role: "storyboard frame" }, { kind: "image", id: "char:5", role: "Bo's look" }];
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt: "[Image1] is the first frame. [Image2] eats.", references })]] });
+  open("?step=clips");
+  const prompt = await screen.findByLabelText("Prompt for clip c1");
+  expect(prompt).toHaveTextContent("First frame is the first frame. Bo's look eats.");
+  expect(prompt).not.toHaveTextContent("[Image");
 });
 
 test("advice on a clip can be kept anyway; kept advice says so", async () => {
@@ -111,6 +125,21 @@ test("advice on a clip can be kept anyway; kept advice says so", async () => {
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/keep")?.body).toEqual({ problem: advice }));
   expect(screen.getByText("Kept · Reed will see it")).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: /Keep it anyway/ })).toHaveLength(1);
+});
+
+test("a role with no character can make one, so Assets is never a dead end", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", library_item_id: null, name: "", role: "Coach", sheet_status: "missing" })]],
+    "POST /library/character": [201, item({ id: 12, name: "Coach" })],
+    "PUT /projects/9/assets/slots/3": [200, []],
+  });
+  open();
+  expect(screen.queryByLabelText("Use a Cast & places character")).toBeNull();
+  await userEvent.click(await screen.findByRole("button", { name: "Make a look" }));
+  await vi.waitFor(() => expect(calls.map((c) => c.key)).toEqual(expect.arrayContaining(["POST /library/character", "PUT /projects/9/assets/slots/3"])));
+  expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", brand_ids: [1] });
 });
 
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id });
