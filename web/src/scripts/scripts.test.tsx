@@ -32,7 +32,10 @@ function open(path = "/b/1/scripts") {
   );
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
+});
 
 test("a script is one row: its title, description, reference, length range and a chip for every version in words", async () => {
   fakeServer({ ...base, "GET /scripts": [200, [script()]] });
@@ -402,4 +405,142 @@ test("Variations side by side: changed lines are marked, a draft can be approved
 test("Variations: the lines that differ from the original are found by their words, ignoring blanks", async () => {
   const { changedLines } = await import("./VariationsStep");
   expect(changedLines("A\nB\nC", "A\nX\n\nC")).toEqual([false, true, false, false]);
+});
+
+test("a Ready to make chip opens the version panel, and Make this version reserves it and opens the video at Breakdown", async () => {
+  setViewport(1440);
+  const full = { ...script({ versions: [v(0, "approved", { text: "INT. KITCHEN\nBo sniffs the salmon.", has_breakdown: false })] }) };
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]],
+    "GET /scripts/7": [200, full],
+    "GET /scripts/7/cast": [200, [{ id: 1, role: "Bo", locked: true, sheet_file_id: null }]],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
+    "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: 3 }],
+    "GET /projects/55": [404, { detail: "x" }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  expect(within(panel).getByText(/Bo sniffs the salmon/)).toBeInTheDocument();
+  expect(within(panel).getByText("Bo · Locked look")).toBeInTheDocument();
+  expect(within(panel).getByText("Planned automatically when you start")).toBeInTheDocument();
+  // No saved breakdown: starting one is a paid call, so the button says its price.
+  await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
+});
+
+test("Make this version is free when a breakdown is already saved", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]],
+    "GET /scripts/7": [200, script({ versions: [v(0, "approved", { text: "Hi", has_breakdown: true })] })],
+    "GET /scripts/7/cast": [200, []],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
+  });
+  open("/b/1/scripts?make=7.0");
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  const button = await within(panel).findByRole("button", { name: "Make this version" });
+  expect(button).not.toHaveTextContent(/credit/);
+});
+
+test("an In production chip opens the video for Reed and for its maker, and the panel for anyone else", async () => {
+  setViewport(1440);
+  const mk = (created_by_id: number) => ({ id: 31, brand_id: 1, name: "Bo", planned_seconds: 30, status: "active", goal: "", platform: "", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null, estimate_credits: 0, budget_credits: 0, credits_used: 0, budget_pct: 0, created_by_id, created_by_name: "x" });
+  const rows = [script({ versions: [v(0, "in_production", { project_id: 31 })] })];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, rows], "GET /projects": [200, [mk(2)]] });
+  open();
+  await vi.waitFor(() => expect(screen.getByLabelText("Version A, in production").closest("a")).toHaveAttribute("href", "/b/1/projects/31"));
+});
+
+test("an editor past the week's allowance on their own script can't make it, and is told when it resets; on Reed's script the button just shows the price", async () => {
+  setViewport(1440);
+  const answers = (createdBy: number) => ({
+    ...base,
+    "GET /auth/me": [200, editor] as [number, unknown],
+    "GET /scripts": [200, []] as [number, unknown],
+    "GET /scripts/7": [200, script({ created_by_id: createdBy, versions: [v(0, "approved", { text: "Hi", has_breakdown: false })] })] as [number, unknown],
+    "GET /scripts/7/cast": [200, []] as [number, unknown],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]] as [number, unknown],
+    "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }] as [number, unknown],
+  });
+  fakeServer(answers(2));
+  const { unmount } = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/scripts?make=7.0"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  const own = await within(panel).findByRole("button", { name: /Make this version.*3 credits/ });
+  await vi.waitFor(() => expect(own).toBeDisabled());
+  expect(within(panel).getByText("You've used this week's 145 credits. It resets Monday.")).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/Ask Reed/);
+  unmount();
+
+  fakeServer(answers(1));
+  open("/b/1/scripts?make=7.0");
+  const other = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  expect(await within(other).findByRole("button", { name: /Make this version.*3 credits/ })).toBeEnabled();
+});
+
+test("Variations: picking 1 or 2 makes Write the one amber button, and says A's words become final", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, approvedOriginal()], "GET /scripts/7/variations/estimate": [200, { credits: 6 }] });
+  open("/b/1/scripts/7?step=variations");
+  expect(await screen.findByRole("button", { name: "Next: Cast" })).toBeInTheDocument(); // None: Next is the amber one
+  await userEvent.click(await screen.findByRole("radio", { name: "1" }));
+  expect(screen.queryByRole("button", { name: "Next: Cast" })).not.toBeInTheDocument();
+  expect(screen.getByText("Writing variations makes A's words final.")).toBeInTheDocument();
+});
+
+test("Variations: leaving mid-write and coming back shows the writing state, not Write again", async () => {
+  setViewport(1440);
+  sessionStorage.setItem("variations-job-7", JSON.stringify({ id: 90, slots: [1, 2] }));
+  fakeServer({
+    ...base,
+    "GET /scripts/7": [200, approvedOriginal()],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /jobs": [200, [{ id: 90, kind: "write-claude", step: "variations", status: "running", credits: 6, project_id: null, created_at: "2026-10-25T10:00:00Z" }]],
+  });
+  open("/b/1/scripts/7?step=variations");
+  expect(await screen.findByRole("status", { name: "Writing variations" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Write/ })).not.toBeInTheDocument();
+  sessionStorage.clear();
+});
+
+test("Variations: Regenerate keeps every column's words and only that column is busy", async () => {
+  setViewport(1440);
+  sessionStorage.setItem("variations-job-7", JSON.stringify({ id: 91, slots: [2] }));
+  const withBC = approvedOriginal([ver(1, { text: "B words", status: "approved" }), ver(2, { text: "C words" })]);
+  fakeServer({
+    ...base,
+    "GET /scripts/7": [200, withBC],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /jobs": [200, [{ id: 91, kind: "write-claude", step: "variations", status: "running", credits: 6, project_id: null, created_at: "2026-10-25T10:00:00Z" }]],
+  });
+  open("/b/1/scripts/7?step=variations");
+  const c = await screen.findByLabelText("Version C");
+  expect(within(c).getByText("C words")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Version B")).getByText("B words")).toBeInTheDocument();
+  expect(within(c).getByRole("button", { name: /Regenerate/ })).toBeDisabled();
+  sessionStorage.clear();
+});
+
+test("Variations: an editor on their own script past the week's allowance can't Write, and is told when it resets", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /auth/me": [200, editor],
+    "GET /scripts/7": [200, { ...approvedOriginal(), created_by_id: 2 }],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }],
+  });
+  open("/b/1/scripts/7?step=variations");
+  await userEvent.click(await screen.findByRole("radio", { name: "1" }));
+  const write = await screen.findByRole("button", { name: /Write 1 variation/ });
+  await vi.waitFor(() => expect(write).toBeDisabled());
+  expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
 });

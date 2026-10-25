@@ -20,6 +20,7 @@ from app.credits import (
     own_script,
 )
 from app.db import get_db, utcnow
+from app.job_brand import brand_for
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
@@ -161,6 +162,7 @@ def enqueue(
         provider=provider,
         input=input,
         project_id=project.id if project else None,
+        brand_id=brand_for(db, project, input),
         credits=credits,
         status=JobStatus.needs_owner_approval if over else JobStatus.queued,
         approved_by_id=user.id if user.is_owner else None,  # the owner's own jobs need no ask

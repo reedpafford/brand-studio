@@ -7,7 +7,7 @@ import { Badge, Banner, Button, Card, Skeleton, Tabs, TextArea } from "../compon
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
-import type { Script } from "./useScript";
+import { useAllowanceStop, type Script } from "./useScript";
 
 const LETTER = ["A", "B", "C"];
 const NAME = ["Original", "Variation", "Variation"];
@@ -33,7 +33,25 @@ export function variationsReason(s: Script): string | null {
 function useVariations(s: Script) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [jobId, setJobId] = useState<number | null>(null);
+  // The running job is remembered for this script, so leaving the step and coming back doesn't offer to pay twice.
+  const key = `variations-job-${s.id}`;
+  const [run, setRun] = useState<{ id: number; slots: number[] } | null>(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(key) ?? "null");
+    } catch {
+      return null;
+    }
+  });
+  const remember = (r: { id: number; slots: number[] } | null) => {
+    setRun(r);
+    try {
+      if (r) sessionStorage.setItem(key, JSON.stringify(r));
+      else sessionStorage.removeItem(key);
+    } catch {
+      /* private window: it just won't be remembered */
+    }
+  };
+  const jobId = run?.id ?? null;
   const jobs = useJobs();
   const job = jobs.data?.find((j) => j.id === jobId);
   const writing = jobId !== null && (!job || GOING.includes(job.status));
@@ -42,6 +60,11 @@ function useVariations(s: Script) {
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] }), queryClient.invalidateQueries({ queryKey: ["scripts"] })]);
   useEffect(() => {
     if (done) {
+      try {
+        sessionStorage.removeItem(key);
+      } catch {
+        /* nothing remembered */
+      }
       void refresh().then(() => toast("Variations ready. Read them side by side."));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,8 +81,8 @@ function useVariations(s: Script) {
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    onSuccess: async (data) => {
-      setJobId(data.id);
+    onSuccess: async (data, a) => {
+      remember({ id: data.id, slots: a.slots });
       await queryClient.invalidateQueries({ queryKey: ["jobs"] }); // the job list polls while anything is going
     },
   });
@@ -85,26 +108,31 @@ function useVariations(s: Script) {
       await refresh();
     },
   });
-  return { write, edit, approve, writing, failed, retry: () => setJobId(null) };
+  return { write, edit, approve, writing, failed, slots: run?.slots ?? [], retry: () => remember(null) };
 }
 
 /** Step 4: choose how many variations, write them at one price, then read them next to the original and approve each. */
-export function VariationsStep({ script: s, own }: { script: Script; own: boolean }) {
+export function VariationsStep({ script: s, own, onPicked }: { script: Script; own: boolean; onPicked: (n: number) => void }) {
   const rail = useRail();
   const act = useVariations(s);
   const written = writtenVariations(s);
   const original = s.versions.find((v) => v.slot === 0)?.text ?? "";
   const price = useQuery({ queryKey: ["variations-estimate", s.id], queryFn: async () => (await api.GET("/scripts/{script_id}/variations/estimate", { params: { path: { script_id: s.id } } })).data?.credits });
-  const [count, setCount] = useState<0 | 1 | 2>(0);
+  const [count, setCountState] = useState<0 | 1 | 2>(0);
+  const setCount = (n: 0 | 1 | 2) => {
+    setCountState(n);
+    onPicked(n); // once Write is the amber button, Next steps aside
+  };
+  const stop = useAllowanceStop(s, price.data);
   const [note, setNote] = useState("");
   const [shown, setShown] = useState(1);
   const [changesOnly, setChangesOnly] = useState(false);
   const error = act.write.error ?? act.edit.error ?? act.approve.error;
 
-  if (act.writing)
+  if (act.writing && written.length === 0)
     return (
       <div className="space-y-3" role="status" aria-label="Writing variations">
-        <p className="text-muted">Writing {count === 1 ? "1 variation" : "variations"}… This takes a little while.</p>
+        <p className="text-muted">Writing {act.slots.length === 1 ? "1 variation" : "variations"}… This takes a little while.</p>
         <div className="grid gap-4 lg:grid-cols-2">
           <Skeleton className="h-64" />
           <Skeleton className="h-64" />
@@ -135,7 +163,8 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
           <>
             <TextArea label="Direction (optional)" rows={2} maxLength={2000} placeholder="e.g. swap the altar for a car showroom; keep the payoff about money" value={note} onChange={(e) => setNote(e.target.value)} />
             {error && <p role="alert" className={errorClass}>{error.message}</p>}
-            <Button busy={act.write.isPending} price={price.data} onClick={() => act.write.mutate({ slots: count === 1 ? [1] : [1, 2], note })}>
+            <p className="text-sm text-muted">Writing variations makes A's words final.</p>
+            <Button busy={act.write.isPending} price={price.data} disabled={stop !== null} reason={stop} onClick={() => act.write.mutate({ slots: count === 1 ? [1] : [1, 2], note })}>
               Write {count} variation{count === 1 ? "" : "s"}
             </Button>
           </>
@@ -161,7 +190,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
       <ul className={`grid gap-4 ${rail ? (all.length === 3 ? "grid-cols-3" : "grid-cols-2") : ""}`}>
         {visible.map((v) => (
           <li key={v.slot} aria-label={`Version ${LETTER[v.slot]}`} className="min-w-0">
-            <Column version={v} original={original} changesOnly={changesOnly} act={act} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
+            <Column version={v} original={original} changesOnly={changesOnly} act={act} writing={act.writing && act.slots.includes(v.slot)} stop={stop} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
           </li>
         ))}
       </ul>
@@ -169,7 +198,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
   );
 }
 
-function Column({ version: v, original, changesOnly, act, regenerate, price }: { version: Version; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; regenerate: (note: string) => void; price?: number }) {
+function Column({ version: v, original, changesOnly, act, writing, stop, regenerate, price }: { version: Version; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; writing: boolean; stop: string | null; regenerate: (note: string) => void; price?: number }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const letter = LETTER[v.slot];
@@ -240,7 +269,7 @@ function Column({ version: v, original, changesOnly, act, regenerate, price }: {
               Edit
             </Button>
             {asking === null && (
-              <Button variant="ghost" icon={RotateCcw} price={price} onClick={() => setAsking("")}>
+              <Button variant="ghost" icon={RotateCcw} price={price} busy={writing} disabled={act.writing || stop !== null} reason={stop} onClick={() => setAsking("")}>
                 Regenerate
               </Button>
             )}
@@ -249,7 +278,7 @@ function Column({ version: v, original, changesOnly, act, regenerate, price }: {
             <div className="space-y-2">
               <TextArea label="What should change? (optional)" rows={2} maxLength={2000} value={asking} onChange={(e) => setAsking(e.target.value)} />
               <div className="flex gap-2">
-                <Button icon={RotateCcw} busy={act.write.isPending} price={price} onClick={() => regenerate(asking)}>
+                <Button icon={RotateCcw} busy={act.write.isPending || writing} disabled={act.writing || stop !== null} reason={stop} price={price} onClick={() => regenerate(asking)}>
                   Regenerate
                 </Button>
                 <Button variant="ghost" onClick={() => setAsking(null)}>

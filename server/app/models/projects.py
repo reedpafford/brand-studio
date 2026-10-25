@@ -1,5 +1,6 @@
 """Projects: a brief, a budget, and (later) script, breakdown, storyboard and clips."""
 
+from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 
@@ -24,6 +25,9 @@ class Project(Entity, Base):
     name: Mapped[str] = mapped_column(String(120))
     planned_seconds: Mapped[int | None]  # a set length; null: the breakdown decides
     breakdown_seconds: Mapped[int | None]  # the newest breakdown's clips added up
+    # "Video done": the first final video, or the first full download of the picked takes.
+    # Set once, never cleared (Usage counts a video as finished on that day).
+    finished_at: Mapped[datetime | None]
     status: Mapped[ProjectStatus] = mapped_column(String(30), default=ProjectStatus.active)
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))

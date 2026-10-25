@@ -1,6 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 05:12 · #246 ops: HANDOFF/LOG refresh 2026-10-25 05:20Z merged (by the Producer)
+- 2026-10-25 05:12 · #236 Script library 3: Characters and Publish merged
 - 2026-10-25 04:42 · #244 Library spec: editors see the versions they're making at the top merged
 - 2026-10-25 04:41 · #241 Grind before the payoff; the hook opens on the inciting exchange; cast slot kind merged
 - 2026-10-25 04:36 · #230 Script library 2: New script, the writing frame and Description merged
