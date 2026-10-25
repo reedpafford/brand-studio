@@ -28,6 +28,7 @@ test("signing out ends the session", async ({ page }) => {
 
 test("the owner invites someone with a link, and they join", async ({ browser, page }) => {
   await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
   await page.getByRole("link", { name: "Team" }).click();
   await page.getByLabel("Email to invite").fill("ed@example.com");
   await page.getByRole("button", { name: "Create invite link" }).click();
