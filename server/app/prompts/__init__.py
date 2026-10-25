@@ -110,7 +110,7 @@ def reference_block(ref: dict, replace: str = "") -> str:
         f"Hook (0–{hook['seconds']} s): {hook['mechanic']}",
         "Beats:",
     ]
-    live = [s for s in ref["shots"] if _live_action(s)]
+    live = [s for s in ref["shots"] if live_action(s)]
     live_from = live[0]["start"] - 0.05 if live else float("inf")
     for b in ref["beats"]:
         what = f"{b['summary']} ({b['emotion']})"
@@ -119,7 +119,7 @@ def reference_block(ref: dict, replace: str = "") -> str:
         lines.append(f"- {b['start']:.1f}–{b['end']:.1f} s {what}")
     lines.append("Shots (time, framing, camera, action, emotion, line):")
     for s in ref["shots"]:
-        if _live_action(s):
+        if live_action(s):
             continue
         said = f' | {s["speaker"]}: "{s["line"]}"' if s.get("line") else ""
         lines.append(
@@ -184,7 +184,7 @@ def watch_breakdown(watch: "schemas.ReelWatch", transcript: list[dict]) -> dict:
     }
 
 
-def _live_action(shot: dict) -> bool:
+def live_action(shot: dict) -> bool:
     style = shot.get("style", "").lower()
     return "live action" in style or "photoreal" in style
 

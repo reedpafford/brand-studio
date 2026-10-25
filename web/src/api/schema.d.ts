@@ -4329,6 +4329,8 @@ export interface components {
             changes: string[];
             /** Problems */
             problems: string[];
+            /** Changed Lines */
+            changed_lines: string[];
             /** Has Breakdown */
             has_breakdown: boolean;
             /** Approved At */

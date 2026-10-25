@@ -81,6 +81,7 @@ class VersionOut(VersionSummary):
     premise: str
     changes: list[str]
     problems: list[str]
+    changed_lines: list[str]  # the reel's lines rewritten for the brand swap
     has_breakdown: bool
     approved_at: datetime | None
     variation_of: str | None = None  # "A": a variation of the original; null for the original
@@ -140,6 +141,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         premise=draft.premise,
         changes=draft.changes,
         problems=draft.problems,
+        changed_lines=draft.changed_lines or [],
         has_breakdown=draft.breakdown is not None,
         approved_at=draft.approved_at,
         variation_of="A" if draft.slot else None,

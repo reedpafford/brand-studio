@@ -100,7 +100,7 @@ def watch(job: dict) -> dict:
     said by two roles in turn."""
     prompt = job["prompt"]
     cuts = re.findall(r"^(\d+)\. ([\d.]+)–([\d.]+)$", _tag(prompt, "cuts"), re.M)
-    lines = re.findall(r"^\d+\. ", _tag(prompt, "transcript"), re.M)
+    lines = re.findall(r"^\d+\| ", _tag(prompt, "transcript"), re.M)
     shot = dict(framing="medium", camera="static", on_screen="two people", action="they talk")
     return {
         "logline": "A proposal goes wrong, and he wins in the end",
@@ -114,7 +114,8 @@ def watch(job: dict) -> dict:
              "live_action": False, "text_on_screen": ""}
             for n, a, b in cuts
         ],
-        "speakers": [{"line": i, "speaker": ("groom", "bride")[i % 2]} for i in range(len(lines))],
+        "speakers": [{"line": i + 1, "speaker": ("groom", "bride")[i % 2]}
+                     for i in range(len(lines))],
         "why_it_works": ["An instant no"],
     }  # fmt: skip
 

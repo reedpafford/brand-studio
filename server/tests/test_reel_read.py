@@ -3,9 +3,7 @@ editor's allowance, the chain queued step by step (prepaid), a failed step retri
 itself. Stand-in providers only."""
 
 import pytest
-from pydantic import BaseModel, ConfigDict
 
-from app import prompts
 from app.models.jobs import Job, JobStatus
 from app.models.script_library import Script
 from app.prompts import check
@@ -19,20 +17,6 @@ from tests.test_reel_import import _clip, _upload
 @pytest.fixture(scope="module")
 def clip(tmp_path_factory):
     return _clip(tmp_path_factory.mktemp("reel") / "two.mp4")
-
-
-@pytest.fixture(autouse=True)
-def director_stand_ins(monkeypatch):
-    """Until the Director's reel_watch prompt, schema and check land (then delete this)."""
-
-    class ReelWatch(BaseModel):
-        model_config = ConfigDict(extra="allow")
-        logline: str
-
-    system = prompts.system
-    monkeypatch.setattr(prompts, "system", lambda s: "watch" if s == "reel_watch" else system(s))
-    monkeypatch.setitem(prompts.SCHEMAS, "reel_watch", ReelWatch)
-    monkeypatch.setattr(check, "reel_watch", lambda w, c, t: [], raising=False)
 
 
 def _drain(app, db):
@@ -120,3 +104,31 @@ def test_reading_needs_generation_on(app, owner, db, clip):
     app.state.settings.fake_providers = False
     app.state.settings.generation_enabled = False
     assert owner.post(f"{url}/import/read").status_code == 503
+
+
+def _write_job(db) -> Job:
+    return next(j for j in db.query(Job) if j.input.get("step") == "script_draft")
+
+
+def test_version_a_lists_reel_lines_it_lost_as_advice(app, owner, db, clip):
+    url = _ready(app, owner, db, clip)
+    owner.post(f"{url}/import/read")
+    _drain(app, db)
+    job = _write_job(db)
+    assert job.input["reel_lines"] == ["Will you marry me?", "No."]
+    assert "<new_lines>" not in job.input["prompt"]
+    version = owner.get(url).json()["versions"][0]
+    assert version["changed_lines"] == []
+    assert version["problems"][0] == (
+        "Advice: the reel's line “Will you marry me?” is changed or missing"
+    )
+
+
+def test_new_lines_tells_the_writer_and_skips_the_word_check(app, owner, db, clip):
+    sid = _upload(owner, clip, new_lines="true").json()["script_id"]
+    _drain(app, db)
+    owner.post(f"/scripts/{sid}/import/read")
+    _drain(app, db)
+    assert "<new_lines>true</new_lines>" in _write_job(db).input["prompt"]
+    problems = owner.get(f"/scripts/{sid}").json()["versions"][0]["problems"]
+    assert not any("changed or missing" in p for p in problems)

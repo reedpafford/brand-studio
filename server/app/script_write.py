@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 from app import prompts
 from app import script_library as lib
 from app.enhance import escape, project_context
+from app.models.brands import Brand
 from app.models.jobs import Job
 from app.models.script_library import Script, ScriptDraft
+from app.prompts import check
 from app.prompts.schemas import ScriptDrafts
 from app.script_preview import stand_in_project, with_slots
 
@@ -28,7 +30,16 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     context = with_slots(db, script.id, context)
     if reference:
         context += f"\n{escape(prompts.reference_block(reference, script.reference_replace))}"
-    return {"step": "script_draft", "script_id": script.id, "system": system, "prompt": context}
+        if script.new_lines:
+            context += "\n<new_lines>true</new_lines>"
+    data = {"step": "script_draft", "script_id": script.id, "system": system, "prompt": context}
+    if script.reference_breakdown:  # an imported reel: its kept lines and speakers, to check
+        kept = [s for s in script.reference_breakdown["shots"] if not prompts.live_action(s)]
+        data["reel_lines"] = [x for s in kept if s.get("line") for x in s["line"].split(" / ")]
+        data["reel_speakers"] = [
+            x for s in kept if s.get("speaker") for x in s["speaker"].split(" / ")
+        ]
+    return data
 
 
 def save_written(db: Session, job: Job) -> None:
@@ -49,3 +60,9 @@ def save_written(db: Session, job: Job) -> None:
         return
     lib.keep_text(db, draft, drafts[0].script, "write", job.created_by_id)
     draft.text, draft.job_id = drafts[0].script, job.id
+    draft.changed_lines = drafts[0].changed_lines
+    if "reel_lines" in job.input:  # advice only: the reel's words kept, no invented speakers
+        end_line = db.get(Brand, script.brand_id).end_line
+        draft.problems = check.reference_lines(
+            draft.text, job.input["reel_lines"], script.new_lines
+        ) + check.reel_speakers(draft.text, job.input["reel_speakers"], end_line=end_line)

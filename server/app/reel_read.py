@@ -5,7 +5,6 @@ then the existing Write (script_draft) and Cast read (cast_slots) steps run on i
 job queues the next with `prepaid`; a failed step stops the chain and a new press retries
 from it."""
 
-import json
 import logging
 import re
 from decimal import Decimal
@@ -21,6 +20,7 @@ from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.script_library import Script
 from app.prompts import check
+from app.prompts.schemas import ReelWatch
 from app.reference import checked
 
 log = logging.getLogger(__name__)
@@ -58,20 +58,15 @@ def shots(reel: dict) -> list[dict]:
 
 def watch_input(script: Script) -> dict:
     reel = script.reel
-    said = (
-        f"{i}. {x['start']:.2f}–{x['end']:.2f} {x['text']}"
-        for i, x in enumerate(reel["transcript"])
-    )
-    cuts = (f"{s['n']}. {s['start']:.2f}–{s['end']:.2f}" for s in shots(reel))
-    prompt = (
-        f"<transcript>\n{escape(chr(10).join(said))}\n</transcript>\n"
-        f"<cuts>\n{chr(10).join(cuts)}\n</cuts>"
-    )
+    said = [{**x, "text": escape(x["text"])} for x in reel["transcript"]]
     return {
         "step": "reel_watch",
         "script_id": script.id,
         "model": WATCH_MODEL,
-        "input": {"prompt": prompt, "system_instruction": prompts.system("reel_watch")},
+        "input": {
+            "prompt": prompts.reel_watch_input(said, shots(reel)),
+            "system_instruction": prompts.watch_system(),
+        },
         "files": {"images": [reel["contact_file_id"]]},
         "uploads": {"videos": [reel["video_file_id"]]},
     }
@@ -101,70 +96,23 @@ def queue(db: Session, user: User, script: Script, step: str, prepaid: bool = Fa
     return job
 
 
-def _parse(text: str) -> dict:
-    """Gemini answers in text; take the JSON object out of it (fenced or not)."""
-    found = re.search(r"\{.*\}", text or "", re.S)
-    if not found:
-        raise ValueError("The watch answer has no JSON.")
-    return json.loads(found.group(0))
-
-
-def breakdown(watch: dict, reel: dict) -> dict:
-    """The reel's breakdown (BREAKDOWN.json shape) from what Gemini saw and what we measured:
-    lines and their times come from the transcript, each in the shot that holds its start;
-    a live-action shot is marked so `reference_block` drops it."""
-    speakers = {s["line"]: s["speaker"] for s in watch.get("speakers", [])}
-    held: dict[int, list[tuple[str, str]]] = {}
-    for i, line in enumerate(reel["transcript"]):
-        shot = next((s for s in watch["shots"] if s["start"] <= line["start"] < s["end"]), None)
-        shot = shot or watch["shots"][-1]
-        held.setdefault(shot["n"], []).append((speakers.get(i) or "unknown", line["text"]))
-    out = []
-    for s in watch["shots"]:
-        lines = held.get(s["n"], [])
-        who = list(dict.fromkeys(name for name, _ in lines))
-        out.append(
-            {
-                **{
-                    k: s[k] for k in ("n", "start", "end", "framing", "camera", "action", "emotion")
-                },
-                "on_screen": s.get("on_screen", ""),
-                "speaker": " / ".join(who) or None,
-                "line": " / ".join(text for _, text in lines) or None,
-                "style": "live action" if s.get("live_action") else watch.get("style", ""),
-            }
-        )
-    return checked(
-        {
-            "logline": watch["logline"],
-            "duration_seconds": reel["seconds"],
-            "hook": watch["hook"],
-            "beats": watch["beats"],
-            "shots": out,
-        }
-    )
-
-
 def save_watch(db: Session, job: Job) -> None:
-    """Gemini's answer, checked, becomes the script's own reel breakdown. A shot list that
-    doesn't match the cuts fails the step (the press is retried from here)."""
+    """Gemini's answer, checked against the cuts, becomes the script's own reel breakdown
+    (`prompts.watch_breakdown`; the length is the one ffprobe measured). A shot list that
+    doesn't match the cuts fails the step, and the next press retries from it."""
     script = latest(db, job)
     if script is None or script.reel_job_id != job.id:
         return
-    watch = (
-        prompts.SCHEMAS["reel_watch"].model_validate(_parse(job.output.get("text"))).model_dump()
-    )
+    text = re.sub(r"^\s*```(?:json)?|```\s*$", "", job.output.get("text") or "")
+    watch = ReelWatch.model_validate_json(text)
     reel = script.reel
-    fixes = [
-        p
-        for p in check.reel_watch(watch, shots(reel), reel["transcript"])
-        if not p.startswith(check.ADVICE)
-    ]
-    if fixes:
+    problems = check.reel_watch(watch, shots(reel), reel["transcript"])
+    if fixes := [p for p in problems if not p.startswith(check.ADVICE)]:
         raise ValueError(f"The watch answer doesn't fit the cuts: {fixes[0]}")
-    script.reference_breakdown = breakdown(watch, reel)
+    made = prompts.watch_breakdown(watch, reel["transcript"])
+    script.reference_breakdown = checked({**made, "duration_seconds": reel["seconds"]})
     if not script.description:
-        script.description = watch["logline"]
+        script.description = watch.logline
 
 
 def follow_on(db: Session, job: Job, saved: bool) -> None:
