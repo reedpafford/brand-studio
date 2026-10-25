@@ -278,6 +278,8 @@ def read_reel(script_id: int, user: User = Depends(current_user), db: Session = 
         raise HTTPException(409, "There's nothing to read: the reel is done or wasn't prepared.")
     if (original := script_write.original(db, script)) and original.status == "approved":
         raise HTTPException(409, "Version A is approved, so the reel can't rewrite it.")
+    if read.needs_upload(script):
+        raise HTTPException(409, "Upload the video again so this reel can be read.")
     steps = read.remaining(script)
     total, left = read.price(db, user, steps), credits_left(db, user)
     if left is not None and total > left:

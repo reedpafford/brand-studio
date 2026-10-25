@@ -32,7 +32,8 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Agent | Session |
 |---|---|
 | Builder-Server | session_018dLQ8ebqVoMUp8bEcDnRdm |
-| Builder-Screens | session_013xVoaqhuxDbQHgFs6wFfHp |
+| Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
+| Builder-Screens-2 (editor video flow) | session_017XkFBpccAcSyMbGVXosiT4 |
 | QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
 | QA-2 (web) | session_0151NB9uZupi8GLzzTbeAtEv |
 | Designer | session_01USbuJ9znkRnKbNV4cnJUNW |
@@ -40,6 +41,14 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Scribe | session_01KaFbhckt39bp16rrK4Ncoa |
 | Release | session_01BGZgB9afnDnbYURA7D11gk |
 | Status Desk | session_01GYxBJctxeeNdzejMuRiCW6 |
+
+## QA review checklist (every PR)
+- Tests: lint, typecheck and unit tests pass; the browser tests pass on the free stand-ins (`BS_FAKE_PROVIDERS`).
+- Nothing paid runs outside a test the Producer approved; every paid call is logged in ops/SPEND.md.
+- Editors never see dollars, and an editor past the weekly allowance is declined with the reason (never "Ask Reed").
+- Phones (390): no sideways scroll, every control at least 44px.
+- After a server API change, `schema.d.ts` is regenerated and committed.
+- Can the user undo or delete what they just made? (delete or archive, plus Undo after a delete or big change)
 
 ## Limits
 - Paid calls only within the $15/week cap, logged in ops/SPEND.md, asked through the Producer.

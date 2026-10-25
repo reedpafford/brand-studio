@@ -1,6 +1,29 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 21:19 · Decisions (#321, Reed): library stocked today from reels by agents (unpublished drafts for Reed to publish); owner-only In production view; Delete scripts with Undo; the basics audit approved in an order (1 Script step writes from the reference or with Claude, 2 release a version and archive a video, 3 Delete with Undo and archived scripts restorable, 4 Cast step, 5 Enhance in the writing flow, 6 new editor video flow, 7 the P2s); review rule: can the user undo or delete what they just made?
+- 2026-10-25 21:19 · #321 ops: Reed's audit order and library decisions; Builder-Screens-2 joins merged
+- 2026-10-25 21:15 · #317 ops: HANDOFF/LOG refresh 2026-10-25 21:30Z (by the Producer) merged
+- 2026-10-25 21:14 · #314 ops: HANDOFF/LOG refresh 2026-10-25 21:15Z (by the Producer) merged
+- 2026-10-25 21:14 · #313 Reel transcription: no VAD, so lines over music are kept merged
+- 2026-10-25 21:05 · #308 Library drafts: 12 fomo scripts from catalogue reels merged
+- 2026-10-25 21:05 · #311 Seed refresh loads script drafts from the repo into the library merged
+- 2026-10-25 21:05 · #312 Delete script spec, a basics audit of every object, and an undo/delete review rule merged
+- 2026-10-25 20:56 · #310 ops: HANDOFF/LOG refresh 2026-10-25 21:00Z (by the Producer) merged
+- 2026-10-25 21:00 · Decisions (per the Producer, from Reed): stock the Script Library today from reels, done by agents for free instead of in-app import (12 fomo drafts in #308); an owner-only In production view (spec #307).
+- 2026-10-25 20:15 · Decision (#301, Reed): altar remake v3 verdict: the montage is much better, no re-run needed. New montage rule: balance and P&L numbers climb with the chart, shot by shot (Director prompts and evals). Reed tests it on the live site.
+- 2026-10-25 20:54 · #309 ops: Builder-Screens restarted fresh merged
+- 2026-10-25 20:53 · #307 In production spec: every version being made, with its step, credits, and failed or stuck flags merged
+- 2026-10-25 20:52 · #306 Reel length cap: half a second of slack merged
+- 2026-10-25 20:52 · #305 Money check: losses, gains vs balances, and "$348k" merged
+- 2026-10-25 20:40 · #303 ops: HANDOFF/LOG refresh 2026-10-25 20:45Z (by the Producer) merged
+- 2026-10-25 20:38 · #302 Montage money climbs: trading screens say what they read, and it never drops merged
+- 2026-10-25 20:23 · #293 Reel import, part 2: Read this reel, progress and retry merged
+- 2026-10-25 20:20 · #294 Reel import 5/5: fake_run imports a reel, and reference blocks close merged
+- 2026-10-25 20:17 · #292 Reel import 4/5: reel links in bulk create, and Write all over reels merged
+- 2026-10-25 20:11 · #286 Reel import 3/5: one price, then watch, write and cast read merged
+- 2026-10-25 20:00 · #301 Decisions: altar v3 verdict; montage numbers climb shot by shot merged
+- 2026-10-25 19:58 · #300 ops: HANDOFF/LOG refresh 2026-10-25 20:00Z (by the Producer) merged
 - 2026-10-25 19:57 · #299 HANDOFF/MISSION: site live since 10-24; Reed makes Pitbull 1 himself merged
 - 2026-10-25 20:00 · Decision (#297, Reed): the first real reel-import test runs on the altar reel: one paid read (about $0.40), then up to $10 in all on that video, after the allowance fix (#286) is merged. Correction (#299, Reed): the VPS secrets were added on 10-24 and the live site has generation on; Reed makes Pitbull 1 himself on the live site and that is done test B.
 - 2026-10-25 19:49 · #288 Reel prep: its own worker, one at a time per person, no leftover files merged

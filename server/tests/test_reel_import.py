@@ -1,6 +1,7 @@
 """Reel import, the free part: upload or link, then `reel_prepare` (probe, caps, cuts, contact
 sheet, transcript) on the local provider. Real ffmpeg; stand-in transcription and fetch."""
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -186,8 +187,8 @@ def test_the_deployed_workers_cover_every_provider():
 
 
 def test_gemini_gets_a_small_watch_copy(app, owner, db, clip, tmp_path):
-    """The first real read: Gemini refuses videos over about 4 MB, so prep makes a small
-    H.264 copy for it and keeps the original for everything else."""
+    """Gemini's Replicate file URLs fail on and off (E001); a data: URL works, so prep makes
+    a small H.264 copy that fits one and keeps the original for everything else."""
     budget = sum(reel.WATCH_KBPS) * 1000 / 8 * reel.MAX_SECONDS  # bytes at the cap, 90 s
     assert budget < 3_000_000
     copy = reel.watch_copy(clip, tmp_path)
@@ -202,4 +203,41 @@ def test_gemini_gets_a_small_watch_copy(app, owner, db, clip, tmp_path):
 
     watch_id = db.get(Script, sid).reel["watch_file_id"]
     assert watch_id not in (None, ready["video_file_id"])
-    assert watch_input(db.get(Script, sid))["uploads"] == {"videos": [watch_id]}
+    sent = watch_input(db.get(Script, sid))
+    assert sent["files"]["videos"] == [watch_id] and "uploads" not in sent  # a data: URL
+
+
+def test_a_reel_a_little_over_the_limit_still_counts(clip, monkeypatch):
+    """A "90 s" file often measures 90.02 s (audio padding): half a second of slack."""
+    monkeypatch.setattr(reel, "MAX_SECONDS", 5.7)  # the clip measures about 6.0 s
+    assert reel.probe(clip) == pytest.approx(6, abs=0.2)
+
+
+def test_transcription_keeps_lines_spoken_over_music(monkeypatch, capsys):
+    """The altar reel has music under every line; with VAD on, 6 of 11 lines were lost."""
+    import sys
+    import types
+
+    from app import whisper
+
+    asked = {}
+
+    class Model:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def transcribe(self, path, **kwargs):
+            asked.update(kwargs)
+            said = dict(no_speech_prob=0.1, avg_logprob=-0.3)
+            invented = dict(no_speech_prob=0.9, avg_logprob=-1.4)  # over the music bed
+            unsure = dict(no_speech_prob=0.7, avg_logprob=-0.4)  # quiet but confident: kept
+            return [
+                types.SimpleNamespace(start=0.0, end=0.5, text=" I do.", **said),
+                types.SimpleNamespace(start=1.0, end=3.0, text=" Thanks for watching!", **invented),
+                types.SimpleNamespace(start=3.0, end=3.4, text=" Huh?!", **unsure),
+            ], None
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=Model))
+    whisper.main("reel.mp4")
+    said = [x["text"] for x in json.loads(capsys.readouterr().out)]
+    assert asked["vad_filter"] is False and said == ["I do.", "Huh?!"]  # the invented one dropped

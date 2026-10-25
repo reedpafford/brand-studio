@@ -15,6 +15,7 @@ from PIL import Image
 
 MAX_MB = 100
 MAX_SECONDS = 90
+SLACK = 0.5  # a "90 s" file often measures a little over (audio padding)
 SCENE = 0.3  # ffmpeg scene score that counts as a cut
 FETCH_TIMEOUT = 90
 FETCH_PAUSE = 5  # seconds after each Instagram fetch
@@ -75,7 +76,7 @@ def probe(path: Path) -> float:
     if "mp4" not in fmt.get("format_name", "") or "video" not in kinds:
         raise Refused("bad_file", "That file isn't a video we can read. Use an MP4 or MOV.")
     seconds = float(fmt.get("duration") or 0)
-    if seconds > MAX_SECONDS:
+    if seconds > MAX_SECONDS + SLACK:
         long = f"{seconds / 60:.0f} minutes" if seconds >= 120 else f"{seconds:.0f} seconds"
         raise Refused(
             "too_long", f"This video is {long} long; reels up to {MAX_SECONDS} seconds can be read."
@@ -106,12 +107,13 @@ def stats(cut_times: list[float], seconds: float) -> dict:
 
 
 WATCH_KBPS = (160, 40)  # video, audio: a 90 s reel comes out near 2.3 MB
+WATCH_MAX_MB = 6  # sent inline as a data: URL, so it must stay small
 
 
 def watch_copy(path: Path, folder: Path) -> Path:
-    """A small H.264/AAC copy for Gemini, which refuses videos over about 4 MB (seen on the
-    first real read): short side 540 px, 24 fps, bitrate capped. The original stays for
-    everything else (cuts, contact sheet, transcript, download)."""
+    """A small H.264/AAC copy that Gemini gets inline as a data: URL: short side 540 px,
+    24 fps, bitrate capped. The original stays for everything else (cuts, contact sheet,
+    transcript, download)."""
     out = folder / "watch.mp4"
     video, audio = WATCH_KBPS
     small = "scale='if(gt(iw,ih),-2,540)':'if(gt(iw,ih),540,-2)',fps=24"
@@ -121,6 +123,10 @@ def watch_copy(path: Path, folder: Path) -> Path:
     done = _run([*args, "-movflags", "+faststart", "-y", str(out)], 180)
     if done.returncode != 0 or not out.is_file():
         raise RuntimeError(f"Making the watch copy failed ({done.returncode}).")
+    if out.stat().st_size > WATCH_MAX_MB * 1024 * 1024:  # the cap makes this very unlikely
+        raise Refused(
+            "bad_file", "This video can't be made small enough to read. Try a shorter one."
+        )
     return out
 
 
