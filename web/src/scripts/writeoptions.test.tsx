@@ -88,3 +88,23 @@ test("a script that already has words shows them, not the writing options", asyn
   expect(await screen.findByRole("button", { name: "Edit" })).toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "Write with Claude" })).toBeNull();
 });
+
+test("an imported reel that isn't read yet offers Read this reel, never a paid Write with Claude", async () => {
+  setViewport(1440);
+  const reel = { script_id: 7, status: "ready", source: "link", url: "https://www.instagram.com/reel/Abc123/", seconds: 45, shots: 50, transcript: [], video_file_id: 3, contact_file_id: 4, problem: "", problem_code: null, estimate: { credits: 7, credits_left: null } };
+  fakeServer(base({ "GET /scripts/7": [200, script({ reel_imported: true })], "GET /scripts/7/import": [200, reel] }));
+  open();
+  expect(await screen.findByRole("heading", { name: "Read the reel first" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Read this reel · 7 credits" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Write with Claude/ })).toBeNull();
+  expect(screen.getByRole("button", { name: "Paste or write it yourself" })).toBeInTheDocument();
+});
+
+test("the paste box on an empty script has a way back to the choices", async () => {
+  setViewport(1440);
+  fakeServer(base());
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Paste or write it yourself" }));
+  await userEvent.click(screen.getByRole("button", { name: "Back to the choices" }));
+  expect(await screen.findByRole("heading", { name: "Write with Claude" })).toBeInTheDocument();
+});

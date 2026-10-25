@@ -242,11 +242,9 @@ function ScriptStep({ scriptId, script: s, onEditing }: { scriptId: number; scri
           <Button busy={write.isPending} disabled={!(editing ?? "").trim()} onClick={() => save(editing ?? "")}>
             Save script
           </Button>
-          {text.trim() && (
-            <Button variant="ghost" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-          )}
+          <Button variant="ghost" onClick={() => setEditing(null)}>
+            {text.trim() ? "Cancel" : "Back to the choices"}
+          </Button>
         </div>
       </Card>
     );

@@ -5,6 +5,8 @@ import { api, errorText } from "../api/client";
 import { useJobs } from "../clip/History";
 import { Button, Card } from "../components";
 import { errorText as errorClass } from "../ui";
+import { Link } from "react-router-dom";
+import { ReadReelButton, useReelImport } from "./ReelImport";
 import { useAllowanceStop, usePatchScript, type Script } from "./useScript";
 
 /** An empty script's ways to get words: Claude writes it (from the reel, or from the description), or you paste it yourself. */
@@ -15,6 +17,7 @@ export function WriteOptions({ script: s, onOwn }: { script: Script; onOwn: () =
   const credits = estimate.data?.credits;
   const stop = useAllowanceStop(s, credits);
   const patch = usePatchScript(s.id);
+  const reel = useReelImport(s.id);
   const jobs = useJobs();
   const last = jobs.data?.filter((j) => j.kind === "write-claude" && j.script_id === s.id).sort((a, b) => b.id - a.id)[0];
   const write = useMutation({
@@ -34,6 +37,22 @@ export function WriteOptions({ script: s, onOwn }: { script: Script; onOwn: () =
     if (last?.status === "succeeded") void queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
   }, [last?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // An imported reel is read before anything is written: its lines become the script.
+  if (reel.data && reel.data.status !== "done")
+    return (
+      <Card className="max-w-[680px] space-y-3">
+        <h2 className="type-section">Read the reel first</h2>
+        <p className="text-sm text-muted">Its lines become the script.</p>
+        <ReadReelButton scriptId={s.id} createdById={s.created_by_id} />
+        <Link to="?" className="block text-accent-text underline">See the reel on Description</Link>
+        <div className="border-t border-border pt-3">
+          <Button variant="ghost" onClick={onOwn}>
+            Paste or write it yourself
+          </Button>
+        </div>
+      </Card>
+    );
+  if (s.reel_imported && reel.isPending) return null;
   if (writing || write.isPending)
     return (
       <Card className="max-w-[680px]">
