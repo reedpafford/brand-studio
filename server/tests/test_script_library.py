@@ -158,3 +158,20 @@ def test_library_sort_page_reel_filter_and_name(owner):
     reel = owner.get("/scripts", params={"reference_id": "fomo-DehudnaAmce"}).json()
     assert [s["title"] for s in reel] == ["Altar"] and reel[0]["reference_name"]
     assert reel[0]["poster_file_id"] is None  # no finished video yet
+
+
+def test_library_pages_in_the_query_and_builds_only_the_page(owner, monkeypatch):
+    from app.routes import script_library as route
+
+    for title in ("A", "B", "C", "D"):
+        _make(owner, title=title, text=SCRIPT)
+    built = []
+    real = route._out
+    monkeypatch.setattr(route, "_out", lambda db, s, **kw: built.append(s.id) or real(db, s, **kw))
+    page = owner.get("/scripts", params={"limit": 2, "offset": 1})
+    assert [s["title"] for s in page.json()] == ["C", "B"]  # newest first
+    assert page.headers["x-total-count"] == "4" and len(built) == 2
+    built.clear()
+    left = owner.get("/scripts", params={"sort": "versions_left", "limit": 1})
+    assert left.headers["x-total-count"] == "4" and len(left.json()) == 1
+    assert len(built) == 4  # worked out from each script's versions, so every row is built

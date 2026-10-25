@@ -565,3 +565,63 @@ test("the version panel says what it is a variation of, who planned the breakdow
   expect(within(panel).getByText("About 210 credits to make")).toBeInTheDocument();
   expect(within(panel).getByRole("button", { name: "Make this version" })).not.toHaveTextContent(/credit/); // a saved breakdown is free
 });
+
+test("Bulk create: pasted lines become rows, every row needs a title and what it's for, then drafts are made and Write all asks Claude at one price", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts": [200, []],
+    "POST /scripts/bulk": [201, [{ id: 11, title: "Salmon night" }, { id: 12, title: "Gym day with Bo" }]],
+    "POST /scripts/write/estimate": [200, { count: 2, credits: 12, credits_left: null }],
+    "POST /scripts/write": [201, [{ id: 1, status: "queued" }, { id: 2, status: "queued" }]],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Bulk create" }));
+  const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
+  expect(within(dialog).getAllByLabelText(/^Title \d$/)).toHaveLength(3);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make 3 drafts" }));
+  expect(await within(dialog).findByText(/Give every row a title and what it's for \(3 rows need it\)/)).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole("button", { name: "Paste a list" }));
+  await userEvent.type(within(dialog).getByLabelText("One script per line: Title — what it's for"), "Salmon night — Bo meets salmon{Enter}Gym day with Bo — Bo lifts");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add these rows" }));
+  expect(within(dialog).getAllByLabelText(/^Title \d$/)).toHaveLength(2);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make 2 drafts" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/bulk")?.body).toMatchObject({ scripts: [{ brand_id: 1, title: "Salmon night", description: "Bo meets salmon" }, { title: "Gym day with Bo" }] }));
+  const done = await screen.findByRole("dialog", { name: "Drafts made" });
+  expect(await within(done).findByText("About 12 credits (2 scripts × 6)")).toBeInTheDocument();
+  await userEvent.click(await within(done).findByRole("button", { name: /Write all scripts.*12 credits/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/write")?.body).toEqual({ script_ids: [11, 12] }));
+  expect(await screen.findByText("Writing 2 scripts. They'll show as drafts when they're ready.")).toBeInTheDocument();
+});
+
+test("Bulk create for an editor: past the week's allowance Write all is disabled with when it resets, and there is no Ask Reed", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /auth/me": [200, editor],
+    "GET /scripts": [200, []],
+    "GET /credits/me": [200, { quick_clip_credits_used: 140, quick_clip_credits_allowed: 145 }],
+    "POST /scripts/bulk": [201, [{ id: 11, title: "Salmon night" }, { id: 12, title: "Gym day" }]],
+    "POST /scripts/write/estimate": [200, { count: 2, credits: 12, credits_left: 5 }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Bulk create" }));
+  const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Paste a list" }));
+  await userEvent.type(within(dialog).getByLabelText("One script per line: Title — what it's for"), "Salmon night — Bo meets salmon{Enter}Gym day — Bo lifts");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add these rows" }));
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make 2 drafts" }));
+  const done = await screen.findByRole("dialog", { name: "Drafts made" });
+  const write = await within(done).findByRole("button", { name: /Write all scripts.*12 credits/ });
+  await vi.waitFor(() => expect(write).toBeDisabled());
+  expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
+  expect(document.body.textContent).not.toMatch(/Ask Reed/);
+});
+
+test("a pasted list: a line without a dash takes its first 6 words as the title and leaves the purpose to fill in", async () => {
+  const { parseList } = await import("./BulkCreate");
+  expect(parseList("Salmon night — Bo meets salmon\nBo walks to the park every single morning at dawn")).toEqual([
+    { title: "Salmon night", description: "Bo meets salmon", reference: "" },
+    { title: "Bo walks to the park every", description: "", reference: "" }, // no purpose given: the row is outlined until it has one
+  ]);
+});

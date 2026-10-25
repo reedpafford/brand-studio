@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, CircleAlert, Clock, FileText, Pencil, Plus, Search } from "lucide-react";
+import { Check, CircleAlert, Clock, FileText, Layers, Pencil, Plus, Search } from "lucide-react";
+import { BulkCreate } from "./BulkCreate";
 import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -20,7 +21,7 @@ const PAGE = 30;
 const LETTER = ["A", "B", "C"];
 
 /** A version's status in words, with a tone as the second signal. Never an internal word. */
-const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof Check }> = {
+export const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof Check }> = {
   draft: { label: "Writing", tone: "neutral", icon: Pencil },
   approved: { label: "Ready to make", tone: "accent" },
   in_production: { label: "In production", tone: "warning", icon: Clock },
@@ -70,7 +71,7 @@ const lengthText = (versions: Version[]) => {
   return lo === hi ? `about ${lo} s` : `about ${lo}–${hi} s`;
 };
 
-function useDebounced<T>(value: T, ms = 300) {
+export function useDebounced<T>(value: T, ms = 300) {
   const [settled, setSettled] = useState(value);
   useEffect(() => {
     const t = setTimeout(() => setSettled(value), ms);
@@ -115,6 +116,7 @@ export function ScriptsPage() {
   const q = useDebounced(text.trim());
   const [shown, setShown] = useState(PAGE);
   const [sheet, setSheet] = useState(false);
+  const [bulk, setBulk] = useState(false);
   useEffect(() => set("q", q), [q]); // eslint-disable-line react-hooks/exhaustive-deps
   const [lo, hi] = len ? len.split("-") : ["", ""];
   const refs = useReferences();
@@ -277,8 +279,14 @@ export function ScriptsPage() {
           <p className="type-eyebrow text-muted">{brand?.name}</p>
           <h1 className="type-page">Scripts</h1>
         </div>
-        {rail && newScript}
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" icon={Layers} onClick={() => setBulk(true)} aria-label={rail ? undefined : "Bulk create"}>
+            {rail ? "Bulk create" : ""}
+          </Button>
+          {rail && newScript}
+        </div>
       </div>
+      {bulk && <BulkCreate brandId={brandId} onClose={() => setBulk(false)} />}
       {!rail && <ActionBar phone>{newScript}</ActionBar>}
       {filters}
       {sheet && (
