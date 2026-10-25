@@ -188,3 +188,25 @@ def test_a_reel_a_little_over_the_limit_still_counts(clip, monkeypatch):
     """A "90 s" file often measures 90.02 s (audio padding): half a second of slack."""
     monkeypatch.setattr(reel, "MAX_SECONDS", 5.7)  # the clip measures about 6.0 s
     assert reel.probe(clip) == pytest.approx(6, abs=0.2)
+
+
+def test_transcription_keeps_lines_spoken_over_music(monkeypatch, capsys):
+    """The altar reel has music under every line; with VAD on, 6 of 11 lines were lost."""
+    import sys
+    import types
+
+    from app import whisper
+
+    asked = {}
+
+    class Model:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def transcribe(self, path, **kwargs):
+            asked.update(kwargs)
+            return [types.SimpleNamespace(start=0.0, end=0.5, text=" I do.")], None
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=Model))
+    whisper.main("reel.mp4")
+    assert asked["vad_filter"] is False and "I do." in capsys.readouterr().out
