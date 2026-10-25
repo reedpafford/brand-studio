@@ -130,14 +130,39 @@ A full page in the writing frame (header, step picker), reached from the done ca
 - **When the new breakdown lands,** it replaces the old one, and the script and cast are filled again, but only if Reed hasn't edited them yet. If he has, the done card says "New breakdown ready. Your script edits are kept." with **Fill the script again** (ghost), which asks first: "Replace your script with the reel's? Your edits will be lost." **Keep my script** / **Replace**.
 
 ## 6. The script and the cast it fills
-- **Script (A · Original):** the dialogue word for word, in the reel's order, as scenes with the shot actions as direction lines.
+- **Script (A · Original), DECISIONS #271:** the reel's spoken lines are kept **word for word**, with its shots, beats, pacing and feel, as scenes with the shot actions as direction lines.
+  - Only the lines the brand swap needs are rewritten. For example, with "What to change: reselling becomes trading", "I bought 40 hoodies to resell" becomes "I bought 40 shares of one coin".
   - Dropped live-action shots are left out.
-  - A banner sits above it (`Info`): "From the reel. The words are as said in it; adapt them for Iron Paws, then approve." The banner goes once Reed edits.
-  - Approve and Edit work as on any script. Nothing about the reel limits them.
+  - **Rewritten lines are marked** like Directions and Variations: `bg-mark` with the 2px `mark-line` underline. Under each one, a meta line in the script font gives the reel's original: "Was: I bought 40 hoodies to resell." A legend sits above the script: "Marked lines were rewritten for Iron Paws. Everything else is said as in the reel."
+  - Approve and Edit work as on any script. Editing a marked line keeps its mark and its "Was:" line until approval, so Reed can still compare.
+  - A banner (`Info`) reads "From the reel: 9 lines kept, 2 rewritten for Iron Paws. Check them, then approve." It goes once Reed approves.
+- **The switch "Write new lines in the same style",** off by default:
+  - **Where it shows:** in New script (Import a reel, and also under a reel picked From the library), and on the **Script** step whenever the script has a reference.
+  - **What it does:** when it's on, the dialogue is written fresh in the reel's voice, pacing and line lengths, and nothing is marked. The legend reads "New lines, in the style of the reel." The shots, beats and length still follow the reel.
+  - **Helper (meta) under the switch:** "Off: keep the reel's lines and rewrite only what the brand swap needs."
+  - **Changing it after the script is written** doesn't rewrite on its own. The Script step shows **Write the script again · N credits** (secondary), which asks first if Reed has edited: "Write the script again? Your edits will be lost." **Keep my script** / **Write again**.
 - **Cast:** a slot for each named or recurring speaker or character in the breakdown (Bride, Groom/Nate, Rival), marked "From the reel" (meta). It's a free pre-fill, not the paid "Read the cast": the breakdown already names them.
   - Background people (guests, the priest as an extra) aren't slots, as in Cast.
   - Reed renames, locks and removes them as usual.
 - **Description:** the title is empty for Reed to fill ("Untitled reel" until then). "What it's for" is pre-filled from the logline. The reference is the imported reel, and **What to change** is ready to type.
+
+## 7. Bulk create: paste reel links (DECISIONS #271)
+Bulk create (`description.md`) gets a mode switch at the top: a segmented control **Rows · Reel links**.
+- **Reel links:**
+  - A textarea, "Paste reel links, one per line", with the placeholder "https://www.instagram.com/reel/…".
+  - Under it, the switch **Write new lines in the same style** (off), which applies to all of them.
+  - The optional **What to change** (textarea, 2 rows) applies to all of them too: "For example: reselling becomes trading."
+  - Up to 20 links. Lines that aren't Instagram reel links are listed under the field ("Line 3 isn't a reel link") and block the button.
+- **Make {n} drafts:**
+  - It creates one draft per link, with the reference attached and the title "Untitled reel" (filled from the logline once read).
+  - It also gets each reel (free), so lengths are known.
+  - Rows that couldn't be fetched stay as drafts marked "Couldn't get the reel" (danger), with **Upload the video** in the draft's Description.
+- **Drafts made:** each draft with its chip ("Reel · 45 s", or "Couldn't get the reel"), then one total:
+  - "About 712 credits: reading 5 reels (380) and writing 5 scripts (332)" (meta). A failed row isn't counted.
+  - The amber **Write all scripts · 712 credits** reads each reel, then writes each script and its cast.
+  - For an editor, the same total is checked against the week. Past it, the button is disabled with the reason, and there's no Ask Reed. The server runs all or none, as for Write all.
+- **After Write all:** the library rows show "A · Reading the reel…", then "A · Writing". The toast reads "Reading 5 reels and writing their scripts. They'll show as drafts when they're ready."
+- **Phone:** the same, in the sheet. The mode control is full width, and the amber button is in the action bar.
 
 ## States (summary)
 | State | What shows |
@@ -177,3 +202,11 @@ For Builder-Server. Downloading and uploading are free. Every paid step goes thr
 - **Library:**
   - Imported reels join `GET /references`, with `imported_by` and `created_at`.
   - `PATCH /references/{id} {name}` renames one.
+- **Keeping the lines (#271):**
+  - The script write takes `new_lines: bool` (default false).
+  - With false, it returns the script plus `rewritten: [{line_index, was}]` so the UI can mark rewritten lines. `script_draft.md` and the evals follow the rule: keep the reel's lines, rewrite only what the brand swap needs.
+  - `POST /scripts/{id}/write {new_lines}` redoes it (paid).
+- **Bulk from links (#271):**
+  - `POST /scripts/bulk` accepts `reel_urls[]` (with `new_lines` and `reference_change`). It makes one draft per link and fetches each reel (free), returning per-row `fetch_error?`.
+  - `POST /scripts/write/estimate` includes the reading of unread reels in its total and breaks it down (`read_credits`, `write_credits`).
+  - `POST /scripts/write` reads and then writes, all or none against an editor's allowance.

@@ -47,7 +47,7 @@ The amber button is **Create script**, or **Next: Script** once the draft exists
 ## Bulk create (a sheet on phone, a side panel on desktop)
 This is for making many drafts at once. **Nothing is written** until you press Write all (decision g).
 
-**Step 1, Add scripts:** a list of rows, starting with 3 empty rows.
+**Step 1, Add scripts:** a segmented control **Rows · Reel links** at the top. Reel links mode (paste Instagram links, one per line) is in `reel-import.md` §7. In Rows mode: a list of rows, starting with 3 empty rows.
 - Each row has:
   - **Title** (input)
   - **What it's for** (textarea, 2 rows)
