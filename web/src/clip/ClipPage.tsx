@@ -184,8 +184,8 @@ function Studio({ models }: { models: Model[] }) {
         </div>
         {allowanceLine}
       </div>
-      <section aria-label="Clip settings" className="flex flex-col lg:sticky lg:top-20 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:shadow-card">
-        <div className="space-y-5 lg:overflow-y-auto lg:p-5">
+      <section aria-label="Clip settings" className="flex flex-col lg:self-start lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:shadow-card">
+        <div className="space-y-5 lg:p-5">
           <div className="space-y-1">
             <div className="text-sm font-medium">Model</div>
             <ModelPicker models={models} value={model} onChange={switchModel} />
@@ -276,8 +276,8 @@ function Studio({ models }: { models: Model[] }) {
             </div>
           </fieldset>
         </div>
-        {/* Desktop: the footer sits at the bottom of the panel, never over a field; the fields scroll above it. Phone: it is the action bar. */}
-        {rail ? <div className="rounded-b-xl border-t border-border bg-surface p-5">{footer}</div> : <ActionBar phone>{footer}</ActionBar>}
+        {/* Desktop: the page scrolls, and the footer sticks to the bottom of the window inside the panel, never over a field. Phone: it is the action bar. */}
+        {rail ? <div className="sticky bottom-0 rounded-b-xl border-t border-border bg-surface p-5 shadow-[0_-10px_12px_-10px_rgb(0_0_0/0.18)]">{footer}</div> : <ActionBar phone>{footer}</ActionBar>}
       </section>
       <section aria-label="History" className="space-y-3">
         <h2 className="type-section">History</h2>
