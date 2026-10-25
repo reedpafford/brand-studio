@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Ellipsis, Lock, Pencil, Plus, Users } from "lucide-react";
-import { Link } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { Banner, Badge, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem, Panel, Select, Skeleton, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { FindRoles } from "./FindRoles";
+import { LockPanel } from "./LockPanel";
 import { useBrandCharacters, useCast, useCastActions, type Slot } from "./useCast";
 
 /** Step 5: the roles of the script, each with one locked look or none (made at Assets). Every role is optional. */
@@ -30,6 +31,7 @@ export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; br
           <Skeleton className="h-20" />
         </div>
       )}
+      {cast.data && !readOnly && <FindRoles scriptId={scriptId} hasRoles={slots.length > 0} />}
       {cast.data && slots.length === 0 && (
         <EmptyState icon={Users} title="No roles yet." action={!readOnly ? <Button variant="secondary" onClick={() => setAdding(true)}>Add a role</Button> : undefined}>
           Everyone will be made at Assets. Add a role to lock one look for it in every version.
@@ -131,51 +133,23 @@ export function CastStep({ scriptId, brandId, readOnly }: { scriptId: number; br
         </Dialog>
       )}
       {locking && (
-        <Panel title={`Lock ${locking.role} to a look`} onClose={() => setLocking(null)}>
-          <div className="space-y-3">
-            <p className="text-sm text-muted">Characters from Cast & places that have an approved sheet.</p>
-            {chars.isPending && <Skeleton className="h-32" />}
-            <ul className="grid grid-cols-2 gap-3">
-              {(chars.data ?? []).map((c) => {
-                const ready = c.sheet_status === "approved";
-                return (
-                  <li key={c.id} className="space-y-1">
-                    <button
-                      type="button"
-                      disabled={!ready || act.lock.isPending}
-                      aria-label={ready ? `Lock to ${c.name}` : `${c.name} needs an approved sheet`}
-                      onClick={() =>
-                        act.lock.mutate(
-                          { id: locking.id, libraryItemId: c.id },
-                          {
-                            onSuccess: () => {
-                              toast(`${locking.role} is locked. They'll look the same in every version.`);
-                              setLocking(null);
-                            },
-                          },
-                        )
-                      }
-                      className="relative block aspect-[9/16] w-full overflow-hidden rounded-lg border border-border bg-surface-2 disabled:opacity-60"
-                    >
-                      {c.image_file_ids?.[0] && <img src={fileUrl(c.image_file_ids[0])} alt="" className="size-full object-cover" />}
-                      <span className="absolute inset-x-2 bottom-2 text-left font-display font-bold text-on-media drop-shadow">{c.name}</span>
-                    </button>
-                    {!ready && (
-                      <p className="text-sm text-muted">
-                        Needs an approved sheet.{" "}
-                        <Link to={`/b/${brandId}/library/characters/${c.id}`} className="text-accent-text underline">
-                          Open
-                        </Link>
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            {chars.data?.length === 0 && <p className="text-sm text-muted">This brand has no characters yet. Add them in Cast & places.</p>}
-            {act.lock.isError && <p role="alert" className={errorClass}>{act.lock.error.message}</p>}
-          </div>
-        </Panel>
+        <LockPanel
+          slot={locking}
+          brandId={brandId}
+          locking={act.lock.isPending}
+          onClose={() => setLocking(null)}
+          onLock={(itemId) =>
+            act.lock.mutate(
+              { id: locking.id, libraryItemId: itemId },
+              {
+                onSuccess: () => {
+                  toast(`${locking.role} is locked. They'll look the same in every version.`);
+                  setLocking(null);
+                },
+              },
+            )
+          }
+        />
       )}
     </div>
   );
