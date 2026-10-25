@@ -19,7 +19,7 @@ from app.models.jobs import Job, JobStatus
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.references import load as load_reference
+from app.routes.references import for_script as script_reference
 from app.routes.script_library import Slot
 
 router = APIRouter(prefix="/scripts/{script_id}/drafts/{slot}/breakdown", tags=["script library"])
@@ -91,7 +91,7 @@ def run_preview(
         raise HTTPException(422, "Write the script first.")
     if _running(db, draft.id):
         raise HTTPException(409, "A breakdown is already being made for this version.")
-    ref = load_reference(request, script.reference_id) if script.reference_id else None
+    ref = script_reference(request, script)
     job_input = script_preview.job_input(db, script, draft, ref)
     return enqueue(db, user, "write-claude", job_input, provider="claude")
 
