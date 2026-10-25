@@ -3463,6 +3463,10 @@ export interface components {
             versions: components["schemas"]["VersionSummary"][];
             /** Versions Left */
             versions_left: number;
+            /** Poster File Id */
+            poster_file_id?: number | null;
+            /** Reference Name */
+            reference_name?: string | null;
         };
         /** SetupIn */
         SetupIn: {
@@ -3828,6 +3832,10 @@ export interface components {
             versions: components["schemas"]["VersionSummary"][];
             /** Versions Left */
             versions_left: number;
+            /** Poster File Id */
+            poster_file_id?: number | null;
+            /** Reference Name */
+            reference_name?: string | null;
             /** Spend Usd */
             spend_usd: number;
             /** Spend Estimated */
@@ -4086,6 +4094,10 @@ export interface components {
             versions: components["schemas"]["app__routes__script_library__VersionOut"][];
             /** Versions Left */
             versions_left: number;
+            /** Poster File Id */
+            poster_file_id?: number | null;
+            /** Reference Name */
+            reference_name?: string | null;
             /** Notes */
             notes: string;
             /** Reference Replace */
@@ -6453,6 +6465,10 @@ export interface operations {
                 status?: string | null;
                 q?: string;
                 reference?: boolean | null;
+                reference_id?: string | null;
+                sort?: "newest" | "title" | "seconds" | "versions_left";
+                limit?: number | null;
+                offset?: number;
                 versions_left?: number | null;
                 min_seconds?: number | null;
                 max_seconds?: number | null;

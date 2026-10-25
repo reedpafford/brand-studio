@@ -143,3 +143,18 @@ def test_a_version_keeps_its_newest_20_earlier_texts(owner, editor):
     mine = _make(editor, text="NATE: One.")
     editor.put(f"/scripts/{mine['id']}/drafts/0", json={"text": "NATE: Two."})
     assert len(editor.get(f"/scripts/{mine['id']}/drafts/0/history").json()) == 1  # the author
+
+
+def test_library_sort_page_reel_filter_and_name(owner):
+    """Builder-Screens' gaps: sort, page with a total, the reel by id, and its name."""
+    _make(owner, title="Bus", text=SCRIPT)
+    _make(owner, title="Altar", text=SCRIPT, reference_id="fomo-DehudnaAmce")
+    _make(owner, title="Cafe", text=SCRIPT)
+    page = owner.get("/scripts", params={"sort": "title", "limit": 2})
+    assert [s["title"] for s in page.json()] == ["Altar", "Bus"]
+    assert page.headers["x-total-count"] == "3"
+    rest = owner.get("/scripts", params={"sort": "title", "limit": 2, "offset": 2}).json()
+    assert [s["title"] for s in rest] == ["Cafe"]
+    reel = owner.get("/scripts", params={"reference_id": "fomo-DehudnaAmce"}).json()
+    assert [s["title"] for s in reel] == ["Altar"] and reel[0]["reference_name"]
+    assert reel[0]["poster_file_id"] is None  # no finished video yet

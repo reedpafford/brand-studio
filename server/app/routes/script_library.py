@@ -2,9 +2,9 @@
 (the original in slot 0 and up to two variations). Rules: `app/script_library.py`."""
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from app.models.accounts import User
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.routes.brands import get_brand
+from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
 from app.routes.scripts import ScriptText
@@ -63,7 +64,7 @@ class Person(BaseModel):
 
 class VersionSummary(BaseModel):
     slot: int
-    status: str  # draft | approved | in_production | clips_ready | done
+    status: str  # draft | approved | in_production | clips_ready | failed | done
     title: str
     seconds: int  # the saved breakdown's, else the target, else spoken words at 4.8 a second
     project_id: int | None  # the video made from it
@@ -98,6 +99,8 @@ class ScriptRow(BaseModel):
     created_at: datetime
     versions: list[VersionSummary]
     versions_left: int  # approved versions not produced yet
+    poster_file_id: int | None = None  # the first still of its newest finished video
+    reference_name: str | None = None  # the reel it adapts, by name
 
 
 class ScriptOut(ScriptRow):
@@ -173,12 +176,26 @@ def _check_reference(request: Request, ref_id: str | None) -> None:
         find_reference(request, ref_id)  # 404 if it isn't in the catalogue
 
 
+SORTS = {
+    "newest": lambda r: -r.id,
+    "title": lambda r: r.title.lower(),
+    "seconds": lambda r: max((v.seconds for v in r.versions), default=0),
+    "versions_left": lambda r: -r.versions_left,
+}
+
+
 @router.get("", response_model=list[ScriptRow])
 def list_scripts(
+    request: Request,
+    response: Response,
     brand_id: int | None = None,
     status: str | None = None,
     q: str = "",
     reference: bool | None = None,  # true: adapted from a reel; false: not
+    reference_id: str | None = None,  # adapted from this reel
+    sort: Literal["newest", "title", "seconds", "versions_left"] = "newest",
+    limit: int | None = Query(None, ge=1, le=200),  # a page; X-Total-Count has the total
+    offset: int = Query(0, ge=0),
     versions_left: int | None = None,  # at least this many versions left to produce
     min_seconds: int | None = None,
     max_seconds: int | None = None,
@@ -191,6 +208,8 @@ def list_scripts(
         query = query.where(or_(Script.published, Script.created_by_id == user.id))
     if brand_id is not None:
         query = query.where(Script.brand_id == brand_id)
+    if reference_id is not None:
+        query = query.where(Script.reference_id == reference_id)
     if reference is not None:
         query = query.where(
             Script.reference_id.is_not(None) if reference else Script.reference_id.is_(None)
@@ -209,6 +228,15 @@ def list_scripts(
     if min_seconds is not None or max_seconds is not None:
         lo, hi = min_seconds or 0, max_seconds or 10**6
         rows = [r for r in rows if any(lo <= v.seconds <= hi for v in r.versions)]
+    rows.sort(key=SORTS[sort])
+    response.headers["X-Total-Count"] = str(len(rows))
+    rows = rows[offset : offset + limit] if limit else rows[offset:]
+    names = {
+        ref.id: ref.name for ref, _ in catalogue(request.app.state.settings.references_dir).values()
+    }
+    for row in rows:
+        row.poster_file_id = lib.poster(db, db.get(Script, row.id))
+        row.reference_name = names.get(row.reference_id) if row.reference_id else None
     return rows
 
 
