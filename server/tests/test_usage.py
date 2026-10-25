@@ -1,0 +1,108 @@
+"""Usage, the brand tracker: spend, finished videos and cost per finished video per brand."""
+
+from datetime import timedelta
+from decimal import Decimal
+
+from app.credits import week_start
+from app.db import utcnow
+from app.models.accounts import Role, User
+from app.models.jobs import Usage
+from app.models.projects import Project
+from app.routes.jobs import enqueue
+
+ENDPOINTS = ["/usage/summary", "/usage/brands", "/usage/brands/1"]
+
+
+def _charge(db, job, dollars, when=None, estimated=False):
+    db.add(
+        Usage(
+            workspace_id=job.workspace_id,
+            job_id=job.id,
+            provider="fake",
+            kind=job.kind,
+            units=Decimal(1),
+            unit="second",
+            cost_usd=Decimal(str(dollars)),
+            estimated=estimated,
+            created_at=when or utcnow(),
+        )
+    )
+    db.commit()
+
+
+def _setup(owner, db):
+    me = db.query(User).filter_by(role=Role.owner).one()
+    fomo = owner.get("/brands").json()[0]["id"]
+    made = owner.post("/projects", json={"brand_id": fomo, "name": "Launch"}).json()
+    return me, fomo, db.get(Project, made["id"])
+
+
+def test_spend_finished_and_cost_per_finished_video(owner, db):
+    me, fomo, project = _setup(owner, db)
+    first = enqueue(db, me, "video-480p", {}, project=project)
+    _charge(db, first, "4.00", when=utcnow() - timedelta(days=400))  # long before: lifetime only
+    _charge(db, enqueue(db, me, "video-480p", {}, project=project), "6.50", estimated=True)
+    _charge(db, enqueue(db, me, "video-480p", {"brand_id": fomo}), "1.25")  # a Quick clip
+    _charge(db, enqueue(db, me, "write-claude", {}), "0.20")  # not tied to one brand
+    project.finished_at = utcnow()
+    db.commit()
+
+    week = owner.get("/usage/summary").json()
+    assert (week["spend_usd"], week["unassigned_spend_usd"], week["spend_estimated"]) == (
+        7.95,
+        0.2,
+        True,
+    )
+    assert (week["finished"], week["cost_per_finished_usd"], week["in_progress"]) == (1, 10.5, 0)
+    assert week["previous"] == {"spend_usd": 0.0, "finished": 0, "cost_per_finished_usd": None}
+    assert owner.get("/usage/summary", params={"period": "all"}).json()["spend_usd"] == 11.95
+
+    row = next(r for r in owner.get("/usage/brands").json()["items"] if r["brand_id"] == fomo)
+    assert (row["spend_usd"], row["finished"], row["cost_per_finished_usd"]) == (7.75, 1, 10.5)
+    assert row["last_activity_at"] is not None
+    one = owner.get(f"/usage/brands/{fomo}").json()
+    assert one["spend_usd"] == 7.75 and one["editors_active"] == 1
+
+
+def test_week_and_month_boundaries_and_the_period_before(owner, db):
+    me, fomo, project = _setup(owner, db)
+    start = week_start()
+    _charge(db, enqueue(db, me, "video-480p", {}, project=project), "3", when=start)
+    _charge(db, enqueue(db, me, "video-480p", {}, project=project), "2", when=start - timedelta(1))
+    week = owner.get("/usage/summary").json()
+    assert week["spend_usd"] == 3.0 and week["previous"]["spend_usd"] == 2.0
+    month_start = utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month = owner.get("/usage/summary", params={"period": "month"}).json()
+    in_month = sum(x for x, at in ((3, start), (2, start - timedelta(1))) if at >= month_start)
+    assert month["spend_usd"] == in_month
+    assert owner.get("/usage/summary", params={"period": "all"}).json()["previous"] is None
+
+
+def test_every_brand_is_listed_once_new_ones_with_zeros(owner, db):
+    made = owner.post("/brands", json={"name": "Night Owl"})
+    assert made.status_code == 201, made.text
+    rows = owner.get("/usage/brands", params={"sort": "name"}).json()
+    owl = next(r for r in rows["items"] if r["name"] == "Night Owl")
+    assert (owl["spend_usd"], owl["finished"], owl["cost_per_finished_usd"]) == (0.0, 0, None)
+    assert owl["last_activity_at"] is None and owl["scripts"] == 0
+    seen, cursor = [], None
+    while True:
+        params = {"limit": 1, **({"cursor": cursor} if cursor else {})}
+        page = owner.get("/usage/brands", params=params).json()
+        seen += [r["brand_id"] for r in page["items"]]
+        cursor = page["next_cursor"]
+        if not cursor:
+            break
+    assert (
+        sorted(seen) == sorted(r["brand_id"] for r in rows["items"]) and len(seen) == rows["total"]
+    )
+    found = owner.get("/usage/brands", params={"q": "night"}).json()
+    assert [r["name"] for r in found["items"]] == ["Night Owl"] and found["total"] == 1
+
+
+def test_editors_and_other_workspaces_never_see_usage(owner, editor, outsider):
+    for url in ENDPOINTS:
+        assert editor.get(url).status_code == 404
+    fomo = owner.get("/brands").json()[0]["id"]
+    assert outsider.get(f"/usage/brands/{fomo}").status_code == 404
+    assert fomo not in [r["brand_id"] for r in outsider.get("/usage/brands").json()["items"]]

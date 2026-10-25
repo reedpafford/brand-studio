@@ -25,6 +25,7 @@ from app.routes import (
     references,
     screens,
     script_cast,
+    script_cast_read,
     script_library,
     script_preview,
     script_produce,
@@ -33,6 +34,7 @@ from app.routes import (
     sheets,
     storyboard,
     team,
+    usage,
 )
 from app.routes.scripts import MAX_DOC_BYTES
 from app.settings import Settings, check_production, get_settings
@@ -57,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         library,
         sheets,
         jobs,
+        usage,
         projects,
         credits,
         estimate,
@@ -64,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         references,
         scripts,
         script_library,
+        script_cast_read,
         script_cast,
         script_preview,
         script_produce,

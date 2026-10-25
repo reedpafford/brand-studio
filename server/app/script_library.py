@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.accounts import User
-from app.models.clips import FinalVideo, ProjectClip
+from app.models.clips import ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
@@ -77,7 +77,7 @@ def version_status(db: Session, draft: ScriptDraft) -> tuple[str, int | None]:
     project = db.scalar(select(Project).where(Project.script_draft_id == draft.id))
     if not project:
         return draft.status, None
-    if db.scalar(select(FinalVideo.id).where(FinalVideo.project_id == project.id).limit(1)):
+    if project.finished_at:  # a final video, or the picked takes downloaded
         return "done", project.id
     clips = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)).all()
     ready = bool(clips) and all(c.approved for c in clips)

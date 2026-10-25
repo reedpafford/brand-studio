@@ -597,6 +597,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Summary */
+        get: operations["summary_usage_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brands
+         * @description Every brand in the workspace, including new ones with nothing yet. Paged over brands;
+         *     the figures are per brand, so the client never adds anything up.
+         */
+        get: operations["brands_usage_brands_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/brands/{brand_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Brand */
+        get: operations["brand_usage_brands__brand_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -1056,6 +1111,28 @@ export interface paths {
          * @description A private copy to change: same brand, reel, words and cast slots, as drafts.
          */
         post: operations["duplicate_scripts__script_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Status */
+        get: operations["read_status_scripts__script_id__cast_read_get"];
+        put?: never;
+        /**
+         * Read Cast
+         * @description Read the roles every approved version needs a look for. Slots the script already has
+         *     stay (locked ones stay locked); new roles are added unlocked.
+         */
+        post: operations["read_cast_scripts__script_id__cast_read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3003,6 +3080,13 @@ export interface components {
             /** Credits Per Unit */
             credits_per_unit: number;
         };
+        /** ReadOut */
+        ReadOut: {
+            /** Running */
+            running: boolean;
+            /** Problems */
+            problems: string[];
+        };
         /** Reference */
         Reference: {
             /**
@@ -3286,6 +3370,8 @@ export interface components {
         SlotIn: {
             /** Role */
             role: string;
+            /** Kind */
+            kind?: ("Main" | "Helper" | "Rival" | "Family") | null;
             /**
              * Description
              * @default
@@ -3298,10 +3384,14 @@ export interface components {
             id: number;
             /** Role */
             role: string;
+            /** Kind */
+            kind: string;
             /** Description */
             description: string;
             /** Position */
             position: number;
+            /** Appears In */
+            appears_in: number[];
             /** Library Item Id */
             library_item_id: number | null;
             /** Sheet File Id */
@@ -3313,6 +3403,8 @@ export interface components {
         SlotPatch: {
             /** Role */
             role?: string | null;
+            /** Kind */
+            kind?: ("Main" | "Helper" | "Rival" | "Family") | null;
             /** Description */
             description?: string | null;
             /** Position */
@@ -3381,6 +3473,72 @@ export interface components {
             /** File Id */
             file_id: number;
         };
+        /** UsageBrandOut */
+        UsageBrandOut: {
+            /** Brand Id */
+            brand_id: number;
+            /** Name */
+            name: string;
+            /** Colour */
+            colour: string | null;
+            /** Archived */
+            archived: boolean;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Finished */
+            finished: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+            /** In Progress */
+            in_progress: number;
+            /** Scripts */
+            scripts: number;
+            /** Versions Left */
+            versions_left: number;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            previous: components["schemas"]["UsagePrevious"] | null;
+            /** Editors Active */
+            editors_active: number;
+        };
+        /** UsageBrandRow */
+        UsageBrandRow: {
+            /** Brand Id */
+            brand_id: number;
+            /** Name */
+            name: string;
+            /** Colour */
+            colour: string | null;
+            /** Archived */
+            archived: boolean;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Finished */
+            finished: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+            /** In Progress */
+            in_progress: number;
+            /** Scripts */
+            scripts: number;
+            /** Versions Left */
+            versions_left: number;
+            /** Last Activity At */
+            last_activity_at: string | null;
+        };
+        /** UsageBrandsOut */
+        UsageBrandsOut: {
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Items */
+            items: components["schemas"]["UsageBrandRow"][];
+        };
         /** UsageOut */
         UsageOut: {
             /** Id */
@@ -3404,6 +3562,38 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** UsagePrevious */
+        UsagePrevious: {
+            /** Spend Usd */
+            spend_usd: number;
+            /** Finished */
+            finished: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+        };
+        /** UsageSummaryOut */
+        UsageSummaryOut: {
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "week" | "month" | "all";
+            /** Starts At */
+            starts_at: string | null;
+            previous: components["schemas"]["UsagePrevious"] | null;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Finished */
+            finished: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+            /** In Progress */
+            in_progress: number;
+            /** Unassigned Spend Usd */
+            unassigned_spend_usd: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -4929,6 +5119,106 @@ export interface operations {
             };
         };
     };
+    summary_usage_summary_get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageSummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    brands_usage_brands_get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+                q?: string;
+                archived?: boolean;
+                sort?: "spend" | "finished" | "cost" | "activity" | "name";
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageBrandsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    brand_usage_brands__brand_id__get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageBrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_projects_projects_get: {
         parameters: {
             query?: {
@@ -5911,6 +6201,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_status_scripts__script_id__cast_read_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_cast_scripts__script_id__cast_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */

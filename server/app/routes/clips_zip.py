@@ -13,10 +13,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import current_user
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.clips import ClipTake, ProjectClip
 from app.models.files import StoredFile
+from app.models.projects import Project
 from app.routes.projects import get_project
 from app.storage import Storage
 
@@ -46,13 +47,28 @@ class _Chunks:
         return out
 
 
-def _stream(storage: Storage, files: list[tuple[str, str]]) -> Iterator[bytes]:
+def _stream(storage: Storage, files: list[tuple[str, str]], done=None) -> Iterator[bytes]:
     sink = _Chunks()
     with zipfile.ZipFile(sink, "w", zipfile.ZIP_STORED) as archive:
         for name, key in files:
             archive.writestr(name, storage.get(key))
             yield sink.take()
     yield sink.take()
+    if done:
+        done()
+
+
+def _finished(sessionmaker, project_id: int):
+    """After the picked takes are sent in full: the video is done, once."""
+
+    def mark() -> None:
+        with sessionmaker() as db:
+            project = db.get(Project, project_id)
+            if project and not project.finished_at:
+                project.finished_at = utcnow()
+                db.commit()
+
+    return mark
 
 
 @router.get("/clips.zip", response_class=StreamingResponse)
@@ -85,8 +101,14 @@ def clips_zip(
         # Checked before sending, so a missing video never leaves a half-sent zip.
         raise HTTPException(409, f"{missing[0]}'s video file is missing. Make that take again.")
     safe = re.sub(r"[^A-Za-z0-9 _-]", "", project.name).strip() or "clips"
+    # Only the whole video counts as done: a picked take for every clip.
+    whole = not all_takes and all(c.picked_take_id for c in clips)
     return StreamingResponse(
-        _stream(storage, files),
+        _stream(
+            storage,
+            files,
+            _finished(request.app.state.sessionmaker, project.id) if whole else None,
+        ),
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{safe}.zip"'},
     )
