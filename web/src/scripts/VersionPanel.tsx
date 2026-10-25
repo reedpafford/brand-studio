@@ -5,11 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Badge, Button, Panel, Skeleton } from "../components";
-import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
-import { useScript } from "./useScript";
+import { useAllowanceStop, useScript } from "./useScript";
 
 const LETTER = ["A", "B", "C"];
 const SHOWN = 8;
@@ -22,8 +21,6 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
-  const { data: me } = useMe();
-  const allowance = useQuery({ enabled: me?.role !== undefined && me.role !== "owner", queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
   const [all, setAll] = useState(false);
   const s = script.data;
   const v = s?.versions.find((x) => x.slot === slot);
@@ -43,8 +40,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   });
   // With no saved breakdown, starting one is a paid call; with one saved, making the version is free.
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
-  // An editor making their own script is billed to their weekly allowance; anyone else's script is billed to the video's budget (and Reed is never limited).
-  const spent = cost !== undefined && s?.created_by_id === me?.id && me?.role !== "owner" && !!allowance.data && allowance.data.quick_clip_credits_used + cost > allowance.data.quick_clip_credits_allowed;
+  const stop = useAllowanceStop(s, cost);
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
   return (
@@ -83,7 +79,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           </section>
           {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
           {readyToMake ? (
-            <Button price={cost} disabled={spent} reason={spent ? `You've used this week's ${Math.round(allowance.data!.quick_clip_credits_allowed)} credits. It resets Monday.` : undefined} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
+            <Button price={cost} disabled={stop !== null} reason={stop} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
               Make this version
             </Button>
           ) : (

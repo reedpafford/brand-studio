@@ -25,6 +25,8 @@ def test_write_two_variations_then_regenerate_one(app, db, owner):
     job = owner.post(url, json={})
     assert job.status_code == 201, job.text
     assert owner.post(url, json={}).status_code == 409  # one run at a time
+    listed = next(j for j in owner.get("/jobs").json() if j["id"] == job.json()["id"])
+    assert (listed["step"], listed["script_id"]) == ("variations", made["id"])  # any device
     prompt = db.get(Job, job.json()["id"]).input["prompt"]
     assert "<count>2</count>" in prompt and f"char:{mia.json()['id']} Mia (Mom)" in prompt
     assert "<reference>" in prompt and "<keep_apart>" not in prompt
@@ -72,3 +74,17 @@ def test_publish_waits_for_variations_and_a_late_result_is_dropped(app, db, owne
     db.commit()
     _work(app, db)
     assert [d.slot for d in db.query(ScriptDraft).filter_by(script_id=made["id"])] == [0]
+
+
+def test_a_regenerated_variation_keeps_its_earlier_text(app, db, owner):
+    made = _make(owner, text=LONGER)
+    base = f"/scripts/{made['id']}"
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/variations", json={"slots": [1]})
+    _work(app, db)
+    first = owner.get(base).json()["versions"][1]["text"]
+    owner.put(f"{base}/drafts/2", json={"text": "NATE: Kept apart."})  # the stand-in then differs
+    owner.post(f"{base}/variations", json={"slots": [1], "note": "again"})
+    _work(app, db)
+    (earlier,) = owner.get(f"{base}/drafts/1/history").json()
+    assert (earlier["text"], earlier["source"]) == (first, "variations")

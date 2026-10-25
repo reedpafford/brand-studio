@@ -15,7 +15,7 @@ from app.models.accounts import User
 from app.models.clips import ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
-from app.models.script_library import Script, ScriptDraft
+from app.models.script_library import Script, ScriptDraft, ScriptDraftText
 
 MAX_SLOT = 2  # the original (0) plus up to two variations
 WORDS_PER_SECOND = 4.8
@@ -105,3 +105,17 @@ def writing(db: Session, script_id: int, step: str | None = None) -> bool:
         j.input.get("script_id") == script_id and (step is None or j.input.get("step") == step)
         for j in jobs
     )
+
+
+def keep_text(db: Session, draft: ScriptDraft, new_text: str, source: str, user_id=None) -> None:
+    """Keep a version's current words before they're replaced, for its history."""
+    if draft.id and draft.text.strip() and draft.text != new_text:
+        db.add(
+            ScriptDraftText(
+                draft_id=draft.id,
+                text=draft.text,
+                title=draft.title,
+                source=source,
+                created_by_id=user_id,
+            )
+        )
