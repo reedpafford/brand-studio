@@ -232,7 +232,7 @@ def test_delete_is_undoable_and_restore_gives_back_the_same_script(owner, editor
     assert editor.get("/scripts").json() == []  # gone from every list
     assert editor.post(f"{url}/restore").status_code == 200
     assert editor.get(url).json() == before
-    assert editor.post(f"{url}/restore").status_code == 409  # not deleted now
+    assert editor.post(f"{url}/restore").status_code == 404  # not deleted now
 
 
 def test_only_who_may_delete_may_restore(app, owner, editor, db):
@@ -249,3 +249,17 @@ def test_only_who_may_delete_may_restore(app, owner, editor, db):
     editor.delete(f"/scripts/{mine['id']}")
     two, _ = _second_editor(app, owner, db)
     assert two.post(f"/scripts/{mine['id']}/restore").status_code == 404
+
+
+def test_a_deleted_script_is_gone_for_editors(owner, editor):
+    """QA on #315: once Reed deletes a published script, editors can't open or produce it."""
+    made = _make(owner, text=SCRIPT)
+    url = f"/scripts/{made['id']}"
+    owner.post(f"{url}/drafts/0/approve")
+    owner.post(f"{url}/publish")
+    owner.delete(url)
+    assert editor.get(url).status_code == 404
+    assert editor.post(f"{url}/drafts/0/produce").status_code == 404
+    assert owner.get(url).status_code == 404  # the owner too, until restored
+    owner.post(f"{url}/restore")
+    assert editor.get(url).status_code == 200

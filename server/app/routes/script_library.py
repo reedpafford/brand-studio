@@ -357,8 +357,8 @@ def update_script(
     return _out(db, script)
 
 
-def _removable(db: Session, user: User, script_id: int) -> Script:
-    script = lib.get_script(db, user, script_id)
+def _removable(db: Session, user: User, script_id: int, archived: bool = False) -> Script:
+    script = lib.get_script(db, user, script_id, archived)
     if not (user.is_owner or (script.created_by_id == user.id and not script.published)):
         raise HTTPException(403, "Only its author (before publishing) or the owner can remove it.")
     return script
@@ -380,9 +380,7 @@ def restore_script(
     script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Undo a delete: who may delete it may restore it."""
-    script = _removable(db, user, script_id)
-    if not script.archived:
-        raise HTTPException(409, "This script isn't deleted.")
+    script = _removable(db, user, script_id, archived=True)  # 404 unless it's deleted
     script.archived = False
     db.commit()
     return _out(db, script)
