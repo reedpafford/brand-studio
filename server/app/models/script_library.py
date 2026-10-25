@@ -89,3 +89,14 @@ class ScriptCastSlot(Entity, Base):
     library_item_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))
     sheet_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # when locked
     locked_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+
+class SeededScript(Entity, Base):
+    """A script draft file from the repo already imported into a workspace (app/seed_drafts.py),
+    kept even if Reed deletes the script, so a deploy never brings it back."""
+
+    __tablename__ = "seeded_scripts"
+    __table_args__ = (UniqueConstraint("workspace_id", "key"),)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"))
+    key: Mapped[str] = mapped_column(String(300))  # "<reference_id>/<file name>"
