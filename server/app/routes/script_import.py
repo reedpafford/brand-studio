@@ -12,8 +12,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import reel as media
+from app import reel_read as read
 from app import script_library as lib
+from app import script_write
 from app.auth import current_user
+from app.credits import credits_left
 from app.db import get_db
 from app.filetypes import matches
 from app.models.accounts import User
@@ -21,6 +24,7 @@ from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.script_library import Script, ScriptDraft
 from app.routes.brands import get_brand
+from app.routes.clips import generation_on
 from app.routes.jobs import enqueue
 
 router = APIRouter(prefix="/scripts", tags=["reel import"])
@@ -29,6 +33,7 @@ VIDEO_TYPES = ("video/mp4", "video/quicktime")  # both start with an ftyp box
 CHUNK = 1024 * 1024
 MAX_BYTES = media.MAX_MB * 1024 * 1024
 UPLOAD_PATHS = r"/scripts(/\d+)?/import/upload"
+WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 PREPARE_FAILED = "We couldn't prepare this reel. Upload it again."
 Title = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 
@@ -40,9 +45,17 @@ class LinkIn(BaseModel):
     new_lines: bool | None = None
 
 
+class Estimate(BaseModel):
+    credits: float  # every step still to run, together
+    credits_left: float | None  # an editor's weekly allowance left; null for the owner
+    # How often the step it starts from has been tried already: a retry is charged again, so
+    # after 2 failed tries the screen says so before the next press.
+    tries: int = 0
+
+
 class ImportOut(BaseModel):
     script_id: int
-    status: Literal["preparing", "ready", "failed"]
+    status: Literal["preparing", "ready", "reading", "done", "failed"]
     source: str  # upload | link
     url: str | None = None
     seconds: float | None = None
@@ -52,18 +65,38 @@ class ImportOut(BaseModel):
     contact_file_id: int | None = None
     problem: str = ""  # plain words for the editor
     problem_code: str | None = None  # blocked | gone | bad_file | too_long
+    steps_done: list[str] = []  # of watch, write, cast
+    failed_step: str | None = None  # prepare | watch | write | cast
+    estimate: Estimate | None = None  # once ready: what "Read this reel" costs now
 
 
-def _out(db: Session, script: Script) -> ImportOut:
+def _status(script: Script, job: Job | None) -> tuple[str, str | None]:
+    reel, step = script.reel or {}, (job.input.get("reel_step") if job else None) or "prepare"
+    if job and job.status in WAITING:
+        return ("preparing" if step == "prepare" else "reading"), None
+    if reel.get("problem") or not job or job.status != JobStatus.succeeded:
+        return "failed", step
+    if reel.get("failed_step"):
+        return "failed", reel["failed_step"]
+    return ("ready" if read.remaining(script) else "done"), None
+
+
+def _out(db: Session, script: Script, user: User) -> ImportOut:
     reel = script.reel or {}
-    job = db.get(Job, script.reel_job_id) if script.reel_job_id else None
+    status, failed = _status(script, _job(db, script))
     problem, code = reel.get("problem", ""), reel.get("problem_code")
-    if job and job.status in (JobStatus.queued, JobStatus.running):
-        status = "preparing"
-    elif problem or not job or job.status != JobStatus.succeeded:
-        status, problem = "failed", problem or PREPARE_FAILED
-    else:
-        status = "ready"
+    if failed == "prepare":
+        problem = problem or PREPARE_FAILED
+    elif failed:
+        problem = f"{read.NAMES[failed]} didn't finish. Nothing more was charged; try again."
+    estimate = None
+    if status in ("ready", "failed") and failed != "prepare":
+        left = credits_left(db, user)
+        estimate = Estimate(
+            credits=read.price(db, user, read.remaining(script)),
+            credits_left=None if left is None else max(left, 0),
+            tries=(reel.get("tries") or {}).get(failed or "", 0),
+        )
     return ImportOut(
         script_id=script.id,
         status=status,
@@ -76,6 +109,9 @@ def _out(db: Session, script: Script) -> ImportOut:
         contact_file_id=reel.get("contact_file_id"),
         problem=problem,
         problem_code=code,
+        steps_done=reel.get("done", []),
+        failed_step=failed,
+        estimate=estimate,
     )
 
 
@@ -184,7 +220,7 @@ async def import_upload(
     stored = await _store_video(request, user, db, file)
     reel = {"source": "upload", "video_file_id": stored.id}
     _prepare(db, user, script, reel, {"video_key": stored.key})
-    return _out(db, script)
+    return _out(db, script, user)
 
 
 @router.post("/import/link", response_model=ImportOut, status_code=201)
@@ -197,7 +233,7 @@ def import_link(body: LinkIn, user: User = Depends(current_user), db: Session = 
     _one_at_a_time(db, user)
     script = _new_script(db, user, body.brand_id, body.title, body.new_lines)
     _prepare(db, user, script, {"source": "link", "url": url}, {"url": url})
-    return _out(db, script)
+    return _out(db, script, user)
 
 
 @router.post("/{script_id}/import/upload", response_model=ImportOut)
@@ -212,8 +248,8 @@ async def replace_with_upload(
     script = lib.editable(user, lib.get_script(db, user, script_id))
     if script.reel is None:
         raise HTTPException(409, "This script isn't made from a reel.")
-    if _out(db, script).status == "preparing":
-        raise HTTPException(409, "This reel is still being prepared.")
+    if _status(script, _job(db, script))[0] in ("preparing", "reading"):
+        raise HTTPException(409, "This reel is still being prepared or read.")
     if script.reference_breakdown:
         raise HTTPException(409, "This reel has been read already.")
     _one_at_a_time(db, user)
@@ -222,7 +258,7 @@ async def replace_with_upload(
     reel = {"source": "upload", "url": script.reel.get("url"), "video_file_id": stored.id}
     _prepare(db, user, script, reel, {"video_key": stored.key})  # commits
     delete_bytes(request, old)
-    return _out(db, script)
+    return _out(db, script, user)
 
 
 @router.get("/{script_id}/import", response_model=ImportOut)
@@ -230,12 +266,45 @@ def read_import(script_id: int, user: User = Depends(current_user), db: Session 
     script = lib.get_script(db, user, script_id)
     if script.reel is None:
         raise HTTPException(404, "This script isn't made from a reel.")
-    return _out(db, script)
+    return _out(db, script, user)
+
+
+@router.post(
+    "/{script_id}/import/read",
+    response_model=ImportOut,
+    status_code=201,
+    dependencies=[Depends(generation_on)],
+)
+def read_reel(script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Read this reel: watch, write and cast read, priced together and paid for once. An
+    editor's allowance must cover every step left, or nothing runs. After a failed step,
+    pressing again retries from it at the price of what's left."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    status, failed = _status(script, _job(db, script))
+    if status in ("preparing", "reading"):
+        raise HTTPException(409, "This reel is still being prepared or read.")
+    if status == "done" or failed == "prepare":
+        raise HTTPException(409, "There's nothing to read: the reel is done or wasn't prepared.")
+    if (original := script_write.original(db, script)) and original.status == "approved":
+        raise HTTPException(409, "Version A is approved, so the reel can't rewrite it.")
+    steps = read.remaining(script)
+    total, left = read.price(db, user, steps), credits_left(db, user)
+    if left is not None and total > left:
+        raise HTTPException(
+            409,
+            f"This reel needs {total:.0f} credits; you have {max(left, 0):.0f} left this week.",
+        )
+    read.queue(db, user, script, steps[0])
+    return _out(db, script, user)
+
+
+def _job(db: Session, script: Script) -> Job | None:
+    return db.get(Job, script.reel_job_id) if script.reel_job_id else None
 
 
 def save_prepared(db: Session, job: Job) -> None:
     """The worker's `reel_prepare` answer onto the script (called once the job succeeds)."""
-    script = db.get(Script, job.input["script_id"])
+    script = read.latest(db, job)
     if not script or script.reel_job_id != job.id:
         return  # a newer upload replaced this one
     output = job.output or {}
