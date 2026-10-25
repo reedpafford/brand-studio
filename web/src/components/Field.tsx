@@ -13,7 +13,7 @@ function Frame({ label, hint, error, counter, counterOk, id, children }: Common 
         <label htmlFor={id} className="text-sm font-medium">
           {label}
         </label>
-        {counter && <span className={`text-sm tabular-nums ${counterOk ? "text-success" : "text-muted"}`}>{counter}</span>}
+        {counter && <span className={`shrink-0 whitespace-nowrap text-sm tabular-nums ${counterOk ? "text-success" : "text-muted"}`}>{counter}</span>}
       </div>
       {children}
       {error ? (
