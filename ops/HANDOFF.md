@@ -60,10 +60,10 @@ as of 2e3a037 · 2026-10-25 21:00 UTC
 - #308 Library drafts: 12 fomo scripts from catalogue reels | Producer | in review
 - #304 [On hold] Reel prep makes a small watch copy for Gemini | Builder-Server | on hold (title; per the Producer); QA pass at fdd5534 (current head)
 ## Next
-- Builder-Server (per the Producer): a seed DRAFT loader so the 12 fomo drafts in #308 load into the Script Library.
-- Builder-Screens (new session): the rest of the reel import screens: review the breakdown, Read it again, the "Was:" marks, bulk reel links, and the library chip; then the In production view (spec #307).
+- Builder-Server (order, per the Producer): first the transcript fix (cause found: `vad_filter=True` drops lines spoken over music; the smaller speech model without it caught 10 of the altar reel's 11 lines); then the seed DRAFT loader so the 12 fomo drafts in #308 load into the Script Library; then `GET /production` and `/production/summary`.
+- Builder-Screens (order, per the Producer): first Reed's top-priority bug in the library Script step: it must offer "Write from the reference" (with the new-lines switch) and "Write with Claude", each priced first via `/scripts/{id}/write`, with paste kept; second the In production view (spec #307); then the rest of the reel import screens (review the breakdown, Read it again, the "Was:" marks, bulk reel links, the library chip).
 - Director: Betty after the montage rule; the reel-import evals per #277.
-- Producer: the Script Library is stocked today from reels by agents (free), not by in-app import (Reed): #308; the paid altar reel-import test, once the Replicate video-input outage is over (Reed's approval, up to $10, logged in ops/SPEND.md); check why the free transcript caught only 5 of the altar reel's 11 lines.
+- Producer: the Script Library is stocked today from reels by agents (free), not by in-app import (Reed): #308; the paid altar reel-import test, once the Replicate video-input outage is over (Reed's approval, up to $10, logged in ops/SPEND.md).
 - Reed: tests the climbing-numbers montage rule on the live site; makes video B (Iron Paws Pitbull 1) himself on the live site.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
