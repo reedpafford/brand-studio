@@ -6,6 +6,27 @@ SCRIPT = (
     "SCENE 1 — INT. KITCHEN — DAY\nMOM: Nate, where is all your money?\nNATE: I bought the dip."
 )
 
+# An imported reel's breakdown (reel import): the last shot is the live-action tag.
+IMPORTED = {
+    "logline": "A groom is dumped at the altar, hustles for two years, and wins",
+    "duration_seconds": 6,
+    "hook": {"seconds": 1.5, "mechanic": "The bride says no"},
+    "beats": [{"start": 0, "end": 6, "summary": "Rejection to riches", "emotion": "shock"}],
+    "shots": [
+        {"n": 1, "start": 0, "end": 3, "framing": "wide", "camera": "static",
+         "action": "She says no", "emotion": "shock", "speaker": "BRIDE", "line": "No."},
+        {"n": 2, "start": 3, "end": 6, "framing": "close", "camera": "handheld",
+         "action": "Creator talks to camera", "emotion": "warm", "style": "live action"},
+    ],
+}  # fmt: skip
+
+
+def _imported(db, script_id: int) -> None:
+    from app.models.script_library import Script
+
+    db.get(Script, script_id).reference_breakdown = IMPORTED
+    db.commit()
+
 
 def _make(client, **extra) -> dict:
     fomo = client.get("/brands").json()[0]["id"]
@@ -175,3 +196,27 @@ def test_library_pages_in_the_query_and_builds_only_the_page(owner, monkeypatch)
     left = owner.get("/scripts", params={"sort": "versions_left", "limit": 1})
     assert left.headers["x-total-count"] == "4" and len(left.json()) == 1
     assert len(built) == 4  # worked out from each script's versions, so every row is built
+
+
+def test_an_imported_reel_counts_as_adapted_and_is_named_by_its_logline(owner, db):
+    plain = _make(owner, title="Bus", text=SCRIPT)
+    reel = _make(owner, title="Altar", text=SCRIPT)
+    _imported(db, reel["id"])
+    rows = owner.get("/scripts", params={"reference": True}).json()
+    assert [(r["title"], r["reel_imported"]) for r in rows] == [("Altar", True)]
+    assert rows[0]["reference_name"] == "A groom is dumped at the altar"
+    rows = owner.get("/scripts", params={"reference": False}).json()
+    assert [r["id"] for r in rows] == [plain["id"]]
+    copy = owner.post(f"/scripts/{reel['id']}/duplicate").json()
+    assert copy["reel_imported"] and not copy["new_lines"]
+
+
+def test_new_lines_is_set_on_create_and_final_once_version_a_is_approved(owner):
+    made = _make(owner, text=SCRIPT, new_lines=True)
+    assert made["new_lines"] is True and _make(owner, text=SCRIPT)["new_lines"] is False
+    url = f"/scripts/{made['id']}"
+    assert owner.patch(url, json={"new_lines": False}).json()["new_lines"] is False
+    owner.post(f"{url}/drafts/0/approve")
+    late = owner.patch(url, json={"new_lines": True})
+    assert late.status_code == 409 and "Version A" in late.json()["detail"]
+    assert owner.patch(url, json={"title": "Still fine"}).status_code == 200

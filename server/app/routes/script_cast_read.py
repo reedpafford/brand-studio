@@ -13,7 +13,7 @@ from app.models.accounts import User
 from app.models.jobs import Job, JobStatus
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.references import load as load_reference
+from app.routes.references import for_script as script_reference
 
 router = APIRouter(prefix="/scripts/{script_id}/cast/read", tags=["script library"])
 
@@ -60,6 +60,6 @@ def read_cast(
         raise HTTPException(409, "Approve the original first.")
     if lib.writing(db, script.id, "cast_slots"):
         raise HTTPException(409, "The cast is already being read for this script.")
-    reference = load_reference(request, script.reference_id) if script.reference_id else None
+    reference = script_reference(request, script)
     data = cast_read.job_input(db, script, reference)
     return enqueue(db, user, "write-claude", data, provider="claude")
