@@ -59,3 +59,10 @@
   - New brands appear automatically with no setup. It scales as brands, scripts and editors grow (paged lists, filters, nothing hard-coded to a brand).
   - "Finished" = the library's "Video done": the final MP4 is made or the clips are downloaded (there is no upload, per the workflow answers). Producer's reading; Reed can change it.
   - Designer specs it into the redesign first; Builder-Server adds what the server needs, with tests. Generation does not change.
+- 2026-10-25 Reed: reel import in New script (plan now, build after the open PRs land).
+  - Paste an Instagram reel link or upload the video. The app does the Reference Analyst's job: download, transcribe the dialogue, detect the shots and camera, write the shot-by-shot breakdown, and pre-fill the script (dialogue word for word) and the cast slots for Reed to adapt.
+  - Live-action parts are dropped as usual. The cost is shown before anything paid runs.
+  - Redo notes are checked the same way as clip prompts: a note can never change the dialogue.
+- 2026-10-25 Reed: two additions to reel import.
+  - Keep the reference's dialogue by default. A script that adapts a reference keeps the reel's spoken lines word for word, with its shots, beats, pacing and feel. It rewrites only the lines the brand swap needs (e.g. reselling lines become trading). Reed can edit any of it before approving. A "Write new lines in the same style" switch gives fresh dialogue instead. script_draft.md and the evals follow this.
+  - Bulk: several reel links pasted at once (one per line) in Bulk create each become their own script draft with the reference attached. Write all writes them all, with the total cost shown first.

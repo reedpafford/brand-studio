@@ -15,6 +15,8 @@ import { BrandPage, ToBrand } from "./brand/BrandPage";
 import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
 import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
+import { UsageBrandPage } from "./usage/UsageBrandPage";
+import { UsagePage } from "./usage/UsagePage";
 
 export function App() {
   return (
@@ -42,6 +44,8 @@ export function App() {
           <Route path="b/:brandId/clip" element={<ClipPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="usage" element={<UsagePage />} />
+          <Route path="usage/brands/:brandId" element={<UsageBrandPage />} />
         </Route>
       </Route>
     </Routes>

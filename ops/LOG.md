@@ -1,6 +1,15 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 15:44 · #267 Writing spec: Bulk create is a side panel on desktop merged
+- 2026-10-25 15:36 · #264 Page the Script Library list in the query merged
+- 2026-10-25 15:32 · #263 fake_run: cover Write all on the stand-ins merged
+- 2026-10-25 15:24 · #240 Team Copy link and the held-clip line from allowances merged
+- 2026-10-25 15:21 · #260 Script library: poster, "Didn't finish", reel filter and name, sort and page merged
+- 2026-10-25 15:20 · #257 Write all + version panel: estimate, "Variation of A", clips and who planned it merged
+- 2026-10-25 15:15 · #261 ops: HANDOFF/LOG refresh 2026-10-25 15:20Z (by the Producer) merged
+- 2026-10-25 15:14 · #258 Usage lists: one query for video statuses, one pass for script spend merged
+- 2026-10-25 15:14 · #255 Write all: Claude writes a library script's words, one or many at once merged
 - 2026-10-25 15:09 · #253 Cast: Kind on each role, and where it appears merged
 - 2026-10-25 14:53 · #254 Library versions: undo approval, and a version's earlier texts merged
 - 2026-10-25 14:48 · #250 Script library: the Variations step merged
