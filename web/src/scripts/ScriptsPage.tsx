@@ -20,7 +20,7 @@ const PAGE = 30;
 const LETTER = ["A", "B", "C"];
 
 /** A version's status in words, with a tone as the second signal. Never an internal word. */
-const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof Check }> = {
+export const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof Check }> = {
   draft: { label: "Writing", tone: "neutral", icon: Pencil },
   approved: { label: "Ready to make", tone: "accent" },
   in_production: { label: "In production", tone: "warning", icon: Clock },

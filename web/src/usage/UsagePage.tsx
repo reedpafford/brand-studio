@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton } from "../components";
 import { useRail } from "../useMedia";
 import { useDebounced } from "../scripts/ScriptsPage";
+import { Charges } from "./Charges";
 import { Money, PeriodControl, Stats, lastText, money, periodLine, periodWord } from "./parts";
 import { periodFrom, useBrandRows, useSummary, type BrandRow, type Sort } from "./useUsage";
 
@@ -121,6 +122,7 @@ export function UsagePage() {
         )}
         {summary.data && summary.data.unassigned_spend_usd > 0 && <p className="text-sm text-muted">Not tied to one brand: {money(summary.data.unassigned_spend_usd)} · character looks used by several brands</p>}
       </section>
+      <Charges />
       {sheet && (
         <Sheet title="Filters" onClose={() => setSheet(false)}>
           <div className="space-y-3 pb-2">

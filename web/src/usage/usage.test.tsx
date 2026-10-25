@@ -116,3 +116,61 @@ test("the rail has Usage for Reed", async () => {
   open("/b/1/scripts");
   expect(await screen.findByRole("link", { name: "Usage" })).toHaveAttribute("href", "/usage");
 });
+
+const video = (o: object = {}) => ({ project_id: 31, title: "Bo tries salmon", script_id: 7, version_letter: "B", legacy: false, person: { id: 2, name: "Sam" }, status: "done", spend_usd: 11.8, spend_estimated: false, credits: 134, finished_at: "2026-10-21T10:00:00Z", last_activity_at: "2026-10-21T10:00:00Z", ...o });
+const brandBase = (extra: Record<string, [number, unknown]> = {}) => ({
+  ...base,
+  "GET /usage/summary": [200, summary] as [number, unknown],
+  "GET /usage/brands/1": [200, { ...row(), previous: null, editors_active: 3 }] as [number, unknown],
+  "GET /usage/brands/1/videos": [200, { total: 31, next_cursor: null, people: [{ id: 2, name: "Sam" }], items: [video(), video({ project_id: 32, title: "Paws launch", version_letter: null, script_id: null, legacy: true, person: { id: 1, name: "Reed" }, status: "failed", spend_usd: 3.1, credits: 35, finished_at: null })] }] as [number, unknown],
+  "GET /usage/brands/1/scripts": [200, { total: 12, next_cursor: null, authors: [{ id: 1, name: "Reed" }], items: [{ id: 7, brand_id: 1, title: "Bo tries salmon", description: "", reference_id: null, published: true, status: "published", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-20T10:00:00Z", versions_left: 1, spend_usd: 19.4, spend_estimated: false, changed_at: "2026-10-23T10:00:00Z", versions: [{ slot: 0, status: "done", title: "", seconds: 0, project_id: 31 }, { slot: 1, status: "in_production", title: "", seconds: 0, project_id: 33, editor: { id: 2, name: "Sam" } }, { slot: 2, status: "approved", title: "", seconds: 0, project_id: null }] }] }] as [number, unknown],
+  ...extra,
+});
+
+test("One brand's Videos: a row per video with who, status in words, the whole video's spend, and the period says which videos", async () => {
+  setViewport(1440);
+  fakeServer(brandBase());
+  open("/usage/brands/1");
+  expect(await screen.findByRole("tab", { name: "Videos 31" })).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByRole("tab", { name: "Scripts 12" })).toBeInTheDocument();
+  const done = (await screen.findByRole("link", { name: "Bo tries salmon · B" })).closest("tr")!;
+  expect(within(done).getByText("Sam")).toBeInTheDocument();
+  expect(within(done).getByText("Video done")).toBeInTheDocument();
+  expect(within(done).getByText("$11.80")).toBeInTheDocument();
+  expect(within(done).getByText("134")).toBeInTheDocument();
+  expect(screen.getByText("(earlier way)")).toBeInTheDocument();
+  expect(within(screen.getByRole("table")).getByText("Didn't finish")).toBeInTheDocument();
+  expect(screen.getByText("Videos with activity this week · 31")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Bo tries salmon · B" })).toHaveAttribute("href", "/b/1/projects/31");
+});
+
+test("One brand's Scripts tab: author, version chips that open what the library opens, versions left, spend", async () => {
+  setViewport(1440);
+  fakeServer(brandBase());
+  open("/usage/brands/1?tab=scripts");
+  const script = (await screen.findByRole("link", { name: "Bo tries salmon" })).closest("li")!;
+  expect(script.querySelector("a[href='/b/1/scripts/7?step=publish']")).not.toBeNull();
+  expect(within(script).getByText("Reed")).toBeInTheDocument();
+  expect(within(script).getByText("1 left")).toBeInTheDocument();
+  expect(within(script).getByText("$19.40")).toBeInTheDocument();
+  expect(within(script).getByLabelText("Version A, video done").closest("a")).toHaveAttribute("href", "/b/1/projects/31");
+  expect(within(script).getByLabelText("Version B, in production by Sam")).toBeInTheDocument();
+  expect(within(script).getByLabelText("Version C, ready to make").closest("a")).toHaveAttribute("href", "/b/1/scripts?make=7.2");
+});
+
+test("Every charge is closed until opened, then lists the charges in plain words and asks for more", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /usage/summary": [200, summary],
+    "GET /usage/brands": [200, brands([row()])],
+    "GET /usage/charges": [200, { next_cursor: "c2", items: [{ at: "2026-10-24T10:00:00Z", person: { id: 2, name: "Sam" }, brand: { id: 1, name: "Iron Paws" }, what: "Clip 3 take 2 · Bo tries salmon · B", credits: 27, cost_usd: 2.36, estimated: false, status: "succeeded" }] }],
+  });
+  open();
+  await screen.findByRole("link", { name: /Iron Paws/ });
+  expect(calls.some((c) => c.key === "GET /usage/charges")).toBe(false);
+  await userEvent.click(screen.getByText("Every charge"));
+  expect(await screen.findByText("Clip 3 take 2 · Bo tries salmon · B")).toBeInTheDocument();
+  expect(screen.getByText("$2.36")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Show more" })).toBeInTheDocument();
+});

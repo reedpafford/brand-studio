@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Banner, Button } from "../components";
+import { BrandLists } from "./BrandLists";
 import { PeriodControl, Stats, periodLine } from "./parts";
 import { periodFrom, useBrandUsage, useSummary } from "./useUsage";
 
@@ -36,6 +37,7 @@ export function UsageBrandPage() {
           {b.scripts} script{b.scripts === 1 ? "" : "s"} · {b.versions_left} version{b.versions_left === 1 ? "" : "s"} left to make · {b.editors_active} {b.editors_active === 1 ? "person" : "people"} made videos {period === "all" ? "so far" : period === "week" ? "this week" : "this month"}
         </p>
       )}
+      {b && <BrandLists brandId={brandId} period={period} />}
     </main>
   );
 }

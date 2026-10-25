@@ -15,4 +15,7 @@ test("Reed opens Usage: the totals, a row for every brand, and one brand's page"
   await fomo.click();
   await expect(page.getByRole("heading", { name: "fomo", level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Usage", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Videos/ })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: /^Scripts/ }).click();
+  await expect(page).toHaveURL(/tab=scripts/);
 });
