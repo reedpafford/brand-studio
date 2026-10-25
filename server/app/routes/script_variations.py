@@ -1,0 +1,75 @@
+"""Write variations of a script's approved original (Reed: one price per run; every
+regenerate is paid). Runs on the editor's weekly allowance, as other script steps do."""
+
+from decimal import Decimal
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app import script_library as lib
+from app import script_variations
+from app.auth import current_user
+from app.credits import estimate
+from app.db import get_db
+from app.models.accounts import User
+from app.models.jobs import Job, JobStatus
+from app.routes.clips import generation_on
+from app.routes.jobs import JobOut, enqueue
+from app.routes.references import load as load_reference
+from app.routes.script_preview import EstimateOut
+from app.schemas import LongText
+
+router = APIRouter(prefix="/scripts/{script_id}/variations", tags=["script library"])
+WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
+
+
+class VariationsIn(BaseModel):
+    slots: Annotated[list[Literal[1, 2]], Field(min_length=1, max_length=2)] = [1, 2]
+    note: LongText = ""  # what to change, e.g. "make the second one about a car"
+
+
+def running(db: Session, script_id: int) -> bool:
+    jobs = db.scalars(select(Job).where(Job.status.in_(WAITING), Job.kind == "write-claude"))
+    return any(
+        j.input.get("step") == "variations" and j.input.get("script_id") == script_id for j in jobs
+    )
+
+
+@router.get("/estimate", response_model=EstimateOut)
+def variations_estimate(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """What one run costs (one Claude call, whether it writes one variation or two)."""
+    lib.get_script(db, user, script_id)
+    return EstimateOut(credits=estimate(db, user.workspace_id, "write-claude", Decimal(1), {}))
+
+
+@router.post("", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)])
+def write_variations(
+    script_id: int,
+    body: VariationsIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Write variations into the given slots (both by default). Pass one slot to regenerate
+    it; the other variation is kept apart from the new one."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    slots = sorted(set(body.slots))
+    drafts = {d.slot: d for d in lib.drafts(db, script)}
+    original = drafts.get(0)
+    if not original or original.status != "approved":
+        raise HTTPException(409, "Approve the original first.")
+    if any(drafts.get(s) and drafts[s].status == "approved" for s in slots):
+        raise HTTPException(409, "That variation is approved and can't change.")
+    if running(db, script.id):
+        raise HTTPException(409, "Variations are already being written for this script.")
+    keep_apart = [d.text for s, d in drafts.items() if s and s not in slots and d.text.strip()]
+    reference = load_reference(request, script.reference_id) if script.reference_id else None
+    data = script_variations.job_input(
+        db, script, original, slots, keep_apart, body.note, reference
+    )
+    return enqueue(db, user, "write-claude", data, provider="claude")

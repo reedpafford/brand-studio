@@ -59,7 +59,8 @@ def library(c, work, kind: str, text: str) -> int:
 
 def make(c, work, brand: str, case: dict, script: str, planned: int, variants=None) -> None:
     """Through the Script Library (workflow v2): script, cast slots locked to sheets, the
-    breakdown preview, approve, publish, produce, Assets; then the usual project steps."""
+    breakdown preview, approve, variations, publish, produce, Assets; then the usual
+    project steps."""
     print(f"\n{case['id']} ({planned} s planned)")
     brand_id = next(b["id"] for b in c.get("/brands").json() if b["name"].lower().startswith(brand))
     reel = Path(case["reference"]["path"]).parent.name if case.get("reference") else None
@@ -77,6 +78,12 @@ def make(c, work, brand: str, case: dict, script: str, planned: int, variants=No
     preview = c.get(f"{lib}/drafts/0/breakdown").json()
     problems.extend(f"breakdown: {p}" for p in preview["problems"] if not p.startswith("Advice: "))
     ok(c.post(f"{lib}/drafts/0/approve"), "approve")
+    ok(c.post(f"{lib}/variations", json={}), "variations")
+    work()
+    if len(c.get(lib).json()["versions"]) != 3:
+        problems.append("variations: two weren't written")
+    for slot in (1, 2):  # this run produces the original only
+        ok(c.delete(f"{lib}/drafts/{slot}"), f"remove variation {slot}")
     ok(c.post(f"{lib}/publish"), "publish")
     made = ok(c.post(f"{lib}/drafts/0/produce"), "produce")
     if made.get("breakdown_job_id") is not None:

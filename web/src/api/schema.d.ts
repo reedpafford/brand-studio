@@ -1192,6 +1192,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/variations/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Variations Estimate
+         * @description What one run costs (one Claude call, whether it writes one variation or two).
+         */
+        get: operations["variations_estimate_scripts__script_id__variations_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/variations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Variations
+         * @description Write variations into the given slots (both by default). Pass one slot to regenerate
+         *     it; the other variation is kept apart from the new one.
+         */
+        post: operations["write_variations_scripts__script_id__variations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/script/enhance": {
         parameters: {
             query?: never;
@@ -3367,6 +3408,22 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VariationsIn */
+        VariationsIn: {
+            /**
+             * Slots
+             * @default [
+             *       1,
+             *       2
+             *     ]
+             */
+            slots: (1 | 2)[];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** VersionSummary */
         VersionSummary: {
@@ -6209,6 +6266,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProduceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    variations_estimate_scripts__script_id__variations_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_preview__EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_variations_scripts__script_id__variations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariationsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */
