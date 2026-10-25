@@ -1098,8 +1098,9 @@ export interface paths {
         put?: never;
         /**
          * Write Many
-         * @description Write all: one call per script. Every script is checked first, and an editor's
-         *     allowance must cover them all; otherwise nothing is queued.
+         * @description Write all: one call per script, or the reel read (watch, write, cast read) for a script
+         *     with an unread imported reel. Every script is checked first, and an editor's allowance
+         *     must cover them all; otherwise nothing is queued. Refused while a reel isn't ready.
          */
         post: operations["write_many_scripts_write_post"];
         delete?: never;
@@ -2466,11 +2467,44 @@ export interface components {
         /**
          * BulkIn
          * @description Bulk create (Reed): titles, descriptions and an optional reel only; nothing is written
-         *     until "Write all".
+         *     until "Write all". A row with a reel link fetches and prepares that reel (free).
          */
         BulkIn: {
             /** Scripts */
-            scripts: components["schemas"]["app__routes__script_library__ScriptIn"][];
+            scripts: components["schemas"]["BulkRow"][];
+        };
+        /** BulkRow */
+        BulkRow: {
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Reference Id */
+            reference_id?: string | null;
+            /**
+             * Reference Replace
+             * @default
+             */
+            reference_replace: string;
+            /** New Lines */
+            new_lines?: boolean | null;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Reel Url */
+            reel_url?: string | null;
         };
         /** Clip */
         Clip: {
@@ -4180,6 +4214,26 @@ export interface components {
             credits: number;
             /** Credits Left */
             credits_left: number | null;
+            /**
+             * Reading
+             * @default 0
+             */
+            reading: number;
+            /**
+             * Writing
+             * @default 0
+             */
+            writing: number;
+            /**
+             * Waiting
+             * @default []
+             */
+            waiting: number[];
+            /**
+             * Failed
+             * @default []
+             */
+            failed: number[];
         };
         /** WriteManyIn */
         WriteManyIn: {

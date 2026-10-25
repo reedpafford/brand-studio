@@ -17,7 +17,7 @@ from app import script_cast_read as cast_read
 from app.credits import estimate
 from app.enhance import escape
 from app.models.accounts import User
-from app.models.jobs import Job
+from app.models.jobs import Job, JobStatus
 from app.models.script_library import Script
 from app.prompts import check
 from app.prompts.schemas import ReelWatch
@@ -34,6 +34,24 @@ def latest(db: Session, job: Job) -> Script | None:
     """The job's script as the database has it now (sessions keep objects across commits,
     and the web side may have moved it on, e.g. a new press)."""
     return db.get(Script, job.input["script_id"], populate_existing=True)
+
+
+WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
+
+
+def state(db: Session, script: Script) -> tuple[str, str | None]:
+    """(status, failed step): preparing | ready | reading | done | failed, worked out from the
+    import's latest job and what the script holds; the step is prepare, watch, write or cast."""
+    reel = script.reel or {}
+    job = db.get(Job, script.reel_job_id) if script.reel_job_id else None
+    step = (job.input.get("reel_step") if job else None) or "prepare"
+    if job and job.status in WAITING:
+        return ("preparing" if step == "prepare" else "reading"), None
+    if reel.get("problem") or not job or job.status != JobStatus.succeeded:
+        return "failed", step
+    if reel.get("failed_step"):
+        return "failed", reel["failed_step"]
+    return ("ready" if remaining(script) else "done"), None
 
 
 def remaining(script: Script) -> list[str]:

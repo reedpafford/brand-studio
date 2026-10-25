@@ -168,6 +168,13 @@ def quick_clip_used(db: Session, user: User) -> Decimal:
     )
 
 
+def credits_left(db: Session, user: User) -> Decimal | None:
+    """An editor's weekly allowance left (can be below 0); None for the owner (unlimited)."""
+    if user.is_owner:
+        return None
+    return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
+
+
 def over_allowance(db: Session, user: User, project: Project | None, credits: Decimal) -> str:
     """Plain words if this job would take an editor past their weekly allowance, else "".
     Past it, their own work is declined, never sent to the owner. Call with the row locked."""

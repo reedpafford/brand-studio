@@ -16,10 +16,12 @@ from app.models.accounts import User
 from app.models.files import StoredFile
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
+from app.reel import reel_link
 from app.routes.brands import get_brand
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
+from app.routes.script_import import UNTITLED, prepare
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
@@ -39,11 +41,16 @@ class ScriptIn(BaseModel):
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
 
 
+class BulkRow(ScriptIn):
+    title: Title | None = None  # needed unless the row is a reel link ("Untitled reel")
+    reel_url: Annotated[str, StringConstraints(max_length=500)] | None = None  # an Instagram reel
+
+
 class BulkIn(BaseModel):
     """Bulk create (Reed): titles, descriptions and an optional reel only; nothing is written
-    until "Write all"."""
+    until "Write all". A row with a reel link fetches and prepares that reel (free)."""
 
-    scripts: list[ScriptIn] = Field(min_length=1, max_length=50)
+    scripts: list[BulkRow] = Field(min_length=1, max_length=50)
 
 
 class ScriptPatch(BaseModel):
@@ -288,23 +295,34 @@ def create_many(
     db: Session = Depends(get_db),
 ):
     """Up to 50 scripts at once, all or none: a plain error names the first bad row."""
+    links = []
     for n, item in enumerate(body.scripts, 1):
         try:
             get_brand(db, user, item.brand_id)
             _check_reference(request, item.reference_id)
+            links.append(item.reel_url and reel_link(item.reel_url))
+            if item.reel_url and not links[-1]:
+                raise HTTPException(422, "That isn't an Instagram reel link.")
+            if item.reel_url and item.reference_id:
+                raise HTTPException(422, "Pick a catalogue reel or a reel link, not both.")
+            if not (item.title or item.reel_url):
+                raise HTTPException(422, "Give it a title.")
         except HTTPException as exc:
             raise HTTPException(exc.status_code, f"Row {n}: {exc.detail}") from None
     made = []
-    for item in body.scripts:
+    for item, url in zip(body.scripts, links, strict=True):
         script = Script(
             workspace_id=user.workspace_id,
             created_by_id=user.id,
-            **item.model_dump(exclude={"text"}, exclude_none=True),
+            **item.model_dump(exclude={"text", "reel_url", "title"}, exclude_none=True),
+            title=item.title or UNTITLED,
         )
         db.add(script)
         db.flush()
         db.add(ScriptDraft(script_id=script.id, slot=0, text=item.text.strip()))
         made.append(script)
+        if url:  # each its own free prep job; the reel worker fetches them one at a time
+            prepare(db, user, script, {"source": "link", "url": url}, {"url": url})
     db.commit()
     return [_out(db, s, full=False) for s in made]
 
