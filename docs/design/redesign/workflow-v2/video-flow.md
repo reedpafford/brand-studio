@@ -28,16 +28,18 @@ The #179 frame (the one-line phone header, step picker, one Next, Back) with **5
 
 ## 2. Assets (new)
 Everything this version needs on screen, approved before anything is drawn.
-- **Sections:** Characters · Places · Products · App screens. Each is a grid of cards: 3 per row on desktop, 1 per row on phone.
-- **Locked character** (decision e):
-  - the sheet (9:16 front), the name, and a badge `Lock` "Locked by Reed"
+- **Sections:** Cast · Places · Products · App screens. Each is a grid of cards: 3 per row on desktop, 1 per row on phone.
+- **Cast** comes from the script's cast list (writing step 5, Reed #197): one card per role, shared by every version. **Background people** (guests, crowds, extras) aren't listed; they're made inside each scene.
+- **Locked role** (decision e):
+  - the look's sheet (9:16 front), the role and kind ("Mia · Main"), and a badge `Lock` "Locked by Reed"
   - already approved, with no buttons
-- **Unlocked character:**
-  - the name, and "In 3 shots" (meta)
-  - if it has approved sheets: **Pick a look** (secondary) opens a sheet picker. Picking one approves it for this video.
-  - **Make a new look · N credits** (secondary) runs the house-style sheet (from a photo, or from the description when there's no photo), then **Approve** or **Redo**, as on the character page
+- **Unlocked role:**
+  - the role, the kind, the description (meta, 2 lines), and "In 3 shots"
+  - **Make a look · N credits** (secondary): Claude draws a house-style sheet from the role's description, then **Approve** or **Redo** (with "What should change?"), as on the character page
+  - **Use a Cast & places character** (ghost) opens the picker of characters with approved sheets
   - the badge "Needs a look" (warning) until approved
-- **Place:** the same as a character, with 16:9 sheets.
+  - an approved look is kept for this video only; it doesn't change the script's cast
+- **Place:** the same as an unlocked role, with 16:9 sheets.
 - **Product:** the brand's product picture.
   - For brands with flavours, a flavour picker (cards with the 1:1 picture, as the old brief had). Iron Paws picks its bag here.
   - The pick applies to every shot that shows the product.
@@ -101,5 +103,5 @@ Each clip (section)
 - **The video:** a video made from a version, holding its own copy of the breakdown, plus shape and platform.
 - **Budget:** set when the breakdown is made (twice its estimate, capped at $75). Editors' own scripts are charged to their weekly allowance instead, and refused past it.
 - **Kept problems:** a "keep anyway" flag per breakdown problem.
-- **Assets:** `GET /videos/{id}/assets` lists the characters, places, products and screens with their state. Per asset: pick a sheet, make a look (paid), approve, and pick a flavour.
+- **Assets:** `GET /videos/{id}/assets` lists the cast slots (from the script's cast, locked ones with their sheet), places, products and screens, each with its state. Per asset: make a look from the role description (paid), use a library character, approve, and pick a flavour.
 - **Downloads:** the takes listed per clip, with times; `GET /videos/{id}/clips.zip` for the picked takes; and the stitched video, as today.
