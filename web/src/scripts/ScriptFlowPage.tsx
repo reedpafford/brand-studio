@@ -1,0 +1,224 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, Lock, Pencil } from "lucide-react";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { api } from "../api/client";
+import { useMe } from "../auth/useMe";
+import { Badge, Button, Card, Field, Skeleton, StepPicker, TextArea } from "../components";
+import { useReferences } from "../projects/BriefPickers";
+import { ScriptText } from "../projects/ScriptTab";
+import { ActionBar } from "../shell/ActionBar";
+import { useToast } from "../toast";
+import { errorText as errorClass } from "../ui";
+import { useRail } from "../useMedia";
+import { DescriptionForm } from "./DescriptionForm";
+import { WRITING_STEPS, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
+import { useScript, usePatchScript, useWriteWords } from "./useScript";
+
+/** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
+export function ScriptFlowPage() {
+  const brandId = Number(useParams().brandId);
+  const id = Number(useParams().scriptId);
+  const [params, setParams] = useSearchParams();
+  const rail = useRail();
+  const toast = useToast();
+  const { data: me } = useMe();
+  const script = useScript(id);
+  const patch = usePatchScript(id);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const allowance = useQuery({
+    enabled: me?.role !== undefined && me.role !== "owner",
+    queryKey: ["allowance"],
+    queryFn: async () => (await api.GET("/credits/me")).data ?? null,
+  });
+
+  if (script.isPending)
+    return (
+      <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8" role="status" aria-label="Loading">
+        <Skeleton className="h-10 w-1/2" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  const s = script.data;
+  if (!s) return <p className="p-6">That script doesn't exist.</p>;
+  const step = stepFromParam(params.get("step"));
+  if (lockReason(step) !== null) return <Navigate to="?step=description" replace />;
+  const go = (to: string) => setParams(to === "description" ? {} : { step: to });
+  const at = WRITING_STEPS.findIndex((x) => x.id === step);
+  const prev = WRITING_STEPS[at - 1];
+  const next = WRITING_STEPS[at + 1];
+  const nextReason = !next ? null : lockReason(next.id) !== null ? "The next steps are coming soon." : step === "script" && !hasWords(s) ? "Write or paste the script first" : null;
+  const label = WRITING_STEPS[at].label;
+  const nextButton = next && (
+    <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
+      Next: {next.label}
+    </Button>
+  );
+  const backButton = prev && (
+    <Button variant="ghost" icon={ChevronLeft} aria-label={rail ? undefined : "Back"} onClick={() => go(prev.id)}>
+      {rail ? "Back" : ""}
+    </Button>
+  );
+  const published = s.published;
+
+  return (
+    <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
+      <Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline lg:min-h-control-dense">
+        <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
+        Scripts
+      </Link>
+      <div className="flex flex-wrap items-center gap-3">
+        {renaming === null ? (
+          <h1 className="flex min-w-0 items-center gap-2 type-page">
+            <span className="min-w-0 break-words">{s.title}</span>
+            {!published && (
+              <button type="button" aria-label="Rename" onClick={() => setRenaming(s.title)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
+                <Pencil size={20} strokeWidth={1.75} aria-hidden />
+              </button>
+            )}
+          </h1>
+        ) : (
+          <form
+            className="flex min-w-0 flex-1 flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (renaming.trim()) patch.mutate({ title: renaming.trim() }, { onSuccess: () => setRenaming(null) });
+            }}
+          >
+            <div className="min-w-0 flex-1">
+              <Field label="Title" value={renaming} onChange={(e) => setRenaming(e.target.value)} error={patch.isError ? patch.error.message : null} maxLength={200} autoFocus />
+            </div>
+            <Button type="submit" busy={patch.isPending} disabled={!renaming.trim()}>
+              Save
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setRenaming(null)}>
+              Cancel
+            </Button>
+          </form>
+        )}
+        {published ? (
+          <Badge tone="neutral" icon={Lock}>
+            Published · final
+          </Badge>
+        ) : (
+          <Badge tone="neutral">Draft · only you can see it</Badge>
+        )}
+        {allowance.data && (
+          <p className="ml-auto text-sm tabular-nums text-muted">
+            This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits
+          </p>
+        )}
+      </div>
+      <StepPicker steps={stepStates(step, s)} onPick={(to) => go(to)} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h2 className="type-section">{label}</h2>
+        {rail ? (
+          <div className="flex items-start gap-2">
+            {backButton}
+            {nextButton}
+          </div>
+        ) : (
+          <ActionBar phone>
+            <div className="flex items-start gap-2 [&>button]:w-auto [&>span]:flex-1">
+              {backButton}
+              <span className="flex-1">{nextButton}</span>
+            </div>
+          </ActionBar>
+        )}
+      </div>
+      {step === "description" && <DescriptionStep script={s} brandId={brandId} onDone={() => { toast("Description saved."); }} />}
+      {step === "script" && <ScriptStep scriptId={id} script={s} />}
+    </main>
+  );
+}
+
+function DescriptionStep({ script: s, brandId, onDone }: { script: NonNullable<ReturnType<typeof useScript>["data"]>; brandId: number; onDone: () => void }) {
+  const patch = usePatchScript(s.id);
+  const [editing, setEditing] = useState(false);
+  const refs = useReferences();
+  void brandId;
+  if (editing && !s.published)
+    return (
+      <DescriptionForm
+        initial={{ title: s.title, description: s.description, notes: s.notes, reference_id: s.reference_id, reference_replace: s.reference_replace }}
+        submitLabel="Save description"
+        busy={patch.isPending}
+        error={patch.isError ? patch.error.message : null}
+        onCancel={() => setEditing(false)}
+        onSubmit={(d) =>
+          patch.mutate(d, {
+            onSuccess: () => {
+              setEditing(false);
+              onDone();
+            },
+          })
+        }
+      />
+    );
+  const row = (name: string, value: string) => (
+    <div>
+      <dt className="text-sm font-medium text-muted">{name}</dt>
+      <dd className="whitespace-pre-wrap">{value || "—"}</dd>
+    </div>
+  );
+  return (
+    <Card className="max-w-[680px] space-y-4">
+      <dl className="space-y-4">
+        {row("Title", s.title)}
+        {row("What it's for", s.description)}
+        {s.reference_id && row("Reference reel", `${refs.data?.find((r) => r.id === s.reference_id)?.name ?? s.reference_id}${s.reference_replace ? ` — ${s.reference_replace}` : ""}`)}
+        {row("Notes", s.notes)}
+      </dl>
+      {!s.published && (
+        <Button variant="secondary" icon={Pencil} onClick={() => setEditing(true)}>
+          Edit description
+        </Button>
+      )}
+    </Card>
+  );
+}
+
+/** The original's words. Pasting, uploading and Claude's drafts come as the library API grows; for now you can write or paste them. */
+function ScriptStep({ scriptId, script: s }: { scriptId: number; script: NonNullable<ReturnType<typeof useScript>["data"]> }) {
+  const write = useWriteWords(scriptId);
+  const text = s.versions.find((v) => v.slot === 0)?.text ?? "";
+  const [editing, setEditing] = useState<string | null>(null);
+  const toast = useToast();
+  const save = (t: string) =>
+    write.mutate(t, {
+      onSuccess: () => {
+        setEditing(null);
+        toast("Saved.");
+      },
+    });
+  if (editing !== null || (!text.trim() && !s.published))
+    return (
+      <Card className="max-w-[680px] space-y-3">
+        <TextArea label="Your script" rows={14} maxLength={50000} placeholder="Paste or write the script here" value={editing ?? ""} onChange={(e) => setEditing(e.target.value)} />
+        {write.isError && <p role="alert" className={errorClass}>{write.error.message}</p>}
+        <div className="flex flex-wrap gap-2">
+          <Button busy={write.isPending} disabled={!(editing ?? "").trim()} onClick={() => save(editing ?? "")}>
+            Save script
+          </Button>
+          {text.trim() && (
+            <Button variant="ghost" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </Card>
+    );
+  return (
+    <div className="space-y-3">
+      {!s.published && (
+        <div>
+          <Button variant="secondary" icon={Pencil} onClick={() => setEditing(text)}>
+            Edit
+          </Button>
+        </div>
+      )}
+      <ScriptText text={text} />
+    </div>
+  );
+}
