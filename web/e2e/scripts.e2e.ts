@@ -20,7 +20,21 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("button", { name: "Save script" }).click();
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("MIA: Try it.");
 
+  // Back in the library it is listed as Writing.
   await page.getByRole("link", { name: "Scripts", exact: true }).first().click();
-  await expect(page.getByRole("heading", { name: "Bo tries salmon" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Bo tries salmon", exact: true })).toBeVisible();
   await expect(page.getByText("A · Writing")).toBeVisible();
+
+  // Add a role, step over the optional steps, publish: it becomes Ready to make.
+  await page.getByRole("link", { name: "Bo tries salmon", exact: true }).click();
+  await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Characters" }).click();
+  await page.getByRole("button", { name: "Add a role" }).first().click();
+  await page.getByRole("textbox", { name: "Role" }).fill("Bo");
+  await page.getByRole("button", { name: "Add role" }).click();
+  await expect(page.getByText("1 role · 0 locked")).toBeVisible();
+  await page.getByRole("button", { name: "Next: Publish" }).click();
+  await page.getByRole("button", { name: "Publish 1 version" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByText("Published. 1 version is ready to make.")).toBeVisible();
+  await expect(page.getByText("A · Ready to make")).toBeVisible();
 });

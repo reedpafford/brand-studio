@@ -11,8 +11,10 @@ import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
+import { CastStep } from "./CastStep";
 import { DescriptionForm } from "./DescriptionForm";
-import { WRITING_STEPS, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
+import { PublishStep } from "./PublishStep";
+import { WRITING_STEPS, around, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
 import { useScript, usePatchScript, useWriteWords } from "./useScript";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
@@ -43,12 +45,11 @@ export function ScriptFlowPage() {
   const s = script.data;
   if (!s) return <p className="p-6">That script doesn't exist.</p>;
   const step = stepFromParam(params.get("step"));
-  if (lockReason(step) !== null) return <Navigate to="?step=description" replace />;
+  if (lockReason(step, s) !== null) return <Navigate to="?step=description" replace />;
   const go = (to: string) => setParams(to === "description" ? {} : { step: to });
   const at = WRITING_STEPS.findIndex((x) => x.id === step);
-  const prev = WRITING_STEPS[at - 1];
-  const next = WRITING_STEPS[at + 1];
-  const nextReason = !next ? null : lockReason(next.id) !== null ? "The next steps are coming soon." : step === "script" && !hasWords(s) ? "Write or paste the script first" : null;
+  const { prev, next } = around(step);
+  const nextReason = !next ? null : (step === "script" || step === "description") && !hasWords(s) && step === "script" ? "Write or paste the script first" : null;
   const label = WRITING_STEPS[at].label;
   const nextButton = next && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
@@ -129,6 +130,8 @@ export function ScriptFlowPage() {
       </div>
       {step === "description" && <DescriptionStep script={s} brandId={brandId} onDone={() => { toast("Description saved."); }} />}
       {step === "script" && <ScriptStep scriptId={id} script={s} />}
+      {step === "characters" && <CastStep scriptId={id} brandId={brandId} readOnly={s.published} />}
+      {step === "publish" && <PublishStep script={s} brandId={brandId} />}
     </main>
   );
 }
