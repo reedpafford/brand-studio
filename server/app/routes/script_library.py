@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app import script_library as lib
@@ -220,17 +220,25 @@ def list_scripts(
         query = query.where(
             or_(Script.title.ilike(like), Script.description.ilike(like), Script.id.in_(in_text))
         )
-    rows = [_out(db, s, full=False) for s in db.scalars(query.order_by(Script.id.desc()))]
-    if status:
-        rows = [r for r in rows if r.status == status]
-    if versions_left is not None:
-        rows = [r for r in rows if r.versions_left >= versions_left]
-    if min_seconds is not None or max_seconds is not None:
-        lo, hi = min_seconds or 0, max_seconds or 10**6
-        rows = [r for r in rows if any(lo <= v.seconds <= hi for v in r.versions)]
-    rows.sort(key=SORTS[sort])
-    response.headers["X-Total-Count"] = str(len(rows))
-    rows = rows[offset : offset + limit] if limit else rows[offset:]
+    computed = status or {versions_left, min_seconds, max_seconds} != {None}
+    if not computed and sort in ("newest", "title"):  # page in the query: build only the page
+        total = db.scalar(select(func.count()).select_from(query.subquery()))
+        order = [func.lower(Script.title)] if sort == "title" else []
+        query = query.order_by(*order, Script.id.desc()).offset(offset).limit(limit)
+        rows = [_out(db, s, full=False) for s in db.scalars(query)]
+    else:  # status, versions left and seconds come from each script's versions
+        rows = [_out(db, s, full=False) for s in db.scalars(query.order_by(Script.id.desc()))]
+        if status:
+            rows = [r for r in rows if r.status == status]
+        if versions_left is not None:
+            rows = [r for r in rows if r.versions_left >= versions_left]
+        if min_seconds is not None or max_seconds is not None:
+            lo, hi = min_seconds or 0, max_seconds or 10**6
+            rows = [r for r in rows if any(lo <= v.seconds <= hi for v in r.versions)]
+        rows.sort(key=SORTS[sort])
+        total = len(rows)
+        rows = rows[offset : offset + limit] if limit else rows[offset:]
+    response.headers["X-Total-Count"] = str(total)
     names = {
         ref.id: ref.name for ref, _ in catalogue(request.app.state.settings.references_dir).values()
     }
