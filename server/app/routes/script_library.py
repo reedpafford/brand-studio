@@ -14,7 +14,7 @@ from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.projects import Project
-from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
+from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.routes.brands import get_brand
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
@@ -291,6 +291,7 @@ def delete_script(
         script.archived = True
     else:
         db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
+        db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(ids)))
         db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
         db.delete(script)
     db.commit()
@@ -315,6 +316,7 @@ def write_draft(
     if not draft:
         draft = ScriptDraft(script_id=script.id, slot=slot)
         db.add(draft)
+    lib.keep_text(db, draft, body.text, "edit", user.id)
     draft.text, draft.target_seconds = body.text, body.target_seconds
     db.commit()
     return _out(db, script)
@@ -335,6 +337,54 @@ def approve_draft(
     return _out(db, script)
 
 
+@router.delete("/{script_id}/drafts/{slot}/approve", response_model=ScriptOut)
+def unapprove_draft(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo approval while the script isn't published: the words can change again."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    draft = lib.get_draft(db, script, slot)
+    if draft.status == "approved":
+        draft.status, draft.approved_at, draft.approved_by_id = "draft", None, None
+        db.commit()
+    return _out(db, script)
+
+
+class EarlierText(BaseModel):
+    id: int
+    text: str
+    title: str
+    words: int
+    source: str  # edit | variations: what replaced it
+    created_at: datetime  # when it was replaced
+    created_by_name: str
+
+
+@router.get("/{script_id}/drafts/{slot}/history", response_model=list[EarlierText])
+def draft_history(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """A version's earlier texts, newest first. To bring one back, write it as the words."""
+    draft = lib.get_draft(db, lib.get_script(db, user, script_id), slot)
+    rows = db.scalars(
+        select(ScriptDraftText)
+        .where(ScriptDraftText.draft_id == draft.id)
+        .order_by(ScriptDraftText.id.desc())
+    )
+    return [
+        EarlierText(
+            id=r.id,
+            text=r.text,
+            title=r.title,
+            words=len(r.text.split()),
+            source=r.source,
+            created_at=r.created_at,
+            created_by_name=user_name(db, r.created_by_id),
+        )
+        for r in rows
+    ]
+
+
 @router.delete("/{script_id}/drafts/{slot}", response_model=ScriptOut)
 def remove_draft(
     script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
@@ -344,6 +394,7 @@ def remove_draft(
     draft = lib.get_draft(db, script, slot)
     if slot == 0 or draft.status == "approved":
         raise HTTPException(409, "Only a variation that isn't approved yet can be removed.")
+    db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id == draft.id))
     db.delete(draft)
     db.commit()
     return _out(db, script)
