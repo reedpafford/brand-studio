@@ -182,3 +182,9 @@ def test_the_deployed_workers_cover_every_provider():
     lists = re.findall(r"BS_WORKER_PROVIDERS: '(\[.*?\])'", compose)
     covered = {name for found in lists for name in json.loads(found)}
     assert covered == set(get_providers(Settings()))
+
+
+def test_a_reel_a_little_over_the_limit_still_counts(clip, monkeypatch):
+    """A "90 s" file often measures 90.02 s (audio padding): half a second of slack."""
+    monkeypatch.setattr(reel, "MAX_SECONDS", 5.7)  # the clip measures about 6.0 s
+    assert reel.probe(clip) == pytest.approx(6, abs=0.2)

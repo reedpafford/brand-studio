@@ -15,6 +15,7 @@ from PIL import Image
 
 MAX_MB = 100
 MAX_SECONDS = 90
+SLACK = 0.5  # a "90 s" file often measures a little over (audio padding)
 SCENE = 0.3  # ffmpeg scene score that counts as a cut
 FETCH_TIMEOUT = 90
 FETCH_PAUSE = 5  # seconds after each Instagram fetch
@@ -75,7 +76,7 @@ def probe(path: Path) -> float:
     if "mp4" not in fmt.get("format_name", "") or "video" not in kinds:
         raise Refused("bad_file", "That file isn't a video we can read. Use an MP4 or MOV.")
     seconds = float(fmt.get("duration") or 0)
-    if seconds > MAX_SECONDS:
+    if seconds > MAX_SECONDS + SLACK:
         long = f"{seconds / 60:.0f} minutes" if seconds >= 120 else f"{seconds:.0f} seconds"
         raise Refused(
             "too_long", f"This video is {long} long; reels up to {MAX_SECONDS} seconds can be read."
