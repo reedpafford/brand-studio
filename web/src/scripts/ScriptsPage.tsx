@@ -66,7 +66,7 @@ const lengthText = (versions: Version[]) => {
   if (s.length === 0) return "Length set at Breakdown";
   const lo = Math.round(Math.min(...s));
   const hi = Math.round(Math.max(...s));
-  return lo === hi ? `${lo} s` : `${lo}–${hi} s`;
+  return lo === hi ? `about ${lo} s` : `about ${lo}–${hi} s`;
 };
 
 function useDebounced<T>(value: T, ms = 300) {

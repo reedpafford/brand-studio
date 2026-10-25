@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Badge, Button, Card, Field, Skeleton, StepPicker, TextArea } from "../components";
 import { useReferences } from "../projects/BriefPickers";
+import { useBrands } from "../shell/useBrands";
 import { ScriptText } from "../projects/ScriptTab";
 import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
@@ -20,6 +21,7 @@ import { useScript, usePatchScript, useWriteWords } from "./useScript";
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
   const brandId = Number(useParams().brandId);
+  const brandName = useBrands().data?.find((b) => b.id === brandId)?.name;
   const id = Number(useParams().scriptId);
   const [params, setParams] = useSearchParams();
   const rail = useRail();
@@ -28,6 +30,7 @@ export function ScriptFlowPage() {
   const script = useScript(id);
   const patch = usePatchScript(id);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false); // a form is open on this step: its own button is the amber one
   const allowance = useQuery({
     enabled: me?.role !== undefined && me.role !== "owner",
     queryKey: ["allowance"],
@@ -46,12 +49,15 @@ export function ScriptFlowPage() {
   if (!s) return <p className="p-6">That script doesn't exist.</p>;
   const step = stepFromParam(params.get("step"));
   if (lockReason(step, s) !== null) return <Navigate to="?step=description" replace />;
-  const go = (to: string) => setParams(to === "description" ? {} : { step: to });
+  const go = (to: string) => {
+    setEditing(false);
+    setParams(to === "description" ? {} : { step: to });
+  };
   const at = WRITING_STEPS.findIndex((x) => x.id === step);
   const { prev, next } = around(step);
   const nextReason = !next ? null : (step === "script" || step === "description") && !hasWords(s) && step === "script" ? "Write or paste the script first" : null;
   const label = WRITING_STEPS[at].label;
-  const nextButton = next && (
+  const nextButton = next && !editing && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
@@ -62,6 +68,9 @@ export function ScriptFlowPage() {
     </Button>
   );
   const published = s.published;
+  // Who can see a draft: its author and Reed.
+  const mine = s.created_by_id === me?.id;
+  const draftNote = mine ? (me?.role === "owner" ? "Draft · only you can see it" : "Draft · only you and Reed can see it") : `Draft · ${s.created_by_name || "an editor"}'s, not published`;
 
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
@@ -103,7 +112,7 @@ export function ScriptFlowPage() {
             Published · final
           </Badge>
         ) : (
-          <Badge tone="neutral">Draft · only you can see it</Badge>
+          <Badge tone="neutral">{draftNote}</Badge>
         )}
         {allowance.data && (
           <p className="ml-auto text-sm tabular-nums text-muted">
@@ -128,31 +137,35 @@ export function ScriptFlowPage() {
           </ActionBar>
         )}
       </div>
-      {step === "description" && <DescriptionStep script={s} brandId={brandId} onDone={() => { toast("Description saved."); }} />}
-      {step === "script" && <ScriptStep scriptId={id} script={s} />}
-      {step === "characters" && <CastStep scriptId={id} brandId={brandId} readOnly={s.published} />}
+      {step === "description" && <DescriptionStep script={s} brandName={brandName} onEditing={setEditing} onDone={() => toast("Description saved.")} />}
+      {step === "script" && <ScriptStep scriptId={id} script={s} onEditing={setEditing} />}
+      {step === "cast" && <CastStep scriptId={id} brandId={brandId} readOnly={s.published} />}
       {step === "publish" && <PublishStep script={s} brandId={brandId} />}
     </main>
   );
 }
 
-function DescriptionStep({ script: s, brandId, onDone }: { script: NonNullable<ReturnType<typeof useScript>["data"]>; brandId: number; onDone: () => void }) {
+function DescriptionStep({ script: s, brandName, onEditing, onDone }: { script: NonNullable<ReturnType<typeof useScript>["data"]>; brandName?: string; onEditing: (v: boolean) => void; onDone: () => void }) {
   const patch = usePatchScript(s.id);
   const [editing, setEditing] = useState(false);
   const refs = useReferences();
-  void brandId;
+  const open = (v: boolean) => {
+    setEditing(v);
+    onEditing(v);
+  };
   if (editing && !s.published)
     return (
       <DescriptionForm
         initial={{ title: s.title, description: s.description, notes: s.notes, reference_id: s.reference_id, reference_replace: s.reference_replace }}
+        brandName={brandName}
         submitLabel="Save description"
         busy={patch.isPending}
         error={patch.isError ? patch.error.message : null}
-        onCancel={() => setEditing(false)}
+        onCancel={() => open(false)}
         onSubmit={(d) =>
           patch.mutate(d, {
             onSuccess: () => {
-              setEditing(false);
+              open(false);
               onDone();
             },
           })
@@ -174,7 +187,7 @@ function DescriptionStep({ script: s, brandId, onDone }: { script: NonNullable<R
         {row("Notes", s.notes)}
       </dl>
       {!s.published && (
-        <Button variant="secondary" icon={Pencil} onClick={() => setEditing(true)}>
+        <Button variant="secondary" icon={Pencil} onClick={() => open(true)}>
           Edit description
         </Button>
       )}
@@ -183,10 +196,14 @@ function DescriptionStep({ script: s, brandId, onDone }: { script: NonNullable<R
 }
 
 /** The original's words. Pasting, uploading and Claude's drafts come as the library API grows; for now you can write or paste them. */
-function ScriptStep({ scriptId, script: s }: { scriptId: number; script: NonNullable<ReturnType<typeof useScript>["data"]> }) {
+function ScriptStep({ scriptId, script: s, onEditing }: { scriptId: number; script: NonNullable<ReturnType<typeof useScript>["data"]>; onEditing: (v: boolean) => void }) {
   const write = useWriteWords(scriptId);
   const text = s.versions.find((v) => v.slot === 0)?.text ?? "";
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditingText] = useState<string | null>(null);
+  const setEditing = (v: string | null) => {
+    setEditingText(v);
+    onEditing(v !== null);
+  };
   const toast = useToast();
   const save = (t: string) =>
     write.mutate(t, {

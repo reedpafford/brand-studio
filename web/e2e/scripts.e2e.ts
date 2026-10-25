@@ -27,7 +27,7 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   // Add a role, step over the optional steps, publish: it becomes Ready to make.
   await page.getByRole("link", { name: "Bo tries salmon", exact: true }).click();
-  await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Characters" }).click();
+  await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();
   await page.getByRole("button", { name: "Add a role" }).first().click();
   await page.getByRole("textbox", { name: "Role" }).fill("Bo");
   await page.getByRole("button", { name: "Add role" }).click();
