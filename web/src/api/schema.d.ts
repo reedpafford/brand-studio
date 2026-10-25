@@ -3306,12 +3306,8 @@ export interface components {
         SlotIn: {
             /** Role */
             role: string;
-            /**
-             * Kind
-             * @default Main
-             * @enum {string}
-             */
-            kind: "Main" | "Helper" | "Rival" | "Family";
+            /** Kind */
+            kind?: ("Main" | "Helper" | "Rival" | "Family") | null;
             /**
              * Description
              * @default

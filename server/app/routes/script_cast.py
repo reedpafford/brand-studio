@@ -26,7 +26,7 @@ SlotKind = Literal["Main", "Helper", "Rival", "Family"]
 
 class SlotIn(BaseModel):
     role: Role
-    kind: SlotKind = "Main"
+    kind: SlotKind | None = None  # Main when not given; reading the cast sets it
     description: LongText = ""
 
 
@@ -109,7 +109,8 @@ def add_slot(
     last = db.scalar(
         select(func.max(ScriptCastSlot.position)).where(ScriptCastSlot.script_id == script.id)
     )
-    db.add(ScriptCastSlot(script_id=script.id, position=(last or 0) + 1, **body.model_dump()))
+    values = {**body.model_dump(), "kind": body.kind or "Main"}
+    db.add(ScriptCastSlot(script_id=script.id, position=(last or 0) + 1, **values))
     db.commit()
     return slots(db, script)
 
