@@ -1062,6 +1062,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/cast/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Suggestion */
+        get: operations["read_suggestion_scripts__script_id__cast_suggest_get"];
+        put?: never;
+        /**
+         * Suggest Slots
+         * @description Suggest the roles every approved version needs a look for. Slots the script already
+         *     has stay (locked ones stay locked); new roles are added unlocked.
+         */
+        post: operations["suggest_slots_scripts__script_id__cast_suggest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/cast": {
         parameters: {
             query?: never;
@@ -3327,6 +3349,13 @@ export interface components {
              * @default false
              */
             per_shot: boolean;
+        };
+        /** SuggestOut */
+        SuggestOut: {
+            /** Running */
+            running: boolean;
+            /** Problems */
+            problems: string[];
         };
         /** SuggestionOut */
         SuggestionOut: {
@@ -5900,6 +5929,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_suggestion_scripts__script_id__cast_suggest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_slots_scripts__script_id__cast_suggest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */
