@@ -63,7 +63,18 @@ services:
       <<: *server-env
       REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
       STUDIO_ANTHROPIC_KEY: ${STUDIO_ANTHROPIC_KEY:-}
-      HF_HOME: /data/models  # the speech model for reel import, downloaded once
+      BS_WORKER_PROVIDERS: '["fake", "replicate", "claude"]'  # reel prep has its own worker
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # Free reel prep (fetch, cuts, transcription) is slow, so it never holds up the paid queue.
+  reel-worker:
+    <<: *server
+    command: ["python", "-m", "app.worker"]
+    environment:
+      <<: *server-env
+      BS_WORKER_PROVIDERS: '["local"]'
+      HF_HOME: /data/models  # the speech model, downloaded once at start
     volumes:
       - files:/data/storage
       - models:/data/models

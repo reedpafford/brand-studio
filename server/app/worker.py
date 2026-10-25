@@ -5,6 +5,8 @@ Rules
 - A paid submit is never retried automatically: if we can't tell whether the provider
   started (and charged for) the work, the job fails with a note and a person decides.
 - After a restart, running jobs with a provider reference are simply checked again.
+- `only` (BS_WORKER_PROVIDERS) splits the queue: a worker handles only those providers' jobs
+  and leaves the rest to another worker (e.g. slow local reel prep in a worker of its own).
 """
 
 import base64
@@ -69,11 +71,14 @@ def _actual_credits(job: Job, result: Result) -> Decimal:
     return usd_to_credits(sum((i.cost_usd for i in result.usage), Decimal(0)))
 
 
-def recover(db: Session, providers: dict[str, Provider]) -> None:
+def _mine(query, only: set[str] | None):
+    return query.where(Job.provider.in_(only)) if only else query
+
+
+def recover(db: Session, providers: dict[str, Provider], only: set[str] | None = None) -> None:
     """On boot: jobs marked running but never handed to the provider."""
-    for job in db.scalars(
-        select(Job).where(Job.status == JobStatus.running, Job.provider_ref.is_(None))
-    ).all():
+    query = select(Job).where(Job.status == JobStatus.running, Job.provider_ref.is_(None))
+    for job in db.scalars(_mine(query, only)).all():
         if job.provider not in providers:
             _fail(db, job, UNKNOWN, job.provider)
         elif providers[job.provider].paid:
@@ -162,11 +167,13 @@ def _finish(
 
 
 def check_running(
-    db: Session, providers: dict[str, Provider], storage: Storage | None = None
+    db: Session,
+    providers: dict[str, Provider],
+    storage: Storage | None = None,
+    only: set[str] | None = None,
 ) -> None:
-    for job in db.scalars(
-        select(Job).where(Job.status == JobStatus.running, Job.provider_ref.is_not(None))
-    ).all():
+    query = select(Job).where(Job.status == JobStatus.running, Job.provider_ref.is_not(None))
+    for job in db.scalars(_mine(query, only)).all():
         if job.provider not in providers:
             _fail(db, job, UNKNOWN, job.provider)
             db.commit()
@@ -227,10 +234,11 @@ def start_next(
     providers: dict[str, Provider],
     storage: Storage | None = None,
     allow_paid: bool = True,
+    only: set[str] | None = None,
 ) -> bool:
     """Hand the oldest queued job to its provider. Returns False if the queue is empty.
     With `allow_paid` off (generation switched off), paid providers' jobs are left queued."""
-    query = select(Job).where(Job.status == JobStatus.queued)
+    query = _mine(select(Job).where(Job.status == JobStatus.queued), only)
     if not allow_paid:
         paid = [name for name, p in providers.items() if p.paid]
         query = query.where(Job.provider.not_in(paid))
@@ -303,12 +311,15 @@ def run_once(
     providers: dict[str, Provider],
     storage: Storage | None = None,
     allow_paid: bool = True,
+    only: set[str] | None = None,
 ) -> None:
-    check_running(db, providers, storage)
+    check_running(db, providers, storage, only)
     # At most one start per queued job per tick, so a requeued job waits for the next tick.
-    queued = db.scalar(select(func.count(Job.id)).where(Job.status == JobStatus.queued))
+    queued = db.scalar(
+        _mine(select(func.count(Job.id)).where(Job.status == JobStatus.queued), only)
+    )
     for _ in range(queued):
-        if not start_next(db, providers, storage, allow_paid):
+        if not start_next(db, providers, storage, allow_paid, only):
             break
 
 
@@ -320,9 +331,12 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
     check_production(settings)
     storage = LocalStorage(settings.storage_dir)
     providers = get_providers(settings, storage)
+    only = set(settings.worker_providers) or None
+    if (only is None or "local" in only) and not settings.fake_providers:
+        warm_speech_model()
     sessions = make_sessionmaker(settings.database_url)
     with sessions() as db:
-        recover(db, providers)
+        recover(db, providers, only)
     if settings.fake_providers:
         log.warning("Using stand-in providers (BS_FAKE_PROVIDERS): nothing real is generated.")
     elif not settings.generation_enabled:
@@ -330,10 +344,21 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
     while True:
         try:
             with sessions() as db:
-                run_once(db, providers, storage, settings.generation_enabled)
+                run_once(db, providers, storage, settings.generation_enabled, only)
         except Exception:  # keep the worker alive through e.g. a database hiccup
             log.exception("worker tick failed; trying again next tick")
         time.sleep(settings.worker_poll_seconds)
+
+
+def warm_speech_model() -> None:  # pragma: no cover - downloads ~460 MB once
+    """Fetch the reel transcription model before the first job, so its download never eats
+    into a job's time limit. A failure only means the first job downloads it."""
+    from app.reel import warm
+
+    try:
+        warm()
+    except Exception:  # noqa: BLE001 - e.g. offline; reel prep still works, just slower first
+        log.warning("Couldn't load the speech model now; the first reel will.", exc_info=True)
 
 
 if __name__ == "__main__":

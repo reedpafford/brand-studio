@@ -10,6 +10,8 @@ def main(path: str) -> None:
     from faster_whisper import WhisperModel
 
     model = WhisperModel("small", device="cpu", compute_type="int8")
+    if path == "--warm":  # download and load it, nothing to transcribe
+        return
     segments, _ = model.transcribe(path, word_timestamps=True, vad_filter=True)
     lines = [
         {

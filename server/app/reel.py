@@ -130,6 +130,13 @@ def contact_sheet(path: Path, cut_times: list[float], seconds: float, folder: Pa
     return out
 
 
+def warm() -> None:
+    """Download and load the speech model once (at worker start)."""
+    done = _run([sys.executable, "-m", "app.whisper", "--warm"], 900)
+    if done.returncode != 0:
+        raise RuntimeError(f"Loading the speech model failed ({done.returncode}).")
+
+
 def transcribe(path: Path) -> list[dict]:
     """faster-whisper small (int8, CPU) in a subprocess: [{start, end, text, speaker}]."""
     try:
