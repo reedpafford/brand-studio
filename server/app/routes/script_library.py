@@ -345,6 +345,8 @@ def publish(script_id: int, user: User = Depends(current_user), db: Session = De
     versions = lib.drafts(db, script)
     if not versions or any(d.status != "approved" for d in versions):
         raise HTTPException(409, "Approve or remove every version first.")
+    if lib.writing(db, script.id):
+        raise HTTPException(409, "Claude is still writing for this script. Publish when it's done.")
     script.published = True
     db.commit()
     return _out(db, script)
@@ -385,8 +387,10 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
             ScriptCastSlot(
                 script_id=copy.id,
                 role=slot.role,
+                kind=slot.kind,
                 description=slot.description,
                 position=slot.position,
+                appears_in=slot.appears_in,
                 library_item_id=slot.library_item_id,
                 sheet_file_id=slot.sheet_file_id,
                 locked_by_id=slot.locked_by_id,

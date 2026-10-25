@@ -61,6 +61,8 @@ class ScriptCastSlot(Entity, Base):
     role: Mapped[str] = mapped_column(String(120))  # e.g. "Nate", "the coach"
     description: Mapped[str] = mapped_column(Text, default="")
     position: Mapped[int] = mapped_column(default=0)
+    kind: Mapped[str] = mapped_column(String(20), default="Main")  # Main, Helper, Rival, Family
+    appears_in: Mapped[list[int]] = mapped_column(JSON, default=list)  # version slots, from a read
     library_item_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))
     sheet_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # when locked
     locked_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))

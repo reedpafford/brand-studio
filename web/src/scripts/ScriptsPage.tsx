@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, CircleAlert, Clock, FileText, Pencil, Search } from "lucide-react";
+import { Check, CircleAlert, Clock, FileText, Pencil, Plus, Search } from "lucide-react";
+import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
-import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, type Tone } from "../components";
+import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, buttonClass, type Tone } from "../components";
 import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
 import { useBrands } from "../shell/useBrands";
+import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
-import { LegacyVideos } from "../projects/ProjectsPage";
+import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
 
 type Row = components["schemas"]["ScriptRow"];
 type Version = Row["versions"][number];
@@ -65,7 +67,7 @@ const lengthText = (versions: Version[]) => {
   if (s.length === 0) return "Length set at Breakdown";
   const lo = Math.round(Math.min(...s));
   const hi = Math.round(Math.max(...s));
-  return lo === hi ? `${lo} s` : `${lo}–${hi} s`;
+  return lo === hi ? `about ${lo} s` : `about ${lo}–${hi} s`;
 };
 
 function useDebounced<T>(value: T, ms = 300) {
@@ -96,6 +98,10 @@ export function ScriptsPage() {
       },
       { replace: true },
     );
+  const panelTo = (id: number, slot: number) => `?${new URLSearchParams({ ...Object.fromEntries(params), make: `${id}.${slot}` })}`;
+  const videos = useProjectList(brandId);
+  const ownVideo = (projectId: number) => owner || videos.data?.find((p) => p.id === projectId)?.created_by_id === me?.id;
+  const making = /^(\d+)\.(\d+)$/.exec(params.get("make") ?? "");
   // An editor starts on what is ready to make; Reed on everything.
   const status = params.get("status") ?? (owner ? "" : "published");
   const apiStatus = status === "any" ? "" : status;
@@ -251,19 +257,29 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.slice(0, shown).map((r) => (
-          <ScriptItem key={r.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} />
+          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} />
         ))}
       </ul>
     </Card>
+  );
+  const newScript = (
+    <Link to={`/b/${brandId}/scripts/new`} className={buttonClass("primary")}>
+      <Plus size={20} strokeWidth={1.75} aria-hidden />
+      New script
+    </Link>
   );
   const myDrafts = (myDraftRows.data ?? []).filter((r) => r.created_by_id === me?.id);
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
-      <div>
-        <p className="type-eyebrow text-muted">{brand?.name}</p>
-        <h1 className="type-page">Scripts</h1>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="type-eyebrow text-muted">{brand?.name}</p>
+          <h1 className="type-page">Scripts</h1>
+        </div>
+        {rail && newScript}
       </div>
+      {!rail && <ActionBar phone>{newScript}</ActionBar>}
       {filters}
       {sheet && (
         <Sheet title="Filters" onClose={() => setSheet(false)}>
@@ -324,11 +340,12 @@ export function ScriptsPage() {
         </>
       )}
       <LegacyVideos brandId={brandId} />
+      {making && <VersionPanel scriptId={Number(making[1])} slot={Number(making[2])} brandId={brandId} onClose={() => set("make", "")} />}
     </main>
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, narrow }: { row: Row; brandName?: string; refName?: string; narrow: boolean }) {
+function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownVideo }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (projectId: number) => boolean }) {
   const brandId = r.brand_id;
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
@@ -337,7 +354,15 @@ function ScriptItem({ row: r, brandName, refName, narrow }: { row: Row; brandNam
         <FileText size={20} strokeWidth={1.75} />
       </span>
       <div className="min-w-0 flex-1 space-y-1">
-        <h3 className="font-display text-md font-bold">{r.title}</h3>
+        <h3 className="font-display text-md font-bold">
+          {mayOpen ? (
+            <Link to={`/b/${brandId}/scripts/${r.id}${r.published ? "?step=publish" : ""}`} className="hover:underline">
+              {r.title}
+            </Link>
+          ) : (
+            r.title
+          )}
+        </h3>
         {r.description && <p className="truncate text-sm text-muted">{r.description}</p>}
         <p className="text-sm text-muted">{meta}</p>
         <ul className="flex flex-wrap gap-2 pt-1" aria-label="Versions">
@@ -345,6 +370,8 @@ function ScriptItem({ row: r, brandName, refName, narrow }: { row: Row; brandNam
             const s = STATUS[v.status] ?? { label: v.status, tone: "neutral" as Tone };
             const letter = LETTER[v.slot] ?? String(v.slot + 1);
             const label = `${letter} · ${s.label}`;
+            // Ready opens the version panel; so does a version someone else is making. Your own video, and any video for Reed, opens the video; a draft opens its writing flow.
+            const to = v.status === "in_production" && !(v.project_id && ownVideo(v.project_id)) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
             const chip = (
               <Badge tone={s.tone} icon={s.icon}>
                 {label}
@@ -352,8 +379,8 @@ function ScriptItem({ row: r, brandName, refName, narrow }: { row: Row; brandNam
             );
             return (
               <li key={v.slot}>
-                {v.project_id ? (
-                  <Link to={`/b/${brandId}/projects/${v.project_id}`} aria-label={`Version ${letter}, ${s.label.toLowerCase()}`} className={`inline-flex items-center ${narrow ? "min-h-control" : "min-h-9"} rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`}>
+                {to ? (
+                  <Link to={to} aria-label={`Version ${letter}, ${s.label.toLowerCase()}`} className={`inline-flex items-center ${narrow ? "min-h-control" : "min-h-9"} rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`}>
                     {chip}
                   </Link>
                 ) : (
