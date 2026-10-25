@@ -1229,7 +1229,8 @@ export interface paths {
         };
         /**
          * Draft History
-         * @description A version's earlier texts, newest first. To bring one back, write it as the words.
+         * @description A version's earlier texts, newest first (the newest 20). To bring one back, write it
+         *     as the words. Only the script's author and the owner see them; others see the final words.
          */
         get: operations["draft_history_scripts__script_id__drafts__slot__history_get"];
         put?: never;
