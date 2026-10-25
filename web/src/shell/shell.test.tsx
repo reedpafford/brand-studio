@@ -243,7 +243,7 @@ test("offline, a banner says nothing was lost", async () => {
   expect(screen.getByText("Reconnect to keep working; nothing was lost.")).toBeInTheDocument();
 });
 
-test("a waiting invite has Copy link: it asks for a fresh link and copies it, and says the old one stops working", async () => {
+test("a waiting invite has Copy a new link: it asks for a fresh link and copies it, and says the old one stops working", async () => {
   const calls = fakeServer({
     "GET /auth/me": [200, owner],
     "GET /brands": [200, brands],
@@ -254,8 +254,24 @@ test("a waiting invite has Copy link: it asks for a fresh link and copies it, an
   renderAt("/team");
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
-  await userEvent.click(await screen.findByRole("button", { name: "Copy link for jo@b.co" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Copy a new link for jo@b.co" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /team/invites/3/link")).toBe(true));
   await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(`${location.origin}/invite/fresh9`));
   expect(await screen.findByText("Link copied. The old link no longer works.")).toBeInTheDocument();
+});
+
+test("if the clipboard says no, the fresh link is shown in a read-only field to copy by hand", async () => {
+  fakeServer({
+    "GET /auth/me": [200, owner],
+    "GET /brands": [200, brands],
+    "GET /team/members": [200, members],
+    "GET /team/invites": [200, [{ id: 3, email: "jo@b.co", role: "editor", expires_at: "2026-10-31T12:00:00Z" }]],
+    "POST /team/invites/3/link": [200, { id: 3, email: "jo@b.co", role: "editor", expires_at: "2026-11-01T12:00:00Z", token: "fresh9" }],
+  });
+  renderAt("/team");
+  Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("no")) } });
+  await userEvent.click(await screen.findByRole("button", { name: "Copy a new link for jo@b.co" }));
+  const field = await screen.findByLabelText("Invite link for jo@b.co");
+  expect(field).toHaveValue(`${location.origin}/invite/fresh9`);
+  expect(field).toHaveAttribute("readonly");
 });
