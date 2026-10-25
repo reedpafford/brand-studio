@@ -6,12 +6,14 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 
 import re
 
+from app.prompts import spoken_words
 from app.prompts.schemas import (
     Breakdown,
     ClipPrompts,
     EnhanceResult,
     ImprovedPrompt,
     StoryboardFrames,
+    Variations,
 )
 
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
@@ -286,3 +288,69 @@ def _exact(text: str) -> str:
 
 def _words(text: str) -> str:
     return " ".join(re.findall(r"[\w']+", text.lower()))
+
+
+STAR = re.compile(r"^★ .*?(?:screen|product): (.+?)(?: — .*)?$")  # "★ fomo screen: Home — …"
+LOOSE = re.compile(r"^(#|\*\*|- |\* |Title:|Premise:|Variation )")  # markdown, not house format
+
+
+def variations(
+    original: str,
+    result: Variations,
+    screens: dict[str, list[str]],
+    end_line: str,
+    never_say: list[str],
+    count: int,
+    cast: list[str] = (),
+) -> list[str]:
+    """Alternates of an approved script (workflow v2): the brand, the end line and the locked
+    cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
+    characters' names. `screens` is accepted for the server's call; ★ lines are matched by name."""
+    problems = []
+    if len(result.variations) != count:
+        problems.append(f"{len(result.variations)} variations, {count} asked for; regenerate")
+    stars = _stars(original)
+    words = spoken_words(original)
+    scripts = [v.script for v in result.variations]
+    for i, script in enumerate(scripts, 1):
+        name = f"variation {i}"
+        lines = [line.strip() for line in script.splitlines() if line.strip()]
+        said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
+        if end_line and not (said and _exact(end_line) in _exact(said[-1])):
+            problems.append(f"{name} doesn't end on the brand's end line; add it as the last line")
+        for star in sorted(stars - _stars(script)):
+            problems.append(f"{name} drops the ★ line for {star}; put it back where it fits")
+        for phrase in never_say:
+            if phrase.lower() in script.lower():
+                problems.append(f"{name} says “{phrase}”, which the brand never says")
+        if re.search(r"\blive[- ]action\b", script, re.I):
+            problems.append(f"{name} brings back live action; that slot is the end line")
+        for who in cast:  # only names the original uses (a narrator may be "I")
+            named = rf"\b{re.escape(who)}\b"
+            if re.search(named, original, re.I) and not re.search(named, script, re.I):
+                problems.append(f"{name} drops {who}, a locked character")
+        if words and abs(spoken_words(script) - words) > 0.3 * words:
+            problems.append(
+                f"{ADVICE}{name} has {spoken_words(script)} spoken words, the original {words}"
+            )
+        total, was = len(script.split()), len(original.split())
+        if was and abs(total - was) > 0.3 * was:
+            problems.append(f"{ADVICE}{name} runs {total} words in all, the original {was}")
+        if _close(script, original):
+            problems.append(f"{ADVICE}{name} is very close to the original; regenerate with a note")
+        if bad := next((x for x in lines if LOOSE.match(x)), None):
+            problems.append(f"{ADVICE}{name}: “{bad[:40]}” isn't house format")
+    if len(scripts) == 2 and _close(scripts[1], scripts[0]):
+        problems.append(f"{ADVICE}the two variations are very close; regenerate one with a note")
+    return problems
+
+
+def _stars(script: str) -> set[str]:
+    return {m.group(1).strip() for line in script.splitlines() if (m := STAR.match(line.strip()))}
+
+
+def _close(a: str, b: str) -> bool:
+    """Over 70% of a's word pairs also appear in b."""
+    pairs = lambda text: set(zip(*[_words(text).split()[i:] for i in range(2)], strict=False))  # noqa: E731
+    mine = pairs(a)
+    return bool(mine) and len(mine & pairs(b)) / len(mine) > 0.7

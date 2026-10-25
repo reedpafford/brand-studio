@@ -6,6 +6,7 @@ lists the tags the user message must carry; `number_lines` formats a script for 
 Each step's output schema is `SCHEMAS[step]`."""
 
 import json
+import re
 from functools import cache
 from pathlib import Path
 
@@ -19,6 +20,7 @@ SCHEMAS = {
     "storyboard": schemas.StoryboardFrames,
     "clip_prompts": schemas.ClipPrompts,
     "improve": schemas.ImprovedPrompt,
+    "variations": schemas.Variations,
 }
 
 
@@ -182,3 +184,40 @@ def sheet_prompt(
     if change.strip():
         out.append(parts["redo"].format(change=change.strip()))
     return " ".join(out)
+
+
+def spoken_words(script: str) -> int:
+    """Words that are heard: `NAME: words` lines in a dialogue script; in pure voiceover prose,
+    every line that isn't a heading, a ★ brand line or a [tag] line."""
+    lines = [line.strip() for line in script.splitlines() if line.strip()]
+    said = [m.group(1) for line in lines if (m := re.match(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", line))]
+    if not said:
+        said = [x for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★", "["))]
+    return len(" ".join(said).split())
+
+
+def variations_input(
+    script: str,
+    cast: list[str],
+    count: int,
+    reference: str = "",
+    keep_apart: str = "",
+    note: str = "",
+) -> str:
+    """The user message for the variations step (with brand_block in the system prompt).
+    `cast` is the locked characters as 'char:1 Nate'; `reference` is reference_block(...)."""
+    words = spoken_words(script)
+    parts = [
+        f"<script>\n{number_lines(script)}\n</script>",
+        "<cast>\n" + "\n".join(cast) + "\n</cast>",
+        f"<length>{words} spoken words (about {round(words / 4.8)} s of talk); "
+        f"{len(script.split())} words in all</length>",
+    ]
+    if reference:
+        parts.append(reference)
+    parts.append(f"<count>{count}</count>")
+    if keep_apart:
+        parts.append(f"<keep_apart>\n{keep_apart}\n</keep_apart>")
+    if note:
+        parts.append(f"<note>{note}</note>")
+    return "\n".join(parts)

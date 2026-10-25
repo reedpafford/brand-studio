@@ -78,6 +78,27 @@ class ScriptDrafts(BaseModel):
     )
 
 
+# --- Variations: alternates of an approved script (workflow v2, #189) ---
+
+
+class Variation(BaseModel):
+    title: str = Field(description="2–4 words for the script library, e.g. 'The car'.")
+    premise: str = Field(description="One sentence: what this version changes and how it pays off.")
+    script: str = Field(
+        description="The full script in the house format: scene headings, action lines, "
+        "NAME: words, and every ★ brand line the original has."
+    )
+    changes: list[str] = Field(
+        description="What differs from the original, in plain words, one item each."
+    )
+
+
+class Variations(BaseModel):
+    variations: list[Variation] = Field(
+        description="Exactly the number asked for in <count>, each a different premise."
+    )
+
+
 # --- Breakdown: scenes → shots → clips ---
 
 
