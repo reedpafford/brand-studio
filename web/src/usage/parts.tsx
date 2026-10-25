@@ -16,9 +16,9 @@ export const periodWord = (p: Period) => (p === "week" ? "this week" : p === "mo
 /** One period for the whole page, kept in the address. */
 export function PeriodControl({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
   return (
-    <div role="radiogroup" aria-label="Period" className="flex w-full rounded-lg border border-border bg-surface p-1 lg:w-auto">
+    <div role="radiogroup" aria-label="Period" className="grid w-full grid-cols-3 rounded-lg border border-border bg-surface p-1 lg:flex lg:w-auto">
       {PERIODS.map((p) => (
-        <button key={p.id} type="button" role="radio" aria-checked={value === p.id} onClick={() => onChange(p.id)} className={`min-h-control flex-1 rounded-md px-4 font-medium lg:min-h-control-dense lg:flex-none ${value === p.id ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`}>
+        <button key={p.id} type="button" role="radio" aria-checked={value === p.id} onClick={() => onChange(p.id)} className={`min-h-control whitespace-nowrap rounded-md px-2 font-medium sm:px-4 lg:min-h-control-dense ${value === p.id ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`}>
           {p.label}
         </button>
       ))}

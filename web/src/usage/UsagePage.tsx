@@ -17,7 +17,7 @@ const SORTS: { id: Sort; label: string }[] = [
 ];
 const sortFrom = (s: string | null): Sort => SORTS.find((x) => x.id === s)?.id ?? "spend";
 
-const Dot = ({ colour }: { colour: string | null }) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-brand" style={colour ? { background: colour } : undefined} />;
+const Dot = ({ colour }: { colour: string | null }) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-faint" style={colour ? { background: colour } : undefined} />;
 
 /** Reed's brand tracker: what each brand spent, how many videos it finished, and what a finished video costs. */
 export function UsagePage() {
@@ -204,7 +204,7 @@ function BrandCards({ items }: { items: BrandRow[] }) {
               {b.cost_per_finished_usd !== null && " each"}
             </span>
             <span className="block text-sm text-muted">
-              {b.in_progress} in progress · {b.scripts} scripts · {b.versions_left} versions left
+              {b.in_progress} in progress · {b.scripts} script{b.scripts === 1 ? "" : "s"} · {b.versions_left} version{b.versions_left === 1 ? "" : "s"} left
             </span>
           </Link>
         </li>

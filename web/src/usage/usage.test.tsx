@@ -174,3 +174,11 @@ test("Every charge is closed until opened, then lists the charges in plain words
   expect(screen.getByText("$2.36")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Show more" })).toBeInTheDocument();
 });
+
+test("Usage cards say '1 version left' and '1 script' in the singular, and a brand with no colour gets a neutral dot", async () => {
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row({ scripts: 1, versions_left: 1, colour: null })])] });
+  open();
+  const card = await screen.findByRole("link", { name: /Iron Paws/ });
+  expect(within(card).getByText("3 in progress · 1 script · 1 version left")).toBeInTheDocument();
+  expect(card.querySelector("span[aria-hidden].bg-faint")).not.toBeNull();
+});

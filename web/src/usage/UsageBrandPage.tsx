@@ -23,7 +23,7 @@ export function UsageBrandPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-3 type-page">
-            {b && <span aria-hidden className="size-4 shrink-0 rounded-full bg-brand" style={b.colour ? { background: b.colour } : undefined} />}
+            {b && <span aria-hidden className="size-4 shrink-0 rounded-full bg-faint" style={b.colour ? { background: b.colour } : undefined} />}
             {b?.name ?? " "}
           </h1>
           <p className="text-sm text-muted">{b ? periodLine(period, summary.data?.starts_at ?? null) : " "}</p>
