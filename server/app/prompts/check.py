@@ -9,6 +9,7 @@ import re
 from app.prompts import spoken_words
 from app.prompts.schemas import (
     Breakdown,
+    CastSlots,
     ClipPrompts,
     EnhanceResult,
     ImprovedPrompt,
@@ -354,3 +355,44 @@ def _close(a: str, b: str) -> bool:
     pairs = lambda text: set(zip(*[_words(text).split()[i:] for i in range(2)], strict=False))  # noqa: E731
     mine = pairs(a)
     return bool(mine) and len(mine & pairs(b)) / len(mine) > 0.7
+
+
+BACKGROUND = re.compile(
+    r"\b(guests?|crowd|admirers?|extras?|bystanders?|passers?-by|onlookers?)\b", re.I
+)
+
+
+def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()) -> list[str]:
+    """The roles every version needs a look for (Reed, #197). Fixes: no slots, a version that
+    doesn't exist. Advice: a background-sounding role, a name a listed version never uses,
+    two slots with one name, a name the cast or the scripts' speakers use that no slot carries.
+    `cast` holds the cast's names."""
+    if not result.slots:
+        return ["no cast slots; regenerate"]
+    problems, seen = [], set()
+    roles = " | ".join(s.role for s in result.slots).lower()
+    speakers = {
+        m.group(1).split(" (")[0].title()
+        for text in versions.values()
+        for m in re.finditer(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:", text, re.M)
+    }
+    speakers -= {"Voiceover", "Narrator", "Vo", "V.O.", "Off Screen", "All", "Both"}  # labels
+    for name in dict.fromkeys([*cast, *sorted(speakers)]):
+        if not re.search(rf"\b{re.escape(name.lower())}\b", roles):
+            problems.append(f"{ADVICE}no slot carries the name {name}; use it in that role")
+    for slot in result.slots:
+        role = slot.role
+        if missing := sorted(set(slot.appears_in) - set(versions)):
+            problems.append(f"{role}: version {missing[0]} doesn't exist; edit or regenerate")
+        if BACKGROUND.search(role):
+            problems.append(f"{ADVICE}{role}: sounds like background people, who are never cast")
+        name = re.split(r"[ ,(]", role.strip(), maxsplit=1)[0]
+        named = rf"\b{re.escape(name)}\b"
+        if any(re.search(named, text, re.I) for text in versions.values()):  # a script name
+            for v in sorted(set(slot.appears_in) & set(versions)):
+                if not re.search(named, versions[v], re.I):
+                    problems.append(f"{ADVICE}{role}: “{name}” isn't in version {v}")
+            if name.lower() in seen:
+                problems.append(f"{ADVICE}two slots are called {name}; merge them")
+            seen.add(name.lower())
+    return problems
