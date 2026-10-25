@@ -106,3 +106,52 @@ def test_editors_and_other_workspaces_never_see_usage(owner, editor, outsider):
     fomo = owner.get("/brands").json()[0]["id"]
     assert outsider.get(f"/usage/brands/{fomo}").status_code == 404
     assert fomo not in [r["brand_id"] for r in outsider.get("/usage/brands").json()["items"]]
+
+
+def test_a_brands_videos_scripts_and_every_charge(owner, editor, db):
+    from tests.test_breakdown import BREAKDOWN
+    from tests.test_script_library import SCRIPT, _make
+
+    me, fomo, older = _setup(owner, db)
+    made = _make(owner, title="Bo tries salmon", text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    owner.put(f"{base}/drafts/0/breakdown", json=BREAKDOWN)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    video = db.get(Project, pid)
+    ed = db.query(User).filter_by(role=Role.editor).one()
+    _charge(db, enqueue(db, ed, "video-480p", {}, project=video), "5.00")
+    _charge(db, enqueue(db, me, "write-claude", {"script_id": made["id"]}), "0.30")
+    failed = enqueue(db, me, "video-480p", {}, project=older)
+    failed.status = "failed"
+    video.finished_at = utcnow()
+    db.commit()
+
+    videos = owner.get(f"/usage/brands/{fomo}/videos").json()
+    rows = {v["title"]: v for v in videos["items"]}
+    salmon = rows["Bo tries salmon · A"]
+    assert (salmon["status"], salmon["spend_usd"], salmon["legacy"]) == ("done", 5.0, False)
+    assert salmon["person"]["name"] == "Ed" and salmon["version_letter"] == "A"
+    assert rows["Launch"]["status"] == "failed" and rows["Launch"]["legacy"] is True
+    assert {p["name"] for p in videos["people"]} == {"Ed", "Reed"}
+    done = owner.get(f"/usage/brands/{fomo}/videos", params={"status": "done"}).json()
+    assert [v["title"] for v in done["items"]] == ["Bo tries salmon · A"]
+    mine = owner.get(f"/usage/brands/{fomo}/videos", params={"person_id": ed.id}).json()
+    assert mine["total"] == 1
+
+    scripts = owner.get(f"/usage/brands/{fomo}/scripts").json()
+    (row,) = scripts["items"]
+    assert row["spend_usd"] == 5.3 and row["status"] == "done"  # writing plus its video
+    assert [a["name"] for a in scripts["authors"]] == ["Reed"]
+
+    first = owner.get("/usage/charges", params={"limit": 1}).json()
+    assert len(first["items"]) == 1 and first["next_cursor"]
+    rest = owner.get("/usage/charges", params={"cursor": first["next_cursor"]}).json()
+    whats = [c["what"] for c in first["items"] + rest["items"]]
+    assert "Script · Bo tries salmon" in whats and "Video · Bo tries salmon · A" in whats
+    assert rest["next_cursor"] is None
+    other = owner.get("/usage/charges", params={"brand_id": fomo + 999}).json()
+    assert other["items"] == []
+    for url in (f"/usage/brands/{fomo}/videos", f"/usage/brands/{fomo}/scripts", "/usage/charges"):
+        assert editor.get(url).status_code == 404

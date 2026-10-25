@@ -53,15 +53,15 @@ People (section)
 └──────────────────────────────────────────────────────────────────────┘
 Waiting invites (section)
 ┌──────────────────────────────────────────────────────────────────────┐
-│ jo@example.com · Editor · expires 31 Oct          [Copy link] [Cancel]│
+│ jo@example.com · Editor · expires 31 Oct  [Copy a new link] [Cancel]│
 └──────────────────────────────────────────────────────────────────────┘
 ```
 - **People:** 44px avatar (initial), name (body 600), email (meta), the role as a neutral badge ("Owner", "Editor"). **Remove** (ghost dense, `aria-label="Remove Sam"`) opens the danger dialog: "Remove Sam from the team? Their videos stay." **Keep them** / **Remove**.
-- **Waiting invites:** email, role, "expires 31 Oct" (meta), **Copy link** (secondary dense, `Copy`; becomes "Copied" with `Check` for 2s; needs the invite list to return each waiting link, a server change, so it ships when that lands) and **Cancel** (ghost dense).
+- **Waiting invites:** email, role, "expires 31 Oct" (meta), **Copy a new link** (secondary dense, `Copy`, `aria-label="Copy a new link for jo@example.com"`) and **Cancel** (ghost dense). The server keeps only a hash of each link, so the old one can't be shown again: Copy a new link makes a fresh link and copies it, and the old link stops working. The label says so before the press. It becomes "Copied" with `Check` for 2 s, with the toast "Link copied. The old link no longer works."
 - **Invite someone** opens a dialog (sheet on phone): **Email**, **Role** (select: Editor, Owner; Editor first), amber **Create invite link**. Then the dialog shows the link in a read-only field (`aria-label="Invite link"`) with **Copy link** and the meta line "Send this link to them. It works once and expires in 7 days." and **Done** (ghost). No toast while this panel is open: it already says it.
 
 ### Phone
-- People and invites as stacked rows. **Remove**, **Copy link** and **Cancel** are 44px. **Invite someone** in the action bar.
+- People and invites as stacked rows: the email (wrapping, never cut) and its meta line, then the buttons on a row under them. **Remove**, **Copy a new link** and **Cancel** are 44px. **Invite someone** in the action bar.
 
 ### States
 | State | What shows |
