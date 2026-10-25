@@ -354,13 +354,23 @@ BACKGROUND = re.compile(
 )
 
 
-def cast_slots(versions: dict[int, str], result: CastSlots) -> list[str]:
+def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()) -> list[str]:
     """The roles every version needs a look for (Reed, #197). Fixes: no slots, a version that
     doesn't exist. Advice: a background-sounding role, a name a listed version never uses,
-    two slots with one name."""
+    two slots with one name, a name the cast or the scripts' speakers use that no slot carries.
+    `cast` holds the cast's names."""
     if not result.slots:
         return ["no cast slots; regenerate"]
     problems, seen = [], set()
+    roles = " | ".join(s.role for s in result.slots).lower()
+    speakers = {
+        m.group(1).split(" (")[0].title()
+        for text in versions.values()
+        for m in re.finditer(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:", text, re.M)
+    }
+    for name in dict.fromkeys([*cast, *sorted(speakers)]):
+        if not re.search(rf"\b{re.escape(name.lower())}\b", roles):
+            problems.append(f"{ADVICE}no slot carries the name {name}; use it in that role")
     for slot in result.slots:
         role = slot.role
         if missing := sorted(set(slot.appears_in) - set(versions)):

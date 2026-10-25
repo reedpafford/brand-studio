@@ -105,7 +105,8 @@ def score(out: Path, case: dict) -> list[str]:
             if made
             else {0: script}
         )
-        problems += check.cast_slots(versions, cs)
+        names = [c.split(" ", 1)[1].split(",")[0].split(" (")[0] for c in case["cast"]]
+        problems += check.cast_slots(versions, cs, names)
         roles = " | ".join(s.role for s in cs.slots).lower()
         problems += [
             f"no slot for {n}" for n in exp.get("slots_named", []) if n.lower() not in roles

@@ -217,6 +217,20 @@ def test_eval_scoring_runs_the_variations_check(tmp_path):
     ]
 
 
+def test_cast_slots_keep_the_names_the_cast_and_scripts_use(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "ironpaws-pitbull1-variations")
+    answer = {"variations": [{"title": "x", "premise": "x", "script": "x", "changes": []}]}
+    (tmp_path / f"{case['id']}.variations.json").write_text(json.dumps(answer))
+    slot = {"description": "x", "appears_in": [0], "recurring": True}
+    slots = [slot | {"role": "The dog (narrator)"}, slot | {"role": "His owner"}]
+    (tmp_path / f"{case['id']}.cast_slots.json").write_text(json.dumps({"slots": slots}))
+    problems = score(tmp_path, case)
+    assert "Advice: no slot carries the name Bruno; use it in that role" in problems
+    assert "no slot for Bruno" in problems
+
+
 def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     ex, result = example("cast_slots")
     versions = {
@@ -239,7 +253,8 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
         slots=[schemas.CastSlot(role="Dre, the rival", appears_in=[0, 1], **extra)]
     )
     assert check.cast_slots({0: "DRE: Nice car.", 1: "MALIK: Mine now."}, dre) == [
-        "Advice: Dre, the rival: “Dre” isn't in version 1"
+        "Advice: no slot carries the name Malik; use it in that role",
+        "Advice: Dre, the rival: “Dre” isn't in version 1",
     ]
 
 

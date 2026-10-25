@@ -94,7 +94,7 @@ def run_case(
             versions = {0: script} | {
                 i: v.script for i, v in enumerate(answers["variations"].variations, 1)
             }
-            prompt = cast_slots_input(versions, reference.strip())
+            prompt = cast_slots_input(versions, reference.strip(), case["cast"], case["brief"])
         elif step == "breakdown":
             (out / f"{case['id']}.script.txt").write_text(script)
             prompt = f"{brief}\n{cast}\n{places}\n{video_model()}{reference}\n"
