@@ -98,7 +98,14 @@ def record_length(project: Project, bd: Breakdown) -> None:
 
 
 def save_breakdown(db: Session, job: Job) -> None:
-    """Store Claude's breakdown (with its problems) as the project's newest breakdown."""
+    """Store Claude's breakdown (with its problems) as the project's newest breakdown, or on
+    the library version it previews (workflow v2)."""
+    if draft_id := job.input.get("script_draft_id"):
+        from app import script_preview
+        from app.models.script_library import ScriptDraft
+
+        script_preview.save(db, db.get(ScriptDraft, draft_id), Breakdown.model_validate(job.output))
+        return
     project = db.get(Project, job.input["project_id"])
     version = db.scalar(
         select(ScriptVersion).where(

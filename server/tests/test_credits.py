@@ -115,20 +115,25 @@ def test_cancelled_and_failed_jobs_free_their_credits(project, editor, ed, db):
 
 
 def test_quick_clips_use_a_weekly_allowance_per_editor(editor, ed, db):
+    """$15 a week (Reed): past it an editor's own work is declined, never sent to the owner."""
     assert enqueue(db, ed, "video-480p", {}, units=100).status == "queued"
-    assert enqueue(db, ed, "video-480p", {}, units=60).status == "needs_owner_approval"
-    assert enqueue(db, ed, "video-480p", {}, units=50).status == "queued"  # exactly 150
+    with pytest.raises(HTTPException) as err:
+        enqueue(db, ed, "video-480p", {}, units=60)
+    assert err.value.status_code == 409
+    assert err.value.detail == "You've used this week's 145 credits. It resets Monday."
+    assert db.query(Job).count() == 1  # nothing queued or held
+    assert enqueue(db, ed, "video-480p", {}, units=45).status == "queued"  # exactly 145
     assert editor.get("/credits/me").json() == {
-        "quick_clip_credits_used": 150,
-        "quick_clip_credits_allowed": 150,
+        "quick_clip_credits_used": 145,
+        "quick_clip_credits_allowed": 145,
     }
 
 
 def test_last_weeks_quick_clips_do_not_count(ed, db):
-    old = enqueue(db, ed, "video-480p", {}, units=150)
+    old = enqueue(db, ed, "video-480p", {}, units=145)
     old.created_at = credits_module.week_start().replace(year=2020)
     db.commit()
-    assert enqueue(db, ed, "video-480p", {}, units=150).status == "queued"
+    assert enqueue(db, ed, "video-480p", {}, units=145).status == "queued"
 
 
 def test_owner_jobs_are_never_held(owner, db):
@@ -177,12 +182,15 @@ def test_two_project_jobs_at_once_cannot_both_fit(app, project, ed, db, monkeypa
 
 
 def test_two_quick_clips_at_once_cannot_both_fit(app, ed, db, monkeypatch):
-    enqueue(db, ed, "video-480p", {}, units=140)  # 140 of 150 used
+    enqueue(db, ed, "video-480p", {}, units=135)  # 135 of 145 used
 
     def make(s):
-        return enqueue(s, s.get(User, ed.id), "video-480p", {}, units=10)
+        try:
+            return enqueue(s, s.get(User, ed.id), "video-480p", {}, units=10)
+        except HTTPException as exc:
+            return type("Declined", (), {"status": f"declined {exc.status_code}"})()
 
-    assert _race(app, monkeypatch, make) == ["needs_owner_approval", "queued"]
+    assert _race(app, monkeypatch, make) == ["declined 409", "queued"]
 
 
 def test_other_workspace_is_shut_out(project, ed, outsider, db):
@@ -218,8 +226,10 @@ def test_weekly_allowance_is_per_editor_and_owner_can_raise_it(app, owner, ed, d
     with TestClient(app) as c:
         c.post("/auth/accept-invite", json={"token": token, "name": "Two", "password": PASSWORD})
     second = db.query(User).filter_by(email="two@example.com").one()
-    clips = [enqueue(db, ed, "video-480p", {}, units=60).status for _ in range(3)]
-    assert clips == ["queued", "queued", "needs_owner_approval"]
+    clips = [enqueue(db, ed, "video-480p", {}, units=60).status for _ in range(2)]
+    assert clips == ["queued", "queued"]
+    with pytest.raises(HTTPException):
+        enqueue(db, ed, "video-480p", {}, units=60)  # 180 > 145: declined
     assert enqueue(db, second, "video-480p", {}, units=60).status == "queued"
     owner.put(
         "/credits/limits",
@@ -295,7 +305,7 @@ def test_limits_put_needs_the_cap_so_it_is_never_reset_by_omission(owner):
 
 def test_default_cap_is_75_dollars_and_no_editor_length_limit(editor):
     limits = editor.get("/credits/limits").json()
-    assert limits == {"weekly_quick_clip_credits": 150, "per_video_max_credits": 729}
+    assert limits == {"weekly_quick_clip_credits": 145, "per_video_max_credits": 729}
     assert 729 * 0.1028 <= 75  # floored: never more than $75
 
 
@@ -309,3 +319,34 @@ def test_a_single_quick_clip_cannot_pass_the_cap(owner, ed, db):
         enqueue(db, ed, "video-480p", {}, units=51)
     assert err.value.detail == "This video would go over its limit."
     assert enqueue(db, me, "video-480p", {}, units=50).status == "queued"
+
+
+def test_videos_from_an_editors_own_script_use_their_allowance(owner, editor, ed, db):
+    """Reed: editors' own scripts run on their $15 a week, declined past it; videos from the
+    owner's scripts keep the 2x budget and wait for approval past it."""
+    from app.models.script_library import ScriptDraft
+
+    fomo = owner.get("/brands").json()[0]["id"]
+
+    def video(client, planned):
+        script = client.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"})
+        draft = db.query(ScriptDraft).filter_by(script_id=script.json()["id"]).one()
+        made = editor.post(
+            "/projects", json={"brand_id": fomo, "name": "V", "planned_seconds": planned}
+        )
+        project = db.get(Project, made.json()["id"])
+        project.script_draft_id = draft.id
+        db.commit()
+        return project
+
+    own = video(editor, 100)  # budget 200, but the allowance (145) is the limit
+    assert enqueue(db, ed, "video-480p", {}, units=100, project=own).status == "queued"
+    with pytest.raises(HTTPException) as err:
+        enqueue(db, ed, "video-480p", {}, units=50, project=own)
+    assert err.value.status_code == 409
+    with pytest.raises(HTTPException):
+        enqueue(db, ed, "video-480p", {}, units=50)  # the same allowance as Quick clips
+    reeds = video(owner, 10)  # budget 20
+    assert enqueue(db, ed, "video-480p", {}, units=30, project=reeds).status == (
+        "needs_owner_approval"
+    )

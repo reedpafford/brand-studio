@@ -1,0 +1,69 @@
+"""Breakdown preview on a library version: run (stand-in Claude), edit, save."""
+
+from sqlalchemy import select
+
+from app.models.jobs import Job
+from app.providers import get_providers
+from app.worker import run_once
+from tests.conftest import upload
+from tests.helpers import with_sheet
+from tests.test_breakdown import BREAKDOWN
+from tests.test_script_library import SCRIPT, _make
+
+
+def _work(app, db):
+    app.state.settings.fake_providers = True
+    providers = get_providers(app.state.settings)
+    for _ in range(3):
+        run_once(db, providers, app.state.storage)
+
+
+def test_preview_runs_on_the_version_with_its_cast_and_saves(app, db, owner):
+    made = _make(owner, text=SCRIPT, reference_id="fomo-DehudnaAmce")
+    base = f"/scripts/{made['id']}"
+    mia = owner.post("/library/character", json={"name": "Mia", "image_file_ids": [upload(owner)]})
+    with_sheet(db, mia.json()["id"])
+    slots = owner.post(f"{base}/cast", json={"role": "Mom"}).json()
+    owner.post(f"{base}/cast/{slots[0]['id']}/lock", json={"library_item_id": mia.json()["id"]})
+    nate = owner.post(f"{base}/cast", json={"role": "Nate", "description": "teen"}).json()[1]
+    url = f"{base}/drafts/0/breakdown"
+    assert owner.get(url).json() == {
+        "breakdown": None,
+        "problems": [],
+        "seconds": 0,
+        "running": False,
+    }
+    assert owner.get(f"{url}/estimate").json()["credits"] == 3
+    job = owner.post(url)
+    assert job.status_code == 201, job.text
+    assert owner.post(url).status_code == 409  # one at a time
+    prompt = db.get(Job, job.json()["id"]).input["prompt"]
+    assert f"char:{mia.json()['id']} | Mia" in prompt  # locked slot: its character
+    assert f"slot:{nate['id']} | Nate | teen (no look yet)" in prompt  # unlocked slot
+    assert "<reference>" in prompt and "1| SCENE 1" in prompt
+    _work(app, db)
+    done = owner.get(url).json()
+    assert done["breakdown"]["clips"] and done["seconds"] > 0 and not done["running"]
+    assert owner.get(base).json()["versions"][0]["has_breakdown"] is True
+    saved = owner.put(url, json=BREAKDOWN).json()
+    assert saved["seconds"] == 5 and saved["breakdown"]["hook"] == BREAKDOWN["hook"]
+    assert db.scalars(select(Job)).all()[-1].status == "succeeded"
+
+
+def test_preview_follows_the_script_rules(app, owner, editor):
+    made = _make(owner, text=SCRIPT)
+    url = f"/scripts/{made['id']}/drafts/0/breakdown"
+    assert editor.get(url).status_code == 404  # not published: private
+    owner.post(f"/scripts/{made['id']}/drafts/0/approve")
+    owner.post(f"/scripts/{made['id']}/publish")
+    assert editor.get(url).status_code == 200
+    assert editor.put(url, json=BREAKDOWN).status_code == 403
+    assert owner.post(url).status_code == 409  # published: final
+    empty = _make(owner)
+    assert owner.post(f"/scripts/{empty['id']}/drafts/0/breakdown").status_code == 422
+    app.state.settings.generation_enabled = False
+    try:
+        mine = _make(editor, text=SCRIPT)
+        assert editor.post(f"/scripts/{mine['id']}/drafts/0/breakdown").status_code == 503
+    finally:
+        app.state.settings.generation_enabled = True
