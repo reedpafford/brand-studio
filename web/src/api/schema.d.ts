@@ -1021,6 +1021,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/cast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Slots */
+        get: operations["list_slots_scripts__script_id__cast_get"];
+        put?: never;
+        /** Add Slot */
+        post: operations["add_slot_scripts__script_id__cast_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/{slot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Slot */
+        delete: operations["remove_slot_scripts__script_id__cast__slot_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit Slot
+         * @description Rename it, describe it, or move it in the list.
+         */
+        patch: operations["edit_slot_scripts__script_id__cast__slot_id__patch"];
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/{slot_id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lock
+         * @description Lock the role to a character's approved look; it's used as-is in every version.
+         */
+        post: operations["lock_scripts__script_id__cast__slot_id__lock_post"];
+        /**
+         * Unlock
+         * @description Unlock it: the editor makes this character at the Assets step.
+         */
+        delete: operations["unlock_scripts__script_id__cast__slot_id__lock_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/script/enhance": {
         parameters: {
             query?: never;
@@ -2315,6 +2378,11 @@ export interface components {
             /** Per Video Max Credits */
             per_video_max_credits: number;
         };
+        /** LockIn */
+        LockIn: {
+            /** Library Item Id */
+            library_item_id: number;
+        };
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -2890,6 +2958,42 @@ export interface components {
              */
             screen_ids: string[];
         };
+        /** SlotIn */
+        SlotIn: {
+            /** Role */
+            role: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** SlotOut */
+        SlotOut: {
+            /** Id */
+            id: number;
+            /** Role */
+            role: string;
+            /** Description */
+            description: string;
+            /** Position */
+            position: number;
+            /** Library Item Id */
+            library_item_id: number | null;
+            /** Sheet File Id */
+            sheet_file_id: number | null;
+            /** Locked */
+            locked: boolean;
+        };
+        /** SlotPatch */
+        SlotPatch: {
+            /** Role */
+            role?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Position */
+            position?: number | null;
+        };
         /** StageOut */
         StageOut: {
             /** Stage */
@@ -3097,6 +3201,8 @@ export interface components {
             notes: string;
             /** Reference Replace */
             reference_replace: string;
+            /** Cast */
+            cast: components["schemas"]["SlotOut"][];
         };
         /** VersionOut */
         app__routes__script_library__VersionOut: {
@@ -5390,6 +5496,208 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_slots_scripts__script_id__cast_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_slot_scripts__script_id__cast_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_slot_scripts__script_id__cast__slot_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_slot_scripts__script_id__cast__slot_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lock_scripts__script_id__cast__slot_id__lock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LockIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlock_scripts__script_id__cast__slot_id__lock_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
                 };
             };
             /** @description Validation Error */

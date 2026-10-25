@@ -17,6 +17,7 @@ from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
 from app.routes.brands import get_brand
 from app.routes.references import find as find_reference
+from app.routes.script_cast import SlotOut, slots
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
@@ -93,6 +94,7 @@ class ScriptOut(ScriptRow):
     notes: str
     reference_replace: str
     versions: list[VersionOut]
+    cast: list[SlotOut]  # roles shared by every version, locked or not
 
 
 def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | VersionOut:
@@ -138,7 +140,12 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
     )
     if not full:
         return ScriptRow(**row)
-    return ScriptOut(**row, notes=script.notes, reference_replace=script.reference_replace)
+    return ScriptOut(
+        **row,
+        notes=script.notes,
+        reference_replace=script.reference_replace,
+        cast=slots(db, script),
+    )
 
 
 def _check_reference(request: Request, ref_id: str | None) -> None:
