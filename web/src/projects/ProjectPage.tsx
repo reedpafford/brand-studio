@@ -83,19 +83,48 @@ export function ProjectPage() {
   const fromShotsOn = step !== "brief" && step !== "script";
 
   return (
-    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-8">
-      <Link to={`/b/${brandId}/projects`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
-        <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
-        Videos
-      </Link>
+    <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
+      {rail ? (
+        <Link to={`/b/${brandId}/projects`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
+          <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
+          Videos
+        </Link>
+      ) : (
+        // On a phone the video's own line replaces the brand bar: back, name, how much is used, and a thin meter.
+        <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-border bg-bg">
+          <div className="flex h-14 items-center gap-1 px-2">
+            <Link to={`/b/${brandId}/projects`} aria-label="Videos" className="grid size-control shrink-0 place-items-center rounded-md text-accent-text hover:bg-surface-2">
+              <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
+            </Link>
+            {renaming === null ? (
+              <>
+                <h1 className="min-w-0 flex-1 truncate type-card">{p.name}</h1>
+                <span className={`shrink-0 text-sm font-medium tabular-nums ${p.budget_pct > 100 ? "text-danger" : p.budget_pct >= 75 ? "text-warning" : "text-accent-text"}`}>
+                  {Math.round(p.budget_pct)}%<span className="sr-only"> of the budget used</span>
+                </span>
+                <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
+                  <Pencil size={20} strokeWidth={1.75} aria-hidden />
+                </button>
+              </>
+            ) : (
+              <span className="flex-1 truncate type-card">Rename</span>
+            )}
+          </div>
+          <div className="h-1 bg-surface-2" aria-hidden>
+            <div className={`h-full ${p.budget_pct > 100 ? "bg-danger" : p.budget_pct >= 75 ? "bg-warning" : "bg-accent"}`} style={{ width: `${Math.min(100, Math.max(0, p.budget_pct))}%` }} />
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         {renaming === null ? (
-          <h1 className="flex min-w-0 items-center gap-2 type-page">
-            <span className="min-w-0 break-words">{p.name}</span>
-            <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
-              <Pencil size={20} strokeWidth={1.75} aria-hidden />
-            </button>
-          </h1>
+          rail && (
+            <h1 className="flex min-w-0 items-center gap-2 type-page">
+              <span className="min-w-0 break-words">{p.name}</span>
+              <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
+                <Pencil size={20} strokeWidth={1.75} aria-hidden />
+              </button>
+            </h1>
+          )
         ) : (
           <form
             className="flex min-w-0 flex-1 flex-wrap items-end gap-2"
@@ -115,12 +144,14 @@ export function ProjectPage() {
             </Button>
           </form>
         )}
-        <div className="flex w-full items-start gap-3 sm:w-auto">
-          <div className="min-w-0 flex-1 sm:w-72">
-            <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
-            <EstimateNote projectId={id} used={p.credits_used} budget={p.budget_credits} />
+        {rail && (
+          <div className="flex w-auto items-start gap-3">
+            <div className="min-w-0 w-72">
+              <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+              <EstimateNote projectId={id} used={p.credits_used} budget={p.budget_credits} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
       <div className="flex flex-wrap items-center gap-3">
@@ -128,7 +159,7 @@ export function ProjectPage() {
           <StepPicker steps={stepStates(step, progress)} onPick={pick} />
         </div>
         {fromShotsOn && (
-          <Button variant="secondary" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Script">
+          <Button variant="secondary" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Show script">
             {rail ? "Script" : ""}
           </Button>
         )}
@@ -156,6 +187,12 @@ export function ProjectPage() {
       {step === "storyboard" && <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
       {step === "clips" && <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "final" && <FinalPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
+      {!rail && (
+        <Card>
+          <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+          <EstimateNote projectId={id} used={p.credits_used} budget={p.budget_credits} />
+        </Card>
+      )}
       {panel && (
         <ScriptPanel
           projectId={id}

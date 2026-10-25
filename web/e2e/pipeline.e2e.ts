@@ -24,7 +24,7 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
 
   // Enhance runs and finds nothing to add to this short script.
   await stage("enhance");
-  await page.getByRole("button", { name: /✦ Enhance/ }).click();
+  await page.getByRole("button", { name: /^Enhance/ }).click();
   await expect(page.getByText(/already reads well/)).toBeVisible({ timeout: 30_000 });
 
   // Breakdown: scenes, clips and shots, with no problems.

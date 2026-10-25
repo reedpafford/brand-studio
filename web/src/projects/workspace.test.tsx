@@ -36,7 +36,7 @@ function open(query = "") {
 afterEach(() => vi.unstubAllGlobals());
 
 /** The page's Script button (the one that opens the panel), not the Script step in the step list. */
-const scriptButton = () => screen.getAllByRole("button", { name: "Script" }).find((b) => !b.closest("ol")) as HTMLElement;
+const scriptButton = () => screen.getByRole("button", { name: "Show script" });
 
 test("a video has a header with the credits, six steps with ticks, and one Next button", async () => {
   setViewport(1440);
@@ -114,7 +114,7 @@ test("the Script button is not on Brief or Script, where the script is the page"
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open("?stage=script");
   await screen.findByRole("heading", { name: "Script" });
-  expect(scriptButton()).toBeUndefined();
+  expect(screen.queryByRole("button", { name: "Show script" })).not.toBeInTheDocument();
 });
 
 test("on a phone one step button opens a sheet of the six steps; there are no Script / step tabs", async () => {
@@ -240,4 +240,15 @@ test("the brief editor's length field has the same cap as the new-video page, fr
   await userEvent.click(await screen.findByRole("button", { name: "Edit brief" }));
   const length = screen.getByLabelText(/Planned length/);
   await vi.waitFor(() => expect(length).toHaveAttribute("max", "170"));
+});
+
+test("on a phone the video's own line replaces the brand bar: back, name, percent used, and the Next button fills the bar", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /projects/9/script": [200, script] });
+  open("?stage=script");
+  expect(await screen.findByRole("heading", { level: 1, name: "Mia buys the dip" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Brand: / })).not.toBeInTheDocument();
+  expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/projects");
+  expect(screen.getByText(/of the budget used/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Shots" }).closest("div")).toHaveClass("[&_button]:w-full");
 });
