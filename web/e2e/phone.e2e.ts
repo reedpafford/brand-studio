@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { onBrand, signIn } from "./helpers";
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -26,6 +26,7 @@ test("on a phone, the four bottom tabs reach every brand section and there is no
 
 test("on a phone, Reed reaches Approvals from the bell and Team from the account menu", async ({ page }) => {
   await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
   await page.getByRole("link", { name: /^Approvals/ }).click();
   await expect(page.getByRole("heading", { name: /^Approvals/ })).toBeVisible();
 
