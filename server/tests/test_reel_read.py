@@ -208,3 +208,42 @@ def test_write_refuses_a_script_whose_reel_isnt_read(app, owner, db, clip):
     owner.post(f"{url}/import/read")
     _drain(app, db)
     assert owner.post(f"{url}/write").status_code == 201  # read: Write redoes the words
+
+
+def test_a_failing_video_watch_retries_then_watches_from_frames_charged_once(
+    app, owner, editor, db, clip, monkeypatch
+):
+    """The Producer's real read: Gemini's video upload kept failing (E001), images worked."""
+    from app.providers.fake_local import FakeMedia
+
+    owner.put(
+        "/credits/limits", json={"weekly_quick_clip_credits": 7, "per_video_max_credits": 729}
+    )
+    url = _ready(app, editor, db, clip)
+    monkeypatch.setattr(FakeMedia, "video_failures", 2)  # the video and its one retry
+    assert editor.post(f"{url}/import/read").status_code == 201
+    _drain(app, db)
+    done = editor.get(f"{url}/import").json()
+    assert (done["status"], done["watched_from"]) == ("done", "frames")
+    watches = db.query(Job).filter(Job.kind == "watch-gemini").order_by(Job.id).all()
+    assert [(j.status, j.input["watch_mode"]) for j in watches] == [
+        ("failed", "video"), ("failed", "video"), ("succeeded", "frames")
+    ]  # fmt: skip
+    frames = watches[-1].input
+    assert "videos" not in frames["files"] and len(frames["files"]["images"]) >= 2
+    assert "No video this time" in frames["input"]["prompt"]
+    from app.credits import quick_clip_used
+    from app.models.accounts import User
+
+    them = db.query(User).filter_by(role="editor").one()
+    assert quick_clip_used(db, them) == 7  # one watch, one write, one cast read: failures free
+
+
+def test_a_video_watch_that_works_on_retry_stays_video(app, owner, db, clip, monkeypatch):
+    from app.providers.fake_local import FakeMedia
+
+    url = _ready(app, owner, db, clip)
+    monkeypatch.setattr(FakeMedia, "video_failures", 1)
+    owner.post(f"{url}/import/read")
+    _drain(app, db)
+    assert owner.get(f"{url}/import").json()["watched_from"] == "video"

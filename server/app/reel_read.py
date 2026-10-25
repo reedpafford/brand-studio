@@ -97,26 +97,39 @@ def shots(reel: dict) -> list[dict]:
     return [{"n": n, "start": a, "end": b} for n, (a, b) in enumerate(pairs, 1)]
 
 
-def watch_input(script: Script) -> dict:
+VIDEO_TRIES = 2  # the video watch, then one retry, before watching from frames
+FRAMES_NOTE = (
+    "No video this time: the images are the contact sheet, then frame grids where each row "
+    "is one shot, in order, with three frames near its start, middle and end. The dialogue "
+    "is the transcript."
+)
+
+
+def watch_input(script: Script, mode: str = "video", attempt: int = 1) -> dict:
+    """Gemini's input. "video": the small watch copy, inline as a data: URL (Replicate file
+    URLs to Gemini failed on and off). "frames": when video won't go through at all (the
+    model's own upload to Google fails too), the contact sheet and frame grids only."""
     reel = script.reel
     said = [{**x, "text": escape(x["text"])} for x in reel["transcript"]]
+    prompt = prompts.reel_watch_input(said, shots(reel))
+    files = {"images": [reel["contact_file_id"]], "videos": [reel["watch_file_id"]]}
+    if mode == "frames":
+        prompt = f"{prompt}\n<note>{FRAMES_NOTE}</note>"
+        files = {"images": [reel["contact_file_id"], *reel.get("grid_file_ids", [])][:10]}
     return {
         "step": "reel_watch",
         "script_id": script.id,
         "model": WATCH_MODEL,
-        "input": {
-            "prompt": prompts.reel_watch_input(said, shots(reel)),
-            "system_instruction": prompts.watch_system(),
-        },
-        # The small watch copy goes as a data: URL: Replicate file URLs to Gemini fail on and
-        # off (E001), the same video inline works (Producer, 2026-10-25).
-        "files": {"images": [reel["contact_file_id"]], "videos": [reel["watch_file_id"]]},
+        "input": {"prompt": prompt, "system_instruction": prompts.watch_system()},
+        "files": files,
+        "watch_mode": mode,
+        "attempt": attempt,
     }
 
 
-def _job_input(db: Session, script: Script, step: str) -> dict:
+def _job_input(db: Session, script: Script, step: str, **watch) -> dict:
     if step == "watch":
-        data = watch_input(script)
+        data = watch_input(script, **watch)
     elif step == "write":
         data = script_write.job_input(db, script, script.reference_breakdown)
     else:
@@ -125,12 +138,14 @@ def _job_input(db: Session, script: Script, step: str) -> dict:
     return {**data, "reel_step": step}
 
 
-def queue(db: Session, user: User, script: Script, step: str, prepaid: bool = False) -> Job:
+def queue(
+    db: Session, user: User, script: Script, step: str, prepaid: bool = False, **watch
+) -> Job:
     """Queue one step and point the script at it (the import's latest job)."""
     from app.routes.jobs import enqueue
 
     provider = "replicate" if step == "watch" else "claude"
-    data = _job_input(db, script, step)
+    data = _job_input(db, script, step, **watch)
     job = enqueue(db, user, KIND[step], data, provider=provider, prepaid=prepaid)
     tries = {**script.reel.get("tries", {}), step: script.reel.get("tries", {}).get(step, 0) + 1}
     script.reel = {k: v for k, v in script.reel.items() if k != "failed_step"} | {"tries": tries}
@@ -154,8 +169,28 @@ def save_watch(db: Session, job: Job) -> None:
         raise ValueError(f"The watch answer doesn't fit the cuts: {fixes[0]}")
     made = prompts.watch_breakdown(watch, reel["transcript"], shots(reel))
     script.reference_breakdown = checked({**made, "duration_seconds": reel["seconds"]})
+    script.reel = {**reel, "watched_from": job.input.get("watch_mode", "video")}
     if not script.description:
         script.description = watch.logline
+
+
+def watch_failed(db: Session, job: Job) -> None:
+    """The watch call failed at the provider (nothing charged: failed jobs aren't counted).
+    Try the video once more, then watch from frames; already paid for, so prepaid."""
+    script = latest(db, job)
+    if script is None or script.reel_job_id != job.id:
+        return
+    mode, attempt = job.input.get("watch_mode", "video"), job.input.get("attempt", 1)
+    if mode == "video" and attempt < VIDEO_TRIES:
+        nxt = {"mode": "video", "attempt": attempt + 1}
+    elif mode == "video" and script.reel.get("grid_file_ids"):
+        nxt = {"mode": "frames", "attempt": 1}
+    else:
+        return  # the chain stops here; a new press retries the watch
+    try:
+        queue(db, db.get(User, job.created_by_id), script, "watch", prepaid=True, **nxt)
+    except HTTPException as exc:
+        log.warning("job %s: couldn't retry the reel watch: %s", job.id, exc)
 
 
 def follow_on(db: Session, job: Job, saved: bool) -> None:
