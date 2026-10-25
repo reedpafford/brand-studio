@@ -19,3 +19,19 @@ test("Reed opens Usage: the totals, a row for every brand, and one brand's page"
   await page.getByRole("tab", { name: /^Scripts/ }).click();
   await expect(page).toHaveURL(/tab=scripts/);
 });
+
+// scripts.e2e.ts started a version of "Bo tries salmon" (Make this version), so it is being made.
+test("Reed opens In production from the rail and sees the version being made, with no sideways scroll on a phone", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^In production/ }).click();
+  await expect(page.getByRole("heading", { name: "In production", level: 1 })).toBeVisible();
+  const row = page.getByRole("link", { name: /^Bo tries salmon, version A, .*, at [A-Z][a-z]+/ });
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(page).toHaveURL(/\/projects\/\d+/);
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto("/production");
+  await expect(page.getByRole("link", { name: /^Bo tries salmon/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

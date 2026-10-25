@@ -1,5 +1,7 @@
 """Producing a library version: its project, once, with the saved breakdown or a new one."""
 
+import json
+
 from fastapi.testclient import TestClient
 
 from app import credits, prompts
@@ -175,3 +177,25 @@ def test_deleting_a_produced_script_keeps_its_video(owner, editor, db):
     assert owner.delete(base).status_code == 204
     assert editor.get(f"/projects/{pid}").status_code == 200  # the video stays
     assert owner.post(f"{base}/restore").json()["versions"][0]["project_id"] == pid
+
+
+def test_an_unlocked_slot_in_the_breakdown_is_known_and_blocks_nothing(owner, editor, db):
+    """Reed: "shot X: unknown slot:28" on every shot blocked the storyboard."""
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    nate = owner.post(f"{base}/cast", json={"role": "Nate"}).json()[0]["id"]  # unlocked
+    other = _make(owner, title="Other", text=SCRIPT)
+    stranger = owner.post(f"/scripts/{other['id']}/cast", json={"role": "X"}).json()[0]["id"]
+    bd = json.loads(json.dumps(BREAKDOWN))
+    bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{nate}"]
+    owner.put(f"{base}/drafts/0/breakdown", json=bd)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    url = f"/projects/{pid}/breakdown"
+    assert not [p for p in editor.get(url).json()["problems"] if "unknown" in p]
+    assert editor.put(url, json=bd).status_code == 200  # an edit naming it is fine too
+    assert editor.post(f"/projects/{pid}/storyboard", json={"per_shot": False}).status_code == 201
+    bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{stranger}"]
+    wrong = editor.put(url, json=bd)  # another script's slot is still unknown
+    assert wrong.status_code == 422 and f"unknown slot:{stranger}" in wrong.json()["detail"]

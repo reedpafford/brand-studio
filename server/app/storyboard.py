@@ -16,6 +16,7 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
+from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
@@ -28,9 +29,21 @@ def image_model() -> CatalogueModel:
     return next(m for m in catalogue().values() if m.kind == "image" and m.default)
 
 
+def script_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
+    """The cast slots of the library script this video is made from (none for older videos)."""
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if draft is None:
+        return []
+    return list(
+        db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == draft.script_id))
+    )
+
+
 def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     """Every picture a frame may use: asset id -> (its line for the prompt, its file ids).
-    The cast, the brand's places and props, and the brand's screens."""
+    The cast, the script's cast slots (slot:N, locked or not: an unlocked one has no picture
+    until Assets casts it, and is never a problem), the brand's places and props, and the
+    brand's screens."""
     out: dict[str, tuple[str, list[int]]] = {}
     items = db.scalars(
         select(LibraryItem).where(
@@ -45,6 +58,12 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
         out[key] = (f"{key} | {item.kind} | {item.name} | {item.notes}", usable_files(item))
+    for slot in script_slots(db, project):  # a role a breakdown may name before it's cast
+        item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
+        item = db.get(LibraryItem, item_id) if item_id else None
+        look = "" if item else " (no look yet)"
+        line = f"slot:{slot.id} | character | {slot.role} | {slot.description}{look}"
+        out[f"slot:{slot.id}"] = (line, usable_files(item) if item else [])
     brand = db.get(Brand, project.brand_id)
     for s in project_screens(db, project):
         product = "product" in s.tags  # e.g. the Iron Paws bag: shown as a product, no face

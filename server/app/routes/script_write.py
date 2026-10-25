@@ -103,8 +103,11 @@ def write_one(
     db: Session = Depends(get_db),
 ):
     """Claude writes the original's words from the title, description, cast and reel, then
-    reads its cast (one price for both)."""
+    reads its cast (one price for both). A script made from an imported reel is written by
+    reading the reel (QA-2), not from here."""
     script = _writable(db, user, script_id)
+    if _plan(db, script) != "write":
+        raise HTTPException(409, "Read the reel first.")
     afford(db, user, _price(db, user), "Writing this script")
     return _queue(db, user, request, script)
 

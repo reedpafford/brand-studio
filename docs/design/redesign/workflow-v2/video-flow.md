@@ -24,6 +24,12 @@ The #179 frame (the one-line phone header, step picker, one Next, Back) with **5
 - **Checks:** the montage check counts hand and screen inserts, and no problem is a dead end.
   - Every problem has **Go to**, plus either a fix in place or **Keep it anyway** (ghost). Keep it anyway marks the problem "Kept · Reed will see it" (meta) and stops it blocking Next.
   - Only the $75 cap blocks for good.
+  - **Advice is shown apart from problems** (Reed, 2026-10-25). This applies to the breakdown, storyboard frames and clips alike.
+    - Problems that need fixing stay as they are: danger rows with **Go to**.
+    - Advice (lines the server marks "Advice: …") goes under one closed disclosure, **Advice (3)**. It's neutral in tone (`text-muted`, `ChevronRight`/`ChevronDown`, no danger colour), sits under the problems, and its count leaves out advice already kept.
+    - Open, each advice line shows without the "Advice: " prefix. It has **Keep anyway** (ghost dense, 44px on phone), and **Go to** when it points at a shot.
+    - A kept line stays in the list, muted, with "Kept" for Reed ("Kept · Reed will see it" for an editor).
+    - Advice never blocks Next. When there are no problems and no advice, nothing shows.
 - **Next: Assets.**
 
 ## 2. Assets (new)
@@ -33,12 +39,13 @@ Everything this version needs on screen, approved before anything is drawn.
 - **Locked role** (decision e):
   - the look's sheet (9:16 front), the role and kind ("Mia · Main"), and a badge `Lock` "Locked by Reed"
   - already approved, with no buttons
-- **Unlocked role:**
+- **Unlocked role** (as built tonight; Producer, 2026-10-25):
   - the role, the kind, the description (meta, 2 lines), and "In 3 shots"
-  - **Make a look · N credits** (secondary): Claude draws a house-style sheet from the role's description, then **Approve** or **Redo** (with "What should change?"), as on the character page
-  - **Use a Cast & places character** (ghost) opens the picker of characters with approved sheets
-  - the badge "Needs a look" (warning) until approved
-  - an approved look is kept for this video only; it doesn't change the script's cast
+  - **Use a Cast & places character** (secondary) picks one of the brand's characters for this video. Picking another one swaps it.
+  - **Make a look** (secondary) makes a new character in Cast & places from the role's name and description, gives it to this video, and opens its sheet panel to draw and approve it. The new character stays in the brand's library for later videos.
+  - The Assets step never approves, unapproves or redraws a character that's already in Cast & places. It only picks, swaps or makes a new one. A shared character's sheet changes on its own page.
+  - the badge "Needs a look" (warning) until the role's character has an approved sheet
+  - Later (gaps #19): a look kept for this video only, which doesn't touch the brand's library.
 - **Place:** the same as an unlocked role, with 16:9 sheets.
 - **Product:** the brand's product picture.
   - For brands with flavours, a flavour picker (cards with the 1:1 picture, as the old brief had). Iron Paws picks its bag here.

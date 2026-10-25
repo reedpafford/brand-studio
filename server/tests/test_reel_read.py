@@ -151,7 +151,9 @@ def test_the_whole_read_is_held_against_the_allowance_until_it_runs(app, owner, 
     _drain(app, db)
     assert editor.post(f"{url}/import/read").status_code == 201  # only its watch is queued
     assert editor.get(f"/scripts/{other}/import").json()["estimate"]["credits_left"] == 0
-    over = editor.post(f"/scripts/{other}/write")
+    brand = editor.get("/brands").json()[0]["id"]
+    plain = editor.post("/scripts", json={"brand_id": brand, "title": "Plain"}).json()["id"]
+    over = editor.post(f"/scripts/{plain}/write")  # 3 credits: none left while the read holds
     assert over.status_code == 409 and "credits" in over.json()["detail"]
     _drain(app, db)
     assert editor.get(f"{url}/import").json()["status"] == "done"  # its steps all ran
@@ -197,3 +199,12 @@ def test_a_reel_prepared_before_watch_copies_asks_for_a_new_upload(app, owner, d
     refused = owner.post(f"{url}/import/read")
     assert refused.status_code == 409 and "Upload the video again" in refused.json()["detail"]
     assert db.query(Job).count() == 1  # nothing paid queued
+
+
+def test_write_refuses_a_script_whose_reel_isnt_read(app, owner, db, clip):
+    url = _ready(app, owner, db, clip)
+    refused = owner.post(f"{url}/write")
+    assert refused.status_code == 409 and refused.json()["detail"] == "Read the reel first."
+    owner.post(f"{url}/import/read")
+    _drain(app, db)
+    assert owner.post(f"{url}/write").status_code == 201  # read: Write redoes the words

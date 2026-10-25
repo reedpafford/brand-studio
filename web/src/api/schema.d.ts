@@ -1093,7 +1093,8 @@ export interface paths {
         /**
          * Write One
          * @description Claude writes the original's words from the title, description, cast and reel, then
-         *     reads its cast (one price for both).
+         *     reads its cast (one price for both). A script made from an imported reel is written by
+         *     reading the reel (QA-2), not from here.
          */
         post: operations["write_one_scripts__script_id__write_post"];
         delete?: never;
