@@ -364,6 +364,7 @@ test("a Ready to make chip opens the version panel, and Make this version reserv
     "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]],
     "GET /scripts/7": [200, full],
     "GET /scripts/7/cast": [200, [{ id: 1, role: "Bo", locked: true, sheet_file_id: null }]],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
     "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: 3 }],
     "GET /projects/55": [404, { detail: "x" }],
   });
@@ -373,6 +374,47 @@ test("a Ready to make chip opens the version panel, and Make this version reserv
   expect(within(panel).getByText(/Bo sniffs the salmon/)).toBeInTheDocument();
   expect(within(panel).getByText("Bo · Locked look")).toBeInTheDocument();
   expect(within(panel).getByText("Planned automatically when you start")).toBeInTheDocument();
-  await userEvent.click(within(panel).getByRole("button", { name: "Make this version" }));
+  // No saved breakdown: starting one is a paid call, so the button says its price.
+  await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
+});
+
+test("Make this version is free when a breakdown is already saved", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]],
+    "GET /scripts/7": [200, script({ versions: [v(0, "approved", { text: "Hi", has_breakdown: true })] })],
+    "GET /scripts/7/cast": [200, []],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
+  });
+  open("/b/1/scripts?make=7.0");
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  const button = await within(panel).findByRole("button", { name: "Make this version" });
+  expect(button).not.toHaveTextContent(/credit/);
+});
+
+test("an In production chip opens the video for Reed and for its maker, and the panel for anyone else", async () => {
+  setViewport(1440);
+  const mk = (created_by_id: number) => ({ id: 31, brand_id: 1, name: "Bo", planned_seconds: 30, status: "active", goal: "", platform: "", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null, estimate_credits: 0, budget_credits: 0, credits_used: 0, budget_pct: 0, created_by_id, created_by_name: "x" });
+  const rows = [script({ versions: [v(0, "in_production", { project_id: 31 })] })];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, rows], "GET /projects": [200, [mk(2)]] });
+  open();
+  await vi.waitFor(() => expect(screen.getByLabelText("Version A, in production").closest("a")).toHaveAttribute("href", "/b/1/projects/31"));
+});
+
+test("an editor past the week's allowance sees Ask Reed to approve with the price", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /auth/me": [200, editor],
+    "GET /scripts": [200, []],
+    "GET /scripts/7": [200, script({ versions: [v(0, "approved", { text: "Hi", has_breakdown: false })] })],
+    "GET /scripts/7/cast": [200, []],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
+    "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }],
+  });
+  open("/b/1/scripts?make=7.0");
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  expect(await within(panel).findByRole("button", { name: /Ask Reed to approve.*3 credits/ })).toBeInTheDocument();
 });

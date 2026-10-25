@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Badge, Button, Panel, Skeleton } from "../components";
+import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
@@ -20,6 +21,9 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const toast = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
+  const { data: me } = useMe();
+  const allowance = useQuery({ enabled: me?.role !== undefined && me.role !== "owner", queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
   const [all, setAll] = useState(false);
   const s = script.data;
   const v = s?.versions.find((x) => x.slot === slot);
@@ -37,6 +41,8 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
       navigate(`/b/${brandId}/projects/${made.project_id}?step=breakdown`);
     },
   });
+  // With no saved breakdown, starting one is a paid call; with one saved, making the version is free.
+  const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
   return (
@@ -75,7 +81,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           </section>
           {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
           {readyToMake ? (
-            <Button busy={make.isPending} onClick={() => make.mutate()} className="w-full">
+            <Button price={cost} ask={cost !== undefined && !!allowance.data && allowance.data.quick_clip_credits_used + cost > allowance.data.quick_clip_credits_allowed} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
               Make this version
             </Button>
           ) : (

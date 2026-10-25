@@ -11,7 +11,7 @@ import { useReferences } from "../projects/BriefPickers";
 import { useBrands } from "../shell/useBrands";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
-import { LegacyVideos } from "../projects/ProjectsPage";
+import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
 
 type Row = components["schemas"]["ScriptRow"];
 type Version = Row["versions"][number];
@@ -99,6 +99,8 @@ export function ScriptsPage() {
       { replace: true },
     );
   const panelTo = (id: number, slot: number) => `?${new URLSearchParams({ ...Object.fromEntries(params), make: `${id}.${slot}` })}`;
+  const videos = useProjectList(brandId);
+  const ownVideo = (projectId: number) => owner || videos.data?.find((p) => p.id === projectId)?.created_by_id === me?.id;
   const making = /^(\d+)\.(\d+)$/.exec(params.get("make") ?? "");
   // An editor starts on what is ready to make; Reed on everything.
   const status = params.get("status") ?? (owner ? "" : "published");
@@ -255,7 +257,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.slice(0, shown).map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} panelTo={panelTo} />
+          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={refName(r.reference_id)} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} />
         ))}
       </ul>
     </Card>
@@ -343,7 +345,7 @@ export function ScriptsPage() {
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string }) {
+function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownVideo }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (projectId: number) => boolean }) {
   const brandId = r.brand_id;
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
@@ -368,8 +370,8 @@ function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo }: { 
             const s = STATUS[v.status] ?? { label: v.status, tone: "neutral" as Tone };
             const letter = LETTER[v.slot] ?? String(v.slot + 1);
             const label = `${letter} · ${s.label}`;
-            // Ready (or being made) opens the version panel; a made video opens the video; a draft opens its writing flow.
-            const to = v.status === "approved" || v.status === "in_production" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
+            // Ready opens the version panel; so does a version someone else is making. Your own video, and any video for Reed, opens the video; a draft opens its writing flow.
+            const to = v.status === "in_production" && !(v.project_id && ownVideo(v.project_id)) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
             const chip = (
               <Badge tone={s.tone} icon={s.icon}>
                 {label}
