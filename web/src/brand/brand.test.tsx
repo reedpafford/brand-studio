@@ -28,7 +28,7 @@ test("saving the kit sends the edited fields", async () => {
     "PATCH /brands/1": [200, brand],
   });
   renderAt("/b/1/kit");
-  const tone = await screen.findByLabelText("Tone of voice");
+  const tone = await screen.findByLabelText("How we sound");
   await userEvent.clear(tone);
   await userEvent.type(tone, "Calm");
   await userEvent.click(screen.getByRole("button", { name: "Add colour" }));
@@ -57,10 +57,10 @@ test("a bad colour code is explained and blocks saving", async () => {
 test("save is disabled until something changes", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]] });
   renderAt("/b/1/kit");
-  const save = await screen.findByRole("button", { name: "Save changes" });
-  expect(save).toBeDisabled();
+  expect(await screen.findByRole("button", { name: "Save changes" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Save changes" })).toHaveAccessibleDescription("No changes yet");
   await userEvent.type(screen.getByLabelText("Legal line"), "Not advice");
-  expect(save).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
 });
 
 test("adding a screen uploads the picture, then saves it with its tags", async () => {
@@ -155,4 +155,27 @@ test("the End line is shown and saved with the kit", async () => {
   await userEvent.type(end, "Link in bio.");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({ end_line: "Link in bio." }));
+});
+
+test("fonts and never-say words are chips: one can be added and one removed, and both are saved", async () => {
+  const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [{ ...brand, never_say: ["guaranteed"] }]], "PATCH /brands/1": [200, brand] });
+  renderAt("/b/1/brand");
+  await userEvent.type(await screen.findByLabelText("Add to fonts"), "Manrope{Enter}");
+  await userEvent.click(screen.getByRole("button", { name: "Remove guaranteed" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(await screen.findByText("Saved.")).toBeInTheDocument();
+  expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({ fonts: ["Inter", "Manrope"], never_say: [] });
+});
+
+test("leaving Look with unsaved changes asks first; Keep editing stays, Leave goes to App screens", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /brands/1/screens": [200, []] });
+  renderAt("/b/1/brand");
+  await userEvent.type(await screen.findByLabelText("Legal line"), "Not advice");
+  await userEvent.click(screen.getByRole("tab", { name: "App screens" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+  expect(screen.getByLabelText("Legal line")).toHaveValue("Not advice");
+  await userEvent.click(screen.getByRole("tab", { name: "App screens" }));
+  await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).getByRole("button", { name: "Leave" }));
+  expect(await screen.findByText("No brand screens yet.")).toBeInTheDocument();
 });
