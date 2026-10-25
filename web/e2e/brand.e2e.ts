@@ -45,26 +45,29 @@ test("an uploaded logo shows and survives a reload", async ({ page }) => {
   await expect(page.getByRole("img", { name: "Logo" })).toBeVisible();
 });
 
-test("a brand screen can be added with tags and a moment", async ({ page }) => {
+test("a brand screen can be added, given tags and a moment, and deleted", async ({ page }) => {
   await page.getByRole("link", { name: "Brand", exact: true }).click();
-  await page.getByRole("tab", { name: "App screens" }).click();
+  await page.getByRole("tab", { name: /^App screens/ }).click();
   await expect(page.getByText("No brand screens yet.")).toBeVisible();
-  await page.getByRole("button", { name: "Add screen" }).click();
-  await page.getByLabel("Screen image").setInputFiles(image("buy-flow.png"));
-  await expect(page.getByLabel("Name")).toHaveValue("buy-flow");
-  await page.getByLabel("What it shows (tags, separated by commas)").fill("Trading, Mobile");
-  await page.getByLabel("Use automatically for these moments (separated by commas)").fill("trading");
-  await page.getByRole("button", { name: "Save screen" }).click();
+  await page.getByRole("button", { name: "Add screens" }).first().click();
+  await page.getByLabel("Screen images").setInputFiles(image("buy-flow.png"));
+  await expect(page.getByLabel("Name for buy-flow.png")).toHaveValue("buy-flow");
+  await page.getByRole("button", { name: "Add screen", exact: true }).click();
 
-  await expect(page.getByRole("img", { name: "buy-flow" })).toBeVisible();
-  await expect(page.getByText("★ Always used for: trading")).toBeVisible();
-  await expect(page.getByText("mobile · trading")).toBeVisible();
-});
+  const tile = page.getByRole("button", { name: "buy-flow", exact: true });
+  await expect(tile).toBeVisible();
+  await tile.click();
+  const panel = page.getByRole("dialog", { name: "Edit buy-flow" });
+  await panel.getByLabel("Add to tags").fill("Trading");
+  await panel.getByLabel("Add to tags").press("Enter");
+  await panel.getByLabel("Add to always use this screen for").fill("trading");
+  await panel.getByLabel("Add to always use this screen for").press("Enter");
+  await panel.getByRole("button", { name: "Save screen" }).click();
+  await expect(panel).toBeHidden();
+  await expect(tile.getByText("trading")).toBeVisible(); // the moment badge on its tile
 
-test("a brand screen can be deleted", async ({ page }) => {
-  await page.getByRole("link", { name: "Brand", exact: true }).click();
-  await page.getByRole("tab", { name: "App screens" }).click();
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Delete buy-flow" }).click();
+  await tile.click();
+  await page.getByRole("dialog", { name: "Edit buy-flow" }).getByRole("button", { name: "Delete screen" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete screen" }).click();
   await expect(page.getByText("No brand screens yet.")).toBeVisible();
 });

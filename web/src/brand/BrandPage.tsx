@@ -6,24 +6,31 @@ import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { KitPage } from "./KitPage";
-import { ScreensPage } from "./ScreensPage";
+import { ProductsTab } from "./ProductsTab";
+import { ScreensTab } from "./ScreensTab";
+import { useScreens } from "./screens";
 
-const TABS = [
-  { id: "look", label: "Look" },
-  { id: "screens", label: "App screens" },
-];
+const IDS = ["look", "products", "screens"] as const;
 
 type Frame = { slot: HTMLElement | null; setDirty: (dirty: boolean) => void };
 const FrameContext = createContext<Frame>({ slot: null, setDirty: () => {} });
 
-/** Brand: the look and voice, and the app screens, on one page (Products joins them in the next step). */
+/** Brand: look and voice, products, and app screens on one page. */
 export function BrandPage() {
   const [params, setParams] = useSearchParams();
   const { brandId } = useParams();
   const { data: brands } = useBrands();
   const brand = brands?.find((b) => b.id === Number(brandId));
   const rail = useRail();
-  const tab = params.get("tab") === "screens" ? "screens" : "look";
+  const asked = params.get("tab");
+  const tab = IDS.find((t) => t === asked) ?? "look";
+  const screens = useScreens(Number(brandId));
+  const products = new Set((screens.data ?? []).map((x) => x.product).filter(Boolean)).size;
+  const tabs = [
+    { id: "look", label: "Look" },
+    { id: "products", label: "Products", count: screens.data ? products : undefined },
+    { id: "screens", label: "App screens", count: screens.data?.length },
+  ];
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [dirty, setDirty] = useState(false);
   const [leaving, setLeaving] = useState<string | null>(null);
@@ -41,14 +48,14 @@ export function BrandPage() {
         </div>
         <Tabs
           label="Brand"
-          tabs={TABS}
+          tabs={tabs}
           value={tab}
           onChange={(id) => {
             if (tab === "look" && dirty && id !== "look") setLeaving(id);
             else go(id);
           }}
         />
-        {tab === "look" ? <KitPage /> : <ScreensPage />}
+        {tab === "look" ? <KitPage /> : tab === "products" ? <ProductsTab /> : <ScreensTab />}
       </div>
       {leaving && (
         <Dialog
