@@ -44,6 +44,7 @@ test("a script is one row: its title, description, reference, length range and a
   expect(screen.getByText("B · Ready to make")).toBeInTheDocument();
   expect(screen.getByText("C · In production")).toBeInTheDocument();
   expect(screen.getByLabelText("Version A, video done").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
+  expect(screen.getByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
   expect(screen.getByText("1 script")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\bv\d\b|project/i);
 });
@@ -144,7 +145,7 @@ test("the script step saves the words as the original; Next needs them", async (
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, full()], "PUT /scripts/7/drafts/0": [200, full()] });
   open("/b/1/scripts/7?step=script");
-  const next = await screen.findByRole("button", { name: "Next: Directions" });
+  const next = await screen.findByRole("button", { name: "Next: Cast" });
   expect(next).toBeDisabled();
   await userEvent.type(screen.getByLabelText("Your script"), "BO: Salmon?");
   await userEvent.click(screen.getByRole("button", { name: "Save script" }));
@@ -209,6 +210,110 @@ test("a script's age is in plain words", async () => {
   expect(age("2026-10-24T09:00:00Z", now)).toBe("yesterday");
   expect(age("2026-10-22T09:00:00Z", now)).toBe("3 days ago");
   expect(age("2026-09-01T09:00:00Z", now)).toMatch(/1 Sep|Sep 1/);
+});
+
+const chars = [
+  { id: 4, name: "Mia", image_file_ids: [11], sheet_status: "approved" },
+  { id: 5, name: "Bo", image_file_ids: [], sheet_status: "none" },
+];
+const slot = (o: object = {}) => ({ id: 31, role: "Mia", description: "Late 20s, confident.", position: 0, library_item_id: null, sheet_file_id: null, locked: false, ...o });
+const withWords = (o: object = {}) => full({ versions: [{ ...full().versions[0], text: "MIA: Hell no!", words: 3, status: "draft" }], ...o });
+
+test("Cast: a role can be added, locked to a character with an approved sheet, and unlocked; Bo needs a sheet first", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, withWords()],
+    "GET /scripts/7/cast": [200, [slot()]],
+    "GET /library/character": [200, chars],
+    "POST /scripts/7/cast": [201, slot({ id: 32, role: "Bo" })],
+    "POST /scripts/7/cast/31/lock": [200, slot({ locked: true, library_item_id: 4 })],
+  });
+  open("/b/1/scripts/7?step=cast");
+  expect(await screen.findByText("1 role · 0 locked")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Lock Mia to a look" }));
+  const panel = await screen.findByRole("dialog", { name: "Lock Mia to a look" });
+  expect(within(panel).getByRole("button", { name: "Bo needs an approved sheet" })).toBeDisabled();
+  await userEvent.click(within(panel).getByRole("button", { name: "Lock to Mia" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/cast/31/lock")?.body).toEqual({ library_item_id: 4 }));
+  await userEvent.click(screen.getByRole("button", { name: "Add a role" }));
+  const add = await screen.findByRole("dialog", { name: "Add a role" });
+  await userEvent.type(within(add).getByLabelText("Role"), "Bo");
+  await userEvent.click(within(add).getByRole("button", { name: "Add role" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/cast")?.body).toMatchObject({ role: "Bo" }));
+});
+
+test("Cast: a locked role says so, with Change and Unlock; Remove role asks first", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, withWords()],
+    "GET /scripts/7/cast": [200, [slot({ locked: true, library_item_id: 4, sheet_file_id: 11 })]],
+    "GET /library/character": [200, chars],
+    "DELETE /scripts/7/cast/31/lock": [204, null],
+    "DELETE /scripts/7/cast/31": [204, null],
+  });
+  open("/b/1/scripts/7?step=cast");
+  expect(await screen.findByText("Locked to Mia")).toBeInTheDocument();
+  expect(screen.getByText("Used as-is in every version.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Unlock Mia" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/cast/31/lock")).toBe(true));
+  await userEvent.click(screen.getByRole("button", { name: "More for Mia" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Remove role" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Remove Mia from the cast?" });
+  expect(calls.some((c) => c.key === "DELETE /scripts/7/cast/31")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Remove" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/cast/31")).toBe(true));
+});
+
+test("the picker locks Characters and Publish until the script has words", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()] });
+  open("/b/1/scripts/7");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write the script first");
+  expect(within(steps).getByRole("button", { name: "Publish" })).toHaveAccessibleDescription("Write the script first");
+});
+
+test("Publish: a card for the version, then Publish asks, approves the words and publishes", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, withWords()],
+    "GET /scripts/7/cast": [200, [slot({ locked: true, library_item_id: 4, sheet_file_id: 11 })]],
+    "GET /scripts": [200, []],
+    "POST /scripts/7/drafts/0/approve": [200, withWords()],
+    "POST /scripts/7/publish": [200, withWords({ published: true, status: "published" })],
+  });
+  open("/b/1/scripts/7?step=publish");
+  const card = await screen.findByLabelText("Version A");
+  expect(within(card).getByText("MIA: Hell no!")).toBeInTheDocument();
+  expect(within(card).getByText("Runs when an editor starts")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Publish 1 version" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Publish 1 version of Bo tries salmon?" });
+  expect(calls.some((c) => c.key === "POST /scripts/7/publish")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Publish" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/publish")).toBe(true));
+  expect(calls.findIndex((c) => c.key === "POST /scripts/7/drafts/0/approve")).toBeLessThan(calls.findIndex((c) => c.key === "POST /scripts/7/publish"));
+  expect(await screen.findByText("Published. 1 version is ready to make.")).toBeInTheDocument();
+});
+
+test("a published script's Publish page is read-only, with Duplicate script", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, withWords({ published: true, status: "published" })],
+    "GET /scripts/7/cast": [200, []],
+    "GET /scripts": [200, []],
+    "POST /scripts/7/duplicate": [201, full({ id: 8 })],
+    "GET /scripts/8": [200, full({ id: 8 })],
+  });
+  open("/b/1/scripts/7?step=publish");
+  expect(await screen.findAllByText("Published · final")).not.toHaveLength(0);
+  expect(screen.queryByRole("button", { name: /^Publish \d/ })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Duplicate script" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/duplicate")).toBe(true));
+  expect(await screen.findByText("Duplicated as a new draft.")).toBeInTheDocument();
 });
 
 const reel = (n: number) => ({ id: `r${n}`, name: `Reel ${n}`, logline: n === 1 ? "Reel 1 is about a groom." : `A dog and a bag of salmon treats, take ${n}.`, seconds: 30 + n, style: "", brand: "", has_thumbnail: false });

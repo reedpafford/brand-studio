@@ -1,4 +1,4 @@
-as of 8ff0fb1 · 2026-10-25 04:20 UTC
+as of 3eeaf85 · 2026-10-25 14:20 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -19,6 +19,7 @@ as of 8ff0fb1 · 2026-10-25 04:20 UTC
 - Redesign build (14 PRs, `docs/design/redesign/phase3/README.md`): 1/14 Screening room tokens and fonts, dark by default (#175); 2/14 shared parts in `web/src/components/` (#176); 3/14 app shell with top bar, rail and phone tab bar (#178). 4/14 Videos home (#180); 6/14 video frame (#179). Screens still on the old layout until the rest land.
 - Workflow v2 plan docs (#189 server plan, #191 Director plan, #192 design) and Quick clip specs (#184, #187). Workflow v2 build so far: Script Library tables, length optional and set by the breakdown (#201), Script Library API with versions, approve, publish, duplicate (#204), bulk create (#206), cast slots per script (#207). Design re-specs 1–4 (#194, #195, #198, #200) and the cast slots plan (#203) are merged. Montage check is advice, never a dead end (#196).
 - Workflow v2 build, continued: weekly editor allowance 145 credits (#211), breakdown preview on a library version (#212), "Advice: …" never blocks and Keep anyway is remembered (#215), produce a library version once (#218), Assets step (#220), download every clip as one zip (#223), `fake_run` through the Script Library (#224), Team links and editors' weekly allowance for the owner (#228). Director prompts: Variations step (#202) and Cast slots step (#214); altar remake fixes (#210). Library spec: phone Filters sheet, Reed sees editors' drafts (#229); Studio spec (#222).
+- Library and writing flow: Characters and Publish steps (#236); Scripts home with list, filters and search (#226), New script, writing frame and Description (#230), variations of a library script (#234), field counters never wrap (#232), QA follow-ups on zip, allowance lock and wording (#231); Prompts: grind before the payoff, hook opens on the inciting exchange, cast slot kinds (#241). Specs: Usage brand tracker (#238), editors see the versions they're making at the top of the library (#244), writing frame step 5 is Cast (#233), Reed's remake verdict and rules (#237).
 - Redesign, continued: Brand frame and Look (#205), Products and App screens (#209), Sign in / setup / invite (#213), Approvals (#219), Team (#221).
 - More redesign: Script step (#185), Shots step (#186), Videos home follow-up (#193), Quick clip (#183).
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
@@ -42,21 +43,21 @@ as of 8ff0fb1 · 2026-10-25 04:20 UTC
 ## Definition of done (Reed, ops/MISSION.md)
 - An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
-- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet. Video A (fomo altar remake, 42 s) ran on main e872e39: $7.26 of Reed's $10 remake budget per ops/SPEND.md (week total $17.22, over the $15 test cap with Reed's approval); a variations eval cost $0.28. Reed's verdict on the remake is not recorded on GitHub yet. A second reel remake (Betty, reel De4ohoJolPe, 50 s) ran with Reed's approval of up to $10: $8.81 total per ops/SPEND.md; week total $26.43.
+- Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet. Video A (fomo altar remake, 42 s) ran on main e872e39: $7.26 of Reed's $10 remake budget per ops/SPEND.md (week total $17.22, over the $15 test cap with Reed's approval); a variations eval cost $0.28. Reed's verdict on the remake is not recorded on GitHub yet. A second reel remake (Betty, reel De4ohoJolPe, 50 s) ran with Reed's approval of up to $10: $8.81 total per ops/SPEND.md; week total $26.43. Reed's verdict (ops/DECISIONS.md, #237): both remakes close, neither passed yet; the altar reel is re-run after the weekly cap resets Monday with the grind-before-payoff and hook fixes (estimate first, up to $10); Betty waits for the montage rule.
 ## Workflow v2 (Reed's decisions, 2026-10-25, ops/DECISIONS.md)
 - Owner writes a script (title, description, optional reference reel), runs Enhance, picks 0–2 variations, locks characters, optionally previews the breakdown, and publishes to the Script Library. Editors pick a version and produce it once (max 3 videos per script). Editors can write their own scripts: $15 a week free generation each, beyond that declined. Cast slots (#197): once the script and variations are approved, every named or recurring role is an optional cast slot; a locked slot is used as-is in every shot and version. No final-video upload: download clips one by one or all at once, older takes too.
 ## Open PRs (6, not counting the Scribe's own)
-- #234 Workflow v2 5b-1: variations of a library script | Builder-Server | in review
-- #233 Writing frame spec: step 5 is Cast | Designer | in review (docs)
-- #232 Field counters never wrap | Builder-Screens | Designer pass (3b87f8d)
-- #231 QA follow-ups: zip refuses a missing take, allowance lock, sheet and label wording | Builder-Server | QA pass (f7b99ef)
-- #230 Script library 2: New script, the writing frame and Description (stacked on #226) | Builder-Screens | Designer review at 7d5da09: 4 must-fixes (reference reel picker is the old wall of cards; two amber buttons while editing the description; draft badge wording for editors' scripts; step 5 is "Cast", not "Characters")
-- #226 Script library 1: the Scripts home (list, filters, search) | Builder-Screens | Designer re-check passed (2856950)
+- #247 Usage tracker 3a: summary, brands and one brand (owner only) | Builder-Server | in review
+- #245 Usage tracker 2/3: when a video became "Video done" | Builder-Server | QA at a54c9e9: 1 must-fix (a partial zip download marks the video done); head since moved to eb98a4f
+- #243 Version panel: Make this version | Builder-Screens | Designer review at 8cf7d29: 2 must-fixes (your own version in production is a dead end; new videos are listed under "Videos made before scripts"); head since moved to a27d458
+- #242 Usage tracker 1/3: every charge records its brand | Builder-Server | QA pass (e8777bf; head since moved to 61a2ade)
+- #240 Team Copy link and the held-clip line from allowances | Builder-Screens | in review
+- #239 Workflow v2 5b-2: read the cast (slots with kind and versions) | Builder-Server | QA pass (4ccd446; head since moved to 25eb8c6); QA note: its test needs `kind` on its slots now that #241 is merged
 ## Next
-- Builder-Screens: fix #230's four Designer must-fixes; land #226 and #232; then the remaining library and redesign PRs.
-- Builder-Server: land #231 and #234; further workflow v2 PRs follow the plan in #189.
-- Designer: land #233.
-- Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (per the Producer); Reed's verdicts on the remakes.
+- Builder-Server: fix #245's partial-download rule; land #242, #239 (add `kind` to its test), #247, then the rest of the usage tracker; add `script_draft_id` to `ProjectOut` (or `legacy=1`) and who reserved a version, for #243.
+- Builder-Screens: fix #243's two must-fixes; land #240; the Usage brand tracker screen.
+- Director: re-run the altar reel after the cap resets Monday (estimate first, up to $10); Betty after the montage rule; paid runs only with Producer approval, logged in ops/SPEND.md.
+- Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (per the Producer); Reed's verdict on the new altar version.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
 - Replicate key for the deployed server (later). Keys stay server-side only.
