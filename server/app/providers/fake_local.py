@@ -27,6 +27,21 @@ def _tag(prompt: str, name: str) -> str:
     return html.unescape(found.group(1)) if found else ""
 
 
+def transcript(path: Path) -> list[dict]:
+    """Stand-in transcription (no model download): two lines, whatever the video says."""
+    return [
+        {"start": 0.5, "end": 2.0, "text": "Will you marry me?", "speaker": None},
+        {"start": 3.5, "end": 5.0, "text": "No.", "speaker": None},
+    ]
+
+
+def refuse_link(url: str, folder: Path) -> Path:
+    """Local runs never reach Instagram: a link always says to upload instead."""
+    from app.reel import BLOCKED, Refused
+
+    raise Refused("blocked", BLOCKED)
+
+
 def png(aspect: str) -> bytes:
     out = io.BytesIO()
     Image.new("RGB", SIZES.get(aspect, (512, 512)), (128, 128, 128)).save(out, "PNG")

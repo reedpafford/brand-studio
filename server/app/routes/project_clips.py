@@ -19,6 +19,7 @@ from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
@@ -205,7 +206,12 @@ def generate(
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("project_clip_id") == row.id for j in pending):
         raise HTTPException(409, "A take of this clip is already being made.")
-    job_input = clip_takes.take_input(db, project, row, body.note if body else "")
+    note = body.note.strip() if body else ""
+    if note:  # a Redo note never changes the dialogue
+        bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
+        if wrong := check.redo_note(note, bd, row.clip_id):
+            raise HTTPException(422, " ".join(wrong))
+    job_input = clip_takes.take_input(db, project, row, note)
     model = clip_takes.video_model()
     files = {k: job_input["files"].get(k, []) for k in clip_takes.KEYS.values()}
     _check_media_length(db, request.app.state.storage, model, files)

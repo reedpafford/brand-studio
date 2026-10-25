@@ -1108,6 +1108,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/import/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Upload
+         * @description A new script from an uploaded reel (mp4 or mov, up to 100 MB and 90 seconds).
+         */
+        post: operations["import_upload_scripts_import_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/import/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Link
+         * @description A new script from an Instagram reel link. The worker fetches it; if Instagram refuses,
+         *     the script stays and says to upload the video instead.
+         */
+        post: operations["import_link_scripts_import_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/import/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace With Upload
+         * @description Upload the video to a script whose reel couldn't be fetched (or to try another one).
+         */
+        post: operations["replace_with_upload_scripts__script_id__import_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Import */
+        get: operations["read_import_scripts__script_id__import_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts": {
         parameters: {
             query?: never;
@@ -2179,6 +2257,22 @@ export interface components {
             /** Ready */
             ready: boolean;
         };
+        /** Body_import_upload_scripts_import_upload_post */
+        Body_import_upload_scripts_import_upload_post: {
+            /** File */
+            file: string;
+            /** Brand Id */
+            brand_id: number;
+            /** Title */
+            title?: string | null;
+            /** New Lines */
+            new_lines?: boolean | null;
+        };
+        /** Body_replace_with_upload_scripts__script_id__import_upload_post */
+        Body_replace_with_upload_scripts__script_id__import_upload_post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_files_post */
         Body_upload_files_post: {
             /** Upload */
@@ -2559,6 +2653,42 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** ImportOut */
+        ImportOut: {
+            /** Script Id */
+            script_id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "ready" | "failed";
+            /** Source */
+            source: string;
+            /** Url */
+            url?: string | null;
+            /** Seconds */
+            seconds?: number | null;
+            /** Shots */
+            shots?: number | null;
+            /**
+             * Transcript
+             * @default []
+             */
+            transcript: {
+                [key: string]: unknown;
+            }[];
+            /** Video File Id */
+            video_file_id?: number | null;
+            /** Contact File Id */
+            contact_file_id?: number | null;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /** Problem Code */
+            problem_code?: string | null;
+        };
         /** ImproveIn */
         ImproveIn: {
             /** Brand Id */
@@ -2938,6 +3068,17 @@ export interface components {
             weekly_quick_clip_credits: number;
             /** Per Video Max Credits */
             per_video_max_credits: number;
+        };
+        /** LinkIn */
+        LinkIn: {
+            /** Brand Id */
+            brand_id: number;
+            /** Url */
+            url: string;
+            /** Title */
+            title?: string | null;
+            /** New Lines */
+            new_lines?: boolean | null;
         };
         /** LockIn */
         LockIn: {
@@ -3433,6 +3574,8 @@ export interface components {
             reference_id?: string | null;
             /** Reference Replace */
             reference_replace?: string | null;
+            /** New Lines */
+            new_lines?: boolean | null;
         };
         /** ScriptRow */
         ScriptRow: {
@@ -3467,6 +3610,11 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /**
+             * Reel Imported
+             * @default false
+             */
+            reel_imported: boolean;
         };
         /** SetupIn */
         SetupIn: {
@@ -3836,6 +3984,11 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /**
+             * Reel Imported
+             * @default false
+             */
+            reel_imported: boolean;
             /** Spend Usd */
             spend_usd: number;
             /** Spend Estimated */
@@ -4059,6 +4212,8 @@ export interface components {
              * @default
              */
             reference_replace: string;
+            /** New Lines */
+            new_lines?: boolean | null;
             /**
              * Text
              * @default
@@ -4098,10 +4253,17 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /**
+             * Reel Imported
+             * @default false
+             */
+            reel_imported: boolean;
             /** Notes */
             notes: string;
             /** Reference Replace */
             reference_replace: string;
+            /** New Lines */
+            new_lines: boolean;
             /** Cast */
             cast: components["schemas"]["SlotOut"][];
         };
@@ -6445,6 +6607,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_upload_scripts_import_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_upload_scripts_import_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_link_scripts_import_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_with_upload_scripts__script_id__import_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_replace_with_upload_scripts__script_id__import_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_import_scripts__script_id__import_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
                 };
             };
             /** @description Validation Error */

@@ -13,6 +13,7 @@ from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
+from app.models.files import StoredFile
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.routes.brands import get_brand
@@ -34,6 +35,7 @@ class ScriptIn(BaseModel):
     notes: LongText = ""
     reference_id: str | None = None  # a reel from GET /references
     reference_replace: LongText = ""
+    new_lines: bool | None = None  # write new lines in the reel's style, not its own
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
 
 
@@ -50,6 +52,7 @@ class ScriptPatch(BaseModel):
     notes: LongText | None = None
     reference_id: str | None = None
     reference_replace: LongText | None = None
+    new_lines: bool | None = None  # until version A is approved
 
 
 class DraftIn(BaseModel):
@@ -101,11 +104,13 @@ class ScriptRow(BaseModel):
     versions_left: int  # approved versions not produced yet
     poster_file_id: int | None = None  # the first still of its newest finished video
     reference_name: str | None = None  # the reel it adapts, by name
+    reel_imported: bool = False  # adapts its own imported reel, not a catalogue one
 
 
 class ScriptOut(ScriptRow):
     notes: str
     reference_replace: str
+    new_lines: bool
     versions: list[VersionOut]
     cast: list[SlotOut]  # roles shared by every version, locked or not
 
@@ -153,6 +158,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         title=script.title,
         description=script.description,
         reference_id=script.reference_id,
+        reel_imported=script.reference_breakdown is not None,
         published=script.published,
         status=lib.script_status(script, statuses),
         created_by_id=script.created_by_id,
@@ -167,6 +173,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         **row,
         notes=script.notes,
         reference_replace=script.reference_replace,
+        new_lines=script.new_lines,
         cast=slots(db, script),
     )
 
@@ -211,9 +218,8 @@ def list_scripts(
     if reference_id is not None:
         query = query.where(Script.reference_id == reference_id)
     if reference is not None:
-        query = query.where(
-            Script.reference_id.is_not(None) if reference else Script.reference_id.is_(None)
-        )
+        adapts = or_(Script.reference_id.is_not(None), Script.reference_breakdown.is_not(None))
+        query = query.where(adapts if reference else ~adapts)
     if q.strip():
         like = f"%{q.strip()}%"
         in_text = select(ScriptDraft.script_id).where(ScriptDraft.text.ilike(like))
@@ -243,8 +249,11 @@ def list_scripts(
         ref.id: ref.name for ref, _ in catalogue(request.app.state.settings.references_dir).values()
     }
     for row in rows:
-        row.poster_file_id = lib.poster(db, db.get(Script, row.id))
+        script = db.get(Script, row.id)
+        row.poster_file_id = lib.poster(db, script)
         row.reference_name = names.get(row.reference_id) if row.reference_id else None
+        if script.reference_breakdown:
+            row.reference_name = lib.reel_name(script.reference_breakdown)
     return rows
 
 
@@ -260,7 +269,7 @@ def create_script(
     script = Script(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
-        **body.model_dump(exclude={"text"}),
+        **body.model_dump(exclude={"text"}, exclude_none=True),
     )
     db.add(script)
     db.flush()
@@ -288,7 +297,7 @@ def create_many(
         script = Script(
             workspace_id=user.workspace_id,
             created_by_id=user.id,
-            **item.model_dump(exclude={"text"}),
+            **item.model_dump(exclude={"text"}, exclude_none=True),
         )
         db.add(script)
         db.flush()
@@ -315,6 +324,10 @@ def update_script(
     values = body.model_dump(exclude_unset=True)
     if "reference_id" in values:
         _check_reference(request, values["reference_id"])
+    if values.get("new_lines") is not None and any(
+        d.slot == 0 and d.status == "approved" for d in lib.drafts(db, script)
+    ):
+        raise HTTPException(409, "Version A is approved, so its lines are final.")
     for field, value in values.items():
         if value is not None or field == "reference_id":
             setattr(script, field, value)
@@ -324,7 +337,10 @@ def update_script(
 
 @router.delete("/{script_id}", status_code=204)
 def delete_script(
-    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+    script_id: int,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
     """Delete it, or archive it if a video was made from any version (videos stay)."""
     script = lib.get_script(db, user, script_id)
@@ -337,7 +353,12 @@ def delete_script(
         db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
         db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(ids)))
         db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
+        reel = script.reel or {}
         db.delete(script)
+        for key in ("video_file_id", "contact_file_id"):  # an imported reel's own files
+            if (stored := db.get(StoredFile, reel.get(key) or 0)) is not None:
+                request.app.state.storage.delete(stored.key)
+                db.delete(stored)
     db.commit()
 
 
@@ -475,6 +496,8 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
         notes=source.notes,
         reference_id=source.reference_id,
         reference_replace=source.reference_replace,
+        reference_breakdown=source.reference_breakdown,
+        new_lines=source.new_lines,
         created_by_id=user.id,
     )
     db.add(copy)

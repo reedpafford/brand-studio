@@ -26,6 +26,7 @@ from app.routes import (
     screens,
     script_cast,
     script_cast_read,
+    script_import,
     script_library,
     script_preview,
     script_produce,
@@ -68,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         references,
         scripts,
         script_write,
+        script_import,
         script_library,
         script_cast_read,
         script_cast,
@@ -87,4 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.include_router(module.router)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
     app.add_middleware(UploadLimit, path=r"/projects/\d+/script/upload", max_bytes=MAX_DOC_BYTES)
+    app.add_middleware(
+        UploadLimit, path=script_import.UPLOAD_PATHS, max_bytes=script_import.MAX_BYTES
+    )
     return app

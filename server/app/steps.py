@@ -15,6 +15,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_takes import save_take
     from app.enhance import save_suggestions
     from app.routes.improve import save_improved
+    from app.routes.script_import import save_prepared
     from app.routes.sheets import save_sheet
     from app.script_cast_read import save_cast_slots
     from app.script_variations import save_variations
@@ -33,6 +34,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "variations": save_variations,
         "script_draft": save_written,
         "cast_slots": save_cast_slots,
+        "reel_prepare": save_prepared,
     }
     handler = handlers.get(job.input.get("step", ""))
     if handler is None:

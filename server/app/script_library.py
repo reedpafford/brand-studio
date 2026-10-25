@@ -59,6 +59,11 @@ def get_draft(db: Session, script: Script, slot: int) -> ScriptDraft:
     return found
 
 
+def reel_name(breakdown: dict) -> str:
+    """An imported reel's name in the library: the first part of its logline."""
+    return breakdown.get("logline", "").split(",")[0].strip()[:80] or "Imported reel"
+
+
 def spoken_seconds(text: str) -> int:
     """A rough length before any breakdown: spoken words at 4.8 a second."""
     said = [ln.split(":", 1)[1] for ln in text.splitlines() if re.match(r"^[A-Z][A-Z .'()-]*:", ln)]

@@ -22,7 +22,7 @@ from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.jobs import enqueue
 from app.routes.projects import _set_length
-from app.routes.references import load as load_reference
+from app.routes.references import for_script as script_reference
 from app.routes.script_library import Slot
 
 router = APIRouter(prefix="/scripts/{script_id}/drafts/{slot}", tags=["script library"])
@@ -62,9 +62,7 @@ def produce(
         goal=script.description,
         created_by_id=user.id,
         cast_ids=sorted({s.library_item_id for s in slots if s.library_item_id}),
-        reference_breakdown=(
-            load_reference(request, script.reference_id) if script.reference_id else None
-        ),
+        reference_breakdown=script_reference(request, script),
         reference_replace=script.reference_replace,
         script_draft_id=draft.id,
     )

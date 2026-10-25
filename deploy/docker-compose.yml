@@ -63,6 +63,10 @@ services:
       <<: *server-env
       REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
       STUDIO_ANTHROPIC_KEY: ${STUDIO_ANTHROPIC_KEY:-}
+      HF_HOME: /data/models  # the speech model for reel import, downloaded once
+    volumes:
+      - files:/data/storage
+      - models:/data/models
     depends_on:
       migrate: { condition: service_completed_successfully }
 
@@ -92,5 +96,6 @@ services:
 volumes:
   db:
   files:
+  models:
   caddy_data:
   caddy_config:
