@@ -47,6 +47,19 @@ const SORTS = [
   ["title", "Title A–Z"],
 ] as const;
 
+/** "just now", "5 min ago", "3 h ago", "yesterday", "2 days ago", then the date. */
+export function age(iso: string, now = Date.now()) {
+  const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 const lengthText = (versions: Version[]) => {
   const s = versions.map((v) => v.seconds).filter((n) => n > 0);
   if (s.length === 0) return "Length set at Breakdown";
@@ -121,13 +134,19 @@ export function ScriptsPage() {
     },
   });
 
+  // An editor's own unpublished scripts, whatever the filters say: the main list asks for Ready to make, which leaves them out.
+  const myDraftRows = useQuery({
+    enabled: !owner && me !== undefined,
+    queryKey: ["scripts", "my-drafts", all ? null : brandId],
+    queryFn: async () => (await api.GET("/scripts", { params: { query: { ...(all ? {} : { brand_id: brandId }), status: "draft" } } })).data ?? [],
+  });
+
   // Filters the server doesn't take are applied here.
   let rows = scripts.data ?? [];
   if (mine) rows = rows.filter((r) => r.created_by_id === me?.id);
   if (left === "0") rows = rows.filter((r) => r.versions_left === 0);
   if (sort === "title") rows = [...rows].sort((a, b) => a.title.localeCompare(b.title));
   if (sort === "newest") rows = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const drafts = !owner && status === "published" && !q ? (scripts.data ?? []) : [];
   const filtered = status !== (owner ? "" : "published") || !!(q || len || ref || left || mine || all);
   const clear = () => {
     setText("");
@@ -237,7 +256,7 @@ export function ScriptsPage() {
       </ul>
     </Card>
   );
-  const myDrafts = drafts.filter((r) => r.status === "draft" && r.created_by_id === me?.id);
+  const myDrafts = (myDraftRows.data ?? []).filter((r) => r.created_by_id === me?.id);
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
@@ -311,7 +330,7 @@ export function ScriptsPage() {
 
 function ScriptItem({ row: r, brandName, refName, narrow }: { row: Row; brandName?: string; refName?: string; narrow: boolean }) {
   const brandId = r.brand_id;
-  const meta = [brandName, r.created_by_name, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
+  const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
     <li className="flex gap-3 p-4 sm:p-5">
       <span aria-hidden className="grid h-[88px] w-14 shrink-0 place-items-center rounded-lg bg-surface-2 text-muted sm:h-[100px] sm:w-16">

@@ -103,3 +103,46 @@ test("on a phone the filters sit behind one Filters button that opens a sheet, a
   const sheet = await screen.findByRole("dialog", { name: "Filters" });
   expect(within(sheet).getByLabelText("Status")).toHaveValue("done");
 });
+
+/** A fake server whose list honours ?status (and the brand), like the real one. */
+function honouringServer(rows: ReturnType<typeof script>[]) {
+  const answers: Record<string, unknown> = { ...Object.fromEntries(Object.entries(base).map(([k, [, body]]) => [k, body])), "GET /auth/me": editor };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+      const url = new URL(req.url);
+      const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
+      if (key === "GET /scripts") {
+        const status = url.searchParams.get("status");
+        const out = rows.filter((r) => !status || r.status === status);
+        return new Response(JSON.stringify(out), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return new Response(JSON.stringify(answers[key] ?? { detail: "not faked" }), { status: key in answers ? 200 : 404, headers: { "content-type": "application/json" } });
+    }),
+  );
+}
+
+test("an editor's own draft shows under Your drafts even though the list asks for Ready to make", async () => {
+  setViewport(1440);
+  honouringServer([
+    script({ id: 1, title: "Sam's draft", status: "draft", published: false, created_by_id: 2, created_by_name: "Sam", versions: [v(0, "draft")] }),
+    script({ id: 2, title: "Reed's published one", status: "published", created_by_id: 1 }),
+  ]);
+  open();
+  const drafts = await screen.findByRole("region", { name: "Your drafts" });
+  expect(within(drafts).getByText("Sam's draft")).toBeInTheDocument();
+  expect(await screen.findByText("Reed's published one")).toBeInTheDocument();
+  expect(screen.getAllByText("Sam's draft")).toHaveLength(1); // not listed twice
+});
+
+test("a script's age is in plain words", async () => {
+  const { age } = await import("./ScriptsPage");
+  const now = new Date("2026-10-25T12:00:00Z").getTime();
+  expect(age("2026-10-25T11:59:59Z", now)).toBe("just now");
+  expect(age("2026-10-25T11:55:00Z", now)).toBe("5 min ago");
+  expect(age("2026-10-25T09:00:00Z", now)).toBe("3 h ago");
+  expect(age("2026-10-24T09:00:00Z", now)).toBe("yesterday");
+  expect(age("2026-10-22T09:00:00Z", now)).toBe("3 days ago");
+  expect(age("2026-09-01T09:00:00Z", now)).toMatch(/1 Sep|Sep 1/);
+});
