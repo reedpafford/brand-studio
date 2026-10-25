@@ -167,3 +167,11 @@ def test_produce_uses_the_scripts_own_imported_reel(owner, editor, db):
     assert ref == IMPORTED
     block = prompts.reference_block(ref)
     assert "She says no" in block and "Creator talks to camera" not in block  # live action
+
+
+def test_deleting_a_produced_script_keeps_its_video(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    assert owner.delete(base).status_code == 204
+    assert editor.get(f"/projects/{pid}").status_code == 200  # the video stays
+    assert owner.post(f"{base}/restore").json()["versions"][0]["project_id"] == pid
