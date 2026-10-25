@@ -7,7 +7,7 @@ export const WRITING_STEPS = [
   { id: "script", label: "Script" },
   { id: "directions", label: "Directions" },
   { id: "variations", label: "Variations" },
-  { id: "characters", label: "Characters" },
+  { id: "cast", label: "Cast" },
   { id: "breakdown", label: "Breakdown" },
   { id: "publish", label: "Publish" },
 ] as const;

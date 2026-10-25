@@ -39,7 +39,7 @@ test("a script is one row: its title, description, reference, length range and a
   open();
   expect(await screen.findByRole("heading", { name: "Bo tries salmon" })).toBeInTheDocument();
   expect(screen.getByText("Show a picky dog finally loving Iron Paws salmon.")).toBeInTheDocument();
-  expect(screen.getByText(/Ref: The altar reel · 24–30 s · 2 versions left to make/)).toBeInTheDocument();
+  expect(screen.getByText(/Ref: The altar reel · about 24–30 s · 2 versions left to make/)).toBeInTheDocument();
   expect(screen.getByText("A · Video done")).toBeInTheDocument();
   expect(screen.getByText("B · Ready to make")).toBeInTheDocument();
   expect(screen.getByText("C · In production")).toBeInTheDocument();
@@ -128,9 +128,9 @@ test("a draft script's page: title, a draft badge, seven steps with the unbuilt 
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, full()], "PATCH /scripts/7": [200, full({ title: "Bo tries tuna" })] });
   open("/b/1/scripts/7");
   expect(await screen.findByRole("heading", { level: 1, name: /Bo tries salmon/ })).toBeInTheDocument();
-  expect(screen.getByText("Draft · only you can see it")).toBeInTheDocument();
+  expect(screen.getByText("Draft · only you can see it")).toBeInTheDocument(); // Reed on his own draft
   const steps = screen.getByRole("list", { name: "Steps" });
-  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Description", "Script", "Directions", "Variations", "Characters", "Breakdown", "Publish"]);
+  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Description", "Script", "Directions", "Variations", "Cast", "Breakdown", "Publish"]);
   expect(within(steps).getByRole("button", { name: "Variations" })).toHaveAccessibleDescription("Coming soon");
   expect(screen.getByText("Keep it warm.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Edit description" }));
@@ -209,4 +209,44 @@ test("a script's age is in plain words", async () => {
   expect(age("2026-10-24T09:00:00Z", now)).toBe("yesterday");
   expect(age("2026-10-22T09:00:00Z", now)).toBe("3 days ago");
   expect(age("2026-09-01T09:00:00Z", now)).toMatch(/1 Sep|Sep 1/);
+});
+
+const reel = (n: number) => ({ id: `r${n}`, name: `Reel ${n}`, logline: n === 1 ? "Reel 1 is about a groom." : `A dog and a bag of salmon treats, take ${n}.`, seconds: 30 + n, style: "", brand: "", has_thumbnail: false });
+
+test("the reference reels are compact rows with a search once there are more than 6; picking one asks what to change", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /references": [200, [1, 2, 3, 4, 5, 6, 7].map(reel)] });
+  open("/b/1/scripts/new");
+  const list = (await screen.findByText("Reference reel (optional)")).closest("fieldset")!;
+  expect(within(list).getAllByRole("button", { pressed: false })).toHaveLength(7);
+  expect(within(list).queryByText("Reel 1 is about a groom.")).not.toBeInTheDocument(); // only repeats the name
+  expect(within(list).getByText(/take 2\./)).toBeInTheDocument();
+  await userEvent.type(within(list).getByLabelText("Search the reels"), "Reel 5");
+  expect(within(list).getAllByRole("button")).toHaveLength(1);
+  await userEvent.click(within(list).getByRole("button"));
+  expect(within(list).getByLabelText("What to change")).toBeInTheDocument();
+});
+
+test("while the description is being edited its Save is the one amber button, so Next steps aside", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByRole("button", { name: "Next: Script" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Edit description" }));
+  expect(screen.queryByRole("button", { name: "Next: Script" })).not.toBeInTheDocument();
+  expect(screen.getByText("For Iron Paws")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByRole("button", { name: "Next: Script" })).toBeInTheDocument();
+});
+
+test("the draft badge says who can see it: you, you and Reed, or whose draft it is", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts/7": [200, full({ created_by_id: 2, created_by_name: "Sam" })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("Draft · only you and Reed can see it")).toBeInTheDocument();
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  fakeServer({ ...base, "GET /scripts/7": [200, full({ created_by_id: 2, created_by_name: "Sam" })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("Draft · Sam's, not published")).toBeInTheDocument();
 });
