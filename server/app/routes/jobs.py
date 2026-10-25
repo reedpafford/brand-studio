@@ -152,6 +152,8 @@ def enqueue(
     if project is not None:
         lock(db, Project, project.id)
         db.refresh(project)  # read its status after taking the lock
+        if project.archived_at is not None:
+            raise HTTPException(409, "This video is archived. Bring it back to work on it.")
         check_video_cap(db, user, project, credits)
         if own_script(db, project, user):
             lock(db, User, user.id)  # it spends their weekly allowance, like a Quick clip
