@@ -101,11 +101,13 @@ def clips_zip(
         # Checked before sending, so a missing video never leaves a half-sent zip.
         raise HTTPException(409, f"{missing[0]}'s video file is missing. Make that take again.")
     safe = re.sub(r"[^A-Za-z0-9 _-]", "", project.name).strip() or "clips"
+    # Only the whole video counts as done: a picked take for every clip.
+    whole = not all_takes and all(c.picked_take_id for c in clips)
     return StreamingResponse(
         _stream(
             storage,
             files,
-            None if all_takes else _finished(request.app.state.sessionmaker, project.id),
+            _finished(request.app.state.sessionmaker, project.id) if whole else None,
         ),
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{safe}.zip"'},

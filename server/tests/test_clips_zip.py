@@ -3,6 +3,7 @@
 import io
 import zipfile
 
+from app.models.clips import ProjectClip
 from app.models.files import StoredFile
 from app.models.projects import Project
 from tests.helpers import assert_hidden
@@ -25,6 +26,17 @@ def test_zip_of_picked_takes_or_every_take(app, db, editor, outsider, setup, cli
         _work(app, db, fake)
     takes = editor.get(f"{base}/clips").json()[0]["takes"]
     editor.post(f"{base}/clips/{clip['id']}/takes/{takes[0]['id']}/pick")
+    first = db.get(ProjectClip, clip["id"])
+    second = ProjectClip(  # QA #245: a clip with no picked take yet
+        project_id=first.project_id, breakdown_id=first.breakdown_id, clip_id="c2", seconds=5,
+        prompt="x",
+    )  # fmt: skip
+    db.add(second)
+    db.commit()
+    editor.get(f"{base}/clips.zip")
+    assert db.get(Project, setup["project"]).finished_at is None  # 1 of 2: not the whole video
+    db.delete(second)
+    db.commit()
 
     picked = editor.get(f"{base}/clips.zip")
     assert picked.status_code == 200 and picked.headers["content-type"] == "application/zip"
