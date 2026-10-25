@@ -1,11 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bell, Check, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
+import { Banner, Button, Card, Dialog, EmptyState, Skeleton } from "../components";
 import { Meter } from "../projects/Meter";
+import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
-import { btnPrimary, btnSecondary, card, errorText as errorClass, pageTitle } from "../ui";
+import { errorText as errorClass } from "../ui";
+import { useRail } from "../useMedia";
 import { useHeld, type Job, type Project } from "./useHeld";
 
 const STEPS: Record<string, string> = {
@@ -26,32 +31,110 @@ function ago(iso: string) {
   return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`;
 }
 
+const whole = (n: number) => Math.round(n * 10) / 10;
+const dollars = (n: number) => `$${n.toFixed(2)}`;
+
 /** Owner only: one place to decide on everything that's waiting. */
 export function ApprovalsPage() {
   const { data: me } = useMe();
   const held = useHeld();
+  const toast = useToast();
+  const refresh = useRefresh();
+  const rail = useRail();
+  const [asking, setAsking] = useState(false);
+  // Dollars are for the owner only, so they come from the owner-only detail of each job.
+  const details = useQueries({
+    queries: held.heldJobs.map((j) => ({
+      enabled: me?.role === "owner",
+      queryKey: ["job-detail", j.id],
+      queryFn: async () => (await api.GET("/jobs/{job_id}/detail", { params: { path: { job_id: j.id } } })).data ?? null,
+    })),
+  });
+  const usd = new Map(held.heldJobs.map((j, i) => [j.id, details[i]?.data?.cost_usd]));
+  const approveAll = useMutation({
+    mutationFn: async () => {
+      let done = 0;
+      const total = held.heldJobs.length + held.heldProjects.length;
+      const stop = (error: unknown) => new Error(`${done} of ${total} went through. ${errorText(error)}`);
+      for (const j of held.heldJobs) {
+        const { error, response } = await api.POST("/jobs/{job_id}/approve", { params: { path: { job_id: j.id } } });
+        if (!response.ok) throw stop(error);
+        done += 1;
+      }
+      for (const p of held.heldProjects) {
+        const { error, response } = await api.POST("/projects/{project_id}/approve", { params: { path: { project_id: p.id } } });
+        if (!response.ok) throw stop(error);
+        done += 1;
+      }
+    },
+    onSuccess: async () => {
+      setAsking(false);
+      await refresh();
+      toast("All done.");
+    },
+    onError: async () => {
+      setAsking(false);
+      await refresh(); // what did go through leaves the list
+    },
+  });
   if (me && me.role !== "owner") return <p className="p-6">Page not found.</p>;
-  if (!me || held.isPending) return <p className="p-6 text-muted">Loading…</p>;
-  if (held.isError) return <p role="alert" className={`p-6 ${errorClass}`}>Could not load what's waiting. Try again.</p>;
+  if (!me || held.isPending)
+    return (
+      <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6" aria-label="Loading">
+        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+      </main>
+    );
+  if (held.isError)
+    return (
+      <main className="mx-auto max-w-4xl p-4 sm:p-6">
+        <Banner title="Couldn't load approvals." action={<Button variant="secondary" onClick={() => void refresh()}>Try again</Button>}>
+          Check your connection.
+        </Banner>
+      </main>
+    );
+  const credits = held.heldJobs.reduce((n, j) => n + j.credits, 0);
+  const known = held.heldJobs.every((j) => usd.get(j.id) !== undefined);
+  const totalUsd = held.heldJobs.reduce((n, j) => n + (usd.get(j.id) ?? 0), 0);
+  const money = known && held.heldJobs.length > 0 ? ` (${dollars(totalUsd)})` : "";
+  const count = `${held.count} waiting${credits > 0 ? ` · ${whole(credits)} credits${money}` : ""}`;
+  const all = (
+    <Button disabled={held.count === 0} busy={approveAll.isPending} onClick={() => setAsking(true)}>
+      Approve all{credits > 0 ? ` · ${whole(credits)} credits` : ""}
+    </Button>
+  );
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
-      <h1 className={pageTitle}>
-        Approvals <span className="font-normal text-muted">· {held.count} waiting</span>
-      </h1>
-      {held.count === 0 ? (
-        <div className={`${card} space-y-1`}>
-          <p className="font-semibold">Nothing waiting.</p>
-          <p className="text-muted">Editors will see "Waiting for Reed to approve" when something needs you.</p>
+    <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="type-page">Approvals</h1>
+          {held.count > 0 && <p className="text-sm tabular-nums text-muted">{count}</p>}
         </div>
+        {held.count > 0 && rail && all}
+      </div>
+      {held.count > 0 && !rail && <ActionBar phone>{all}</ActionBar>}
+      {approveAll.isError && <p role="alert" className={errorClass}>{approveAll.error.message}</p>}
+      {held.count === 0 ? (
+        <EmptyState icon={Bell} title="Nothing waiting.">
+          When something needs you, editors see "Waiting for Reed to approve" and it shows up here.
+        </EmptyState>
       ) : (
-        <ul className="space-y-3">
-          {held.heldJobs.map((j) => (
-            <JobRow key={`job-${j.id}`} job={j} projects={held.projects} />
-          ))}
-          {held.heldProjects.map((p) => (
-            <ProjectRow key={`project-${p.id}`} project={p} heldJobs={held.allHeldJobs.filter((j) => j.project_id === p.id).length} />
-          ))}
-        </ul>
+        <Card className="p-0 sm:p-0">
+          <ul className="divide-y divide-border">
+            {held.heldJobs.map((j) => (
+              <JobRow key={`job-${j.id}`} job={j} projects={held.projects} usd={usd.get(j.id)} />
+            ))}
+            {held.heldProjects.map((p) => (
+              <ProjectRow key={`project-${p.id}`} project={p} heldJobs={held.allHeldJobs.filter((j) => j.project_id === p.id).length} />
+            ))}
+          </ul>
+        </Card>
+      )}
+      {asking && (
+        <Dialog title={`Approve ${held.count} request${held.count === 1 ? "" : "s"} for ${whole(credits)} credits${money}?`} cancelLabel="Keep them" actionLabel="Approve all" busy={approveAll.isPending} onCancel={() => setAsking(false)} onConfirm={() => approveAll.mutate()}>
+          Everything waiting starts now.
+        </Dialog>
       )}
     </main>
   );
@@ -79,11 +162,22 @@ function useRefresh() {
   return () => Promise.all([queryClient.invalidateQueries({ queryKey: ["held-jobs"] }), queryClient.invalidateQueries({ queryKey: ["projects"] }), queryClient.invalidateQueries({ queryKey: ["jobs"] }), queryClient.invalidateQueries({ queryKey: ["library"] })]);
 }
 
-function JobRow({ job, projects }: { job: Job; projects: Project[] }) {
+/** The picture a request is about. There is no thumbnail to show yet, so it is the kind of work on a quiet tile. */
+function Preview() {
+  return (
+    <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-surface-2 text-muted" aria-hidden>
+      <Sparkles size={20} strokeWidth={1.75} />
+    </span>
+  );
+}
+
+function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: number }) {
   const toast = useToast();
   const refresh = useRefresh();
+  const [declining, setDeclining] = useState(false);
   const project = projects.find((p) => p.id === job.project_id);
   const what = job.step ? (STEPS[job.step] ?? job.step) : "Quick clip";
+  const who = job.created_by_name;
   const brandId = job.brand_id ?? project?.brand_id;
   const act = useMutation({
     mutationFn: async (yes: boolean) => {
@@ -94,52 +188,57 @@ function JobRow({ job, projects }: { job: Job; projects: Project[] }) {
       return yes;
     },
     onSuccess: async (yes) => {
+      setDeclining(false);
       await refresh();
-      toast(yes ? `Approved. ${what} is starting.` : "Declined. Nothing was charged.");
+      toast(yes ? (who ? `Approved. ${who}'s ${what.toLowerCase()} is being made.` : `Approved. ${what} is starting.`) : "Declined. Nothing was charged.");
     },
+    onError: () => setDeclining(false),
   });
-  // Dollars are for the owner only, so they come from the owner-only detail.
-  const detail = useQuery({
-    queryKey: ["job-detail", job.id],
-    queryFn: async () => (await api.GET("/jobs/{job_id}/detail", { params: { path: { job_id: job.id } } })).data ?? null,
-  });
-  const usd = detail.data ? ` ($${detail.data.cost_usd.toFixed(2)})` : "";
+  const limits = useQuery({ queryKey: ["limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
   const after = project && project.budget_credits > 0 ? ((project.credits_used + job.credits) / project.budget_credits) * 100 : null;
   return (
-    <li className={`${card} space-y-2 text-sm`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <Where brandId={brandId}>
-          {project ? (
-            <>
-              <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
-              <span aria-hidden className="text-muted">·</span>
+    <li className="flex gap-3 p-4 text-sm sm:p-5">
+      <Preview />
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Where brandId={brandId}>
+            {project ? (
+              <>
+                <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
+                <span aria-hidden className="text-muted">·</span>
+                <span>{what}</span>
+              </>
+            ) : (
               <span>{what}</span>
-            </>
-          ) : (
-            <span>{what}</span>
-          )}
-        </Where>
-        <span className="text-muted">{job.created_by_name ? `asked by ${job.created_by_name}, ` : ""}{ago(job.created_at)}</span>
+            )}
+          </Where>
+          <span className="text-muted">{who ? `asked by ${who}, ` : ""}{ago(job.created_at)}</span>
+        </div>
+        {job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>}
+        <p className="tabular-nums">
+          {whole(job.credits)} credits{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
+        </p>
+        {!project && !job.step && limits.data && (
+          <p className="text-muted">
+            Past {who ? `${who}'s` : "the editor's"} weekly allowance ({whole(limits.data.weekly_quick_clip_credits)} credits)
+          </p>
+        )}
+        {project && after !== null && <Meter used={project.credits_used + job.credits} budget={project.budget_credits} pct={after} />}
+        {act.isError && <p role="alert" className={errorClass}>{act.error.message}</p>}
+        <div className="flex gap-2 pt-1">
+          <Button variant="ghost" className="flex-1 sm:flex-none" disabled={act.isPending} aria-label={`Decline ${what}`} onClick={() => setDeclining(true)}>
+            Decline
+          </Button>
+          <Button variant="secondary" icon={Check} className="flex-1 sm:flex-none" busy={act.isPending && !declining} aria-label={`Approve ${what}`} onClick={() => act.mutate(true)}>
+            Approve
+          </Button>
+        </div>
       </div>
-      {job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>}
-      <p>
-        {Math.round(job.credits * 10) / 10} credits{usd}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
-      </p>
-      {project && after !== null && <Meter used={project.credits_used + job.credits} budget={project.budget_credits} pct={after} />}
-      {act.isError && <p role="alert" className={errorClass}>{act.error.message}</p>}
-      <div className="flex gap-2">
-        <button
-          className={`${btnSecondary} min-h-11 flex-1 sm:min-h-9 sm:flex-none`}
-          disabled={act.isPending}
-          aria-label={`Decline ${what}`}
-          onClick={() => window.confirm(`Decline ${what.toLowerCase()}?`) && act.mutate(false)}
-        >
-          Decline
-        </button>
-        <button className={`${btnPrimary} min-h-11 flex-1 sm:min-h-9 sm:flex-none`} disabled={act.isPending} aria-label={`Approve ${what}`} onClick={() => act.mutate(true)}>
-          Approve
-        </button>
-      </div>
+      {declining && (
+        <Dialog title={`Decline ${who ? `${who}'s ` : "the "}${what.toLowerCase()}?`} cancelLabel="Keep it" actionLabel="Decline" danger busy={act.isPending} onCancel={() => setDeclining(false)} onConfirm={() => act.mutate(false)}>
+          Nothing is charged.{who && ` ${who} can ask again.`}
+        </Dialog>
+      )}
     </li>
   );
 }
@@ -162,25 +261,28 @@ function ProjectRow({ project, heldJobs }: { project: Project; heldJobs: number 
     },
   });
   return (
-    <li className={`${card} space-y-2 text-sm`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <Where brandId={project.brand_id}>
-          <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
-          <span aria-hidden className="text-muted">·</span>
-          <span>project</span>
-        </Where>
-        {project.created_by_name && <span className="text-muted">asked by {project.created_by_name}</span>}
-      </div>
-      <p>
-        Planned {project.planned_seconds} s · budget {Math.round(project.budget_credits)} credits
-        {heldJobs > 0 && ` · ${heldJobs} step${heldJobs === 1 ? "" : "s"} held inside`}
-      </p>
-      <p className="text-muted">To decline, ask {project.created_by_name || "whoever planned it"} to shorten the plan.</p>
-      {approve.isError && <p role="alert" className={errorClass}>{approve.error.message}</p>}
-      <div className="flex gap-2">
-        <button className={`${btnPrimary} min-h-11 flex-1 sm:min-h-9 sm:flex-none`} disabled={approve.isPending} aria-label={`Approve ${project.name}`} onClick={() => approve.mutate()}>
-          Approve
-        </button>
+    <li className="flex gap-3 p-4 text-sm sm:p-5">
+      <Preview />
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Where brandId={project.brand_id}>
+            <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
+            <span aria-hidden className="text-muted">·</span>
+            <span>project</span>
+          </Where>
+          {project.created_by_name && <span className="text-muted">asked by {project.created_by_name}</span>}
+        </div>
+        <p>
+          Planned {project.planned_seconds} s · budget {Math.round(project.budget_credits)} credits
+          {heldJobs > 0 && ` · ${heldJobs} step${heldJobs === 1 ? "" : "s"} held inside`}
+        </p>
+        <p className="text-muted">To decline, ask {project.created_by_name || "whoever planned it"} to shorten the plan.</p>
+        {approve.isError && <p role="alert" className={errorClass}>{approve.error.message}</p>}
+        <div className="pt-1">
+          <Button variant="secondary" icon={Check} busy={approve.isPending} aria-label={`Approve ${project.name}`} onClick={() => approve.mutate()}>
+            Approve
+          </Button>
+        </div>
       </div>
     </li>
   );

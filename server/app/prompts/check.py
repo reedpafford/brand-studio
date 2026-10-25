@@ -6,17 +6,21 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 
 import re
 
+from app.prompts import spoken_words
 from app.prompts.schemas import (
     Breakdown,
+    CastSlots,
     ClipPrompts,
     EnhanceResult,
     ImprovedPrompt,
     StoryboardFrames,
+    Variations,
 )
 
 DIALOGUE = re.compile(r"^[A-Z][A-Z .'()-]*:\s")
 SCREEN_LINE = "★"
 ADVICE = "Advice: "  # a problem that never blocks a step; the editor can keep it
+
 HIS = re.compile(
     r"\b[A-Z][\w-]*'s (hands?|fingers?|thumbs?|phone|laptop|monitors?|screen|keys|car|desk)\b"
 )
@@ -137,7 +141,8 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
-        problems += [f"{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
+        if _montage(clip.shot_ids, shots):  # guests and crowds elsewhere are never cast
+            problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
         shape, _ = _shape(c.prompt, c.seconds)
         problems += [f"{c.clip_id}: {p}" for p in shape]
         problems += [
@@ -212,6 +217,12 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
 CAST = re.compile(r"\[Image\d+\] (?:is|are) ([A-Z][\w-]+)")  # "[Image2] is Malik."
 
 
+def _montage(ids: list[str], shots: dict) -> bool:
+    """3+ quick wordless shots in a row (the breakdown check's montage run)."""
+    quick = [not shots[i].line and shots[i].seconds <= 0.6 for i in ids]
+    return any(all(quick[k : k + 3]) for k in range(len(quick) - 2))
+
+
 def _cuts_name_someone(prompt: str) -> list[str]:
     """In a "Two quick cuts: …; then …" segment every cut names a cast member, so the model
     never opens on an empty room (fomo montage, 2026-10-24)."""
@@ -278,3 +289,110 @@ def _exact(text: str) -> str:
 
 def _words(text: str) -> str:
     return " ".join(re.findall(r"[\w']+", text.lower()))
+
+
+STAR = re.compile(r"^★ .*?(?:screen|product): (.+?)(?: — .*)?$")  # "★ fomo screen: Home — …"
+LOOSE = re.compile(r"^(#|\*\*|- |\* |Title:|Premise:|Variation )")  # markdown, not house format
+
+
+def variations(
+    original: str,
+    result: Variations,
+    screens: dict[str, list[str]],
+    end_line: str,
+    never_say: list[str],
+    count: int,
+    cast: list[str] = (),
+) -> list[str]:
+    """Alternates of an approved script (workflow v2): the brand, the end line and the locked
+    cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
+    characters' names. `screens` is accepted for the server's call; ★ lines are matched by name."""
+    problems = []
+    if len(result.variations) != count:
+        problems.append(f"{len(result.variations)} variations, {count} asked for; regenerate")
+    stars = _stars(original)
+    words = spoken_words(original)
+    scripts = [v.script for v in result.variations]
+    for i, script in enumerate(scripts, 1):
+        name = f"variation {i}"
+        lines = [line.strip() for line in script.splitlines() if line.strip()]
+        said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
+        if end_line and not (said and _exact(end_line) in _exact(said[-1])):
+            problems.append(f"{name} doesn't end on the brand's end line; add it as the last line")
+        for star in sorted(stars - _stars(script)):
+            problems.append(f"{name} drops the ★ line for {star}; put it back where it fits")
+        for phrase in never_say:
+            if phrase.lower() in script.lower():
+                problems.append(f"{name} says “{phrase}”, which the brand never says")
+        if re.search(r"\blive[- ]action\b", script, re.I):
+            problems.append(f"{name} brings back live action; that slot is the end line")
+        for who in cast:  # only names the original uses (a narrator may be "I")
+            named = rf"\b{re.escape(who)}\b"
+            if re.search(named, original, re.I) and not re.search(named, script, re.I):
+                problems.append(f"{name} drops {who}, a locked character")
+        if words and abs(spoken_words(script) - words) > 0.3 * words:
+            problems.append(
+                f"{ADVICE}{name} has {spoken_words(script)} spoken words, the original {words}"
+            )
+        total, was = len(script.split()), len(original.split())
+        if was and abs(total - was) > 0.3 * was:
+            problems.append(f"{ADVICE}{name} runs {total} words in all, the original {was}")
+        if _close(script, original):
+            problems.append(f"{ADVICE}{name} is very close to the original; regenerate with a note")
+        if bad := next((x for x in lines if LOOSE.match(x)), None):
+            problems.append(f"{ADVICE}{name}: “{bad[:40]}” isn't house format")
+    if len(scripts) == 2 and _close(scripts[1], scripts[0]):
+        problems.append(f"{ADVICE}the two variations are very close; regenerate one with a note")
+    return problems
+
+
+def _stars(script: str) -> set[str]:
+    return {m.group(1).strip() for line in script.splitlines() if (m := STAR.match(line.strip()))}
+
+
+def _close(a: str, b: str) -> bool:
+    """Over 70% of a's word pairs also appear in b."""
+    pairs = lambda text: set(zip(*[_words(text).split()[i:] for i in range(2)], strict=False))  # noqa: E731
+    mine = pairs(a)
+    return bool(mine) and len(mine & pairs(b)) / len(mine) > 0.7
+
+
+BACKGROUND = re.compile(
+    r"\b(guests?|crowd|admirers?|extras?|bystanders?|passers?-by|onlookers?)\b", re.I
+)
+
+
+def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()) -> list[str]:
+    """The roles every version needs a look for (Reed, #197). Fixes: no slots, a version that
+    doesn't exist. Advice: a background-sounding role, a name a listed version never uses,
+    two slots with one name, a name the cast or the scripts' speakers use that no slot carries.
+    `cast` holds the cast's names."""
+    if not result.slots:
+        return ["no cast slots; regenerate"]
+    problems, seen = [], set()
+    roles = " | ".join(s.role for s in result.slots).lower()
+    speakers = {
+        m.group(1).split(" (")[0].title()
+        for text in versions.values()
+        for m in re.finditer(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:", text, re.M)
+    }
+    speakers -= {"Voiceover", "Narrator", "Vo", "V.O.", "Off Screen", "All", "Both"}  # labels
+    for name in dict.fromkeys([*cast, *sorted(speakers)]):
+        if not re.search(rf"\b{re.escape(name.lower())}\b", roles):
+            problems.append(f"{ADVICE}no slot carries the name {name}; use it in that role")
+    for slot in result.slots:
+        role = slot.role
+        if missing := sorted(set(slot.appears_in) - set(versions)):
+            problems.append(f"{role}: version {missing[0]} doesn't exist; edit or regenerate")
+        if BACKGROUND.search(role):
+            problems.append(f"{ADVICE}{role}: sounds like background people, who are never cast")
+        name = re.split(r"[ ,(]", role.strip(), maxsplit=1)[0]
+        named = rf"\b{re.escape(name)}\b"
+        if any(re.search(named, text, re.I) for text in versions.values()):  # a script name
+            for v in sorted(set(slot.appears_in) & set(versions)):
+                if not re.search(named, versions[v], re.I):
+                    problems.append(f"{ADVICE}{role}: “{name}” isn't in version {v}")
+            if name.lower() in seen:
+                problems.append(f"{ADVICE}two slots are called {name}; merge them")
+            seen.add(name.lower())
+    return problems

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import storyboard
+from app import advice, storyboard
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -45,6 +45,7 @@ class FrameOut(BaseModel):
     prompt: str
     reference_ids: list[str]
     problems: list[str]
+    kept: list[str]  # advice kept anyway (never blocks)
     file_id: int | None  # the newest still; the old one stays until a new one is ready
     approved: bool  # cleared when the frame is edited, re-rendered or goes stale
     stale: bool  # made from an older breakdown, or the breakdown is for an older script
@@ -158,10 +159,10 @@ def render(
     db: Session = Depends(get_db),
 ):
     """Queue the still for one frame (a paid image job, counted against the project budget).
-    A frame with problems must be fixed first. An optional Redo note goes into this render's
-    prompt only."""
+    A frame with problems must be fixed first ("Advice: …" never blocks). An optional Redo
+    note goes into this render's prompt only."""
     project, frame = _frame(db, user, project_id, frame_id)
-    if frame.problems:
+    if advice.blocking(frame.problems):
         raise HTTPException(409, "Fix this frame's problems first.")
     if _stale(db, project, frame):
         raise HTTPException(
@@ -207,5 +208,20 @@ def unapprove(
 ):
     project, frame = _frame(db, user, project_id, frame_id)
     frame.approved = False
+    db.commit()
+    return _out(db, project, frame)
+
+
+@router.post("/frames/{frame_id}/keep", response_model=FrameOut)
+def keep_frame_advice(
+    project_id: int,
+    frame_id: int,
+    body: advice.KeepIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Keep anyway: this frame's advice stays as it is."""
+    project, frame = _frame(db, user, project_id, frame_id)
+    advice.keep(frame, body.problem)
     db.commit()
     return _out(db, project, frame)

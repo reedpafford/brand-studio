@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 export const PASSWORD = "correct horse battery";
 
 export async function fill(page: Page, values: Record<string, string>) {
-  for (const [label, value] of Object.entries(values)) await page.getByLabel(label).fill(value);
+  for (const [label, value] of Object.entries(values)) await page.getByLabel(label).and(page.locator("input, textarea")).fill(value); // not the password eye, whose label also says password
 }
 
 export async function signIn(page: Page, email: string, password = PASSWORD) {

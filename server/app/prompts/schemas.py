@@ -78,6 +78,52 @@ class ScriptDrafts(BaseModel):
     )
 
 
+# --- Variations: alternates of an approved script (workflow v2, #189) ---
+
+
+class Variation(BaseModel):
+    title: str = Field(description="2–4 words for the script library, e.g. 'The car'.")
+    premise: str = Field(description="One sentence: what this version changes and how it pays off.")
+    script: str = Field(
+        description="The full script in the house format: scene headings, action lines, "
+        "NAME: words, and every ★ brand line the original has."
+    )
+    changes: list[str] = Field(
+        description="What differs from the original, in plain words, one item each."
+    )
+
+
+class Variations(BaseModel):
+    variations: list[Variation] = Field(
+        description="Exactly the number asked for in <count>, each a different premise."
+    )
+
+
+# --- Cast slots: the roles every version needs a look for (Reed, #197) ---
+
+
+class CastSlot(BaseModel):
+    role: str = Field(
+        description="The script's name and part, e.g. 'Nate, the groom' or 'Bruno, the "
+        "pitbull (narrator)'; an unnamed role by its part, e.g. 'His owner'."
+    )
+    description: str = Field(
+        description="A short look for drawing the sheet: age, build, hair or coat, signature "
+        "outfit. Plain and drawable; no celebrity look-alikes, no logos."
+    )
+    appears_in: list[int] = Field(
+        description="Version slots the role is in: 0 is the original, then 1 and 2."
+    )
+    recurring: bool = Field(description="True when the role is in two or more scenes or versions.")
+
+
+class CastSlots(BaseModel):
+    slots: list[CastSlot] = Field(
+        description="Mains first, then in order of first appearance. Never background people "
+        "(guests, crowds, admirers, extras) or one-shot passers-by."
+    )
+
+
 # --- Breakdown: scenes → shots → clips ---
 
 

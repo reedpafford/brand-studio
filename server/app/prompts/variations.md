@@ -1,0 +1,18 @@
+# Step: Variations
+<!-- Inputs: <script> (the approved original, numbered), <cast> (locked characters: id and name), <length> (its spoken words and seconds), optional <reference> (the reel it adapts), <count> (1 or 2), optional <keep_apart> (another version to stay clear of) and <note> (what the author wants changed). Output: Variations. -->
+
+The script in <script> is approved. Write <count> alternate versions of it: the same high-level story told a slightly different way, so the same video can be made more than once without repeating itself. The original stays exactly as it is; you never rewrite it. Only your variations have new words.
+
+What makes a good variation:
+- **Same story, new take.** Keep the arc (setup → turn → payoff), the main character, and each character's role: the doubter still doubts, the rival still wins at first, the hero still turns it around. Change the premise around that arc, then let the scenes, beats, lines, props and payoff change to fit it. Example: in "dumped at the altar for a richer man, two years of grind, he's 'fully booked' when she comes back", the variation can be "she says hell no to the car he gifted, leaves with a richer guy, flashback of her saying she didn't care what she drove", and it plays out the same, with a payoff that fits the car. A reword of the original is not a variation. With <count> 2, the two premises differ from each other too.
+- **Engaging.** Both creative rules hold: hook in the first second (the money, the stakes, the shock up front), big readable reactions, a payoff that lands, nothing that waits.
+- **The brand, kept.** Every `★` line in the original appears in each variation, naming the same screen or product with its name copied exactly ("Home (rich)" stays "Home (rich)"), placed where that moment now happens (the loss, the win, the feeding, the close). The video ends on the brand's end line from the brand block, word for word, as its last spoken line. Nothing from "never say".
+- **The locked cast stays.** Every character in <cast> is in every variation, in the same role, with the same name.
+- **Live action never comes back.** If the original adapted a reel, the reel's live-action slot is still the end line.
+- **Montages** keep the montage rules: the hero is in every shot, and when getting rich is the story, the payoffs build, he's part of them, and they're new for this premise (not the original's car and penthouse again).
+- **Same size.** Keep the whole script about as long as the original: spoken words within about 20% of <length>, and the action lines no longer either. More action means more shots, a longer video and a higher cost.
+- **Same form.** Write in the house format, as the original is: a voiceover script stays voiceover prose; a dialogue script keeps `NAME: words` lines. Don't copy the reference reel's on-screen text.
+
+When <keep_apart> is there, you are rewriting one slot: make it clearly different from that version as well as from the original. When <note> is there, it's the author's direction for this rewrite. Follow it unless it breaks a rule above, and if it does, follow it as far as the rules allow.
+
+For each variation: `title` is 2–4 words for the library ("The car"), `premise` is one sentence on what changes and how it pays off, `script` is the full script, and `changes` lists what differs from the original in plain words.

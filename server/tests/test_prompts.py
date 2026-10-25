@@ -1,5 +1,6 @@
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -135,6 +136,142 @@ def test_breakdown_check_keeps_a_clip_to_three_screens():
     assert check.breakdown(script, bd, FOMO, 4, 30) == [
         "clip c2: 4 screens; keep the 3 its beats need"
     ]
+
+
+def _variation_case():
+    ex, result = example("variations")
+    original = script_of(ex)
+    fomo = {"end_line": "Want to trade like me? Download fomo through the link in my bio."}
+    return original, result, fomo["end_line"]
+
+
+def test_variations_example_passes_and_every_check_says_what_to_do():
+    original, result, end = _variation_case()
+    cast = ["Malik", "Tasha"]
+    assert check.variations(original, result, {}, end, ["can't lose"], 1, cast) == []
+    v = result.variations[0]
+    v.script = v.script.replace("★ fomo screen: Token chart down — on Malik's phone\n", "")
+    v.script = v.script.rsplit("\n", 1)[0] + "\nMALIK: You can't lose. Live-action tag here."
+    assert check.variations(original, result, {}, end, ["can't lose"], 2, cast) == [
+        "1 variations, 2 asked for; regenerate",
+        "variation 1 doesn't end on the brand's end line; add it as the last line",
+        "variation 1 drops the ★ line for Token chart down; put it back where it fits",
+        "variation 1 says “can't lose”, which the brand never says",
+        "variation 1 brings back live action; that slot is the end line",
+    ]
+
+
+def test_variations_advice_covers_length_closeness_and_format():
+    original, result, end = _variation_case()
+    v = result.variations[0]
+    v.script = original.replace("TASHA", "ROSE").replace("Tasha", "Rose")  # Tasha is gone
+    problems = check.variations(original, result, {}, end, [], 1, ["Malik", "Tasha", "Bruno"])
+    assert problems == [
+        "variation 1 drops Tasha, a locked character",  # Bruno isn't in the original: no flag
+        "Advice: variation 1 is very close to the original; regenerate with a note",
+    ]
+    v.script = "# The sneakers\n" + "MALIK: Hi.\n" + end.join(["MALIK: ", ""])
+    assert check.variations(original, result, {}, end, [], 1, []) == [
+        "variation 1 drops the ★ line for Home (rich); put it back where it fits",
+        "variation 1 drops the ★ line for Token chart down; put it back where it fits",
+        "variation 1 drops the ★ line for Token chart up; put it back where it fits",
+        "Advice: variation 1 has 14 spoken words, the original 54",
+        "Advice: variation 1 runs 19 words in all, the original 195",
+        "Advice: variation 1 is very close to the original; regenerate with a note",
+        "Advice: variation 1: “# The sneakers” isn't house format",
+    ]
+
+
+def test_eval_run_print_writes_the_variations_prompt_for_free(tmp_path):
+    from evals.run import run_case
+    from evals.score import CASES
+
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-altar-variations")
+    run_case(None, case, tmp_path, [], Decimal(0), dry=True)  # no client: nothing is called
+    text = (tmp_path / "fomo-altar-variations.variations.prompt.txt").read_text()
+    assert "# Step: Variations" in text and "<count>2</count>" in text
+    assert "<cast>\nchar:1 Nate, the groom\nchar:2 Mia, the bride\n</cast>" in text
+    assert "NATE: Sorry, I'm fully booked." in text
+
+
+def test_eval_scoring_runs_the_variations_check(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "ironpaws-pitbull1-variations")
+    script = "\n".join(case["script"]).replace("Peanut butter flavor.", "Chicken flavor.")
+    answer = {"variations": [{"title": "x", "premise": "x", "script": script, "changes": []}]}
+    (tmp_path / "ironpaws-pitbull1-variations.variations.json").write_text(json.dumps(answer))
+    slots = [{"role": "Bruno, the pitbull (narrator)", "description": "x", "appears_in": [0, 1],
+              "recurring": True},
+             {"role": "The crowd at the dog park", "description": "x", "appears_in": [1],
+              "recurring": False}]  # fmt: skip
+    (tmp_path / "ironpaws-pitbull1-variations.cast_slots.json").write_text(
+        json.dumps({"slots": slots})
+    )
+    assert score(tmp_path, case) == [
+        "variation 1 says “chicken”, which the brand never says",
+        "Advice: variation 1 is very close to the original; regenerate with a note",
+        "Advice: The crowd at the dog park: sounds like background people, who are never cast",
+        "no slot matching any of ['owner']",
+        "a slot for 'crowd'",
+    ]
+
+
+def test_cast_slots_keep_the_names_the_cast_and_scripts_use(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "ironpaws-pitbull1-variations")
+    answer = {"variations": [{"title": "x", "premise": "x", "script": "x", "changes": []}]}
+    (tmp_path / f"{case['id']}.variations.json").write_text(json.dumps(answer))
+    slot = {"description": "x", "appears_in": [0], "recurring": True}
+    slots = [slot | {"role": "The dog (narrator)"}, slot | {"role": "His owner"}]
+    (tmp_path / f"{case['id']}.cast_slots.json").write_text(json.dumps({"slots": slots}))
+    problems = score(tmp_path, case)
+    assert "Advice: no slot carries the name Bruno; use it in that role" in problems
+    assert "no slot for Bruno" in problems
+
+
+def test_cast_slots_example_passes_and_each_check_says_what_to_do():
+    ex, result = example("cast_slots")
+    versions = {
+        int(n): "\n".join(line.split("| ", 1)[1] for line in body.splitlines())
+        for n, body in re.findall(r'<version slot="(\d)">\n(.*?)\n</version>', ex["input"], re.S)
+    }
+    assert check.cast_slots(versions, result) == []
+    assert check.cast_slots(versions, schemas.CastSlots(slots=[])) == ["no cast slots; regenerate"]
+    extra = {"description": "x", "recurring": False}
+    result.slots += [
+        schemas.CastSlot(role="Wedding guests", appears_in=[0], **extra),
+        schemas.CastSlot(role="Malik, again", appears_in=[3], **extra),
+    ]
+    assert check.cast_slots(versions, result) == [
+        "Advice: Wedding guests: sounds like background people, who are never cast",
+        "Malik, again: version 3 doesn't exist; edit or regenerate",
+        "Advice: two slots are called Malik; merge them",
+    ]
+    dre = schemas.CastSlots(
+        slots=[schemas.CastSlot(role="Dre, the rival", appears_in=[0, 1], **extra)]
+    )
+    labels = {0: "DRE: Nice car.\nVOICEOVER: He won.\nNARRATOR (V.O.): Later.", 1: "DRE: Mine."}
+    assert check.cast_slots(labels, dre) == []  # speaker labels aren't names
+    assert check.cast_slots({0: "DRE: Nice car.", 1: "MALIK: Mine now."}, dre) == [
+        "Advice: no slot carries the name Malik; use it in that role",
+        "Advice: Dre, the rival: “Dre” isn't in version 1",
+    ]
+
+
+def test_quick_cut_check_is_advice_and_only_inside_a_montage_clip():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")  # clip c2 holds the montage
+    c = cp.clips[0]
+    c.prompt = c.prompt.replace("behind Malik as he pushes open", "as a hand pushes open")
+    flag = (
+        "Advice: c2: shot 6: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
+    )
+    assert flag in check.clip_prompts(bd, cp, 30, 10)
+    for shot in bd.scenes[1].shots:  # slow the montage down: now it's not one
+        shot.seconds = max(shot.seconds, 0.8)
+    assert not [p for p in check.clip_prompts(bd, cp, 30, 10) if "names nobody" in p]
 
 
 def test_nobody_speaks_unless_the_script_says_so():

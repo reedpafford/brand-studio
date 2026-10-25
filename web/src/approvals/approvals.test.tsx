@@ -43,7 +43,7 @@ test("a held job shows what it is, its credits and what it does to the budget, a
   const calls = fakeServer({ ...base, "POST /jobs/50/approve": [200, held({ status: "queued" })] });
   open();
   expect(await screen.findByText("Approvals")).toBeInTheDocument();
-  expect(await screen.findByText(/· 1 waiting/)).toBeInTheDocument();
+  expect(await screen.findByText(/1 waiting · 27 credits/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Mia buys the dip" })).toHaveAttribute("href", "/b/1/projects/9");
   expect(screen.getByText(/27 credits · takes the project to 117% of its budget/)).toBeInTheDocument();
   expect(screen.getByText(/Over budget/)).toBeInTheDocument();
@@ -52,16 +52,37 @@ test("a held job shows what it is, its credits and what it does to the budget, a
   expect(await screen.findByText("Approved. Clip take is starting.")).toBeInTheDocument();
 });
 
-test("Decline asks first, then cancels and says nothing was charged", async () => {
-  const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
-  const calls = fakeServer({ ...base, "POST /jobs/50/cancel": [200, held({ status: "cancelled" })] });
+test("Decline asks first in a dialog, then cancels and says nothing was charged", async () => {
+  const calls = fakeServer({ ...base, "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "POST /jobs/50/cancel": [200, held({ status: "cancelled" })] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Decline Clip take" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Decline Sam's clip take?" });
+  expect(within(ask).getByText(/Nothing is charged\. Sam can ask again\./)).toBeInTheDocument();
+  await userEvent.click(within(ask).getByRole("button", { name: "Keep it" }));
   expect(calls.some((c) => c.key === "POST /jobs/50/cancel")).toBe(false);
   await userEvent.click(screen.getByRole("button", { name: "Decline Clip take" }));
+  await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Decline" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /jobs/50/cancel")).toBe(true));
   expect(await screen.findByText("Declined. Nothing was charged.")).toBeInTheDocument();
-  confirm.mockRestore();
+});
+
+test("Approve all asks with the total in credits and dollars, then approves every request", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /jobs": [200, [held({}), held({ id: 51, credits: 40 })]],
+    "GET /jobs/50/detail": [200, { cost_usd: 2.36 }],
+    "GET /jobs/51/detail": [200, { cost_usd: 3.5 }],
+    "POST /jobs/50/approve": [200, held({ status: "queued" })],
+    "POST /jobs/51/approve": [200, held({ id: 51, status: "queued" })],
+  });
+  open();
+  const button = await screen.findByRole("button", { name: /^Approve all · 67 credits/ });
+  await userEvent.click(button);
+  const ask = await screen.findByRole("alertdialog", { name: /Approve 2 requests for 67 credits \(\$5\.86\)\?/ });
+  expect(calls.some((c) => c.key.endsWith("/approve"))).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Approve all" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/approve"))).toHaveLength(2));
+  expect(await screen.findByText("All done.")).toBeInTheDocument();
 });
 
 test("a held project has only Approve, says how to decline, and the toast counts the steps it started", async () => {
@@ -135,4 +156,23 @@ test("an editor who opens Approvals sees no held work and no dollars", async () 
   expect(await screen.findByText("Page not found.")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
   expect(screen.queryByText(/Clip take/)).not.toBeInTheDocument();
+});
+
+test("a held Quick clip says why it is held: past the editor's weekly allowance", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [held({ id: 60, project_id: null, step: null, kind: "video", created_by_name: "Sam", prompt_summary: "Mia hits the buy moment" })]], "GET /credits/limits": [200, { weekly_quick_clip_credits: 150, per_video_max_credits: 340 }] });
+  open();
+  expect(await screen.findByText("Past Sam's weekly allowance (150 credits)")).toBeInTheDocument();
+});
+
+test("if Approve all stops part way, the page refreshes and says how many went through", async () => {
+  fakeServer({
+    ...base,
+    "GET /jobs": [200, [held({}), held({ id: 51, credits: 40 })]],
+    "POST /jobs/50/approve": [200, held({ status: "queued" })],
+    "POST /jobs/51/approve": [409, { detail: "Over this week's limit." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /^Approve all/ }));
+  await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Approve all" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("1 of 2 went through. Over this week's limit.");
 });

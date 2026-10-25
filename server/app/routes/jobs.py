@@ -16,6 +16,8 @@ from app.credits import (
     estimate,
     lock,
     needs_approval,
+    over_allowance,
+    own_script,
 )
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -133,18 +135,24 @@ def enqueue(
     provider: str = "fake",
 ) -> Job:
     """Queue a job for the worker. Feature code calls this; there is no public create route.
-    `units` is the expected amount (e.g. seconds of video) used to estimate credits. A job
-    that would take its project over budget, sits in a project still waiting for approval,
-    or (outside a project) goes past the editor's weekly quick-clip allowance waits as
-    `needs_owner_approval`. The check and the reservation are one locked transaction."""
+    `units` is the expected amount (e.g. seconds of video) used to estimate credits. An
+    editor's own work (outside a project, or on a video from their own script) past their
+    weekly allowance is declined (409). Other jobs that would take a project over budget,
+    or sit in a project still waiting for approval, wait as `needs_owner_approval`. The
+    check and the reservation are one locked transaction."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if project is not None:
         lock(db, Project, project.id)
         db.refresh(project)  # read its status after taking the lock
         check_video_cap(db, user, project, credits)
+        if own_script(db, project, user):
+            lock(db, User, user.id)  # it spends their weekly allowance, like a Quick clip
     else:
         lock(db, User, user.id)
         check_clip_cap(db, user, credits)
+    if declined := over_allowance(db, user, project, credits):
+        db.rollback()
+        raise HTTPException(409, declined)
     over = needs_approval(db, user, project, credits)
     job = Job(
         workspace_id=user.workspace_id,

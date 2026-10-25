@@ -4,16 +4,16 @@ import { ChevronDown, CircleAlert } from "lucide-react";
 const box =
   "w-full min-h-control rounded-md border bg-surface px-3 py-2 text-base text-text placeholder:text-muted disabled:bg-disabled disabled:text-disabled-text sm:min-h-control";
 
-type Common = { label: string; hint?: ReactNode; error?: string | null; /** "78 / 2,000" */ counter?: string };
+type Common = { label: string; hint?: ReactNode; error?: string | null; /** "78 / 2,000" */ counter?: string; /** The counter turns green once the field is long enough. */ counterOk?: boolean };
 
-function Frame({ label, hint, error, counter, id, children }: Common & { id: string; children: ReactNode }) {
+function Frame({ label, hint, error, counter, counterOk, id, children }: Common & { id: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="text-sm font-medium">
           {label}
         </label>
-        {counter && <span className="text-sm tabular-nums text-muted">{counter}</span>}
+        {counter && <span className={`shrink-0 whitespace-nowrap text-sm tabular-nums ${counterOk ? "text-success" : "text-muted"}`}>{counter}</span>}
       </div>
       {children}
       {error ? (
@@ -33,11 +33,14 @@ function Frame({ label, hint, error, counter, id, children }: Common & { id: str
 const edge = (error?: string | null) => (error ? "border-danger" : "border-border-strong");
 
 /** A labelled one-line field. The error replaces the hint and is announced with the field. */
-export function Field({ label, hint, error, counter, ...rest }: Common & Omit<InputHTMLAttributes<HTMLInputElement>, "className">) {
+export function Field({ label, hint, error, counter, counterOk, trailing, ...rest }: Common & Omit<InputHTMLAttributes<HTMLInputElement>, "className"> & { /** A control inside the right end of the box (the password eye). */ trailing?: ReactNode }) {
   const id = useId();
   return (
-    <Frame {...{ label, hint, error, counter, id }}>
-      <input id={id} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-note` : undefined} className={`${box} ${edge(error)}`} {...rest} />
+    <Frame {...{ label, hint, error, counter, counterOk, id }}>
+      <span className="relative block">
+        <input id={id} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-note` : undefined} className={`${box} ${edge(error)} ${trailing ? "pr-12" : ""}`} {...rest} />
+        {trailing && <span className="absolute inset-y-0 right-0 grid w-11 place-items-center">{trailing}</span>}
+      </span>
     </Frame>
   );
 }

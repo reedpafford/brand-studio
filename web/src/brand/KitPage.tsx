@@ -1,21 +1,26 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, X } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
+import { Banner, Button, Card, Field, TextArea } from "../components";
 import { useBrands } from "../shell/useBrands";
-import { btnPrimary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
+import { useToast } from "../toast";
+import { errorText as errorClass } from "../ui";
+import { BrandAction, useReportDirty } from "./BrandPage";
+import { ChipList } from "./ChipList";
 import { ImagePicker } from "./ImagePicker";
 
 type Brand = components["schemas"]["BrandOut"];
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 
 export function KitPage() {
   const { brandId } = useParams();
-  const { data: brands } = useBrands();
+  const { data: brands, isError, refetch } = useBrands();
   const brand = brands?.find((b) => b.id === Number(brandId));
+  if (isError) return <Banner title="Couldn't load the brand." action={<Button variant="secondary" onClick={() => void refetch()}>Try again</Button>}>Check your connection.</Banner>;
   if (!brand) return <p className="p-6">That brand doesn't exist.</p>;
   return <KitForm key={brand.id} brand={brand} />;
 }
@@ -27,114 +32,109 @@ function KitForm({ brand }: { brand: Brand }) {
     style_board_file_id: brand.style_board_file_id ?? null,
     end_card_file_id: brand.end_card_file_id ?? null,
     colours: brand.colours ?? [],
-    fonts: (brand.fonts ?? []).join("\n"),
+    fonts: brand.fonts ?? [],
     tone_notes: brand.tone_notes ?? "",
-    never_say: (brand.never_say ?? []).join("\n"),
+    never_say: brand.never_say ?? [],
     legal_line: brand.legal_line ?? "",
     end_line: brand.end_line ?? "",
   };
   const [kit, setKit] = useState(start);
-  const [saved, setSaved] = useState(JSON.stringify(start));
+  const [saved, setSaved] = useState(start);
   const set = <K extends keyof typeof kit>(k: K, v: (typeof kit)[K]) => setKit({ ...kit, [k]: v });
   const queryClient = useQueryClient();
+  const toast = useToast();
+  const patch = async (body: typeof kit) => {
+    const { error, response } = await api.PATCH("/brands/{brand_id}", { params: { path: { brand_id: brand.id } }, body });
+    if (!response.ok) throw new Error(errorText(error));
+    await queryClient.invalidateQueries({ queryKey: ["brands"] });
+  };
   const save = useMutation({
     mutationFn: async () => {
-      const { error, response } = await api.PATCH("/brands/{brand_id}", {
-        params: { path: { brand_id: brand.id } },
-        body: { ...kit, fonts: lines(kit.fonts), never_say: lines(kit.never_say) },
-      });
-      if (!response.ok) throw new Error(errorText(error));
+      const before = saved;
+      await patch(kit);
+      return before;
     },
-    onSuccess: () => {
-      setSaved(JSON.stringify(kit));
-      return queryClient.invalidateQueries({ queryKey: ["brands"] });
+    onSuccess: (before) => {
+      setSaved(kit);
+      toast("Saved.", async () => {
+        await patch(before);
+        setSaved(before);
+        setKit(before);
+      });
     },
   });
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    save.mutate();
-  };
-  const box = input;
-  const changed = JSON.stringify(kit) !== saved;
+  const changed = JSON.stringify(kit) !== JSON.stringify(saved);
+  useReportDirty(changed);
+  const valid = kit.colours.every((c) => HEX.test(c));
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className={`${pageTitle} mb-4`}>Brand kit · {brand.name}</h1>
-      <form onSubmit={submit} className={`${card} space-y-5`}>
-        <label className="block text-sm">
-          Name
-          <input className={box} required value={kit.name} onChange={(e) => set("name", e.target.value)} />
-        </label>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <ImagePicker label="Logo" fileId={kit.logo_file_id} onChange={(id) => set("logo_file_id", id)} />
-          <ImagePicker label="Style board" fileId={kit.style_board_file_id} onChange={(id) => set("style_board_file_id", id)} />
-          <ImagePicker label="End card" fileId={kit.end_card_file_id} onChange={(id) => set("end_card_file_id", id)} />
-        </div>
+    <form
+      className="grid grid-cols-1 gap-4 lg:grid-cols-[7fr_5fr]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (changed && valid) save.mutate();
+      }}
+    >
+      <BrandAction>
+        <Button type="button" busy={save.isPending} disabled={!changed || !valid} reason={!changed ? "No changes yet" : !valid ? "Fix the colour codes first" : undefined} onClick={() => save.mutate()}>
+          Save changes
+        </Button>
+      </BrandAction>
+      <Card className="min-w-0 space-y-5">
+        <h2 className="type-section">Look</h2>
+        <Field label="Name" required value={kit.name} onChange={(e) => set("name", e.target.value)} />
+        <ImagePicker label="Logo" fileId={kit.logo_file_id} onChange={(id) => set("logo_file_id", id)} />
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Colours</legend>
-          <p className="text-sm text-muted">The first colour marks this brand across the app.</p>
           <div className="flex flex-wrap gap-3">
             {kit.colours.map((c, i) => (
-              <span key={i} className="flex flex-col gap-1">
+              <span key={i} className="flex w-28 flex-col gap-1">
                 <span className="flex items-center gap-1">
                   <input
                     type="color"
+                    className="size-control shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0.5"
                     aria-label={`Colour ${i + 1} picker`}
                     value={HEX.test(c) ? c : "#000000"}
                     onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
                   />
-                  <input
-                    className={`${input} w-28 font-mono`}
-                    aria-label={`Colour ${i + 1}`}
-                    placeholder="#12A150"
-                    value={c}
-                    onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
-                  />
-                  <button type="button" className={`text-sm ${linkText}`} aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
-                    Remove
+                  <button type="button" className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2" aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
+                    <X size={16} strokeWidth={1.75} aria-hidden />
                   </button>
                 </span>
+                <input
+                  className="min-h-control w-full rounded-md border border-border-strong bg-surface px-2 font-mono text-sm"
+                  aria-label={`Colour ${i + 1}`}
+                  placeholder="#12A150"
+                  value={c}
+                  onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
+                />
                 {c !== "" && !HEX.test(c) && <span className={errorClass}>Use a colour like #12A150.</span>}
               </span>
             ))}
           </div>
-          <button type="button" className={`text-sm ${linkText}`} onClick={() => set("colours", [...kit.colours, kit.colours.at(-1) ?? ""])}>
-            Add colour
-          </button>
+          <Button type="button" variant="secondary" icon={Plus} aria-label="Add colour" onClick={() => set("colours", [...kit.colours, kit.colours.at(-1) ?? ""])}>
+            Add
+          </Button>
+          <p className="text-sm text-muted">The first colour tints the brand's dot.</p>
         </fieldset>
-        <label className="block text-sm">
-          Fonts (one per line)
-          <textarea className={box} rows={3} value={kit.fonts} onChange={(e) => set("fonts", e.target.value)} />
-        </label>
-        <label className="block text-sm">
-          Tone of voice
-          <textarea className={box} rows={4} value={kit.tone_notes} onChange={(e) => set("tone_notes", e.target.value)} />
-        </label>
-        <label className="block text-sm">
-          Never say (one per line)
-          <textarea className={box} rows={3} value={kit.never_say} onChange={(e) => set("never_say", e.target.value)} />
-        </label>
-        <label className="block text-sm">
-          Legal line
-          <textarea className={box} rows={2} value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
-        </label>
-        <label className="block text-sm">
-          End line
-          <input className={box} value={kit.end_line} onChange={(e) => set("end_line", e.target.value)} />
-          <span className="block text-muted">Every video ends on it, word for word. For example, "Download fomo through the link in my bio."</span>
-        </label>
+        <ChipList label="Fonts" items={kit.fonts} onChange={(v) => set("fonts", v)} placeholder="e.g. Manrope" />
+        <div className="flex flex-wrap gap-6">
+          <ImagePicker label="Style board" shape="wide" fileId={kit.style_board_file_id} onChange={(id) => set("style_board_file_id", id)} />
+          <ImagePicker label="End card" shape="tall" fileId={kit.end_card_file_id} onChange={(id) => set("end_card_file_id", id)} />
+        </div>
+      </Card>
+      <Card className="min-w-0 space-y-5 lg:self-start">
+        <h2 className="type-section">Voice</h2>
+        <TextArea label="How we sound" rows={6} value={kit.tone_notes} onChange={(e) => set("tone_notes", e.target.value)} />
+        <ChipList label="Never say" items={kit.never_say} onChange={(v) => set("never_say", v)} placeholder="A word or phrase" />
+        <Field label="Legal line" value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
+        <Field label="End line" value={kit.end_line} onChange={(e) => set("end_line", e.target.value)} hint={'The last clip of every video says this. Example: "Want to trade like me? Download fomo through the link in my bio."'} />
         {save.isError && (
           <p role="alert" className={errorClass}>
             {save.error.message}
           </p>
         )}
-        <div className="flex items-center gap-3">
-          <button className={btnPrimary} disabled={save.isPending || !changed || !kit.colours.every((c) => HEX.test(c))}>
-            Save changes
-          </button>
-          {save.isSuccess && !changed && <span role="status" className="text-sm text-muted">Saved.</span>}
-        </div>
-      </form>
-    </main>
+      </Card>
+    </form>
   );
 }

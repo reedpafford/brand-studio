@@ -64,4 +64,6 @@ def test_saved_caps_on_the_old_default_move_to_729(tmp_path):
                 text("SELECT workspace_id, per_video_max_credits FROM credit_limits")
             ).all()
         )
+        weekly = conn.execute(text("SELECT weekly_quick_clip_credits FROM credit_limits")).all()
     assert caps == {1: 729, 2: 500}
+    assert {float(w) for (w,) in weekly} == {145}  # the old 150 default became $15 (0024)

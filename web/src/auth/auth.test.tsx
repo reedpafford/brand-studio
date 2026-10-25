@@ -107,3 +107,46 @@ test("a dropped connection on the invite page says it could not check, with Try 
   expect(screen.queryByText("Invite not valid")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
 });
+
+test("the password has an eye that shows and hides it", async () => {
+  fakeServer({ "GET /auth/me": [401, {}] });
+  renderAt("/login");
+  const password = await screen.findByLabelText("Password");
+  expect(password).toHaveAttribute("type", "password");
+  await userEvent.click(screen.getByRole("button", { name: "Show password" }));
+  expect(password).toHaveAttribute("type", "text");
+  await userEvent.click(screen.getByRole("button", { name: "Hide password" }));
+  expect(password).toHaveAttribute("type", "password");
+});
+
+test("a throttled sign-in says to wait and holds the button off", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/login": [429, { detail: "Slow down." }] });
+  renderAt("/login");
+  await userEvent.type(await screen.findByLabelText("Email"), "a@b.co");
+  await userEvent.type(screen.getByLabelText("Password"), "nope");
+  await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  const button = await screen.findByRole("button", { name: "Sign in" });
+  await vi.waitFor(() => expect(button).toBeDisabled());
+  expect(button).toHaveAccessibleDescription("Too many tries. Wait a minute and try again.");
+});
+
+test("a bad sign-in puts the focus back on Email, and the setup password counter turns on at 10 characters", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/login": [401, { detail: "Wrong email or password." }] });
+  renderAt("/login");
+  await userEvent.type(await screen.findByLabelText("Email"), "a@b.co");
+  await userEvent.type(screen.getByLabelText("Password"), "nope");
+  await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  await screen.findByRole("alert");
+  expect(screen.getByLabelText("Email")).toHaveFocus();
+  expect(screen.getByText("Forgot your password? Ask Reed.")).toBeInTheDocument();
+});
+
+test("the setup password counter turns green at 10 characters", async () => {
+  fakeServer({ "GET /auth/me": [401, {}] });
+  renderAt("/setup");
+  const box = await screen.findByLabelText(/^Password/);
+  await userEvent.type(box, "123456789");
+  expect(screen.getByText("9 / 10")).toHaveClass("text-muted");
+  await userEvent.type(box, "0");
+  expect(screen.getByText("10 / 10")).toHaveClass("text-success");
+});
