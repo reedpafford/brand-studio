@@ -1130,6 +1130,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/produce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Produce
+         * @description Start production of an approved version of a published script. Each version makes
+         *     one video, reserved for whoever starts it.
+         */
+        post: operations["produce_scripts__script_id__drafts__slot__produce_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/script/enhance": {
         parameters: {
             query?: never;
@@ -2612,6 +2633,13 @@ export interface components {
             seconds: number;
             /** Running */
             running: boolean;
+        };
+        /** ProduceOut */
+        ProduceOut: {
+            /** Project Id */
+            project_id: number;
+            /** Breakdown Job Id */
+            breakdown_job_id: number | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
@@ -5963,6 +5991,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_preview__EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    produce_scripts__script_id__drafts__slot__produce_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProduceOut"];
                 };
             };
             /** @description Validation Error */
