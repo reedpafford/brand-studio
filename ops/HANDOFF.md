@@ -1,4 +1,4 @@
-as of 38e230a · 2026-10-25 20:45 UTC
+as of 2e3a037 · 2026-10-25 21:00 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -28,6 +28,7 @@ as of 38e230a · 2026-10-25 20:45 UTC
 - Context hygiene (Reed, 2026-10-25, `ops/AGENTS.md`, #280): a worker that finishes a batch of PRs above about 60% of its context, or has compacted repeatedly, is restarted fresh by the Producer; the old worker pushes everything and lists its open PRs and unopened branches; after any compaction re-read this file and `ops/DECISIONS.md`. The current session table lives in `ops/AGENTS.md`.
 - Also merged: Variations Undo approval, Remove, Earlier, and the running write from the job list (#262); version panel details: variation of, planned by, clips and the estimate (#265); a Redo note never changes the dialogue (#276); clip prompts' Keep line names the face shape and keeps a hair cue visible (#285).
 - Also merged: Scripts library paging, reel filter, sort, poster, Didn't finish (#268); the agents' session table has new QA and Designer sessions (#296, `ops/AGENTS.md`).
+- Also merged: the money check now handles losses, gains against balances and "$348k" (#305); the reel length cap has half a second of slack (#306); In production spec: an owner-only view of every version being made, with its step, credits and failed or stuck flags (#307, new from Reed); Builder-Screens restarted fresh, new session in the `ops/AGENTS.md` table (#309).
 - Redesign, continued: Brand frame and Look (#205), Products and App screens (#209), Sign in / setup / invite (#213), Approvals (#219), Team (#221).
 - More redesign: Script step (#185), Shots step (#186), Videos home follow-up (#193), Quick clip (#183).
 - Free local runs: `BS_FAKE_PROVIDERS=true` swaps in stand-in providers that never spend money; production refuses to start with it on (#128).
@@ -55,13 +56,14 @@ as of 38e230a · 2026-10-25 20:45 UTC
 - Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet. Video A (fomo altar remake, 42 s) ran on main e872e39: $7.26 of Reed's $10 remake budget per ops/SPEND.md (week total $17.22, over the $15 test cap with Reed's approval); a variations eval cost $0.28. Reed's verdict on the remake is not recorded on GitHub yet. A second reel remake (Betty, reel De4ohoJolPe, 50 s) ran with Reed's approval of up to $10: $8.81 total per ops/SPEND.md; week total $26.43. Reed's verdict (ops/DECISIONS.md, #237): both remakes close, neither passed yet; Betty waits for the montage rule. Altar remake v3 (43 s, 480p) then ran on main bd3c8ab with the hook-first and montage-grind rules, reusing the approved sheets: $6.99 per ops/SPEND.md (Reed approved up to $10), week total $33.42. Reed's verdict on v3 (ops/DECISIONS.md, #301): the montage is much better and no re-run is needed; new rule: in trading montages the balance and P&L numbers climb with the chart, shot by shot, going into the prompts and evals; Reed tests it himself on the live site.
 ## Workflow v2 (Reed's decisions, 2026-10-25, ops/DECISIONS.md)
 - Owner writes a script (title, description, optional reference reel), runs Enhance, picks 0–2 variations, locks characters, optionally previews the breakdown, and publishes to the Script Library. Editors pick a version and produce it once (max 3 videos per script). Editors can write their own scripts: $15 a week free generation each, beyond that declined. Cast slots (#197): once the script and variations are approved, every named or recurring role is an optional cast slot; a locked slot is used as-is in every shot and version. No final-video upload: download clips one by one or all at once, older takes too.
-## Open PRs (0, not counting the Scribe's own)
-- None. Everything the agents opened has merged.
+## Open PRs (2, not counting the Scribe's own)
+- #308 Library drafts: 12 fomo scripts from catalogue reels | Producer | in review
+- #304 [On hold] Reel prep makes a small watch copy for Gemini | Builder-Server | on hold (title; per the Producer); QA pass at fdd5534 (current head)
 ## Next
-- Builder-Server: no open work (per the Producer).
-- Builder-Screens: the rest of the reel import screens (per the Producer): review the breakdown, Read it again, the "Was:" marks, bulk reel links, and the library chip.
-- Director: Betty after the montage rule; the reel-import evals per #277; the `_money_climbs` check fix from QA's notes on #302 (it ignores a minus sign on a red-day loss, compares a position figure with the balance, and reads "$348k" as 348; advice only, never blocks).
-- Producer: the paid altar reel-import test, once the Replicate video-input outage is over (Reed's approval, up to $10, logged in ops/SPEND.md); check why the free transcript caught only 5 of the altar reel's 11 lines.
+- Builder-Server (per the Producer): a seed DRAFT loader so the 12 fomo drafts in #308 load into the Script Library.
+- Builder-Screens (new session): the rest of the reel import screens: review the breakdown, Read it again, the "Was:" marks, bulk reel links, and the library chip; then the In production view (spec #307).
+- Director: Betty after the montage rule; the reel-import evals per #277.
+- Producer: the Script Library is stocked today from reels by agents (free), not by in-app import (Reed): #308; the paid altar reel-import test, once the Replicate video-input outage is over (Reed's approval, up to $10, logged in ops/SPEND.md); check why the free transcript caught only 5 of the altar reel's 11 lines.
 - Reed: tests the climbing-numbers montage rule on the live site; makes video B (Iron Paws Pitbull 1) himself on the live site.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
