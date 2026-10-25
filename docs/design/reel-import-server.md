@@ -77,7 +77,7 @@ A new local provider, `local`, has `paid = False`, so it runs even with `BS_GENE
   - **Off:** keep the reel's dialogue word for word. A new check, `check.reel_script(transcript, text)`, says which transcript line is missing or changed in version A. A failure keeps the words but lists the problem on the version, the same way breakdown problems show today. It never silently rewrites the text.
   - **On:** Claude writes new dialogue in the reel's style and beats. The word-for-word check is skipped, and the breakdown and length checks still run.
   - The switch goes to `script_draft` in its input. Variations and later Writes see it too.
-- **Redo notes** (the decision's last point): when the Director's `check.redo_note` lands, `POST /clips/{id}/generate` runs it on the note. This is separate from import and wired as its own small PR.
+- **Redo notes** (the decision's last point): the Director's `check.redo_note` already runs on `POST /clips/{id}/generate` (agent/director/redo-note), so import adds nothing here.
 
 ## 4. Several reels at once (bulk create and Write all)
 
@@ -151,7 +151,6 @@ Request models get `None` defaults for their optional fields, so openapi-typescr
 3. Estimate and read: the watch, write and cast-read chain, `prepaid` enqueue, the dialogue check and the Replicate file upload.
 4. Bulk links and Write all over reels (one total estimate).
 5. The fake_run step (one reel through import, plus two links through bulk and Write all).
-6. Redo-note check on clip generate (when the Director's check lands).
 
 ## Needs from others
 
@@ -159,6 +158,5 @@ Request models get `None` defaults for their optional fields, so openapi-typescr
   - `reel_watch.md`.
   - The `new_lines` input and the use of a script's own breakdown in `script_draft.md`.
   - The JSON schema the watch must return (we'll validate it in `prompts/schemas.py`).
-  - `check.redo_note`.
 - **Producer:** approval for one real test read of the altar reel once 3 is merged. That's about 7 credits, logged in `ops/SPEND.md`. A yes or no on yt-dlp fetching from Instagram as a convenience path; the upload alone also meets the decision.
 - **Builder-Screens:** the import screen uses `GET /scripts/{id}/import` as above.

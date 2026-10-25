@@ -16,7 +16,7 @@ from app.db import get_db
 from app.models.accounts import User
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.references import load as load_reference
+from app.routes.references import for_script as script_reference
 from app.routes.script_preview import EstimateOut
 from app.schemas import LongText
 
@@ -58,7 +58,7 @@ def write_variations(
     if lib.writing(db, script.id, "variations"):
         raise HTTPException(409, "Variations are already being written for this script.")
     keep_apart = [d.text for s, d in drafts.items() if s and s not in slots and d.text.strip()]
-    reference = load_reference(request, script.reference_id) if script.reference_id else None
+    reference = script_reference(request, script)
     data = script_variations.job_input(
         db, script, original, slots, keep_apart, body.note, reference
     )

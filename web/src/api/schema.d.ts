@@ -3433,6 +3433,8 @@ export interface components {
             reference_id?: string | null;
             /** Reference Replace */
             reference_replace?: string | null;
+            /** New Lines */
+            new_lines?: boolean | null;
         };
         /** ScriptRow */
         ScriptRow: {
@@ -3467,6 +3469,11 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /**
+             * Reel Imported
+             * @default false
+             */
+            reel_imported: boolean;
         };
         /** SetupIn */
         SetupIn: {
@@ -3836,6 +3843,11 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /**
+             * Reel Imported
+             * @default false
+             */
+            reel_imported: boolean;
             /** Spend Usd */
             spend_usd: number;
             /** Spend Estimated */
@@ -4059,6 +4071,8 @@ export interface components {
              * @default
              */
             reference_replace: string;
+            /** New Lines */
+            new_lines?: boolean | null;
             /**
              * Text
              * @default
@@ -4098,10 +4112,17 @@ export interface components {
             poster_file_id?: number | null;
             /** Reference Name */
             reference_name?: string | null;
+            /**
+             * Reel Imported
+             * @default false
+             */
+            reel_imported: boolean;
             /** Notes */
             notes: string;
             /** Reference Replace */
             reference_replace: string;
+            /** New Lines */
+            new_lines: boolean;
             /** Cast */
             cast: components["schemas"]["SlotOut"][];
         };
