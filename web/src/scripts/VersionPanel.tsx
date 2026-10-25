@@ -83,7 +83,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
               Make this version
             </Button>
           ) : (
-            <p className="text-sm text-muted">{v.status === "in_production" ? "Someone is making this version." : "This version isn't ready to make."}</p>
+            <p className="text-sm text-muted">{v.status === "in_production" ? `${v.editor?.name ?? "Someone"} is making this version.` : "This version isn't ready to make."}</p>
           )}
         </div>
       )}

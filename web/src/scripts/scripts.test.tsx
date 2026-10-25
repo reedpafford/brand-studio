@@ -544,3 +544,36 @@ test("Variations: an editor on their own script past the week's allowance can't 
   await vi.waitFor(() => expect(write).toBeDisabled());
   expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets Monday.");
 });
+
+test("an In production chip names who is making it; yours opens your video, someone else's opens the panel that says so", async () => {
+  setViewport(1440);
+  const rows = [script({ versions: [v(0, "in_production", { project_id: 31, editor: { id: 2, name: "Sam" } }), v(1, "in_production", { project_id: 32, editor: { id: 3, name: "Jo" } })] })];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, rows], "GET /scripts/7": [200, { ...script(), versions: rows[0].versions.map((x) => ({ ...x, text: "Hi" })) }], "GET /scripts/7/cast": [200, []] });
+  open();
+  // (The fake answers the Making now list with the same rows, so the script shows twice.)
+  expect((await screen.findAllByText("A · In production · you")).length).toBeGreaterThan(0);
+  expect(screen.getAllByText("B · In production · Jo").length).toBeGreaterThan(0);
+  expect(screen.getAllByLabelText("Version A, in production by you")[0].closest("a")).toHaveAttribute("href", "/b/1/projects/31");
+  await userEvent.click(screen.getAllByLabelText("Version B, in production by Jo")[0]);
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" });
+  expect(await within(panel).findByText("Jo is making this version.")).toBeInTheDocument();
+  expect(within(panel).queryByRole("button", { name: /Make this version/ })).not.toBeInTheDocument();
+});
+
+test("an editor's own started versions are under Making now, even when the list is only Ready to make", async () => {
+  setViewport(1440);
+  const mine = script({ id: 5, title: "Sam's reel", versions: [v(0, "in_production", { project_id: 40, editor: { id: 2, name: "Sam" } })] });
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, [mine]] });
+  open();
+  const section = await screen.findByRole("region", { name: "Making now" });
+  expect(within(section).getByText("Sam's reel")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "GET /scripts")).toBe(true);
+});
+
+test("a video made from a library version isn't listed under Videos made before scripts", async () => {
+  const mk = (id: number, o: object = {}) => ({ id, brand_id: 1, name: `Reel ${id}`, planned_seconds: 30, status: "active", goal: "", platform: "", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null, estimate_credits: 0, budget_credits: 0, credits_used: 0, budget_pct: 0, ...o });
+  fakeServer({ ...base, "GET /scripts": [200, []], "GET /projects": [200, [mk(1), mk(2, { script_draft_id: 9 })]] });
+  open();
+  const section = await screen.findByRole("region", { name: "Videos made before scripts" });
+  expect(await within(section).findByText("Videos made before scripts (1)")).toBeInTheDocument();
+});
