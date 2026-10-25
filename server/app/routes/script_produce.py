@@ -95,13 +95,18 @@ def produce(
         )
         db.commit()
         return ProduceOut(project_id=project.id, breakdown_job_id=None)
-    db.commit()
-    job = enqueue(
-        db,
-        user,
-        "write-claude",
-        breakdown.job_input(db, project, version),
-        project=project,
-        provider="claude",
-    )
+    # One transaction: if the breakdown is declined (allowance or cap), the project and the
+    # reservation go too, so the version stays free to produce.
+    try:
+        job = enqueue(
+            db,
+            user,
+            "write-claude",
+            breakdown.job_input(db, project, version),
+            project=project,
+            provider="claude",
+        )
+    except HTTPException:
+        db.rollback()
+        raise
     return ProduceOut(project_id=project.id, breakdown_job_id=job.id)
