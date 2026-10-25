@@ -893,6 +893,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Many
+         * @description Up to 50 scripts at once, all or none: a plain error names the first bad row.
+         */
+        post: operations["create_many_scripts_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}": {
         parameters: {
             query?: never;
@@ -1731,6 +1751,15 @@ export interface components {
             problems: string[];
             /** Stale */
             stale: boolean;
+        };
+        /**
+         * BulkIn
+         * @description Bulk create (Reed): titles, descriptions and an optional reel only; nothing is written
+         *     until "Write all".
+         */
+        BulkIn: {
+            /** Scripts */
+            scripts: components["schemas"]["app__routes__script_library__ScriptIn"][];
         };
         /** Clip */
         Clip: {
@@ -5071,6 +5100,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_many_scripts_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRow"][];
                 };
             };
             /** @description Validation Error */

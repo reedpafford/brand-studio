@@ -35,6 +35,13 @@ class ScriptIn(BaseModel):
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
 
 
+class BulkIn(BaseModel):
+    """Bulk create (Reed): titles, descriptions and an optional reel only; nothing is written
+    until "Write all"."""
+
+    scripts: list[ScriptIn] = Field(min_length=1, max_length=50)
+
+
 class ScriptPatch(BaseModel):
     title: Title | None = None
     description: LongText | None = None
@@ -197,6 +204,35 @@ def create_script(
     db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip()))
     db.commit()
     return _out(db, script)
+
+
+@router.post("/bulk", response_model=list[ScriptRow], status_code=201)
+def create_many(
+    body: BulkIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Up to 50 scripts at once, all or none: a plain error names the first bad row."""
+    for n, item in enumerate(body.scripts, 1):
+        try:
+            get_brand(db, user, item.brand_id)
+            _check_reference(request, item.reference_id)
+        except HTTPException as exc:
+            raise HTTPException(exc.status_code, f"Row {n}: {exc.detail}") from None
+    made = []
+    for item in body.scripts:
+        script = Script(
+            workspace_id=user.workspace_id,
+            created_by_id=user.id,
+            **item.model_dump(exclude={"text"}),
+        )
+        db.add(script)
+        db.flush()
+        db.add(ScriptDraft(script_id=script.id, slot=0, text=item.text.strip()))
+        made.append(script)
+    db.commit()
+    return [_out(db, s, full=False) for s in made]
 
 
 @router.get("/{script_id}", response_model=ScriptOut)
