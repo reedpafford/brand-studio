@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Button, Card, Field } from "../components";
-import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
 const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
@@ -39,11 +38,9 @@ export function ReelPicker({ brandId }: { brandId: number }) {
   const [newLines, setNewLines] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const toast = useToast();
   const queryClient = useQueryClient();
   const made = async (id: number) => {
     await queryClient.invalidateQueries({ queryKey: ["scripts"] });
-    toast("Getting the reel…");
     navigate(`/b/${brandId}/scripts/${id}`);
   };
   const fromLink = useMutation({
@@ -84,7 +81,11 @@ export function ReelPicker({ brandId }: { brandId: number }) {
       </form>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-muted">or</span>
-        <input ref={file} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a video file" className="sr-only" onChange={(e) => e.target.files?.[0] && fromFile.mutate(e.target.files[0])} />
+        <input ref={file} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a video file" className="sr-only" onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = ""; // so the same file can be chosen again
+            if (f) fromFile.mutate(f);
+          }} />
         <Button variant="secondary" icon={Upload} busy={fromFile.isPending} disabled={fromLink.isPending} onClick={() => file.current?.click()} className="w-full sm:w-auto">
           Upload a video
         </Button>
@@ -151,7 +152,9 @@ export function ReelBlock({ scriptId, published }: { scriptId: number; published
       </Card>
     );
   if (r.status === "failed") {
-    const p = PROBLEMS[r.problem_code ?? ""] ?? { text: r.problem || "We couldn't get that reel. Upload the video instead.", button: "Upload a video" };
+    // The server says what is wrong (a silent video, one over the size, a link it was refused); our words are only for when it says nothing. The code picks the button.
+    const known = PROBLEMS[r.problem_code ?? ""];
+    const p = { text: r.problem || known?.text || "We couldn't get that reel. Upload the video instead.", button: known?.button ?? "Upload a video" };
     return (
       <Card className="max-w-[680px] space-y-3">
         <p role="alert" className="flex items-start gap-2 text-danger">
@@ -160,7 +163,11 @@ export function ReelBlock({ scriptId, published }: { scriptId: number; published
         </p>
         {!published && (
           <>
-            <input ref={file} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a video file" className="sr-only" onChange={(e) => e.target.files?.[0] && again.mutate(e.target.files[0])} />
+            <input ref={file} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a video file" className="sr-only" onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) again.mutate(f);
+            }} />
             <Button variant="secondary" icon={Upload} busy={again.isPending} onClick={() => file.current?.click()}>
               {p.button}
             </Button>
