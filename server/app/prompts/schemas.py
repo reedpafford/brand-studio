@@ -111,6 +111,10 @@ class CastSlot(BaseModel):
         description="A short look for drawing the sheet: age, build, hair or coat, signature "
         "outfit. Plain and drawable; no celebrity look-alikes, no logos."
     )
+    kind: Literal["Main", "Helper", "Rival", "Family"] = Field(
+        description="Main for the hero and the story's other lead; Helper for a mentor, coach "
+        "or friend; Rival for the one they're up against; Family for a parent, aunt or sibling."
+    )
     appears_in: list[int] = Field(
         description="Version slots the role is in: 0 is the original, then 1 and 2."
     )

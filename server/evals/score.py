@@ -80,6 +80,9 @@ def score(out: Path, case: dict) -> list[str]:
         for n, sid in exp.get("screen_lines", {}).items():
             if not any(int(n) in s.script_lines and sid in s.screen_ids for s in shots):
                 problems.append(f"expected {sid} in the shot for line {n}")
+        opening = " | ".join(s.line or "" for s in shots[:3])
+        problems += [f"the opening shots don't say “{x}”"
+                     for x in exp.get("opening_lines", []) if x not in opening]  # fmt: skip
         screen_shots = sum(1 for s in shots if s.screen_ids)
         if screen_shots < exp.get("min_screen_shots", 0):
             problems.append(

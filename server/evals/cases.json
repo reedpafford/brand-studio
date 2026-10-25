@@ -401,7 +401,9 @@
     "Definition of done: same story and every line of the reference word for word (I do. / HELL NO! / I'm marrying him! / What?! / the 'forever with you' echo / Nate? Nate? / Huh?! / Sorry, I'm fully booked.).",
     "The montage is about 12 s of wordless trading in the same match-cut device: real fomo screens (chart down then up, desktop) exactly, ending on the skyline.",
     "The live-action tag is gone; the video ends on fomo's call to action over the real fomo screen.",
-    "Same pacing as the reference: hook shots under 0.5 s, montage around 0.3–0.5 s; no captions, no '2 YEARS LATER' card text."
+    "Same pacing as the reference: hook shots under 0.5 s, montage around 0.3–0.5 s; no captions, no '2 YEARS LATER' card text.",
+    "Opens on the proposal and the no: “I do.” and “HELL NO!” on screen in the first shots, no establishing or guest cutaways before them.",
+    "The montage grinds before the payoff: a red day, a small win, another late night, a bigger win, then the fast got-rich run."
    ],
    "expect": {
     "drafts": [
@@ -421,6 +423,10 @@
     "min_screen_shots": 3,
     "forbid": [
      "BANDS > BRIDES"
+    ],
+    "opening_lines": [
+     "I do.",
+     "HELL NO!"
     ]
    }
   },
@@ -482,7 +488,8 @@
     "Wordless, about 12 s, shots around 0.3–0.5 s; nobody speaks and the audio line says so.",
     "Nate in every shot, no empty rooms: trading at night, the win, escalating payoffs he's part of (keys, the car, the penthouse door, the balcony), cut with the real fomo screens.",
     "The got-rich beat shows a big portfolio balance (hundreds of thousands) on the fomo Home screen, not a coin price.",
-    "Ends on the skyline arrival in the black suit."
+    "Ends on the skyline arrival in the black suit.",
+    "At least three grind beats (late nights, a red day, a small then a bigger win) before the fast got-rich run."
    ],
    "expect": {
     "drafts": [
