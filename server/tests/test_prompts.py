@@ -101,10 +101,10 @@ def test_breakdown_check_wants_the_main_character_in_every_montage_shot():
     ex, bd = example("breakdown")
     script = script_of(ex)
     assert check.breakdown(script, bd, FOMO, 4, 30) == []
-    shot = next(s for s in bd.scenes[1].shots if s.id == "2.7")
+    shot = next(s for s in bd.scenes[1].shots if s.id == "2.10")
     shot.character_ids = []
     assert check.breakdown(script, bd, FOMO, 4, 30) == [
-        "Advice: shot 2.7: a montage shot without the main character"
+        "Advice: shot 2.10: a montage shot without the main character"
     ]
     shot.action = "Malik's hands push open the glass door of a penthouse."
     assert check.breakdown(script, bd, FOMO, 4, 30) == []  # his hands count as him
@@ -121,17 +121,39 @@ def test_every_quick_cut_names_a_cast_member():
     assert check._cuts_name_someone(prompt) == []
     empty = prompt.replace("behind Malik as he pushes open", "as a hand pushes open")
     assert check._cuts_name_someone(empty) == [
-        "shot 6: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
+        "shot 9: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
     ]
     refs = next(line for line in empty.splitlines() if line.startswith("References: "))
     no_cast = empty.replace(refs, "References: [Image1] is the first frame.")
     assert check._cuts_name_someone(no_cast) == []
 
 
+def test_breakdown_check_wants_grind_before_the_payoff_and_the_hook_first():
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []  # four beats before the fast run
+    scene = bd.scenes[1]
+    jump = scene.shots[:4] + scene.shots[7:]  # the old way: one trade, then the car
+    scene.shots, bd.clips[1].shot_ids = jump, [s.id for s in jump]
+    bd.clips[1].seconds = 7
+    lines = check.breakdown(script, bd, FOMO, 4, 30)
+    assert "Advice: shot 2.8: the montage reaches the payoff after 1 grind beats; add a red " \
+        "day, a small win, another late night first" in lines  # fmt: skip
+    _, bd = example("breakdown")
+    first = bd.scenes[0].shots
+    cut = {"script_lines": [3]}  # tied to Tasha's opening line, as the remake's cutaways were
+    wide = first[1].model_copy(update={"id": "1.0", "action": "Wide of the kitchen."} | cut)
+    guests = first[1].model_copy(update={"id": "1.01", "action": "Neighbours look in."} | cut)
+    bd.scenes[0].shots = [wide, guests, *first]
+    bd.clips[0].shot_ids = ["1.0", "1.01", *bd.clips[0].shot_ids]
+    assert "Advice: shot 1.0: 2 shots come before the first line; open on the exchange " \
+        "itself" in check.breakdown(script, bd, FOMO, 4, 30)  # fmt: skip
+
+
 def test_breakdown_check_keeps_a_clip_to_three_screens():
     ex, bd = example("breakdown")
     script = script_of(ex)
-    shot = next(s for s in bd.scenes[1].shots if s.id == "2.12")
+    shot = next(s for s in bd.scenes[1].shots if s.id == "2.11")
     shot.screen_ids = ["screen:1"]
     assert check.breakdown(script, bd, FOMO, 4, 30) == [
         "clip c2: 4 screens; keep the 3 its beats need"
@@ -266,7 +288,7 @@ def test_quick_cut_check_is_advice_and_only_inside_a_montage_clip():
     c = cp.clips[0]
     c.prompt = c.prompt.replace("behind Malik as he pushes open", "as a hand pushes open")
     flag = (
-        "Advice: c2: shot 6: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
+        "Advice: c2: shot 9: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
     )
     assert flag in check.clip_prompts(bd, cp, 30, 10)
     for shot in bd.scenes[1].shots:  # slow the montage down: now it's not one
@@ -429,10 +451,8 @@ def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     shots = bd.scenes[1].shots
     clip = cp.clips[0]
     clip.prompt = clip.prompt.replace('"Come on. One more."', '"No."')
-    clip.prompt = clip.prompt.replace(
-        "slow, small grin.", 'slow, small grin. Malik: "Okay, I know. It\'s 3:15."'
-    )
-    shots[2].line, shots[7].line = "No.", "Okay, I know. It's 3:15."
+    clip.prompt = clip.prompt.replace("eyes red.", 'eyes red. Malik: "Okay, I know. It\'s 3:15."')
+    shots[2].line, shots[4].line = "No.", "Okay, I know. It's 3:15."
     assert check.clip_prompts(bd, cp, 30, 10) == []
     shots[1].line = "No."  # a line said twice on purpose, quoted twice
     clip.prompt = clip.prompt.replace("eyes shut.", 'eyes shut. Malik (muttering): "No."')
