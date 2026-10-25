@@ -128,6 +128,29 @@ class FakeWriter:
             ]
         }
 
+    def _variations(self, prompt):
+        """The original with each spoken line's words turned around (the second variation
+        also starts mid-line), keeping headings, action, ★ lines and the last line as-is."""
+        lines = [ln.split("| ", 1)[-1] for ln in _tag(prompt, "script").splitlines()]
+        spoken = [i for i, ln in enumerate(lines) if DIALOGUE.match(ln)]
+        count = int(_tag(prompt, "count") or 1)
+        first = 2 if _tag(prompt, "keep_apart") else 1  # a regenerate: unlike the one kept
+        out = []
+        for k in range(first, first + count):
+            new = list(lines)
+            for i in spoken[:-1]:
+                name, words = lines[i].split(":", 1)
+                turned = words.split()[::-1]
+                turned = turned[k - 1 :] + turned[: k - 1]
+                new[i] = f"{name}: {' '.join(turned)}"
+            out.append({
+                "title": f"Local variation {k}",
+                "premise": "A practice variation with the lines turned around.",
+                "script": "\n".join(new),
+                "changes": ["The spoken lines are reworded."],
+            })  # fmt: skip
+        return {"variations": out}
+
     def _breakdown(self, prompt):
         limits = re.search(r"(\d+)–(\d+) s per clip", prompt)
         low, high = map(int, limits.groups()) if limits else (4, 15)
