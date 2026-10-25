@@ -1,0 +1,83 @@
+"""Cast-slot suggestions (Reed, #197): Claude reads every approved version and lists the roles
+that need a look. A suggested role the script already has keeps its slot (a locked one stays
+locked); new roles join as unlocked slots. The list's order sets the slots' order."""
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app import prompts
+from app.enhance import escape, project_context
+from app.models.jobs import Job
+from app.models.library import LibraryItem
+from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
+from app.prompts import check
+from app.prompts.schemas import CastSlots
+from app.script_preview import stand_in_project
+
+
+def _slots(db: Session, script: Script) -> list[ScriptCastSlot]:
+    query = select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id)
+    return list(db.scalars(query.order_by(ScriptCastSlot.position, ScriptCastSlot.id)))
+
+
+def _versions(db: Session, script: Script) -> dict[int, str]:
+    rows = db.scalars(
+        select(ScriptDraft).where(
+            ScriptDraft.script_id == script.id, ScriptDraft.status == "approved"
+        )
+    )
+    return {d.slot: d.text for d in rows}
+
+
+def _cast(db: Session, script: Script) -> list[tuple[str, str]]:
+    """The locked cast as (prompt line, name): ('char:1 Bruno (Bruno, the pitbull)', 'Bruno')."""
+    out = []
+    for slot in _slots(db, script):
+        if slot.library_item_id and (item := db.get(LibraryItem, slot.library_item_id)):
+            out.append((f"char:{item.id} {item.name} ({slot.role})", item.name))
+    return out
+
+
+def ready(db: Session, script: Script) -> bool:
+    return 0 in _versions(db, script)
+
+
+def job_input(db: Session, script: Script, reference: dict | None) -> dict:
+    original = db.scalar(
+        select(ScriptDraft).where(ScriptDraft.script_id == script.id, ScriptDraft.slot == 0)
+    )
+    system, _ = project_context(db, stand_in_project(db, script, original), "cast_slots")
+    ref = prompts.reference_block(reference, script.reference_replace) if reference else ""
+    brief = f"{script.title}: {script.description}" if script.description else script.title
+    message = prompts.cast_slots_input(
+        {slot: escape(text) for slot, text in _versions(db, script).items()},
+        reference=escape(ref),
+        cast=[escape(line) for line, _ in _cast(db, script)],
+        brief=escape(brief),
+    )
+    return {"step": "cast_slots", "script_id": script.id, "system": system, "prompt": message}
+
+
+def problems(db: Session, script: Script, job: Job) -> list[str]:
+    result = CastSlots.model_validate(job.output)
+    names = [name for _, name in _cast(db, script)]
+    return check.cast_slots(_versions(db, script), result, cast=names)
+
+
+def save_cast_slots(db: Session, job: Job) -> None:
+    script = db.get(Script, job.input["script_id"])
+    if script is None:
+        return
+    result = CastSlots.model_validate(job.output)
+    have = {s.role.lower(): s for s in _slots(db, script)}
+    order = []
+    for made in result.slots:
+        slot = have.pop(made.role.lower(), None)
+        if slot is None:
+            slot = ScriptCastSlot(script_id=script.id, role=made.role[:120])
+            db.add(slot)
+        if not slot.description:
+            slot.description = made.description
+        order.append(slot)
+    for position, slot in enumerate([*order, *have.values()], 1):  # others keep their order
+        slot.position = position

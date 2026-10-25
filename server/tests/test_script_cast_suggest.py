@@ -1,0 +1,49 @@
+"""Cast-slot suggestions: Claude lists the roles; existing slots stay, new ones are added."""
+
+from app.models.jobs import Job
+from tests.conftest import upload
+from tests.helpers import with_sheet
+from tests.test_script_library import SCRIPT, _make
+from tests.test_script_preview import _work
+
+
+def test_suggest_keeps_locked_slots_and_adds_new_roles(app, db, owner):
+    made = _make(owner, title="Dip", description="Mom finds the wallet", text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    url = f"{base}/cast/suggest"
+    assert owner.post(url).json()["detail"] == "Approve the original first."
+    mia = owner.post("/library/character", json={"name": "Mia", "image_file_ids": [upload(owner)]})
+    with_sheet(db, mia.json()["id"])
+    owner.post(f"{base}/cast", json={"role": "Coach"})
+    mom = owner.post(f"{base}/cast", json={"role": "Mom"}).json()[1]["id"]
+    owner.post(f"{base}/cast/{mom}/lock", json={"library_item_id": mia.json()["id"]})
+    owner.post(f"{base}/drafts/0/approve")
+
+    job = owner.post(url)
+    assert job.status_code == 201, job.text
+    assert owner.post(url).status_code == 409  # one at a time
+    assert owner.get(url).json() == {"running": True, "problems": []}
+    prompt = db.get(Job, job.json()["id"]).input["prompt"]
+    assert "<brief>Dip: Mom finds the wallet</brief>" in prompt
+    assert f"char:{mia.json()['id']} Mia (Mom)" in prompt and '<version slot="0">' in prompt
+    _work(app, db)
+    cast = owner.get(base).json()["cast"]
+    assert [(s["role"], s["locked"]) for s in cast] == [
+        ("Mom", True),  # suggested and already there: kept, still locked
+        ("Nate", False),  # new
+        ("Coach", False),  # not suggested: kept, after the suggested ones
+    ]
+    assert cast[1]["description"] == "A practice look."
+    found = owner.get(url).json()
+    assert found["running"] is False
+    assert all(p.startswith("Advice: ") for p in found["problems"])
+
+
+def test_suggest_follows_the_script_rules(owner, editor):
+    made = _make(owner, text=SCRIPT)
+    url = f"/scripts/{made['id']}/cast/suggest"
+    assert editor.post(url).status_code == 404  # private until published
+    owner.post(f"/scripts/{made['id']}/drafts/0/approve")
+    owner.post(f"/scripts/{made['id']}/publish")
+    assert editor.get(url).status_code == 200
+    assert editor.post(url).status_code in (403, 409)  # published: final
