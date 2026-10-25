@@ -17,7 +17,7 @@ import { useRail } from "../useMedia";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
 
-type Row = components["schemas"]["ScriptRow"] & { removed_at?: string | null; purge_on?: string | null };
+type Row = components["schemas"]["ScriptRow"];
 type Version = Row["versions"][number];
 
 const PAGE = 30;
@@ -151,7 +151,7 @@ export function ScriptsPage() {
         params: {
           query: {
             ...(all ? {} : { brand_id: brandId }),
-            ...(removed ? ({ removed: 1 } as object) : {}), // until the schema lists it
+            ...(removed ? { removed: true } : {}),
             ...(apiStatus ? { status: apiStatus } : {}),
             ...(q ? { q } : {}),
             ...(ref === "none" ? { reference: false } : ref ? { reference_id: ref } : {}),
