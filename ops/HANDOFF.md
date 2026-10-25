@@ -50,9 +50,9 @@ as of 3eeaf85 · 2026-10-25 14:20 UTC
 - #247 Usage tracker 3a: summary, brands and one brand (owner only) | Builder-Server | in review
 - #245 Usage tracker 2/3: when a video became "Video done" | Builder-Server | QA at a54c9e9: 1 must-fix (a partial zip download marks the video done); head since moved to eb98a4f
 - #243 Version panel: Make this version | Builder-Screens | Designer review at 8cf7d29: 2 must-fixes (your own version in production is a dead end; new videos are listed under "Videos made before scripts"); head since moved to a27d458
-- #242 Usage tracker 1/3: every charge records its brand | Builder-Server | QA pass (e8777bf)
+- #242 Usage tracker 1/3: every charge records its brand | Builder-Server | QA pass (e8777bf; head since moved to 61a2ade)
 - #240 Team Copy link and the held-clip line from allowances | Builder-Screens | in review
-- #239 Workflow v2 5b-2: read the cast (slots with kind and versions) | Builder-Server | QA pass (4ccd446); QA note: its test needs `kind` on its slots now that #241 is merged
+- #239 Workflow v2 5b-2: read the cast (slots with kind and versions) | Builder-Server | QA pass (4ccd446; head since moved to 25eb8c6); QA note: its test needs `kind` on its slots now that #241 is merged
 ## Next
 - Builder-Server: fix #245's partial-download rule; land #242, #239 (add `kind` to its test), #247, then the rest of the usage tracker; add `script_draft_id` to `ProjectOut` (or `legacy=1`) and who reserved a version, for #243.
 - Builder-Screens: fix #243's two must-fixes; land #240; the Usage brand tracker screen.
