@@ -1,6 +1,17 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 22:06 · #325 Script step: write from the reference or with Claude merged
+- 2026-10-25 22:05 · #334 Cast spec: Find roles in the script is secondary, with its disabled reasons merged
+- 2026-10-25 21:51 · #320 In production: GET /production and /production/summary (owner only) merged
+- 2026-10-25 21:47 · #329 Reel watch: a frames-only read when the video won't go through merged
+- 2026-10-25 21:44 · #326 Delete script, with confirm and Undo merged
+- 2026-10-25 21:38 · #304 Reel watch: a small copy sent inline to Gemini, and no invented lines merged
+- 2026-10-25 21:29 · #315 Undoable script delete: DELETE archives, POST /restore brings it back merged
+- 2026-10-25 21:20 · #323 ops: HANDOFF/LOG refresh 2026-10-25 21:40Z (by the Producer) merged
+- 2026-10-25 21:20 · #322 Specs: Release this version, Archive video, Deleted and archived scripts, roles found automatically, Directions step merged
+- 2026-10-25 21:19 · #318 In production spec: the badge says the flag, the reason beside it doesn't repeat it merged
+- 2026-10-25 21:19 · #319 Gaps audit: a Deleted and archived filter for scripts, and removing deleted reels' files merged
 - 2026-10-25 21:19 · Decisions (#321, Reed): library stocked today from reels by agents (unpublished drafts for Reed to publish); owner-only In production view; Delete scripts with Undo; the basics audit approved in an order (1 Script step writes from the reference or with Claude, 2 release a version and archive a video, 3 Delete with Undo and archived scripts restorable, 4 Cast step, 5 Enhance in the writing flow, 6 new editor video flow, 7 the P2s); review rule: can the user undo or delete what they just made?
 - 2026-10-25 21:19 · #321 ops: Reed's audit order and library decisions; Builder-Screens-2 joins merged
 - 2026-10-25 21:15 · #317 ops: HANDOFF/LOG refresh 2026-10-25 21:30Z (by the Producer) merged

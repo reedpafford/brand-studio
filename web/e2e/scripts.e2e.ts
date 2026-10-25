@@ -57,6 +57,23 @@ test("a script is made in the library: describe it, write its words, and it is l
   await expect(page).toHaveURL(/\/projects\/\d+\?step=breakdown/);
 });
 
+test("Reed deletes a script from its row, and Undo brings it back", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brandId = await emptyBrand(page, "Removal Co");
+  const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Throwaway", description: "A script to delete.", notes: "", reference_replace: "", text: "" } });
+  expect(made.ok()).toBeTruthy();
+  await page.goto(`/b/${brandId}/scripts?status=any`);
+  await page.getByRole("button", { name: "More for Throwaway" }).click();
+  await page.getByRole("menuitem", { name: "Delete script" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText('Deleted "Throwaway".')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Throwaway" })).toBeHidden();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByText('Restored "Throwaway".')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Throwaway" })).toBeVisible();
+});
+
 test("an empty script with a reel is written from the reference, at the price shown", async ({ page }) => {
   test.setTimeout(90_000);
   await signIn(page, "reed@example.com");
