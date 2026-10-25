@@ -2675,6 +2675,10 @@ export interface components {
             project_clip_id?: number | null;
             /** Library Item Id */
             library_item_id?: number | null;
+            /** Script Id */
+            script_id?: number | null;
+            /** Script Draft Id */
+            script_draft_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
@@ -2743,6 +2747,10 @@ export interface components {
             project_clip_id?: number | null;
             /** Library Item Id */
             library_item_id?: number | null;
+            /** Script Id */
+            script_id?: number | null;
+            /** Script Draft Id */
+            script_draft_id?: number | null;
             /** Model Id */
             model_id?: string | null;
             /** Brand Id */
