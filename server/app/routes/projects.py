@@ -80,6 +80,7 @@ class ProjectOut(BaseModel):
     budget_pct: float
     created_by_id: int | None  # who asked (for the owner's Approvals list)
     created_by_name: str
+    script_draft_id: int | None = None  # made from a library version; null: an earlier-style video
 
 
 def get_project(db: Session, user: User, project_id: int) -> Project:
@@ -105,6 +106,7 @@ def _out(db: Session, project: Project) -> ProjectOut:
         budget_pct=round(float(used / project.budget_credits * 100), 1),
         created_by_id=project.created_by_id,
         created_by_name=user_name(db, project.created_by_id),
+        script_draft_id=project.script_draft_id,
     )
 
 
