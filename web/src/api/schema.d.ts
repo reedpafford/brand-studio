@@ -732,6 +732,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Project */
+        post: operations["archive_project_projects__project_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive Project
+         * @description Undo: the video comes back as it was (cancelled jobs stay cancelled; run them again).
+         */
+        post: operations["unarchive_project_projects__project_id__unarchive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}": {
         parameters: {
             query?: never;
@@ -1529,6 +1566,29 @@ export interface paths {
          *     one video, reserved for whoever starts it.
          */
         post: operations["produce_scripts__script_id__drafts__slot__produce_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release
+         * @description Put a started version back to "Ready to make": the owner, or the editor making it.
+         *     Produce-once holds because the version's video goes too: it is archived (its jobs that
+         *     haven't started are cancelled, so their credits come back) and unlinked from the version,
+         *     which anyone may then produce afresh. A finished video can't be released.
+         */
+        post: operations["release_scripts__script_id__drafts__slot__release_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3437,6 +3497,8 @@ export interface components {
             created_by_name: string;
             /** Script Draft Id */
             script_draft_id?: number | null;
+            /** Archived At */
+            archived_at?: string | null;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -5959,6 +6021,7 @@ export interface operations {
         parameters: {
             query?: {
                 brand_id?: number | null;
+                archived?: boolean;
             };
             header?: never;
             path?: never;
@@ -6001,6 +6064,68 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_project_projects__project_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unarchive_project_projects__project_id__unarchive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7725,6 +7850,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProduceOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_scripts__script_id__drafts__slot__release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

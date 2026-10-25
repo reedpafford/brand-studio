@@ -2,6 +2,7 @@
 estimate of it. Above the owner's length limit a project waits for the owner.
 Editors see credits and % of budget, never dollars."""
 
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,7 +13,7 @@ from sqlalchemy.orm import Session
 from app import reference
 from app.auth import current_user, owner_only, user_name
 from app.credits import credits_used, get_limits, lock, over_cap
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
 from app.models.credits import BUDGET_MULTIPLIER
@@ -25,6 +26,7 @@ from app.routes.files import get_file
 from app.routes.library import get_item
 from app.schemas import LongText, Name, ShortText
 
+NOT_STARTED = (JobStatus.queued, JobStatus.needs_owner_approval)
 router = APIRouter(prefix="/projects", tags=["credits"])
 
 
@@ -81,6 +83,25 @@ class ProjectOut(BaseModel):
     created_by_id: int | None  # who asked (for the owner's Approvals list)
     created_by_name: str
     script_draft_id: int | None = None  # made from a library version; null: an earlier-style video
+    archived_at: datetime | None = None  # put away; POST .../unarchive brings it back
+
+
+def archive(db: Session, project: Project) -> None:
+    """Put a video away: hidden from lists, and its jobs that haven't started are cancelled
+    (cancelled jobs aren't counted, so their credits come back). Running jobs finish."""
+    project.archived_at = utcnow()
+    db.execute(
+        update(Job)
+        .where(Job.project_id == project.id, Job.status.in_(NOT_STARTED))
+        .values(status=JobStatus.cancelled, finished_at=utcnow())
+    )
+
+
+def _mine(db: Session, user: User, project_id: int) -> Project:
+    project = get_project(db, user, project_id)
+    if not (user.is_owner or project.created_by_id == user.id):
+        raise HTTPException(403, "Only whoever made this video, or the owner, can do that.")
+    return project
 
 
 def get_project(db: Session, user: User, project_id: int) -> Project:
@@ -107,6 +128,7 @@ def _out(db: Session, project: Project) -> ProjectOut:
         created_by_id=project.created_by_id,
         created_by_name=user_name(db, project.created_by_id),
         script_draft_id=project.script_draft_id,
+        archived_at=project.archived_at,
     )
 
 
@@ -166,9 +188,15 @@ def _set_length(db: Session, user: User, project: Project, seconds: int | None) 
 
 @router.get("", response_model=list[ProjectOut])
 def list_projects(
-    brand_id: int | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)
+    brand_id: int | None = None,
+    archived: bool = False,  # true: the archived videos instead, so they can be brought back
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
-    query = select(Project).where(Project.workspace_id == user.workspace_id)
+    query = select(Project).where(
+        Project.workspace_id == user.workspace_id,
+        Project.archived_at.is_not(None) if archived else Project.archived_at.is_(None),
+    )
     if brand_id is not None:
         query = query.where(Project.brand_id == brand_id)
     return [_out(db, p) for p in db.scalars(query.order_by(func.lower(Project.name)))]
@@ -193,6 +221,28 @@ def create_project(
     if body.reference_id:
         project.reference_breakdown = references.load(request, body.reference_id)
     db.add(project)
+    db.commit()
+    return _out(db, project)
+
+
+@router.post("/{project_id}/archive", response_model=ProjectOut)
+def archive_project(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    project = _mine(db, user, project_id)
+    if project.archived_at is None:
+        archive(db, project)
+        db.commit()
+    return _out(db, project)
+
+
+@router.post("/{project_id}/unarchive", response_model=ProjectOut)
+def unarchive_project(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo: the video comes back as it was (cancelled jobs stay cancelled; run them again)."""
+    project = _mine(db, user, project_id)
+    project.archived_at = None
     db.commit()
     return _out(db, project)
 
