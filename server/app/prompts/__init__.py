@@ -160,16 +160,22 @@ def reel_watch_input(transcript: list[dict], cuts: list[dict]) -> str:
     return "\n".join(["<cuts>", *shots, "</cuts>", "<transcript>", *said, "</transcript>"])
 
 
-def watch_breakdown(watch: "schemas.ReelWatch", transcript: list[dict]) -> dict:
+def watch_breakdown(
+    watch: "schemas.ReelWatch", transcript: list[dict], cuts: list[dict] = ()
+) -> dict:
     """The watch answer plus prep's transcript as a BREAKDOWN.json-shaped dict, what
     reference_block(...) and the script's `reference_breakdown` take. Each line goes into the
-    shot that holds its start; a live-action shot's style says so, and reference_block drops it."""
+    shot that holds its start; a live-action shot's style says so, and reference_block drops it.
+    With prep's `cuts` [{n, start, end}], shot times are prep's, not the model's rounding."""
+    times = {c["n"]: (c["start"], c["end"]) for c in cuts}
     who = {s.line: s.speaker for s in watch.speakers}
     lines = [x | {"speaker": who.get(n, "")} for n, x in enumerate(transcript, 1)]
     shots, last = [], watch.shots[-1] if watch.shots else None
     for s in watch.shots:
-        said = [x for x in lines if s.start <= x["start"] < (s.end if s is not last else 1e9)]
-        shot = s.model_dump(exclude={"live_action"}) | {"dur": round(s.end - s.start, 2)}
+        start, end = times.get(s.n, (s.start, s.end))
+        said = [x for x in lines if start <= x["start"] < (end if s is not last else 1e9)]
+        shot = s.model_dump(exclude={"live_action"}) | {"start": start, "end": end}
+        shot["dur"] = round(end - start, 2)
         shot["style"] = "live action" if s.live_action else watch.style
         shot["line"] = " / ".join(x["text"] for x in said)
         shot["speaker"] = " / ".join(dict.fromkeys(x["speaker"] for x in said))
@@ -177,7 +183,7 @@ def watch_breakdown(watch: "schemas.ReelWatch", transcript: list[dict]) -> dict:
     first = next((x["text"] for x in lines if x["start"] < watch.hook.seconds), "")
     return watch.model_dump(exclude={"shots", "speakers", "hook"}) | {
         "source": "imported reel",
-        "duration_seconds": watch.shots[-1].end if watch.shots else 0.0,
+        "duration_seconds": shots[-1]["end"] if shots else 0.0,
         "hook": watch.hook.model_dump() | {"first_line": first},
         "shots": shots,
         "lines": lines,

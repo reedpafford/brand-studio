@@ -17,7 +17,7 @@ from app.models.accounts import User
 from app.models.script_library import Script
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.references import load as load_reference
+from app.routes.references import for_script as script_reference
 from app.routes.script_preview import EstimateOut
 
 router = APIRouter(prefix="/scripts", tags=["script library"])
@@ -54,7 +54,7 @@ def _left(db: Session, user: User) -> Decimal | None:
 
 
 def _queue(db: Session, user: User, request: Request, script: Script):
-    reference = load_reference(request, script.reference_id) if script.reference_id else None
+    reference = script_reference(request, script)
     data = script_write.job_input(db, script, reference)
     return enqueue(db, user, "write-claude", data, provider="claude")
 

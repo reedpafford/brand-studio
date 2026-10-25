@@ -313,6 +313,31 @@ def test_an_adapted_draft_keeps_the_reels_lines_unless_new_lines_is_on():
     assert check.reference_lines(curly, ["Sorry, I'm fully booked."]) == []
 
 
+def test_a_redo_note_never_changes_what_is_said():
+    _, bd = example("breakdown")  # c1: Tasha and Malik argue; c2 has one line, Malik's
+    assert check.redo_note("Tasha should look angrier and lean in.", bd, "c1") == []
+    assert check.redo_note('Say "Thirty days. Watch me." slower.', bd, "c1") == []
+    assert check.redo_note('Tasha says "Give it back!"', bd, "c1") == [
+        "The note quotes “Give it back!”, which nobody says in this clip. A note can change "
+        "how a line is said, never its words."
+    ]
+    assert check.redo_note("Cut the line about groceries.", bd, "c1") == [
+        "The note changes what's said. The spoken lines stay exactly as written; say how they "
+        "should sound instead (louder, angrier, slower)."
+    ]
+    assert check.redo_note("Make Tasha shout at him here too.", bd, "c2") == [
+        "Tasha has no line in this clip, so the note can't make them speak."
+    ]
+    for note in (  # QA on #276: notes about delivery or the shot, not the words
+        "Please speak more slowly.",
+        "Then speak louder.",
+        "Cut to a closer shot on his last line.",
+        "Add more energy to the lines.",
+        "Change the lighting on his words.",
+    ):
+        assert check.redo_note(note, bd, "c1") == [], note
+
+
 def test_nobody_speaks_unless_the_script_says_so():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
@@ -637,7 +662,7 @@ def altar_reel():
 def test_reel_watch_example_passes_and_becomes_the_scripts_reference():
     _, watch, transcript, cuts = altar_reel()
     assert check.reel_watch(watch, cuts, transcript) == []
-    ref = prompts.reference_block(prompts.watch_breakdown(watch, transcript))
+    ref = prompts.reference_block(prompts.watch_breakdown(watch, transcript, cuts))
     assert '| groom: "I do."' in ref and '| bride: "HELL NO!"' in ref
     assert "Shots 44–50 (42.67–45.02 s) are live action" in ref and "\n45. " not in ref
     assert "caption" not in ref  # on-screen text never reaches the writer
@@ -647,6 +672,10 @@ def test_reel_watch_example_passes_and_becomes_the_scripts_reference():
 
 def test_reel_watch_check_says_what_to_fix():
     _, watch, transcript, cuts = altar_reel()
+    near = watch.model_copy(deep=True)
+    near.shots[2].start, near.shots[2].end = 0.8, 1.1  # rounded by the model: still the cut
+    assert check.reel_watch(near, cuts, transcript) == []
+    assert prompts.watch_breakdown(near, transcript, cuts)["shots"][2]["start"] == 0.82
     bad = watch.model_copy(deep=True)
     del bad.shots[4]
     bad.speakers[1].speaker = "the bride (flashback)"

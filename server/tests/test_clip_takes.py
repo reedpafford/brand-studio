@@ -212,7 +212,12 @@ def test_clips_pane_support(app, db, editor, setup, clip):  # noqa: F811
     _work(app, db, fake)
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
     lines = sent["prompt"].splitlines()
-    assert lines[-2] == "Change from the last take: Mom should look angrier."
+    assert lines[-2] == (
+        "Change from the last take: Mom should look angrier. The spoken lines stay exactly as "
+        "written above; nobody else speaks."
+    )
+    reworded = editor.post(f"{url}/generate", json={"note": 'Mom says "Hand it over."'})
+    assert reworded.status_code == 422 and "nobody says in this clip" in reworded.json()["detail"]
     assert lines[0] == lines[-1]  # still opens and closes on the audio line
     assert editor.get(f"{base}/clips").json()[0]["prompt"] == clip["prompt"]  # note not kept
 

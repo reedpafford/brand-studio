@@ -70,6 +70,13 @@ def load(request: Request, ref_id: str) -> dict:
     return checked({**json.loads((folder / "BREAKDOWN.json").read_text()), "source_id": ref_id})
 
 
+def for_script(request: Request, script) -> dict | None:
+    """The reel a library script adapts: its own imported breakdown, else the catalogue reel."""
+    if script.reference_breakdown:
+        return script.reference_breakdown
+    return load(request, script.reference_id) if script.reference_id else None
+
+
 @router.get("", response_model=list[ReferenceOut])
 def list_references(request: Request):
     return [ref for ref, _ in catalogue(request.app.state.settings.references_dir).values()]

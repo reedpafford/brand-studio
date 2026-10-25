@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from app import credits
+from app import credits, prompts
 from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.projects import Project
@@ -11,7 +11,7 @@ from app.routes.jobs import enqueue
 from tests.conftest import PASSWORD, upload
 from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
-from tests.test_script_library import SCRIPT, _make
+from tests.test_script_library import IMPORTED, SCRIPT, _imported, _make
 
 
 def _published(owner, db, *, breakdown=None, target=None):
@@ -157,3 +157,13 @@ def test_a_version_whose_video_failed_says_so_and_a_done_one_has_a_poster(owner,
     db.commit()
     row = next(s for s in owner.get("/scripts").json() if f"/scripts/{s['id']}" == base)
     assert row["versions"][0]["status"] == "done" and row["poster_file_id"] == still
+
+
+def test_produce_uses_the_scripts_own_imported_reel(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    _imported(db, int(base.rsplit("/", 1)[1]))  # wins over the catalogue reel
+    made = editor.post(f"{base}/drafts/0/produce").json()
+    ref = editor.get(f"/projects/{made['project_id']}").json()["reference_breakdown"]
+    assert ref == IMPORTED
+    block = prompts.reference_block(ref)
+    assert "She says no" in block and "Creator talks to camera" not in block  # live action
