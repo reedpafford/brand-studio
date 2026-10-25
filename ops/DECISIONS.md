@@ -40,3 +40,7 @@
   - Script Library: easy to browse, search and filter (brand, status, length, reference, versions left), with bulk creation.
   - Fix the "montage shot without the main character" check: hand and screen inserts count, and no check is ever a dead end.
   - Clear done states and Back/Next between every step.
+- 2026-10-25 Reed's answers on the workflow:
+  - No final-video upload. Editors download instead: every clip one by one, or all at once, and older takes too (e.g. after redoing a clip).
+  - Editors' own scripts: $15 a week of free generation per editor (about 145 credits). Anything beyond that is declined, not sent to Reed.
+  - Editors may make variations of their own scripts too; it is not the main flow.
