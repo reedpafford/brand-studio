@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.catalogue import get_model
@@ -24,6 +24,7 @@ from app.models.credits import (
 )
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project, ProjectStatus
+from app.models.script_library import Script, ScriptDraft
 
 log = logging.getLogger(__name__)
 # Estimates only; real cost decides the final credits. Generation rates come from the
@@ -137,11 +138,44 @@ def week_start() -> datetime:
     return (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def quick_clip_used(db: Session, user: User) -> Decimal:
-    """This week's (Mon-Sun, UTC) credits on jobs outside any project, by this person."""
-    return _sum_credits(
-        db, Job.project_id.is_(None), Job.created_by_id == user.id, Job.created_at >= week_start()
+def own_script(db: Session, project: Project) -> bool:
+    """A video made from an editor's own script: it runs on their weekly allowance, not a
+    budget the owner approves (Reed, 2026-10-25)."""
+    if project.script_draft_id is None:
+        return False
+    script = db.scalar(
+        select(Script).join(ScriptDraft).where(ScriptDraft.id == project.script_draft_id)
     )
+    author = db.get(User, script.created_by_id) if script and script.created_by_id else None
+    return bool(author and not author.is_owner)
+
+
+def quick_clip_used(db: Session, user: User) -> Decimal:
+    """This week's (Mon-Sun, UTC) credits on this person's own work: jobs outside any
+    project (Quick clips, script steps) and on videos from scripts they wrote."""
+    own = (
+        select(Project.id)
+        .join(ScriptDraft, ScriptDraft.id == Project.script_draft_id)
+        .join(Script, Script.id == ScriptDraft.script_id)
+        .where(Script.created_by_id == user.id)
+    )
+    return _sum_credits(
+        db,
+        or_(Job.project_id.is_(None), Job.project_id.in_(own)),
+        Job.created_by_id == user.id,
+        Job.created_at >= week_start(),
+    )
+
+
+def over_allowance(db: Session, user: User, project: Project | None, credits: Decimal) -> str:
+    """Plain words if this job would take an editor past their weekly allowance, else "".
+    Past it, their own work is declined, never sent to the owner. Call with the row locked."""
+    if user.is_owner or (project is not None and not own_script(db, project)):
+        return ""
+    allowance = get_limits(db, user.workspace_id).weekly_quick_clip_credits
+    if quick_clip_used(db, user) + credits > allowance:
+        return f"You've used this week's {allowance:.0f} credits. It resets Monday."
+    return ""
 
 
 def lock(db: Session, model, row_id: int) -> None:
@@ -151,12 +185,11 @@ def lock(db: Session, model, row_id: int) -> None:
 
 
 def needs_approval(db: Session, user: User, project: Project | None, credits: Decimal) -> bool:
-    """True if a new job must wait for the owner. Call with the right row locked."""
-    if user.is_owner:
+    """True if a new job must wait for the owner: an editor's job on a video from the owner's
+    scripts (or an older project) that would go over its budget. An editor's own work is
+    never held: `over_allowance` declines it instead. Call with the right row locked."""
+    if user.is_owner or project is None or own_script(db, project):
         return False
-    if project is not None:
-        if project.status != ProjectStatus.active:
-            return True
-        return credits_used(db, project) + credits > project.budget_credits
-    allowance = get_limits(db, user.workspace_id).weekly_quick_clip_credits
-    return quick_clip_used(db, user) + credits > allowance
+    if project.status != ProjectStatus.active:
+        return True
+    return credits_used(db, project) + credits > project.budget_credits

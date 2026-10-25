@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app import prompts
 from app.auth import current_user
 from app.catalogue import CatalogueModel, get_model
-from app.credits import estimate, needs_approval
+from app.credits import estimate, over_allowance
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand, BrandScreen
@@ -35,7 +35,6 @@ from app.sheets import require_sheet, usable_files
 from app.storage import Storage
 
 router = APIRouter(prefix="/clips", tags=["clips"])
-OVER_ALLOWANCE = "This goes past your weekly quick-clip allowance, so the owner must approve it."
 MAX_REFERENCE_BYTES = 100 * 1024 * 1024
 Prompt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=6000)]
 
@@ -259,13 +258,15 @@ def estimate_clip(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """What Generate would cost, and whether it would wait for the owner. Nothing is queued."""
+    """What Generate would cost. Nothing is queued. Past the editor's weekly allowance it
+    answers 409 with the same plain words Generate would (never sent to the owner)."""
     plan = _plan(db, user, body, request.app.state.storage)
-    held = needs_approval(db, user, None, plan.credits)
+    if declined := over_allowance(db, user, None, plan.credits):
+        raise HTTPException(409, declined)
     return EstimateOut(
         credits=plan.credits,
-        needs_owner_approval=held,
-        reason=OVER_ALLOWANCE if held else "",
+        needs_owner_approval=False,  # Quick clips are never held now (Reed, 2026-10-25)
+        reason="",
         auto_screen_ids=plan.auto_screen_ids,
         **{k: len(v) for k, v in plan.files.items()},
     )
