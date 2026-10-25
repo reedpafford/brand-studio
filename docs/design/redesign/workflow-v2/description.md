@@ -8,7 +8,7 @@ The video frame from #179 is reused.
   - ‹ Scripts
   - the title, with `Pencil` to rename
   - a status badge: "Draft · only you can see it" (Reed's drafts) or "Draft · only you and Reed can see it" (an editor's), or "Published · final" with `Lock`
-- **Step picker:** Description · Script · Directions · Variations · Characters · Breakdown · Publish.
+- **Step picker:** Description · Script · Directions · Variations · Cast · Breakdown · Publish.
   - Directions, Variations and Breakdown are optional. When skipped, they show a muted "Skipped" instead of a tick, and they don't block Next.
 - **Credits:**
   - **Reed:** no meter until Breakdown, which sets the budget (decision h). Before that, the header shows nothing about money.
@@ -36,7 +36,7 @@ One column, max 680px.
 
 What's gone, compared with New video:
 - **Planned length:** the breakdown sets it (decision h).
-- **Who's in it:** characters come from the script, and are locked in step 5.
+- **Who's in it:** the cast comes from the script, and its roles are locked in step 5 (Cast).
 - **Flavour picker:** a script names its product. Flavours are chosen at Assets, from the brand's Products.
 - **Platform and shape:** they move to the video (Breakdown step), because one script can become several videos.
 
