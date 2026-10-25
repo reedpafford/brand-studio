@@ -24,12 +24,12 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
 
   // Enhance runs and finds nothing to add to this short script.
   await stage("enhance");
-  await page.getByRole("button", { name: /^Enhance/ }).click();
+  await page.getByRole("button", { name: /^Suggest directions/ }).click();
   await expect(page.getByText(/already reads well/)).toBeVisible({ timeout: 30_000 });
 
-  // Breakdown: scenes, clips and shots, with no problems.
+  // Shots: scenes, clips and shots, with no problems.
   await stage("breakdown");
-  await page.getByRole("button", { name: /Make breakdown/ }).click();
+  await page.getByRole("button", { name: /Make shots/ }).click();
   await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: /Next: Storyboard/ }).click();
 

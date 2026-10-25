@@ -1,19 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { btnPrimary, card, linkText } from "../ui";
-import { AuthForm } from "./AuthForm";
+import { useEffect, useState } from "react";
+import { Link2Off } from "lucide-react";
+import { Button, Card, Skeleton } from "../components";
+import { linkText } from "../ui";
+import { AuthForm, AuthShell } from "./AuthForm";
 
 export function LoginPage() {
   return (
     <AuthForm
       title="Sign in"
       submitLabel="Sign in"
+      busyLabel="Signing in…"
       fields={[
-        { name: "email", label: "Email", type: "email", autoComplete: "username" },
+        { name: "email", label: "Email", type: "email", autoComplete: "email" },
         { name: "password", label: "Password", type: "password", autoComplete: "current-password" },
       ]}
       submit={(v) => api.POST("/auth/login", { body: { email: v.email, password: v.password } })}
+      footer={<p className="text-sm text-muted">Forgot your password? Ask Reed.</p>}
     />
   );
 }
@@ -27,8 +32,8 @@ export function SetupPage() {
         { name: "setup_token", label: "Setup code (from your server settings)", type: "password" },
         { name: "workspace_name", label: "Studio name" },
         { name: "name", label: "Your name", autoComplete: "name" },
-        { name: "email", label: "Email", type: "email", autoComplete: "username" },
-        { name: "password", label: "Password (10 or more characters)", type: "password", autoComplete: "new-password" },
+        { name: "email", label: "Email", type: "email", autoComplete: "email" },
+        { name: "password", label: "Password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
       ]}
       submit={(v) =>
         api.POST("/auth/setup", {
@@ -43,7 +48,7 @@ export function SetupPage() {
       }
       footer={
         <p className="text-sm text-muted">
-          Already set up? <Link className={linkText} to="/login">Sign in</Link>
+          Already set up? <Link className={`${linkText} inline-flex min-h-control items-center`} to="/login">Sign in</Link>
         </p>
       }
     />
@@ -66,34 +71,35 @@ export function InvitePage() {
       return data;
     },
   });
-  if (invite.isPending) return <p className="p-6 text-muted">Checking your invite…</p>;
+  if (invite.isPending) return <Checking />;
   if (invite.isError && !(invite.error instanceof InviteGone))
     return (
-      <main className="mx-auto flex min-h-screen max-w-[432px] flex-col justify-start gap-4 p-4 pt-[20vh] sm:justify-center sm:pt-4">
-        <div className={`${card} space-y-3`}>
-          <h1 className="text-xl font-semibold">Could not check your invite</h1>
-          <p role="alert">{invite.error.message}</p>
-          <button className={`${btnPrimary} min-h-11`} disabled={invite.isFetching} onClick={() => invite.refetch()}>
+      <AuthShell>
+        <Card className="space-y-3 p-5 sm:p-6">
+          <h1 className="type-page">Could not check your invite</h1>
+          <p role="alert">Check your connection and try again.</p>
+          <Button busy={invite.isFetching} onClick={() => invite.refetch()} className="w-full">
             Try again
-          </button>
-        </div>
-      </main>
+          </Button>
+        </Card>
+      </AuthShell>
     );
   if (invite.isError)
     return (
-      <main className="mx-auto flex min-h-screen max-w-[432px] flex-col justify-start gap-4 p-4 pt-[20vh] sm:justify-center sm:pt-4">
-        <div className={`${card} space-y-2`}>
-          <h1 className="text-xl font-semibold">Invite not valid</h1>
+      <AuthShell>
+        <Card className="space-y-3 p-5 text-center sm:p-6">
+          <Link2Off size={24} strokeWidth={1.75} aria-hidden className="mx-auto text-muted" />
+          <h1 className="type-page">Invite not valid</h1>
           <p role="alert">This invite link is not valid any more.</p>
-          <p className="text-muted">Ask whoever invited you to send a new link.</p>
+          <p className="text-sm text-muted">Ask whoever invited you to send a new link.</p>
           <p>
             Already have an account?{" "}
-            <Link className={`${linkText} inline-flex min-h-11 items-center sm:min-h-0`} to="/login">
+            <Link className={`${linkText} inline-flex min-h-control items-center`} to="/login">
               Sign in
             </Link>
           </p>
-        </div>
-      </main>
+        </Card>
+      </AuthShell>
     );
   const i = invite.data;
   return (
@@ -107,9 +113,33 @@ export function InvitePage() {
       submitLabel="Create my account"
       fields={[
         { name: "name", label: "Your name", autoComplete: "name" },
-        { name: "password", label: "Choose a password (10 or more characters)", type: "password", autoComplete: "new-password" },
+        { name: "password", label: "Choose a password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
       ]}
       submit={(v) => api.POST("/auth/accept-invite", { body: { token, name: v.name, password: v.password } })}
+      welcome={(v) => `Welcome to ${i.workspace_name}, ${v.name}.`}
     />
+  );
+}
+
+/** A skeleton card while the link is checked; after a second it says so. */
+function Checking() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 1000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <AuthShell>
+      <Card className="space-y-4 p-5 sm:p-6">
+        <Skeleton className="h-8 w-2/3" />
+        <Skeleton className="h-11" />
+        <Skeleton className="h-11" />
+        {slow && (
+          <p className="text-sm text-muted" role="status">
+            Checking your invite…
+          </p>
+        )}
+      </Card>
+    </AuthShell>
   );
 }

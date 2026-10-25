@@ -34,7 +34,7 @@ afterEach(() => vi.unstubAllGlobals());
 test("with no script yet you can paste one and it is saved as a version", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/script": [404, { detail: "This project has no script yet." }], "PUT /projects/9/script": [200, v1] });
   open();
-  expect(await screen.findByText("No script yet.")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Paste it in" }));
   await userEvent.type(screen.getByLabelText("Your script"), "MIA: Wait… it dipped?");
   await userEvent.click(screen.getByRole("button", { name: "Save script" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/script")).toBe(true));
@@ -47,7 +47,7 @@ test("the script shows line by line with its version, words and source", async (
   const lines = await screen.findByRole("list", { name: "Script text" });
   expect(within(lines).getAllByRole("listitem")).toHaveLength(2);
   expect(within(lines).getByText("MIA: Wait… it dipped?")).toBeInTheDocument();
-  expect(screen.getByText(/v2 · 12 words · uploaded · saved/)).toBeInTheDocument();
+  expect(screen.getByText(/12 words · uploaded · Saved/)).toBeInTheDocument();
 });
 
 test("a document upload becomes a new version, and a refused one shows the reason", async () => {
@@ -67,14 +67,13 @@ test("history lists versions; looking at an old one swaps Edit for Restore, and 
     "PUT /projects/9/script": [200, { ...v1, version: 3 }],
   });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "History" }));
-  await userEvent.click(await screen.findByRole("button", { name: "View v1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Versions" }));
+  await userEvent.click(await screen.findByRole("menuitemradio", { name: /pasted · 3 words/ }));
   expect(await screen.findByText("First draft line")).toBeInTheDocument();
-  expect(screen.getByText(/You are looking at version 1/)).toBeInTheDocument();
-  expect(screen.getByText("Viewing")).toBeInTheDocument();
+  expect(screen.getByText("You're looking at an older version.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Restore this version" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Restored v1 as v3.");
+  expect(await screen.findByRole("status")).toHaveTextContent("Restored an earlier version.");
   expect(calls.filter((c) => c.key === "PUT /projects/9/script").at(-1)?.body).toEqual({ text: "First draft line" });
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /projects/9/script")).toHaveLength(2));
@@ -89,8 +88,8 @@ test("Back to the latest returns to the newest version", async () => {
     "GET /projects/9/script/versions/1": [200, v1],
   });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "History" }));
-  await userEvent.click(await screen.findByRole("button", { name: "View v1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Versions" }));
+  await userEvent.click(await screen.findByRole("menuitemradio", { name: /pasted · 3 words/ }));
   await userEvent.click(await screen.findByRole("button", { name: "Back to the latest" }));
   expect(await screen.findByRole("button", { name: "Edit" })).toBeInTheDocument();
 });
@@ -101,7 +100,7 @@ test("editing saves the new words as the next version", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
   const box = screen.getByLabelText("Your script");
   await userEvent.type(box, " Extra.");
-  await userEvent.click(screen.getByRole("button", { name: "Save as a new version" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save script" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/script")).toBe(true));
   expect(calls.find((c) => c.key === "PUT /projects/9/script")?.body).toEqual({ text: "SCENE 1 — KITCHEN\nMIA: Wait… it dipped? Extra." });
 });
@@ -128,7 +127,7 @@ const draftJob = (o: object) => ({ id: 70, kind: "write-claude", step: "script_d
 test("with no script, Claude can write drafts from the brief, with the cost shown", async () => {
   const calls = fakeServer({ ...none, "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []], "POST /projects/9/script/draft": [201, draftJob({ status: "queued" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Write drafts from the brief · 3 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Write drafts · 3 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/draft")).toBe(true));
 });
 
@@ -143,6 +142,7 @@ test("finished drafts show their hook idea and script, and Use this draft makes 
   const second = await screen.findByLabelText("Draft 2");
   expect(within(second).getByText("Hook idea: A warm open")).toBeInTheDocument();
   expect(within(second).getByText("DEX: Look at that.")).toBeInTheDocument();
+  expect(within(second).getByRole("button", { name: "Show all" })).toBeInTheDocument();
   await userEvent.click(within(second).getByRole("button", { name: "Use this draft" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/drafts/70/2/use")).toBe(true));
 });
@@ -150,14 +150,15 @@ test("finished drafts show their hook idea and script, and Use this draft makes 
 test("while Claude writes drafts the button says so and cannot be pressed twice; a failure says credits came back", async () => {
   fakeServer({ ...none, "GET /jobs": [200, [draftJob({ status: "running" })]], "GET /projects/9/script/drafts": [200, []] });
   open();
-  expect(await screen.findByRole("button", { name: /Claude is writing drafts/ })).toBeDisabled();
+  expect(await screen.findByText(/Writing drafts…/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Write drafts/ })).not.toBeInTheDocument();
 });
 
 test("a failed draft run says credits came back and offers another go", async () => {
   fakeServer({ ...none, "GET /jobs": [200, [draftJob({ status: "failed" })]], "GET /projects/9/script/drafts": [200, []] });
   open();
-  expect(await screen.findByText("Didn't finish · credits returned")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Write drafts from the brief/ })).toBeEnabled();
+  expect(await screen.findByText("The drafts didn't finish.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Write drafts/ })).toBeEnabled();
 });
 
 test("over the project's budget the drafts button asks Reed", async () => {
@@ -166,10 +167,11 @@ test("over the project's budget the drafts button asks Reed", async () => {
   expect(await screen.findByRole("button", { name: "Ask Reed to approve · 3 credits" })).toBeInTheDocument();
 });
 
-test("the paste box comes first and the drafts offer sits below it", async () => {
+test("with no script there are two ways to start, side by side: write it with Claude, or upload your own", async () => {
   fakeServer({ ...none, "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
   open();
-  const paste = await screen.findByLabelText("Script");
-  const drafts = await screen.findByLabelText("Script drafts");
-  expect(paste.compareDocumentPosition(drafts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Write it with Claude" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Upload your own" })).toBeInTheDocument();
+  expect(screen.getByText("Upload a file")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Paste it in" })).toBeInTheDocument();
 });

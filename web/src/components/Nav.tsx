@@ -23,7 +23,7 @@ const text = (s: Step) => (s.state === "stale" ? `${s.label} · out of date` : s
 
 /** Six steps. Desktop: a row joined by lines. Phone: one 44px button opening a sheet. */
 export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: string) => void }) {
-  const phone = useMedia("(max-width: 639px)");
+  const phone = useMedia("(max-width: 1023px)"); // the row of six does not fit below the rail breakpoint
   const uid = useId();
   const [open, setOpen] = useState(false);
   const at = Math.max(0, steps.findIndex((s) => s.state === "current"));

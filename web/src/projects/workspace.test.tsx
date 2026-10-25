@@ -86,7 +86,7 @@ test("the old Enhance and Breakdown addresses open Script and Shots", async () =
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open("?stage=enhance");
   expect(await screen.findByRole("heading", { name: "Script" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Enhance/ })).toBeInTheDocument(); // Enhance now lives inside Script
+  expect(screen.getByRole("button", { name: /Suggest directions/ })).toBeInTheDocument(); // Enhance now lives inside Script
 });
 
 test("a link to a locked step lands on the first unfinished one", async () => {

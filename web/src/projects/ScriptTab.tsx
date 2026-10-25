@@ -4,10 +4,16 @@ import { api, errorText, must } from "../api/client";
 import { DraftsPanel } from "./Drafts";
 import { EnhanceBar, MarkLine, type EnhanceState } from "./Enhance";
 import { useToast } from "../toast";
-import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
+import { Pencil, Upload, History as Versions, FileText } from "lucide-react";
+import { Banner, Button, Card, Menu, MenuItem, buttonClass } from "../components";
+import { errorText as errorClass, input } from "../ui";
 
 const SOURCE = { paste: "pasted", upload: "uploaded", draft: "written by Claude", enhance: "enhanced" } as Record<string, string>;
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+const when = (iso: string) => {
+  const d = new Date(iso);
+  const today = d.toDateString() === new Date().toDateString();
+  return `${today ? "Today" : d.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+};
 
 /** The working (newest) script, or null when there is none yet. */
 export function useLatestScript(projectId: number) {
@@ -53,19 +59,34 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0
     if (!data) throw new Error(errorText(error));
     return data;
   };
-  const save = useMutation({ mutationFn: put, onSuccess: saved });
+  const save = useMutation({
+    mutationFn: async (text: string) => {
+      const before = latest.data?.text;
+      await put(text);
+      return before;
+    },
+    onSuccess: async (before) => {
+      await saved();
+      if (before !== undefined) {
+        toast("Saved.", async () => {
+          await put(before);
+          await saved();
+        });
+      }
+    },
+  });
   // Restoring an old version saves its words as the next version; Undo saves the words we had before.
   const restore = useMutation({
     mutationFn: async (version: number) => {
       const { data } = await api.GET("/projects/{project_id}/script/versions/{version}", { params: { path: { ...path, version } } });
       if (!data) throw new Error("Could not load that version.");
       const before = latest.data?.text ?? "";
-      const made = await put(data.text);
-      return { version, made: made.version, before };
+      await put(data.text);
+      return { before };
     },
-    onSuccess: async ({ version, made, before }) => {
+    onSuccess: async ({ before }) => {
       await saved();
-      toast(`Restored v${version} as v${made}.`, async () => {
+      toast("Restored an earlier version.", async () => {
         await put(before);
         await saved();
       });
@@ -87,110 +108,94 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0
   const viewingOld = viewing !== null && viewing !== current?.version;
   const shown = viewingOld ? old.data : current;
   const uploadButton = (
-    <label className={`inline-flex min-h-11 cursor-pointer items-center sm:min-h-0 ${btnSecondary}`}>
-      {current ? "Upload a new version" : "Upload a document"}
+    <label className={`${buttonClass("secondary")} cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-accent`}>
+      <Upload size={20} strokeWidth={1.75} aria-hidden />
+      {current ? "Upload a new version" : "Upload a file"}
       <input type="file" accept=".txt,.docx,.pdf" className="sr-only" aria-label="Script file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
     </label>
   );
   const problem = save.error ?? upload.error ?? restore.error;
 
-  if (!current || editing !== null) {
+  if (!current && editing === null) {
     return (
       <div className="space-y-4">
-      <section className={`${card} space-y-3`} aria-label="Script">
-        {!current && (
-          <>
-            <p className="text-[length:var(--text-xl)] font-semibold">No script yet.</p>
-            <p className="text-muted">Paste your script, or upload a .txt, .docx or .pdf. Every save is kept as a version.</p>
-          </>
-        )}
-        <label className="block text-sm">
-          <span className="font-medium">Your script</span>
-          <textarea
-            className={`${input} font-script`}
-            rows={14}
-            maxLength={50000}
-            value={editing ?? ""}
-            onChange={(e) => setEditing(e.target.value)}
-            placeholder="Paste your script here"
-          />
-        </label>
-        {problem && <p role="alert" className={errorClass}>{problem.message}</p>}
-        <div className="flex flex-wrap items-center gap-2">
-          <button className={btnPrimary} disabled={save.isPending || !(editing ?? "").trim()} onClick={() => save.mutate(editing ?? "")}>
-            {current ? "Save as a new version" : "Save script"}
-          </button>
-          {current && (
-            <button className={btnSecondary} onClick={() => setEditing(null)}>
-              Cancel
-            </button>
-          )}
-          {!current && uploadButton}
-          {upload.isPending && <span className="text-muted">Reading the document…</span>}
-        </div>
-      </section>
-      {!current && <DraftsPanel projectId={projectId} used={used} budget={budget} />}
+        <DraftsPanel projectId={projectId} used={used} budget={budget}>
+          <Card className="space-y-3">
+            <h2 className="flex items-center gap-2 font-display text-md font-bold">
+              <FileText size={20} strokeWidth={1.75} aria-hidden />
+              Upload your own
+            </h2>
+            <p className="text-sm text-muted">A .txt, .docx or .pdf file, or paste it in. Every save is kept.</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {uploadButton}
+              <Button variant="ghost" onClick={() => setEditing("")}>
+                Paste it in
+              </Button>
+            </div>
+            {upload.isPending && <p className="text-sm text-muted">Reading the document…</p>}
+            {problem && <p role="alert" className={errorClass}>{problem.message}</p>}
+          </Card>
+        </DraftsPanel>
       </div>
     );
   }
+  if (editing !== null) {
+    return (
+      <Card className="space-y-3">
+        <label className="block text-sm">
+          <span className="font-medium">Your script</span>
+          <textarea className={`${input} font-script`} rows={14} maxLength={50000} value={editing} onChange={(e) => setEditing(e.target.value)} placeholder="Paste your script here" />
+        </label>
+        {problem && <p role="alert" className={errorClass}>{problem.message}</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button busy={save.isPending} disabled={!editing.trim()} onClick={() => save.mutate(editing)}>
+            Save script
+          </Button>
+          <Button variant="ghost" onClick={() => setEditing(null)}>
+            Cancel
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+  if (!current) return null;
 
   return (
     <section className="space-y-3" aria-label="Script">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-muted">
-          v{shown?.version} · {shown?.words} words · {SOURCE[shown?.source ?? ""] ?? shown?.source}
-          {shown && shown.version === current.version && " · saved"}
-        </span>
-        <span className="ml-auto flex flex-wrap gap-2">
-          {viewingOld ? (
-            <>
-              <button className={`${btnPrimary} min-h-11 sm:min-h-0`} disabled={restore.isPending} onClick={() => restore.mutate(viewing!)}>
-                Restore this version
-              </button>
-              <button className={`${btnSecondary} min-h-11 sm:min-h-0`} onClick={() => setViewing(null)}>
-                Back to the latest
-              </button>
-            </>
-          ) : (
-            <>
-              <button className={`${btnSecondary} min-h-11 sm:min-h-0`} onClick={() => setEditing(current.text)}>
-                Edit
-              </button>
-              {uploadButton}
-            </>
-          )}
-          <button className={`${btnSecondary} min-h-11 sm:min-h-0`} aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
-            History
-          </button>
+      <div className="flex flex-wrap items-center gap-2">
+        {viewingOld ? (
+          <Banner tone="warning" title="You're looking at an older version." action={<span className="flex flex-wrap gap-2"><Button variant="secondary" busy={restore.isPending} onClick={() => restore.mutate(viewing!)}>Restore this version</Button><Button variant="ghost" onClick={() => setViewing(null)}>Back to the latest</Button></span>} />
+        ) : (
+          <>
+            <Button variant="secondary" icon={Pencil} onClick={() => setEditing(current.text)}>
+              Edit
+            </Button>
+            {uploadButton}
+          </>
+        )}
+        <Menu title="Versions" trigger={(t) => <Button variant="secondary" icon={Versions} {...t} aria-label="Versions" onClick={() => { setShowHistory(true); t.onClick(); }}>Versions</Button>}>
+          {(close) =>
+            (versions.data ?? []).map((v) => (
+              <MenuItem
+                key={v.version}
+                checked={(viewing ?? current.version) === v.version}
+                onClick={() => {
+                  setViewing(v.version === current.version ? null : v.version);
+                  close();
+                }}
+              >
+                {when(v.created_at)} · {SOURCE[v.source] ?? v.source} · {v.words} words
+              </MenuItem>
+            ))
+          }
+        </Menu>
+        <span className="ml-auto text-sm text-muted">
+          {shown?.words} words · {SOURCE[shown?.source ?? ""] ?? shown?.source}
+          {shown && shown.version === current.version && " · Saved"}
         </span>
       </div>
-      {viewingOld && <p className="text-sm text-warning">You are looking at version {viewing}, not the latest.</p>}
       {problem && <p role="alert" className={errorClass}>{problem.message}</p>}
       {upload.isPending && <p className="text-sm text-muted">Reading the document…</p>}
-      {showHistory && (
-        <ul className="divide-y divide-border rounded-md border border-border bg-surface text-sm" aria-label="Script versions">
-          {versions.data?.map((v) => (
-            <li key={v.version} className={`flex flex-wrap items-center gap-3 px-3 py-2 ${viewing === v.version ? "bg-accent-soft" : ""}`}>
-              <span className="flex-1">
-                v{v.version} · {day(v.created_at)} · {SOURCE[v.source] ?? v.source} · {v.words} words
-              </span>
-              {v.version !== current.version &&
-                (viewing === v.version ? (
-                  <span className="font-medium text-accent-text">Viewing</span>
-                ) : (
-                  <>
-                    <button className={linkText} aria-label={`View v${v.version}`} onClick={() => setViewing(v.version)}>
-                      View
-                    </button>
-                    <button className={linkText} aria-label={`Restore v${v.version}`} disabled={restore.isPending} onClick={() => restore.mutate(v.version)}>
-                      Restore
-                    </button>
-                  </>
-                ))}
-            </li>
-          ))}
-        </ul>
-      )}
       {shown?.version === current.version && <EnhanceBar e={enhance} />}
       <ScriptText
         text={shown?.text ?? ""}

@@ -10,14 +10,14 @@ test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("banner")).toBeVisible();
   await page.getByRole("link", { name: "Quick clip" }).click();
-  await expect(page.getByRole("heading", { name: /^Quick clip/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Quick clip", exact: true })).toBeVisible();
 });
 
 test("Generate stays off, and says why, until the prompt is written; then it shows the server's price", async ({ page }) => {
   const generate = page.getByRole("button", { name: /^Generate/ });
   await expect(generate).toBeDisabled();
-  await expect(page.getByText("Describe the clip (8+ characters)")).toBeVisible();
-  await page.getByLabel("Prompt").fill("The cat buys the dip.");
+  await expect(page.getByText("Describe the clip (8 or more characters)")).toBeVisible();
+  await page.getByLabel("What happens").fill("The cat buys the dip.");
   await expect(page.getByRole("button", { name: "Generate · 8 credits" })).toBeEnabled();
   // Never pressed: this server has paid generation switched off, and no test starts a clip.
 });
@@ -37,11 +37,11 @@ test("a screen whose moment the prompt mentions is added, and stays out once rem
   });
   await page.goto(`/b/${brandId}/clip`);
 
-  await page.getByLabel("Prompt").fill("She taps the buy moment and smiles.");
-  await expect(page.getByText("Buy button was added because your prompt mentions buy-moment.")).toBeVisible();
+  await page.getByLabel("What happens").fill("She taps the buy moment and smiles.");
+  await expect(page.getByText("Buy button: added because you mentioned the buy moment.")).toBeVisible();
 
   await page.getByRole("button", { name: "Remove Buy button" }).click();
   await expect(page.getByRole("button", { name: "Remove Buy button" })).toHaveCount(0);
-  await page.getByLabel("Prompt").fill("She taps the buy moment again and again.");
+  await page.getByLabel("What happens").fill("She taps the buy moment again and again.");
   await expect(page.getByRole("button", { name: "Remove Buy button" })).toHaveCount(0);
 });
