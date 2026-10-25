@@ -50,7 +50,7 @@ test("the owner invites someone with a link, and they join", async ({ browser, p
 
   await page.reload();
   await expect(page.getByRole("region", { name: "People" })).toContainText("ed@example.com");
-  await expect(page.getByRole("listitem").filter({ hasText: "ed@example.com" })).toContainText("Editor");
+  await expect(page.getByRole("listitem").filter({ has: page.getByText("ed@example.com", { exact: true }) })).toContainText("Editor");
   await expect(page.getByRole("region", { name: "Waiting invites" })).toHaveCount(0);
 });
 
