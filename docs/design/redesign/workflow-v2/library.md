@@ -51,7 +51,11 @@ This week: 32 of 145 credits (meta, editors only)
 - **Search** matches the title, the description and the words of every version. It waits 300 ms after typing stops. A match inside a script's words shows a third meta line with the matching words in the script font, marked with `bg-mark`.
 - **Defaults:**
   - **Reed:** no filters. Reed sees every script, editors' drafts included (Producer, decision f: private means private from other editors).
-  - **An editor:** a "Your drafts" section at the top (their own unpublished scripts, if any). Under it, the list with **Status: Ready to make** applied.
+  - **An editor:** a "Yours" section at the top, shown whatever the filters say, with two groups:
+    - **Making now:** the versions they've reserved and haven't finished (one row per script, with the version's chip). The chip opens their video at its current step.
+    - **Drafts:** their own unpublished scripts.
+
+    Each group shows only when it has something. Under it, the list with **Status: Ready to make** applied. Without this, a version disappears from an editor's default view as soon as they start it.
 - **Count line:** "24 scripts" (meta), or "3 of 24 scripts" when filtered.
 
 ## Opening a version (the chip)
