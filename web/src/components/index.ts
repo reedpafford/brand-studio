@@ -1,5 +1,5 @@
 export { Badge, type Tone } from "./Badge";
-export { Button, type ButtonProps, type Variant } from "./Button";
+export { Button, buttonClass, type ButtonProps, type Variant } from "./Button";
 export { Card, MediaCard } from "./Card";
 export { creditsLabel, wholeCredits } from "./credits";
 export { Field, Select, TextArea } from "./Field";

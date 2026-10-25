@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -8,9 +8,14 @@ import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useLongest
 type Project = components["schemas"]["ProjectOut"];
 
 /** The brief as it stands, with Edit: cast, flavour, length and the words can change after the project is made. */
-export function BriefEditor({ project, hasScript, onNext }: { project: Project; hasScript: boolean; onNext: () => void }) {
+export function BriefEditor({ project, hasScript, onEditing }: { project: Project; hasScript: boolean; onEditing?: (editing: boolean) => void }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  // The frame hides its Next button while the form is open, so Save brief is the only amber button.
+  useEffect(() => {
+    onEditing?.(editing);
+    return () => onEditing?.(false);
+  }, [editing, onEditing]);
   const [goal, setGoal] = useState(project.goal);
   const [format, setFormat] = useState(project.format);
   const [seconds, setSeconds] = useState(project.planned_seconds);
@@ -72,14 +77,9 @@ export function BriefEditor({ project, hasScript, onNext }: { project: Project; 
             {product.charAt(0).toUpperCase() + product.slice(1)}: {variant}
           </p>
         ))}
-        <div className="flex flex-wrap items-center gap-3">
-          <button className={`${btnPrimary} min-h-11 sm:min-h-9`} onClick={onNext}>
-            Next: Script →
-          </button>
-          <button className={`${linkText} min-h-11 sm:min-h-0`} onClick={startEditing}>
-            Edit brief
-          </button>
-        </div>
+        <button className={`${linkText} min-h-11 sm:min-h-0`} onClick={startEditing}>
+          Edit brief
+        </button>
       </div>
     );
 

@@ -4,7 +4,8 @@ import { useMedia } from "../useMedia";
 import { Button } from "./Button";
 import { Sheet } from "./Overlay";
 
-export type StepState = "done" | "current" | "todo" | "stale";
+/** done ✓, current (amber), open (can be opened, not finished), todo (locked), stale (out of date). */
+export type StepState = "done" | "current" | "open" | "todo" | "stale";
 export type Step = { id: string; label: string; state: StepState; /** why a "todo" step is locked: "Finish Shots first" */ reason?: string };
 
 /** The mark in front of a step: ✓ done, an amber number when current, a warning when out of date. */
