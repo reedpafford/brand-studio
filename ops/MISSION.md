@@ -17,6 +17,7 @@ Done means an editor on the **live site** makes both videos below from brief to 
 
 **B. Iron Paws: Pitbull 1** (`docs/briefs/ironpaws-scripts-2026-10-21.md`).
 - The script word for word, with the right bag shown exactly (the project picks the flavour; Pitbull 1 says peanut butter).
+- Reed makes this one himself on the live site (no full-length agent run of Pitbull 1); that run is the done test for B.
 
 **Getting there.** Day-to-day tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, run through Breakdown → Storyboard → Clips with an estimate first. First two excerpts: Iron Paws "mixed it into my food… peanut butter flavor… finished the bowl" (PB bag), and the fomo trading montage from the altar reel.
 

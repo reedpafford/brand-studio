@@ -47,7 +47,8 @@ as of 56e027a · 2026-10-25 19:15 UTC
 - Clip takes and video (`server/app/routes/project_clips.py`): `POST .../clips/{id}/takes/{take}/pick`, `POST .../clips/{id}/approve`, `POST/GET .../video` (free stitch once every clip is approved); a take is started by the generate route (paid).
 - Storyboard: `POST/GET /projects/{id}/storyboard`, `PUT .../frames/{id}`, `POST .../frames/{id}/render` (paid, refused while frame has problems).
 ## Definition of done (Reed, ops/MISSION.md)
-- An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour).
+- An editor on the live site makes both videos from brief to final cut without agent help, and Reed signs off: (A) fomo altar-rejection reel, same story and dialogue word for word, fomo logo and UI right (numbers free), live-action tag replaced by the CTA; (B) Iron Paws Pitbull 1, script word for word, right bag (project picks the flavour). Reed makes B himself on the live site; no full-length agent run of Pitbull 1.
+- Live site: https://srv2091584.hstgr.cloud, deployed with the server secrets since 2026-10-24, generation on.
 - Tuning uses 15–30 s excerpts at 480p inside the $15/week test cap, with an estimate first.
 - Progress: the first Iron Paws (peanut butter) excerpt ran and Reed approved it (confirmed by the Producer); verdict in DECISIONS.md (#125), fixes merged in #124. The fomo trading montage has run three times; run 3, after #159 and the Home (rich) screen (balance $348,920.15), cost $1.88 and is logged in ops/SPEND.md. Excerpt batch spend is $9.68 (the $8.30 plus one more montage re-run Reed approved). Per the Producer, run 3 shows the payoff balance, the hero in every shot and no speech; Reed has not signed off on video A or B yet. Video A (fomo altar remake, 42 s) ran on main e872e39: $7.26 of Reed's $10 remake budget per ops/SPEND.md (week total $17.22, over the $15 test cap with Reed's approval); a variations eval cost $0.28. Reed's verdict on the remake is not recorded on GitHub yet. A second reel remake (Betty, reel De4ohoJolPe, 50 s) ran with Reed's approval of up to $10: $8.81 total per ops/SPEND.md; week total $26.43. Reed's verdict (ops/DECISIONS.md, #237): both remakes close, neither passed yet; Betty waits for the montage rule. Altar remake v3 (43 s, 480p) then ran on main bd3c8ab with the hook-first and montage-grind rules, reusing the approved sheets: $6.99 per ops/SPEND.md (Reed approved up to $10), week total $33.42. Reed's verdict on v3 is not recorded on GitHub yet.
 ## Workflow v2 (Reed's decisions, 2026-10-25, ops/DECISIONS.md)
@@ -64,9 +65,7 @@ as of 56e027a · 2026-10-25 19:15 UTC
 - Builder-Server: fix #292's allowance hold (give the first step the credits of the whole chain, or count the unqueued steps) and #288's upload order; then land #286, #292, #294. Note from QA on #255: an editor viewing someone else's published script gets 403 from the history route, so the screens must not ask for it.
 - Builder-Screens: fix #289's no-sound message, #293's two must-fixes and #268's sort and count; the rest of the reel import screens (#291).
 - Director: Betty after the montage rule; the reel-import evals per #277; paid runs only with Producer approval, logged in ops/SPEND.md.
-- Producer / Reed: Reed adds the VPS secrets following `deploy/README.md` (per the Producer); Reed's verdict on altar remake v3.
+- Producer / Reed: Reed's verdict on altar remake v3; the altar reel-import test read (Reed approved up to $10, DECISIONS) once #286 lands.
 - Explorer: nightly checks of test and live sites (later).
 ## Blocked / needs Reed
-- Replicate key for the deployed server (later). Keys stay server-side only.
-- Waiting on Reed: the VPS secrets (see `deploy/README.md`), per the Producer.
 - Reed's sign-off on videos A and B is the finish line.
