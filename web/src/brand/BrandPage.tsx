@@ -8,7 +8,7 @@ import { useRail } from "../useMedia";
 import { KitPage } from "./KitPage";
 import { ProductsTab } from "./ProductsTab";
 import { ScreensTab } from "./ScreensTab";
-import { useScreens } from "./screens";
+import { groupProducts, useScreens } from "./screens";
 
 const IDS = ["look", "products", "screens"] as const;
 
@@ -25,7 +25,7 @@ export function BrandPage() {
   const asked = params.get("tab");
   const tab = IDS.find((t) => t === asked) ?? "look";
   const screens = useScreens(Number(brandId));
-  const products = new Set((screens.data ?? []).map((x) => x.product).filter(Boolean)).size;
+  const products = groupProducts(screens.data ?? []).length;
   const tabs = [
     { id: "look", label: "Look" },
     { id: "products", label: "Products", count: screens.data ? products : undefined },

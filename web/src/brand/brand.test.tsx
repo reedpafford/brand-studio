@@ -225,3 +225,10 @@ test("a tile shows its first moment and how many more", async () => {
   renderAt("/b/1/brand?tab=screens");
   expect(await screen.findByText("trading +1")).toBeInTheDocument();
 });
+
+test("the Products tab counts Bag and bag as one product", async () => {
+  const mk = (id: number, product: string, variant: string) => ({ ...bag, id, name: `${variant} ${product}`, product, variant });
+  withScreens([mk(4, "Bag", "Chicken"), mk(5, "bag", "Salmon")]);
+  renderAt("/b/1/brand");
+  expect(await screen.findByRole("tab", { name: /^Products 1$/ })).toBeInTheDocument();
+});
