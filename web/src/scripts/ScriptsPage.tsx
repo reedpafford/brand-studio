@@ -277,7 +277,7 @@ export function ScriptsPage() {
   ) : (
     <div className="flex items-center gap-3">
       {search}
-      <Button variant={active > 0 ? "primary" : "secondary"} onClick={() => setSheet(true)}>
+      <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
         Filters{active > 0 ? ` (${active})` : ""}
       </Button>
     </div>
@@ -287,7 +287,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} />
+          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} refThumb={!!r.reference_id && !!refs.data?.find((x) => x.id === r.reference_id)?.has_thumbnail} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} />
         ))}
       </ul>
     </Card>
@@ -388,13 +388,13 @@ export function ScriptsPage() {
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, narrow, mayOpen, panelTo, ownVideo, meId }: { row: Row; brandName?: string; refName?: string; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number }) {
+function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, panelTo, ownVideo, meId }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number }) {
   const brandId = r.brand_id;
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
     <li className="flex gap-3 p-4 sm:p-5">
       <span aria-hidden className="grid h-[88px] w-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-muted sm:h-[100px] sm:w-16">
-        {r.poster_file_id ? <img src={fileUrl(r.poster_file_id)} alt="" className="size-full object-cover" /> : <FileText size={20} strokeWidth={1.75} />}
+        {r.poster_file_id ? <img src={fileUrl(r.poster_file_id)} alt="" className="size-full object-cover" /> : refThumb ? <img src={`/api/references/${r.reference_id}/thumbnail`} alt="" className="size-full object-cover" /> : <FileText size={20} strokeWidth={1.75} />}
       </span>
       <div className="min-w-0 flex-1 space-y-1">
         <h3 className="font-display text-md font-bold">

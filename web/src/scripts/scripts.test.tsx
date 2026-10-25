@@ -833,3 +833,23 @@ test("an editor's list keeps Title A–Z when a half-made script is added to it,
   expect(titles.indexOf("Alpha half made")).toBeLessThan(titles.indexOf("Zed ready"));
   expect(screen.getByText("2 scripts")).toBeInTheDocument();
 });
+
+test("a row without a finished video uses its reel's thumbnail as the poster", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /references": [200, [{ id: "altar", name: "The altar reel", logline: "", seconds: 45, style: "", brand: "", has_thumbnail: true }]],
+    "GET /scripts": [200, [script({ poster_file_id: null, reference_id: "altar", versions: [v(0, "approved")] })]],
+  });
+  open();
+  await screen.findByRole("heading", { name: "Bo tries salmon" });
+  await vi.waitFor(() => expect(document.querySelector("img[src='/api/references/altar/thumbnail']")).not.toBeNull());
+});
+
+test("the phone's Filters button stays on one line", async () => {
+  fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts?status=done");
+  const button = await screen.findByRole("button", { name: "Filters (1)" });
+  expect(button.className).toMatch(/whitespace-nowrap/);
+  expect(button.className).toMatch(/shrink-0/);
+});
