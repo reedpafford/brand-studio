@@ -138,16 +138,17 @@ def week_start() -> datetime:
     return (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def own_script(db: Session, project: Project) -> bool:
-    """A video made from an editor's own script: it runs on their weekly allowance, not a
-    budget the owner approves (Reed, 2026-10-25)."""
-    if project.script_draft_id is None:
+def own_script(db: Session, project: Project, user: User) -> bool:
+    """A video this editor makes from a script they wrote: it runs on their weekly allowance,
+    not a budget the owner approves (Reed, 2026-10-25). Someone else's script is not theirs."""
+    if user.is_owner or project.script_draft_id is None:
         return False
-    script = db.scalar(
-        select(Script).join(ScriptDraft).where(ScriptDraft.id == project.script_draft_id)
+    author = db.scalar(
+        select(Script.created_by_id)
+        .join(ScriptDraft)
+        .where(ScriptDraft.id == project.script_draft_id)
     )
-    author = db.get(User, script.created_by_id) if script and script.created_by_id else None
-    return bool(author and not author.is_owner)
+    return author == user.id
 
 
 def quick_clip_used(db: Session, user: User) -> Decimal:
@@ -170,7 +171,7 @@ def quick_clip_used(db: Session, user: User) -> Decimal:
 def over_allowance(db: Session, user: User, project: Project | None, credits: Decimal) -> str:
     """Plain words if this job would take an editor past their weekly allowance, else "".
     Past it, their own work is declined, never sent to the owner. Call with the row locked."""
-    if user.is_owner or (project is not None and not own_script(db, project)):
+    if user.is_owner or (project is not None and not own_script(db, project, user)):
         return ""
     allowance = get_limits(db, user.workspace_id).weekly_quick_clip_credits
     if quick_clip_used(db, user) + credits > allowance:
@@ -188,7 +189,7 @@ def needs_approval(db: Session, user: User, project: Project | None, credits: De
     """True if a new job must wait for the owner: an editor's job on a video from the owner's
     scripts (or an older project) that would go over its budget. An editor's own work is
     never held: `over_allowance` declines it instead. Call with the right row locked."""
-    if user.is_owner or project is None or own_script(db, project):
+    if user.is_owner or project is None or own_script(db, project, user):
         return False
     if project.status != ProjectStatus.active:
         return True
