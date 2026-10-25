@@ -26,7 +26,7 @@ This is step 1 before the script exists. The fields are those of the Description
 One column, max 680px.
 1. **Title** (input). Placeholder: "e.g. Bo tries salmon".
 2. **What it's for** (textarea, 4 rows, counter "0 / 2,000"). Helper: "A few lines is enough. Claude writes the script from this."
-3. **Reference reel (optional):** the compact list from new-video.md.
+3. **Reference reel (optional):** two tabs, **From the library** (the compact list from new-video.md) and **Import a reel** (paste an Instagram link or upload a video; see `reel-import.md`).
    - Each row has a 16:9 thumbnail (96px), the name, the logline (2 lines) and the length.
    - Picking a row opens **What to change** (textarea): "For example: the altar becomes a car showroom. Claude keeps the rest of the reel's story."
    - Tap the row again to clear it.
@@ -47,7 +47,7 @@ The amber button is **Create script**, or **Next: Script** once the draft exists
 ## Bulk create (a sheet on phone, a side panel on desktop)
 This is for making many drafts at once. **Nothing is written** until you press Write all (decision g).
 
-**Step 1, Add scripts:** a list of rows, starting with 3 empty rows.
+**Step 1, Add scripts:** a segmented control **Rows · Reel links** at the top. Reel links mode (paste Instagram links, one per line) is in `reel-import.md` §7. In Rows mode: a list of rows, starting with 3 empty rows.
 - Each row has:
   - **Title** (input)
   - **What it's for** (textarea, 2 rows)
