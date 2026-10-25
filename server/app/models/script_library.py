@@ -49,6 +49,20 @@ class ScriptDraft(Entity, Base):
     reserved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # producing it
 
 
+class ScriptDraftText(Entity, Base):
+    """An earlier text of a version, kept when its words were replaced (by hand or by a
+    variations run), so it can be brought back while the version is a draft."""
+
+    __tablename__ = "script_draft_texts"
+    draft_id: Mapped[int] = mapped_column(
+        ForeignKey("script_drafts.id", ondelete="CASCADE"), index=True
+    )
+    text: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    source: Mapped[str] = mapped_column(String(20))  # edit | variations
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+
 class ScriptCastSlot(Entity, Base):
     """A named or recurring role in a script (a main, a mentor, a rival, family), shared by
     every version. Optional; locked = a library character and its approved sheet at lock
