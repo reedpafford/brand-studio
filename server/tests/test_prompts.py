@@ -238,6 +238,18 @@ def test_variations_advice_covers_length_closeness_and_format():
     ]
 
 
+def test_an_echo_repeats_what_was_said_to_his_face():
+    said = "GIRLFRIEND: You're just a loser who doesn't get invited to anything.\n"
+    assert check.echo_lines(said + "GIRLFRIEND (V.O.): Doesn't get invited to anything.") == []
+    assert check.echo_lines(said + "GIRLFRIEND (V.O.): New position can't afford a ticket.") == [
+        "Advice: the echo “New position can't afford a ticket.” calls back to nothing "
+        "Girlfriend said; repeat “You're just a loser who doesn't get invited to anything.”"
+    ]
+    assert check.echo_lines("BRUNO (V.O.): I was the worst dog on the street.") == []  # narrator
+    for step in ("script_draft", "variations"):
+        assert "Echoes repeat what was said." in prompts.system(step)
+
+
 def test_eval_run_print_writes_the_variations_prompt_for_free(tmp_path):
     from evals.run import run_case
     from evals.score import CASES
@@ -884,15 +896,3 @@ def test_an_adapted_montage_keeps_the_references_length():
         prompts.watch_breakdown(watch, transcript, cuts)
     )
     assert "the montage runs about as long as its montage" in prompts.system("breakdown")
-
-
-def test_an_echo_repeats_what_was_said_to_his_face():
-    said = "GIRLFRIEND: You're just a loser who doesn't get invited to anything.\n"
-    assert check.echo_lines(said + "GIRLFRIEND (V.O.): Doesn't get invited to anything.") == []
-    assert check.echo_lines(said + "GIRLFRIEND (V.O.): New position can't afford a ticket.") == [
-        "Advice: the echo “New position can't afford a ticket.” calls back to nothing "
-        "Girlfriend said; repeat “You're just a loser who doesn't get invited to anything.”"
-    ]
-    assert check.echo_lines("BRUNO (V.O.): I was the worst dog on the street.") == []  # narrator
-    for step in ("script_draft", "variations"):
-        assert "Echoes repeat what was said." in prompts.system(step)
