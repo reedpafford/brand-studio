@@ -20,7 +20,7 @@ Builder-Screens builds from this folder. Nothing ships until spacing, alignment,
    - Phone: the action bar fixed above the bottom tabs.
 
    Everything else is secondary (raised panel), ghost (text only) or danger.
-2. **Paid buttons say the price inside the button:** "Make the takes · 8 credits". When the spend needs Reed, the label becomes "Ask Reed to approve · 8 credits". Prices are whole credits; round up, so 67.5 shows as 68.
+2. **Paid buttons say the price inside the button:** "Make the takes · 8 credits". Past a limit, editors never see "Ask Reed" or "Waiting for Reed" (Reed, 2026-10-26): the button is disabled with the reason under it, "That's more than this video's budget." on a library version, or "That's more than this week's 145 free credits. It resets on Monday." on their own script or Quick clips. Reed sees the plain button past a budget; his press is the approval. Prices are whole credits; round up, so 67.5 shows as 68.
 3. **A disabled button always says why,** in muted text on the line under it: "Approve every clip first (2 left)".
 4. **Status is always in words,** with colour as a second signal (badges, see the sheet). Never a coloured dot alone.
 5. **Editors never see dollars.** Dollars appear only on Approvals, for Reed.

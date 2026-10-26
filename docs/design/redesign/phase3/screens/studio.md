@@ -37,7 +37,7 @@ Approvals (page 32)   2 waiting · 135 credits ($11.79) (meta)           [Approv
 ### States
 | State | What shows |
 |---|---|
-| Empty | `Bell` icon. **Nothing waiting.** "When something needs you, editors see "Waiting for Reed to approve" and it shows up here." No button. |
+| Empty | `Bell` icon. **Nothing waiting.** "Editors are never sent here any more: past a budget or their week, their button gives the reason. Requests from before 26 Oct show here until they're handled." No button. |
 | Loading | 2 row skeletons with a preview block. |
 | Error | Danger banner "Couldn't load approvals. Check your connection." **Try again**. A failed approve: toast "Couldn't approve. Nothing was charged. Try again." |
 | Success | Approved rows leave with a 160ms fade; the count in the top bar updates. When the list empties: the empty state plus toast "All done." |
