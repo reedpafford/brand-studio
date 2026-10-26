@@ -48,6 +48,7 @@ Everything this version needs on screen, approved before anything is drawn.
     - Past a limit, an editor sees it disabled with the reason (README rule 2).
     - A step that's free says so in meta beside the button ("Free"), so nothing priced ever looks free, and nothing free looks priced.
   - The Assets step never approves, unapproves or redraws a character that's already in Cast & places. It only picks or swaps one. A shared character's sheet changes on its own page.
+  - **Look check** (as built in #494): when a look's sheet doesn't match the role, a note (`warning-soft`) says so in words: "This look reads as a man in his 50s, but Mia is a woman in her late 20s." Its **Redo it** (secondary dense, `Wand2`) only fills **Change this…** with the problem; the paid **Change it · up to N credits** is still the press that spends. Approve stays available. The same note shows in the library sheet panel. Locked roles don't get it.
   - the badge "Needs a look" (warning) until the role has an approved sheet, either a library character's or this video's own look
 - **Place:** the same as an unlocked role, with 16:9 sheets. A place made here is also for this video only.
 
