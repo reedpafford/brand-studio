@@ -67,6 +67,7 @@ Waiting invites (section)
 - **Waiting invites:** email, role, "expires 31 Oct" (meta), **Copy a new link** (secondary dense, `Copy`, `aria-label="Copy a new link for jo@example.com"`) and **Cancel** (ghost dense). The server keeps only a hash of each link, so the old one can't be shown again: Copy a new link makes a fresh link and copies it, and the old link stops working. The label says so before the press. It becomes "Copied" with `Check` for 2 s, with the toast "Link copied. The old link no longer works."
 - **Invite someone** opens a dialog (sheet on phone): **Email**, **Role** (select: Editor, Owner; Editor first), amber **Create invite link**. Then the dialog shows the link in a read-only field (`aria-label="Invite link"`) with **Copy link** and the meta line "Send this link to them. It works once and expires in 7 days." and **Done** (ghost). No toast while this panel is open: it already says it.
 
+- **Studio name** (Reed only): a field at the top of Team, "Studio name" (filled, e.g. "Reed's studio"), with the meta line "Shown on invite links." and **Save** (secondary dense). It's disabled with "No changes yet" until changed. The toast says "Studio name saved." with **Undo**.
 - **Credit limits** (Reed only, gaps #9): a card above People.
   ```
   Credit limits (section)

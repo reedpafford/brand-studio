@@ -19,6 +19,7 @@ jobs:
   live:
     needs: [server, web, e2e]
     runs-on: ubuntu-latest
+    timeout-minutes: 40  # the first deploy builds everything (~15 min)
     environment: production
     env:
       VPS_HOST: ${{ secrets.VPS_HOST }}

@@ -38,12 +38,14 @@ Everything this version needs on screen, approved before anything is drawn.
 - **Sections:** Cast · Places · Products · App screens. Each is a grid of cards: 3 per row on desktop, 1 per row on phone.
 - **Cast** comes from the script's cast list (writing step 5, Reed #197): one card per role, shared by every version. **Background people** (guests, crowds, extras) aren't listed; they're made inside each scene.
 - **Locked role** (decision e):
-  - the look's sheet (9:16 front), the role and kind ("Mia · Main"), and a badge `Lock` "Locked by Reed"
+  - the look's sheet (9:16 front), the role and kind ("Mia · Main"), and a badge `Lock` "Locked" (an editor can lock roles on their own script, so it doesn't name Reed; as built in #407)
   - already approved, with no buttons
 - **Unlocked role** (as built tonight; Producer, 2026-10-25):
   - the role, the kind, the description (meta, 2 lines), and "In 3 shots"
   - **Use a Cast & places character** (secondary) picks one of the brand's characters for this video. Picking another one swaps it.
-  - **Make a look** (secondary) makes a look for this video only, from the role's name and description (see "Looks for this video only" below). It never adds anything to Cast & places.
+  - **Make a look · N credits** (secondary) makes a look for this video only, from the role's name and description, and draws its sheet in the same press, so the price is inside the button (README rule 2). The card then shows the sheet with **Approve**. See "Looks for this video only" below. It never adds anything to Cast & places.
+    - Past a limit, an editor sees it disabled with the reason (README rule 2).
+    - A step that's free says so in meta beside the button ("Free"), so nothing priced ever looks free, and nothing free looks priced.
   - The Assets step never approves, unapproves or redraws a character that's already in Cast & places. It only picks or swaps one. A shared character's sheet changes on its own page.
   - the badge "Needs a look" (warning) until the role has an approved sheet, either a library character's or this video's own look
 - **Place:** the same as an unlocked role, with 16:9 sheets. A place made here is also for this video only.
