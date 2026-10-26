@@ -27,9 +27,11 @@ def visible(user: User, script: Script) -> bool:
     )
 
 
-def get_script(db: Session, user: User, script_id: int) -> Script:
+def get_script(db: Session, user: User, script_id: int, archived: bool = False) -> Script:
+    """A script the caller may see, or 404. A deleted (archived) one is gone for every route;
+    only Restore asks for it with `archived=True`."""
     script = db.get(Script, script_id)
-    if not script or not visible(user, script):
+    if not script or not visible(user, script) or script.archived != archived:
         raise HTTPException(404, "No such script.")
     return script
 

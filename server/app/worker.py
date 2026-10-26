@@ -200,21 +200,11 @@ def _stored(db: Session, storage: Storage | None, job: Job, file_id: int) -> Sto
     return stored
 
 
-def _files_as_data(db: Session, storage: Storage | None, job: Job, provider=None) -> dict:
+def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
     """The job's input with its file ids (job.input["files"]) turned into data URLs. With
     `fit_images_to`, reference images are scaled down to that long side; `exact_file_ids`
-    (brand screens, products) stay lossless. Files too big for a data URL (a reel's video,
-    job.input["uploads"]) go up through the provider's own file upload first."""
+    (brand screens, products) stay lossless."""
     payload = dict(job.input)
-    for key, ids in (job.input.get("uploads") or {}).items():
-        urls = []
-        for file_id in ids:
-            stored = _stored(db, storage, job, file_id)
-            try:
-                urls.append(provider.upload(storage.get(stored.key), stored.content_type))
-            except NetworkError as exc:  # nothing was started, so trying again is safe
-                raise NotStarted(f"Upload failed: {exc!r}") from exc
-        payload["input"] = {**payload["input"], key: urls}
     max_side = job.input.get("fit_images_to")
     exact = set(job.input.get("exact_file_ids") or [])
     for key, ids in (job.input.get("files") or {}).items():
@@ -259,7 +249,7 @@ def start_next(
     if getattr(provider, "sync", False):  # answers in the same call (e.g. Claude)
         return _run_sync(db, job, provider, storage)
     try:
-        ref = provider.submit(job.kind, _files_as_data(db, storage, job, provider))
+        ref = provider.submit(job.kind, _files_as_data(db, storage, job))
     except NotStarted as exc:
         db.refresh(job)
         if job.attempts < MAX_SUBMIT_TRIES:

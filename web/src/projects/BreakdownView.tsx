@@ -1,4 +1,3 @@
-import { KeepControl, useKeep } from "./Keep";
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
@@ -11,6 +10,9 @@ import { Sheet } from "./Sheet";
 import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User } from "lucide-react";
 import { Badge, Banner, Button, Menu, MenuItem } from "../components";
 import { errorText as errorClass, input } from "../ui";
+import { useMe } from "../auth/useMe";
+import { blocking } from "./problems";
+import { AdviceList, useKeep } from "./Keep";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
 const lines = (n: number[]) => (n.length === 0 ? "" : n.length === 1 ? `line ${n[0]}` : `lines ${Math.min(...n)}–${Math.max(...n)}`);
@@ -123,6 +125,8 @@ export function BreakdownView(props: {
   const [sheetShot, setSheetShot] = useState<string | null>(null);
   const line = props.line;
   const keep = useKeep(projectId, { of: "breakdown" });
+  const owner = useMe().data?.role === "owner";
+  const real = blocking(row.problems); // advice is listed apart, closed
 
   // A line picked in the script brings its shot into view.
   useEffect(() => {
@@ -187,31 +191,33 @@ export function BreakdownView(props: {
     </div>
   );
 
+  const goButton = (p: string, after?: () => void) => {
+    const target = problemTarget(p);
+    return (
+      target && (
+        <Button
+          variant="ghost"
+          dense
+          trailing={ChevronRight}
+          aria-label={`Go to: ${p}`}
+          onClick={() => {
+            after?.();
+            goTo(target);
+          }}
+        >
+          Go to
+        </Button>
+      )
+    );
+  };
   const problemList = (after?: () => void) => (
     <ul className="space-y-1 text-sm">
-      {row.problems.map((p) => {
-        const target = problemTarget(p);
-        return (
-          <li key={p} className="flex items-start gap-2">
-            <span className="flex-1 py-3">{p}</span>
-            <KeepControl problem={p} kept={row.kept} onKeep={keep.mutate} busy={keep.isPending} />
-            {target && (
-              <Button
-                variant="ghost"
-                dense
-                trailing={ChevronRight}
-                aria-label={`Go to: ${p}`}
-                onClick={() => {
-                  after?.();
-                  goTo(target);
-                }}
-              >
-                Go to
-              </Button>
-            )}
-          </li>
-        );
-      })}
+      {real.map((p) => (
+        <li key={p} className="flex items-start gap-2">
+          <span className="flex-1 py-3">{p}</span>
+          {goButton(p, after)}
+        </li>
+      ))}
     </ul>
   );
 
@@ -229,31 +235,32 @@ export function BreakdownView(props: {
       </div>
       {props.failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
       {props.problem}
-      {row.problems.length > 0 && phone && (
+      {real.length > 0 && phone && (
         <>
           <button className="flex min-h-control w-full items-center gap-2 rounded-lg border border-danger bg-danger-soft px-3 text-left text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
             <TriangleAlert size={20} strokeWidth={1.75} aria-hidden />
             <span className="flex-1 font-medium">
-              {row.problems.length} problem{row.problems.length === 1 ? "" : "s"}
+              {real.length} problem{real.length === 1 ? "" : "s"}
             </span>
             <ChevronRight size={20} strokeWidth={1.75} aria-hidden />
           </button>
           {problemsOpen && (
-            <Sheet title={`Problems (${row.problems.length})`} onClose={() => setProblemsOpen(false)}>
+            <Sheet title={`Problems (${real.length})`} onClose={() => setProblemsOpen(false)}>
               {problemList(() => setProblemsOpen(false))}
             </Sheet>
           )}
         </>
       )}
-      {row.problems.length > 0 && !phone && (
+      {real.length > 0 && !phone && (
         <section className="space-y-1 rounded-lg border border-danger bg-danger-soft p-4 text-sm" aria-label="Problems">
           <h3 className="flex items-center gap-2 font-semibold text-danger">
             <TriangleAlert size={20} strokeWidth={1.75} aria-hidden />
-            {row.problems.length} problem{row.problems.length === 1 ? "" : "s"} to fix before the storyboard
+            {real.length} problem{real.length === 1 ? "" : "s"} to fix before the storyboard
           </h3>
           {problemList()}
         </section>
       )}
+      <AdviceList problems={row.problems} kept={row.kept} onKeep={keep.mutate} busy={keep.isPending} owner={owner} extra={(p) => goButton(p)} />
       {bd.hook !== undefined && (
         <p className="text-sm">
           <EditableText value={bd.hook} label="hook" onChange={(v) => change((b) => setHook(b, v))}>

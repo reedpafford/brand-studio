@@ -253,31 +253,3 @@ def test_token_from_env_goes_to_the_api_only(app, owner, db, fake, monkeypatch):
     downloads = [r for r in fake.requests if "replicate.delivery" in str(r.url)]
     assert api and all(r.headers["authorization"] == "Bearer r8_secret" for r in api)
     assert downloads and all("authorization" not in r.headers for r in downloads)
-
-
-def test_a_video_input_goes_up_through_replicate_files_first(app, owner, db):
-    """A reel's video is too big for a data URL: the worker uploads it (free) and the
-    prediction reads it by URL. A failed upload starts nothing, so it is tried again."""
-    gemini = get_model("gemini-3.5-flash")
-    seen, down = [], {"n": 1}
-
-    def handler(request):
-        seen.append(request)
-        if str(request.url) == f"{BASE}/files":
-            if down["n"]:
-                down["n"] -= 1
-                raise httpx.ConnectError("down")
-            return httpx.Response(201, json={"urls": {"get": f"{BASE}/files/f1"}})
-        return httpx.Response(201, json={"id": "g1", "status": "starting"})
-
-    video = owner.post("/files", files={"upload": ("r.mp4", MP4, "video/mp4")}).json()["id"]
-    user = db.get(User, 1)
-    data = {"model": gemini.id, "input": {"prompt": "watch"}, "uploads": {"videos": [video]}}
-    enqueue(db, user, "watch-gemini", data, provider="replicate")
-    provider = ReplicateProvider(BASE, httpx.Client(transport=httpx.MockTransport(handler)))
-    run_once(db, {"replicate": provider}, app.state.storage)
-    assert db.query(Job).one().status == "queued"  # the upload failed: nothing started
-    run_once(db, {"replicate": provider}, app.state.storage)
-    upload, predict = seen[-2:]
-    assert b'name="content"' in upload.content and MP4 in upload.content
-    assert json.loads(predict.content)["input"]["videos"] == [f"{BASE}/files/f1"]

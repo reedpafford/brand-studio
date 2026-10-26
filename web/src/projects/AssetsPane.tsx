@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
@@ -54,6 +54,7 @@ function AssetCard({
   const kind: "place" | "character" =
     asset.kind === "place" ? "place" : "character";
   const queryClient = useQueryClient();
+  const here = useLocation();
   const [pick, setPick] = useState("");
   const id = asset.library_item_id;
   const item = useQuery({
@@ -107,7 +108,7 @@ function AssetCard({
         params: { path: { kind: "character" } },
         body: {
           name: asset.role,
-          notes: "",
+          notes: asset.role, // enough to draw a first look from; its page can say more
           brand_ids: [brandId],
           image_file_ids: [],
           source_photo_file_id: null,
@@ -206,7 +207,7 @@ function AssetCard({
             id !== null &&
             asset.sheet_status !== "approved" && (
               <Link
-                to={`/b/${brandId}/library/${kind === "place" ? "places" : "characters"}/${id}`}
+                to={`/b/${brandId}/library/${kind === "place" ? "places" : "characters"}/${id}?back=${encodeURIComponent(here.pathname + here.search)}`}
                 className="inline-flex min-h-control items-center text-accent-text hover:underline sm:min-h-control-dense"
               >
                 Make its look in Cast &amp; places

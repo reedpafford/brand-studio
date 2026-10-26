@@ -56,9 +56,9 @@ def state(db: Session, script: Script) -> tuple[str, str | None]:
 
 
 def held(db: Session, user: User) -> Decimal:
-    """Credits held for the reel-read steps this person already paid for that aren't queued
-    yet: while a chain step runs, the steps after it. A chain that fails or stops holds
-    nothing, so nothing has to be given back."""
+    """Credits held for steps this person already paid for that aren't queued yet: while a
+    reel-read step runs, the steps after it; while a Write or variations job runs, the cast
+    read after it. A chain that fails or stops holds nothing, so nothing has to be given back."""
     running = (
         select(Script)
         .join(Job, Job.id == Script.reel_job_id)
@@ -69,7 +69,17 @@ def held(db: Session, user: User) -> Decimal:
         job = db.get(Job, script.reel_job_id)
         later = [s for s in remaining(script) if s != job.input.get("reel_step")]
         total += price(db, user, later)
-    return total
+    # Write and variations: the cast read after them, held until it's queued
+    writing = select(Job).where(
+        Job.created_by_id == user.id, Job.status.in_(WAITING), Job.kind == "write-claude"
+    )
+    casts = sum(1 for j in db.scalars(writing) if j.input.get("then_cast"))
+    return total + price(db, user, ["cast"]) * casts
+
+
+def needs_upload(script: Script) -> bool:
+    """Prepared before watch copies existed, so it can't be watched: upload it again."""
+    return "watch" in remaining(script) and not (script.reel or {}).get("watch_file_id")
 
 
 def remaining(script: Script) -> list[str]:
@@ -103,8 +113,9 @@ def watch_input(script: Script) -> dict:
             "prompt": prompts.reel_watch_input(said, shots(reel)),
             "system_instruction": prompts.watch_system(),
         },
-        "files": {"images": [reel["contact_file_id"]]},
-        "uploads": {"videos": [reel["video_file_id"]]},
+        # The small watch copy goes as a data: URL: Replicate file URLs to Gemini fail on and
+        # off (E001), the same video inline works (Producer, 2026-10-25).
+        "files": {"images": [reel["contact_file_id"]], "videos": [reel["watch_file_id"]]},
     }
 
 

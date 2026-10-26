@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -17,6 +18,7 @@ export function useBrandCharacters(brandId: number) {
   return useQuery({
     queryKey: ["library", "character", brandId, false],
     queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "character" }, query: { brand_id: brandId } } })).data ?? [],
+    refetchInterval: (q) => (q.state.data?.some((c) => c.sheet_status === "drawing") ? 3000 : false), // a sheet being drawn
   });
 }
 
@@ -62,4 +64,31 @@ export function useCastActions(scriptId: number) {
     onSuccess: refresh,
   });
   return { add, edit, remove, lock, unlock };
+}
+
+/** Claude finds the script's roles (a paid read). The price is the Claude writing rate; running is polled until it ends. */
+export function useFindRoles(scriptId: number) {
+  const queryClient = useQueryClient();
+  const path = { script_id: scriptId };
+  const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
+  const status = useQuery({
+    queryKey: ["script-cast-read", scriptId],
+    queryFn: async () => (await api.GET("/scripts/{script_id}/cast/read", { params: { path } })).data ?? null,
+    refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
+  });
+  const running = !!status.data?.running;
+  const was = useRef(running);
+  useEffect(() => {
+    if (was.current && !running) void queryClient.invalidateQueries({ queryKey: ["script-cast", scriptId] });
+    was.current = running;
+  }, [running]); // eslint-disable-line react-hooks/exhaustive-deps
+  const start = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/scripts/{script_id}/cast/read", { params: { path } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["script-cast-read", scriptId] }),
+  });
+  return { price: rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit, running: running || start.isPending, problems: status.data?.problems ?? [], start };
 }

@@ -24,6 +24,12 @@ The #179 frame (the one-line phone header, step picker, one Next, Back) with **5
 - **Checks:** the montage check counts hand and screen inserts, and no problem is a dead end.
   - Every problem has **Go to**, plus either a fix in place or **Keep it anyway** (ghost). Keep it anyway marks the problem "Kept · Reed will see it" (meta) and stops it blocking Next.
   - Only the $75 cap blocks for good.
+  - **Advice is shown apart from problems** (Reed, 2026-10-25). This applies to the breakdown, storyboard frames and clips alike.
+    - Problems that need fixing stay as they are: danger rows with **Go to**.
+    - Advice (lines the server marks "Advice: …") goes under one closed disclosure, **Advice (3)**. It's neutral in tone (`text-muted`, `ChevronRight`/`ChevronDown`, no danger colour), sits under the problems, and its count leaves out advice already kept.
+    - Open, each advice line shows without the "Advice: " prefix. It has **Keep anyway** (ghost dense, 44px on phone), and **Go to** when it points at a shot.
+    - A kept line stays in the list, muted, with "Kept" for Reed ("Kept · Reed will see it" for an editor).
+    - Advice never blocks Next. When there are no problems and no advice, nothing shows.
 - **Next: Assets.**
 
 ## 2. Assets (new)
@@ -33,12 +39,13 @@ Everything this version needs on screen, approved before anything is drawn.
 - **Locked role** (decision e):
   - the look's sheet (9:16 front), the role and kind ("Mia · Main"), and a badge `Lock` "Locked by Reed"
   - already approved, with no buttons
-- **Unlocked role:**
+- **Unlocked role** (as built tonight; Producer, 2026-10-25):
   - the role, the kind, the description (meta, 2 lines), and "In 3 shots"
-  - **Make a look · N credits** (secondary): Claude draws a house-style sheet from the role's description, then **Approve** or **Redo** (with "What should change?"), as on the character page
-  - **Use a Cast & places character** (ghost) opens the picker of characters with approved sheets
-  - the badge "Needs a look" (warning) until approved
-  - an approved look is kept for this video only; it doesn't change the script's cast
+  - **Use a Cast & places character** (secondary) picks one of the brand's characters for this video. Picking another one swaps it.
+  - **Make a look** (secondary) makes a new character in Cast & places from the role's name and description, gives it to this video, and opens its sheet panel to draw and approve it. The new character stays in the brand's library for later videos.
+  - The Assets step never approves, unapproves or redraws a character that's already in Cast & places. It only picks, swaps or makes a new one. A shared character's sheet changes on its own page.
+  - the badge "Needs a look" (warning) until the role's character has an approved sheet
+  - Later (gaps #19): a look kept for this video only, which doesn't touch the brand's library.
 - **Place:** the same as an unlocked role, with 16:9 sheets.
 - **Product:** the brand's product picture.
   - For brands with flavours, a flavour picker (cards with the 1:1 picture, as the old brief had). Iron Paws picks its bag here.
@@ -99,7 +106,41 @@ Each clip (section)
   | Error | "The download didn't start. Nothing was lost." **Try again** |
   | Not reachable | Before every clip is approved: "Approve every clip first (1 left)" |
 
+## Release this version, and Archive video (gaps #5)
+Each version is made only once, so a version started by mistake must be able to go back.
+
+**Release this version**
+- **Who:** the editor who reserved it, or Reed. It's only shown while the version is in production (not once it's "Video done").
+- **Where:**
+  - In the video header's `Ellipsis` menu: **Release this version** (`Undo2`).
+  - Also on Reed's In production rows, in a row `Ellipsis` menu.
+- **Confirm** (dialog on desktop, sheet on phone):
+  - Title: "Release version B?"
+  - Body: "It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted. The 84 credits already used stay used."
+  - When nothing was spent, the last sentence is left out.
+  - Buttons: **Release** (danger) / **Keep making it** (ghost).
+- **After:**
+  - The page goes to Scripts. The chip reads "B · Ready to make" again.
+  - Toast: "Version B is ready to make again." with **Undo** (8 s). Undo reserves it for the same person and restores the video at the step it was on.
+  - Starting it again later makes a new video from the version, with Reed's saved breakdown if there is one.
+
+**Archive video**
+- **Who:** Reed on any video. An editor on videos made from their own scripts.
+- **When:** for a video that's "Video done" or made before scripts. (A version still in production is released instead, which archives its video.)
+- **Where:** the video header's `Ellipsis` menu: **Archive video** (`Archive`).
+- **Confirm:**
+  - "Archive "Bo tries salmon · B"? It leaves the lists. Its clips and downloads are kept, and you can restore it."
+  - Buttons: **Archive** (danger) / **Keep it** (ghost).
+- **After:**
+  - Toast: "Archived "Bo tries salmon · B"." with **Undo** (8 s).
+  - A done version keeps its "Video done" chip, because it was made once. The chip opens the archived video read-only, with a banner "Archived" and **Restore** (secondary).
+- **Finding it later:** Usage → a brand → Videos gets the status **Archived**. Each archived row has **Restore**.
+
 ## Data the screens need (server)
+- **Release and archive:**
+  - `POST /projects/{id}/release`: archives the video and puts the version back to Ready to make. It refuses once the version is "Video done".
+  - `POST /projects/{id}/archive` and `POST /projects/{id}/restore`. Restore after a release reserves the version again for the same person, and refuses if someone else has started it since: "Sam started version B again, so this video can't come back."
+  - Archived videos keep every take and file.
 - **The video:** a video made from a version, holding its own copy of the breakdown, plus shape and platform.
 - **Budget:** set when the breakdown is made (twice its estimate, capped at $75). Editors' own scripts are charged to their weekly allowance instead, and refused past it.
 - **Kept problems:** a "keep anyway" flag per breakdown problem.

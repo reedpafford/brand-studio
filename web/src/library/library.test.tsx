@@ -207,11 +207,18 @@ test("a character without a sheet offers to make one, with the server's price, a
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ model_id: "nano-banana-pro", change: "" }));
 });
 
-test("without a photo a character says to upload one", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, source_photo_file_id: null }] });
+test("without a photo or notes a character says to upload one; with notes a sheet can be drawn from them", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, source_photo_file_id: null, notes: "" }] });
   renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("Upload a photo to make a sheet.")).toBeInTheDocument();
+  expect(await screen.findByText("Upload a photo, or add notes, to make a sheet.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Make house-style sheet/ })).not.toBeInTheDocument();
+});
+
+test("a character with notes and no photo can make a sheet from the notes", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, source_photo_file_id: null, notes: "A tired coach in a grey hoodie" }] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("Make a sheet from the notes?")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Make house-style sheet/ })).toBeInTheDocument();
 });
 
 test("while drawing the card says so and offers nothing to press", async () => {

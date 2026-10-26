@@ -8,6 +8,7 @@ import { Badge, Banner, Button, EmptyState, Skeleton } from "../components";
 import { Elapsed } from "../clip/History";
 import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
+import { refName, useRoleNames } from "./names";
 
 const GOING = ["queued", "running", "needs_owner_approval"];
 
@@ -61,12 +62,8 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
     if (finished !== null) queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] });
   }, [finished, projectId, queryClient]);
 
-  const name = (id: string | null) => {
-    if (!id) return "";
-    const [kind, n] = id.split(":");
-    const key = `${kind === "char" ? "character" : kind}-${n}`;
-    return pieces.find((p) => p.key === key)?.name ?? id;
-  };
+  const roles = useRoleNames(projectId);
+  const name = (id: string | null) => (id ? refName(id, pieces, roles) : "");
   if (current.isPending) return <p className="text-muted">Loading…</p>;
   if (current.isError) return <p role="alert" className={errorClass}>Could not load the breakdown. Try again.</p>;
   const row = current.data;

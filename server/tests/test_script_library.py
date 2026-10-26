@@ -1,5 +1,7 @@
 """The Script Library: scripts, versions, approval, publishing and who sees what."""
 
+from datetime import datetime, timedelta
+
 from tests.helpers import assert_hidden, assert_no_dollars
 
 SCRIPT = (
@@ -220,3 +222,62 @@ def test_new_lines_is_set_on_create_and_final_once_version_a_is_approved(owner):
     late = owner.patch(url, json={"new_lines": True})
     assert late.status_code == 409 and "Version A" in late.json()["detail"]
     assert owner.patch(url, json={"title": "Still fine"}).status_code == 200
+
+
+def test_delete_is_undoable_and_restore_gives_back_the_same_script(owner, editor):
+    made = _make(editor, text=SCRIPT)
+    url = f"/scripts/{made['id']}"
+    editor.put(f"{url}/drafts/1", json={"text": SCRIPT + "\nNATE: Fine."})
+    editor.post(f"{url}/cast", json={"role": "Mom"})
+    before = editor.get(url).json()
+    assert editor.delete(url).status_code == 204
+    assert editor.get("/scripts").json() == []  # gone from every list
+    assert editor.post(f"{url}/restore").status_code == 200
+    assert editor.get(url).json() == before
+    assert editor.post(f"{url}/restore").status_code == 404  # not deleted now
+
+
+def test_only_who_may_delete_may_restore(app, owner, editor, db):
+    from tests.test_script_produce import _second_editor
+
+    made = _make(owner, text=SCRIPT)  # Reed's published script: editors see it, can't restore
+    url = f"/scripts/{made['id']}"
+    owner.post(f"{url}/drafts/0/approve")
+    owner.post(f"{url}/publish")
+    owner.delete(url)
+    assert editor.post(f"{url}/restore").status_code == 403
+    assert owner.post(f"{url}/restore").json()["published"] is True  # exactly as it was
+    mine = _make(editor, text=SCRIPT)  # an editor's private draft: another editor can't reach it
+    editor.delete(f"/scripts/{mine['id']}")
+    two, _ = _second_editor(app, owner, db)
+    assert two.post(f"/scripts/{mine['id']}/restore").status_code == 404
+
+
+def test_a_deleted_script_is_gone_for_editors(owner, editor):
+    """QA on #315: once Reed deletes a published script, editors can't open or produce it."""
+    made = _make(owner, text=SCRIPT)
+    url = f"/scripts/{made['id']}"
+    owner.post(f"{url}/drafts/0/approve")
+    owner.post(f"{url}/publish")
+    owner.delete(url)
+    assert editor.get(url).status_code == 404
+    assert editor.post(f"{url}/drafts/0/produce").status_code == 404
+    assert owner.get(url).status_code == 404  # the owner too, until restored
+    owner.post(f"{url}/restore")
+    assert editor.get(url).status_code == 200
+
+
+def test_removed_scripts_have_their_own_list_with_a_purge_date(owner, editor):
+    """Restore from a list, not only the toast: each sees the removed ones they may restore."""
+    mine = _make(editor, title="Mine", text=SCRIPT)
+    reeds = _make(owner, title="Reed's", text=SCRIPT)
+    editor.delete(f"/scripts/{mine['id']}")
+    owner.delete(f"/scripts/{reeds['id']}")
+    assert [s["title"] for s in editor.get("/scripts?removed=1").json()] == ["Mine"]
+    rows = owner.get("/scripts?removed=1").json()
+    assert [s["title"] for s in rows] == ["Reed's", "Mine"]
+    gone, purge = (datetime.fromisoformat(rows[0][k]) for k in ("removed_at", "purge_on"))
+    assert purge - gone == timedelta(days=30)
+    assert owner.get("/scripts").json() == []
+    owner.post(f"/scripts/{reeds['id']}/restore")
+    assert [s["title"] for s in owner.get("/scripts").json()] == ["Reed's"]

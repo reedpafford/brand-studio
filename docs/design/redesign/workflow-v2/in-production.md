@@ -55,13 +55,13 @@ In production (page 32)
 - **Credits:** "380 of 420" tabular, with the dollars in meta after it.
   - At 90% of the budget or more, the credits turn `text-warning`, and the tooltip says "Close to the budget. Going over needs your approval."
   - Over the budget can't happen without Reed's approval. A request waiting on it is on Approvals, not here.
-- **Flag line:** only when the row needs attention. It's a second line under the title with one badge plus its reason (meta), in plain words:
+- **Flag line:** only when the row needs attention. It's a second line under the title with one badge plus its reason (meta), in plain words. The badge says the flag, and the reason beside it doesn't repeat it (as built in #316):
 
   | Flag | Badge | Icon | Reason line |
   |---|---|---|---|
-  | Didn't finish | danger | `CircleAlert` | "Didn't finish · {step}: {the server's words}" e.g. "Clips: take 2 of clip 3 didn't finish. Credits were returned." |
-  | Stuck | warning | `TriangleAlert` | "Stuck · {what's running} for {time}" e.g. "Drawing the frames for 52 min", "Waiting to start for 40 min" |
-  | No activity | warning | `Clock` | "No activity for {n} days" |
+  | Didn't finish | danger | `CircleAlert` | "{step}: {the server's words}" e.g. "Clips: take 2 of clip 3 didn't finish. Credits were returned." |
+  | Stuck | warning | `TriangleAlert` | "{what's running} for {time}" e.g. "Drawing the frames for 52 min", "Waiting to start for 40 min" |
+  | No activity | warning | `Clock` | "Nothing for {n} days" |
 
   What's running uses the job's plain name: "Planning the breakdown", "Making the looks", "Drawing the frames", "Making the takes", "Making the video". Never a job id or a model name.
 - **Filters:** one row, the dense desktop selects used elsewhere.
