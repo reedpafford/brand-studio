@@ -508,7 +508,7 @@ export function AssetsPane({
     );
   return (
     <div className="space-y-6">
-      <AutoLooks projectId={projectId} />
+      <AutoLooks projectId={projectId} toApprove={list.some((a) => a.sheet_status === "needs_approval")} />
       {cast.length > 0 && (
         <section aria-label="Cast" className="space-y-3">
           <h3 className="type-section">Cast</h3>

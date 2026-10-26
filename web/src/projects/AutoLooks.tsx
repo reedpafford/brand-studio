@@ -10,7 +10,7 @@ const names = (roles: string[]) => (roles.length <= 1 ? roles.join("") : `${role
 
 /** Missing looks of main and recurring roles are made on their own (video-flow.md): the price first, a short countdown, Not now to stop it.
  *  It only starts when all of it fits the budget or the editor's week; otherwise the server's reason is shown and the cards keep their own buttons. */
-export function AutoLooks({ projectId }: { projectId: number }) {
+export function AutoLooks({ projectId, toApprove }: { projectId: number; toApprove: boolean }) {
   const queryClient = useQueryClient();
   const [no, setNo] = useState(false);
   const [left, setLeft] = useState(START_IN);
@@ -65,7 +65,7 @@ export function AutoLooks({ projectId }: { projectId: number }) {
   // What was really made and spent comes from the server, and is only said once nothing is still being drawn or checked.
   const done = m.made;
   if (m.slot_ids.length === 0) {
-    if (!done || done.looks === 0) return null;
+    if (!done || done.looks === 0 || (!done.drawing && !toApprove)) return null; // once every look is approved the note stops asking
     const n = `${done.looks} look${done.looks === 1 ? "" : "s"}`;
     return done.drawing ? <Banner tone="info" title={`Making ${n}…`} /> : <Banner tone="info" title={`Made ${n} · ${creditsLabel(done.credits_used)}. Check each one, then approve.`} />;
   }

@@ -679,6 +679,18 @@ test("while the made looks are still being drawn the note does not state a cost 
   expect(screen.queryByText(/Check each one/)).toBeNull();
 });
 
+test("once every look is approved the made note stops asking on later visits", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]],
+    "GET /projects/9/assets/missing-looks": [200, missing({ slot_ids: [], roles: [], made: { looks: 3, credits_used: 7, drawing: false } })],
+  });
+  open();
+  await screen.findByText("Bo");
+  expect(screen.queryByText(/Check each one/)).toBeNull();
+});
+
 test("a look with nothing wrong shows no look-check note", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ look_fit: null })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach" })] });
