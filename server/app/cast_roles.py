@@ -3,7 +3,6 @@ locked ones and those cast at the Assets step. Every model call that sees the ca
 so a shot never gets the wrong person (Reed, "Turned down in Paris": the rich older man
 showed up in Nate's proposal). A deterministic check and fix use the same map."""
 
-import math
 import re
 from decimal import Decimal
 
@@ -199,7 +198,7 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
     from fastapi import HTTPException
 
     from app import storyboard
-    from app.credits import credits_left, credits_used, estimate, own_script
+    from app.credits import credits_left, credits_used, estimate, own_script, price
     from app.routes.jobs import enqueue
 
     if not frames:
@@ -224,11 +223,11 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
         fits = credits_used(db, project) + total <= project.budget_credits
         why = "would go over this video's budget."
     if not fits:
-        shown = max(1, math.ceil(total))  # rounded up, as the button shows it
-        price = "1 credit" if shown == 1 else f"{shown} credits"
+        shown = price(total)  # as the button shows it
+        said = "1 credit" if shown == 1 else f"{shown} credits"
         reason = (
             f"Frames rewritten for the new cast. {stills} the old cast: "
-            f"redrawing {'it' if n == 1 else 'them'} ({price}) {why}"
+            f"redrawing {'it' if n == 1 else 'them'} ({said}) {why}"
         )
         result = {"redraw_refused": {"count": n, "credits": float(total), "reason": reason}}
         project.cast_redraw = result

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, change, storyboard
+from app import advice, change, credits, storyboard
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -210,7 +210,7 @@ def change_price(
     db: Session = Depends(get_db),
 ):
     project, frame = _frame(db, user, project_id, frame_id)
-    return PriceOut(credits=change.shown(change.credits(db, project, frame)))
+    return PriceOut(credits=credits.price(change.credits(db, project, frame)))
 
 
 @router.post(
