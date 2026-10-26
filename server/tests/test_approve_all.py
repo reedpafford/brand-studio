@@ -31,12 +31,14 @@ def test_approve_all_frames_and_undo(app, db, editor, setup):  # noqa: F811
     no_still = frame()
     problem = frame(file_id=upload(editor), problems=["More references than the model keeps"])
     earlier = frame(file_id=upload(editor), approved=True)
+    recast = frame(file_id=upload(editor), still_stale=True)  # shows the old cast
     url = f"/projects/{pid}/storyboard"
     done = editor.post(f"{url}/approve-all").json()
     assert done == {
         "approved": [ready, advised],
         "skipped": [{"id": no_still, "reason": "no still yet"},
-                    {"id": problem, "reason": "has a problem to fix"}],
+                    {"id": problem, "reason": "has a problem to fix"},
+                    {"id": recast, "reason": "still is out of date, Redo it first"}],
     }  # fmt: skip
     shown = {f["id"]: f["approved"] for f in editor.get(url).json()}
     assert shown[ready] and shown[advised] and not shown[no_still] and shown[earlier]
