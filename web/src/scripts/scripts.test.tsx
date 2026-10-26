@@ -1028,3 +1028,33 @@ test("a step that failed twice says how often it has been tried before the next 
   expect(await screen.findByText("Watching the reel didn't finish. Nothing more was charged; try again.")).toBeInTheDocument();
   expect(screen.getByText(/It has been tried 2 times already\./)).toBeInTheDocument();
 });
+
+test("an imported reel's Description shows the Title box straight away and saves a new title", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, full({ title: "Untitled reel" })],
+    "GET /scripts/7/import": [200, reelOut({ estimate: est(7) })],
+    "PATCH /scripts/7": [200, full({ title: "Bo's salmon reel" })],
+  });
+  open("/b/1/scripts/7");
+  const title = await screen.findByRole("textbox", { name: "Title" });
+  expect(title).toHaveValue("Untitled reel");
+  expect(screen.queryByRole("button", { name: "Save title" })).not.toBeInTheDocument();
+  await userEvent.clear(title);
+  await userEvent.type(title, "Bo's salmon reel");
+  await userEvent.click(screen.getByRole("button", { name: "Save title" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ title: "Bo's salmon reel" }));
+});
+
+test("while a paid reel read runs, the Script step shows Reading the reel with the time it has taken", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /scripts/7": [200, full()],
+    "GET /scripts/7/import": [200, reelOut({ status: "reading", steps_done: [], estimate: est(7) })],
+    "GET /jobs": [200, [{ id: 5, kind: "write-claude", status: "running", script_id: 7, created_at: new Date(Date.now() - 70_000).toISOString() }]],
+  });
+  open("/b/1/scripts/7?step=script");
+  expect(await screen.findByText(/Reading the reel… 1m \d+s/)).toBeInTheDocument();
+});

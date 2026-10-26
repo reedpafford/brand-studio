@@ -247,6 +247,29 @@ def test_variations_advice_covers_length_closeness_and_format():
     ]
 
 
+def test_an_echo_repeats_what_was_said_to_his_face():
+    said = "GIRLFRIEND: You're just a loser who doesn't get invited to anything.\n"
+    assert check.echo_lines(said + "GIRLFRIEND (V.O.): Doesn't get invited to anything.") == []
+    assert check.echo_lines(said + "GIRLFRIEND (V.O.): New position can't afford a ticket.") == [
+        "Advice: the echo “New position can't afford a ticket.” calls back to nothing "
+        "Girlfriend said; repeat “You're just a loser who doesn't get invited to anything.”"
+    ]
+    assert check.echo_lines("BRUNO (V.O.): I was the worst dog on the street.") == []  # narrator
+    lines = [
+        "You're just a loser who doesn't get invited to anything.",
+        "New position doesn't get invited to anything.",
+        "Sorry, I don't get invited to anything.",
+    ]  # the callback is no mishearing
+    heard = [{"start": n, "end": n + 1, "text": t} for n, t in enumerate(lines)]  # fmt: skip
+    assert check.misheard(heard) == [
+        "Advice: “New position doesn't get invited to anything.” ends like “You're just a loser "
+        "who doesn't get invited to anything.”; if it echoes it, the transcript may have misheard "
+        "the start"
+    ]
+    for step in ("script_draft", "variations"):
+        assert "Echoes repeat what was said." in prompts.system(step)
+
+
 def test_eval_run_print_writes_the_variations_prompt_for_free(tmp_path):
     from evals.run import run_case
     from evals.score import CASES
