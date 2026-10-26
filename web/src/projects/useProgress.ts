@@ -42,7 +42,7 @@ export function useProgress(projectId: number) {
   const c = clips.data ?? [];
   const progress: Progress = {
     script: !!script.data,
-    shots: { made: !!bd, stale: !!bd?.stale, problems: blocking(bd?.problems ?? []).length },
+    shots: { made: !!bd, stale: !!bd?.stale, problems: blocking(bd?.problems ?? [], bd?.kept ?? []).length },
     frames: { total: f.length, approved: f.filter((x) => x.approved).length, stale: f.some((x) => x.stale) },
     clips: { total: c.length, approved: c.filter((x) => x.approved).length, stale: c.some((x) => x.stale) },
     video: { made: !!video.data, outOfDate: !!video.data?.out_of_date },
