@@ -283,18 +283,18 @@ test("a back link to somewhere else is ignored", async () => {
   expect(await screen.findByRole("link", { name: "← Characters" })).toHaveAttribute("href", "/b/1/library/characters");
 });
 
-test("a sheet held for the owner says Waiting for Reed to approve, not Drawing, and offers nothing to press", async () => {
+test("a sheet held from before the limits changed says Not started, not Drawing, and offers nothing to press", async () => {
   fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_status: "waiting_for_owner" }] });
   renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("Waiting for Reed to approve")).toBeInTheDocument();
+  expect(await screen.findByText("Not started")).toBeInTheDocument();
   expect(screen.queryByText(/Drawing/)).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Make house-style sheet|Ask Reed|Approve|Redo/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Make house-style sheet|Approve|Redo/ })).not.toBeInTheDocument();
 });
 
 test("past an editor's weekly allowance the sheet button is off and says why", async () => {
   fakeServer({ ...sheetBase, "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }], "GET /library/character/5": [200, sheetItem] });
   renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("You've used this week's 145 credits. It resets Monday.")).toBeInTheDocument();
+  expect(await screen.findByText("You've used this week's 145 credits. It resets on Monday.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make house-style sheet · 1.5 credits" })).toBeDisabled();
 });
 

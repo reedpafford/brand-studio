@@ -68,7 +68,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
   });
-  const stopFor = useOwnScriptStop(props.ownScript);
+  const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget });
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
@@ -158,8 +158,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   if (clips.isPending || frames.isPending) return <p className="text-muted">Loading…</p>;
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
   const list = clips.data;
-  // On an editor's own script the weekly allowance decides, with the reason; nobody is asked to approve.
-  const over = (cost: number | undefined) => !props.ownScript && cost !== undefined && props.used + cost > props.budget;
+  // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${Math.round(n)} credits`);
   const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error ?? promptOk.error;
   const takeCost = (c: Clip) => c.take_credits;
@@ -172,7 +171,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
   const writeCost = rate("write-claude");
-  const declined = stopFor(writeCost) ?? stopFor(allCost);
+  const declined = stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
 
   if (writingNow)
     return (
@@ -188,7 +187,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
         <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending || !!stopFor(writeCost)} onClick={() => write.mutate()}>
-          {over(writeCost) ? "Ask Reed to approve" : "Write clip prompts"}
+          Write clip prompts
           {price(writeCost)}
         </button>
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
@@ -210,7 +209,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
               for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
             }}
           >
-            {over(allCost) ? "Ask Reed to approve" : props.review ? "Make the takes" : "Make missing"}
+            {props.review ? "Make the takes" : "Make missing"}
             {price(allCost)}
           </button>
         )}
@@ -243,7 +242,6 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
               showPrompt={!!props.review && c.takes.length === 0}
               brandId={props.brandId}
               cost={takeCost(c)}
-              over={over(takeCost(c))}
               stopped={!!stopFor(takeCost(c))}
               onGenerate={(note) => generate.mutate({ clip: c, note })}
               onPick={(take) => review.mutate({ clip: c, take })}
@@ -274,7 +272,6 @@ function ClipCard(props: {
   onUndoLooksGood: () => void;
   brandId: number;
   cost: number | undefined;
-  over: boolean;
   stopped: boolean;
   onGenerate: (note?: string) => void;
   onPick: (takeId: number) => void;
@@ -290,7 +287,7 @@ function ClipCard(props: {
   const [note, setNote] = useState<string | null>(null);
   const failed = props.job?.status === "failed";
   const status = c.approved ? "Approved" : props.busy ? null : failed ? "Failed · credits returned" : c.stale ? "Made for an older breakdown" : c.file_id ? "Ready" : "Not made";
-  const verb = props.over ? "Ask Reed to approve" : c.takes.length === 0 ? "Make clip" : "Make another take";
+  const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
   const price = props.cost === undefined ? "" : ` · ${Math.round(props.cost)} credits`;
   const picked = c.takes.find((t) => t.id === c.picked_take_id);
   return (
@@ -357,7 +354,7 @@ function ClipCard(props: {
                 setNote(null);
               }}
             >
-              {props.over ? "Ask Reed to approve" : "Redo"}
+              Redo
               {price}
             </button>
             <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={() => setNote(null)}>
