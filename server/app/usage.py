@@ -198,13 +198,13 @@ def what(db: Session, job: Job) -> str:
         if step == "clip_take" and clip:
             return f"Clip {clip.clip_id.lstrip('c')} take · {title}"
         return f"{STEPS.get(step, 'Video')} · {title}"
-    if job.input.get("script_id"):
-        script = db.get(Script, job.input["script_id"])
-        return f"{STEPS.get(step, 'Script')} · {script.title}" if script else STEPS.get(step, "")
-    if job.input.get("script_draft_id"):
+    if job.input.get("script_draft_id"):  # before script_id, which a preview has too
         draft = db.get(ScriptDraft, job.input["script_draft_id"])
         script = db.get(Script, draft.script_id) if draft else None
         return f"Breakdown preview · {script.title}" if script else "Breakdown preview"
+    if job.input.get("script_id"):
+        script = db.get(Script, job.input["script_id"])
+        return f"{STEPS.get(step, 'Script')} · {script.title}" if script else STEPS.get(step, "")
     return STEPS.get(step, "Quick clip")
 
 

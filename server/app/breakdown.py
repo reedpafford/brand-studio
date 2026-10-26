@@ -115,6 +115,7 @@ def save_breakdown(db: Session, job: Job) -> None:
             db.get(ScriptDraft, draft_id),
             Breakdown.model_validate(job.output),
             job.created_by_id,
+            job.input.get("script_text"),
         )
         return
     project = db.get(Project, job.input["project_id"])

@@ -32,12 +32,16 @@ def test_preview_runs_on_the_version_with_its_cast_and_saves(app, db, owner):
         "problems": [],
         "seconds": 0,
         "running": False,
+        "kept": [],
+        "stale": False,
     }
     assert owner.get(f"{url}/estimate").json()["credits"] == 3
     job = owner.post(url)
     assert job.status_code == 201, job.text
     assert owner.post(url).status_code == 409  # one at a time
-    prompt = db.get(Job, job.json()["id"]).input["prompt"]
+    sent = db.get(Job, job.json()["id"]).input
+    assert (sent["script_id"], sent["script_text"]) == (made["id"], SCRIPT)  # JobOut.script_id
+    prompt = sent["prompt"]
     assert f"char:{mia.json()['id']} | Mia" in prompt  # locked slot: its character
     assert f"slot:{nate['id']} | Nate | teen (no look yet)" in prompt  # unlocked slot
     assert "<reference>" in prompt and "1| SCENE 1" in prompt
@@ -82,3 +86,20 @@ def test_a_version_shows_its_estimate_clips_planner_and_original(owner, db):
     first = owner.get(base).json()["versions"][0]
     assert first["clips"] == len(BREAKDOWN["clips"]) and first["planned_by"]["name"] == "Reed"
     assert first["estimate_credits"] == sum(c["seconds"] for c in BREAKDOWN["clips"])
+
+
+def test_a_plan_goes_stale_when_the_words_change_and_its_advice_can_be_kept(owner, db):
+    from app.models.script_library import ScriptDraft
+
+    made = _make(owner, text=SCRIPT)
+    url = f"/scripts/{made['id']}/drafts/0/breakdown"
+    saved = owner.put(url, json=BREAKDOWN).json()
+    assert (saved["stale"], saved["kept"]) == (False, [])
+    advice = "Advice: shot 2 runs a little long for its words"
+    db.query(ScriptDraft).update({"breakdown_problems": [advice]})
+    db.commit()
+    assert owner.post(f"{url}/keep", json={"problem": advice}).json()["kept"] == [advice]
+    assert owner.delete(f"{url}/keep", params={"problem": advice}).json()["kept"] == []
+    owner.put(f"/scripts/{made['id']}/drafts/0", json={"text": SCRIPT + "\nMOM: Fine."})
+    assert owner.get(url).json()["stale"] is True  # planned from the old words
+    assert owner.put(url, json=BREAKDOWN).json()["stale"] is False  # saved again: current

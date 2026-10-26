@@ -65,7 +65,9 @@ def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict |
     parts.append(f"<script>\n{escape(prompts.number_lines(draft.text))}\n</script>")
     return {
         "step": "breakdown",
+        "script_id": script.id,  # Publish and Write wait for it, as for other script steps
         "script_draft_id": draft.id,
+        "script_text": draft.text,
         "system": system,
         "prompt": "\n".join(parts),
         "max_tokens": 32000,
@@ -88,7 +90,12 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
     return found + unknown
 
 
-def save(db: Session, draft: ScriptDraft, bd: Breakdown, by_id: int | None = None) -> None:
+def save(
+    db: Session, draft: ScriptDraft, bd: Breakdown, by_id: int | None = None, text=None
+) -> None:
+    """A new plan for the version, from `text` (the words it was made from; the version's
+    own by default). Advice kept on the old plan doesn't carry over."""
     script = db.get(Script, draft.script_id)
     draft.breakdown, draft.breakdown_by_id = bd.model_dump(), by_id
+    draft.breakdown_text, draft.breakdown_kept = draft.text if text is None else text, []
     draft.breakdown_problems = problems(db, script, draft, bd)
