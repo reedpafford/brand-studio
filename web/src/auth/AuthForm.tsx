@@ -6,7 +6,7 @@ import { errorText } from "../api/client";
 import { Banner, Button, Card, Field as TextField } from "../components";
 import { useToast } from "../toast";
 
-export type Field = { name: string; label: string; type?: string; autoComplete?: string; /** A password counter: turns green at this many characters. */ minLength?: number };
+export type Field = { name: string; label: string; /** Plain help under the field. */ hint?: string; type?: string; autoComplete?: string; /** A password counter: turns green at this many characters. */ minLength?: number };
 type Me = { id: number };
 type Result = { data?: Me; error?: unknown; response?: { status: number } };
 
@@ -105,7 +105,7 @@ export function AuthForm(props: {
             f.type === "password" && f.name !== "setup_token" ? (
               <PasswordField key={f.name} field={f} value={values[f.name] ?? ""} onChange={(v) => set(f.name, v)} disabled={mutation.isPending} />
             ) : (
-              <TextField key={f.name} label={f.label} type={f.type ?? "text"} autoComplete={f.autoComplete} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
+              <TextField key={f.name} label={f.label} hint={f.hint} type={f.type ?? "text"} autoComplete={f.autoComplete} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
             ),
           )}
           {mutation.isError && !(mutation.error instanceof Throttled) && <Banner title={mutation.error.message} />}
