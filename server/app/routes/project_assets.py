@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import breakdown
+from app import breakdown, cast_roles
 from app.auth import current_user
 from app.db import get_db
 from app.enhance import project_screens, screen_name
@@ -153,15 +153,17 @@ def cast_slot(
                 text = text.replace(before, f'"char:{item.id}"')
         new = Breakdown.model_validate(json.loads(text))
         script = latest(db, project)
-        db.add(
-            BreakdownVersion(
-                project_id=project.id,
-                script_version=bd.script_version,
-                source="edit",
-                data=new.model_dump(),
-                problems=breakdown.problems(db, project, script.text if script else "", new),
-                created_by_id=user.id,
-            )
+        row = BreakdownVersion(
+            project_id=project.id,
+            script_version=bd.script_version,
+            source="edit",
+            data=new.model_dump(),
+            problems=breakdown.problems(db, project, script.text if script else "", new),
+            created_by_id=user.id,
         )
+        db.add(row)
+        db.flush()
+        # Frames follow the new look for free; stills of the old one are redrawn if covered.
+        cast_roles.redraw(db, project, user, cast_roles.carry_frames(db, project, bd, row))
     db.commit()
     return list_assets(project_id, user, db)

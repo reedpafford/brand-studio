@@ -1758,6 +1758,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/breakdown/fix-cast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fix Plan Cast
+         * @description Put the right cast in each shot of the version's plan (free, no model call). Undo
+         *     saves the old plan back with PUT.
+         */
+        post: operations["fix_plan_cast_scripts__script_id__drafts__slot__breakdown_fix_cast_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/drafts/{slot}/produce": {
         parameters: {
             query?: never;
@@ -2176,6 +2197,28 @@ export interface paths {
          * @description Undo Keep anyway on the newest breakdown's advice (?problem=, the text as shown).
          */
         delete: operations["unkeep_advice_projects__project_id__breakdown_keep_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/breakdown/fix-cast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fix Cast
+         * @description Put the right cast in each shot (free, no model call): a shot whose lines name a role
+         *     but show another role's character gets that role's character instead. Saved as a new
+         *     breakdown version, so stills and clips from the old one are made again.
+         */
+        post: operations["fix_cast_projects__project_id__breakdown_fix_cast_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2885,6 +2928,17 @@ export interface components {
             kept: string[];
             /** Stale */
             stale: boolean;
+            /**
+             * Changed Shots
+             * @default []
+             */
+            changed_shots: {
+                [key: string]: unknown;
+            }[];
+            /** Cast Redraw */
+            cast_redraw?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * BulkIn
@@ -3137,6 +3191,14 @@ export interface components {
             approved: boolean;
             /** Stale */
             stale: boolean;
+            /** Still Stale */
+            still_stale: boolean;
+            /** Redrawn */
+            redrawn: boolean;
+            /** Earlier */
+            earlier: {
+                [key: string]: unknown;
+            }[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3751,6 +3813,13 @@ export interface components {
              * @default false
              */
             stale: boolean;
+            /**
+             * Changed Shots
+             * @default []
+             */
+            changed_shots: {
+                [key: string]: unknown;
+            }[];
         };
         /** ProduceOut */
         ProduceOut: {
@@ -3937,6 +4006,10 @@ export interface components {
             archived_at?: string | null;
             /** Finished At */
             finished_at?: string | null;
+            /** Cast Redraw */
+            cast_redraw?: {
+                [key: string]: unknown;
+            } | null;
             /** Poster File Id */
             poster_file_id?: number | null;
             /** Step */
@@ -8741,6 +8814,38 @@ export interface operations {
             };
         };
     };
+    fix_plan_cast_scripts__script_id__drafts__slot__breakdown_fix_cast_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     produce_scripts__script_id__drafts__slot__produce_post: {
         parameters: {
             query?: never;
@@ -9517,6 +9622,37 @@ export interface operations {
             query: {
                 problem: string;
             };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fix_cast_projects__project_id__breakdown_fix_cast_post: {
+        parameters: {
+            query?: never;
             header?: never;
             path: {
                 project_id: number;

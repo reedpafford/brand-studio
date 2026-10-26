@@ -49,6 +49,9 @@ class FrameOut(BaseModel):
     file_id: int | None  # the newest still; the old one stays until a new one is ready
     approved: bool  # cleared when the frame is edited, re-rendered or goes stale
     stale: bool  # made from an older breakdown, or the breakdown is for an older script
+    still_stale: bool  # the still shows the old cast (its redraw wasn't covered): "Out of date"
+    redrawn: bool  # redrawn for a new cast and not approved yet: "Redrawn"
+    earlier: list[dict]  # older stills, newest last: [{file_id, prompt}]
 
 
 def _newest_breakdown(db: Session, project: Project) -> BreakdownVersion | None:
@@ -164,6 +167,9 @@ def render(
     project, frame = _frame(db, user, project_id, frame_id)
     if advice.blocking(frame.problems):
         raise HTTPException(409, "Fix this frame's problems first.")
+    if wrong := advice.open_cast(_newest_breakdown(db, project)):
+        detail = wrong[0].removeprefix(advice.CAST)
+        raise HTTPException(409, f"Put the right cast in each shot first: {detail}.")
     if _stale(db, project, frame):
         raise HTTPException(
             409, "This frame was made for an older breakdown. Make the storyboard again first."
@@ -194,7 +200,7 @@ def approve(
         raise HTTPException(409, "Draw this frame first.")
     if _stale(db, project, frame):
         raise HTTPException(409, "This frame was made for an older breakdown.")
-    frame.approved = True
+    frame.approved, frame.redrawn = True, False  # the "Redrawn" badge goes once approved
     db.commit()
     return _out(db, project, frame)
 

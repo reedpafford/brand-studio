@@ -34,6 +34,8 @@ def stand_in_project(
         product_variants={},
         reference_breakdown=reference,
         reference_replace=script.reference_replace,
+        script_draft_id=draft.id,  # never saved; lets the cast lines name each role
+        slot_cast={},
     )
 
 
@@ -90,7 +92,7 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
         for p in breakdown.unknown_ids(db, project, bd)
         if p.split("unknown ")[-1] not in known_slots
     ]
-    return found + unknown
+    return found + unknown + breakdown.cast_problems(db, project, draft.text, bd)
 
 
 def save(

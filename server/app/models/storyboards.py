@@ -20,3 +20,6 @@ class StoryboardFrame(Entity, Base):
     kept: Mapped[list[str]] = mapped_column(JSON, default=list)  # "Advice: …" kept anyway
     file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # the rendered still
     approved: Mapped[bool] = mapped_column(default=False)  # cleared on edit or a new still
+    still_stale: Mapped[bool] = mapped_column(default=False)  # the still shows the old cast
+    redrawn: Mapped[bool] = mapped_column(default=False)  # redrawn for a new cast, not approved
+    earlier: Mapped[list[dict]] = mapped_column(JSON, default=list)  # [{file_id, prompt}]

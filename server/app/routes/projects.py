@@ -88,6 +88,9 @@ class ProjectOut(BaseModel):
     own_script: bool = False  # from a script the viewer wrote: it runs on their weekly allowance
     archived_at: datetime | None = None  # put away; POST .../unarchive brings it back
     finished_at: datetime | None = None  # "Video done": the whole video was downloaded
+    # The last still redraw after a cast change, for the Storyboard note: {"redrawn_for_cast":
+    # {count, credits}} or {"redraw_refused": {count, credits, reason}}.
+    cast_redraw: dict | None = None
     # On the Videos list: its newest still (null before any), and its step as In production
     # names it, or "done" once finished.
     poster_file_id: int | None = None
@@ -139,6 +142,7 @@ def _out(db: Session, project: Project, user: User) -> ProjectOut:
         own_script=own_script(db, project, user),
         archived_at=project.archived_at,
         finished_at=project.finished_at,
+        cast_redraw=project.cast_redraw,
     )
 
 
