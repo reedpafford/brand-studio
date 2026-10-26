@@ -2673,8 +2673,8 @@ export interface paths {
         get?: never;
         /**
          * Edit Clip
-         * @description Edit a clip's prompt or references; its problems are checked again. Saving an edit
-         *     counts as reading it (Looks good).
+         * @description Edit a clip's prompt or references; the cast's sheets are added if missing and its
+         *     problems are checked again. Saving an edit counts as reading it (Looks good).
          */
         put: operations["edit_clip_projects__project_id__clips__clip_id__put"];
         post?: never;

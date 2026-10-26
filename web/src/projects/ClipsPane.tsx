@@ -16,6 +16,7 @@ import { AdviceList, useKeep } from "./Keep";
 import { useProblemWords } from "./ProblemText";
 import { useMe } from "../auth/useMe";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
+import { useApproveAll } from "./ApproveAll";
 import { RewriteNote, RewriteOne } from "./RewriteClips";
 
 type Clip = components["schemas"]["ProjectClipOut"];
@@ -164,6 +165,15 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     },
     onSuccess: refresh, // the take and its approval stay; only the finished video goes out of date
   });
+  const rows = clips.data ?? [];
+  const approveAll = useApproveAll({
+    projectId,
+    kind: "clips",
+    noun: "clip",
+    rows,
+    ready: rows.filter((c) => c.picked_take_id !== null && !c.approved && !c.stale && blocking(c.problems).length === 0).length,
+    waiting: rows.filter((c) => !c.approved).length,
+  });
   if (clips.isPending || frames.isPending) return <p className="text-muted">Loading…</p>;
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
   const list = clips.data;
@@ -220,6 +230,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         <h2 className="text-[length:var(--text-md)] font-semibold">
           Clips <span className="font-normal text-muted">· {list.length} · {approved} approved</span>
         </h2>
+        <span className="flex w-full flex-wrap gap-2 sm:w-auto">
+          {approveAll.button}
         {missing.length > 0 && (
           <button
             className={`${stale.length > 0 ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`} // the rewrite is the step's amber while any clip is stale
@@ -232,7 +244,9 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
             {price(allCost)}
           </button>
         )}
+        </span>
       </div>
+      {approveAll.line}
       {declined && <p className="text-sm text-warning">{declined}</p>}
       {stale.length > 0 && <RewriteNote projectId={projectId} count={stale.length} writing={writingNow} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(undefined)} />}
       {stale.length > 0 && <p className="text-sm text-muted">Rewrite the clips made for an older breakdown first ({stale.length}).</p>}

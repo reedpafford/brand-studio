@@ -488,7 +488,7 @@ def test_accepting_every_suggestion_leaves_the_script_text_identical():
     assert kept == script.splitlines()
 
 
-def test_clip_prompt_checks_catch_music_aspect_and_cast_order():
+def test_clip_prompt_checks_catch_music_and_aspect():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")
     clip = cp.clips[0]
@@ -498,8 +498,7 @@ def test_clip_prompt_checks_catch_music_aspect_and_cast_order():
         "c2: doesn't open and close with the same audio line",
         "c2: has no Keep line before the closing audio line",
         "c2: writes aspect or resolution (those are settings)",
-        "c2: characters aren't attached in the order they appear",
-    ]
+    ]  # the cast's order is the server's (clip_prompts.with_cast), never a problem
 
 
 def test_the_keep_line_holds_every_attached_characters_look():
@@ -540,8 +539,8 @@ def test_frames_and_clips_attach_every_character_in_the_shot():
     c = cp.clips[0]
     who = next(r.id for r in c.references if r.id.startswith("char:"))
     c.references = [r for r in c.references if r.id != who]
-    problems = check.clip_prompts(bd, cp, 30, 10)
-    assert f"{c.clip_id}: {who} is in the clip but its sheet isn't attached" in problems
+    problems = check.clip_prompts(bd, cp, 30, 10)  # the server attaches it (with_cast)
+    assert not [p for p in problems if who in p]
 
 
 def test_storyboard_check_warns_on_words_the_image_model_refuses():

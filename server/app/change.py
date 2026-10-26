@@ -137,9 +137,10 @@ def save_changed(db: Session, job: Job) -> None:
         row.prompt_ok = False  # a prompt written again needs reading again
         clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=after,
                           references=[Reference(**r) for r in row.references])  # fmt: skip
-        row.problems = clip_prompts.clip_problems(
-            db, project, Breakdown.model_validate(bd.data), clip
-        )
+        breakdown = Breakdown.model_validate(bd.data)
+        clip = clip_prompts.with_cast(db, project, clip, breakdown, trim=False)
+        row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
+        row.problems = clip_prompts.clip_problems(db, project, breakdown, clip)
         if not _has_take(db, row):
             return  # before any take, a change only rewrites the prompt
     db.commit()  # the new prompt is a paid answer: a refused still (it rolls back) keeps it
