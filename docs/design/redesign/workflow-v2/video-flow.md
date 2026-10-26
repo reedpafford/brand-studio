@@ -42,6 +42,7 @@ Everything this version needs on screen, approved before anything is drawn.
   - already approved, with no buttons
 - **Unlocked role** (as built tonight; Producer, 2026-10-25):
   - the role, the kind, the description (meta, 2 lines), and "In 3 shots"
+  - **The description's facts** (Reed, 2026-10-26): it leads with age range, gender and what they do, as a meta line before the rest: "Late 20s · woman · nurse". When the script doesn't say and the facts were inferred, each inferred fact is followed by "(a guess)" in `text-faint`: "Late 20s (a guess) · woman · nurse". The same line shows on the writing flow's Cast step (`variations-characters-publish.md` §5).
   - **Use a Cast & places character** (secondary) picks one of the brand's characters for this video. Picking another one swaps it.
   - **Make a look · N credits** (secondary) makes a look for this video only, from the role's name and description, and draws its sheet in the same press, so the price is inside the button (README rule 2). The card then shows the sheet with **Approve**. See "Looks for this video only" below. It never adds anything to Cast & places.
     - Past a limit, an editor sees it disabled with the reason (README rule 2).
@@ -49,6 +50,15 @@ Everything this version needs on screen, approved before anything is drawn.
   - The Assets step never approves, unapproves or redraws a character that's already in Cast & places. It only picks or swaps one. A shared character's sheet changes on its own page.
   - the badge "Needs a look" (warning) until the role has an approved sheet, either a library character's or this video's own look
 - **Place:** the same as an unlocked role, with 16:9 sheets. A place made here is also for this video only.
+
+### Missing looks are made on their own (Reed, 2026-10-26)
+When Assets opens and a **main or recurring** role has no character, its per-video look is made automatically. Background people never get looks.
+- **Price first:** before anything starts, a note (`Info`) at the top of Cast reads "Making looks for Nate, Mia and the Rival · 9 credits", with "Starting in 5 s" (meta, counting down) and **Not now** (ghost). Not now stops it, and the cards keep their own **Make a look · N credits**. With nothing pressed, it starts after 5 s.
+- **Within the money:** it starts only if all of it fits the video's budget (Reed's library versions) or the editor's week (their own script). If it doesn't fit, nothing is made: the note says why in plain words, and the cards keep their **Make a look · N credits** (disabled with the reason for an editor; README rule 2).
+- **While drawing:** each card shows "Drawing… 14 s". When they land, the note becomes "Made 3 looks · 9 credits. Check each one, then approve." (`Info`).
+- **Still reviewed:** each look lands as "Needs your approval", with **Approve**, **Change this…** (redo with a note), or **Use a Cast & places character** (swap). Next stays disabled until every role is approved, as before.
+- Once a role has a look (made, picked, or turned down with Not now), opening Assets again never makes it again.
+- **Naming the role, never an id:** anything that says a look is missing names the role and points here. In a problem line, the sentence is followed by an inline link, **Approve a look in Assets** (as built in #476). Elsewhere, it's "Nate needs a look." with **Approve a look in Assets** (secondary). It's never "char:3" or "slot 2". This applies to Storyboard, Clips, the breakdown's problems and server messages shown as they are.
 
 ### Looks for this video only (gaps #19; Reed, 2026-10-26)
 Only characters and places made in **Cast & places** go into the brand's library. A look made while making a script or a video stays with it.
@@ -177,6 +187,9 @@ Each version is made only once, so a version started by mistake must be able to 
   - A look made on Assets (or in a script's Cast step) is stored against that video (or script), not the brand's library: `owner: {video_id} | {script_id}`, never listed by `GET /library/*`, never offered in pickers elsewhere.
   - Per look: `GET` with its sheet versions and state, `POST …/sheet` (paid, with the change note), `POST …/approve`, `POST …/pick` for an earlier version.
   - `DELETE` on a per-video look, with a restore route for Undo (Builder-Server is adding them). It refuses a Cast & places character.
+  - **Auto-make:** `POST /projects/{id}/assets/make-missing` (paid, all or none) makes a look for every main or recurring role with none, and refuses with the plain reason when the budget or week can't cover it. `GET /projects/{id}/assets` adds `missing_looks: {roles: [names], credits}` for the note, and a per-slot `declined` flag so Not now sticks.
+  - **Role facts:** each cast slot carries `age_range`, `gender` and `occupation`, each with `inferred: bool`.
+  - **No raw ids in messages:** the server's sentences about a missing look name the role ("Nate needs a look").
   - `POST /videos/{id}/assets/{slot}/save-to-library` `{name}`: copies the approved look into Cast & places as a normal character and points the slot at it. It returns the new character id, and the Undo is `DELETE` on it, which puts the slot back on the look. It refuses with 409 "Approve the sheet first" or "{Name} is already in Cast & places. Pick another name."
   - A team setting `editors_can_save_looks` (default false) on `GET/PUT /credits/limits` or `/team/settings`. The save route refuses editors with 403 while it's off.
 - **Downloads:** the takes listed per clip, with times; `GET /videos/{id}/clips.zip` for the picked takes; and the stitched video, as today.

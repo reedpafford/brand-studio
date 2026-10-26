@@ -12,6 +12,7 @@ import { Badge, Banner, Button, Menu, MenuItem } from "../components";
 import { errorText as errorClass, input } from "../ui";
 import { useMe } from "../auth/useMe";
 import { blocking, CAST } from "./problems";
+import { plainWords } from "./names";
 import { AdviceList, useKeep } from "./Keep";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
@@ -118,6 +119,7 @@ export function BreakdownView(props: {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { pieces, screens } = useBrandPieces(props.brandId);
+  const words = (p: string) => plainWords(p, (id) => name(id));
   const [draft, setDraft] = useState<Breakdown | null>(null);
   const [open, setOpen] = useState<string[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
@@ -257,10 +259,10 @@ export function BreakdownView(props: {
     <ul className="space-y-1 text-sm">
       {real.map((p) => (
         <li key={p} className="flex items-start gap-2">
-          <span className="flex-1 py-3">{p}</span>
+          <span className="flex-1 py-3">{words(p)}</span>
           {goButton(p, after)}
           {p.startsWith(CAST) && (
-            <Button variant="ghost" dense aria-label={`Keep anyway: ${p}`} onClick={() => (preview ? preview.keep(p) : keep.mutate({ problem: p }))}>
+            <Button variant="ghost" dense aria-label={`Keep anyway: ${words(p)}`} onClick={() => (preview ? preview.keep(p) : keep.mutate({ problem: p }))}>
               Keep anyway
             </Button>
           )}
@@ -310,7 +312,7 @@ export function BreakdownView(props: {
           {castFix}
         </section>
       )}
-      <AdviceList problems={row.problems} kept={row.kept} onKeep={preview ? preview.keep : (problem, undo) => keep.mutate({ problem, undo })} busy={preview ? preview.keepBusy : keep.isPending} owner={owner} extra={(p) => goButton(p)} />
+      <AdviceList label={words} problems={row.problems} kept={row.kept} onKeep={preview ? preview.keep : (problem, undo) => keep.mutate({ problem, undo })} busy={preview ? preview.keepBusy : keep.isPending} owner={owner} extra={(p) => goButton(p)} />
       {bd.hook !== undefined && (
         <p className="text-sm">
           <EditableText value={bd.hook} label="hook" onChange={(v) => change((b) => setHook(b, v))}>

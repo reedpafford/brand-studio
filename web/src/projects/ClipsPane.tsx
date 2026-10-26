@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { Badge, Banner, Button } from "../components";
@@ -13,6 +13,7 @@ import { blocking } from "./problems";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { usePressed } from "./usePressed";
 import { AdviceList, useKeep } from "./Keep";
+import { useProblemWords } from "./ProblemText";
 import { useMe } from "../auth/useMe";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 
@@ -71,6 +72,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
   });
   const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget });
+  const { words, fix } = useProblemWords(projectId, props.brandId);
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   const pressed = usePressed();
@@ -244,6 +246,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
               key={c.id}
               clip={c}
               projectId={projectId}
+              words={words}
+              fix={fix}
               aspect={props.aspect}
               poster={frames.data?.find((f) => f.clip_id === c.clip_id)?.file_id ?? null}
               projectName={props.projectName}
@@ -274,6 +278,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
 }
 
 function ClipCard(props: {
+  words: (p: string) => string;
+  fix: (p: string) => ReactNode;
   clip: Clip;
   projectId: number;
   aspect: string;
@@ -340,11 +346,14 @@ function ClipCard(props: {
       {blocking(c.problems).length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
           {blocking(c.problems).map((p) => (
-            <li key={p}>{p}</li>
+            <li key={p}>
+              {props.words(p)}
+              {props.fix(p)}
+            </li>
           ))}
         </ul>
       )}
-      <AdviceList problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${c.clip_id}`} />
+      <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${c.clip_id}`} />
       {c.takes.length > 0 && (
         <fieldset className="flex flex-wrap items-center gap-3">
           <legend className="sr-only">Takes for clip {c.clip_id}</legend>
