@@ -179,7 +179,7 @@ function useKeys(e: EnhanceState) {
   }, []);
 }
 
-export function EnhanceBar({ e }: { e: EnhanceState }) {
+export function EnhanceBar({ e, stop }: { e: EnhanceState; stop?: string | null }) {
   useKeys(e);
   const [notesOpen, setNotesOpen] = useState(false);
   const pending = e.marks.filter((m) => m.status === "pending").length;
@@ -193,7 +193,8 @@ export function EnhanceBar({ e }: { e: EnhanceState }) {
           variant="secondary"
           icon={Sparkles}
           price={e.cost}
-          disabled={e.running || e.start.isPending}
+          disabled={e.running || e.start.isPending || !!stop}
+          reason={stop}
           onClick={() => (pending === 0 || window.confirm(`Replace the ${pending} waiting suggestions?`)) && e.start.mutate()}
         >
           Suggest directions

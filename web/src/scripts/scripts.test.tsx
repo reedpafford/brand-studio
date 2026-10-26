@@ -135,7 +135,8 @@ test("a draft script's page: title, a draft badge, seven steps with the unbuilt 
   expect(screen.getByText("Draft · only you can see it")).toBeInTheDocument(); // Reed on his own draft
   const steps = screen.getByRole("list", { name: "Steps" });
   expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Description", "Script", "Directions", "Variations", "Cast", "Breakdown", "Publish"]);
-  expect(within(steps).getByRole("button", { name: "Directions" })).toHaveAccessibleDescription("Coming soon");
+  expect(within(steps).getByRole("button", { name: "Directions" })).toHaveAccessibleDescription("Write the script first");
+  expect(within(steps).getByRole("button", { name: "Breakdown" })).toHaveAccessibleDescription("Coming soon");
   expect(screen.getByText("Keep it warm.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Edit description" }));
   await userEvent.clear(screen.getByLabelText("Title"));
@@ -148,7 +149,7 @@ test("the script step saves the words as the original; Next needs them", async (
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, full()], "PUT /scripts/7/drafts/0": [200, full()] });
   open("/b/1/scripts/7?step=script");
-  const next = await screen.findByRole("button", { name: "Next: Variations" });
+  const next = await screen.findByRole("button", { name: "Next: Directions" });
   expect(next).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Paste or write it yourself" }));
   await userEvent.type(screen.getByLabelText("Your script"), "BO: Salmon?");
