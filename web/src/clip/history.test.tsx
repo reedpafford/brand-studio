@@ -48,6 +48,17 @@ test("a finished clip can be removed from history at once, with the words that c
   expect(await screen.findByText("Clip back in your history.")).toBeInTheDocument();
 });
 
+test("a clip removed in this visit shows under Removed straight away, without a reload", async () => {
+  setViewport(1440);
+  fakeServer(base({ "DELETE /jobs/12": [204, null], "GET /jobs?removed=true": [200, [job()]] }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for clip 12" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Remove from history" }));
+  await screen.findByText("Removed from your history. Its credits stay used.");
+  await userEvent.selectOptions(screen.getByLabelText("Show"), "removed");
+  expect(await screen.findByRole("button", { name: "Restore clip 12" })).toBeInTheDocument();
+});
+
 test("a clip still being made has no remove item, and someone else's clip has no menu for an editor", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /jobs": [200, [job({ id: 13, status: "running" }), job({ id: 14, created_by_id: 9, created_by_name: "Sam" })]] }));

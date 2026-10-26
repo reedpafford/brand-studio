@@ -101,6 +101,7 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
       return toast(errorText(error), undefined, "error");
     }
     await refresh();
+    setGone((g) => g.filter((id) => id !== j.id)); // the list has caught up; the Removed view must show it
     toast("Removed from your history. Its credits stay used.", () => void restore(j, "Clip back in your history."));
   };
   const [open, setOpen] = useState<Job | null>(null);
@@ -206,14 +207,14 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
     const title = j.prompt_summary || `Clip ${j.id}`;
     if (rail)
       return (
-        <li key={j.id}>
+        <li key={j.id} className={filter === "removed" ? "opacity-60" : undefined}>
           <MediaCard title={title} meta={detail} badge={badge} video={fileId && j.status === "succeeded" ? fileUrl(fileId) : null} playable={j.status === "succeeded"} aspect={j.aspect_ratio ? j.aspect_ratio.replace(":", " / ") : "9 / 14"} icon={Clapperboard} onOpen={j.status === "succeeded" && fileId ? () => setOpen(j) : undefined}>
             {actions}
           </MediaCard>
         </li>
       );
     return (
-      <li key={j.id} className="flex gap-3 rounded-lg border border-border bg-surface p-3">
+      <li key={j.id} className={`flex gap-3 rounded-lg border border-border bg-surface p-3 ${filter === "removed" ? "opacity-60" : ""}`}>
         {j.status === "succeeded" && fileId ? (
           <button type="button" aria-label={`Open clip ${j.id}`} onClick={() => setOpen(j)} className="relative block w-16 shrink-0 overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: "9 / 14" }}>
             <video src={`${fileUrl(fileId)}#t=0.1`} muted playsInline preload="metadata" aria-hidden className="absolute inset-0 size-full object-cover" />
@@ -259,7 +260,12 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
             </Button>
           </div>
         ) : filter === "removed" ? (
-          <p className="text-sm text-muted">Nothing removed.</p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-muted">Nothing removed.</p>
+            <Button variant="ghost" onClick={() => setFilter("all")}>
+              Show all
+            </Button>
+          </div>
         ) : (
           <p className="text-sm text-muted">No clips like that yet.</p>
         ))}
