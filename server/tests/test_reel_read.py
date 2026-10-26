@@ -275,7 +275,9 @@ def test_read_it_again_redoes_the_breakdown_and_script_with_the_note(app, owner,
     again = owner.post(f"{url}/import/read-again", json={"note": "Shot 2 is the bride."})
     assert again.status_code == 201 and again.json()["status"] == "reading"
     watch = db.query(Job).filter(Job.kind == "watch-gemini").order_by(Job.id.desc()).first()
-    assert "Shot 2 is the bride." in watch.input["input"]["prompt"]
+    prompt = watch.input["input"]["prompt"]
+    assert "Shot 2 is the bride." in prompt
+    assert "<last_reading>" in prompt and "logline" in prompt  # the last reading, to keep
     _drain(app, db)
     steps = [j.input.get("reel_step") for j in db.query(Job).order_by(Job.id)][jobs:]
     assert steps == ["watch", "write"]  # not the prep, not the cast
@@ -307,5 +309,15 @@ def test_read_it_again_past_the_week_runs_nothing(app, owner, editor, db, clip):
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 0})
     jobs = db.query(Job).count()
     refused = editor.post(f"{url}/import/read-again", json={})
-    assert refused.status_code == 409 and "left this week" in refused.json()["detail"]
+    assert refused.status_code == 409 and "you have 0 left this week" in refused.json()["detail"]
     assert db.query(Job).count() == jobs and "Reed" not in refused.json()["detail"]
+
+
+def test_a_refusal_rounds_the_price_up_and_whats_left_down():
+    """QA on #452: 3.5 left reads "3 left", so it never says "needs 4; you have 4 left"."""
+    from decimal import Decimal
+
+    from app.credits import shown
+
+    assert shown(Decimal("3.6"), Decimal("3.5")) == (4, 3)
+    assert shown(Decimal("2"), Decimal("-1")) == (2, 0)

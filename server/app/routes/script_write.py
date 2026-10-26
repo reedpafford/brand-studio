@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import reel_read, script_write
 from app import script_library as lib
 from app.auth import current_user
-from app.credits import afford, credits_left, estimate
+from app.credits import afford, credits_left, estimate, shown
 from app.db import get_db
 from app.models.accounts import User
 from app.models.script_library import Script
@@ -158,8 +158,8 @@ def write_many(
     if left is not None and total > left:
         raise HTTPException(
             409,
-            f"Writing these takes {total:.0f} credits and you have {max(left, 0):.0f} left "
-            "this week. It resets Monday.",
+            "Writing these takes {} credits and you have {} left this week. It resets "
+            "Monday.".format(*shown(total, left)),
         )
     return [
         reel_read.queue(db, user, s, reel_read.remaining(s)[0])

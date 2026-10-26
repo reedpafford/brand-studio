@@ -16,7 +16,7 @@ from app import reel_read as read
 from app import script_library as lib
 from app import script_write
 from app.auth import current_user
-from app.credits import credits_left
+from app.credits import credits_left, shown
 from app.db import get_db
 from app.filetypes import matches
 from app.models.accounts import User
@@ -301,7 +301,7 @@ def read_reel(script_id: int, user: User = Depends(current_user), db: Session = 
     if left is not None and total > left:
         raise HTTPException(
             409,
-            f"This reel needs {total:.0f} credits; you have {max(left, 0):.0f} left this week.",
+            "This reel needs {} credits; you have {} left this week.".format(*shown(total, left)),
         )
     read.queue(db, user, script, steps[0])
     return _out(db, script, user)
@@ -335,11 +335,12 @@ def read_again(
     if left is not None and total > left:
         raise HTTPException(
             409,
-            f"Reading it again needs {total:.0f} credits; you have {max(left, 0):.0f} left this "
-            "week. It resets on Monday.",
+            "Reading it again needs {} credits; you have {} left this week. It resets on "
+            "Monday.".format(*shown(total, left)),
         )
     done = [s for s in script.reel.get("done", []) if s not in read.AGAIN]
-    script.reel = {**script.reel, "done": done, "note": note}
+    previous = read.last_reading(db, script)  # so the watch keeps what the note doesn't touch
+    script.reel = {**script.reel, "done": done, "note": note, "last_reading": previous}
     read.queue(db, user, script, read.AGAIN[0])
     return _out(db, script, user)
 
