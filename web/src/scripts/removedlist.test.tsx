@@ -55,6 +55,15 @@ test("a removed script that kept its videos reads Archived, and an empty view sa
   expect(screen.getByText("Its videos are kept")).toBeInTheDocument();
 });
 
+test("a script archived because a video was made from it reads Archived with no removal date, whatever the server says", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts": [200, [row({ versions: [{ slot: 0, status: "done", title: "x", seconds: 0, project_id: 5 }] })]] }));
+  open();
+  expect(await screen.findByText("Archived")).toBeInTheDocument();
+  expect(screen.getByText("Its videos are kept")).toBeInTheDocument();
+  expect(screen.queryByText(/Removed for good/)).toBeNull();
+});
+
 test("nothing removed says so and Show all scripts turns the filter off", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts": [200, []] }));

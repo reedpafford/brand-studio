@@ -414,6 +414,8 @@ export function ScriptsPage() {
 
 function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, panelTo, ownVideo, meId, onDelete, removed, onRestore, restoring }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number; onDelete?: () => void; removed?: boolean; onRestore?: () => void; restoring?: boolean }) {
   const brandId = r.brand_id;
+  // A script archived because a video was made from it keeps its videos and is never removed for good.
+  const kept = r.versions.some((v) => !!v.project_id);
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
     <li className="flex gap-3 p-4 sm:p-5">
@@ -432,8 +434,8 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
         </h3>
         {removed && (
           <p className="flex flex-wrap items-center gap-2">
-            <Badge>{r.removed_at ? `Deleted · ${age(r.removed_at)}` : "Archived"}</Badge>
-            <span className="text-sm text-muted">{r.purge_on ? `Removed for good on ${new Date(r.purge_on).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "Its videos are kept"}</span>
+            <Badge>{kept || !r.removed_at ? "Archived" : `Deleted · ${age(r.removed_at)}`}</Badge>
+            <span className="text-sm text-muted">{kept || !r.purge_on ? "Its videos are kept" : `Removed for good on ${new Date(r.purge_on).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}</span>
           </p>
         )}
         {r.description && <p className="truncate text-sm text-muted">{r.description}</p>}
