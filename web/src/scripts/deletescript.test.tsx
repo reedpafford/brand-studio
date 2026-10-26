@@ -11,7 +11,7 @@ const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspac
 const editor = { ...owner, id: 2, name: "Sam", role: "editor" };
 const v = (slot: number, o: object = {}) => ({ slot, status: "draft", title: "x", seconds: 0, project_id: null, text: "", words: 0, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null, ...o });
 const script = (o: object = {}) => ({
-  id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, reel_imported: false, new_lines: false, published: false, status: "draft", created_by_id: 2, created_by_name: "Sam", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
+  id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, reel_imported: false, running: false, new_lines: false, published: false, status: "draft", created_by_id: 2, created_by_name: "Sam", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [v(0)], ...o,
 });
 const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
@@ -100,4 +100,35 @@ test("a refused delete keeps the dialog open and says nothing changed", async ()
   await userEvent.click(screen.getByRole("menuitem", { name: "Delete script" }));
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
   expect(await screen.findByText(/Nothing changed\. Only its author can remove it\./)).toBeInTheDocument();
+});
+
+test("Delete and Archive say anything still being made for the script stops, only when the script says it is running", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts": [200, [script({ running: true })]] }));
+  open("/b/1/scripts?status=any");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Delete script" }));
+  const dialog = await screen.findByRole("alertdialog", { name: 'Delete "Bo tries salmon"?' });
+  expect(dialog).toHaveTextContent("Its versions and cast go too. Anything still being made for this script stops and isn't brought back.");
+});
+
+test("the Archive confirm says it too, and it shows for work by someone else (Reed deleting an editor's script)", async () => {
+  setViewport(1440);
+  const made = script({ running: true, created_by_id: 2, versions: [v(0, { project_id: 5 })] });
+  fakeServer(base({ "GET /scripts": [200, [made]], "GET /jobs": [200, []] })); // the jobs list is empty: it only lists the signed-in person's own
+  open("/b/1/scripts?status=any");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Delete script" }));
+  const dialog = await screen.findByRole("alertdialog", { name: 'Archive "Bo tries salmon"?' });
+  expect(dialog).toHaveTextContent("Anything still being made for this script stops and isn't brought back.");
+});
+
+test("with nothing running for the script, the line is left out", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts": [200, [script({ running: false })]] }));
+  open("/b/1/scripts?status=any");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Delete script" }));
+  const dialog = await screen.findByRole("alertdialog", { name: 'Delete "Bo tries salmon"?' });
+  expect(dialog).not.toHaveTextContent("Anything still being made");
 });
