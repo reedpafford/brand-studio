@@ -110,13 +110,15 @@ def test_reeds_current_video_is_rewritten_once_free(app, db, owner, editor, setu
     db.commit()
     _newer_breakdown(db, project.id)
     take = Job(workspace_id=project.workspace_id, created_by_id=reed.id, kind="video",
-               provider="fake", input={"step": "clip_take"}, project_id=project.id)  # fmt: skip
+               provider="fake", input={"step": "clip_take", "project_clip_id": clip["id"]},
+               project_id=project.id, status="running")  # fmt: skip
     db.add(take)
     db.commit()
-    assert rewrite_owner_clips(db) == 0  # a take is being made: not now
+    said = rewrite_owner_clips(db)  # a take is being made: not now, and the log says why
+    assert said == f"Clip prompts: waiting, a take is still being made on “{project.name}”."
     take.status = "succeeded"
     db.commit()
-    assert rewrite_owner_clips(db) == 1
+    assert rewrite_owner_clips(db) == f"Rewrote clip prompts on “{project.name}”."
     (job,) = _rewrites(db, project.id)
     assert (job.credits, job.input["repair"], job.input["clip_ids"]) == (0, True, ["c1"])
     _run(app, db, FakeClaude(_answer(clip["references"][0]["id"][5:], setup["screen"], _prompt())))
@@ -124,7 +126,7 @@ def test_reeds_current_video_is_rewritten_once_free(app, db, owner, editor, setu
     assert db.get(Job, job.id).credits == 0  # free to him: no budget, no week
     assert editor.get(f"/projects/{project.id}/clips").json()[0]["stale"] is False
     _newer_breakdown(db, project.id)
-    assert rewrite_owner_clips(db) == 0  # once ever: next time it's the button
+    assert rewrite_owner_clips(db) == "Clip prompts: already rewritten once."  # the button next
 
 
 def test_only_the_video_edited_last_is_repaired(app, db, owner, editor, setup, clip):  # noqa: F811
@@ -142,5 +144,26 @@ def test_only_the_video_edited_last_is_repaired(app, db, owner, editor, setup, c
                        prompt="x", references=[]))  # fmt: skip
     db.commit()
     _newer_breakdown(db, first.id)  # the first video was edited last
-    assert rewrite_owner_clips(db) == 1
+    assert rewrite_owner_clips(db).startswith("Rewrote clip prompts on")
     assert len(_rewrites(db, first.id)) == 1 and not _rewrites(db, other.id)
+
+
+def test_a_take_held_only_because_its_clip_is_stale_is_cancelled_first(app, db, owner, setup, clip):  # noqa: F811
+    """Producer, live: Reed's takes were held ("Write the clip prompts again first"), so the
+    repair waited every deploy. A take that never started is cancelled (nothing was charged)
+    and the clip prompts are rewritten."""
+    project = db.get(Project, setup["project"])
+    reed = db.query(User).filter_by(role=Role.owner).one()
+    project.created_by_id = reed.id
+    db.commit()
+    assert rewrite_owner_clips(db) == "Clip prompts: nothing to rewrite."
+    _newer_breakdown(db, project.id)
+    held = Job(workspace_id=project.workspace_id, created_by_id=reed.id, kind="video",
+               provider="fake", input={"step": "clip_take", "project_clip_id": clip["id"]},
+               project_id=project.id, status="needs_owner_approval", credits=5)  # fmt: skip
+    db.add(held)
+    db.commit()
+    assert rewrite_owner_clips(db) == f"Rewrote clip prompts on “{project.name}”."
+    db.expire_all()
+    assert db.get(Job, held.id).status == "cancelled"
+    assert len(_rewrites(db, project.id)) == 1
