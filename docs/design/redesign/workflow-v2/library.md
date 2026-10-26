@@ -23,6 +23,7 @@ This week: 32 of 145 credits (meta, editors only)
 ▸ Videos made before scripts (4)       (disclosure, closed)
 ```
 - **Row:** the poster, then the title, then up to two meta lines, then the version chips.
+  - A script made from a reel starts its meta line with a neutral **Reel** chip (`Film`), as built in #449. Once the server sends the length, it reads "Reel · 45 s".
   - **Poster** (64×100, radius 10): the first frame of the newest finished video, else the reference reel's thumbnail, else `surface-2` with `FileText` in muted colour.
   - **Title:** a link to the script page (see "Opening a script").
   - **Description:** one line, ellipsed.
