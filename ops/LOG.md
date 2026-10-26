@@ -1,6 +1,20 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-25 22:56 · #340 The cast read follows Write and variations, at one price merged
+- 2026-10-25 22:51 · #339 Removed scripts list: GET /scripts?removed=1 with a removed-for-good date merged
+- 2026-10-25 22:51 · #345 Script draft: montage money climbs (imported reels too); the aspect check ignores clock times merged
+- 2026-10-25 22:51 · #328 Release, archive and restore a video merged
+- 2026-10-25 22:42 · #332 Write refuses a script whose imported reel isn't read yet merged
+- 2026-10-25 22:42 · #335 Delete script follow-up: generated restore client and a real-server Undo test merged
+- 2026-10-25 22:42 · #333 Cast step: find roles in the script, make sheets in Lock to a look merged
+- 2026-10-25 22:42 · #344 An unlocked cast slot in a breakdown is known, never a problem merged
+- 2026-10-25 22:35 · #338 ops: HANDOFF/LOG refresh 2026-10-25 22:15Z (by the Producer) merged
+- 2026-10-25 22:34 · #341 Video spec: advice apart from problems, under one closed "Advice (n)" line merged
+- 2026-10-25 22:34 · #336 Assets spec matches tonight's build, plus gap #19 for per-video looks merged
+- 2026-10-25 22:34 · #337 Reel watch: the frames-only rule matches #304's frame grids merged
+- 2026-10-25 22:34 · #316 In production screen (Reed only) merged
+- 2026-10-25 22:26 · #342 Spend: altar reel-import test ($5.79 of Reed's $10) merged
 - 2026-10-25 22:06 · #325 Script step: write from the reference or with Claude merged
 - 2026-10-25 22:05 · #334 Cast spec: Find roles in the script is secondary, with its disabled reasons merged
 - 2026-10-25 21:51 · #320 In production: GET /production and /production/summary (owner only) merged
