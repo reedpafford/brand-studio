@@ -28,6 +28,7 @@ from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.models.storyboards import StoryboardFrame
+from app.worker import FAILED
 
 router = APIRouter(prefix="/production", tags=["production"])
 STUCK = timedelta(minutes=30)
@@ -43,6 +44,7 @@ JOB_NAMES = {
     "clip_take": "Making the takes",
 }
 Flag = Literal["failed", "stuck", "idle"]
+RETRY = "It didn't finish. Open the video to try again."  # the worker's catch-all, on this page
 
 
 class Named(BaseModel):
@@ -200,7 +202,7 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
         if job is not None and job.status == JobStatus.failed:
             row.flag, row.flag_since = "failed", job.finished_at or job.created_at
             row.flag_job = JOB_NAMES.get(job.input.get("step", ""), "A step")
-            row.flag_problem = job.error
+            row.flag_problem = RETRY if job.error == FAILED else job.error
         elif pid in stuck:
             row.flag, row.flag_since = "stuck", stuck[pid].created_at
             row.flag_job = JOB_NAMES.get(stuck[pid].input.get("step", ""), "A step")
