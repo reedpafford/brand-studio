@@ -153,11 +153,12 @@ def _look(db: Session, ref: str):
     )
 
 
-def carry_frames(db: Session, project: Project, old_row, new_row) -> list:
+def carry_frames(db: Session, project: Project, old_row, new_row, same_look=False) -> list:
     """Frames of the replaced breakdown move to the new one when only who plays a role
     changed: their references, the look's name and its description are swapped in the
     prompt (free, no model call). A still that shows the old cast is marked out of date and
-    returned, for redrawing. Frames whose shots changed otherwise stay behind (stale)."""
+    returned, for redrawing (not when it's the same picture under a new name, as a look saved
+    to Cast & places is). Frames whose shots changed otherwise stay behind (stale)."""
     from app.models.storyboards import StoryboardFrame
     from app.prompts.schemas import Breakdown
 
@@ -182,6 +183,8 @@ def carry_frames(db: Session, project: Project, old_row, new_row) -> list:
                 frame.prompt = re.sub(rf"(?<!\w){re.escape(a.name)}(?!\w)", b.name, frame.prompt)
                 if a.notes and b.notes:
                     frame.prompt = frame.prompt.replace(a.notes, b.notes)
+        if same_look:
+            continue
         frame.approved = False
         if frame.file_id:
             frame.still_stale = True

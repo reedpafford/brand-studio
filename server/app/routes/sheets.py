@@ -17,6 +17,7 @@ from app.images import image_job_input
 from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
+from app.models.projects import Project
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.library import ItemOut, _out, _save_version, get_item, sheet_status
@@ -65,11 +66,13 @@ def make_sheet(
     job = image_job_input(
         get_model(body.model_id), prompt, ASPECT[kind], objects=refs, resolution=RESOLUTION
     )
-    return enqueue(
+    project = db.get(Project, item.owner_project_id) if item.owner_project_id else None
+    return enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db,
         user,
         "image",
         {**job, "step": "sheet", "library_item_id": item.id},
+        project=project,
         provider="replicate",
     )
 

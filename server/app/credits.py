@@ -98,6 +98,7 @@ def get_limits(db: Session, workspace_id: int) -> CreditLimits:
         workspace_id=workspace_id,
         weekly_quick_clip_credits=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
         per_video_max_credits=DEFAULT_PER_VIDEO_MAX_CREDITS,
+        editors_can_save_looks=False,
     )
 
 
