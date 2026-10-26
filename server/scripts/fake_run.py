@@ -86,6 +86,11 @@ def make(c, work, brand: str, case: dict, script: str, planned: int, variants=No
         problems.append("variations: two weren't written")
     for slot in (1, 2):  # this run produces the original only
         ok(c.delete(f"{lib}/drafts/{slot}"), f"remove variation {slot}")
+    # The cast read after variations adds slots by speaker name; the stand-in can't match
+    # them to the locked roles, so drop the unlocked ones it added (Assets would fill them).
+    for slot in c.get(lib).json()["cast"]:
+        if not slot["locked"]:
+            ok(c.delete(f"{lib}/cast/{slot['id']}"), "remove a read slot")
     ok(c.post(f"{lib}/publish"), "publish")
     made = ok(c.post(f"{lib}/drafts/0/produce"), "produce")
     if made.get("breakdown_job_id") is not None:
