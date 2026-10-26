@@ -213,6 +213,7 @@ def plain_stored(db: Session) -> int:
 
 
 def main(folder: str, slug: str = "fomo") -> None:
+    from app.credits import seed_rates
     from app.db import make_sessionmaker
     from app.seed_drafts import import_drafts
     from app.settings import get_settings
@@ -224,6 +225,7 @@ def main(folder: str, slug: str = "fomo") -> None:
         if folder == "refresh":
             for workspace_id in db.scalars(select(Workspace.id)).all():
                 seed_brands(db, workspace_id, storage, settings.brand_assets_dir)
+                seed_rates(db, workspace_id)  # a new kind (the look check) gets its rate
             print("Launch brands brought up to date from the manifests.")
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")

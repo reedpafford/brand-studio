@@ -3066,11 +3066,16 @@ export interface components {
             /** Own Look Id */
             own_look_id?: number | null;
             facts?: components["schemas"]["RoleFacts"] | null;
+            look_fit?: components["schemas"]["LookFitOut"] | null;
             /**
              * Declined
              * @default false
              */
             declined: boolean;
+            /** Look Credits */
+            look_credits?: number | null;
+            /** Look Usual Credits */
+            look_usual_credits?: number | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -3831,6 +3836,22 @@ export interface components {
             owner_project_id?: number | null;
             /** Owner Script Id */
             owner_script_id?: number | null;
+            look_fit?: components["schemas"]["LookFitOut"] | null;
+            /**
+             * Sheet Credits
+             * @default 0
+             */
+            sheet_credits: number;
+            /**
+             * Sheet Usual Credits
+             * @default 0
+             */
+            sheet_usual_credits: number;
+            /**
+             * Change Credits
+             * @default 0
+             */
+            change_credits: number;
         };
         /**
          * ItemPatch
@@ -4043,6 +4064,13 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** LookFitOut */
+        LookFitOut: {
+            /** Seen */
+            seen: string;
+            /** Problem */
+            problem: string;
+        };
         /** Me */
         Me: {
             /** Id */
@@ -4073,6 +4101,11 @@ export interface components {
             roles: string[];
             /** Credits */
             credits: number;
+            /**
+             * Usual Credits
+             * @default 0
+             */
+            usual_credits: number;
             /** Reason */
             reason?: string | null;
         };

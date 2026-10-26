@@ -174,6 +174,7 @@ STEPS = {
     "cast_slots": "Reading the cast",
     "improve": "Improve a prompt",
     "sheet": "A look",
+    "look_fit": "Checking a look",
 }
 LETTERS = "ABC"
 

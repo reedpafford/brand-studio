@@ -77,8 +77,11 @@ def held(db: Session, user: User) -> Decimal:
     )
     jobs = list(db.scalars(writing))
     casts = sum(1 for j in jobs if j.input.get("then_cast"))
-    # Change it: the still or take after the rewrite, held until it's queued
-    changes = sum((Decimal(j.input.get("then_credits", "0")) for j in jobs), Decimal(0))
+    # Change it's still or take, a sheet's check and redo: held until they're queued
+    waiting = select(Job).where(Job.created_by_id == user.id, Job.status.in_(WAITING))
+    changes = sum(
+        (Decimal(j.input.get("then_credits", "0")) for j in db.scalars(waiting)), Decimal(0)
+    )
     return total + price(db, user, ["cast"]) * casts + changes
 
 

@@ -181,8 +181,10 @@ def test_a_videos_own_look_can_be_removed_once_no_role_uses_it_and_brought_back(
     assert editor.post(f"{url}/unarchive").json()["id"] == look  # Undo
     assert _row(editor, pid, nate)["own_look_id"] == look
     assert owner.delete(url).status_code == 204  # Reed may too
+    db.get(Project, pid).planned_seconds = 30  # room for a second look's whole price
+    db.commit()
     again = editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
-    assert again.status_code == 200  # a removed look can be made again
+    assert again.status_code == 200, again.text  # a removed look can be made again
 
 
 def test_only_reed_or_the_videos_maker_removes_its_look(owner, editor, db):
@@ -236,7 +238,7 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     with the price shown; over the budget nothing is made and the reason is plain. Roles
     not in the video's shots wait; each sheet still needs Approve before Storyboard."""
     from app.credits import price
-    from app.routes.sheets import sheet_price
+    from app.sheets import look_price, look_usual
 
     made = _make(owner, text=SCRIPT)
     base = f"/scripts/{made['id']}"
@@ -251,10 +253,11 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     url = f"/projects/{pid}/assets/missing-looks"
     project = db.get(Project, pid)
-    one = price(sheet_price(db, project.workspace_id))
-    assert editor.get(url).json() == {
-        "slot_ids": [nate], "roles": ["Nate"], "credits": one, "reason": None
-    }  # fmt: skip
+    one = price(look_price(db, project.workspace_id))
+    usual = price(look_usual(db, project.workspace_id))  # "Usually 2", "up to 4"
+    assert editor.get(url).json() == {"slot_ids": [nate], "roles": ["Nate"], "credits": one,
+                                      "usual_credits": usual, "reason": None}  # fmt: skip
+    assert (one, usual) == (4, 2)
 
     spent = Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
                 project_id=pid, credits=project.budget_credits, status="succeeded")  # fmt: skip
@@ -263,7 +266,7 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     jobs, looks = db.query(Job).count(), db.query(LibraryItem).count()
     make = f"/projects/{pid}/assets/make-missing"
     refused = editor.post(make)
-    reason = f"Making a look ({one} credits) would go over this video's budget."
+    reason = f"Making a look (up to {one} credits) would go over this video's budget."
     assert (refused.status_code, refused.json()["detail"]) == (409, reason)
     assert editor.get(url).json()["reason"] == reason  # said before the press too
     assert (db.query(Job).count(), db.query(LibraryItem).count()) == (jobs, looks)
@@ -299,7 +302,7 @@ def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, 
     from decimal import Decimal
 
     from app.credits import credits_used
-    from app.routes.sheets import sheet_price
+    from app.sheets import look_price
 
     made = _make(owner, text=SCRIPT)
     base = f"/scripts/{made['id']}"
@@ -312,7 +315,7 @@ def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, 
     owner.post(f"{base}/publish")
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     project = db.get(Project, pid)
-    one = sheet_price(db, project.workspace_id)
+    one = look_price(db, project.workspace_id)
     limits = owner.get("/credits/limits").json()
     cap = int(credits_used(db, project) + one * Decimal("1.5"))  # room for one, not two
     put = owner.put("/credits/limits", json={**limits, "per_video_max_credits": max(cap, 1)})
