@@ -1059,6 +1059,30 @@ test("while a paid reel read runs, the Script step shows Reading the reel with t
   expect(await screen.findByText(/Reading the reel… 1m \d+s/)).toBeInTheDocument();
 });
 
+const reelScript = (o: object = {}, rewritten: object[] = [{ line_index: 1, text: "I bought 40 shares of one coin.", was: "I bought 40 hoodies to resell." }]) =>
+  full({ reel_imported: true, new_lines: false, versions: [{ ...full().versions[0], text: "BO: Hell no.\nBO: I bought 40 shares of one coin.\nBO: I do.", words: 12, rewritten, approved_at: null }], ...o });
+
+test("a reel-made script marks the rewritten lines with the reel's original under each, a legend and the banner", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, reelScript()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
+  open("/b/1/scripts/7?step=script");
+  expect(await screen.findByText("From the reel: 1 line kept, 1 rewritten for Iron Paws. Check them, then approve.")).toBeInTheDocument();
+  expect(screen.getByText("Marked lines were rewritten for Iron Paws. Everything else is said as in the reel.")).toBeInTheDocument();
+  const marked = screen.getByText("BO: I bought 40 shares of one coin.");
+  expect(marked).toHaveClass("bg-mark");
+  expect(screen.getByText("BO: Hell no.")).not.toHaveClass("bg-mark");
+  expect(screen.getByText("Was: I bought 40 hoodies to resell.")).toBeInTheDocument();
+});
+
+test("with new lines on there are no marks, and the legend says the lines are new in the reel's style", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, reelScript({ new_lines: true }, [])], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
+  open("/b/1/scripts/7?step=script");
+  expect(await screen.findByText("New lines, in the style of the reel.")).toBeInTheDocument();
+  expect(screen.queryByText(/^Was:/)).toBeNull();
+  expect(screen.queryByText(/^From the reel:/)).toBeNull();
+});
+
 const shot = (n: number, o: object = {}) => ({ n, start: n * 0.4 - 0.4, end: n * 0.4, framing: "wide three-shot, eye level", camera: "static", action: `Action ${n}`, speaker: "", line: "", dropped: false, ...o });
 const review = (o: object = {}) => ({
   logline: "A groom is dumped at the altar for a richer man.",
