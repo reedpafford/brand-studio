@@ -157,7 +157,7 @@ Each version is made only once, so a version started by mistake must be able to 
 - **When:** for a video that's "Video done" or made before scripts. (A version still in production is released instead, which archives its video.)
 - **Where:** the video header's `Ellipsis` menu: **Archive video** (`Archive`).
 - **Confirm:**
-  - "Archive "Bo tries salmon · B"? It leaves the lists. Its clips and downloads are kept, and you can restore it."
+  - "Archive "Bo tries salmon · B"? It leaves the lists. Its clips and downloads are kept, and you can restore it. Anything still being made stops and isn't brought back." (the last sentence as built in #431)
   - Buttons: **Archive** (danger) / **Keep it** (ghost).
 - **After:**
   - Toast: "Archived "Bo tries salmon · B"." with **Undo** (8 s).

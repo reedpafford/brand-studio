@@ -1115,3 +1115,42 @@ test("the done card has Review the breakdown, which opens the review", async () 
   open("/b/1/scripts/7");
   expect(await screen.findByRole("link", { name: "Review the breakdown" })).toHaveAttribute("href", "/b/1/scripts/7/reel");
 });
+
+test("Bulk create, Reel links: one link per line, bad lines are named and block the button, then one draft per reel is made and Write all reads and writes at one price", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts": [200, []],
+    "POST /scripts/bulk": [201, [{ id: 11, title: "Untitled reel" }, { id: 12, title: "Untitled reel" }]],
+    "POST /scripts/write/estimate": [200, { count: 2, credits: 35, credits_left: null, reading: 1, writing: 2, waiting: [], failed: [12] }],
+    "POST /scripts/write": [201, [{ id: 1, status: "queued" }, { id: 2, status: "queued" }]],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Bulk create" }));
+  const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
+  await userEvent.click(within(dialog).getByRole("radio", { name: "Reel links" }));
+  expect(within(dialog).queryByLabelText(/^Title \d$/)).toBeNull();
+  await userEvent.type(within(dialog).getByLabelText("Paste reel links, one per line"), "https://www.instagram.com/reel/Abc123/{Enter}https://example.com/nope{Enter}https://www.instagram.com/reel/Def456/");
+  expect(within(dialog).getByText("Line 2 isn't a reel link")).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make 3 drafts" }));
+  expect(calls.some((c) => c.key === "POST /scripts/bulk")).toBe(false); // a bad line blocks it
+  const box = within(dialog).getByLabelText("Paste reel links, one per line");
+  await userEvent.clear(box);
+  await userEvent.type(box, "https://www.instagram.com/reel/Abc123/{Enter}https://www.instagram.com/p/Def456/");
+  await userEvent.click(within(dialog).getByRole("switch", { name: "Write new lines in the same style" }));
+  await userEvent.type(within(dialog).getByLabelText("What to change (optional)"), "reselling becomes trading");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make 2 drafts" }));
+  await vi.waitFor(() =>
+    expect(calls.find((c) => c.key === "POST /scripts/bulk")?.body).toMatchObject({
+      scripts: [
+        { brand_id: 1, reel_url: "https://www.instagram.com/reel/Abc123/", new_lines: true, reference_replace: "reselling becomes trading" },
+        { reel_url: "https://www.instagram.com/p/Def456/", new_lines: true },
+      ],
+    }),
+  );
+  const done = await screen.findByRole("dialog", { name: "Drafts made" });
+  expect(await within(done).findByText("About 35 credits: reading 1 reel and writing 2 scripts and casts")).toBeInTheDocument();
+  expect(within(done).getByText("Couldn't get the reel")).toBeInTheDocument();
+  await userEvent.click(await within(done).findByRole("button", { name: /Write all scripts.*35 credits/ }));
+  expect(await screen.findByText("Reading 2 reels and writing their scripts. They'll show as drafts when they're ready.")).toBeInTheDocument();
+});

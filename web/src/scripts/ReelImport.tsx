@@ -11,7 +11,7 @@ import { useRail } from "../useMedia";
 import { useJobs } from "../clip/History";
 import { useAllowanceStop } from "./useScript";
 
-const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
+export const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
 const MAX_MB = 100;
 const MAX_SECONDS = 90;
 
