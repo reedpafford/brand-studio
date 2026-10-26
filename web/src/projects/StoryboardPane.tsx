@@ -226,7 +226,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
         </span>
       </div>
       {castNote}
-      {redrawBlocked && <p className="text-sm text-warning">{redrawBlocked}</p>}
+      {redrawBlocked && redrawBlocked !== declined && <p className="text-sm text-warning">{redrawBlocked}</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
         {declined && <p className="text-sm text-warning">{declined}</p>}
       {waitingForSheet.length > 0 && (
