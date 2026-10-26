@@ -80,3 +80,18 @@ test("the owner removes a member, who can no longer sign in", async ({ page }) =
   await signIn(page, "ed@example.com");
   await expect(page.getByRole("alert")).toHaveText("Wrong email or password.");
 });
+
+test("the owner finds the removed person, restores them, and changes their role with Undo", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.getByRole("link", { name: "Team" }).click();
+  await page.getByRole("button", { name: "Show removed (1)" }).click();
+  await page.getByRole("button", { name: "Restore Ed" }).click();
+  await expect(page.getByText("Ed is back on the team.")).toBeVisible();
+  await page.getByRole("button", { name: "More for Ed" }).click();
+  await page.getByRole("menuitem", { name: "Make owner" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Make owner" }).click();
+  await expect(page.getByText("Ed is now an owner.")).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByRole("region", { name: "People" }).getByRole("listitem").filter({ has: page.getByText("Ed", { exact: true }) }).first()).toContainText("Editor");
+});
