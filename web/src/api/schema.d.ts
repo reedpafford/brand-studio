@@ -2497,6 +2497,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/storyboard/approve-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve All
+         * @description Approve all (Reed, 2026-10-26): every frame with a still and nothing to fix; the
+         *     others are listed with why. Undo takes back exactly these.
+         */
+        post: operations["approve_all_projects__project_id__storyboard_approve_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/approve-all/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Approve All
+         * @description Undo Approve all: exactly the frames it approved go back to not approved.
+         */
+        post: operations["undo_approve_all_projects__project_id__storyboard_approve_all_undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/storyboard/frames/{frame_id}/keep": {
         parameters: {
             query?: never;
@@ -2658,6 +2699,48 @@ export interface paths {
         post: operations["approve_projects__project_id__clips__clip_id__approve_post"];
         /** Unapprove */
         delete: operations["unapprove_projects__project_id__clips__clip_id__approve_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/approve-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve All
+         * @description Approve all (Reed, 2026-10-26): every clip with a picked take, made for the newest
+         *     breakdown and with nothing to fix; the others are listed with why. Undo takes back
+         *     exactly these.
+         */
+        post: operations["approve_all_projects__project_id__clips_approve_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/approve-all/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Approve All
+         * @description Undo Approve all: exactly the clips it approved go back to not approved.
+         */
+        post: operations["undo_approve_all_projects__project_id__clips_approve_all_undo_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3028,6 +3111,15 @@ export interface components {
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
+        };
+        /** ApproveAllOut */
+        ApproveAllOut: {
+            /** Approved */
+            approved: number[];
+            /** Skipped */
+            skipped: {
+                [key: string]: unknown;
+            }[];
         };
         /** AssetOut */
         AssetOut: {
@@ -5115,6 +5207,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** UndoIn */
+        UndoIn: {
+            /** Ids */
+            ids: number[];
         };
         /** UsageBrandOut */
         UsageBrandOut: {
@@ -10897,6 +10994,72 @@ export interface operations {
             };
         };
     };
+    approve_all_projects__project_id__storyboard_approve_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveAllOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_approve_all_projects__project_id__storyboard_approve_all_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UndoIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post: {
         parameters: {
             query?: never;
@@ -11253,6 +11416,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_all_projects__project_id__clips_approve_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveAllOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_approve_all_projects__project_id__clips_approve_all_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UndoIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"][];
                 };
             };
             /** @description Validation Error */
