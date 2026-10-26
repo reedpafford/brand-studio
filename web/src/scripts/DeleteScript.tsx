@@ -3,13 +3,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Ellipsis, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { useJobs } from "../clip/History";
 import { Dialog, Menu, MenuItem } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
-type Target = { id: number; title: string; made: boolean };
-type Who = { created_by_id: number | null; published: boolean; title: string; id: number; versions: { project_id?: number | null }[] };
+type Target = { id: number; title: string; made: boolean; running: boolean };
+type Who = { created_by_id: number | null; published: boolean; title: string; id: number; running: boolean; versions: { project_id?: number | null }[] };
 
 /** Reed: any script. An editor: only their own unpublished drafts. Anyone else: not offered. */
 export function useMayDelete() {
@@ -17,7 +16,7 @@ export function useMayDelete() {
   return (s: Pick<Who, "created_by_id" | "published">) => me?.role === "owner" || (!!me && s.created_by_id === me.id && !s.published);
 }
 
-export const toTarget = (s: Who): Target => ({ id: s.id, title: s.title, made: s.versions.some((v) => !!v.project_id) });
+export const toTarget = (s: Who): Target => ({ id: s.id, title: s.title, made: s.versions.some((v) => !!v.project_id), running: s.running });
 
 /** Delete (or archive, when a video was made) with a confirm first and Undo after. Render `dialog` somewhere on the page. */
 export function useDeleteScript(onDeleted?: () => void) {
@@ -26,9 +25,6 @@ export function useDeleteScript(onDeleted?: () => void) {
   const [problem, setProblem] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const toast = useToast();
-  const jobs = useJobs();
-  // Something still being made for the script itself (its words, a reel read, variations, Directions, the plan). A video made from it carries on, so its jobs don't count.
-  const running = !!target && (jobs.data ?? []).some((j) => j.script_id === target.id && !j.project_id && ["queued", "running", "needs_owner_approval"].includes(j.status));
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["scripts"] });
   const close = () => (setTarget(null), setProblem(null));
 
@@ -54,7 +50,7 @@ export function useDeleteScript(onDeleted?: () => void) {
   const dialog = target && (
     <Dialog title={target.made ? `Archive "${target.title}"?` : `Delete "${target.title}"?`} actionLabel={target.made ? "Archive" : "Delete"} danger busy={busy} onCancel={close} onConfirm={() => void confirm()}>
       {target.made ? "It leaves the library. The videos made from it stay, with their clips and downloads." : "Its versions and cast go too."}
-      {running && " Anything still being made for this script stops and isn't brought back."}
+      {target.running && " Anything still being made for this script stops and isn't brought back."}
       {problem && <p role="alert" className={`mt-2 ${errorClass}`}>Couldn't do that. Nothing changed. {problem}</p>}
     </Dialog>
   );
