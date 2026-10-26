@@ -1,6 +1,20 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-26 03:07 · #385 Housekeeping: remove scripts deleted over 30 days ago, with their reel files merged
+- 2026-10-26 02:53 · #381 Quick clips: search the history, remove one with Undo merged
+- 2026-10-26 02:53 · #372 Directions: test that Undo saves the earlier words back merged
+- 2026-10-26 02:53 · #370 Brand menu: + New brand for Reed merged
+- 2026-10-26 02:53 · #369 Team: Credit limits card for Reed merged
+- 2026-10-26 02:44 · #378 Deleting a brand screen can be undone merged
+- 2026-10-26 02:43 · #384 Spec: no "Waiting for Reed" on Quick clips merged
+- 2026-10-26 02:41 · #383 Spec: Quick clip past the allowance is declined with the reason merged
+- 2026-10-26 02:41 · #382 Spec: undo and restore for brand screens and Quick clips (gaps #12, #14) merged
+- 2026-10-26 02:33 · #374 Videos list: search by name, mine only, making or done merged
+- 2026-10-26 02:33 · #373 Team: change a member's role, bring a removed member back merged
+- 2026-10-26 02:19 · #375 Specs: Team role changes and Undo, and a Videos view with search merged
+- 2026-10-26 02:17 · #368 Breakdown plan step: stale flag, Keep anyway, script_id on the job merged
+- 2026-10-26 02:11 · #361 ops: HANDOFF/LOG refresh 2026-10-26 01:15Z (by the Producer) merged
 - 2026-10-26 02:09 · #364 Writing flow: the optional Breakdown step merged
 - 2026-10-26 02:04 · #371 Only the owner adds a brand; an archived brand can be restored merged
 - 2026-10-26 01:47 · #366 Clip prompts can be marked "Looks good" merged
