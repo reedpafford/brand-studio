@@ -658,3 +658,26 @@ def redo_note(note: str, bd: Breakdown, clip_id: str) -> list[str]:
                 else "Nobody speaks in this clip, so the note can't add speech."
             )
     return list(dict.fromkeys(problems))
+
+
+VO_LINE = re.compile(r"^([A-Z][A-Z .'-]*?) \((?:V\.O\.|VO|voice-over)\):\s*(.*)$", re.I)
+SAID_LINE = re.compile(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:\s*(.*)$")
+
+
+def echo_lines(script: str) -> list[str]:
+    """An echo (a V.O. from a character who also speaks on screen) repeats something they said
+    earlier, so the callback lands (Reed, live test 2026-10-26). Advice naming the closest
+    earlier line. A narrator heard only in V.O. is never an echo."""
+    problems, said = [], {}
+    for line in (x.strip() for x in script.splitlines()):
+        if (m := VO_LINE.match(line)) and m.group(1).upper() in said:
+            words, earlier = _words(m.group(2)), said[m.group(1).upper()]
+            if words and not any(words in _words(e) for e in earlier):
+                best = max(earlier, key=lambda e: len(set(words.split()) & set(_words(e).split())))
+                problems.append(
+                    f"{ADVICE}the echo “{m.group(2)}” calls back to nothing "
+                    f"{m.group(1).title()} said; repeat “{best}”"
+                )
+        elif (m := SAID_LINE.match(line)) and not VO_LINE.match(line):
+            said.setdefault(m.group(1).upper(), []).append(m.group(2))
+    return problems
