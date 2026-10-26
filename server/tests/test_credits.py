@@ -282,8 +282,10 @@ def test_approving_a_project_releases_its_held_jobs_within_budget(owner, editor,
     model = db.get(Project, created["id"])
     model.status = "needs_owner_approval"  # a project from before Reed dropped the length limit
     db.commit()
-    jobs = [enqueue(db, ed, "video-480p", {}, units=u, project=model) for u in (150, 200, 100)]
-    assert {j.status for j in jobs} == {"needs_owner_approval"}
+    with pytest.raises(HTTPException) as refused:  # nothing new waits for Reed any more
+        enqueue(db, ed, "video-480p", {}, units=10, project=model)
+    assert "waiting for Reed's OK" in refused.value.detail
+    jobs = [_held(db, ed, model, c) for c in (150, 200, 100)]  # held before that change
     owner.post(f"/projects/{created['id']}/approve")
     for job in jobs:
         db.refresh(job)
