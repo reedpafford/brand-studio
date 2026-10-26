@@ -64,6 +64,19 @@ test("suggestions sit under their line with Accept and Reject; accepting turns t
   expect(await screen.findByText("Added 1 direction.")).toBeInTheDocument();
 });
 
+test("Undo after adding saves the earlier words back", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({
+    "GET /scripts/7/drafts/0/suggestions": [200, [mark({ status: "accepted" })]],
+    "POST /scripts/7/drafts/0/apply": [200, script()],
+    "PUT /scripts/7/drafts/0": [200, script()],
+  }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Add 1 direction" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "MIA: Hell no!\nBO: Salmon?" }));
+});
+
 test("an editor past the week's allowance can't press Suggest directions", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /auth/me": [200, { ...owner, id: 2, role: "editor" }], "GET /scripts/7": [200, script({ created_by_id: 2 })], "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }] }));
