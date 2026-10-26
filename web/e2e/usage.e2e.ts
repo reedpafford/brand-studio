@@ -35,3 +35,15 @@ test("Reed opens In production from the rail and sees the version being made, wi
   await expect(page.getByRole("link", { name: /^Bo tries salmon/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("Reed adds a brand from the brand menu and lands on its Look page", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.getByRole("button", { name: /^Brand: / }).click();
+  await page.getByRole("menuitem", { name: "New brand" }).click();
+  await page.getByLabel("Brand name").fill("Zephyr Studio");
+  await page.getByRole("button", { name: "Create brand" }).click();
+  await expect(page.getByText("Zephyr Studio is ready. Add its logo and colours.")).toBeVisible();
+  await expect(page).toHaveURL(/\/b\/\d+\/brand$/);
+  await expect(page.getByRole("button", { name: "Brand: Zephyr Studio" })).toBeVisible();
+});
