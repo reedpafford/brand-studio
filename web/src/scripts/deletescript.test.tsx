@@ -101,3 +101,36 @@ test("a refused delete keeps the dialog open and says nothing changed", async ()
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
   expect(await screen.findByText(/Nothing changed\. Only its author can remove it\./)).toBeInTheDocument();
 });
+
+const job = (o: object) => ({ id: 1, kind: "write-claude", status: "running", script_id: 7, project_id: null, created_at: "2026-10-26T10:00:00Z", ...o });
+
+test("Delete and Archive say anything still being made for the script stops, only when something is", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts": [200, [script()]], "GET /jobs": [200, [job({})]] }));
+  open("/b/1/scripts?status=any");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Delete script" }));
+  const dialog = await screen.findByRole("alertdialog", { name: 'Delete "Bo tries salmon"?' });
+  expect(dialog).toHaveTextContent("Its versions and cast go too. Anything still being made for this script stops and isn't brought back.");
+});
+
+test("the Archive confirm says it too, and a video made from the script doesn't count as running work", async () => {
+  setViewport(1440);
+  const made = script({ versions: [v(0, { project_id: 5 })] });
+  fakeServer(base({ "GET /scripts": [200, [made]], "GET /jobs": [200, [job({ id: 2, kind: "clip_take", project_id: 5 }), job({ id: 3, status: "queued", kind: "variations" })]] }));
+  open("/b/1/scripts?status=any");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Delete script" }));
+  const dialog = await screen.findByRole("alertdialog", { name: 'Archive "Bo tries salmon"?' });
+  expect(dialog).toHaveTextContent("Anything still being made for this script stops and isn't brought back.");
+});
+
+test("with only a video's work running, the line is left out", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts": [200, [script()]], "GET /jobs": [200, [job({ kind: "clip_take", project_id: 5 }), job({ id: 2, status: "succeeded" })]] }));
+  open("/b/1/scripts?status=any");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Delete script" }));
+  const dialog = await screen.findByRole("alertdialog", { name: 'Delete "Bo tries salmon"?' });
+  expect(dialog).not.toHaveTextContent("Anything still being made");
+});

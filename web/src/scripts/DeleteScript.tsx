@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Ellipsis, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
+import { useJobs } from "../clip/History";
 import { Dialog, Menu, MenuItem } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
@@ -25,6 +26,9 @@ export function useDeleteScript(onDeleted?: () => void) {
   const [problem, setProblem] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const toast = useToast();
+  const jobs = useJobs();
+  // Something still being made for the script itself (its words, a reel read, variations, Directions, the plan). A video made from it carries on, so its jobs don't count.
+  const running = !!target && (jobs.data ?? []).some((j) => j.script_id === target.id && !j.project_id && ["queued", "running", "needs_owner_approval"].includes(j.status));
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["scripts"] });
   const close = () => (setTarget(null), setProblem(null));
 
@@ -50,6 +54,7 @@ export function useDeleteScript(onDeleted?: () => void) {
   const dialog = target && (
     <Dialog title={target.made ? `Archive "${target.title}"?` : `Delete "${target.title}"?`} actionLabel={target.made ? "Archive" : "Delete"} danger busy={busy} onCancel={close} onConfirm={() => void confirm()}>
       {target.made ? "It leaves the library. The videos made from it stay, with their clips and downloads." : "Its versions and cast go too."}
+      {running && " Anything still being made for this script stops and isn't brought back."}
       {problem && <p role="alert" className={`mt-2 ${errorClass}`}>Couldn't do that. Nothing changed. {problem}</p>}
     </Dialog>
   );
