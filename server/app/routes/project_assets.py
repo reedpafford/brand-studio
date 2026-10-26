@@ -120,7 +120,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         item = db.get(LibraryItem, item_id) if item_id else None
         out.append(_row("character", f"slot:{slot.id}" if not item_id else f"char:{item_id}",
                         slot.role, item, slot.library_item_id is not None, slot))  # fmt: skip
-        out[-1].own_look_id = project.slot_looks.get(str(slot.id))
+        own = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
+        out[-1].own_look_id = own.id if own and not own.archived else None  # removed: gone
         seen.add(f"char:{item_id}")
     for ref in used:
         if ref in seen or not ref.startswith("char:"):
@@ -217,7 +218,8 @@ def make_look(
     to it, and draw its sheet (paid, from this video's budget). Never in Cast & places."""
     project = get_project(db, user, project_id)
     slot = _open_slot(db, project, slot_id)
-    if project.slot_looks.get(str(slot.id)):
+    mine = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
+    if mine and not mine.archived:  # a removed one can be made again
         raise HTTPException(409, f"{slot.role} already has a look for this video.")
     look = LibraryItem(
         workspace_id=project.workspace_id,
