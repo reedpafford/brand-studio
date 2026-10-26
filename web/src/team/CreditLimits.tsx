@@ -62,10 +62,12 @@ export function CreditLimits() {
   if (!saved) return null;
   const field = (id: string, label: string, value: string, set: (v: string) => void, error: string | null, help: string, usd: string) => (
     <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-3">
-        <label htmlFor={id} className="min-w-0 flex-1 font-medium">{label}</label>
-        <input id={id} inputMode="numeric" aria-invalid={!!error || undefined} aria-describedby={`${id}-help`} value={value} onChange={(e) => set(e.target.value)} className="min-h-control w-[120px] rounded-md border border-border-strong bg-surface px-3 text-right tabular-nums" />
-        <span className="w-24 text-sm text-muted">credits</span>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+        <label htmlFor={id} className="min-w-0 font-medium sm:flex-1">{label}</label>
+        <span className="flex items-center gap-3">
+          <input id={id} inputMode="numeric" aria-invalid={!!error || undefined} aria-describedby={`${id}-help`} value={value} onChange={(e) => set(e.target.value)} className="min-h-control w-[120px] rounded-md border border-border-strong bg-surface px-3 text-right tabular-nums" />
+          <span className="text-sm text-muted">credits</span>
+        </span>
       </div>
       <p id={`${id}-help`} className="text-sm text-muted">{usd && <span className="tabular-nums">{usd}. </span>}{help}</p>
       {error && <p role="alert" className={errorClass}>{error}</p>}
@@ -79,7 +81,7 @@ export function CreditLimits() {
         {field("weekly-limit", "Editors' weekly allowance", weekly, (v) => setEdit({ weekly: v, cap }), weeklyError, "Free generation for each editor's own scripts and quick clips. Resets on Monday.", dollars(weekly) && `${dollars(weekly)} a week`)}
         {field("video-cap", "Most one video can cost", cap, (v) => setEdit({ weekly, cap: v }), capError, "For everyone, Reed too. A video's budget is twice its estimate, up to this.", dollars(cap))}
         {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
-        <div className="flex justify-end">
+        <div className="sm:flex sm:justify-end">
           <Button variant="secondary" busy={put.isPending} disabled={reason !== null} reason={reason} onClick={press} className="w-full sm:w-auto">
             Save limits
           </Button>

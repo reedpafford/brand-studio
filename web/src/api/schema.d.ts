@@ -1608,7 +1608,12 @@ export interface paths {
          *     comes from their weekly allowance). It replaces any saved breakdown when it finishes.
          */
         post: operations["run_preview_scripts__script_id__drafts__slot__breakdown_post"];
-        delete?: never;
+        /**
+         * Remove Preview
+         * @description Remove the version's saved plan (the screen's Undo saves it back with PUT). Its video
+         *     then plans its own shots when it is made.
+         */
+        delete: operations["remove_preview_scripts__script_id__drafts__slot__breakdown_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2212,7 +2217,8 @@ export interface paths {
         get?: never;
         /**
          * Edit Clip
-         * @description Edit a clip's prompt or references; its problems are checked again.
+         * @description Edit a clip's prompt or references; its problems are checked again. Saving an edit
+         *     counts as reading it (Looks good).
          */
         put: operations["edit_clip_projects__project_id__clips__clip_id__put"];
         post?: never;
@@ -2305,6 +2311,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/prompt-ok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prompt Looks Good
+         * @description Looks good: the editor read this clip's prompt.
+         */
+        post: operations["prompt_looks_good_projects__project_id__clips__clip_id__prompt_ok_post"];
+        /** Undo Prompt Looks Good */
+        delete: operations["undo_prompt_looks_good_projects__project_id__clips__clip_id__prompt_ok_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/clips/{clip_id}/keep": {
         parameters: {
             query?: never;
@@ -2376,8 +2403,8 @@ export interface paths {
         };
         /**
          * List Assets
-         * @description Cast slots first (locked, then unlocked), then the breakdown's other characters and
-         *     its places, each once.
+         * @description Cast slots first (locked, then unlocked), then the breakdown's other characters, its
+         *     places, then the products and screens its shots show, each once.
          */
         get: operations["list_assets_projects__project_id__assets_get"];
         put?: never;
@@ -2555,6 +2582,13 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Shots
+             * @default 0
+             */
+            shots: number;
+            /** File Id */
+            file_id?: number | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -3658,6 +3692,8 @@ export interface components {
             picked_take_id: number | null;
             /** Approved */
             approved: boolean;
+            /** Prompt Ok */
+            prompt_ok: boolean;
             /** Take Credits */
             take_credits: number;
             /** Stale */
@@ -4241,6 +4277,11 @@ export interface components {
             number: number;
             /** File Id */
             file_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** UsageBrandOut */
         UsageBrandOut: {
@@ -8216,6 +8257,38 @@ export interface operations {
             };
         };
     };
+    remove_preview_scripts__script_id__drafts__slot__breakdown_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_estimate_scripts__script_id__drafts__slot__breakdown_estimate_get: {
         parameters: {
             query?: never;
@@ -9571,6 +9644,70 @@ export interface operations {
                 "application/json": components["schemas"]["InsertIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prompt_looks_good_projects__project_id__clips__clip_id__prompt_ok_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_prompt_looks_good_projects__project_id__clips__clip_id__prompt_ok_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

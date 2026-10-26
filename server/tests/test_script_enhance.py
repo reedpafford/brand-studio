@@ -57,3 +57,20 @@ def test_directions_on_an_editors_own_script_use_their_allowance(editor, db):
     made = _make(editor, text=SCRIPT)
     assert editor.post(f"/scripts/{made['id']}/drafts/0/enhance").status_code == 201
     assert quick_clip_used(db, db.query(User).filter_by(role="editor").one()) == 3
+
+
+def test_a_removed_variation_takes_its_marks_with_it(owner, db):
+    from app.models.script_library import ScriptDraft
+    from app.models.scripts import Suggestion
+
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    owner.put(f"{base}/drafts/1", json={"text": SCRIPT})
+    draft_id = db.query(ScriptDraft).filter_by(slot=1).one().id
+    job = owner.post(f"{base}/drafts/1/enhance").json()
+    db.add(Suggestion(script_draft_id=draft_id, script_version=0, job_id=job["id"], key="s1",
+                      kind="camera", line=1, quote="SCENE", start=0, end=5, placement="before",
+                      text="Wide.", reason="Helps."))  # fmt: skip
+    db.commit()
+    assert owner.delete(f"{base}/drafts/1").status_code == 200
+    assert db.query(Suggestion).count() == 0  # SQLite doesn't cascade on its own
