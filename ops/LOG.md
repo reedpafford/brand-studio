@@ -1,6 +1,17 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-26 02:09 · #364 Writing flow: the optional Breakdown step merged
+- 2026-10-26 02:04 · #371 Only the owner adds a brand; an archived brand can be restored merged
+- 2026-10-26 01:47 · #366 Clip prompts can be marked "Looks good" merged
+- 2026-10-26 01:39 · #360 Video flow data: take times, products and screens, "In N shots", clip names, plan delete merged
+- 2026-10-26 01:39 · #343 Release this version and Archive video merged
+- 2026-10-26 01:34 · #367 Specs: New brand and Archive brand, editable credit limits, and Looks good kept on the server merged
+- 2026-10-26 01:31 · #352 Reel watch: read the grid frames' shot and time labels merged
+- 2026-10-26 01:31 · #362 Directions step: suggest, accept and add directions on a script merged
+- 2026-10-26 01:31 · #358 Script step: "Includes finding the roles." and the Cast step fills after a write merged
+- 2026-10-26 01:31 · #349 Scripts: Deleted and archived filter with Restore merged
+- 2026-10-26 01:23 · #363 Directions spec as built: Suggest directions is secondary and runs again merged
 - 2026-10-26 01:08 · #359 Writing step 6 spec: the optional Breakdown plan per version merged
 - 2026-10-26 01:05 · #357 Directions: Enhance on a library script version (gaps #4) merged
 - 2026-10-26 01:05 · #355 Video page follow-up: swap a character, own-script decline, Undo Keep anyway merged
