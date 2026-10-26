@@ -216,10 +216,11 @@ QA_OWNER = "QA Owner"  # the live test's owner account (Reed, 2026-10-26: remove
 
 
 def remove_qa_owner(db: Session) -> bool:
-    """Remove the QA test owner: only an owner named exactly "QA Owner". With nothing of its own
-    it's deleted; otherwise it's removed as Team's Remove does (it can't sign in, its sessions
-    and the invites it sent are gone) so the work it made keeps its history. True when there
-    was something to do; running it again changes nothing."""
+    """Remove the QA test owner: only an owner named exactly "QA Owner", and never a
+    workspace's last active owner. With nothing of its own it's deleted; otherwise it's
+    removed as Team's Remove does (it can't sign in, its sessions and the invites it sent are
+    gone) so the work it made keeps its history. True when there was something to do;
+    running it again changes nothing."""
     from sqlalchemy import delete, func
 
     from app.db import Base
@@ -227,6 +228,14 @@ def remove_qa_owner(db: Session) -> bool:
 
     found = False
     for user in db.scalars(select(User).where(User.name == QA_OWNER, User.role == Role.owner)):
+        others = select(func.count(User.id)).where(
+            User.workspace_id == user.workspace_id,
+            User.role == Role.owner,
+            User.active.is_(True),
+            User.id != user.id,
+        )
+        if not db.scalar(others):
+            continue  # never a workspace's last active owner: nobody could run it
         sessions = delete(LoginSession).where(LoginSession.user_id == user.id)
         invites = delete(Invite).where(
             Invite.invited_by_id == user.id, Invite.accepted_at.is_(None)

@@ -41,3 +41,13 @@ def test_a_qa_owner_with_work_is_removed_but_its_work_stays(owner, db):
     assert db.get(User, qa.id).active is False  # can't sign in; its history keeps its name
     assert db.get(Job, job.id).created_by_id == qa.id
     assert remove_qa_owner(db) is False
+
+
+def test_a_qa_owner_who_is_the_last_owner_is_left(owner, db):
+    """QA on #504: never the workspace's last active owner; nobody could run the studio."""
+    reed = db.query(User).filter_by(email="reed@example.com").one()
+    reed.name = "QA Owner"  # the only owner, under that name
+    db.commit()
+    assert remove_qa_owner(db) is False
+    db.expire_all()
+    assert db.get(User, reed.id).active is True
