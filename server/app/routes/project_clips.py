@@ -77,6 +77,7 @@ class ProjectClipOut(BaseModel):
     takes: list[TakeOut]
     picked_take_id: int | None
     approved: bool
+    prompt_ok: bool  # Looks good on the prompt; Make the takes waits for every clip's
     take_credits: float  # what one more take costs (shown on Make clip / Redo)
     stale: bool  # made from an older breakdown
     inserts: list[InsertOut]
@@ -166,9 +167,11 @@ def edit_clip(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Edit a clip's prompt or references; its problems are checked again."""
+    """Edit a clip's prompt or references; its problems are checked again. Saving an edit
+    counts as reading it (Looks good)."""
     project, row = _clip(db, user, project_id, clip_id)
     row.prompt, row.references = body.prompt, [r.model_dump() for r in body.references]
+    row.prompt_ok = True
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, **body.model_dump())
     row.problems = clip_prompts.clip_problems(db, project, bd, clip)
@@ -278,6 +281,27 @@ def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[st
     return [
         f"{c.clip_id}/{i.shot_id}" for c in clips for i in cut_in.inserts(db, project, c) if i.on
     ]
+
+
+@router.post("/clips/{clip_id}/prompt-ok", response_model=ProjectClipOut)
+def prompt_looks_good(
+    project_id: int, clip_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Looks good: the editor read this clip's prompt."""
+    project, row = _clip(db, user, project_id, clip_id)
+    row.prompt_ok = True
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
+
+
+@router.delete("/clips/{clip_id}/prompt-ok", response_model=ProjectClipOut)
+def undo_prompt_looks_good(
+    project_id: int, clip_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    project, row = _clip(db, user, project_id, clip_id)
+    row.prompt_ok = False
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
 
 
 @router.post("/clips/{clip_id}/keep", response_model=ProjectClipOut)
