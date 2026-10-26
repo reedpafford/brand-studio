@@ -78,8 +78,11 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
     project = stand_in_project(db, script, draft)
     screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
     m = breakdown.video_model()
-    end_line = db.get(Brand, script.brand_id).end_line
-    found = check.breakdown(draft.text, bd, screens, m.duration.min, m.duration.max, end_line)
+    brand = db.get(Brand, script.brand_id)
+    found = check.breakdown(
+        draft.text, bd, screens, m.duration.min, m.duration.max, brand.end_line, brand.name,
+        approved=draft.status == "approved",
+    )  # fmt: skip
     slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
     known_slots = {f"slot:{s.id}" for s in slots}
     unknown = [

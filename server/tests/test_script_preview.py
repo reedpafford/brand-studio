@@ -111,3 +111,14 @@ def test_a_plan_goes_stale_when_the_words_change_and_its_advice_can_be_kept(owne
     owner.post(f"{url}/keep", json={"problem": advice})
     removed = owner.delete(url).json()  # removing the plan clears what was kept
     assert (removed["kept"], removed["stale"]) == ([], False)
+
+
+def test_the_end_line_is_advice_once_the_words_are_approved(owner):
+    """Reed: an approved script's end line never blocks; a draft's still does."""
+    made = _make(owner, text=SCRIPT)  # doesn't end on fomo's end line
+    url = f"/scripts/{made['id']}/drafts/0/breakdown"
+    blocked = "the script doesn't end on the brand's end line"
+    assert blocked in owner.put(url, json=BREAKDOWN).json()["problems"]
+    owner.post(f"/scripts/{made['id']}/drafts/0/approve")
+    problems = owner.put(url, json=BREAKDOWN).json()["problems"]
+    assert f"Advice: {blocked}" in problems and blocked not in problems

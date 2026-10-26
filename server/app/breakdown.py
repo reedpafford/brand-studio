@@ -76,9 +76,14 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
 def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
     screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
     m = video_model()
-    end_line = db.get(Brand, project.brand_id).end_line
+    brand = db.get(Brand, project.brand_id)
     # The Director's check takes the brand's end line (#107); older checks don't yet.
-    extra = {"end_line": end_line} if "end_line" in signature(check.breakdown).parameters else {}
+    params = signature(check.breakdown).parameters
+    extra = {"end_line": brand.end_line} if "end_line" in params else {}
+    if "brand" in params:
+        extra["brand"] = brand.name
+    if "approved" in params:  # a video from the library is made from an approved version
+        extra["approved"] = project.script_draft_id is not None
     found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     return found + unknown_ids(db, project, bd)
 
