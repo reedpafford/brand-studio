@@ -588,6 +588,30 @@ export interface paths {
         get: operations["read_job_jobs__job_id__get"];
         put?: never;
         post?: never;
+        /**
+         * Remove From History
+         * @description Take a Quick clip off the history, undoably. Its credits still count.
+         */
+        delete: operations["remove_from_history_jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{job_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore To History
+         * @description Undo a remove: the clip is back in the history.
+         */
+        post: operations["restore_to_history_jobs__job_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6227,6 +6251,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["JobStatus"] | null;
+                q?: string;
+                removed?: boolean;
             };
             header?: never;
             path?: never;
@@ -6255,6 +6281,66 @@ export interface operations {
         };
     };
     read_job_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_from_history_jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_to_history_jobs__job_id__restore_post: {
         parameters: {
             query?: never;
             header?: never;

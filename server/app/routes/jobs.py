@@ -80,8 +80,7 @@ class JobOut(BaseModel):
         }
         db = object_session(job)
         given = job.input.get("input") or {}
-        # The editor's own words, not the [ImageN] lines added for the model.
-        prompt = str((job.input.get("request") or given).get("prompt", ""))
+        prompt = _prompt(job)
         return {
             **data,
             **extra,
@@ -192,13 +191,65 @@ def _get_job(db: Session, user: User, job_id: int) -> Job:
 @router.get("/jobs", response_model=list[JobOut])
 def list_jobs(
     status: JobStatus | None = None,
+    q: str = "",  # in what was asked (the prompt)
+    removed: bool = False,  # true: the Quick clips taken off the history, to bring back
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    query = select(Job).where(Job.workspace_id == user.workspace_id)
+    gone = Job.removed_at.is_not(None)
+    query = select(Job).where(Job.workspace_id == user.workspace_id, gone if removed else ~gone)
     if status:
         query = query.where(Job.status == status)
-    return db.scalars(query.order_by(Job.id.desc()).limit(200)).all()
+    if not q.strip():
+        return db.scalars(query.order_by(Job.id.desc()).limit(200)).all()
+    words = q.strip().lower()
+    found = db.scalars(query.order_by(Job.id.desc()).limit(SEARCHED)).all()
+    return [j for j in found if words in _prompt(j).lower()][:200]
+
+
+SEARCHED = 2000  # the newest jobs a search looks through
+FINISHED = (JobStatus.succeeded, JobStatus.failed, JobStatus.cancelled)
+
+
+def _prompt(job: Job) -> str:
+    """What was asked: the person's own words, not the [ImageN] lines added for the model."""
+    given = job.input.get("input") or {}
+    return str((job.input.get("request") or given).get("prompt", ""))
+
+
+def _quick_clip(db: Session, user: User, job_id: int, removed: bool) -> Job:
+    """A finished Quick clip of the caller's (the owner: anyone's). Video steps and paid work
+    still going can't be taken off the history."""
+    job = _get_job(db, user, job_id)
+    if (job.removed_at is not None) != removed:
+        raise HTTPException(404, "No such clip in the history.")
+    if not (user.is_owner or job.created_by_id == user.id):
+        raise HTTPException(403, "Only whoever made it, or the owner, can do that.")
+    if job.project_id is not None or not job.kind.startswith(("video", "image")):
+        raise HTTPException(409, "Only Quick clips can be removed from the history.")
+    if job.status not in FINISHED:
+        raise HTTPException(409, "Wait for it to finish first.")
+    return job
+
+
+@router.delete("/jobs/{job_id}", status_code=204)
+def remove_from_history(
+    job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+) -> None:
+    """Take a Quick clip off the history, undoably. Its credits still count."""
+    _quick_clip(db, user, job_id, removed=False).removed_at = utcnow()
+    db.commit()
+
+
+@router.post("/jobs/{job_id}/restore", response_model=JobOut)
+def restore_to_history(
+    job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo a remove: the clip is back in the history."""
+    job = _quick_clip(db, user, job_id, removed=True)
+    job.removed_at = None
+    db.commit()
+    return job
 
 
 @router.get("/jobs/{job_id}", response_model=JobOut)

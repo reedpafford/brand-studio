@@ -40,6 +40,7 @@ class Job(Entity, Base):
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # over budget
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
+    removed_at: Mapped[datetime | None]  # a Quick clip off the history (still counted)
 
 
 class Usage(Entity, Base):
