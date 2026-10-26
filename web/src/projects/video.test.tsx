@@ -789,3 +789,18 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
   await userEvent.click(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
 });
+
+test("a link to a locked step lands on the step that blocks it, not always on Breakdown", async () => {
+  setViewport(1440);
+  // Breakdown and Assets are done, but the storyboard frames are out of date: Clips is locked, and Storyboard is what blocks it.
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]], "GET /projects/9/clips": [200, []] });
+  open("?step=clips");
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+});
+
+test("a link to a locked step lands on Assets while assets are left to approve", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/assets": [200, [asset({})]] });
+  open("?step=storyboard");
+  expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
+});

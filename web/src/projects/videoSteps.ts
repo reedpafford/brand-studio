@@ -25,6 +25,12 @@ export function videoLock(step: VideoStepId, p: VideoProgress): string | null {
   return lockReason(VIDEO_STEPS.find((s) => s.id === step)!.old, p);
 }
 
+/** Where a link to a locked step should land: the first earlier step that isn't finished (or is out of date), since that is what blocks it. */
+export function videoBlocker(step: VideoStepId, p: VideoProgress): VideoStepId {
+  const before = VIDEO_STEPS.slice(0, VIDEO_STEPS.findIndex((s) => s.id === step));
+  return before.find((s) => !done(s.id, p) || (s.id !== "assets" && isStale(s.id === "breakdown" ? "shots" : s.old, p)))?.id ?? "breakdown";
+}
+
 function done(step: VideoStepId, p: VideoProgress): boolean {
   if (step === "breakdown") return isDone("shots", p);
   if (step === "assets") return p.assets.ready === p.assets.total;
