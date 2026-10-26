@@ -130,6 +130,8 @@ def save_changed(db: Session, job: Job) -> None:
     if isinstance(row, StoryboardFrame):
         frame = Frame(clip_id=row.clip_id, shot_id=row.shot_id, prompt=after,
                       reference_ids=row.reference_ids)  # fmt: skip
+        frame = storyboard.with_cast(db, project, frame, Breakdown.model_validate(bd.data))
+        row.prompt, row.reference_ids = frame.prompt, frame.reference_ids
         row.problems = storyboard.frame_problems(db, project, frame, row.breakdown_id)
     else:
         row.prompt_ok = False  # a prompt written again needs reading again
