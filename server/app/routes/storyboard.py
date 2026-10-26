@@ -293,6 +293,7 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
             continue
         why = (
             "no still yet" if not frame.file_id
+            else "still is out of date, Redo it first" if frame.still_stale
             else "made for an older breakdown" if _stale(db, project, frame)
             else "has a problem to fix" if advice.stops(frame)
             else ""
