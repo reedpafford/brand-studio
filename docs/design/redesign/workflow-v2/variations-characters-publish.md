@@ -1,4 +1,4 @@
-# Writing steps 3, 4, 5 and 7: Directions, Variations, Cast, Publish
+# Writing steps 3 to 7: Directions, Variations, Cast, Breakdown, Publish
 
 Step 3 (Directions) is #185's Suggest directions on its own step. Step 6 (Breakdown) is #186's editor, in a tab per version. Plan: `../workflow-v2.md`, decisions d, e, f and i. Mock: `variations.png`.
 
@@ -92,6 +92,36 @@ Reed, 2026-10-25 (#197): once the script and its variations are approved, the ap
 | No roles found | "Claude found no named roles. Everyone will be made at Assets." **＋ Add a role** |
 | Finding failed | "The roles weren't found. Nothing was charged." **Try again** (free when it failed inside a write) |
 | Success | Toast "Mia is locked. She'll look the same in every version." |
+
+## 6. Breakdown, optional (`?step=breakdown`, gaps #6)
+Reed can plan a version's shots before publishing (decision k). The editor then starts from this plan instead of one made on the fly. Skipping it is fine: the breakdown runs on its own when an editor starts the version.
+- **Tabs:** a segmented control **A · B · C** with only the versions that exist, and A first. Each tab is its own plan.
+- **Not planned yet:**
+  - The card reads "Plan the shots now, or let it happen when an editor starts this version." Under it, the meta line: "Sees the length, scenes and shots, and lets you edit them."
+  - The button is **Make the breakdown · N credits** (secondary, `Sparkles`; the price comes from `GET …/breakdown/estimate`). The step's amber stays **Next: Publish**, since this step is optional.
+  - On an editor's own script it counts towards the week, and past the allowance it's disabled with the week's reason. There's no Ask Reed.
+- **While planning:** "Planning shots… 10 s" (counting up), with skeleton rows in the shots' shape. It keeps going if Reed leaves, read from `running`.
+- **Planned:**
+  - #186's editor: `BreakdownView`, reused as it is, with the video-only parts left out (the Shape and "Where will it be posted?" row). Scenes, shots and clips can be edited, split and joined, with **Save** while there are changes.
+  - **Go to** stays, because it jumps within this plan.
+  - Problems and advice show exactly as on the video (danger box, then the closed **Advice (n)** line). Nothing here blocks **Next: Publish**. The problem box's title reads "{n} problems in this plan" (not "before the storyboard").
+  - The step bar's meta: "Planned · 28 s · 4 clips · about 56 credits to make".
+  - **Make it again · N credits** (ghost, `RotateCcw`) asks first: "Make the breakdown again? Your edits to this plan will be lost." **Keep my plan** / **Make again**.
+- **Remove the plan** (in the step's `Ellipsis` menu, owner, before publishing): it asks "Remove this plan? An editor's video will plan its shots when they start." **Keep it** / **Remove**.
+  - After: a toast with **Undo**. Undo can put the saved plan back with the existing `PUT …/breakdown`, holding the plan in memory until the toast closes.
+  - The server needs `DELETE /scripts/{id}/drafts/{slot}/breakdown` for this. It's a Builder-Server ask.
+- **Older words:** a plan made before a version's words changed (an undone approval, then an edit) shows the warning banner "This plan was made for older words. Make it again so the shots match." with **Make it again · N credits**.
+  - The server needs a `stale` flag on `GET …/breakdown`, like the video's. Until it has one, leave the banner out.
+- **Step picker:** a muted "Skipped" while no version has a plan. With at least one: a tick, with "Planned" on each planned tab.
+- **Publish summary** (§7): each version's card shows "Planned by Reed · 28 s · 4 clips", or "Planned when an editor starts".
+- **Phone:** the tabs are full width at 44px, the editor is #186's phone layout, and **Next: Publish** is in the action bar. The secondary buttons sit at full width above the plan.
+- **States:**
+
+  | State | What shows |
+  |---|---|
+  | Loading | The tabs, then 4 row skeletons |
+  | Planning failed | "The breakdown didn't finish. Nothing was charged." **Try again · N credits** |
+  | Saved | Toast "Plan saved for version B." |
 
 ## 7. Publish (`?step=publish`)
 - **One summary card per version,** in a grid: three columns on desktop, stacked on phone. Each card shows:
