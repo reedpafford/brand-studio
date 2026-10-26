@@ -27,7 +27,7 @@ Quick clip (page 32)                                        This week: 132 of 60
 - **Model:** a secondary select-style button showing the model's name and its one line. It opens a popover (sheet on phone) listing each model: name (card), one line (meta), "from N credits a second" (meta). No provider names.
 - **Brand pieces:** chips with a 24px picture and an `X` remove (`aria-label="Remove Bo"`). **＋ Add** opens a menu with tabs Characters · Places · Props · Screens · Upload. Screens set to "Always used for" a moment are added for you when the prompt mentions it, with a `Smartphone` icon and the meta line "Added because you mentioned the buy moment".
 - **Improve prompt:** dialog as today. The result is editable; **Use this** (amber inside the dialog) and **Keep mine** (ghost). Meta: "Nothing is made until you press Generate." After use, a ghost **Undo improve** sits next to the button.
-- **Generate · N credits** is the screen's amber button. Over the weekly allowance it reads **Ask Reed to approve · N credits**. Disabled reasons (first that applies): "Loading a brand piece…", "Describe the clip (8 or more characters)", "A clip is already being made", "Offline".
+- **Generate · N credits** is the screen's amber button. Disabled reasons (first that applies): "Loading a brand piece…", "Describe the clip (8 or more characters)", "A clip is already being made", "Offline", and for an editor past the weekly allowance: "That's more than this week's 600 free credits (560 used). It resets on Monday." There's no Ask Reed (decision l): the clip is declined with the reason, never sent to Reed.
 - **Allowance:** "This week: 132 of 600 credits" (meta, top right of the page). Editors never see dollars.
 
 ## History
@@ -61,6 +61,6 @@ Quick clip (page 32)                                        This week: 132 of 60
 | Making | Badge "Queued", then "Making 1m 12s" (elapsed time; the API has no progress). **Cancel** (ghost dense) on the card. |
 | Error (a clip) | Badge "Didn't finish · credits returned", one plain line ("The video service was busy."), **Try again · 68 credits** (secondary). |
 | Error (page) | Danger banner "Couldn't load your clips. Check your connection." **Try again**. The panel still works. |
-| Waiting for Reed | `warn` badge "Waiting for Reed to approve" on the card. |
+| Waiting for Reed | Only on clips asked for before this change: `warn` badge "Waiting for Reed to approve" on the card, with **Cancel**. New clips never wait for Reed. |
 | Success | Toast "Your clip is ready." with **Show** (ghost dense) that scrolls to it. |
 | Nothing removed | Filter set to Removed with none: "Nothing removed." with a ghost **Show all**. |
