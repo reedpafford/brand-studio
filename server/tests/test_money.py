@@ -67,3 +67,30 @@ def test_releasing_a_version_stops_its_running_work(owner, editor, db):
     assert job.status == JobStatus.cancelled and job.output is None  # nothing saved from it
     assert credits_used(db, db.get(Project, made["project_id"])) == 0  # the credits are back
     assert db.query(Usage).filter_by(job_id=job.id).count() == 1  # its dollars, for Reed
+
+
+def test_a_released_job_from_a_silent_provider_is_listed_and_keeps_no_files(app, owner, editor, db):
+    """QA on #419: a discarded job whose provider reports no cost still shows its spend, and
+    what it made is never downloaded into storage."""
+    from app.models.files import StoredFile
+
+    class Silent(FakeProvider):  # an image model: files, no reported cost
+        def poll(self, ref):
+            return Result("succeeded", output={}, files=["https://example.com/a.png"])
+
+    base, _ = _published(owner, db)
+    made = editor.post(f"{base}/drafts/0/produce").json()
+    job = db.get(Job, made["breakdown_job_id"])
+    job.provider, job.credits = "fake", Decimal(2)
+    db.commit()
+    silent = Silent(polls_until_done=1)
+    run_once(db, {"fake": silent})
+    editor.post(f"/projects/{made['project_id']}/release")
+    db.expire_all()
+    files = db.query(StoredFile).count()
+    run_once(db, {"fake": silent}, app.state.storage)
+    db.refresh(job)
+    assert job.status == JobStatus.cancelled
+    assert db.query(StoredFile).count() == files  # nothing downloaded
+    charge = db.query(Usage).filter_by(job_id=job.id).one()
+    assert charge.estimated and charge.cost_usd == Decimal("0.2056")  # 2 credits' worth

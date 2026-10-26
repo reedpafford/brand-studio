@@ -51,6 +51,20 @@ def test_password_is_not_stored_in_plain_text(owner, db):
     assert PASSWORD not in db.query(User).one().password_hash
 
 
+def test_the_owner_renames_the_studio_and_invites_show_it(app, owner, editor):
+    assert owner.get("/workspace").json()["name"] == "Studio"
+    assert editor.put("/workspace", json={"name": "Nope"}).status_code == 403
+    assert owner.put("/workspace", json={"name": " Reed's studio "}).json()["name"] == (
+        "Reed's studio"
+    )
+    assert editor.get("/workspace").json()["name"] == "Reed's studio"
+    token = owner.post("/team/invites", json={"email": "b@example.com"}).json()["token"]
+    with TestClient(app) as c:
+        assert c.post("/auth/invite", json={"token": token}).json()["workspace_name"] == (
+            "Reed's studio"
+        )
+
+
 def test_invite_token_works_once(app, owner):
     token = owner.post("/team/invites", json={"email": "a@example.com"}).json()["token"]
     body = {"token": token, "name": "A", "password": PASSWORD}
@@ -59,6 +73,7 @@ def test_invite_token_works_once(app, owner):
         assert info.json() == {
             "workspace_name": "Studio",
             "invited_by_name": "Reed",
+            "owner_name": "Reed",
             "email": "a@example.com",
             "role": "editor",
         }

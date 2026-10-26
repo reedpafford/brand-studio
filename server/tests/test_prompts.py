@@ -436,7 +436,12 @@ def test_shot_times_take_a_hyphen_or_an_en_dash():
     assert check._shape(prompt, 10) == check._shape(prompt.replace("-", "–"), 10)
     assert check._shape(prompt, 10)[0] == []
     assert check._shape(prompt.replace("0-1 s.", "0\ty1 s."), 10)[0] == [
-        "shot times aren't whole seconds back to back from 0"
+        "shot 1's times aren't whole seconds; write them like “0-2 s.”"
+    ]
+    last = re.findall(r"^Shot \d+ \| \d+[-–]\d+ s\.", prompt, re.M)[-1]
+    empty = prompt.replace(last, f"{last}\nShot 99 | 10-10 s.")  # the live test's 12–12 s
+    assert check._shape(empty, 10)[0] == [
+        "has an empty last shot (10–10 s). Remove it or give it a length."
     ]
 
 
@@ -595,7 +600,7 @@ def test_improve_keeps_the_editors_words_and_the_reference_lines():
     assert check.improve(twice, schemas.ImprovedPrompt(prompt=callback), refs, 4, 8) == []
     gap = result.prompt.replace("Shot 2 | 2-4 s.", "Shot 2 | 3-4 s.")
     assert check.improve(idea, schemas.ImprovedPrompt(prompt=gap), refs, 4, 8) == [
-        "shot times aren't whole seconds back to back from 0"
+        "shot 2 starts at 3 s. The shot before ends at 2 s."
     ]
     curly = idea.replace('"I bought it at six cents."', "“I bought it at six cents.”")
     assert check.improve(curly, result, refs, 4, 8) == []
@@ -625,7 +630,7 @@ def test_clip_prompt_check_wants_first_frame_summary_and_whole_seconds():
     clip.prompt = clip.prompt.replace("Shot 1 | 0-1 s.", "Shot 1 | 0-1.2 s.")
     assert check.clip_prompts(bd, cp, 30, 10) == [
         "c2: has no Summary line",
-        "c2: shot times aren't whole seconds back to back from 0",
+        "c2: shot 1's times aren't whole seconds; write them like “0-2 s.”",
         "c2: doesn't name [Image1] the first frame",
     ]
 

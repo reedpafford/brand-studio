@@ -224,9 +224,11 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
         fits = credits_used(db, project) + total <= project.budget_credits
         why = "would go over this video's budget."
     if not fits:
+        shown = max(1, math.ceil(total))  # rounded up, as the button shows it
+        price = "1 credit" if shown == 1 else f"{shown} credits"
         reason = (
             f"Frames rewritten for the new cast. {stills} the old cast: "
-            f"redrawing {'it' if n == 1 else 'them'} ({max(1, math.ceil(total))} credits) {why}"
+            f"redrawing {'it' if n == 1 else 'them'} ({price}) {why}"
         )
         result = {"redraw_refused": {"count": n, "credits": float(total), "reason": reason}}
         project.cast_redraw = result

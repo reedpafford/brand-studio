@@ -84,6 +84,20 @@ def test_upload_prepares_the_reel_for_free(app, editor, db, clip):
     assert sheet.headers["content-type"] == "image/jpeg"
     assert editor.get(f"/files/{ready['video_file_id']}").status_code == 200
     assert not any(local.root.iterdir())  # its working files are gone
+    assert editor.get(f"/scripts/{sid}").json()["title"] == "Will you marry me?"  # first line
+
+
+def test_an_imported_reel_is_named_from_its_caption_else_its_first_line(tmp_path):
+    words = [{"text": " "}, {"text": "Will you marry me?"}]
+    assert reel.name_for("POV: he proposed in Paris 🇫🇷\n#fomo #money", words) == (
+        "POV: he proposed in Paris 🇫🇷"
+    )
+    assert reel.name_for("", words) == "Will you marry me?"
+    assert reel.name_for("", []) == ""  # stays "Untitled reel"
+    long = "When the rich older man showed up at the proposal and everyone turned to look at him"
+    assert reel.name_for(long, []) == "When the rich older man showed up at the proposal and…"
+    (tmp_path / "reel.info.json").write_text(json.dumps({"description": "Paris, 2 years later"}))
+    assert reel.caption(tmp_path) == "Paris, 2 years later" and reel.caption(tmp_path / "x") == ""
 
 
 def test_a_refused_link_says_upload_instead_and_an_upload_fixes_it(app, owner, db, clip):

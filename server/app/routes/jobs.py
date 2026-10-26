@@ -23,7 +23,7 @@ from app.db import get_db, utcnow
 from app.job_brand import brand_for
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus, Usage
-from app.models.projects import Project
+from app.models.projects import Project, ProjectStatus
 
 router = APIRouter(tags=["jobs"])
 
@@ -128,6 +128,9 @@ class UsageOut(BaseModel):
     created_at: datetime
 
 
+OVER_BUDGET = "That's more than this video's budget."
+
+
 def enqueue(
     db: Session,
     user: User,
@@ -142,8 +145,9 @@ def enqueue(
     """Queue a job for the worker. Feature code calls this; there is no public create route.
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. An
     editor's own work (outside a project, or on a video from their own script) past their
-    weekly allowance is declined (409). Other jobs that would take a project over budget,
-    or sit in a project still waiting for approval, wait as `needs_owner_approval`. The
+    weekly allowance is declined (409), and so is an editor's job that would take a library
+    version over its budget (409, no Ask Reed). Jobs in a project still waiting for approval
+    wait as `needs_owner_approval`. The
     check and the reservation are one locked transaction. `prepaid`: a later step of work the
     editor already pressed for at its full price (the reel read chain), so the allowance isn't
     checked again; caps, brand, credits and Usage stay as for any job."""
@@ -164,6 +168,9 @@ def enqueue(
         db.rollback()
         raise HTTPException(409, declined)
     over = needs_approval(db, user, project, credits)
+    if over and project.status == ProjectStatus.active:  # Reed, 2026-10-26: no Ask Reed
+        db.rollback()
+        raise HTTPException(409, OVER_BUDGET)
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,

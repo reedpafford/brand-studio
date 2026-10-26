@@ -89,16 +89,23 @@ def problems(db: Session, script: Script, job: Job) -> list[str]:
     return check.cast_slots(_versions(db, script), result, cast=names)
 
 
+def _key(role: str) -> str:
+    """One role however it's written: "Nate, the teen groom" and "NATE" are both Nate."""
+    from app.cast_roles import short
+
+    return (short(role) or role).strip().lower()
+
+
 def save_cast_slots(db: Session, job: Job) -> None:
     script = db.get(Script, job.input["script_id"])
     if script is None or script.published or script.archived:
         return  # published scripts are final
     result = CastSlots.model_validate(job.output)
-    have = {s.role.lower(): s for s in _slots(db, script)}
+    have = {_key(s.role): s for s in _slots(db, script)}
     order, done = [], {}
     for made in result.slots:
-        key = made.role.lower()
-        if key in done:  # Claude listed a role twice: one slot, in either's versions
+        key = _key(made.role)
+        if key in done:  # one role listed twice ("Nate", "Nate, the groom"): one slot
             done[key].appears_in = sorted({*done[key].appears_in, *made.appears_in})
             continue
         slot = have.pop(key, None)

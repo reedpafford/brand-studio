@@ -132,6 +132,7 @@ class InviteLookupIn(BaseModel):
 class InviteOut(BaseModel):
     workspace_name: str
     invited_by_name: str
+    owner_name: str  # "Join {owner}'s studio" when the studio's name looks like a slug
     email: str
     role: Role
 
@@ -147,6 +148,12 @@ def read_invite(body: InviteLookupIn, db: Session = Depends(get_db)):
     return InviteOut(
         workspace_name=db.get(Workspace, invite.workspace_id).name,
         invited_by_name=inviter.name if inviter else "",
+        owner_name=db.scalar(
+            select(User.name).where(
+                User.workspace_id == invite.workspace_id, User.role == Role.owner, User.active
+            )
+        )
+        or "",
         email=invite.email,
         role=invite.role,
     )
