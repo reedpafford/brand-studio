@@ -6,6 +6,7 @@ import copy
 
 from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
+from app.models.projects import Project
 from tests.conftest import upload
 from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
@@ -145,6 +146,11 @@ def test_a_scripts_own_look_is_used_by_its_videos_only_and_goes_with_it(app, own
     slot = owner.post(f"/scripts/{script}/cast", json={"role": "Nate"}).json()[0]["id"]
     locked = owner.post(f"/scripts/{script}/cast/{slot}/lock", json={"library_item_id": look["id"]})
     assert locked.status_code == 200  # its own script may use it
+    gone = owner.delete(f"/library/character/{look['id']}")
+    assert (gone.status_code, gone.json()["detail"]) == (
+        409,
+        "Swap the role to another look first.",
+    )
     both = {**body, "owner_project_id": 1}
     assert owner.post("/library/character", json=both).status_code == 422
 
@@ -152,3 +158,42 @@ def test_a_scripts_own_look_is_used_by_its_videos_only_and_goes_with_it(app, own
     assert purge_deleted(db, app.state.storage) == 1
     db.expire_all()
     assert db.get(LibraryItem, look["id"]) is None
+
+
+def test_a_videos_own_look_can_be_removed_once_no_role_uses_it_and_brought_back(owner, editor, db):
+    """QA on #423: an owned look has its own delete; refused while the role uses it; Undo."""
+    _, pid, nate = _video(owner, editor, db)
+    editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
+    look = _row(editor, pid, nate)["own_look_id"]
+    url = f"/library/character/{look}"
+    in_use = editor.delete(url)
+    assert (in_use.status_code, in_use.json()["detail"]) == (
+        409, "Swap the role to another look first."
+    )  # fmt: skip
+    kid = editor.post(
+        "/library/character", json={"name": "Kid", "image_file_ids": [upload(editor)]}
+    )
+    with_sheet(db, kid.json()["id"])
+    editor.put(f"/projects/{pid}/assets/slots/{nate}", json={"library_item_id": kid.json()["id"]})
+
+    assert editor.delete(url).status_code == 204
+    assert _row(editor, pid, nate)["own_look_id"] is None  # gone from Assets
+    assert editor.post(f"{url}/unarchive").json()["id"] == look  # Undo
+    assert _row(editor, pid, nate)["own_look_id"] == look
+    assert owner.delete(url).status_code == 204  # Reed may too
+    again = editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
+    assert again.status_code == 200  # a removed look can be made again
+
+
+def test_only_reed_or_the_videos_maker_removes_its_look(owner, editor, db):
+    from app.models.accounts import User
+
+    _, pid, nate = _video(owner, editor, db)
+    editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
+    look = _row(editor, pid, nate)["own_look_id"]
+    project = db.get(Project, pid)
+    project.created_by_id = db.query(User).filter_by(role="owner").one().id  # someone else's
+    project.slot_cast, project.cast_ids = {}, []
+    db.commit()
+    refused = editor.delete(f"/library/character/{look}")
+    assert refused.status_code == 403
