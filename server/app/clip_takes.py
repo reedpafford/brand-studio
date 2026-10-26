@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.advice import names
 from app.breakdown import video_model
 from app.clip_prompts import assets
 from app.credits import estimate
@@ -36,12 +37,15 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
     exact: list[int] = []
     for ref in clip.references:
         if ref["id"] not in known:
-            raise HTTPException(409, f"{ref['id']} is no longer part of this project.")
+            raise HTTPException(
+                409, "A picture on this clip is no longer part of this video. Edit the prompt."
+            )
         _, kind, file_ids = known[ref["id"]]
         if not file_ids and ref["id"].startswith(("char:", "place:")):
             require_sheet(db.get(LibraryItem, int(ref["id"].split(":")[1])))
         if not file_ids:
-            raise HTTPException(422, f"{ref['id']} has no picture yet. Add one in the library.")
+            name = names(known).get(ref["id"], "A picture on this clip")
+            raise HTTPException(422, f"{name} has no picture yet. Add one in Cast & places.")
         files[KEYS[kind]].append(file_ids[0])
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
