@@ -711,7 +711,7 @@ test("Approve all on the storyboard approves the frames that can be, says why th
   });
   open("?step=storyboard");
   await userEvent.click(await screen.findByRole("button", { name: "Approve 1" })); // one of the two can be approved
-  expect(await screen.findByText(/Approved 1\./)).toHaveTextContent("Approved 1. 1 not approved: Clip c2 has no still yet");
+  expect(await screen.findByText(/Approved 1\./)).toHaveTextContent("Approved 1. 1 not approved: Clip c2: no still yet");
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/approve-all/undo")?.body).toEqual({ ids: [1] }));
   expect(screen.queryByText(/Approved 1\./)).toBeNull();

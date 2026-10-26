@@ -7,9 +7,6 @@ import { Button, useToast } from "../components";
 type Row = { id: number; clip_id: string };
 type Result = { approved: number[]; skipped: { id: number; reason: string }[] };
 
-/** "Clip c3" + the server's reason: "has no still yet", "was made for an older breakdown", "has a problem to fix". */
-const because = (reason: string) => (/^(has|was|is) /.test(reason) ? reason : /^no /.test(reason) ? `has ${reason}` : `was ${reason}`);
-
 /** Scrolls to a card and outlines it for a moment. */
 function show(label: string) {
   const card = document.querySelector<HTMLElement>(`[aria-label="${label}"]`);
@@ -70,8 +67,8 @@ export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "c
               {i > 0 && ", "}
               <button type="button" className="underline" onClick={() => show(`${noun === "frame" ? "Frame" : "Clip"} ${clip}`)}>
                 Clip {clip}
-              </button>{" "}
-              {because(s.reason)}
+              </button>
+              : {s.reason}
             </span>
           );
         })}
