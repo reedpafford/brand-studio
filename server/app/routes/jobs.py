@@ -129,6 +129,7 @@ class UsageOut(BaseModel):
 
 
 OVER_BUDGET = "That's more than this video's budget."
+NOT_APPROVED = "This video's length isn't approved yet, so nothing can be made."
 
 
 def enqueue(
@@ -147,12 +148,12 @@ def enqueue(
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. An
     editor's own work (outside a project, or on a video from their own script) past their
     weekly allowance is declined (409), and so is an editor's job that would take a library
-    version over its budget (409, no Ask Reed). Jobs in a project still waiting for approval
-    wait as `needs_owner_approval`. The check and the reservation are one locked transaction.
-    `prepaid`: a later step of work the editor already pressed for at its full price (the reel
-    read chain), so the allowance isn't checked again; caps, brand, credits and Usage stay as
-    for any job. `hold`: a later step this press already pays for (e.g. Change it's still or
-    take), checked together with this job."""
+    version over its budget, or on a video whose length isn't approved (409; editors are never
+    sent to Reed, DECISIONS #397/#399), so nothing new ever waits as `needs_owner_approval`.
+    The check and the reservation are one locked transaction. `prepaid`: a later step of work
+    the editor already pressed for at its full price (the reel read chain), so the allowance
+    isn't checked again; caps, brand, credits and Usage stay as for any job. `hold`: a later
+    step this press already pays for (e.g. Change it's still or take), checked together."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if project is not None:
         lock(db, Project, project.id)
@@ -170,10 +171,10 @@ def enqueue(
     if whole and not prepaid and (declined := over_allowance(db, user, project, whole)):
         db.rollback()
         raise HTTPException(409, declined)
-    over = needs_approval(db, user, project, credits + hold)
-    if over and project.status == ProjectStatus.active:  # Reed, 2026-10-26: no Ask Reed
+    if needs_approval(db, user, project, credits + hold):  # Reed, 2026-10-26: no Ask Reed
         db.rollback()
-        raise HTTPException(409, OVER_BUDGET)
+        active = project.status == ProjectStatus.active
+        raise HTTPException(409, OVER_BUDGET if active else NOT_APPROVED)
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
@@ -183,7 +184,7 @@ def enqueue(
         project_id=project.id if project else None,
         brand_id=brand_for(db, project, input),
         credits=credits,
-        status=JobStatus.needs_owner_approval if over else JobStatus.queued,
+        status=JobStatus.queued,  # never held for Reed: past a limit it was refused above
         approved_by_id=user.id if user.is_owner else None,  # the owner's own jobs need no ask
     )
     db.add(job)
