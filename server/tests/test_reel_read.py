@@ -321,3 +321,33 @@ def test_a_refusal_rounds_the_price_up_and_whats_left_down():
 
     assert shown(Decimal("3.6"), Decimal("3.5")) == (4, 3)
     assert shown(Decimal("2"), Decimal("-1")) == (2, 0)
+
+
+def test_fill_from_reel_brings_the_new_scripts_own_was_marks(app, owner, db, clip):
+    """QA on #452 + #455: after Fill the script again, the "Was:" marks are the new script's,
+    never the old ones left on the wrong lines."""
+    from app.models.script_library import ScriptDraft
+
+    url = _read(app, owner, db, clip)
+    sid = int(url.rsplit("/", 1)[1])
+    draft = db.query(ScriptDraft).filter_by(script_id=sid, slot=0).one()
+    draft.rewritten = [{"line_index": 0, "was": "an old mark"}]  # left from an earlier write
+    db.commit()
+    owner.put(f"{url}/drafts/0", json={"text": "GROOM: My own words."})
+    db.expire_all()  # the worker here shares this session: let it see the edit
+    again = owner.post(f"{url}/import/read-again", json={})
+    assert again.status_code == 201, again.text
+    _drain(app, db)
+    db.expire_all()
+    pending = db.get(Job, db.get(Script, sid).reel["pending_fill_job_id"])
+    new = "SCENE 1\nGROOM: Will you buy me a coin?\nBRIDE: No."  # the reel's line, rewritten
+    pending.output = {"drafts": [{**pending.output["drafts"][0], "script": new,
+                                  "changed_lines": ["Will you buy me a coin?"]}]}  # fmt: skip
+    db.commit()
+    marks = owner.post(f"{url}/fill-from-reel").json()
+    version = owner.get(url).json()["versions"][0]
+    assert version["rewritten"] == [
+        {"line_index": 1, "was": "Will you marry me?", "text": "GROOM: Will you buy me a coin?"}
+    ]
+    assert version["changed_lines"] == ["Will you buy me a coin?"]
+    assert marks["edited_since_fill"] is False
