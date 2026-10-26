@@ -37,12 +37,14 @@ test("a script is made in the library: describe it, write its words, and it is l
   await b.getByRole("button", { name: "Approve" }).click();
   await expect(b.getByText("Approved · words final")).toBeVisible();
 
-  // Add a role, step over the optional steps, publish: it becomes Ready to make.
+  // Writing the variation also found the speakers' roles (Bo, Mia); add one more by hand,
+  // step over the optional steps, publish: it becomes Ready to make.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();
+  await expect(page.getByText("2 roles · 0 locked")).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Add a role" }).first().click();
-  await page.getByRole("textbox", { name: "Role" }).fill("Bo");
+  await page.getByRole("textbox", { name: "Role" }).fill("Coach");
   await page.getByRole("button", { name: "Add role" }).click();
-  await expect(page.getByText("1 role · 0 locked")).toBeVisible();
+  await expect(page.getByText("3 roles · 0 locked")).toBeVisible();
   await page.getByRole("button", { name: "Next: Publish" }).click();
   await page.getByRole("button", { name: "Publish 2 versions" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
