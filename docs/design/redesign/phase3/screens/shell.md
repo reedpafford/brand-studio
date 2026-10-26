@@ -24,7 +24,7 @@
       - After: the app switches to the new brand and opens its Brand page on **Look**. Toast: "{Name} is ready. Add its logo and colours." The new brand shows up on Usage straight away.
       - Archived brands aren't listed here.
   - Switching keeps the section. For example, Cast & places in fomo becomes Cast & places in Iron Paws. A video page goes to that brand's Videos.
-  - **Approvals pill** (right, Reed only): `Bell` "Approvals" with an amber count when the count is above 0. It opens /approvals. When nothing is waiting, it shows plain "Approvals" with no count.
+  - **Approvals pill** (right, Reed only): `Bell` "Approvals" with an amber count when the count is above 0. It opens /approvals. When nothing is waiting, the pill and the rail item are hidden (Producer, 2026-10-26). Editors are no longer sent here (README rule 2), so it only holds requests from before that change. `/approvals` still opens, with its empty state.
   - **Avatar** (44px, initial): opens the account menu:
     - Reed's name and email (muted)
     - **Team** (Reed only)
@@ -33,7 +33,7 @@
 - **Rail.** 232px, `bg-bg`, right border.
   - Eyebrow with the brand name, then the four brand sections. Items are 44px tall, with an icon and label.
   - Active item: `bg-surface-2`, text colour, a 3px amber bar on the left inside.
-  - For Reed, a divider and the eyebrow "STUDIO", then Approvals (with count) and Team. Editors don't see this group.
+  - For Reed, a divider and the eyebrow "STUDIO", then Approvals (with count, only while something waits) and Team. Editors don't see this group.
 - **Work area.** Max 1280px, gutters 32px, top padding 32px.
 - **1024–1279.** The rail collapses to 72px icons only, each with a tooltip and `aria-label`.
 
@@ -51,7 +51,7 @@
 ```
 - **Top bar.** 56px, with the brand switcher taking the free width.
   - The menu opens as a bottom sheet.
-  - The bell is a 44px icon button with `aria-label="Approvals, 2 waiting"` and is shown for Reed only.
+  - The bell is a 44px icon button with `aria-label="Approvals, 2 waiting"` and is shown for Reed only, while something waits.
   - The avatar opens the account menu as a sheet.
 - **Bottom tabs.** 4 tabs, each a 20px icon over an 11.5px label: **Videos · Quick clip · Cast · Brand**.
   - The active tab is amber.
