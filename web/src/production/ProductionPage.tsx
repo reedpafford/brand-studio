@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from "react";
-import { Check, ChevronRight, CircleAlert, Clapperboard, Clock, Film, Search, TriangleAlert } from "lucide-react";
+import { Check, CircleAlert, Clapperboard, Clock, Film, Search, TriangleAlert } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, type Tone } from "../components";
 import { useDebounced } from "../scripts/ScriptsPage";
+import { VideoMenu, useVideoActions, type VideoTarget } from "../projects/ReleaseVideo";
 import { useBrands } from "../shell/useBrands";
 import { lastText, money } from "../usage/parts";
 import { useRail } from "../useMedia";
@@ -38,6 +39,7 @@ function reason(r: Row) {
 }
 /** Who started it; the server says nobody when that person is gone. */
 const who = (r: Row) => r.editor?.name ?? "Someone";
+const target = (r: Row): VideoTarget => ({ id: r.project_id, name: `${r.script.title} · ${r.letter}`, letter: r.letter, creditsUsed: r.credits_used });
 const label = (r: Row) => `${r.script.title}, version ${r.letter}, ${who(r)}, at ${STEPS[r.step]}${r.flag ? `, ${FLAGS[r.flag].label.toLowerCase()}` : ""}`;
 const nearBudget = (r: Row) => r.budget_credits > 0 && r.credits_used / r.budget_credits >= 0.9;
 
@@ -84,6 +86,7 @@ export function ProductionPage() {
   const [text, setText] = useState(params.get("q") ?? "");
   const q = useDebounced(text.trim());
   const [sheet, setSheet] = useState(false);
+  const video = useVideoActions();
   const set = (key: string, value: string) =>
     setParams(
       (prev) => {
@@ -188,12 +191,13 @@ export function ProductionPage() {
         </div>
       )}
       {empty}
-      {rows.length > 0 && (rail ? <Table rows={rows} showBrand={!brand} colour={colour} /> : <Cards rows={rows} colour={colour} />)}
+      {rows.length > 0 && (rail ? <Table rows={rows} showBrand={!brand} colour={colour} onRelease={(r) => video.release(target(r))} /> : <Cards rows={rows} colour={colour} onRelease={(r) => video.release(target(r))} />)}
       {query.hasNextPage && (
         <Button variant="secondary" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()} className="w-full lg:w-auto">
           Show more
         </Button>
       )}
+      {video.dialog}
       {sheet && (
         <Sheet title="Filters" onClose={() => setSheet(false)}>
           <div className="space-y-3 pb-2">
@@ -209,8 +213,8 @@ export function ProductionPage() {
   );
 }
 
-function Table({ rows, showBrand, colour }: { rows: Row[]; showBrand: boolean; colour: (id: number) => string | undefined }) {
-  const cols = showBrand ? "grid-cols-[minmax(0,2.6fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_20px]" : "grid-cols-[minmax(0,2.6fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_20px]";
+function Table({ rows, showBrand, colour, onRelease }: { rows: Row[]; showBrand: boolean; colour: (id: number) => string | undefined; onRelease: (r: Row) => void }) {
+  const cols = showBrand ? "grid-cols-[minmax(0,2.6fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_44px]" : "grid-cols-[minmax(0,2.6fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_44px]";
   return (
     <Card className="p-0 sm:p-0">
       <div aria-hidden className={`grid ${cols} gap-x-4 border-b border-border px-4 py-3 text-sm font-medium text-muted`}>
@@ -224,7 +228,7 @@ function Table({ rows, showBrand, colour }: { rows: Row[]; showBrand: boolean; c
       </div>
       <ul className="divide-y divide-border">
         {rows.map((r) => (
-          <li key={r.project_id}>
+          <li key={r.project_id} className="relative">
             <Link to={`/b/${r.brand.id}/projects/${r.project_id}`} aria-label={label(r)} className={`grid ${cols} items-center gap-x-4 gap-y-2 px-4 py-3 text-sm tabular-nums hover:bg-surface-2`}>
               <span className="flex min-w-0 items-center gap-3">
                 <Poster id={r.poster_file_id} size="h-14 w-9" />
@@ -242,13 +246,16 @@ function Table({ rows, showBrand, colour }: { rows: Row[]; showBrand: boolean; c
               <span className="text-right">
                 <Credits r={r} /> <span className="text-muted">{money(r.spent_usd)}</span>
               </span>
-              <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="text-muted" />
+              <span aria-hidden />
               {r.flag && (
                 <span className="col-span-full pl-12">
                   <FlagLine r={r} />
                 </span>
               )}
             </Link>
+            <div className="absolute right-2 top-3 flex items-center">
+              <VideoMenu title={`${r.script.title} · ${r.letter}`} onRelease={() => onRelease(r)} />
+            </div>
           </li>
         ))}
       </ul>
@@ -256,11 +263,11 @@ function Table({ rows, showBrand, colour }: { rows: Row[]; showBrand: boolean; c
   );
 }
 
-function Cards({ rows, colour }: { rows: Row[]; colour: (id: number) => string | undefined }) {
+function Cards({ rows, colour, onRelease }: { rows: Row[]; colour: (id: number) => string | undefined; onRelease: (r: Row) => void }) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2">
       {rows.map((r) => (
-        <li key={r.project_id}>
+        <li key={r.project_id} className="relative">
           <Link to={`/b/${r.brand.id}/projects/${r.project_id}`} aria-label={label(r)} className="block space-y-3 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
             <span className="flex gap-3">
               <Poster id={r.poster_file_id} size="h-22 w-14" />
@@ -275,10 +282,13 @@ function Cards({ rows, colour }: { rows: Row[]; colour: (id: number) => string |
                   <Credits r={r} /> credits · {money(r.spent_usd)}
                 </span>
               </span>
-              <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
+              <span aria-hidden className="size-control shrink-0" />
             </span>
             <FlagLine r={r} />
           </Link>
+          <div className="absolute right-1 top-1">
+            <VideoMenu title={`${r.script.title} · ${r.letter}`} onRelease={() => onRelease(r)} />
+          </div>
         </li>
       ))}
     </ul>
