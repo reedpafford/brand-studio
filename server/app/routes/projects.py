@@ -99,10 +99,11 @@ class ProjectOut(BaseModel):
 
 def archive(db: Session, project: Project) -> None:
     """Put a video away (or release its version): hidden from lists, and every job of it that
-    hasn't finished stops. Jobs not started are cancelled; one already at the provider is
-    marked to be discarded: when it lands nothing is saved from it and it ends cancelled, so
-    its credits come back, while its dollars are still recorded for the owner (live test: a
-    released video's breakdown went on and charged 3.92). Cancelled jobs aren't counted."""
+    hasn't finished stops. Jobs not started are cancelled. One already at the provider is
+    cancelled too, at once (so a Restore never shows it as still being made), and marked to be
+    discarded: the worker still waits for it to land, saves nothing from it and records its
+    dollars for the owner (live test: a released video's breakdown went on and charged 3.92).
+    Cancelled jobs aren't counted, so its credits come back."""
     project.archived_at = utcnow()
     db.execute(
         update(Job)
@@ -114,6 +115,7 @@ def archive(db: Session, project: Project) -> None:
     )
     for job in running:
         job.input = {**job.input, "discard": True}
+        job.status = JobStatus.cancelled  # finished_at stays empty until the provider is done
 
 
 def _mine(db: Session, user: User, project_id: int) -> Project:

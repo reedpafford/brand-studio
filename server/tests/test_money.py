@@ -94,3 +94,29 @@ def test_a_released_job_from_a_silent_provider_is_listed_and_keeps_no_files(app,
     assert db.query(StoredFile).count() == files  # nothing downloaded
     charge = db.query(Usage).filter_by(job_id=job.id).one()
     assert charge.estimated and charge.cost_usd == Decimal("0.2056")  # 2 credits' worth
+
+
+def test_restoring_a_video_never_leaves_stopped_work_running(owner, editor, db):
+    """QA on #419: work a release stopped shows as stopped straight away, and stays stopped
+    after Restore (it isn't brought back); its cost is still recorded once when it lands."""
+    base, _ = _published(owner, db)
+    made = editor.post(f"{base}/drafts/0/produce").json()
+    pid = made["project_id"]
+    fake = FakeProvider(polls_until_done=1)
+    job = db.get(Job, made["breakdown_job_id"])
+    job.provider = "fake"
+    db.commit()
+    run_once(db, {"fake": fake})  # at the provider
+    editor.post(f"/projects/{pid}/release")
+    db.expire_all()
+    assert db.get(Job, job.id).status == JobStatus.cancelled  # stopped, not "running"
+    assert editor.post(f"/projects/{pid}/restore").status_code == 200
+    db.expire_all()
+    assert db.get(Job, job.id).status == JobStatus.cancelled  # not brought back
+    for _ in range(3):  # it lands at the provider; later ticks change nothing
+        run_once(db, {"fake": fake})
+        db.expire_all()
+    stopped = db.get(Job, job.id)
+    assert stopped.finished_at is not None and stopped.output is None
+    assert db.query(Usage).filter_by(job_id=job.id).count() == 1
+    assert credits_used(db, db.get(Project, pid)) == 0
