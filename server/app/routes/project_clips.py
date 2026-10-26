@@ -25,7 +25,6 @@ from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
-from app.routes.scripts import latest
 from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
 from app.schemas import LongText
 
@@ -92,14 +91,7 @@ def _takes(db: Session, row: ProjectClip) -> list[ClipTake]:
     )
 
 
-def _stale(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> bool:
-    """Made from an older breakdown, or the breakdown is for an older script version."""
-    working = latest(db, db.get(Project, row.project_id))
-    return (
-        not newest
-        or row.breakdown_id != newest.id
-        or bool(working and newest.script_version != working.version)
-    )
+_stale = clip_prompts.is_stale
 
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
@@ -131,31 +123,59 @@ def _clips(db: Session, project_id: int) -> list[ProjectClip]:
     return list(db.scalars(query))
 
 
+class RewriteIn(BaseModel):
+    clip_id: str | None = None  # one clip ("c2"); else every stale clip (and any new one)
+
+
+class RewriteOut(BaseModel):
+    clip_ids: list[str]  # the clips it would rewrite; [] when none is stale
+    credits: int  # "up to": one Claude call, never charged above it
+
+
+def _rewrite_ids(db: Session, project: Project, clip_id: str | None) -> list[str] | None:
+    """None: every clip (no clips yet); else the clips to rewrite."""
+    if not _clips(db, project.id):
+        return None
+    return clip_prompts.to_rewrite(db, project, clip_id)
+
+
+@router.get("/clips/prompts/price", response_model=RewriteOut)
+def rewrite_price(
+    project_id: int,
+    clip_id: str | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Rewrite clip prompts · N credits: for every stale clip, or one clip (?clip_id=c2)."""
+    project = get_project(db, user, project_id)
+    ids = _rewrite_ids(db, project, clip_id)
+    bd = _newest_breakdown(db, project)
+    every = [c["id"] for c in bd.data["clips"]] if bd else []
+    return RewriteOut(
+        clip_ids=every if ids is None else ids,
+        credits=credits.price(clip_prompts.rewrite_price(db, project)),
+    )
+
+
 @router.post(
     "/clips/prompts", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)]
 )
 def write_prompts(
-    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+    project_id: int,
+    body: RewriteIn | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
-    """Queue the clip-prompts call (a paid Claude call). New prompts replace the old clips."""
+    """Write the clip prompts (a paid Claude call): all of them at first, then every stale
+    clip, or one clip (Reed, 2026-10-26: Clips never dead-ends). Existing takes are kept as
+    earlier takes (clip_prompts.save_clip_prompts)."""
     project = get_project(db, user, project_id)
-    bd = _newest_breakdown(db, project)
-    if not bd:
+    if not _newest_breakdown(db, project):
         raise HTTPException(409, "Make a breakdown first.")
-    pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
-    steps = {j.input.get("step") for j in pending}
-    if "clip_take" in steps:  # new prompts replace the clips; a take on its way would be lost
-        raise HTTPException(409, "Wait for the clips being made to finish first.")
-    if "clip_prompts" in steps:
-        raise HTTPException(409, "Clip prompts are already being written for this project.")
-    return enqueue(
-        db,
-        user,
-        "write-claude",
-        clip_prompts.job_input(db, project, bd),
-        project=project,
-        provider="claude",
-    )
+    ids = _rewrite_ids(db, project, body.clip_id if body else None)
+    if ids == []:
+        raise HTTPException(409, "No clip needs new prompts.")
+    return clip_prompts.queue_rewrite(db, user, project, ids)
 
 
 @router.get("/clips", response_model=list[ProjectClipOut])
@@ -210,7 +230,7 @@ def generate(
         raise HTTPException(409, "Fix this clip's problems first.")
     if _stale(db, row, _newest_breakdown(db, project)):
         raise HTTPException(
-            409, "This clip was made for an older breakdown. Write the clip prompts again first."
+            409, "This clip was made for an older breakdown. Rewrite its prompt first."
         )
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("project_clip_id") == row.id for j in pending):
@@ -254,7 +274,9 @@ def change_clip(
     made from it (one price). A note that changes what's said is refused before any charge."""
     project, row = _clip(db, user, project_id, clip_id)
     if _stale(db, row, _newest_breakdown(db, project)):
-        raise HTTPException(409, "Write the clip prompts again first.")
+        raise HTTPException(
+            409, "This clip was made for an older breakdown. Rewrite its prompt first."
+        )
     return change.start(db, user, project, row, body.note)
 
 
