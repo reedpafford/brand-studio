@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton } from "../components";
 import { useRail } from "../useMedia";
 import { useDebounced } from "../scripts/ScriptsPage";
+import { useRestoreBrand } from "../brand/ArchiveBrand";
 import { Charges } from "./Charges";
 import { Money, PeriodControl, Stats, lastText, money, periodLine, periodWord } from "./parts";
 import { periodFrom, useBrandRows, useSummary, type BrandRow, type Sort } from "./useUsage";
@@ -39,6 +40,7 @@ export function UsagePage() {
       },
       { replace: true },
     );
+  const restoreBrand = useRestoreBrand();
   const summary = useSummary(period);
   const rows = useBrandRows({ period, q, archived, sort });
   if (summary.error?.message === "404") return <p className="p-6">Page not found.</p>;
@@ -114,7 +116,7 @@ export function UsagePage() {
           ) : (
             <EmptyState icon={ChartColumn} title="No brands yet.">Add a brand from the brand menu. It shows up here by itself.</EmptyState>
           ))}
-        {items.length > 0 && (rail ? <BrandTable items={items} period={period} /> : <BrandCards items={items} />)}
+        {items.length > 0 && (rail ? <BrandTable items={items} period={period} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} /> : <BrandCards items={items} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} />)}
         {rows.hasNextPage && (
           <Button variant="secondary" busy={rows.isFetchingNextPage} onClick={() => void rows.fetchNextPage()} className="w-full lg:w-auto">
             Show more
@@ -138,7 +140,7 @@ export function UsagePage() {
 const label = (b: BrandRow) => `${b.name}: ${money(b.spend_usd)} spent, ${b.finished} finished`;
 const each = (b: BrandRow) => (b.cost_per_finished_usd === null ? "—" : money(b.cost_per_finished_usd));
 
-function BrandTable({ items, period }: { items: BrandRow[]; period: ReturnType<typeof periodFrom> }) {
+function BrandTable({ items, period, onRestore }: { items: BrandRow[]; period: ReturnType<typeof periodFrom>; onRestore: (b: BrandRow) => void }) {
   const forPeriod = (name: string) => (
     <>
       {name}
@@ -178,7 +180,17 @@ function BrandTable({ items, period }: { items: BrandRow[]; period: ReturnType<t
               <td className="px-3 py-3">{b.scripts}</td>
               <td className="px-3 py-3">{b.versions_left}</td>
               <td className="px-3 py-3">{lastText(b.last_activity_at)}</td>
-              <td className="pr-3 text-muted"><ChevronRight size={20} strokeWidth={1.75} aria-hidden /></td>
+              <td className="pr-3 text-muted">
+                {b.archived ? (
+                  <span className="relative z-10 inline-flex">
+                    <Button variant="secondary" dense aria-label={`Restore ${b.name}`} onClick={() => onRestore(b)}>
+                      Restore
+                    </Button>
+                  </span>
+                ) : (
+                  <ChevronRight size={20} strokeWidth={1.75} aria-hidden />
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -187,11 +199,11 @@ function BrandTable({ items, period }: { items: BrandRow[]; period: ReturnType<t
   );
 }
 
-function BrandCards({ items }: { items: BrandRow[] }) {
+function BrandCards({ items, onRestore }: { items: BrandRow[]; onRestore: (b: BrandRow) => void }) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2">
       {items.map((b) => (
-        <li key={b.brand_id}>
+        <li key={b.brand_id} className="space-y-2">
           <Link to={`/usage/brands/${b.brand_id}`} aria-label={label(b)} className="block min-h-control space-y-1 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
             <span className="flex items-center gap-2 font-display text-md font-bold">
               <Dot colour={b.colour} />
@@ -207,6 +219,11 @@ function BrandCards({ items }: { items: BrandRow[] }) {
               {b.in_progress} in progress · {b.scripts} script{b.scripts === 1 ? "" : "s"} · {b.versions_left} version{b.versions_left === 1 ? "" : "s"} left
             </span>
           </Link>
+          {b.archived && (
+            <Button variant="secondary" className="w-full" aria-label={`Restore ${b.name}`} onClick={() => onRestore(b)}>
+              Restore
+            </Button>
+          )}
         </li>
       ))}
     </ul>
