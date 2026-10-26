@@ -1,0 +1,133 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, FileText } from "lucide-react";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { api } from "../api/client";
+import { Button, Skeleton, StepPicker } from "../components";
+import { ActionBar } from "../shell/ActionBar";
+import { useRail } from "../useMedia";
+import { AssetsPane, useAssets } from "./AssetsPane";
+import { BreakdownPane } from "./BreakdownPane";
+import { useBriefChoices } from "./BriefPickers";
+import { ClipsPane } from "./ClipsPane";
+import { FinalPane } from "./FinalPane";
+import { Meter, WaitingBadge } from "./Meter";
+import { ScriptPanel } from "./ScriptPanel";
+import { ShapeRow } from "./ShapeRow";
+import { StoryboardPane } from "./StoryboardPane";
+import { useProgress } from "./useProgress";
+import { VIDEO_STEPS, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
+
+/** A video made from a library version: Breakdown · Assets · Storyboard · Clips · Downloads. */
+export function VideoPage() {
+  const { brandId = "", projectId } = useParams();
+  const id = Number(projectId);
+  const [params, setParams] = useSearchParams();
+  const step = videoStepFromParams(params);
+  const rail = useRail();
+  const [panel, setPanel] = useState(false);
+  const [highlight, setHighlight] = useState<number[]>([]);
+  const [line, setLine] = useState<number | null>(null);
+  const [dirty, setDirty] = useState(false); // unsaved edits in Breakdown
+  const project = useQuery({
+    queryKey: ["project", id],
+    queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
+  });
+  const { progress, loading, script } = useProgress(id);
+  const assets = useAssets(id);
+  const p = project.data;
+  const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
+
+  if (project.isPending || loading || assets.isPending)
+    return (
+      <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8" role="status" aria-label="Loading">
+        <Skeleton className="h-10 w-1/2" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  if (!p) return <p className="p-6">That video doesn't exist.</p>;
+  const list = assets.data ?? [];
+  const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length } };
+  // A link to a step that is locked lands on Breakdown.
+  if (videoLock(step, all) !== null) return <Navigate to="?step=breakdown" replace />;
+
+  const pick = (to: string) => {
+    setParams(to === "breakdown" ? {} : { step: to });
+    setPanel(false);
+  };
+  const showLines = (lines: number[]) => {
+    setHighlight(lines);
+    setLine(null);
+    setPanel(true);
+  };
+  const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
+  const next = videoNext(step);
+  const reason = !next ? null : dirty && step === "breakdown" ? "Save your changes first." : step === "assets" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
+  const nextButton = next && !(step === "breakdown" && dirty && !rail) && (
+    <Button disabled={reason !== null} reason={reason} onClick={() => pick(next.id)}>
+      Next: {next.label}
+    </Button>
+  );
+  const meta = step === "assets" ? `${all.assets.total} asset${all.assets.total === 1 ? "" : "s"} · ${all.assets.ready} approved` : null;
+
+  return (
+    <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
+      <div className="flex items-center gap-1">
+        <Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
+          <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
+          Scripts
+        </Link>
+      </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h1 className="min-w-0 break-words type-page">{p.name}</h1>
+        <div className="w-full min-w-0 sm:w-72">
+          <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+        </div>
+      </div>
+      {p.status === "needs_owner_approval" && <WaitingBadge />}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <StepPicker steps={videoStepStates(step, all)} onPick={pick} />
+        </div>
+        <Button variant="secondary" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Show script">
+          {rail ? "Script" : ""}
+        </Button>
+      </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="type-section">{label}</h2>
+          {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
+        </div>
+        {rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
+      </div>
+      {step === "breakdown" && (
+        <div className="space-y-4">
+          <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} hasFrames={all.frames.total > 0} />
+          <BreakdownPane projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
+        </div>
+      )}
+      {step === "assets" && <AssetsPane projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} />}
+      {step === "storyboard" && <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "clips" && <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "downloads" && <FinalPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
+      {panel && (
+        <ScriptPanel
+          projectId={id}
+          rail={rail}
+          highlight={highlight}
+          onLineClick={
+            step === "breakdown"
+              ? (n) => {
+                  setLine(n);
+                  setHighlight([n]);
+                  if (!rail) setPanel(false);
+                }
+              : undefined
+          }
+          onClose={() => setPanel(false)}
+        />
+      )}
+    </main>
+  );
+}
