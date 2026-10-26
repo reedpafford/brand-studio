@@ -6,23 +6,27 @@
   "slots": [
    {
     "role": "Malik, the hero",
-    "description": "17, lanky, light brown skin, short twists, red beanie, grey hoodie, over-ear headphones round his neck.",
+    "description": "17-year-old boy, a high-school student; lanky, light brown skin, short twists, red beanie, grey hoodie, over-ear headphones round his neck.",
     "kind": "Main",
     "appears_in": [
      0,
      1
     ],
-    "recurring": true
+    "recurring": true,
+    "guessed": []
    },
    {
     "role": "Aunt Tasha, the doubter",
-    "description": "Mid-40s, curvy, dark brown skin, hair wrapped in a patterned scarf, cardigan over a work polo, reading glasses on a chain.",
+    "description": "Mid-40s woman, a nurse on night shifts; curvy, dark brown skin, hair wrapped in a patterned scarf, cardigan over scrubs, reading glasses on a chain.",
     "kind": "Family",
     "appears_in": [
      0,
      1
     ],
-    "recurring": true
+    "recurring": true,
+    "guessed": [
+     "occupation"
+    ]
    }
   ]
  }
