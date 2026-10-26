@@ -765,6 +765,20 @@ def test_sheet_prompts_are_house_style_with_no_names_or_text():
     assert "no people" in place and "{" not in place + photo and "9:16" not in place + sheet
 
 
+def test_a_made_look_is_checked_against_its_role_and_redone_once():
+    text = prompts.system("look_fit")
+    assert text.startswith("# Step: Look fit") and "Be engaging" not in text  # no writer rules
+    msg = prompts.look_fit_input("Mid-40s woman, a teacher; cardigan.", role="Ms Lee, the teacher")
+    assert (
+        msg
+        == "<character>Mid-40s woman, a teacher; cardigan.</character>\n<role>the teacher</role>"
+    )
+    fit = schemas.LookFit(fits=False, seen="girl of about 10", problem="Draw an adult woman.")
+    assert prompts.look_fit_redo("Mid-40s woman, a teacher", fit) == (
+        "The character must read clearly as: Mid-40s woman, a teacher. Draw an adult woman."
+    )
+
+
 def test_the_projects_product_is_a_required_asset_like_a_screen():
     product = {"id": 2, "name": "Peanut butter bag"}
     block = prompts.brand_block({"name": "Iron Paws"}, [], product)
@@ -936,17 +950,3 @@ def test_an_adapted_montage_keeps_the_references_length():
         prompts.watch_breakdown(watch, transcript, cuts)
     )
     assert "the montage runs about as long as its montage" in prompts.system("breakdown")
-
-
-def test_a_made_look_is_checked_against_its_role_and_redone_once():
-    text = prompts.system("look_fit")
-    assert text.startswith("# Step: Look fit") and "Be engaging" not in text  # no writer rules
-    msg = prompts.look_fit_input("Mid-40s woman, a teacher; cardigan.", role="Ms Lee, the teacher")
-    assert (
-        msg
-        == "<character>Mid-40s woman, a teacher; cardigan.</character>\n<role>the teacher</role>"
-    )
-    fit = schemas.LookFit(fits=False, seen="girl of about 10", problem="Draw an adult woman.")
-    assert prompts.look_fit_redo("Mid-40s woman, a teacher", fit) == (
-        "The character must read clearly as: Mid-40s woman, a teacher. Draw an adult woman."
-    )
