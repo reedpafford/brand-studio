@@ -155,6 +155,19 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
         screen.balance = meta.get("balance", "")
 
 
+def repair_frames(db: Session) -> int:
+    """Frames saved before every shot's people got their sheets (Reed's live test): fixed
+    for free, with no model call; running it again changes nothing."""
+    from app.models.projects import Project
+    from app.models.storyboards import StoryboardFrame
+    from app.storyboard import repair
+
+    ids = db.scalars(select(StoryboardFrame.project_id).distinct()).all()
+    changed = sum(repair(db, db.get(Project, pid)) for pid in ids)
+    db.commit()
+    return changed
+
+
 def main(folder: str, slug: str = "fomo") -> None:
     from app.db import make_sessionmaker
     from app.seed_drafts import import_drafts
@@ -170,6 +183,7 @@ def main(folder: str, slug: str = "fomo") -> None:
             print("Launch brands brought up to date from the manifests.")
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
+            print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:

@@ -14,7 +14,7 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
-from app.prompts.schemas import Frame
+from app.prompts.schemas import Breakdown, Frame
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
@@ -134,6 +134,8 @@ def make(
 @router.get("", response_model=list[FrameOut])
 def frames(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project = get_project(db, user, project_id)
+    if storyboard.repair(db, project):  # free: a sheet approved since, or frames from before
+        db.commit()
     rows = db.scalars(
         select(StoryboardFrame)
         .where(StoryboardFrame.project_id == project.id)
@@ -152,13 +154,11 @@ def edit_frame(
 ):
     """Edit a frame's prompt or references; its problems are checked again."""
     project, frame = _frame(db, user, project_id, frame_id)
-    frame.prompt, frame.reference_ids, frame.approved = body.prompt, body.reference_ids, False
-    frame.problems = storyboard.frame_problems(
-        db,
-        project,
-        Frame(clip_id=frame.clip_id, shot_id=frame.shot_id, **body.model_dump()),
-        frame.breakdown_id,
-    )
+    bd = Breakdown.model_validate(db.get(BreakdownVersion, frame.breakdown_id).data)
+    edited = Frame(clip_id=frame.clip_id, shot_id=frame.shot_id, **body.model_dump())
+    edited = storyboard.with_cast(db, project, edited, bd, trim=False)  # the shot's people
+    frame.prompt, frame.reference_ids, frame.approved = edited.prompt, edited.reference_ids, False
+    frame.problems = storyboard.frame_problems(db, project, edited, frame.breakdown_id)
     db.commit()
     return _out(db, project, frame)
 

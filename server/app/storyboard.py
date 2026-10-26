@@ -3,6 +3,7 @@ and picks its reference pictures. Frames are saved with their problems; the edit
 them before any still is rendered."""
 
 import json
+import re
 
 from fastapi import HTTPException
 from sqlalchemy import delete, select
@@ -101,18 +102,157 @@ def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: boo
     }
 
 
+CHAR = ("char:", "slot:")  # a person's sheet: sent first, as the image model keeps likeness
+
+
+def _shot(bd: Breakdown, shot_id: str):
+    return next((s for scene in bd.scenes for s in scene.shots if s.id == shot_id), None)
+
+
+def _name(known: dict, ref: str) -> str:
+    """A character's name as people read it ("Mia"; a role "Nate, the son" is "Nate")."""
+    parts = known[ref][0].split(" | ") if ref in known else []
+    return parts[2].split(",")[0].strip() if len(parts) > 2 else "A character"
+
+
+def nearest_first(shot, known: dict) -> list[str]:
+    """The shot's cast, nearest the camera first. A breakdown has no depth, so: whoever
+    speaks, then the order the action and reaction name them, then the shot's own order."""
+    text = f"{shot.action} {shot.reaction or ''}".lower()
+    speaker = (shot.speaker or "").lower()
+
+    def key(item):
+        i, ref = item
+        name = _name(known, ref).lower() if ref in known else ""
+        at = text.find(name) if name else -1
+        return (0 if name and name in speaker else 1, at if at >= 0 else len(text) + 1, i)
+
+    return [ref for _, ref in sorted(enumerate(shot.character_ids), key=key)]
+
+
+def _same(known: dict, a: str, b: str) -> bool:
+    """The same person: one id, or a cast role and the look that plays it (one sheet)."""
+    if a == b:
+        return True
+    sheet_a, sheet_b = known.get(a, ("", []))[1][:1], known.get(b, ("", []))[1][:1]
+    return bool(sheet_a) and sheet_a == sheet_b
+
+
+IMAGES = re.compile(r"(?i)\b(images?\s+)(\d+(?:\s*(?:,|and|&)\s*\d+)*)")
+
+
+def _renumber(prompt: str, moved: dict[int, int], names: dict[int, str]) -> str:
+    """'image N' follows its picture to its new place; a dropped one becomes the name."""
+
+    def one(n: str) -> str:
+        k = int(n)
+        return str(moved[k]) if k in moved else n
+
+    def fix(m: re.Match) -> str:
+        nums = [int(n) for n in re.findall(r"\d+", m[2])]
+        if len(nums) == 1 and nums[0] in names:
+            return names[nums[0]]
+        return m[1] + re.sub(r"\d+", lambda d: one(d[0]), m[2])
+
+    return IMAGES.sub(fix, prompt)
+
+
+def with_cast(
+    db: Session, project: Project, frame: Frame, bd: Breakdown, known=None, trim: bool = True
+) -> Frame:
+    """Every character in the frame's shot gets their approved sheet, whatever the storyboard
+    picked (Reed's live test: a frame without Mia's sheet couldn't be made). People come first,
+    nearest the camera first, within the image model's limits; then the place, props and
+    screens in their order. The prompt's "image N" follow their pictures. Free; doing it
+    again changes nothing. With trim off (an editor's edit, or a saved frame) nothing already
+    picked is dropped: missing sheets are only added while there's room."""
+    known = known if known is not None else assets(db, project)
+    shot = _shot(bd, frame.shot_id)
+    if shot is None:
+        return frame
+    m = image_model()
+    refs = list(dict.fromkeys(frame.reference_ids))
+    people = [r for r in refs if r.startswith(CHAR)]
+    objects = [r for r in refs if not r.startswith(CHAR)]
+    cast = nearest_first(shot, known)
+    missing = [
+        c for c in cast if known.get(c, ("", []))[1] and not any(_same(known, c, r) for r in people)
+    ]
+
+    def rank(r: str) -> int:
+        return next((i for i, c in enumerate(cast) if _same(known, r, c)), len(cast))
+
+    room = len(people) + len(missing)
+    if m.max_character_images:
+        room = min(room, m.max_character_images)
+    if m.max_reference_images:
+        room = min(room, max(m.max_reference_images - len(objects), 0))
+    if trim:  # stable: people not in the shot stay last
+        people = sorted(people + missing, key=rank)[:room]
+    elif missing := missing[: max(room - len(people), 0)]:
+        people = sorted(people + missing, key=rank)
+    else:
+        return frame
+    new = people + objects
+    if new == frame.reference_ids:
+        return frame
+    moved = {i + 1: new.index(r) + 1 for i, r in enumerate(frame.reference_ids) if r in new}
+    dropped = {i + 1: _name(known, r) for i, r in enumerate(frame.reference_ids) if r not in new}
+    prompt = _renumber(frame.prompt, moved, dropped)
+    for r in new:
+        if r not in frame.reference_ids:
+            prompt += (
+                f" Keep {_name(known, r)} from image {new.index(r) + 1} exactly as on their sheet."
+            )
+    return Frame(clip_id=frame.clip_id, shot_id=frame.shot_id, prompt=prompt, reference_ids=new)
+
+
 def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: int) -> list[str]:
-    """With the frame's breakdown, a character in the shot but not attached is flagged too."""
+    """With the frame's breakdown, a character in the shot without an approved look is
+    flagged too (by name; a role not cast yet waits for Assets and is never a problem)."""
     m = image_model()
     known = assets(db, project)
     bd = Breakdown.model_validate(db.get(BreakdownVersion, breakdown_id).data)
     problems = check.storyboard(
-        StoryboardFrames(frames=[frame]), m.max_reference_images, m.max_character_images, bd
+        StoryboardFrames(frames=[frame]), m.max_reference_images, m.max_character_images
     )
     problems += [
         f"{frame.clip_id}: unknown reference {r}" for r in frame.reference_ids if r not in known
     ]
+    shot = _shot(bd, frame.shot_id)
+    people = [r for r in frame.reference_ids if r.startswith(CHAR)]
+    if shot and (not m.max_character_images or len(people) < m.max_character_images):
+        for c in shot.character_ids:
+            if c.startswith("slot:") and c in known and not known[c][1]:
+                continue  # not cast yet: Assets casts it
+            if not any(_same(known, c, r) for r in people):
+                problems.append(
+                    f"{frame.clip_id}: {_name(known, c)} has no approved look yet. "
+                    "Approve one in Assets."
+                )
     return problems
+
+
+def repair(db: Session, project: Project) -> int:
+    """Give every frame of the video the sheets of the characters in its shot (`with_cast`),
+    and check it again. Free and idempotent: run when the storyboard is opened, and on deploy
+    for frames saved before (app.seed refresh). Returns how many frames changed."""
+    known, changed = assets(db, project), 0
+    breakdowns: dict[int, Breakdown] = {}
+    rows = db.scalars(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
+    for row in rows:
+        if row.breakdown_id not in breakdowns:
+            data = db.get(BreakdownVersion, row.breakdown_id).data
+            breakdowns[row.breakdown_id] = Breakdown.model_validate(data)
+        was = Frame(clip_id=row.clip_id, shot_id=row.shot_id, prompt=row.prompt,
+                    reference_ids=row.reference_ids)  # fmt: skip
+        now = with_cast(db, project, was, breakdowns[row.breakdown_id], known, trim=False)
+        problems = frame_problems(db, project, now, row.breakdown_id)
+        if now == was and problems == (row.problems or []):
+            continue
+        row.prompt, row.reference_ids, row.problems = now.prompt, now.reference_ids, problems
+        changed += 1
+    return changed
 
 
 def save_frames(db: Session, job: Job) -> None:
@@ -120,7 +260,9 @@ def save_frames(db: Session, job: Job) -> None:
     project = db.get(Project, job.input["project_id"])
     result = StoryboardFrames.model_validate(job.output)
     db.execute(delete(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
-    for f in result.frames:
+    bd = Breakdown.model_validate(db.get(BreakdownVersion, job.input["breakdown_id"]).data)
+    known = assets(db, project)
+    for f in (with_cast(db, project, f, bd, known) for f in result.frames):
         db.add(
             StoryboardFrame(
                 project_id=project.id,
@@ -148,7 +290,7 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
         files = known[ref][1][:1]  # the approved sheet (characters, places) or main picture
         if not files and ref.startswith(("char:", "place:")):
             require_sheet(db.get(LibraryItem, int(ref.split(":")[1])))
-        (characters if ref.startswith("char:") else objects).extend(files)
+        (characters if ref.startswith(CHAR) else objects).extend(files)
     prompt = f"{frame.prompt}\nChange from the last still: {note}" if note else frame.prompt
     job = image_job_input(
         image_model(), prompt, project.aspect_ratio, characters=characters, objects=objects

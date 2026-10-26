@@ -266,7 +266,7 @@ def storyboard(
     shots = {shot.id: shot for scene in bd.scenes for shot in scene.shots} if bd else {}
     problems = []
     for f in frames.frames:
-        characters = [r for r in f.reference_ids if r.startswith("char:")]
+        characters = [r for r in f.reference_ids if r.startswith(("char:", "slot:"))]
         if len(f.reference_ids) > max_images or len(characters) > max_characters:
             problems.append(f"{f.clip_id}: more references than the image model keeps")
         cast = shots[f.shot_id].character_ids if f.shot_id in shots else []

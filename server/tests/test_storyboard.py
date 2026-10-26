@@ -7,6 +7,7 @@ import httpx2 as httpx
 
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
+from app.models.library import LibraryItem
 from app.models.storyboards import StoryboardFrame
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
@@ -76,7 +77,17 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     no_mom = editor.put(
         f"{url}/frames/{frames[0]['id']}", json={"prompt": "x", "reference_ids": []}
     )
-    assert no_mom.json()["problems"] == [f"c1: {char} in the shot without a sheet"]
+    assert no_mom.json()["reference_ids"] == [char]  # her sheet comes back on its own
+    assert no_mom.json()["problems"] == []
+    assert no_mom.json()["prompt"] == "x Keep Mom from image 1 exactly as on their sheet."
+    db.get(LibraryItem, mom).sheet_approved = False  # no approved look: named, never an id
+    db.commit()
+    no_look = editor.put(
+        f"{url}/frames/{frames[0]['id']}", json={"prompt": "x", "reference_ids": []}
+    )
+    assert no_look.json()["problems"] == [
+        "c1: Mom has no approved look yet. Approve one in Assets."
+    ]
 
     editor.put(f"/projects/{setup['project']}/breakdown", json=BREAKDOWN)  # a newer breakdown
     assert editor.get(url).json()[0]["stale"] is True
