@@ -194,8 +194,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     return (
       <section className={`${card} space-y-3`} aria-label="Clips">
         {promptsFailed && (
-          <Banner title="The clip prompts didn't finish." action={<Button variant="secondary" disabled={write.isPending || !!stopFor(writeCost)} onClick={() => write.mutate()}>Try again{price(writeCost)}</Button>}>
-            Nothing was charged.
+          <Banner title={promptRun?.status === "failed" ? "The clip prompts didn't finish." : "We lost track of the clip prompts."}>
+            {promptRun?.status === "failed" ? "Nothing was charged. Write them again below." : "If they finish, they show up here. Or write them again below."}
           </Banner>
         )}
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>

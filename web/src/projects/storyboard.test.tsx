@@ -228,7 +228,7 @@ test("a frame whose character has no approved sheet says so, links to the charac
   expect(screen.getByRole("button", { name: "Make all stills · 3 credits" })).toBeInTheDocument(); // only the frame that can be made
 });
 
-test("a failed frames run says so, nothing was charged, and Try again asks again", async () => {
+test("a failed frames run says so, nothing was charged, and the one Make button below asks again", async () => {
   const calls = fakeServer({
     ...base,
     "GET /projects/9/storyboard": [200, []],
@@ -238,6 +238,7 @@ test("a failed frames run says so, nothing was charged, and Try again asks again
   open();
   expect(await screen.findByText("The frames didn't finish.")).toBeInTheDocument();
   expect(screen.queryByText("Writing your frames…")).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Try again · 6 credits" }));
+  expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "Make storyboard · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard")).toBe(true));
 });

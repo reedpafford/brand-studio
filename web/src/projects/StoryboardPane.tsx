@@ -15,7 +15,7 @@ import { useMe } from "../auth/useMe";
 import { refName, useRoleNames } from "./names";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { usePressed } from "./usePressed";
-import { Banner, Button } from "../components";
+import { Banner } from "../components";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -179,8 +179,8 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
     return (
       <section className={`${card} space-y-3`} aria-label="Storyboard">
         {framesFailed && (
-          <Banner title="The frames didn't finish." action={<Button variant="secondary" disabled={make.isPending || !!stopFor(makeTotal)} onClick={() => make.mutate()}>Try again{price(makeTotal)}</Button>}>
-            Nothing was charged.
+          <Banner title={frameRun?.status === "failed" ? "The frames didn't finish." : "We lost track of the frames."}>
+            {frameRun?.status === "failed" ? "Nothing was charged. Make them again below." : "If they finish, they show up here. Or make them again below."}
           </Banner>
         )}
         <p className="text-[length:var(--text-xl)] font-semibold">No frames yet.</p>

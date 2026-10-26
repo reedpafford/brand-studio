@@ -312,7 +312,7 @@ test("a take that finishes between two polls still shows up (the clips are fetch
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/9/clips").length).toBeGreaterThanOrEqual(1));
 });
 
-test("a failed prompt run says so, nothing was charged, and Try again writes them again", async () => {
+test("a failed prompt run says so, nothing was charged, and the one Write button below tries again", async () => {
   const calls = fakeServer({
     ...base,
     "GET /projects/9/clips": [200, []],
@@ -321,8 +321,10 @@ test("a failed prompt run says so, nothing was charged, and Try again writes the
   });
   open();
   expect(await screen.findByText("The clip prompts didn't finish.")).toBeInTheDocument();
-  expect(screen.getByText("Nothing was charged.")).toBeInTheDocument();
+  expect(screen.getByText(/Nothing was charged\./)).toBeInTheDocument();
   expect(screen.queryByText("Writing your clip prompts…")).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Try again · 6 credits" }));
+  // One paid button, not two: the banner only says what happened.
+  expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
 });
