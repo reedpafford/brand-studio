@@ -83,3 +83,5 @@
 - 2026-10-26 Reed: people never see raw ids like "char:3". A message about a missing look names the character and points to Assets.
 - 2026-10-26 Reed: at Assets, every main or recurring role with no character assigned gets its per-video look made automatically when the step opens, within the video's budget, with the price shown. The editor still reviews and approves each one before Storyboard (Redo or swap). Background people never get looks.
 - 2026-10-26 Reed: looks must fit the role. Every role description states age range, gender and role/occupation; if the script doesn't say, it's inferred from context and flagged as a guess. Make a look uses the script's context for that role, not just its name. A made look that doesn't match its description (e.g. a teacher drawn as a child) is redone once automatically before it's shown.
+- 2026-10-26 Reed: archiving a brand only hides it. Work already running for that brand is not stopped.
+- 2026-10-26 Reed: the QA Owner test account and its saved invite setting are removed. Characters 4–7 in Reed's library were deleted on purpose.
