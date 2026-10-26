@@ -1,4 +1,5 @@
-"""The team: list members, invite people, remove people. Changes are owner-only."""
+"""The team: list members, invite people, change a role, remove people and bring them back.
+Changes are owner-only."""
 
 from datetime import datetime, timedelta
 
@@ -22,6 +23,10 @@ class MemberOut(BaseModel):
     role: Role
 
 
+class RoleIn(BaseModel):
+    role: Role
+
+
 class InviteIn(BaseModel):
     email: Email
     role: Role = Role.editor
@@ -39,19 +44,57 @@ class NewInviteOut(InviteOut):
 
 
 @router.get("/members", response_model=list[MemberOut])
-def members(user: User = Depends(current_user), db: Session = Depends(get_db)):
+def members(
+    removed: bool = False,  # true: the removed members instead, to bring back (owner only)
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    if removed and not user.is_owner:
+        raise HTTPException(403, "Only the owner can do that.")
     return db.scalars(
-        select(User).where(User.workspace_id == user.workspace_id, User.active).order_by(User.id)
+        select(User)
+        .where(User.workspace_id == user.workspace_id, User.active.is_(not removed))
+        .order_by(User.id)
     ).all()
+
+
+def _member(db: Session, owner: User, member_id: int, active: bool = True) -> User:
+    member = db.get(User, member_id)
+    if not member or member.workspace_id != owner.workspace_id or member.active != active:
+        raise HTTPException(404, "No such member.")
+    return member
+
+
+@router.patch("/members/{member_id}", response_model=MemberOut)
+def change_role(
+    member_id: int, body: RoleIn, owner: User = Depends(owner_only), db: Session = Depends(get_db)
+):
+    """Make someone an owner or an editor. You can't change your own role, so there is
+    always at least one owner."""
+    member = _member(db, owner, member_id)
+    if member.id == owner.id:
+        raise HTTPException(400, "You can't change your own role.")
+    member.role = body.role
+    db.commit()
+    return member
+
+
+@router.post("/members/{member_id}/restore", response_model=MemberOut)
+def restore_member(
+    member_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)
+):
+    """Undo a remove: they can sign in again, with the role they had."""
+    member = _member(db, owner, member_id, active=False)
+    member.active = True
+    db.commit()
+    return member
 
 
 @router.delete("/members/{member_id}", status_code=204)
 def remove_member(
     member_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)
 ) -> None:
-    member = db.get(User, member_id)
-    if not member or member.workspace_id != owner.workspace_id or not member.active:
-        raise HTTPException(404, "No such member.")
+    member = _member(db, owner, member_id)
     if member.id == owner.id:
         raise HTTPException(400, "You can't remove yourself.")
     member.active = False

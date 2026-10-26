@@ -161,6 +161,31 @@ export interface paths {
         delete: operations["remove_member_team_members__member_id__delete"];
         options?: never;
         head?: never;
+        /**
+         * Change Role
+         * @description Make someone an owner or an editor. You can't change your own role, so there is
+         *     always at least one owner.
+         */
+        patch: operations["change_role_team_members__member_id__patch"];
+        trace?: never;
+    };
+    "/team/members/{member_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Member
+         * @description Undo a remove: they can sign in again, with the role they had.
+         */
+        post: operations["restore_member_team_members__member_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -3858,6 +3883,8 @@ export interface components {
             own_script: boolean;
             /** Archived At */
             archived_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -3966,6 +3993,10 @@ export interface components {
          * @enum {string}
          */
         Role: "owner" | "editor";
+        /** RoleIn */
+        RoleIn: {
+            role: components["schemas"]["Role"];
+        };
         /** Scene */
         Scene: {
             /**
@@ -5126,7 +5157,9 @@ export interface operations {
     };
     members_team_members_get: {
         parameters: {
-            query?: never;
+            query?: {
+                removed?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5140,6 +5173,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5161,6 +5203,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_role_team_members__member_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_member_team_members__member_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -6506,6 +6614,9 @@ export interface operations {
             query?: {
                 brand_id?: number | null;
                 archived?: boolean;
+                q?: string;
+                mine?: boolean;
+                status?: ("making" | "done") | null;
             };
             header?: never;
             path?: never;

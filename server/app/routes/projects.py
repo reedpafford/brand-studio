@@ -86,6 +86,7 @@ class ProjectOut(BaseModel):
     script_draft_id: int | None = None  # made from a library version; null: an earlier-style video
     own_script: bool = False  # from a script the viewer wrote: it runs on their weekly allowance
     archived_at: datetime | None = None  # put away; POST .../unarchive brings it back
+    finished_at: datetime | None = None  # "Video done": the whole video was downloaded
 
 
 def archive(db: Session, project: Project) -> None:
@@ -132,6 +133,7 @@ def _out(db: Session, project: Project, user: User) -> ProjectOut:
         script_draft_id=project.script_draft_id,
         own_script=own_script(db, project, user),
         archived_at=project.archived_at,
+        finished_at=project.finished_at,
     )
 
 
@@ -193,6 +195,9 @@ def _set_length(db: Session, user: User, project: Project, seconds: int | None) 
 def list_projects(
     brand_id: int | None = None,
     archived: bool = False,  # true: the archived videos instead, so they can be brought back
+    q: str = "",  # in the video's name (a script's title, and its version's)
+    mine: bool = False,  # only the videos the caller started
+    status: Literal["making", "done"] | None = None,  # done: "Video done"
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -202,6 +207,13 @@ def list_projects(
     )
     if brand_id is not None:
         query = query.where(Project.brand_id == brand_id)
+    if q.strip():
+        query = query.where(Project.name.ilike(f"%{q.strip()}%"))
+    if mine:
+        query = query.where(Project.created_by_id == user.id)
+    if status is not None:
+        done = Project.finished_at.is_not(None)
+        query = query.where(done if status == "done" else ~done)
     return [_out(db, p, user) for p in db.scalars(query.order_by(func.lower(Project.name)))]
 
 
