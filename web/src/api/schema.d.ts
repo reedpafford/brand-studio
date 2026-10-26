@@ -3001,6 +3001,7 @@ export interface components {
             only_here?: ("video" | "script") | null;
             /** Own Look Id */
             own_look_id?: number | null;
+            facts?: components["schemas"]["RoleFacts"] | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -3428,6 +3429,13 @@ export interface components {
              * @default 0
              */
             tries: number;
+        };
+        /** Fact */
+        Fact: {
+            /** Value */
+            value: string;
+            /** Inferred */
+            inferred: boolean;
         };
         /** FileOut */
         FileOut: {
@@ -4547,6 +4555,15 @@ export interface components {
          * @enum {string}
          */
         Role: "owner" | "editor";
+        /**
+         * RoleFacts
+         * @description Who the role is, from its description's lead ("Mid-40s woman, a teacher; …").
+         */
+        RoleFacts: {
+            age_range?: components["schemas"]["Fact"] | null;
+            gender?: components["schemas"]["Fact"] | null;
+            occupation?: components["schemas"]["Fact"] | null;
+        };
         /** RoleIn */
         RoleIn: {
             role: components["schemas"]["Role"];
@@ -4887,6 +4904,8 @@ export interface components {
             sheet_file_id: number | null;
             /** Locked */
             locked: boolean;
+            /** @default {} */
+            facts: components["schemas"]["RoleFacts"];
         };
         /** SlotPatch */
         SlotPatch: {

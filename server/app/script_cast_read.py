@@ -113,7 +113,7 @@ def save_cast_slots(db: Session, job: Job) -> None:
             slot = ScriptCastSlot(script_id=script.id, role=made.role[:120], kind=made.kind)
             db.add(slot)
         if not slot.description:
-            slot.description = made.description
+            slot.description, slot.guessed = made.description, list(made.guessed)
         slot.appears_in = sorted(set(made.appears_in))
         order.append(slot)
         done[key] = slot

@@ -41,6 +41,38 @@ class LockIn(BaseModel):
     library_item_id: int
 
 
+class Fact(BaseModel):
+    value: str
+    inferred: bool  # a guess from the story: shown as "(a guess)"
+
+
+class RoleFacts(BaseModel):
+    """Who the role is, from its description's lead ("Mid-40s woman, a teacher; …")."""
+
+    age_range: Fact | None = None
+    gender: Fact | None = None
+    occupation: Fact | None = None
+
+
+def role_facts(description: str, guessed: list[str]) -> RoleFacts:
+    from app.prompts.check import AGE, GENDER
+
+    who, _, job = description.split(";", 1)[0].partition(",")
+    found = GENDER.search(who)
+    age = who[: found.start()].strip() if found else who.strip()
+
+    def fact(value: str, name: str) -> Fact | None:
+        return Fact(value=value, inferred=name in guessed) if value else None
+
+    return RoleFacts(
+        age_range=fact(age if AGE.search(age) else "", "age"),
+        gender=fact(found[0].lower() if found else "", "gender"),
+        occupation=fact(  # only in the lead's shape ("17-year-old boy, a student")
+            job.strip().removeprefix("a ").removeprefix("an ") if found else "", "occupation"
+        ),
+    )
+
+
 class SlotOut(BaseModel):
     id: int
     role: str
@@ -51,6 +83,7 @@ class SlotOut(BaseModel):
     library_item_id: int | None  # locked to this character
     sheet_file_id: int | None  # the look used in every version
     locked: bool
+    facts: RoleFacts = RoleFacts()  # age range, gender and job, each marked when a guess
 
 
 def slots(db: Session, script: Script) -> list[SlotOut]:
@@ -70,6 +103,7 @@ def slots(db: Session, script: Script) -> list[SlotOut]:
             library_item_id=s.library_item_id,
             sheet_file_id=s.sheet_file_id,
             locked=s.library_item_id is not None,
+            facts=role_facts(s.description, s.guessed or []),
         )
         for s in rows
     ]
@@ -130,6 +164,8 @@ def edit_slot(
         _unique(db, script, values["role"], slot.id)
     for field, value in values.items():
         setattr(slot, field, value)
+    if "description" in values:
+        slot.guessed = []  # a person wrote it: nothing in it is a guess any more
     db.commit()
     return slots(db, script)
 

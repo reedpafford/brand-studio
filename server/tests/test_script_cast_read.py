@@ -82,3 +82,34 @@ def test_a_role_listed_twice_is_one_slot(db, owner):
     db.commit()
     cast = owner.get(f"/scripts/{made['id']}").json()["cast"]
     assert [(s["role"], s["appears_in"]) for s in cast] == [("Nate", [0, 1, 2])]
+
+
+def test_a_roles_facts_and_its_guesses(db, owner):
+    """Reed, 2026-10-26: a role says its age range, gender and job, guesses marked; a person
+    writing the description makes none of it a guess."""
+    from app.routes.script_cast import role_facts
+
+    facts = role_facts("Mid-40s woman, a primary-school teacher; curly hair", ["age"])
+    assert facts.model_dump() == {
+        "age_range": {"value": "Mid-40s", "inferred": True},
+        "gender": {"value": "woman", "inferred": False},
+        "occupation": {"value": "primary-school teacher", "inferred": False},
+    }
+    assert role_facts("A practice look.", []).model_dump() == {
+        "age_range": None, "gender": None, "occupation": None
+    }  # fmt: skip
+
+    made = _make(owner, text=SCRIPT)
+    lead = "17-year-old boy, a student; lanky"
+    nate = {"role": "Nate", "appears_in": [0], "recurring": True, "kind": "Main",
+            "description": lead, "guessed": ["occupation"]}  # fmt: skip
+    job = Job(input={"step": "cast_slots", "script_id": made["id"]}, output={"slots": [nate]})
+    save_cast_slots(db, job)
+    db.commit()
+    url = f"/scripts/{made['id']}"
+    (nate,) = owner.get(url).json()["cast"]
+    assert nate["facts"]["occupation"] == {"value": "student", "inferred": True}
+    assert nate["facts"]["age_range"] == {"value": "17-year-old", "inferred": False}
+    owner.patch(f"{url}/cast/{nate['id']}", json={"description": "17-year-old boy, a student"})
+    (nate,) = owner.get(url).json()["cast"]
+    assert nate["facts"]["occupation"]["inferred"] is False

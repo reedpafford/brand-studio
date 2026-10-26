@@ -216,3 +216,16 @@ def test_undoing_a_save_after_the_original_was_removed_brings_the_original_back(
     row = _row(editor, pid, nate)
     assert (row["library_item_id"], row["own_look_id"]) == (look, look)
     assert db.get(LibraryItem, look).archived is False
+
+
+def test_a_look_made_for_a_role_is_drawn_as_its_part(owner, editor, db):
+    """Director's #475: the sheet knows the role's part ("the son"), its redo too."""
+    _, pid, nate = _video(owner, editor, db)
+    editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
+    look = _row(editor, pid, nate)["own_look_id"]
+    sheets = [j for j in db.query(Job).all() if j.input.get("library_item_id") == look]
+    assert "In the story they are the son" in sheets[0].input["input"]["prompt"]
+    row = _row(editor, pid, nate)
+    assert row["facts"] == {  # an older description ("teen, shy"): only what it says
+        "age_range": {"value": "teen", "inferred": False}, "gender": None, "occupation": None
+    }  # fmt: skip

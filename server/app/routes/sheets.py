@@ -61,8 +61,9 @@ def make_sheet(
     refs = [item.source_photo_file_id] if from_photo else []
     refs += [item.sheet_file_id] if redo else []
     prompt = prompts.sheet_prompt(
-        str(kind), item.notes, from_photo=from_photo, change=body.change if redo else ""
-    )
+        str(kind), item.notes, from_photo=from_photo, change=body.change if redo else "",
+        role=role_for(db, item),
+    )  # fmt: skip
     job = image_job_input(
         get_model(body.model_id), prompt, ASPECT[kind], objects=refs, resolution=RESOLUTION
     )
@@ -75,6 +76,29 @@ def make_sheet(
         project=project,
         provider="replicate",
     )
+
+
+def role_for(db: Session, item: LibraryItem) -> str:
+    """The script's role a look was made for ("Omar, the boyfriend"), so every sheet of it,
+    a redo too, knows the part; "" for a Cast & places look."""
+    from sqlalchemy import select
+
+    from app.models.script_library import ScriptCastSlot
+
+    slot_id = None
+    if item.owner_project_id:
+        project = db.get(Project, item.owner_project_id)
+        mine = [k for k, v in (project.slot_looks if project else {}).items() if v == item.id]
+        slot_id = int(mine[0]) if mine else None
+    elif item.owner_script_id:
+        slot_id = db.scalar(
+            select(ScriptCastSlot.id).where(
+                ScriptCastSlot.script_id == item.owner_script_id,
+                ScriptCastSlot.library_item_id == item.id,
+            )
+        )
+    slot = db.get(ScriptCastSlot, slot_id) if slot_id else None
+    return slot.role if slot else ""
 
 
 def save_sheet(db: Session, job: Job) -> None:
