@@ -3074,6 +3074,8 @@ export interface components {
             declined: boolean;
             /** Look Credits */
             look_credits?: number | null;
+            /** Look Usual Credits */
+            look_usual_credits?: number | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -3841,6 +3843,11 @@ export interface components {
              */
             sheet_credits: number;
             /**
+             * Sheet Usual Credits
+             * @default 0
+             */
+            sheet_usual_credits: number;
+            /**
              * Change Credits
              * @default 0
              */
@@ -4094,6 +4101,11 @@ export interface components {
             roles: string[];
             /** Credits */
             credits: number;
+            /**
+             * Usual Credits
+             * @default 0
+             */
+            usual_credits: number;
             /** Reason */
             reason?: string | null;
         };

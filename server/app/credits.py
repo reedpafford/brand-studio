@@ -37,7 +37,10 @@ CATALOGUE_RATES = [  # (rate kind, unit, catalogue model, resolution)
     ("image-nano-banana-pro", "image", "nano-banana-pro", "1K"),
     ("watch-gemini", "call", "gemini-3.5-flash", None),
 ]
-OTHER_RATES = [("write-claude", "call", Decimal(3))]  # Opus script/breakdown call, ~$0.30
+OTHER_RATES = [
+    ("write-claude", "call", Decimal(3)),  # Opus script/breakdown call, ~$0.30
+    ("check-claude", "call", Decimal("0.2")),  # a low-effort look at one picture, ~$0.01-0.02
+]
 
 
 def launch_rates() -> list[tuple[str, str, Decimal]]:

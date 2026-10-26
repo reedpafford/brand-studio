@@ -52,7 +52,7 @@ def check_price(db, workspace_id: int) -> Decimal:
     """One look-fit check (a small Claude call)."""
     from app.credits import estimate
 
-    return estimate(db, workspace_id, "write-claude", Decimal(1))
+    return estimate(db, workspace_id, "check-claude", Decimal(1))
 
 
 def is_checked(item: LibraryItem) -> bool:
@@ -70,9 +70,23 @@ def worst(sheet: Decimal, check: Decimal, checked: bool, change: bool) -> Decima
     return (sheet + check) * (1 if change else 2)
 
 
+def usual(sheet: Decimal, check: Decimal, checked: bool) -> Decimal:
+    """What a press usually costs: the sheet and its check, no redo ("Usually 2")."""
+    return sheet + (check if checked else Decimal(0))
+
+
 def press_price(db, item: LibraryItem, change: bool = False) -> Decimal:
     ws = item.workspace_id
     return worst(sheet_price(db, ws), check_price(db, ws), is_checked(item), change)
+
+
+def press_usual(db, item: LibraryItem) -> Decimal:
+    ws = item.workspace_id
+    return usual(sheet_price(db, ws), check_price(db, ws), is_checked(item))
+
+
+def look_usual(db, workspace_id: int) -> Decimal:
+    return usual(sheet_price(db, workspace_id), check_price(db, workspace_id), True)
 
 
 def look_price(db, workspace_id: int) -> Decimal:

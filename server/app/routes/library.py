@@ -70,7 +70,8 @@ class ItemOut(ItemIn):
     owner_project_id: int | None = None  # "This video only"
     owner_script_id: int | None = None  # "This script only"
     look_fit: LookFitOut | None = None  # the sheet doesn't read as its role: advice, Redo it
-    sheet_credits: int = 0  # Make sheet / Redo: the whole press (its check and one redo)
+    sheet_credits: int = 0  # Make sheet / Redo: "up to" (its check and one redo, held)
+    sheet_usual_credits: int = 0  # "Usually N": the sheet and its check
     change_credits: int = 0  # Change this…: the sheet and its check (never redone by itself)
 
 
@@ -118,13 +119,14 @@ def sheet_status(item: LibraryItem) -> str:
 
 def _prices(item: LibraryItem) -> dict:
     from app.credits import price
-    from app.sheets import SHEET_KINDS, press_price
+    from app.sheets import SHEET_KINDS, press_price, press_usual
 
     db = object_session(item)
     if db is None or item.kind not in SHEET_KINDS:
         return {}
     return {
         "sheet_credits": price(press_price(db, item)),
+        "sheet_usual_credits": price(press_usual(db, item)),
         "change_credits": price(press_price(db, item, change=True)),
     }
 
