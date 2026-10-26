@@ -139,3 +139,70 @@ def test_the_owner_refunds_one_charge_once(owner, editor, db):
     assert (again["credits"], again["reason"]) == (4, "a still with the wrong person")  # once
     row = next(c for c in owner.get("/usage/charges").json()["items"] if c["id"] == charge.id)
     assert row["refunded"] is True and row["cost_usd"] == 0.04  # the dollars stay spent
+
+
+def test_an_editors_change_holds_its_whole_price_on_their_week(app, db, owner, editor, setup):  # noqa: F811
+    """Producer: on an editor's own script, the rewrite and the still it pays for are checked
+    and held together, so nothing started meanwhile can take the week past its allowance."""
+    from app.change import credits as price
+    from app.credits import credits_left
+    from app.models.accounts import User
+    from app.models.script_library import ScriptDraft
+
+    url, frame = _frame(app, db, editor, setup)
+    fomo = editor.get("/brands").json()[0]["id"]
+    script = editor.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"})
+    project = db.get(Project, setup["project"])
+    draft = db.query(ScriptDraft).filter_by(script_id=script.json()["id"]).one()
+    project.script_draft_id = draft.id  # the editor's own script: their week pays
+    db.commit()
+    ed = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
+    whole = price(db, project, frame)
+    limits = owner.get("/credits/limits").json()
+    used = float(145 - credits_left(db, ed))
+    tight = used + float(whole) - 0.01  # the rewrite fits; the rewrite and the still don't
+    owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": tight})
+    refused = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
+    assert refused.status_code == 409 and "free credits" in refused.json()["detail"]
+    owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 145})
+    before = credits_left(db, ed)
+    sent = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
+    assert sent.status_code == 201
+    assert before - credits_left(db, ed) == whole  # the still is held while the note is read
+
+
+def test_undo_goes_back_to_the_take_picked_before_the_change(app, db, editor, setup, clip):  # noqa: F811
+    """QA-2 on #427: three takes, take 1 picked; the change's Undo returns to take 1."""
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    row = db.get(ProjectClip, clip["id"])
+    takes, files = [], [upload(editor) for _ in range(4)]
+    for n in (1, 2, 3):
+        take = ClipTake(clip_id=row.id, number=n, job_id=row.job_id, file_id=files[n],
+                        prompt=row.prompt)  # fmt: skip
+        db.add(take)
+        db.flush()
+        takes.append(take)
+    row.picked_take_id, row.file_id = takes[0].id, takes[0].file_id
+    db.commit()
+    editor.post(f"{url}/change", json={"note": "Slower push in."})
+    _run(app, db, FakeClaude({"prompt": f"{clip['prompt']}\nSlower push in."}))
+    db.expire_all()
+    made = db.get(Job, db.get(ProjectClip, clip["id"]).change["made_job_id"])
+    made.output = {"file_ids": [files[0]]}
+    save_take(db, made)  # take 4 lands and is picked
+    db.commit()
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
+    assert shown["change"]["was_take_id"] == takes[0].id  # not take 3
+    back = editor.post(f"{url}/takes/{takes[0].id}/pick").json()
+    assert (back["picked_take_id"], back["prompt"]) == (takes[0].id, clip["prompt"])
+
+
+def test_a_stills_change_remembers_the_still_it_replaces(app, db, editor, setup):  # noqa: F811
+    url, frame = _frame(app, db, editor, setup)
+    old = frame.file_id
+    editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
+    shown = next(f for f in editor.get(url).json() if f["id"] == frame.id)
+    assert shown["change"]["was_file_id"] == old
+    _run(app, db, FakeClaude({"prompt": f"{frame.prompt} Brighter."}))
+    db.expire_all()
+    assert db.get(StoryboardFrame, frame.id).change["was_file_id"] == old  # kept after the rewrite

@@ -141,33 +141,36 @@ def enqueue(
     project: Project | None = None,
     provider: str = "fake",
     prepaid: bool = False,
+    hold: Decimal = Decimal(0),
 ) -> Job:
     """Queue a job for the worker. Feature code calls this; there is no public create route.
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. An
     editor's own work (outside a project, or on a video from their own script) past their
     weekly allowance is declined (409), and so is an editor's job that would take a library
     version over its budget (409, no Ask Reed). Jobs in a project still waiting for approval
-    wait as `needs_owner_approval`. The
-    check and the reservation are one locked transaction. `prepaid`: a later step of work the
-    editor already pressed for at its full price (the reel read chain), so the allowance isn't
-    checked again; caps, brand, credits and Usage stay as for any job."""
+    wait as `needs_owner_approval`. The check and the reservation are one locked transaction.
+    `prepaid`: a later step of work the editor already pressed for at its full price (the reel
+    read chain), so the allowance isn't checked again; caps, brand, credits and Usage stay as
+    for any job. `hold`: a later step this press already pays for (e.g. Change it's still or
+    take), checked together with this job."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if project is not None:
         lock(db, Project, project.id)
         db.refresh(project)  # read its status after taking the lock
         if project.archived_at is not None:
             raise HTTPException(409, "This video is archived. Bring it back to work on it.")
-        check_video_cap(db, user, project, credits)
+        check_video_cap(db, user, project, credits + hold)
         if own_script(db, project, user):
             lock(db, User, user.id)  # it spends their weekly allowance, like a Quick clip
     else:
         lock(db, User, user.id)
         check_clip_cap(db, user, credits)
     # Free work (e.g. getting a reel) never takes anyone past their allowance.
-    if credits and not prepaid and (declined := over_allowance(db, user, project, credits)):
+    whole = credits + hold
+    if whole and not prepaid and (declined := over_allowance(db, user, project, whole)):
         db.rollback()
         raise HTTPException(409, declined)
-    over = needs_approval(db, user, project, credits)
+    over = needs_approval(db, user, project, credits + hold)
     if over and project.status == ProjectStatus.active:  # Reed, 2026-10-26: no Ask Reed
         db.rollback()
         raise HTTPException(409, OVER_BUDGET)
