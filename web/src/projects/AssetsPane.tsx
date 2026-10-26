@@ -22,7 +22,7 @@ import {
 } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useMe } from "../auth/useMe";
-import { useSheetPrice } from "../library/SheetPanel";
+import { lookFitNote, useSheetPrice } from "../library/SheetPanel";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { RoleFacts } from "./RoleFacts";
 import { AutoLooks } from "./AutoLooks";
@@ -371,10 +371,10 @@ function AssetCard({
           )}
           {asset.look_fit && !asset.locked && (
             <div className="space-y-1 rounded-md bg-warning-soft p-2 text-sm" role="note" aria-label={`Look check for ${title}`}>
-              <p>This look reads as: {asset.look_fit.seen}</p>
+              <p>{lookFitNote(asset.look_fit)}</p>
               {using && (
                 <Button variant="secondary" dense icon={Wand2} onClick={() => { setChange(asset.look_fit!.problem); changeBox.current?.focus(); }}>
-                  Redo it
+                  Fix it with a note
                 </Button>
               )}
             </div>
@@ -508,7 +508,7 @@ export function AssetsPane({
     );
   return (
     <div className="space-y-6">
-      <AutoLooks projectId={projectId} />
+      <AutoLooks projectId={projectId} toApprove={list.some((a) => a.sheet_status === "needs_approval")} />
       {cast.length > 0 && (
         <section aria-label="Cast" className="space-y-3">
           <h3 className="type-section">Cast</h3>

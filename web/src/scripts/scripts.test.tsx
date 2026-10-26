@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { weekStop } from "./useScript";
 
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { id: 2, email: "sam@b.co", name: "Sam", role: "editor", workspace_id: 1 };
@@ -1312,4 +1313,8 @@ test("Read it again is disabled past an editor's week, with the plain reason, an
   await vi.waitFor(() => expect(go).toBeDisabled());
   expect(go).toHaveAccessibleDescription(/145 free credits.*resets on Monday/);
   expect(calls.some((c) => c.key === "POST /scripts/7/import/read-again")).toBe(false);
+});
+
+test("a week with one free credit says so in the singular, as the server does", () => {
+  expect(weekStop({ quick_clip_credits_used: 0.4, quick_clip_credits_allowed: 1 }, 2)).toBe("That's more than this week's 1 free credit (0 used). It resets on Monday.");
 });
