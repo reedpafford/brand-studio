@@ -19,6 +19,7 @@ import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
 import { UsageBrandPage } from "./usage/UsageBrandPage";
 import { UsagePage } from "./usage/UsagePage";
+import { ReelReviewPage } from "./scripts/ReelReviewPage";
 
 export function App() {
   return (
@@ -34,6 +35,7 @@ export function App() {
           <Route path="b/:brandId/scripts" element={<ScriptsRoute />} />
           <Route path="b/:brandId/scripts/new" element={<NewScriptPage />} />
           <Route path="b/:brandId/scripts/:scriptId" element={<ScriptFlowPage />} />
+          <Route path="b/:brandId/scripts/:scriptId/reel" element={<ReelReviewPage />} />
           <Route path="b/:brandId/projects" element={<ProjectsPage />} />
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
           <Route path="b/:brandId/projects/:projectId" element={<ProjectPage />} />

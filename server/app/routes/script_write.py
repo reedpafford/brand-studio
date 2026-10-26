@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import reel_read, script_write
 from app import script_library as lib
 from app.auth import current_user
-from app.credits import afford, credits_left, estimate
+from app.credits import afford, credits_left, estimate, shown
 from app.db import get_db
 from app.models.accounts import User
 from app.models.script_library import Script
@@ -32,6 +32,8 @@ class WriteManyEstimate(BaseModel):
     credits: float  # all of them together
     credits_left: float | None  # an editor's weekly allowance left; null for the owner
     reading: int = 0  # scripts whose imported reel is read first (watch, write, cast read)
+    read_credits: float = 0  # of `credits`: reading the reels, still-preparing ones too
+    write_credits: float = 0  # of `credits`: the scripts that are simply written
     writing: int = 0  # scripts that are simply written
     waiting: list[int] = []  # reels still being prepared: Write all waits for them
     failed: list[int] = []  # reels that need the video uploaded (fetch failed, or too old)
@@ -121,9 +123,12 @@ def write_many_estimate(
     scripts = [lib.get_script(db, user, script_id) for script_id in ids]
     plans = [_plan(db, s) for s in scripts]
     left = credits_left(db, user)
+    costs = [(p, _cost(db, user, s, p)) for s, p in zip(scripts, plans, strict=True)]
     return WriteManyEstimate(
         count=len(ids),
-        credits=sum((_cost(db, user, s, p) for s, p in zip(scripts, plans, strict=True)), 0),
+        credits=sum((c for _, c in costs), 0),
+        read_credits=sum((c for p, c in costs if p in ("read", "waiting")), 0),
+        write_credits=sum((c for p, c in costs if p == "write"), 0),
         credits_left=None if left is None else max(left, Decimal(0)),
         reading=plans.count("read"),
         writing=plans.count("write"),
@@ -158,8 +163,8 @@ def write_many(
     if left is not None and total > left:
         raise HTTPException(
             409,
-            f"Writing these takes {total:.0f} credits and you have {max(left, 0):.0f} left "
-            "this week. It resets Monday.",
+            "Writing these takes {} credits and you have {} left this week. It resets "
+            "Monday.".format(*shown(total, left)),
         )
     return [
         reel_read.queue(db, user, s, reel_read.remaining(s)[0])

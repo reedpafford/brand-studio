@@ -1082,3 +1082,113 @@ test("with new lines on there are no marks, and the legend says the lines are ne
   expect(screen.queryByText(/^Was:/)).toBeNull();
   expect(screen.queryByText(/^From the reel:/)).toBeNull();
 });
+
+const shot = (n: number, o: object = {}) => ({ n, start: n * 0.4 - 0.4, end: n * 0.4, framing: "wide three-shot, eye level", camera: "static", action: `Action ${n}`, speaker: "", line: "", dropped: false, ...o });
+const review = (o: object = {}) => ({
+  logline: "A groom is dumped at the altar for a richer man.",
+  hook_seconds: 4.88,
+  hook: "Cold open mid-climax: 'I do' answered by a screamed 'HELL NO!'",
+  seconds: 45,
+  shots: [shot(1, { speaker: "groom", line: "I do." }), shot(2, { action: "Bride screams", speaker: "bride", line: "HELL NO!" }), shot(3), shot(4), shot(5, { dropped: true, action: "Handheld phone clips" })],
+  dropped: 1,
+  lines: 2,
+  montages: [{ first: 3, last: 4, seconds: 0.8 }],
+  video_file_id: 3,
+  ...o,
+});
+
+test("Review the breakdown: the player and logline, each shot with its time, framing, action and line, dropped live action muted, a montage that opens, and the filter", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [200, review()] });
+  open("/b/1/scripts/7/reel");
+  expect(await screen.findByText("A groom is dumped at the altar for a richer man.")).toBeInTheDocument();
+  expect(screen.getByLabelText("The reel")).toHaveAttribute("src", expect.stringContaining("/files/3"));
+  expect(screen.getByText(/Hook · 0:00–0:04.9: Cold open/)).toBeInTheDocument();
+  expect(screen.getByText("5 shots · 1 dropped (live action) · 2 lines")).toBeInTheDocument();
+  const shots = screen.getByLabelText("Shots");
+  expect(within(shots).getByText("GROOM: I do.")).toBeInTheDocument();
+  expect(within(shots).getByText("0:00–0:00.4")).toBeInTheDocument();
+  expect(within(shots).getByText("Dropped · live action")).toBeInTheDocument();
+  expect(within(shots).getByText(/Shots 3–4 · montage · 0.8 s/).closest("summary")!.querySelector("svg")).not.toBeNull(); // the chevron says it opens
+  await userEvent.click(within(shots).getByRole("radio", { name: "Lines only" }));
+  expect(within(shots).queryByText("Action 3")).toBeNull();
+  expect(within(shots).getByText("BRIDE: HELL NO!")).toBeInTheDocument();
+  await userEvent.click(within(shots).getByRole("radio", { name: "Dropped" }));
+  expect(within(shots).getByText("Handheld phone clips")).toBeInTheDocument();
+  expect(within(shots).queryByText("GROOM: I do.")).toBeNull();
+});
+
+test("Use this reel goes to the Script step with the toast", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [200, review()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
+  open("/b/1/scripts/7/reel");
+  await userEvent.click(await screen.findByRole("button", { name: "Use this reel" }));
+  expect(await screen.findByText(/Script filled from the reel\. Adapt it for/)).toBeInTheDocument();
+});
+
+test("a reel that hasn't been read yet says so in the server's words", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [409, { detail: "The reel hasn't been read yet." }] });
+  open("/b/1/scripts/7/reel");
+  expect(await screen.findByText("The reel hasn't been read yet.")).toBeInTheDocument();
+});
+
+test("the done card has Review the breakdown, which opens the review", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByRole("link", { name: "Review the breakdown" })).toHaveAttribute("href", "/b/1/scripts/7/reel");
+});
+
+test("a script made from an imported reel carries a Reel chip in the library; one that isn't doesn't", async () => {
+  setViewport(1440);
+  const reel = script({ id: 31, title: "Altar swap", reel_imported: true, versions: [v(0, "draft")] });
+  const plain = script({ id: 32, title: "Plain script", reel_imported: false, versions: [v(0, "draft")] });
+  fakeServer({ ...base, "GET /scripts": [200, [reel, plain]] });
+  open();
+  const row = (await screen.findByRole("heading", { name: "Altar swap" })).closest("li")!;
+  expect(within(row).getByText("Reel")).toBeInTheDocument();
+  expect(within(screen.getByRole("heading", { name: "Plain script" }).closest("li")!).queryByText("Reel")).toBeNull();
+});
+
+test("Bulk create, Reel links: one link per line, bad lines are named and block the button, then one draft per reel is made and Write all reads and writes at one price", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts": [200, []],
+    "POST /scripts/bulk": [201, [{ id: 11, title: "Untitled reel" }, { id: 12, title: "Untitled reel" }]],
+    "POST /scripts/write/estimate": [200, { count: 2, credits: 35, credits_left: null, reading: 1, writing: 2, waiting: [], failed: [12] }],
+    "POST /scripts/write": [201, [{ id: 1, status: "queued" }, { id: 2, status: "queued" }]],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Bulk create" }));
+  const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
+  await userEvent.click(within(dialog).getByRole("radio", { name: "Reel links" }));
+  expect(within(dialog).queryByLabelText(/^Title \d$/)).toBeNull();
+  expect(within(dialog).getByRole("button", { name: "Make 0 drafts" })).toHaveAccessibleDescription("Paste at least one reel link");
+  await userEvent.type(within(dialog).getByLabelText("Paste reel links, one per line"), "https://www.instagram.com/reel/Abc123/{Enter}https://example.com/nope{Enter}https://www.instagram.com/reel/Def456/");
+  expect(within(dialog).getByText("Line 2 isn't a reel link")).toBeInTheDocument();
+  const make = within(dialog).getByRole("button", { name: "Make 2 drafts" }); // counts only the two real reel links
+  expect(make).toBeDisabled(); // a bad line blocks it, and says why
+  expect(make).toHaveAccessibleDescription("Fix the lines that aren't reel links");
+  expect(calls.some((c) => c.key === "POST /scripts/bulk")).toBe(false);
+  const box = within(dialog).getByLabelText("Paste reel links, one per line");
+  await userEvent.clear(box);
+  await userEvent.type(box, "https://www.instagram.com/reel/Abc123/{Enter}https://www.instagram.com/p/Def456/");
+  await userEvent.click(within(dialog).getByRole("switch", { name: "Write new lines in the same style" }));
+  await userEvent.type(within(dialog).getByLabelText("What to change (optional)"), "reselling becomes trading");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make 2 drafts" }));
+  await vi.waitFor(() =>
+    expect(calls.find((c) => c.key === "POST /scripts/bulk")?.body).toMatchObject({
+      scripts: [
+        { brand_id: 1, reel_url: "https://www.instagram.com/reel/Abc123/", new_lines: true, reference_replace: "reselling becomes trading" },
+        { reel_url: "https://www.instagram.com/p/Def456/", new_lines: true },
+      ],
+    }),
+  );
+  const done = await screen.findByRole("dialog", { name: "Drafts made" });
+  expect(await within(done).findByText("About 35 credits: reading 1 reel and writing 2 scripts and casts")).toBeInTheDocument();
+  expect(within(done).getByText("Couldn't get the reel")).toBeInTheDocument();
+  await userEvent.click(await within(done).findByRole("button", { name: /Write all scripts.*35 credits/ }));
+  expect(await screen.findByText("Reading 2 reels and writing their scripts. They'll show as drafts when they're ready.")).toBeInTheDocument();
+});
