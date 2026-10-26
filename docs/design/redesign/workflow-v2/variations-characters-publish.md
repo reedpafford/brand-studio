@@ -53,7 +53,7 @@ At the top: "How many variations?" with a segmented control: **None · 1 · 2**.
 | State | What shows |
 |---|---|
 | Error | "The variations didn't finish. Nothing was charged." **Try again** |
-| Waiting | For Reed's own scripts, past the budget: the button reads **Ask Reed to approve · N credits**, as today. On editors' scripts, past the allowance: declined, "That's more than this week's 145 free credits." |
+| Over the limit | Reed sees the plain button past a budget. An editor past the allowance gets it disabled with "That's more than this week's 145 free credits." There's never "Ask Reed" (README rule 2). |
 | Success | Toast "2 variations ready. Read them side by side." |
 
 ## 5. Cast (`?step=cast`)

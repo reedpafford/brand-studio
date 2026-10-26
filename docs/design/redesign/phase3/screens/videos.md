@@ -21,7 +21,7 @@ Finished (section)                          same cards, badge "Ready · 24 s", p
 - **Card.** The whole card is one link to the video at its current step. `aria-label` is "{title}, {step}, {line}".
 - **Step badge** (on-media style): Brief, Script, Shots, Storyboard, Clips, Final video.
 - **Second badge**, when relevant:
-  - `warn` "Waiting for Reed to approve"
+  - neutral "Not started", only on a step held for approval before 26 Oct, until Builder-Server moves it (README rule 2)
   - `danger` "Didn't finish · credits returned"
   - neutral "Out of date" (final video)
 - **Line under the title,** by step:

@@ -16,7 +16,7 @@ Cast & places (page 32)                                                  [＋ Ne
 ```
 - **Tabs** with counts. The amber button follows the tab: **New character**, **New place**, **New prop**.
 - **Card:** media-first, 1:1. The picture is the approved sheet's front view, else the newest photo, else `surface-2` with the kind's icon (`Users`, `MapPin`, `Box`). Name over the shade. Brand dots (8px) in the bottom right when the item is shared with other brands.
-- **Badge** (top left), only when there's something to know: `warn` "Needs a sheet", `warn` "Waiting for Reed to approve", neutral "Drawing…", neutral "Archived". No version labels ("v3") anywhere.
+- **Badge** (top left), only when there's something to know: `warn` "Needs a sheet", neutral "Drawing…", neutral "Archived". No version labels ("v3") anywhere.
 - **Search** filters as you type. **Show archived** is a checkbox row (44px).
 
 ### Phone
@@ -42,7 +42,7 @@ History (section) ▸ collapsed: "Changed today by Reed · 4 earlier changes"
 ```
 - **The amber button**, by state:
   - Approved sheet: **Use in a new video** (opens New video with Bo picked).
-  - Photo, no sheet: **Make house-style sheet · 2 credits** (1.5 rounded up). Over allowance: **Ask Reed to approve · 2 credits**.
+  - Photo, no sheet: **Make house-style sheet · 2 credits** (1.5 rounded up). Past the week, it's disabled with "That's more than this week's 145 free credits. It resets on Monday." (README rule 2).
   - No photo: **Add photo** (`Upload`).
   - Props have no sheets, so their amber button is **Save changes** when there are edits, otherwise none.
 - **Save changes** is secondary when the amber slot is taken, and is disabled until something changed (reason "No changes yet").

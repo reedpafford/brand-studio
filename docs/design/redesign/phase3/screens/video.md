@@ -76,7 +76,7 @@ The script is the page, in the script role (Courier Prime 14/22), max 72 charact
   | Reading for suggestions | Skeleton marks under every third line + "Reading your script… 8 s" |
   | Nothing to suggest | Toast: "This script already reads well. Nothing to suggest." |
   | Failed | Danger banner: "The drafts didn't finish. Nothing was charged. [Try again]" (or "Suggestions didn't finish. Your script is unchanged.") |
-  | Waiting for Reed | `warn` badge "Waiting for Reed to approve" where the cards would be |
+  | Over the limit | Suggest directions is disabled with the reason under it (README rule 2). Nothing waits for Reed. |
 
 ## 3. Shots (was Breakdown)
 Content and editing rules as in `docs/design/screens/breakdown.md`; only the look and placement change.
@@ -140,11 +140,11 @@ Two presses, always, so prompts are read before takes are paid for.
 - The prompt shows in the script role, at most 5 lines, with "Show all" (ghost dense). Image placeholders like `[Image1]` show as named chips: "Bo's sheet", "Kitchen".
 - **Looks good** (secondary, `Check`) marks it read: a `success` badge "Looks good" and the button becomes **Undo**. **Edit** (ghost, `Pencil`) turns the prompt into a textarea with **Save** / **Cancel**; saving also marks it read.
 - Prompt checks show under the prompt as `warn` rows with `TriangleAlert`, in plain words ("The end line isn't in the last clip").
-- **Step bar:** "Clips · 4 prompts · 3 read". Amber: **Make the takes · 72 credits**, reason "Mark every prompt as Looks good first (1 left)". Over budget: **Ask Reed to approve · 72 credits**.
+- **Step bar:** "Clips · 4 prompts · 3 read". Amber: **Make the takes · 72 credits**, reason "Mark every prompt as Looks good first (1 left)". Past the budget, for an editor: disabled with "That's more than this video's budget."; for Reed: the plain **Make the takes · 72 credits** (README rule 2).
 
 **Press 2: the takes.** After Make the takes, each card becomes a take card:
 - Media first: the player in the video's shape (poster = the approved frame until the take lands), status badge top left, "Clip 1 · 8 s" over the shade. A `Play` button in the centre only once a take exists.
-- Status words: "Queued", "Making… 1m 12s" (with a thin amber progress bar along the bottom edge of the picture), "Ready", "Approved", "Didn't finish · credits returned", "Waiting for Reed to approve".
+- Status words: "Queued", "Making… 1m 12s" (with a thin amber progress bar along the bottom edge of the picture), "Ready", "Approved", "Didn't finish · credits returned". Never "Waiting for Reed": a step held before 26 Oct shows the neutral "Not started" with **Cancel**.
 - Under the picture:
   - **Takes:** segmented "Take 1 · Take 2" (newest picked when it lands).
   - **Looks good** (secondary, `Check`) approves the picked take: 2px amber ring, badge "Approved", button becomes **Undo approval**.
@@ -163,7 +163,7 @@ Two presses, always, so prompts are read before takes are paid for.
   | Empty | As above, **Write clip prompts · 3 credits** |
   | Loading | Prompt skeletons (press 1) / take cards with "Making… 1m 12s" and the progress edge (press 2) |
   | Error | Per clip: "Didn't finish · credits returned" + "The video service was busy." + **Try again · 27 credits**. All failed or service down: danger banner "Clips can't be made right now. Nothing was charged." **Try again** |
-  | Waiting | `warn` badge on each held clip and a step-bar note "Waiting for Reed to approve 72 credits. You'll see the takes here." |
+  | Over the budget | For an editor, **Make the takes** and each Redo are disabled with "That's more than this video's budget." Nothing is sent to Reed and nothing waits. |
   | Success | Toast per landed take: "Clip 2 is ready to review." When all are approved: "Every clip approved. Next: Final video." |
 
 ## 6. Final video
