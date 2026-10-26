@@ -23,7 +23,7 @@ def script_of(ex):
     return "\n".join(line.split("| ", 1)[1] for line in block.splitlines())
 
 
-@pytest.mark.parametrize("step", prompts.SCHEMAS)
+@pytest.mark.parametrize("step", sorted(set(prompts.SCHEMAS) - prompts.NO_RULES))
 def test_every_step_has_a_system_prompt_with_both_rules(step):
     text = prompts.system(step)
     assert "Be engaging" in text and "required screens" in text
@@ -763,6 +763,20 @@ def test_sheet_prompts_are_house_style_with_no_names_or_text():
     assert photo.endswith("except this change from the last sheet: make the beanie navy")
     place = prompts.sheet_prompt("place", "a small bedroom with a desk and one window")
     assert "no people" in place and "{" not in place + photo and "9:16" not in place + sheet
+
+
+def test_a_made_look_is_checked_against_its_role_and_redone_once():
+    text = prompts.system("look_fit")
+    assert text.startswith("# Step: Look fit") and "Be engaging" not in text  # no writer rules
+    msg = prompts.look_fit_input("Mid-40s woman, a teacher; cardigan.", role="Ms Lee, the teacher")
+    assert (
+        msg
+        == "<character>Mid-40s woman, a teacher; cardigan.</character>\n<role>the teacher</role>"
+    )
+    fit = schemas.LookFit(fits=False, seen="girl of about 10", problem="Draw an adult woman.")
+    assert prompts.look_fit_redo("Mid-40s woman, a teacher", fit) == (
+        "The character must read clearly as: Mid-40s woman, a teacher. Draw an adult woman."
+    )
 
 
 def test_the_projects_product_is_a_required_asset_like_a_screen():

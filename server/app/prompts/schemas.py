@@ -259,6 +259,21 @@ class ImprovedPrompt(BaseModel):
     prompt: str = Field(description="The video prompt, in the shape the system prompt shows.")
 
 
+# --- Look fit: does a made look read as its role? (Reed, "looks must fit the role") ---
+
+
+class LookFit(BaseModel):
+    fits: bool = Field(
+        description="False only for a clear mismatch a viewer would notice at a glance: the "
+        "wrong age range, the wrong gender, or an outfit that contradicts the job."
+    )
+    seen: str = Field(description="Who the sheet shows, in a few words: '8-year-old boy'.")
+    problem: str = Field(
+        description="When fits is false, what to change, as a plain instruction for redrawing "
+        "('draw an adult woman in her 40s, not a child'); '' when it fits."
+    )
+
+
 # --- Reel watch: Gemini reads an imported reel (reel import, Reed #270). Not a Claude step:
 # Gemini gets this schema as JSON in its prompt (`prompts.watch_system()`) and the server
 # validates the answer with ReelWatch. Words and times come from prep, never from Gemini. ---
