@@ -222,7 +222,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         </h2>
         {missing.length > 0 && (
           <button
-            className={`${btnPrimary} min-h-11 sm:min-h-9`}
+            className={`${stale.length > 0 ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`} // the rewrite is the step's amber while any clip is stale
             disabled={generate.isPending || unread > 0 || stale.length > 0 || !!stopFor(allCost)}
             onClick={async () => {
               for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);

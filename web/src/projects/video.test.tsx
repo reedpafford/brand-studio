@@ -710,10 +710,12 @@ const staleRoutes = {
 
 test("clips made for an older breakdown offer one priced rewrite for all, and Make the takes waits for it", async () => {
   setViewport(1440);
-  const calls = fakeServer(staleRoutes);
+  // A third clip is fine but has no take yet, so Make the takes is on screen beside the rewrite.
+  const calls = fakeServer({ ...staleRoutes, "GET /projects/9/clips": [200, [...staleClips, clip({ id: 5, clip_id: "c3", prompt_ok: true })]] });
   open("?step=clips");
   expect(await screen.findByText("2 clips were made for an older breakdown. Rewrite their prompts so they match.")).toBeInTheDocument();
   expect(screen.getByText("Rewrite the clips made for an older breakdown first (2).")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /credits/ }).filter((b) => b.className.includes("bg-accent"))).toHaveLength(1); // one amber: the rewrite
   await userEvent.click(await screen.findByRole("button", { name: "Rewrite clip prompts · 6 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")).toBeDefined());
   expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toBeUndefined(); // every stale clip
