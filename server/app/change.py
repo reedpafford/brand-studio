@@ -142,6 +142,7 @@ def save_changed(db: Session, job: Job) -> None:
         )
         if not _has_take(db, row):
             return  # before any take, a change only rewrites the prompt
+    db.commit()  # the new prompt is a paid answer: a refused still (it rolls back) keeps it
     try:
         kind, data, units = _draw(db, project, row, before)
         user = db.get(User, job.created_by_id)
