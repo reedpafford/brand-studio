@@ -70,8 +70,8 @@ def test_clip_prompts_written_checked_and_edited(app, db, editor, setup):  # noq
     edit = _answer(mom, setup["screen"], _prompt(screen_n=7))["clips"][0]
     edit["references"].append({"kind": "image", "id": f"voice:{mom}", "role": "wrong kind"})
     edited = editor.put(f"{url}/{clips[0]['id']}", json=edit).json()
-    assert "c1: prompt names an image that isn't attached" in edited["problems"]
-    assert f"c1: voice:{mom} is not a image" in edited["problems"]
+    assert "Prompt names an image that isn't attached" in edited["problems"]
+    assert "Mom's voice is attached as a picture but isn't one" in edited["problems"]
 
 
 def test_clip_prompts_switch_workspace_and_dollars(app, db, editor, outsider, setup):  # noqa: F811

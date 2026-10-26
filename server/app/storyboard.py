@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.advice import names, plain
 from app.cast_roles import cast_roles, plays
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, project_context, project_screens, screen_name
@@ -227,10 +228,9 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
                 continue  # not cast yet: Assets casts it
             if not any(_same(known, c, r) for r in people):
                 problems.append(
-                    f"{frame.clip_id}: {_name(known, c)} has no approved look yet. "
-                    "Approve one in Assets."
+                    f"{_name(known, c)} has no approved look yet. Approve one in Assets."
                 )
-    return problems
+    return plain(problems, names(known))
 
 
 def repair(db: Session, project: Project) -> int:
@@ -286,7 +286,9 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     characters, objects = [], []
     for ref in frame.reference_ids:
         if ref not in known:
-            raise HTTPException(409, f"{ref} is no longer part of this project. Edit the frame.")
+            raise HTTPException(
+                409, "A picture on this frame is no longer part of this video. Edit the frame."
+            )
         files = known[ref][1][:1]  # the approved sheet (characters, places) or main picture
         if not files and ref.startswith(("char:", "place:")):
             require_sheet(db.get(LibraryItem, int(ref.split(":")[1])))

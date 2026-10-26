@@ -5,6 +5,12 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 15:54 · #475 Looks fit the role: roles say age, gender and job merged
+- 2026-10-26 15:46 · #480 Look fit: a made look is checked against its role merged
+- 2026-10-26 15:40 · #476 Problem lines show names, never raw ids; a missing look links to Assets merged
+- 2026-10-26 15:31 · #478 Every frame gets the sheets of the people in its shot merged
+- 2026-10-26 15:23 · #479 spec: the missing-look link reads "Approve a look in Assets" merged
+- 2026-10-26 15:17 · #477 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-26 15:07 · #474 spec: missing looks made on their own; role facts; name the role, never an id merged
 - 2026-10-26 15:06 · #473 ops: Reed's decisions from live testing merged (by the Producer)
 - 2026-10-26 13:20 · #472 ops: HANDOFF/LOG refresh merged (by the Producer)

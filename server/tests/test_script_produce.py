@@ -275,12 +275,13 @@ def test_an_unlocked_slot_in_the_breakdown_is_known_and_blocks_nothing(owner, ed
     owner.post(f"{base}/publish")
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     url = f"/projects/{pid}/breakdown"
-    assert not [p for p in editor.get(url).json()["problems"] if "unknown" in p]
+    assert not [p for p in editor.get(url).json()["problems"] if "isn't part of this" in p]
     assert editor.put(url, json=bd).status_code == 200  # an edit naming it is fine too
     assert editor.post(f"/projects/{pid}/storyboard", json={"per_shot": False}).status_code == 201
     bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{stranger}"]
     wrong = editor.put(url, json=bd)  # another script's slot is still unknown
-    assert wrong.status_code == 422 and f"unknown slot:{stranger}" in wrong.json()["detail"]
+    assert wrong.status_code == 422  # another script's role, named for what it is
+    assert "a character that isn't part of this video" in wrong.json()["detail"]
 
 
 def test_editors_search_and_filter_their_videos(app, owner, editor, db):
