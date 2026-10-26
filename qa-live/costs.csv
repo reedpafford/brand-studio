@@ -1,0 +1,14 @@
+step,who,credits_shown,credits_charged,jobs,note
+Script: Read this reel (write from the reference),QA Owner,7,3.026,55+56+57,watch 1 + script 1.562 + cast 0.464; the watch job is missing from Usage > charges
+Directions: Suggest directions,QA Owner,3,0.695,58,
+Variations: Write 1 variation,QA Owner,6,1.582,59+60,variation 1.053 + cast re-read 0.529
+Breakdown preview: Make the breakdown,QA Owner,3,3.35,61,charged more than shown
+Assets: look sheet for The girlfriend,QA Editor,1.5,1.5,62,made in Cast & places; missing from Usage > charges
+Assets: look sheet for The rival,QA Editor,1.5,1.5,63,missing from Usage > charges
+Storyboard: Make storyboard,QA Editor,3,2.318,64+65..68,frames missing from Usage > charges
+Clips: Write clip prompts,QA Editor,3,0,69,job failed (Lost contact while starting paid work); not in Usage
+Clips: Write clip prompts (retry),QA Editor,3,4.499,70,charged 1.5x the shown price
+Clips: Make the takes (4 clips 42 s),QA Editor,42,42,71..74,missing from Usage > charges
+Clips: Redo c1 with a note,QA Editor,6,6,75,missing from Usage > charges
+Release test: Make this version (B) auto-started a breakdown,QA Owner,3,3.923,76,no button or price; kept running and charged after Release
+TOTAL,,82,70.393,,about $7.24 at $0.1028/credit; limit was 140 credits ($15)
