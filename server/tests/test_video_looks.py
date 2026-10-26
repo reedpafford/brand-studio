@@ -197,3 +197,22 @@ def test_only_reed_or_the_videos_maker_removes_its_look(owner, editor, db):
     db.commit()
     refused = editor.delete(f"/library/character/{look}")
     assert refused.status_code == 403
+
+
+def test_undoing_a_save_after_the_original_was_removed_brings_the_original_back(owner, editor, db):
+    """QA on #435: save to Cast & places, remove the (now unused) original, then Undo the save:
+    the role goes back onto its own look, which is no longer removed."""
+    _, pid, nate = _video(owner, editor, db)
+    editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
+    look = _row(editor, pid, nate)["own_look_id"]
+    _drawn(db, editor, look)
+    editor.post(f"/library/character/{look}/sheet/approve")
+    saved = owner.post(
+        f"/projects/{pid}/assets/slots/{nate}/save-to-library", json={"name": "Nate"}
+    )
+    copy_id = saved.json()["library_item_id"]
+    assert owner.delete(f"/library/character/{look}").status_code == 204  # nobody uses it now
+    assert owner.delete(f"/library/character/{copy_id}").status_code == 204  # Undo the save
+    row = _row(editor, pid, nate)
+    assert (row["library_item_id"], row["own_look_id"]) == (look, look)
+    assert db.get(LibraryItem, look).archived is False
