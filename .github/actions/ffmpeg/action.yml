@@ -1,0 +1,31 @@
+name: Install ffmpeg
+description: >
+  ffmpeg from Ubuntu, with its .deb files kept in the Actions cache, so a slow package mirror
+  costs one download per runner image instead of failing builds.
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      run: echo "key=ffmpeg-debs-$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      with:
+        path: ~/apt-debs
+        key: ${{ steps.key.outputs.key }}
+    - shell: bash
+      run: |
+        mkdir -p ~/apt-debs/partial
+        install() {
+          timeout "$1" sudo apt-get install -y --no-install-recommends \
+            -o Dir::Cache::Archives="$HOME/apt-debs" -o APT::Keep-Downloaded-Packages=true ffmpeg
+        }
+        # On a cache miss the runner's Azure mirror is sometimes very slow: the retry repairs a
+        # half-finished try and switches to Ubuntu's main archive.
+        install 240 || {
+          sudo dpkg --configure -a
+          sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#g' \
+            /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          sudo apt-get update -qq && install 420
+        }
+        sudo chown -R "$USER" ~/apt-debs  # so the cache can save them
+        echo "$(find ~/apt-debs -maxdepth 1 -name "*.deb" | wc -l) package files cached"
