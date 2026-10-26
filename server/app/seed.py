@@ -213,38 +213,91 @@ def plain_stored(db: Session) -> int:
 
 
 def rewrite_owner_clips(db: Session) -> int:
-    """Reed's own videos whose clips went stale before Clips could rewrite them (Reed,
-    2026-10-26, #503): their stale clip prompts are rewritten once, free to him (a real Claude
-    call, charged to no budget or week; its dollars are in Usage). Never twice for a video;
-    not while clip prompts or takes are being made. How many videos were queued."""
+    """Reed's current video, whose clips went stale before Clips could rewrite them (Reed,
+    2026-10-26, #503): of the videos an owner made, the one edited most recently (its newest
+    breakdown change) with stale clips gets its stale clip prompts rewritten once, free to
+    him (one real Claude call, at most 3 credits' worth, charged to no budget or week; its
+    dollars are in Usage). Only that one video, only once ever, and never while clip prompts
+    or a take are being made on it. Others get the button, or the rewrite on their next
+    change. How many videos were queued (0 or 1)."""
     from app import clip_prompts
     from app.job_brand import brand_for
     from app.models.accounts import Role, User
     from app.models.jobs import Job, JobStatus
     from app.models.projects import Project
 
-    queued = 0
+    jobs = db.scalars(select(Job).where(Job.input["step"].as_string() == "clip_prompts"))
+    if any(j.input.get("repair") for j in jobs):
+        return 0  # done once already
     owners = {u.id: u for u in db.scalars(select(User).where(User.role == Role.owner))}
+    candidates = []
     for project in db.scalars(select(Project).where(Project.created_by_id.in_(owners))):
-        if project.archived_at is not None:
-            continue
-        mine = db.scalars(select(Job).where(Job.project_id == project.id))
-        jobs = [j for j in mine if j.input.get("step") in ("clip_prompts", "clip_take")]
-        done_before = any(j.input.get("repair") for j in jobs)
-        busy = any(j.status in clip_prompts.WAITING for j in jobs)
-        ids = clip_prompts.to_rewrite(db, project)
-        if done_before or busy or not ids:
-            continue
         bd = clip_prompts.newest(db, project)
-        data = {**clip_prompts.job_input(db, project, bd), "clip_ids": ids, "repair": True}
-        owner = owners[project.created_by_id]
-        db.add(Job(workspace_id=project.workspace_id, created_by_id=owner.id,
-                   approved_by_id=owner.id, kind="write-claude", provider="claude", input=data,
-                   project_id=project.id, brand_id=brand_for(db, project, data),
-                   credits=0, status=JobStatus.queued))  # fmt: skip
-        queued += 1
+        if project.archived_at is None and bd and clip_prompts.to_rewrite(db, project):
+            candidates.append((bd.id, project))
+    if not candidates:
+        return 0
+    _, project = max(candidates, key=lambda c: c[0])  # the latest breakdown change
+    mine = db.scalars(select(Job).where(Job.project_id == project.id))
+    steps = {j.input.get("step") for j in mine if j.status in clip_prompts.WAITING}
+    if steps & {"clip_prompts", "clip_take"}:
+        return 0  # something is being made on it: the next deploy tries again
+    bd = clip_prompts.newest(db, project)
+    ids = clip_prompts.to_rewrite(db, project)
+    data = {**clip_prompts.job_input(db, project, bd), "clip_ids": ids, "repair": True}
+    owner = owners[project.created_by_id]
+    db.add(Job(workspace_id=project.workspace_id, created_by_id=owner.id,
+               approved_by_id=owner.id, kind="write-claude", provider="claude", input=data,
+               project_id=project.id, brand_id=brand_for(db, project, data),
+               credits=0, status=JobStatus.queued))  # fmt: skip
     db.commit()
-    return queued
+    return 1
+
+
+QA_OWNER = "QA Owner"  # the live test's owner account (Reed, 2026-10-26: remove it)
+
+
+def remove_qa_owner(db: Session) -> bool:
+    """Remove the QA test owner: only an owner named exactly "QA Owner", and never a
+    workspace's last active owner. With nothing of its own it's deleted; otherwise it's
+    removed as Team's Remove does (it can't sign in, its sessions and the invites it sent are
+    gone) so the work it made keeps its history. True when there was something to do;
+    running it again changes nothing."""
+    from sqlalchemy import delete, func
+
+    from app.db import Base
+    from app.models.accounts import Invite, LoginSession, Role, User
+
+    found = False
+    for user in db.scalars(select(User).where(User.name == QA_OWNER, User.role == Role.owner)):
+        others = select(func.count(User.id)).where(
+            User.workspace_id == user.workspace_id,
+            User.role == Role.owner,
+            User.active.is_(True),
+            User.id != user.id,
+        )
+        if not db.scalar(others):
+            continue  # never a workspace's last active owner: nobody could run it
+        sessions = delete(LoginSession).where(LoginSession.user_id == user.id)
+        invites = delete(Invite).where(
+            Invite.invited_by_id == user.id, Invite.accepted_at.is_(None)
+        )
+        changed = bool(db.execute(sessions).rowcount + db.execute(invites).rowcount)
+        uses = [
+            db.scalar(select(func.count()).select_from(table).where(column == user.id))
+            for table in Base.metadata.sorted_tables
+            for column in table.columns
+            for fk in column.foreign_keys
+            if fk.column.table.name == "users" and table.name != "login_sessions"
+        ]
+        if not any(uses):
+            db.delete(user)
+            changed = True
+        elif user.active:
+            user.active, changed = False, True
+        found = found or changed
+    db.commit()
+    return found
 
 
 def main(folder: str, slug: str = "fomo") -> None:
@@ -266,7 +319,10 @@ def main(folder: str, slug: str = "fomo") -> None:
             print(f"Imported {made} new script drafts into the library.")
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Said {plain_stored(db)} saved checks in plain words.")
-            print(f"Rewrote clip prompts on {rewrite_owner_clips(db)} videos.")
+            if rewrite_owner_clips(db):
+                print("Rewrote clip prompts on 1 video.")
+            if remove_qa_owner(db):
+                print("Removed the QA test owner.")
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:

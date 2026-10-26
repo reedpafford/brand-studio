@@ -281,6 +281,52 @@ def approve(
     return _out(db, project, frame)
 
 
+@router.post("/approve-all", response_model=advice.ApproveAllOut)
+def approve_all(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Approve all (Reed, 2026-10-26): every frame with a still and nothing to fix; the
+    others are listed with why. Undo takes back exactly these."""
+    project = get_project(db, user, project_id)
+    rows = db.scalars(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
+    approved, skipped = [], []
+    for frame in sorted(rows, key=lambda f: f.id):
+        if frame.approved:
+            continue
+        why = (
+            "no still yet" if not frame.file_id
+            else "still is out of date, Redo it first" if frame.still_stale
+            else "made for an older breakdown" if _stale(db, project, frame)
+            else "has a problem to fix" if advice.stops(frame)
+            else ""
+        )  # fmt: skip
+        if why:
+            skipped.append({"id": frame.id, "reason": why})
+            continue
+        frame.approved, frame.redrawn, frame.change = True, False, None
+        approved.append(frame.id)
+    db.commit()
+    return advice.ApproveAllOut(approved=approved, skipped=skipped)
+
+
+@router.post("/approve-all/undo", response_model=list[FrameOut])
+def undo_approve_all(
+    project_id: int,
+    body: advice.UndoIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo Approve all: exactly the frames it approved go back to not approved."""
+    project = get_project(db, user, project_id)
+    rows = db.scalars(
+        select(StoryboardFrame).where(
+            StoryboardFrame.project_id == project.id, StoryboardFrame.id.in_(body.ids)
+        )
+    )
+    for frame in rows:
+        frame.approved = False
+    db.commit()
+    return frames(project_id, user, db)
+
+
 @router.delete("/frames/{frame_id}/approve", response_model=FrameOut)
 def unapprove(
     project_id: int,

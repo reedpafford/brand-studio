@@ -101,19 +101,46 @@ def test_a_recast_carries_clips_for_free(app, db, editor, setup, clip):  # noqa:
     assert "Kid" in row.prompt and not _rewrites(db, project.id)  # no model call
 
 
-def test_reeds_stale_videos_are_rewritten_once_free(app, db, owner, editor, setup, clip):  # noqa: F811
+def test_reeds_current_video_is_rewritten_once_free(app, db, owner, editor, setup, clip):  # noqa: F811
+    """Producer: only the owner-made video edited most recently, once, free; never while a
+    take is being made on it."""
     project = db.get(Project, setup["project"])
     reed = db.query(User).filter_by(role=Role.owner).one()
     project.created_by_id = reed.id  # Reed's own video
     db.commit()
     _newer_breakdown(db, project.id)
+    take = Job(workspace_id=project.workspace_id, created_by_id=reed.id, kind="video",
+               provider="fake", input={"step": "clip_take"}, project_id=project.id)  # fmt: skip
+    db.add(take)
+    db.commit()
+    assert rewrite_owner_clips(db) == 0  # a take is being made: not now
+    take.status = "succeeded"
+    db.commit()
     assert rewrite_owner_clips(db) == 1
     (job,) = _rewrites(db, project.id)
     assert (job.credits, job.input["repair"], job.input["clip_ids"]) == (0, True, ["c1"])
-    assert rewrite_owner_clips(db) == 0  # queued: never twice
     _run(app, db, FakeClaude(_answer(clip["references"][0]["id"][5:], setup["screen"], _prompt())))
     db.expire_all()
     assert db.get(Job, job.id).credits == 0  # free to him: no budget, no week
     assert editor.get(f"/projects/{project.id}/clips").json()[0]["stale"] is False
     _newer_breakdown(db, project.id)
-    assert rewrite_owner_clips(db) == 0  # done once for this video
+    assert rewrite_owner_clips(db) == 0  # once ever: next time it's the button
+
+
+def test_only_the_video_edited_last_is_repaired(app, db, owner, editor, setup, clip):  # noqa: F811
+    reed = db.query(User).filter_by(role=Role.owner).one()
+    first = db.get(Project, setup["project"])
+    first.created_by_id = reed.id
+    other = Project(workspace_id=first.workspace_id, brand_id=first.brand_id, name="Other",
+                    created_by_id=reed.id)  # fmt: skip
+    db.add(other)
+    db.commit()
+    bd = clip_prompts.newest(db, first)
+    db.add(BreakdownVersion(project_id=other.id, script_version=bd.script_version,
+                            source="edit", data=copy.deepcopy(bd.data), problems=[]))  # fmt: skip
+    db.add(ProjectClip(project_id=other.id, breakdown_id=bd.id, clip_id="c1", seconds=5,
+                       prompt="x", references=[]))  # fmt: skip
+    db.commit()
+    _newer_breakdown(db, first.id)  # the first video was edited last
+    assert rewrite_owner_clips(db) == 1
+    assert len(_rewrites(db, first.id)) == 1 and not _rewrites(db, other.id)
