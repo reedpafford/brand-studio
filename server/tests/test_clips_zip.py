@@ -25,6 +25,7 @@ def test_zip_of_picked_takes_or_every_take(app, db, editor, outsider, setup, cli
         editor.post(f"{base}/clips/{clip['id']}/generate")
         _work(app, db, fake)
     takes = editor.get(f"{base}/clips").json()[0]["takes"]
+    assert takes[0]["created_at"] <= takes[1]["created_at"]  # "made 10:42"
     editor.post(f"{base}/clips/{clip['id']}/takes/{takes[0]['id']}/pick")
     first = db.get(ProjectClip, clip["id"])
     second = ProjectClip(  # QA #245: a clip with no picked take yet
@@ -40,14 +41,14 @@ def test_zip_of_picked_takes_or_every_take(app, db, editor, outsider, setup, cli
 
     picked = editor.get(f"{base}/clips.zip")
     assert picked.status_code == 200 and picked.headers["content-type"] == "application/zip"
-    assert "attachment" in picked.headers["content-disposition"]
-    assert _names(picked) == {"c1-take1.mp4": red}
+    assert 'filename="dip-clips.zip"' in picked.headers["content-disposition"]
+    assert _names(picked) == {"dip-clip-1.mp4": red}
     project = db.get(Project, setup["project"])
     db.refresh(project)
     first = project.finished_at
     assert first is not None  # the picked takes, sent in full: the video is done
     every = _names(editor.get(f"{base}/clips.zip", params={"all_takes": True}))
-    assert every == {"c1/take1.mp4": red, "c1/take2.mp4": blue}
+    assert every == {"dip-clip-1/take1.mp4": red, "dip-clip-1/take2.mp4": blue}
     editor.get(f"{base}/clips.zip")
     db.refresh(project)
     assert project.finished_at == first  # set once
@@ -55,7 +56,7 @@ def test_zip_of_picked_takes_or_every_take(app, db, editor, outsider, setup, cli
     key = db.get(StoredFile, takes[1]["file_id"]).key
     app.state.storage.delete(key)  # take 2's video went missing
     gone = editor.get(f"{base}/clips.zip", params={"all_takes": True})
-    assert gone.status_code == 409 and gone.json()["detail"].startswith("c1/take2.mp4")
+    assert gone.status_code == 409 and gone.json()["detail"].startswith("dip-clip-1/take2.mp4")
 
 
 def test_a_version_is_done_once_its_video_is_stitched(owner, editor, db):
@@ -77,3 +78,10 @@ def test_a_version_is_done_once_its_video_is_stitched(owner, editor, db):
     db.commit()
     script = owner.get(base).json()
     assert (script["versions"][0]["status"], script["status"]) == ("done", "done")
+
+
+def test_files_are_named_after_the_script_and_its_version():
+    from app.routes.clips_zip import file_base
+
+    assert file_base("Bo tries salmon · B") == "bo-tries-salmon-b"
+    assert file_base("¡¿") == "clips"

@@ -2418,6 +2418,11 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Shots
+             * @default 0
+             */
+            shots: number;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -4102,6 +4107,11 @@ export interface components {
             number: number;
             /** File Id */
             file_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** UsageBrandOut */
         UsageBrandOut: {

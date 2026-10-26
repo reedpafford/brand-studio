@@ -37,6 +37,7 @@ class AssetOut(BaseModel):
     ready: bool  # nothing left to do for it
     slot_id: int | None = None  # the script's cast slot this row fills; null for other rows
     description: str = ""  # the slot's role, as the script describes it (e.g. "teen, shy")
+    shots: int = 0  # how many of the breakdown's shots it is in ("In 3 shots")
 
 
 class SlotCastIn(BaseModel):
@@ -101,6 +102,9 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         out.append(_row("character", ref, "", db.get(LibraryItem, int(ref[5:])), False))
     for ref in places:
         out.append(_row("place", ref, "", db.get(LibraryItem, int(ref.split(":")[1])), False))
+    for row in out:
+        refs = {row.ref, f"slot:{row.slot_id}"}
+        row.shots = sum(1 for s in shots if refs & {*s["character_ids"], s.get("place_id")})
     return out
 
 

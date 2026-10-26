@@ -39,6 +39,7 @@ def test_assets_list_slots_and_cast_an_unlocked_one(owner, editor, db):
     assert [(r["slot_id"], r["description"]) for r in rows] == [
         (mom, ""), (nate, "teen"), (None, "")
     ]  # fmt: skip
+    assert [r["shots"] for r in rows] == [1, 1, 1]  # "In 1 shot", a slot:N shot included
     kid = editor.post(
         "/library/character", json={"name": "Kid", "image_file_ids": [upload(editor)]}
     )
