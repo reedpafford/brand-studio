@@ -1,6 +1,7 @@
+import { ReelChip } from "./ReelImport";
 import { useEffect, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Check, CircleAlert, Clock, FileText, Film, Layers, Pencil, Plus, Search } from "lucide-react";
+import { Archive, Check, CircleAlert, Clock, FileText, Layers, Pencil, Plus, Search } from "lucide-react";
 import { BulkCreate } from "./BulkCreate";
 import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -442,7 +443,7 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
         )}
         {r.description && <p className="truncate text-sm text-muted">{r.description}</p>}
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-          {r.reel_imported && <Badge icon={Film}>Reel</Badge>}
+          {r.reel_imported && <ReelChip reel={r.reel} />}
           <span>{meta}</span>
         </p>
         <ul className="flex flex-wrap gap-2 pt-1" aria-label="Versions">

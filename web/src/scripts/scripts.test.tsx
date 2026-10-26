@@ -1075,8 +1075,8 @@ test("Bulk create, Reel links: one link per line, bad lines are named and block 
   const calls = fakeServer({
     ...base,
     "GET /scripts": [200, []],
-    "POST /scripts/bulk": [201, [{ id: 11, title: "Untitled reel" }, { id: 12, title: "Untitled reel" }]],
-    "POST /scripts/write/estimate": [200, { count: 2, credits: 35, credits_left: null, reading: 1, writing: 2, waiting: [], failed: [12] }],
+    "POST /scripts/bulk": [201, [{ id: 11, title: "Untitled reel", reel: { status: "ready", seconds: 45 } }, { id: 12, title: "Untitled reel", reel: { status: "failed", seconds: null, fetch_error: "Instagram didn't let us download it." } }]],
+    "POST /scripts/write/estimate": [200, { count: 2, credits: 35, credits_left: null, reading: 1, read_credits: 5, writing: 2, write_credits: 30, waiting: [], failed: [12] }],
     "POST /scripts/write": [201, [{ id: 1, status: "queued" }, { id: 2, status: "queued" }]],
   });
   open();
@@ -1103,8 +1103,25 @@ test("Bulk create, Reel links: one link per line, bad lines are named and block 
     }),
   );
   const done = await screen.findByRole("dialog", { name: "Drafts made" });
-  expect(await within(done).findByText("About 35 credits: reading 1 reel and writing 2 scripts and casts")).toBeInTheDocument();
+  expect(await within(done).findByText("About 35 credits: reading 1 reel (5) and writing 2 scripts and casts (30)")).toBeInTheDocument();
   expect(within(done).getByText("Couldn't get the reel")).toBeInTheDocument();
+  expect(within(done).getByText("Reel · 45 s")).toBeInTheDocument();
   await userEvent.click(await within(done).findByRole("button", { name: /Write all scripts.*35 credits/ }));
   expect(await screen.findByText("Reading 2 reels and writing their scripts. They'll show as drafts when they're ready.")).toBeInTheDocument();
+});
+
+test("the library chip says how long the reel is, that it is being read, or that it couldn't be got", async () => {
+  setViewport(1440);
+  const rows = [
+    script({ id: 41, title: "Ready one", reel_imported: true, reel: { status: "done", seconds: 45.2 }, versions: [v(0, "draft")] }),
+    script({ id: 42, title: "Reading one", reel_imported: true, reel: { status: "reading", seconds: 30 }, versions: [v(0, "draft")] }),
+    script({ id: 43, title: "Failed one", reel_imported: true, reel: { status: "failed", seconds: null, fetch_error: "That reel is private or was removed." }, versions: [v(0, "draft")] }),
+  ];
+  fakeServer({ ...base, "GET /scripts": [200, rows] });
+  open();
+  const inRow = async (title: string) => within((await screen.findByRole("heading", { name: title })).closest("li")!);
+  expect((await inRow("Ready one")).getByText("Reel · 45 s")).toBeInTheDocument();
+  expect((await inRow("Reading one")).getByText("Reading the reel…")).toBeInTheDocument();
+  const failed = (await inRow("Failed one")).getByText("Couldn't get the reel");
+  expect(failed.closest("[title]")).toHaveAttribute("title", "That reel is private or was removed.");
 });

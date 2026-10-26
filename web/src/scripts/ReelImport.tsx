@@ -4,7 +4,8 @@ import { Check, CircleAlert, Film, Link as LinkIcon, LoaderCircle, Upload } from
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Button, Card, Field, wholeCredits } from "../components";
+import { Badge, Button, Card, Field, wholeCredits } from "../components";
+import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
@@ -186,6 +187,15 @@ export function ReadReelButton({ scriptId, createdById, className }: { scriptId:
       {read.isError && <p role="alert" className={errorClass}>{read.error.message}</p>}
     </div>
   );
+}
+
+type ReelRow = components["schemas"]["ReelRow"];
+/** The chip a reel script wears in lists: "Reel · 45 s", "Reading the reel…", or why the reel couldn't be got. */
+export function ReelChip({ reel }: { reel?: ReelRow | null }) {
+  if (!reel) return <Badge icon={Film}>Reel</Badge>;
+  if (reel.status === "failed") return <span title={reel.fetch_error ?? undefined}><Badge tone="danger" icon={CircleAlert}>Couldn't get the reel</Badge></span>;
+  if (reel.status === "preparing" || reel.status === "reading") return <Badge icon={LoaderCircle}>{reel.status === "reading" ? "Reading the reel…" : "Getting the reel…"}</Badge>;
+  return <Badge icon={Film}>{reel.seconds ? `Reel · ${Math.round(reel.seconds)} s` : "Reel"}</Badge>;
 }
 
 /** On the Description step: getting the reel, the price to read it, the read's progress, and what came of it. */
