@@ -61,7 +61,7 @@ as of d877d09 · 2026-10-26 08:30 UTC
 - #430 Findings: refused past a budget, screen balances, studio name, money and reel fixes | Builder-Server | QA pass at f5fc4d7 (current head); its base is still #425's branch (#425 has merged), so it must be retargeted to main before it merges
 - #427 Change this…: a plain-English note under every still and clip (spec #395) | Builder-Screens-2 | Designer pass at 821e281 and QA-2 pass at 93c05d6 (head since moved to 112dae8)
 ## Next (assignments per the Producer, 2026-10-26)
-- Builder-Server: retarget and land #430; the live-test findings not yet covered ("no held approvals for editors" check, duplicate role); QA's gap on #419 (Restore doesn't rescue a running job); a delete for a look made for one video (QA on #423); saving `was_take_id` in a change record (QA-2 on #427).
+- Builder-Server: retarget and land #430; the rest of the live-test findings and the "no held approvals for editors" check (Producer's earlier assignment). QA gaps noted, not yet assigned: Restore doesn't rescue a running job (#419); a look made for one video has no delete (#423); `was_take_id` is not saved in a change record (#427).
 - Builder-Screens-2: land #427.
 - Builder-Screens: land #431.
 - QA-Live: the live end-to-end test.
