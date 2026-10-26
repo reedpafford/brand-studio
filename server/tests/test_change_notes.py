@@ -49,6 +49,7 @@ def test_a_note_changes_a_still_and_picking_the_earlier_one_undoes_it(app, db, e
     before, old_still = frame.prompt, frame.file_id
     job = editor.post(change, json={"note": "She looks surprised, not sad."})
     assert job.status_code == 201 and job.json()["step"] == "change"
+    assert "The Keep line follows the change" in db.get(Job, job.json()["id"]).input["system"][0]
     assert editor.post(change, json={"note": "again"}).json()["detail"] == (
         "This one is still being made."
     )
