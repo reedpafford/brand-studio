@@ -15,7 +15,7 @@ A box under every still (Storyboard) and every clip take (Clips), always visible
 └────────────────────────────────────────────────────────────────┘
 ```
 - **The box:** label "Change this…" (meta), a 2-row textarea with the placeholder "What should change?" (e.g. "Bo should look surprised, not sad"), up to 500 characters.
-- **The button:** **Change it · N credits** (secondary, `Wand2`), with the price inside. N covers rewriting the prompt and making the still or take again, rounded up.
+- **The button:** **Change it · N credits** (secondary, `Wand2`), with the price inside. N covers rewriting the prompt and making the still or take again, rounded up. On a look's sheet (Assets), it reads **Change it · up to N credits** with "Usually 2. Anything not used comes back." under it, because the sheet may get one automatic redo (README rule 2, "When the price can vary").
   - On a still it's the still's price. On a clip, before any take, it rewrites the prompt only (1 credit); once there's a take, it rewrites and makes a new take (e.g. "Change it · 27 credits").
   - Disabled reasons, first that applies: "Say what should change", "This one is still being made", "Write the clip prompts again first" (stale), and for an editor past the week on their own script: "That's more than this week's 145 free credits (140 used). It resets on Monday.", or past a library version's budget: "That's more than this video's budget." There's no Ask Reed, and editors never see dollars.
 - **Phone:** the box and button are full width and stacked, 44px. The box stays visible under each card.
