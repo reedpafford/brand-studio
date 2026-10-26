@@ -59,7 +59,11 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   // When our run finishes, fetch the new breakdown.
   const finished = mine?.status === "succeeded" ? mine.id : null;
   useEffect(() => {
-    if (finished !== null) queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] });
+    if (finished === null) return;
+    queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] });
+    // A new breakdown version replaces the frames and clips made from the old one.
+    queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] });
   }, [finished, projectId, queryClient]);
 
   const roles = useRoleNames(projectId);
