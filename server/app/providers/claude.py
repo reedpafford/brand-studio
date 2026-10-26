@@ -35,7 +35,9 @@ class ClaudeProvider:
         self._key, self._client = key, client
 
     def run(self, kind: str, input: dict) -> Result:
-        """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}."""
+        """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}, and for a
+        check that looks at pictures, "files": {"reference_images": [file ids]}, sent as data
+        URLs."""
         client = self._client or make_client(self._key)
         try:
             answer = ask(
@@ -44,6 +46,7 @@ class ClaudeProvider:
                 prompt=input["prompt"],
                 schema=SCHEMAS[input["step"]],
                 effort=input.get("effort", "high"),
+                images=(input.get("input") or {}).get("reference_images", []),
                 **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
         except ClaudeError as exc:  # refused or cut off: still billed, so record the cost

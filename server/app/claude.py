@@ -7,6 +7,7 @@
 - Key only from STUDIO_ANTHROPIC_KEY; always https://api.anthropic.com (ANTHROPIC_BASE_URL in
   the environment is ignored on purpose)."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
@@ -63,17 +64,20 @@ def ask[T: BaseModel](
     schema: type[T],
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "high",
     max_tokens: int = 16000,
+    images: Sequence[str] = (),
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
-    the cache mark on the last part caches them all together."""
+    the cache mark on the last part caches them all together. `images` (data URLs) go
+    before the prompt, for a check that looks at a picture."""
     blocks = [{"type": "text", "text": text} for text in system]
+    content = [_image(url) for url in images] + [{"type": "text", "text": prompt}]
     blocks[-1]["cache_control"] = {"type": "ephemeral"}
     # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
     with client.beta.messages.stream(
         model=MODEL,
         max_tokens=max_tokens,
         system=blocks,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": content if images else prompt}],
         thinking={"type": "adaptive"},
         output_config={"effort": effort},
         output_format=schema,
@@ -91,6 +95,13 @@ def ask[T: BaseModel](
     if response.stop_reason == "max_tokens" or response.parsed_output is None:
         raise ClaudeError(CUT_OFF, cost)
     return Answer(response.parsed_output, response.model, cost)
+
+
+def _image(url: str) -> dict:
+    """A data URL ("data:image/png;base64,…") as an image block."""
+    head, data = url.split(",", 1)
+    media = head.removeprefix("data:").split(";")[0]
+    return {"type": "image", "source": {"type": "base64", "media_type": media, "data": data}}
 
 
 def _cost_so_far(stream) -> Decimal | None:
