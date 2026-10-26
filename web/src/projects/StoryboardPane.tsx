@@ -41,6 +41,9 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
   // The stills I started: frame id → job id (the server doesn't say which job is which frame yet).
   const [drawing, setDrawing] = useState<Record<number, number>>({});
   const [writing, setWriting] = useState<number | null>(null);
+  // The frames that were here when the storyboard was asked for again. The server replaces them, so once the run has finished
+  // they must not be shown (or drawn on): pressing one answers "No such frame." until the page is reloaded.
+  const [replaced, setReplaced] = useState<number[]>([]);
   const [lightbox, setLightbox] = useState<Frame | null>(null);
   const auto = useRef(false);
   const stopFor = useOwnScriptStop(props.ownScript); // the frames were just asked for, and the stills follow
@@ -61,6 +64,8 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
     queryFn: async () => (await api.GET("/projects/{project_id}/storyboard", { params: { path } })).data ?? [],
     refetchInterval: () => (anyGoing ? 3000 : false),
   });
+  // The run is done but the list on screen is still the old one: wait for the new frames.
+  const stillOld = writing !== null && jobOf(writing)?.status === "succeeded" && (frames.data ?? []).some((f) => replaced.includes(f.id));
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
   const writeCost = rate("write-claude");
@@ -77,6 +82,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
       return data;
     },
     onSuccess: (job) => {
+      setReplaced((queryClient.getQueryData<Frame[]>(["storyboard", projectId]) ?? []).map((f) => f.id));
       setWriting(job.id);
       pressed.press();
       auto.current = !!props.oneStep;
@@ -122,7 +128,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
   // The frames are written: draw the stills that are missing, once.
   useEffect(() => {
     const todo = (frames.data ?? []).filter((f) => f.file_id === null && !blocking(f.problems).length && blocks.forShot(f.shot_id).length === 0);
-    if (!auto.current || writingNow || frames.isFetching || todo.length === 0) return;
+    if (!auto.current || writingNow || stillOld || frames.isFetching || todo.length === 0) return;
     auto.current = false;
     void (async () => {
       for (const f of todo) await render.mutateAsync({ frame: f }).catch(() => undefined);
@@ -148,7 +154,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
   const makeButton = (
     <button
       className={`${list.length ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`}
-      disabled={writingNow || make.isPending || !!stopFor(makeTotal)}
+      disabled={writingNow || stillOld || make.isPending || !!stopFor(makeTotal)}
       onClick={() => {
         const made = list.filter((f) => f.file_id !== null).length;
         const ask = made > 0 ? `Replace these frames? The ${made} still${made === 1 ? "" : "s"} you've made will be dropped.` : "Replace these frames? New ones are written from the current breakdown.";
@@ -161,7 +167,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
     </button>
   );
 
-  if (writingNow)
+  if (writingNow || stillOld)
     return (
       <section className={`${card} space-y-3`} aria-label="Storyboard">
         <p className="text-muted">Writing your frames…</p>

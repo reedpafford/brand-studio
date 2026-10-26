@@ -155,6 +155,8 @@ export function BreakdownView(props: {
     onSuccess: async (saved) => {
       if (!preview) toast(saved.problems.length === 0 ? "Saved. No problems." : `Saved. ${saved.problems.length} problem${saved.problems.length === 1 ? "" : "s"} left.`);
       await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
+      // A new breakdown version replaces the frames and clips made from the old one.
+      if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] })]);
     },
   });
 
