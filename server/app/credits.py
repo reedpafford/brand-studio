@@ -237,10 +237,12 @@ def over_allowance(db: Session, user: User, project: Project | None, credits: De
     used = quick_clip_used(db, user)
     if used + credits <= allowance:
         return ""
+    n = f"{allowance:.0f}"
+    plural = "" if n == "1" else "s"  # "1 credit", never "1 credits"
     if used >= allowance:  # the screens' words (useScript.ts weekStop)
-        return f"You've used this week's {allowance:.0f} credits. It resets on Monday."
+        return f"You've used this week's {n} credit{plural}. It resets on Monday."
     return (
-        f"That's more than this week's {allowance:.0f} free credits ({used:.0f} used). "
+        f"That's more than this week's {n} free credit{plural} ({used:.0f} used). "
         "It resets on Monday."
     )
 

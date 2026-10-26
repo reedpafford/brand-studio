@@ -182,3 +182,44 @@ def test_a_look_that_fits_gives_back_what_the_redo_held(owner, app, db, editor):
     _run(app, db, FakeClaude(fits))
     db.expire_all()
     assert credits_used(db, project) == used  # the video's budget pays only what was made
+
+
+def test_made_looks_say_what_they_really_cost(owner, app, db, editor):
+    """Spec #488: after Make all, "Made 3 looks · 7 credits": the real spend of the looks Assets
+    made by itself (sheet, check, any redo); a card's own Make a look isn't counted."""
+    from app.sheets import check_price, sheet_price
+    from tests.test_video_looks import _row, _video
+
+    _, pid, nate = _video(owner, editor, db)
+    url = f"/projects/{pid}/assets"
+    assert editor.get(f"{url}/missing-looks").json()["made"] is None
+    assert editor.post(f"{url}/make-missing").status_code == 200
+    made = editor.get(f"{url}/missing-looks").json()["made"]
+    assert (made["looks"], made["drawing"]) == (1, True)
+    look = db.get(LibraryItem, _row(editor, pid, nate)["own_look_id"])
+    (sheet,) = _waiting(db, look, "sheet")
+    assert sheet.input["auto_made"] is True
+    sheet.output, sheet.status = {"file_ids": [upload(editor)]}, "succeeded"
+    save_sheet(db, sheet)
+    db.commit()
+    (check,) = _waiting(db, look, "look_fit")
+    assert check.input["auto_made"] is True
+    _run(app, db, FakeClaude({"fits": True, "seen": "teen boy", "problem": ""}))
+    db.expire_all()
+    ws = look.workspace_id
+    made = editor.get(f"{url}/missing-looks").json()["made"]
+    spent = math.ceil(sheet_price(db, ws) + check_price(db, ws))
+    assert made == {"looks": 1, "drawing": False, "credits_used": spent}
+
+    _, other, slot = _video(owner, editor, db)
+    editor.post(f"/projects/{other}/assets/slots/{slot}/make-look")  # the card's own press
+    assert editor.get(f"/projects/{other}/assets/missing-looks").json()["made"] is None
+
+
+def test_one_credit_is_said_as_one_credit(owner, editor, db):
+    """QA nit on #487: "this week's 1 free credit", never "1 free credits"."""
+    limits = owner.get("/credits/limits").json()
+    owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 1})
+    item = _look(editor, db, image_file_ids=[upload(editor)])
+    refused = editor.post(f"/library/character/{item.id}/sheet", json={}).json()["detail"]
+    assert "this week's 1 free credit (" in refused

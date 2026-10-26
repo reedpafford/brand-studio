@@ -4,6 +4,7 @@ editor (picked or new), whose sheet is made and approved with the library's shee
 Storyboard and takes already refuse until every sheet they need is approved."""
 
 import json
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,12 +14,13 @@ from sqlalchemy.orm import Session
 
 from app import breakdown, cast_roles
 from app.auth import current_user
-from app.credits import fits, get_limits, price
+from app.credits import COUNTED, fits, get_limits, price
 from app.db import get_db
 from app.enhance import project_screens, screen_name
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
+from app.models.jobs import Job, JobStatus
 from app.models.library import Kind, LibraryItem, LibraryItemVersion
 from app.models.projects import Project
 from app.models.script_library import ScriptCastSlot, ScriptDraft
@@ -28,7 +30,7 @@ from app.routes.library import LookFitOut, pick_item, sheet_status
 from app.routes.projects import get_project
 from app.routes.script_cast import RoleFacts, role_facts
 from app.routes.scripts import latest
-from app.routes.sheets import SheetIn, make_sheet
+from app.routes.sheets import SheetIn, queue_sheet
 from app.schemas import Name
 from app.sheets import look_price, look_usual
 
@@ -238,7 +240,9 @@ def make_look(
     return list_assets(project_id, user, db)
 
 
-def _make_look(db: Session, user: User, project: Project, slot: ScriptCastSlot) -> None:
+def _make_look(
+    db: Session, user: User, project: Project, slot: ScriptCastSlot, auto: bool = False
+) -> None:
     look = LibraryItem(
         workspace_id=project.workspace_id,
         kind=Kind.character,
@@ -249,9 +253,15 @@ def _make_look(db: Session, user: User, project: Project, slot: ScriptCastSlot) 
     db.add(look)
     db.flush()
     project.slot_looks = {**project.slot_looks, str(slot.id): look.id}  # the sheet knows its role
-    make_sheet(Kind.character, look.id, SheetIn(), user, db)  # commits; a refusal adds nothing
+    queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+class MadeOut(BaseModel):
+    looks: int  # looks Assets made by itself for this video
+    credits_used: int  # what they really cost, whole credits: sheets, checks and any redo
+    drawing: bool  # some are still being made or checked: the figure may still grow
 
 
 class MissingLooksOut(BaseModel):
@@ -259,6 +269,7 @@ class MissingLooksOut(BaseModel):
     roles: list[str]
     credits: int  # "up to": each look's sheet, check and one redo, held at the press
     usual_credits: int = 0  # "Usually N": the sheets and checks, no redo
+    made: MadeOut | None = None  # "Made 3 looks · 7 credits", once Assets has made some
     reason: str | None = None  # why they can't all be made (plain), or null when they fit
 
 
@@ -293,6 +304,27 @@ def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
         credits=price(total) if slots else 0,
         usual_credits=price(look_usual(db, project.workspace_id) * n) if slots else 0,
         reason=said if why else None,
+        made=_made(db, project),
+    )
+
+
+def _made(db: Session, project: Project) -> MadeOut | None:
+    """The looks Assets made by itself (make-missing) and their real cost: the jobs it started
+    for them (sheet, check, the one redo), stopped ones not counted."""
+    own = {v for v in project.slot_looks.values() if v}
+    jobs = [
+        j
+        for j in db.scalars(
+            select(Job).where(Job.project_id == project.id, Job.status.in_(COUNTED))
+        )
+        if j.input.get("auto_made") and j.input.get("library_item_id") in own
+    ]
+    if not jobs:
+        return None
+    return MadeOut(
+        looks=len({j.input["library_item_id"] for j in jobs}),
+        credits_used=price(sum((j.credits for j in jobs), Decimal(0))),
+        drawing=any(j.status != JobStatus.succeeded for j in jobs),
     )
 
 
@@ -321,7 +353,7 @@ def make_missing_looks(
     if out.reason:
         raise HTTPException(409, out.reason)
     for slot in _missing(db, project):
-        _make_look(db, user, project, slot)
+        _make_look(db, user, project, slot, auto=True)
     return list_assets(project_id, user, db)
 
 
