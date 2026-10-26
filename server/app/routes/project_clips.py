@@ -293,6 +293,48 @@ def approve(
     return _out(db, row, _newest_breakdown(db, project))
 
 
+@router.post("/clips/approve-all", response_model=advice.ApproveAllOut)
+def approve_all(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Approve all (Reed, 2026-10-26): every clip with a picked take, made for the newest
+    breakdown and with nothing to fix; the others are listed with why. Undo takes back
+    exactly these."""
+    project = get_project(db, user, project_id)
+    newest = _newest_breakdown(db, project)
+    approved, skipped = [], []
+    for row in _clips(db, project.id):
+        if row.approved:
+            continue
+        why = (
+            "no take picked yet" if not row.picked_take_id
+            else "made for an older breakdown" if _stale(db, row, newest)
+            else "has a problem to fix" if advice.stops(row)
+            else ""
+        )  # fmt: skip
+        if why:
+            skipped.append({"id": row.id, "reason": why})
+            continue
+        row.approved, row.change = True, None
+        approved.append(row.id)
+    db.commit()
+    return advice.ApproveAllOut(approved=approved, skipped=skipped)
+
+
+@router.post("/clips/approve-all/undo", response_model=list[ProjectClipOut])
+def undo_approve_all(
+    project_id: int,
+    body: advice.UndoIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo Approve all: exactly the clips it approved go back to not approved."""
+    project = get_project(db, user, project_id)
+    for row in _clips(db, project.id):
+        if row.id in body.ids:
+            row.approved = False
+    db.commit()
+    return list_clips(project_id, user, db)
+
+
 @router.put("/clips/{clip_id}/inserts/{shot_id}", response_model=ProjectClipOut)
 def set_insert(
     project_id: int,

@@ -63,6 +63,22 @@ def blocking(problems: list[str]) -> list[str]:
     return [p for p in problems if not p.startswith(PREFIX)]
 
 
+def stops(row) -> list[str]:
+    """A frame's or clip's problems that must be fixed first: advice never blocks, nor does a
+    cast problem kept anyway (as the screens' `blocking`)."""
+    kept = row.kept or []
+    return [p for p in blocking(row.problems or []) if not (p.startswith(CAST) and p in kept)]
+
+
+class ApproveAllOut(BaseModel):
+    approved: list[int]  # what this press approved: Undo sends exactly these back
+    skipped: list[dict]  # [{id, reason}] in plain words ("no still yet")
+
+
+class UndoIn(BaseModel):
+    ids: list[int]
+
+
 def open_cast(row) -> list[str]:
     """A breakdown's cast problems that aren't fixed or kept: they stop stills."""
     if row is None:
