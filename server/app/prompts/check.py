@@ -572,6 +572,7 @@ def reel_watch(watch: ReelWatch, cuts: list[dict], transcript: list[dict]) -> li
         roles.setdefault(role_key(name), []).append(name)
     problems += [f"{ADVICE}one person under {len(v)} names ({', '.join(v)}); use one"
                  for v in roles.values() if len(v) > 1]  # fmt: skip
+    problems += misheard(transcript)
     live = [s for s in watch.shots if s.live_action]
     for x in transcript:
         if any(s.start <= x["start"] < s.end for s in live):
@@ -680,4 +681,25 @@ def echo_lines(script: str) -> list[str]:
                 )
         elif (m := SAID_LINE.match(line)) and not VO_LINE.match(line):
             said.setdefault(m.group(1).upper(), []).append(m.group(2))
+    return problems
+
+
+def misheard(transcript: list[dict]) -> list[str]:
+    """A line that ends like an earlier one (5+ words) but starts differently is often a
+    mishearing of an echo ("New position doesn't get invited to anything." after "You're just
+    a loser who doesn't get invited to anything."). Advice, so the editor checks the reel."""
+    problems, seen = [], []
+    for x in transcript:
+        words = _words(x["text"]).split()
+        for earlier in seen:
+            had = _words(earlier).split()
+            tail = next((n for n in range(min(len(words), len(had)), 0, -1)
+                         if words[-n:] == had[-n:]), 0)  # fmt: skip
+            if tail >= 5 and tail < len(words) and words[:-tail] != had[:-tail]:
+                problems.append(
+                    f"{ADVICE}“{x['text']}” ends like “{earlier}”; if it echoes it, the "
+                    "transcript may have misheard the start"
+                )
+                break
+        seen.append(x["text"])
     return problems
