@@ -264,6 +264,8 @@ def archive_item(
     """Archive (reversible: see unarchive). Anyone on the team can do this. On a look just
     saved to Cast & places, it's the Undo: the video goes back on its own look."""
     item = get_item(db, user, kind, item_id)
+    if owned(item):
+        _may_remove_look(db, user, item)
     if item.copied_from_id:
         from app.routes.project_assets import undo_save
 
@@ -272,6 +274,30 @@ def archive_item(
             return
     item.archived = True
     db.commit()
+
+
+def _may_remove_look(db: Session, user: User, look: LibraryItem) -> None:
+    """A video's or script's own look (QA on #423): Reed, or whoever made that video or script,
+    and never while a role still uses it. It's archived, so Undo (unarchive) brings it back."""
+    from app import script_library as lib
+    from app.models.projects import Project
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+
+    if look.owner_project_id:
+        project = db.get(Project, look.owner_project_id)
+        if not (user.is_owner or project.created_by_id == user.id):
+            raise HTTPException(403, "Only Reed or whoever made this video can remove its looks.")
+        in_use = look.id in project.cast_ids or look.id in project.slot_cast.values()
+    else:
+        script = lib.editable(user, lib.get_script(db, user, look.owner_script_id))
+        drafts = select(ScriptDraft.id).where(ScriptDraft.script_id == script.id)
+        locked = select(ScriptCastSlot.id).where(
+            ScriptCastSlot.script_id == script.id, ScriptCastSlot.library_item_id == look.id
+        )
+        videos = db.scalars(select(Project.cast_ids).where(Project.script_draft_id.in_(drafts)))
+        in_use = db.scalar(locked.limit(1)) is not None or any(look.id in c for c in videos)
+    if in_use:
+        raise HTTPException(409, "Swap the role to another look first.")
 
 
 @router.post("/{item_id}/unarchive", response_model=ItemOut)
