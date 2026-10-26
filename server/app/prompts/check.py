@@ -71,6 +71,7 @@ def breakdown(
     max_s: int,
     end_line: str = "",
     brand: str = "",  # the brand's name: a near end line must still say it
+    approved: bool = False,  # Reed approved the words: the end line never blocks (advice)
 ) -> list[str]:
     lines = script.splitlines()
     shots = [shot for scene in bd.scenes for shot in scene.shots]
@@ -78,8 +79,10 @@ def breakdown(
     said = [TAG.sub("", text) for text in lines if text.strip()]
     said = [text for text in said if not text.startswith(("SCENE", SCREEN_LINE, "["))]
     ends = ends_on(end_line, said[-1] if said else "", brand, said[-2] if len(said) > 1 else "")
-    if ends == "no":
+    if ends == "no" and not approved:
         problems.append("the script doesn't end on the brand's end line")
+    elif ends == "no":
+        problems.append(f"{ADVICE}the script doesn't end on the brand's end line")
     elif ends == "near":
         problems.append(
             f"{ADVICE}the last line is close to the brand's end line but not word for word"
@@ -441,8 +444,8 @@ def variations(
         lines = [line.strip() for line in script.splitlines() if line.strip()]
         said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
         ends = ends_on(end_line, said[-1] if said else "", brand, said[-2] if len(said) > 1 else "")
-        if ends == "no":
-            problems.append(f"{name} doesn't end on the brand's end line; add it as the last line")
+        if ends == "no":  # advice: variations come from an approved original (Reed)
+            problems.append(f"{ADVICE}{name} doesn't end on the brand's end line")
         elif ends == "near":
             problems.append(
                 f"{ADVICE}{name}'s last line is close to the brand's end line, not word for word"

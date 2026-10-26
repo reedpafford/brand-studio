@@ -176,7 +176,7 @@ def test_variations_example_passes_and_every_check_says_what_to_do():
     v.script = v.script.rsplit("\n", 1)[0] + "\nMALIK: You can't lose. Live-action tag here."
     assert check.variations(original, result, {}, end, ["can't lose"], 2, cast) == [
         "1 variations, 2 asked for; regenerate",
-        "variation 1 doesn't end on the brand's end line; add it as the last line",
+        "Advice: variation 1 doesn't end on the brand's end line",  # made from approved words
         "variation 1 drops the ★ line for Token chart down; put it back where it fits",
         "variation 1 says “can't lose”, which the brand never says",
         "variation 1 brings back live action; that slot is the end line",
@@ -199,9 +199,22 @@ def test_variations_end_line_ignores_case_and_a_near_miss_is_advice():
         "Advice: variation 1's last line is close to the brand's end line, not word for word"
     ]
     rival = "\nMALIK: Want to trade like me? Download Robinhood through the link in my bio."
-    assert ends(body + rival) == [
-        "variation 1 doesn't end on the brand's end line; add it as the last line"
+    assert ends(body + rival) == [  # from an approved original: advice, never a block
+        "Advice: variation 1 doesn't end on the brand's end line"
     ]
+
+
+def test_on_approved_words_the_end_line_never_blocks():
+    """Reed: once he approved the script, the end line is advice at most, any wording."""
+    ex, bd = example("breakdown")
+    end = "Want to trade like me? Download fomo through the link in my bio."
+    tag = "★ fomo screen: Home — closing tag"
+    script = script_of(ex).replace(tag, f"MALIK: Get the app, link in bio.\n{tag}")
+    approved = check.breakdown(script, bd, FOMO, 4, 30, end_line=end, brand="fomo", approved=True)
+    draft = check.breakdown(script, bd, FOMO, 4, 30, end_line=end, brand="fomo")
+    assert "Advice: the script doesn't end on the brand's end line" in approved
+    assert "the script doesn't end on the brand's end line" not in approved
+    assert "the script doesn't end on the brand's end line" in draft  # still blocks a draft
 
 
 def test_variations_advice_covers_length_closeness_and_format():
