@@ -201,9 +201,15 @@ def over_allowance(db: Session, user: User, project: Project | None, credits: De
     if user.is_owner or (project is not None and not own_script(db, project, user)):
         return ""
     allowance = get_limits(db, user.workspace_id).weekly_quick_clip_credits
-    if quick_clip_used(db, user) + credits > allowance:
-        return f"You've used this week's {allowance:.0f} credits. It resets Monday."
-    return ""
+    used = quick_clip_used(db, user)
+    if used + credits <= allowance:
+        return ""
+    if used >= allowance:  # the screens' words (useScript.ts weekStop)
+        return f"You've used this week's {allowance:.0f} credits. It resets on Monday."
+    return (
+        f"That's more than this week's {allowance:.0f} free credits ({used:.0f} used). "
+        "It resets on Monday."
+    )
 
 
 def lock(db: Session, model, row_id: int) -> None:
