@@ -48,7 +48,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const costOf = (n: number | undefined, most: boolean) => (n === undefined ? "" : ` · ${most ? "up to " : ""}${credits(n)}`);
   const cost = costOf(upTo ?? price, upTo !== undefined);
   const redoCost = costOf(upToNote ?? price, upToNote !== undefined);
-  const usual = (upTo !== undefined || upToNote !== undefined) && price !== undefined ? <p className="text-sm text-muted">{`Usually ${credits(price)}. Anything not used comes back.`}</p> : null;
+  const usual = (upTo !== undefined || upToNote !== undefined) && price !== undefined ? <p className="text-sm text-muted">{`Usually ${+price.toFixed(1)}. Anything not used comes back.`}</p> : null;
   // Past an editor's weekly allowance the server declines a new sheet, so don't offer one.
   const { data: me } = useMe();
   const a = allowance.data;
