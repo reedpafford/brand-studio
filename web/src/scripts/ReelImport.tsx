@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleAlert, Film, Link as LinkIcon, LoaderCircle, RotateCcw, Upload } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Banner, Button, Card, Dialog, Field, Panel, TextArea, wholeCredits } from "../components";
+import { Banner, Button, Card, Dialog, Field, Panel, TextArea, buttonClass, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
@@ -224,17 +224,23 @@ function FillAgain({ scriptId }: { scriptId: number }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [asking, setAsking] = useState(false);
+  const bring = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] }), queryClient.invalidateQueries({ queryKey: ["script-cast", scriptId] })]);
   const fill = useMutation({
     mutationFn: async () => {
+      // What the script says now, so Undo can write it back (the old words also stay in the version's history).
+      const before = queryClient.getQueryData<{ versions: { slot: number; text: string }[] }>(["script-lib", scriptId])?.versions.find((v) => v.slot === 0)?.text;
       const { data, error } = await api.POST("/scripts/{script_id}/fill-from-reel", { params: { path: { script_id: scriptId } } });
       if (!data) throw new Error(errorText(error));
-      return data;
+      return { data, before };
     },
-    onSuccess: async (d) => {
-      queryClient.setQueryData(["script-import", scriptId], d);
+    onSuccess: async ({ data, before }) => {
+      queryClient.setQueryData(["script-import", scriptId], data);
       setAsking(false);
-      toast("Script filled from the reel again.");
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] }), queryClient.invalidateQueries({ queryKey: ["script-cast", scriptId] })]);
+      toast("Script filled from the reel again.", before?.trim() ? async () => {
+        await api.PUT("/scripts/{script_id}/drafts/{slot}", { params: { path: { script_id: scriptId, slot: 0 } }, body: { text: before } });
+        await bring();
+      } : undefined);
+      await bring();
     },
   });
   return (
@@ -275,6 +281,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
   });
   const rail = useRail();
   const [reading, setReading] = useState(false);
+  const brandId = Number(useParams().brandId);
   const r = reel.data;
   // The read finished while this page was open: say so and bring the script in.
   const was = useRef(r?.status);
@@ -391,11 +398,16 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
           </p>
           <p className="text-sm text-muted">Imported · {facts}</p>
           <p className="text-sm text-muted">The script and the cast are filled in. Check them, then approve.</p>
-          {!published && (
-            <Button variant="ghost" dense icon={RotateCcw} onClick={() => setReading(true)}>
-              Read it again
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to={`/b/${brandId}/scripts/${scriptId}/reel`} className={buttonClass("secondary")}>
+              Review the breakdown
+            </Link>
+            {!published && (
+              <Button variant="ghost" dense icon={RotateCcw} onClick={() => setReading(true)}>
+                Read it again
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
       {reading && <ReadAgain scriptId={scriptId} createdById={createdById} credits={r.read_again_credits} onClose={() => setReading(false)} />}

@@ -72,6 +72,7 @@ class ImportOut(BaseModel):
     read_again_credits: float | None = None  # once read: "Read it again · N credits"
     edited_since_fill: bool = False  # the script's words changed since the reel filled them
     new_fill_ready: bool = False  # "New breakdown ready. Your script edits are kept."
+    has_previous_reading: bool = False  # the reading before Read it again, to put back for free
 
 
 class ReadAgainIn(BaseModel):
@@ -100,6 +101,7 @@ def _out(db: Session, script: Script, user: User) -> ImportOut:
         read_again_credits=None if again is None else float(again),
         edited_since_fill=script_write.edited_since_fill(script, draft),
         new_fill_ready=bool(reel.get("pending_fill_job_id")),
+        has_previous_reading=bool(reel.get("previous_breakdown")),
         script_id=script.id,
         status=status,
         source=reel.get("source", "upload"),
@@ -340,8 +342,30 @@ def read_again(
         )
     done = [s for s in script.reel.get("done", []) if s not in read.AGAIN]
     previous = read.last_reading(db, script)  # so the watch keeps what the note doesn't touch
-    script.reel = {**script.reel, "done": done, "note": note, "last_reading": previous}
+    script.reel = {**script.reel, "done": done, "note": note, "last_reading": previous,
+                   "previous_breakdown": script.reference_breakdown}  # fmt: skip
     read.queue(db, user, script, read.AGAIN[0])
+    return _out(db, script, user)
+
+
+@router.post("/{script_id}/import/previous-reading", response_model=ImportOut)
+def previous_reading(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Put the reading before Read it again back (free), if the new one came out worse. The two
+    swap, so pressing again brings the newer one back. The script's words aren't touched; Fill
+    the script again or Write again make a new script from it."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    status, _ = read.state(db, script)
+    if status == "reading":
+        raise HTTPException(409, "This reel is still being read.")
+    before = (script.reel or {}).get("previous_breakdown")
+    if not before:
+        raise HTTPException(409, "There's no earlier reading to put back.")
+    now = script.reference_breakdown
+    script.reference_breakdown = before
+    script.reel = {**script.reel, "previous_breakdown": now}
+    db.commit()
     return _out(db, script, user)
 
 

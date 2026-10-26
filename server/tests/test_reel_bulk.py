@@ -68,6 +68,7 @@ def test_write_all_reads_reels_and_writes_the_rest_at_one_price(app, owner, db, 
     assert waiting.json()["detail"] == "2 reels are still being prepared. Try again shortly."
     est = owner.post("/scripts/write/estimate", json={"script_ids": ids}).json()
     assert est["waiting"] == ids[:2]
+    assert est["read_credits"] + est["write_credits"] == est["credits"]  # preparing reels too
     _drain(app, db, clip, refused=LINKS[1])
     est = owner.post("/scripts/write/estimate", json={"script_ids": ids}).json()
     assert (est["reading"], est["writing"], est["failed"]) == (1, 1, [ids[1]])

@@ -1483,6 +1483,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/import/previous-reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Previous Reading
+         * @description Put the reading before Read it again back (free), if the new one came out worse. The two
+         *     swap, so pressing again brings the newer one back. The script's words aren't touched; Fill
+         *     the script again or Write again make a new script from it.
+         */
+        post: operations["previous_reading_scripts__script_id__import_previous_reading_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/fill-from-reel": {
         parameters: {
             query?: never;
@@ -3525,6 +3547,11 @@ export interface components {
              * @default false
              */
             new_fill_ready: boolean;
+            /**
+             * Has Previous Reading
+             * @default false
+             */
+            has_previous_reading: boolean;
         };
         /** ImproveIn */
         ImproveIn: {
@@ -8468,6 +8495,37 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    previous_reading_scripts__script_id__import_previous_reading_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

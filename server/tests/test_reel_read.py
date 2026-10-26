@@ -323,6 +323,31 @@ def test_a_refusal_rounds_the_price_up_and_whats_left_down():
     assert shown(Decimal("2"), Decimal("-1")) == (2, 0)
 
 
+def test_a_worse_reading_can_be_swapped_back_for_free(app, owner, db, clip):
+    """QA on #452: Read it again keeps the reading before it; putting it back is free, and
+    pressing again swaps the newer one back."""
+    url = _read(app, owner, db, clip)
+    sid = int(url.rsplit("/", 1)[1])
+    assert owner.post(f"{url}/import/previous-reading").status_code == 409  # none yet
+    db.expire_all()
+    first = db.get(Script, sid).reference_breakdown
+    owner.post(f"{url}/import/read-again", json={"note": "Shot 2 is the bride."})
+    _drain(app, db)
+    db.expire_all()
+    second = {**db.get(Script, sid).reference_breakdown, "logline": "A worse reading."}
+    db.get(Script, sid).reference_breakdown = second
+    db.commit()
+    assert owner.get(f"{url}/import").json()["has_previous_reading"] is True
+    jobs = db.query(Job).count()
+    back = owner.post(f"{url}/import/previous-reading")
+    assert back.status_code == 200 and db.query(Job).count() == jobs  # free
+    db.expire_all()
+    assert db.get(Script, sid).reference_breakdown == first
+    owner.post(f"{url}/import/previous-reading")
+    db.expire_all()
+    assert db.get(Script, sid).reference_breakdown["logline"] == "A worse reading."
+
+
 def test_fill_from_reel_brings_the_new_scripts_own_was_marks(app, owner, db, clip):
     """QA on #452 + #455: after Fill the script again, the "Was:" marks are the new script's,
     never the old ones left on the wrong lines."""
