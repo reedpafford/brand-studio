@@ -70,6 +70,14 @@ test("a brand screen can be added, given tags and a moment, and deleted", async 
   // The tag was saved too: it is there when the screen is opened again.
   await expect(page.getByRole("group", { name: "Tags" }).getByRole("button", { name: "Remove trading" })).toBeVisible();
   await page.getByRole("dialog", { name: "Edit buy-flow" }).getByRole("button", { name: "Delete screen" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Delete screen" }).click();
+  await expect(page.getByText('Deleted "buy-flow".')).toBeVisible(); // no dialog: the toast offers Undo
+  await expect(page.getByText("No brand screens yet.")).toBeVisible();
+  await page.getByRole("button", { name: "Show deleted (1)" }).click();
+  await page.getByRole("button", { name: "Restore buy-flow" }).click();
+  await expect(page.getByText('Restored "buy-flow".')).toBeVisible();
+  await expect(tile).toBeVisible();
+  // Delete it again for the tests that follow, and let the toast go.
+  await tile.click();
+  await page.getByRole("dialog", { name: "Edit buy-flow" }).getByRole("button", { name: "Delete screen" }).click();
   await expect(page.getByText("No brand screens yet.")).toBeVisible();
 });
