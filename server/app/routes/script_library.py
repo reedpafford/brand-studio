@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
+from app import rewritten
 from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
@@ -89,6 +90,8 @@ class VersionOut(VersionSummary):
     changes: list[str]
     problems: list[str]
     changed_lines: list[str]  # the reel's lines rewritten for the brand swap
+    # "Was:" marks until approval: [{line_index (0-based line of text), text, was}]
+    rewritten: list[dict] = []
     has_breakdown: bool
     approved_at: datetime | None
     variation_of: str | None = None  # "A": a variation of the original; null for the original
@@ -153,6 +156,12 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         changes=draft.changes,
         problems=draft.problems,
         changed_lines=draft.changed_lines or [],
+        rewritten=[
+            {**m, "text": lines[m["line_index"]]}
+            for lines in [draft.text.splitlines()]
+            for m in draft.rewritten or []
+            if m["line_index"] < len(lines)
+        ],
         has_breakdown=draft.breakdown is not None,
         approved_at=draft.approved_at,
         variation_of="A" if draft.slot else None,
@@ -424,6 +433,8 @@ def write_draft(
         draft = ScriptDraft(script_id=script.id, slot=slot)
         db.add(draft)
     lib.keep_text(db, draft, body.text, "edit", user.id)
+    if draft.rewritten:  # the "Was:" marks follow their lines until approval
+        draft.rewritten = rewritten.follow(draft.text or "", body.text, draft.rewritten)
     draft.text, draft.target_seconds = body.text, body.target_seconds
     db.commit()
     return _out(db, script)
@@ -440,6 +451,7 @@ def approve_draft(
         raise HTTPException(422, "Write the script first.")
     if draft.status != "approved":
         draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), user.id
+        draft.rewritten = []  # approved: the "Was:" marks and the banner go
         db.commit()
     return _out(db, script)
 

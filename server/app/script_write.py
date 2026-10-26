@@ -5,7 +5,7 @@ drafts; the first becomes the original (slot 0), the words it replaced are kept 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import prompts
+from app import prompts, rewritten
 from app import script_library as lib
 from app.enhance import escape, escape_block, project_context
 from app.models.brands import Brand
@@ -61,6 +61,11 @@ def save_written(db: Session, job: Job) -> None:
     lib.keep_text(db, draft, drafts[0].script, "write", job.created_by_id)
     draft.text, draft.job_id = drafts[0].script, job.id
     draft.changed_lines = drafts[0].changed_lines
+    draft.rewritten = (  # "Was:" marks, unless the writer was asked for new lines
+        rewritten.marks(draft.text, draft.changed_lines, job.input["reel_lines"])
+        if "reel_lines" in job.input and not script.new_lines
+        else []
+    )
     if "reel_lines" in job.input:  # advice only: the reel's words kept, no invented speakers
         brand = db.get(Brand, script.brand_id)
         draft.problems = check.reference_lines(
