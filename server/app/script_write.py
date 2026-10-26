@@ -48,6 +48,20 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     return data
 
 
+def fill(db: Session, script: Script, draft: ScriptDraft, job: Job, by_id: int | None) -> None:
+    """Put a write job's first draft into the version: its words, the lines it rewrote, and
+    their "Was:" marks (unless new lines were asked for). Used by the write and by Fill the
+    script again, so the marks always match the words."""
+    first = ScriptDrafts.model_validate(job.output).drafts[0]
+    lib.keep_text(db, draft, first.script, "write", by_id)
+    draft.text, draft.job_id, draft.changed_lines = first.script, job.id, first.changed_lines
+    draft.rewritten = (
+        rewritten.marks(draft.text, draft.changed_lines, job.input["reel_lines"])
+        if "reel_lines" in job.input and not script.new_lines
+        else []
+    )
+
+
 def save_written(db: Session, job: Job) -> None:
     """The first draft becomes the original's words, unless approved or published meanwhile."""
     if "script_id" not in job.input:
@@ -70,14 +84,7 @@ def save_written(db: Session, job: Job) -> None:
     if job.input.get("reel_step"):
         script.reel = {k: v for k, v in script.reel.items() if k != "pending_fill_job_id"}
         script.reel = {**script.reel, "filled_text": drafts[0].script}
-    lib.keep_text(db, draft, drafts[0].script, "write", job.created_by_id)
-    draft.text, draft.job_id = drafts[0].script, job.id
-    draft.changed_lines = drafts[0].changed_lines
-    draft.rewritten = (  # "Was:" marks, unless the writer was asked for new lines
-        rewritten.marks(draft.text, draft.changed_lines, job.input["reel_lines"])
-        if "reel_lines" in job.input and not script.new_lines
-        else []
-    )
+    fill(db, script, draft, job, job.created_by_id)
     if "reel_lines" in job.input:  # advice only: the reel's words kept, no invented speakers
         brand = db.get(Brand, script.brand_id)
         draft.problems = check.reference_lines(

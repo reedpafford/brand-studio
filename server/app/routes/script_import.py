@@ -351,8 +351,6 @@ def fill_from_reel(
 ):
     """Fill the script again (free): the reel's newest script replaces the edited words (the
     old words stay in the version's history). The screen asks first."""
-    from app.prompts.schemas import ScriptDrafts
-
     script = lib.editable(user, lib.get_script(db, user, script_id))
     draft = script_write.original(db, script)
     if draft is not None and draft.status == "approved":
@@ -360,14 +358,12 @@ def fill_from_reel(
     job = db.get(Job, (script.reel or {}).get("pending_fill_job_id") or 0)
     if job is None or job.status != JobStatus.succeeded:
         raise HTTPException(409, "There's no new script from the reel to fill in.")
-    words = ScriptDrafts.model_validate(job.output).drafts[0].script
     if draft is None:
         draft = ScriptDraft(script_id=script.id, slot=0)
         db.add(draft)
-    lib.keep_text(db, draft, words, "write", user.id)
-    draft.text, draft.job_id = words, job.id
+    script_write.fill(db, script, draft, job, user.id)  # the words with their own "Was:" marks
     reel = {k: v for k, v in script.reel.items() if k != "pending_fill_job_id"}
-    script.reel = {**reel, "filled_text": words}
+    script.reel = {**reel, "filled_text": draft.text}
     db.commit()
     return _out(db, script, user)
 
