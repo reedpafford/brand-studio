@@ -69,11 +69,11 @@ test("a run in progress shows Planning shots and no button", async () => {
 
 test("each version has its own tab; a planned one shows its plan, with advice closed and no Keep anyway, and no video-only row", async () => {
   setViewport(1440);
-  fakeServer(base({ "GET /scripts/7/drafts/0/breakdown": [200, plan], "GET /scripts/7": [200, { ...script, versions: [version(0, { has_breakdown: true }), version(1)] }] }));
+  fakeServer(base({ "GET /scripts/7/drafts/0/breakdown": [200, plan], "GET /scripts/7": [200, { ...script, versions: [version(0, { has_breakdown: true, estimate_credits: 55.2 }), version(1)] }] }));
   open();
   expect(await screen.findByRole("tab", { name: "A · Planned" })).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "B" })).toBeInTheDocument();
-  expect(await screen.findByText("Planned · 4 s · 1 clip")).toBeInTheDocument();
+  expect(await screen.findByText("Planned · 4 s · 1 clip · about 56 credits to make")).toBeInTheDocument(); // credits round up
   expect(screen.getByText("Advice (1)")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Keep anyway/ })).toBeNull();
   expect(screen.queryByText("Where will it be posted?")).toBeNull();

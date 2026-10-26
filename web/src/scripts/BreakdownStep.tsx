@@ -5,7 +5,7 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { Elapsed } from "../clip/History";
 import { useBrandPieces } from "../clip/BrandPieces";
-import { Banner, Button, Card, Dialog, Skeleton, Tabs, useToast } from "../components";
+import { Banner, Button, Card, Dialog, Skeleton, Tabs, useToast, wholeCredits } from "../components";
 import { BreakdownView } from "../projects/BreakdownView";
 import { refName } from "../projects/names";
 import { errorText as errorClass } from "../ui";
@@ -138,7 +138,7 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
     <div className="space-y-3">
       <p className="text-sm text-muted tabular-nums">
         Planned · {p!.seconds} s · {plan.clips.length} clip{plan.clips.length === 1 ? "" : "s"}
-        {script.versions.find((v) => v.slot === slot)?.estimate_credits ? ` · about ${Math.round(script.versions.find((v) => v.slot === slot)!.estimate_credits)} credits to make` : ""}
+        {script.versions.find((v) => v.slot === slot)?.estimate_credits ? ` · about ${wholeCredits(script.versions.find((v) => v.slot === slot)!.estimate_credits)} credits to make` : ""}
       </p>
       {!readOnly && <div className="flex flex-wrap gap-2">{button}</div>}
       {run.error && <p role="alert" className={errorClass}>{run.error.message}</p>}

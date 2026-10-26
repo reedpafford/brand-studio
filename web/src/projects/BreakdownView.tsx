@@ -153,7 +153,7 @@ export function BreakdownView(props: {
       return data;
     },
     onSuccess: async (saved) => {
-      toast(saved.problems.length === 0 ? "Saved. No problems." : `Saved. ${saved.problems.length} problem${saved.problems.length === 1 ? "" : "s"} left.`);
+      if (!preview) toast(saved.problems.length === 0 ? "Saved. No problems." : `Saved. ${saved.problems.length} problem${saved.problems.length === 1 ? "" : "s"} left.`);
       await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
     },
   });
