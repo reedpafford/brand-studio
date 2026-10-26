@@ -44,7 +44,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
   const [replaced, setReplaced] = useState<number[]>([]);
   const [lightbox, setLightbox] = useState<Frame | null>(null);
   const auto = useRef(false);
-  const stopFor = useOwnScriptStop(props.ownScript); // the frames were just asked for, and the stills follow
+  const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
@@ -135,14 +135,13 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
   const list = frames.data;
   const missing = list.filter((f) => f.file_id === null && !blocking(f.problems).length && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
-  // On an editor's own script the weekly allowance decides, with the reason; nobody is asked to approve.
-  const over = (cost: number | undefined) => !props.ownScript && cost !== undefined && props.used + cost > props.budget;
+  // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${n} credits`);
   // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
   const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
-  const makeLabel = over(makeTotal) ? "Ask Reed to approve" : list.length ? "Redo storyboard" : "Make storyboard";
+  const makeLabel = list.length ? "Redo storyboard" : "Make storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
-  const declined = stopFor(makeTotal) ?? stopFor(imageCost);
+  const declined = stopFor(makeTotal) ?? stopFor(allCost) ?? stopFor(imageCost);
   const err = make.error ?? render.error ?? edit.error ?? approve.error;
   const approvedCount = list.filter((f) => f.approved).length;
 
@@ -198,7 +197,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
                 for (const f of missing) await render.mutateAsync({ frame: f }).catch(() => undefined);
               }}
             >
-              {over(allCost) ? "Ask Reed to approve" : "Make all stills"}
+              Make all stills
               {price(allCost)}
             </button>
           )}
@@ -230,7 +229,6 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
               brandId={brandId}
               nameOf={nameOf}
               cost={imageCost}
-              over={over(imageCost)}
               stopped={!!stopFor(imageCost)}
               onRender={(note) => render.mutate({ frame: f, note })}
               onApprove={(yes) => approve.mutate({ frame: f, yes })}
@@ -263,7 +261,6 @@ function FrameCard(props: {
   brandId: number;
   nameOf: (id: string) => string;
   cost: number | undefined;
-  over: boolean;
   stopped: boolean;
   onRender: (note?: string) => void;
   onApprove: (yes: boolean) => void;
@@ -276,7 +273,7 @@ function FrameCard(props: {
   const [editing, setEditing] = useState<string | null>(null);
   const [redo, setRedo] = useState<string | null>(null);
   const phone = useMedia("(max-width: 639px)");
-  const verb = props.over ? "Ask Reed to approve" : f.file_id === null ? "Make still" : "Redo";
+  const verb = f.file_id === null ? "Make still" : "Redo";
   const price = props.cost !== undefined ? ` · ${props.cost} credits` : "";
   const redoForm = (
     <div className="space-y-2">
@@ -286,12 +283,13 @@ function FrameCard(props: {
       </label>
       <button
         className={`${btnPrimary} min-h-11 sm:min-h-9`}
+        disabled={props.stopped}
         onClick={() => {
           props.onRender((redo ?? "").trim());
           setRedo(null);
         }}
       >
-        {props.over ? "Ask Reed to approve" : "Redo"}
+        Redo
         {price}
       </button>
     </div>

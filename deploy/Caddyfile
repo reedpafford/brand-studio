@@ -10,7 +10,16 @@
 	}
 
 	# The API lives under /api; the prefix is removed before it reaches the server.
+	# While a deploy restarts the API, requests wait (up to 30 s) instead of failing.
 	handle_path /api/* {
+		reverse_proxy api:8000 {
+			lb_try_duration 30s
+			lb_try_interval 500ms
+		}
+	}
+
+	# /health is the API's real health check (not the web page), for monitoring.
+	handle /health {
 		reverse_proxy api:8000
 	}
 

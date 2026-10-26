@@ -150,3 +150,17 @@ test("the setup password counter turns green at 10 characters", async () => {
   await userEvent.type(box, "0");
   expect(screen.getByText("10 / 10")).toHaveClass("text-success");
 });
+
+test("an invite to a studio stored as a slug says Join {owner}'s studio, in the title, the line and the welcome", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Reed" }], "POST /auth/accept-invite": [201, me] });
+  renderAt("/invite/abc123");
+  expect(await screen.findByRole("heading", { name: "Join Reed's studio" })).toBeInTheDocument();
+  expect(screen.getByText(/Reed invited you to Reed's studio as an editor/)).toBeInTheDocument();
+  expect(screen.queryByText(/owner-reed/)).toBeNull();
+});
+
+test("the setup page says what the studio name is for", async () => {
+  fakeServer({ "GET /auth/me": [401, {}] });
+  renderAt("/setup");
+  expect(await screen.findByText("What your team sees when they're invited, e.g. Reed's studio.")).toBeInTheDocument();
+});

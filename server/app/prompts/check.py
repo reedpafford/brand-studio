@@ -230,6 +230,12 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         if _montage(clip.shot_ids, shots):  # guests and crowds elsewhere are never cast
             problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
+        keep = next((x for x in c.prompt.splitlines() if x.startswith("Keep: ")), "")
+        problems += [  # each attached character holds their look by name (live test, 10-26)
+            f"{ADVICE}{c.clip_id}: the Keep line doesn't name {who}; give their look and outfit"
+            for who in dict.fromkeys(CAST.findall(c.prompt))
+            if keep and who not in keep
+        ]
         shape, _ = _shape(c.prompt, c.seconds)
         problems += [f"{c.clip_id}: {p}" for p in shape]
         problems += [
@@ -572,6 +578,7 @@ def reel_watch(watch: ReelWatch, cuts: list[dict], transcript: list[dict]) -> li
         roles.setdefault(role_key(name), []).append(name)
     problems += [f"{ADVICE}one person under {len(v)} names ({', '.join(v)}); use one"
                  for v in roles.values() if len(v) > 1]  # fmt: skip
+    problems += misheard(transcript)
     live = [s for s in watch.shots if s.live_action]
     for x in transcript:
         if any(s.start <= x["start"] < s.end for s in live):
@@ -658,3 +665,47 @@ def redo_note(note: str, bd: Breakdown, clip_id: str) -> list[str]:
                 else "Nobody speaks in this clip, so the note can't add speech."
             )
     return list(dict.fromkeys(problems))
+
+
+VO_LINE = re.compile(r"^([A-Z][A-Z .'-]*?) \((?:V\.O\.|VO|voice-over)\):\s*(.*)$", re.I)
+SAID_LINE = re.compile(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:\s*(.*)$")
+
+
+def echo_lines(script: str) -> list[str]:
+    """An echo (a V.O. from a character who also speaks on screen) repeats something they said
+    earlier, so the callback lands (Reed, live test 2026-10-26). Advice naming the closest
+    earlier line. A narrator heard only in V.O. is never an echo."""
+    problems, said = [], {}
+    for line in (x.strip() for x in script.splitlines()):
+        if (m := VO_LINE.match(line)) and m.group(1).upper() in said:
+            words, earlier = _words(m.group(2)), said[m.group(1).upper()]
+            if words and not any(words in _words(e) for e in earlier):
+                best = max(earlier, key=lambda e: len(set(words.split()) & set(_words(e).split())))
+                problems.append(
+                    f"{ADVICE}the echo “{m.group(2)}” calls back to nothing "
+                    f"{m.group(1).title()} said; repeat “{best}”"
+                )
+        elif (m := SAID_LINE.match(line)) and not VO_LINE.match(line):
+            said.setdefault(m.group(1).upper(), []).append(m.group(2))
+    return problems
+
+
+def misheard(transcript: list[dict]) -> list[str]:
+    """A line that ends like an earlier one (5+ words) but starts differently is often a
+    mishearing of an echo ("New position doesn't get invited to anything." after "You're just
+    a loser who doesn't get invited to anything."). Advice, so the editor checks the reel."""
+    problems, seen = [], []
+    for x in transcript:
+        words = _words(x["text"]).split()
+        for earlier in seen:
+            had = _words(earlier).split()
+            tail = next((n for n in range(min(len(words), len(had)), 0, -1)
+                         if words[-n:] == had[-n:]), 0)  # fmt: skip
+            if tail >= 5 and tail < len(words) and words[:-tail] != had[:-tail]:
+                problems.append(
+                    f"{ADVICE}“{x['text']}” ends like “{earlier}”; if it echoes it, the "
+                    "transcript may have misheard the start"
+                )
+                break
+        seen.append(x["text"])
+    return problems

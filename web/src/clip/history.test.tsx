@@ -99,3 +99,19 @@ test("the Removed filter lists removed clips, muted, each with Restore", async (
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /jobs/20/restore")).toBe(true));
   expect(await screen.findByText("Clip back in your history.")).toBeInTheDocument();
 });
+
+test("a clip held from before the allowance change reads Not started, with Cancel and nothing about Reed", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /jobs": [200, [job({ id: 30, status: "needs_owner_approval" })]] }));
+  open();
+  expect(await screen.findByText("Not started")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Cancel clip 30" })).toBeInTheDocument();
+  expect(screen.queryByText(/Reed/)).toBeNull();
+});
+
+test("the allowance line reads This week: used of allowed credits", async () => {
+  setViewport(1440);
+  fakeServer(base());
+  open();
+  expect(await screen.findByText("This week: 10 of 150 credits")).toBeInTheDocument();
+});
