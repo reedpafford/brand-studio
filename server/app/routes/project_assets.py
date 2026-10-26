@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app import breakdown, cast_roles
+from app import breakdown, cast_roles, clip_prompts
 from app.auth import current_user
 from app.credits import COUNTED, fits, get_limits, price
 from app.db import get_db
@@ -219,6 +219,8 @@ def _cast(
         # Frames follow the new look for free; stills of the old one are redrawn if covered.
         outdated = cast_roles.carry_frames(db, project, bd, row, same_look)
         cast_roles.redraw(db, project, user, outdated)
+        cast_roles.carry_clips(db, project, bd, row)
+        clip_prompts.follow(db, project, user)
 
 
 @router.post(

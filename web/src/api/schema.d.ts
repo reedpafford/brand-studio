@@ -2521,6 +2521,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/prompts/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rewrite Price
+         * @description Rewrite clip prompts · N credits: for every stale clip, or one clip (?clip_id=c2).
+         */
+        get: operations["rewrite_price_projects__project_id__clips_prompts_price_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/clips/prompts": {
         parameters: {
             query?: never;
@@ -2532,7 +2552,9 @@ export interface paths {
         put?: never;
         /**
          * Write Prompts
-         * @description Queue the clip-prompts call (a paid Claude call). New prompts replace the old clips.
+         * @description Write the clip prompts (a paid Claude call): all of them at first, then every stale
+         *     clip, or one clip (Reed, 2026-10-26: Clips never dead-ends). Existing takes are kept as
+         *     earlier takes (clip_prompts.save_clip_prompts).
          */
         post: operations["write_prompts_projects__project_id__clips_prompts_post"];
         delete?: never;
@@ -4672,6 +4694,18 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** RewriteIn */
+        RewriteIn: {
+            /** Clip Id */
+            clip_id?: string | null;
+        };
+        /** RewriteOut */
+        RewriteOut: {
+            /** Clip Ids */
+            clip_ids: string[];
+            /** Credits */
+            credits: number;
         };
         /**
          * Role
@@ -10967,6 +11001,39 @@ export interface operations {
             };
         };
     };
+    rewrite_price_projects__project_id__clips_prompts_price_get: {
+        parameters: {
+            query?: {
+                clip_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RewriteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     write_prompts_projects__project_id__clips_prompts_post: {
         parameters: {
             query?: never;
@@ -10976,7 +11043,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RewriteIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

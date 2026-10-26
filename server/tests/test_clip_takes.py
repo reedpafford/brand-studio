@@ -133,12 +133,15 @@ def test_stale_and_replaced_clips(app, db, editor, setup, clip):  # noqa: F811
     base = f"/projects/{setup['project']}"
     url = f"{base}/clips/{clip['id']}"
     editor.post(f"{url}/generate")
-    r = editor.post(f"{base}/clips/prompts")  # a take is on its way: don't replace the clips
+    one = {"clip_id": clip["clip_id"]}
+    r = editor.post(f"{base}/clips/prompts", json=one)  # a take is on its way: wait for it
     assert r.status_code == 409 and "Wait for the clips" in r.json()["detail"]
     _work(app, db, FakeSeedance([_mp4("red")]))
     assert len(editor.get(f"{base}/clips").json()[0]["takes"]) == 1
     old = editor.get(f"{base}/clips").json()[0]
-    assert editor.post(f"{base}/clips/prompts").status_code == 201  # now new prompts may replace
+    nothing = editor.post(f"{base}/clips/prompts")  # none is stale: nothing to rewrite
+    assert (nothing.status_code, nothing.json()["detail"]) == (409, "No clip needs new prompts.")
+    assert editor.post(f"{base}/clips/prompts", json=one).status_code == 201  # one clip
     _run(
         app,
         db,
@@ -154,7 +157,8 @@ def test_stale_and_replaced_clips(app, db, editor, setup, clip):  # noqa: F811
         ),
     )
     new = editor.get(f"{base}/clips").json()[0]
-    assert new["takes"] == [] and new["picked_take_id"] is None  # old takes went with it
+    assert new["id"] == old["id"] and len(new["takes"]) == 1  # the take stays (Reed, #503)
+    assert new["picked_take_id"] == old["picked_take_id"] and new["approved"] is False
     url = f"{base}/clips/{new['id']}"
 
     script = editor.get(f"{base}/script").json()["text"]

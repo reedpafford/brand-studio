@@ -52,7 +52,7 @@ def test_every_paid_video_route_refuses_an_editor_past_the_budget(owner, editor,
         (f"{v}/storyboard", {}),
         (f"{v}/storyboard/frames/{frame.id}/render", {}),
         (f"{v}/storyboard/frames/{frame.id}/change", {"note": "Brighter."}),
-        (f"{v}/clips/prompts", {}),
+        (f"{v}/clips/prompts", {"clip_id": "c1"}),  # rewrite one clip (paid)
         (f"{v}/clips/{clip.id}/generate", {}),
         (f"{v}/clips/{clip.id}/change", {"note": "Slower push in."}),
         (f"{v}/assets/slots/{slot['slot_id']}/make-look", {}),
