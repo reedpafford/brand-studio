@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 MAX_MB = 100
 MAX_SECONDS = 90
@@ -130,29 +130,71 @@ def watch_copy(path: Path, folder: Path) -> Path:
     return out
 
 
-def contact_sheet(path: Path, cut_times: list[float], seconds: float, folder: Path) -> Path:
-    """One frame from the middle of each shot (up to 60), tiled six across into one JPEG."""
-    edges = [0.0, *cut_times, seconds]
-    middles = [(a + b) / 2 for a, b in zip(edges, edges[1:], strict=False) if b > a][:60]
-    tiles = []
-    for n, t in enumerate(middles):
-        frame = folder / f"shot{n}.jpg"
-        args = ["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", str(path), "-frames:v", "1"]
-        _run([*args, "-vf", "scale=180:-2", "-y", str(frame)], 30)
-        if frame.is_file():
-            tiles.append(Image.open(frame).convert("RGB"))
-    if not tiles:
-        raise Refused("bad_file", "That file isn't a video we can read. Use an MP4 or MOV.")
+def _grab(path: Path, t: float, frame: Path, width: int) -> Image.Image | None:
+    args = ["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", str(path), "-frames:v", "1"]
+    _run([*args, "-vf", f"scale={width}:-2", "-y", str(frame)], 30)
+    return Image.open(frame).convert("RGB") if frame.is_file() else None
+
+
+def _tile(tiles: list[Image.Image], cols: int, out: Path) -> Path:
     w, h = tiles[0].size
-    cols = min(6, len(tiles))
     sheet = Image.new("RGB", (w * cols, h * -(-len(tiles) // cols)), (0, 0, 0))
     for n, tile in enumerate(tiles):
         sheet.paste(tile.resize((w, h)), ((n % cols) * w, (n // cols) * h))
-    out = folder / "contact.jpg"
     buf = io.BytesIO()
     sheet.save(buf, "JPEG", quality=80)
     out.write_bytes(buf.getvalue())
     return out
+
+
+def _spans(cut_times: list[float], seconds: float) -> list[tuple[float, float]]:
+    edges = [0.0, *cut_times, seconds]
+    return [(a, b) for a, b in zip(edges, edges[1:], strict=False) if b > a]
+
+
+def contact_sheet(path: Path, cut_times: list[float], seconds: float, folder: Path) -> Path:
+    """One frame from the middle of each shot (up to 60), tiled six across into one JPEG."""
+    middles = [(a + b) / 2 for a, b in _spans(cut_times, seconds)][:60]
+    tiles = [
+        t for n, m in enumerate(middles) if (t := _grab(path, m, folder / f"shot{n}.jpg", 180))
+    ]
+    if not tiles:
+        raise Refused("bad_file", "That file isn't a video we can read. Use an MP4 or MOV.")
+    return _tile(tiles, min(6, len(tiles)), folder / "contact.jpg")
+
+
+GRIDS = 9  # with the contact sheet, the 10 images Gemini takes
+ROWS = 12  # shots per grid at most; longer reels are sampled
+
+
+def _label(frame: Image.Image, text: str) -> Image.Image:
+    draw = ImageDraw.Draw(frame)
+    box = draw.textbbox((4, 4), text)
+    draw.rectangle((box[0] - 2, box[1] - 2, box[2] + 2, box[3] + 2), fill=(0, 0, 0))
+    draw.text((4, 4), text, fill=(255, 255, 255))
+    return frame
+
+
+def frame_grids(path: Path, cut_times: list[float], seconds: float, folder: Path) -> list[Path]:
+    """For watching from pictures when video won't go through: each shot as one row of three
+    frames (near its start, middle and end), each marked with its shot number and time, in
+    order, up to 12 shots per JPEG and 9 JPEGs."""
+    spans = list(enumerate(_spans(cut_times, seconds), 1))
+    if len(spans) > GRIDS * ROWS:  # sample evenly, keeping the order
+        spans = [spans[i * len(spans) // (GRIDS * ROWS)] for i in range(GRIDS * ROWS)]
+    per = ROWS  # as few pictures as possible
+    grids = []
+    for g in range(0, len(spans), per):
+        tiles = []
+        for shot, (a, b) in spans[g : g + per]:
+            for k, f in enumerate((0.15, 0.5, 0.85)):
+                t = a + (b - a) * f
+                frame = _grab(path, t, folder / f"g{shot}-{k}.jpg", 240)
+                if frame:
+                    tiles.append(_label(frame, f"{shot} · {t:.2f}s"))
+        if tiles:
+            grids.append(_tile(tiles, 3, folder / f"grid{len(grids)}.jpg"))
+    return grids
 
 
 def warm() -> None:

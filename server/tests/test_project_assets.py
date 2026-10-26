@@ -15,11 +15,14 @@ def test_assets_list_slots_and_cast_an_unlocked_one(owner, editor, db):
     mia = owner.post("/library/character", json={"name": "Mia", "image_file_ids": [upload(owner)]})
     mia = mia.json()["id"]
     with_sheet(db, mia)
+    bo = owner.post("/library/character", json={"name": "Bo", "image_file_ids": [upload(owner)]})
+    bo = bo.json()["id"]
+    with_sheet(db, bo)
     mom, nate = owner.post(f"{base}/cast", json={"role": "Mom"}).json()[0]["id"], None
-    nate = owner.post(f"{base}/cast", json={"role": "Nate"}).json()[1]["id"]
+    nate = owner.post(f"{base}/cast", json={"role": "Nate", "description": "teen"}).json()[1]["id"]
     owner.post(f"{base}/cast/{mom}/lock", json={"library_item_id": mia})
     bd = copy.deepcopy(BREAKDOWN)
-    bd["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mia}"]
+    bd["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mia}", f"char:{bo}"]
     bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{nate}"]
     owner.put(f"{base}/drafts/0/breakdown", json=bd)
     owner.post(f"{base}/drafts/0/approve")
@@ -31,16 +34,21 @@ def test_assets_list_slots_and_cast_an_unlocked_one(owner, editor, db):
     assert [(r["role"], r["ref"], r["locked"], r["sheet_status"]) for r in rows] == [
         ("Mom", f"char:{mia}", True, "approved"),
         ("Nate", f"slot:{nate}", False, "missing"),
+        ("Bo", f"char:{bo}", False, "approved"),
     ]
+    assert [(r["slot_id"], r["description"]) for r in rows] == [
+        (mom, ""), (nate, "teen"), (None, "")
+    ]  # fmt: skip
     kid = editor.post(
         "/library/character", json={"name": "Kid", "image_file_ids": [upload(editor)]}
     )
     kid = kid.json()["id"]
     cast = editor.put(f"{url}/slots/{nate}", json={"library_item_id": kid}).json()
-    assert (cast[1]["ref"], cast[1]["name"], cast[1]["sheet_status"]) == (
+    assert (cast[1]["ref"], cast[1]["name"], cast[1]["sheet_status"], cast[1]["slot_id"]) == (
         f"char:{kid}",
         "Kid",
         "none",
+        nate,
     )
     newest = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]
     assert newest["scenes"][0]["shots"][1]["character_ids"] == [f"char:{kid}"]

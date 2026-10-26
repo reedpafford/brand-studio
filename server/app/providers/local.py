@@ -59,7 +59,9 @@ class LocalProvider:
         cut_times = reel.cuts(video)
         files.append(reel.contact_sheet(video, cut_times, seconds, folder))
         files.append(reel.watch_copy(video, folder))  # what Gemini gets: small enough for it
-        names += ["contact", "watch"]
+        grids = reel.frame_grids(video, cut_times, seconds, folder)  # if video won't go through
+        files += grids
+        names += ["contact", "watch", *(["grid"] * len(grids))]
         output = {
             "seconds": seconds,
             "cuts": cut_times,

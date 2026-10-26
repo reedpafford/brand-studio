@@ -295,6 +295,21 @@ def keep_clip_advice(
     return _out(db, row, _newest_breakdown(db, project))
 
 
+@router.delete("/clips/{clip_id}/keep", response_model=ProjectClipOut)
+def unkeep_clip_advice(
+    project_id: int,
+    clip_id: int,
+    problem: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo Keep anyway on this clip's advice (?problem=, the text as shown)."""
+    project, row = _clip(db, user, project_id, clip_id)
+    advice.unkeep(row, problem)
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
+
+
 @router.delete("/clips/{clip_id}/approve", response_model=ProjectClipOut)
 def unapprove(
     project_id: int,

@@ -35,6 +35,8 @@ class AssetOut(BaseModel):
     locked: bool  # a locked slot: its look is fixed for every version
     sheet_status: str  # none | drawing | waiting_for_owner | needs_approval | approved | missing
     ready: bool  # nothing left to do for it
+    slot_id: int | None = None  # the script's cast slot this row fills; null for other rows
+    description: str = ""  # the slot's role, as the script describes it (e.g. "teen, shy")
 
 
 class SlotCastIn(BaseModel):
@@ -58,7 +60,9 @@ def _slots(db: Session, project: Project) -> list[ScriptCastSlot]:
     return list(db.scalars(query.order_by(ScriptCastSlot.position)))
 
 
-def _row(kind: str, ref: str, role: str, item: LibraryItem | None, locked: bool) -> AssetOut:
+def _row(
+    kind: str, ref: str, role: str, item: LibraryItem | None, locked: bool, slot=None
+) -> AssetOut:
     status = "missing" if item is None else ("approved" if locked else sheet_status(item))
     return AssetOut(
         kind=kind,
@@ -69,6 +73,8 @@ def _row(kind: str, ref: str, role: str, item: LibraryItem | None, locked: bool)
         locked=locked,
         sheet_status=status,
         ready=status == "approved",
+        slot_id=slot.id if slot else None,
+        description=slot.description if slot else "",
     )
 
 
@@ -87,7 +93,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
         item = db.get(LibraryItem, item_id) if item_id else None
         out.append(_row("character", f"slot:{slot.id}" if not item_id else f"char:{item_id}",
-                        slot.role, item, slot.library_item_id is not None))  # fmt: skip
+                        slot.role, item, slot.library_item_id is not None, slot))  # fmt: skip
         seen.add(f"char:{item_id}")
     for ref in used:
         if ref in seen or not ref.startswith("char:"):

@@ -65,6 +65,7 @@ class ImportOut(BaseModel):
     problem: str = ""  # plain words for the editor
     problem_code: str | None = None  # blocked | gone | bad_file | too_long
     steps_done: list[str] = []  # of watch, write, cast
+    watched_from: str | None = None  # video | frames (Gemini couldn't take the video)
     failed_step: str | None = None  # prepare | watch | write | cast
     estimate: Estimate | None = None  # once ready: what "Read this reel" costs now
 
@@ -98,6 +99,7 @@ def _out(db: Session, script: Script, user: User) -> ImportOut:
         problem=problem,
         problem_code=code,
         steps_done=reel.get("done", []),
+        watched_from=reel.get("watched_from"),
         failed_step=failed,
         estimate=estimate,
     )
@@ -167,8 +169,9 @@ def drop_files(db: Session, reel: dict | None) -> list[str]:
     Returns their storage keys: delete those bytes only once the deletion is committed, so a
     refused request never leaves a row whose bytes are gone."""
     keys = []
-    for key in ("video_file_id", "contact_file_id", "watch_file_id"):
-        if (stored := db.get(StoredFile, (reel or {}).get(key) or 0)) is not None:
+    ids = [(reel or {}).get(k) for k in ("video_file_id", "contact_file_id", "watch_file_id")]
+    for file_id in [*ids, *(reel or {}).get("grid_file_ids", [])]:
+        if (stored := db.get(StoredFile, file_id or 0)) is not None:
             keys.append(stored.key)
             db.delete(stored)
     return keys
@@ -303,7 +306,9 @@ def save_prepared(db: Session, job: Job) -> None:
         if (video := db.get(StoredFile, reel.pop("video_file_id", None) or 0)) is not None:
             db.delete(video)  # an upload we can't read; the local provider removed its bytes
     else:
-        files = dict(zip(output.get("files", []), output.get("file_ids", []), strict=False))
+        named = list(zip(output.get("files", []), output.get("file_ids", []), strict=False))
+        files = dict(named)
+        reel["grid_file_ids"] = [i for name, i in named if name == "grid"]
         reel |= {k: output[k] for k in ("seconds", "cuts", "stats", "transcript")}
         reel["contact_file_id"] = files.get("contact")
         reel["watch_file_id"] = files.get("watch")
