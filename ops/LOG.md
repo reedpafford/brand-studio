@@ -2,6 +2,16 @@
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
+- 2026-10-26 04:43 · #408 ops: log the live end-to-end test spend merged
+- 2026-10-26 04:40 · #403 Videos view: the poster and the step on each row merged
+- 2026-10-26 04:40 · #400 Reel read: the open Script step brings in the new script when the read finishes merged
+- 2026-10-26 04:40 · #396 Redo storyboard shows "No such frame." until a refresh: refetch the frames merged
+- 2026-10-26 04:35 · #406 Spec: looks made for a video or script stay with it; Save to Cast & places (gaps #19) merged
+- 2026-10-26 04:34 · #405 ops: log Reed's decision on per-video looks (gap #19) merged
+- 2026-10-26 04:28 · #393 End line: ignore case and punctuation; a near miss is advice, never a block merged
+- 2026-10-26 04:11 · #401 ops: HANDOFF/LOG refresh 2026-10-26 04:15Z (by the Producer) merged
+- 2026-10-26 · #404 Spec: hide the Approvals pill and rail item when nothing waits closed without merging (the Producer kept Approvals visible).
 - 2026-10-26 04:06 · #391 Videos list: each video's step and newest still merged
 - 2026-10-26 04:06 · #390 Purge: remove the rows first, then the reel files merged
 - 2026-10-26 04:06 · #387 Quick clips past the allowance: refused with a plain reason, never "Ask Reed" merged
