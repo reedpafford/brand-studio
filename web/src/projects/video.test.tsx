@@ -197,3 +197,50 @@ test("on a phone the zip button sits in the action bar", async () => {
   expect(zip.closest(".border-t.text-center")).not.toBeNull();
   expect(screen.getByText("Made from: Clip 1 Take 2")).toBeInTheDocument();
 });
+
+test("a filled slot can be swapped for another character", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ slot_id: 3, description: "A tired coach" })]],
+    "GET /library/character": [200, [item({ id: 5, name: "Bo" }), item({ id: 8, name: "Dana", sheet_status: "approved" })]],
+    "PUT /projects/9/assets/slots/3": [200, []],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Use a different character" }));
+  expect(screen.getByRole("option", { name: "Dana" })).toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: /^Bo/ })).toBeNull(); // not the one it already has
+  await userEvent.selectOptions(screen.getByLabelText("Use a Cast & places character"), "8");
+  await userEvent.click(screen.getByRole("button", { name: "Use this character" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/assets/slots/3")?.body).toEqual({ library_item_id: 8 }));
+});
+
+test("Make a look draws from the role's description", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", description: "A tired coach in a grey hoodie", sheet_status: "missing" })]],
+    "POST /library/character": [201, item({ id: 12, name: "Coach" })],
+    "PUT /projects/9/assets/slots/3": [200, []],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Make a look" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", notes: "A tired coach in a grey hoodie" }));
+});
+
+test("on an editor's own script past the weekly allowance the storyboard is declined with the reason, never Ask Reed", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, own_script: true, credits_used: 590, budget_credits: 600 }],
+    "GET /projects/9/assets": [200, []],
+    "GET /credits/me": [200, { quick_clip_credits_used: 140, quick_clip_credits_allowed: 145 }],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image", unit: "image", credits_per_unit: 4 }]],
+    "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
+  });
+  open("?step=storyboard");
+  const button = await screen.findByRole("button", { name: "Make storyboard · 15 credits" });
+  expect(button).toBeDisabled();
+  expect(await screen.findByText(/more than this week's 145 free credits/)).toBeInTheDocument();
+  expect(screen.queryByText(/Ask Reed/)).toBeNull();
+});
