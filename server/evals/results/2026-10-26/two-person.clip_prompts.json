@@ -1,0 +1,41 @@
+{
+ "clips": [
+  {
+   "clip_id": "c2",
+   "seconds": 10,
+   "references": [
+    {
+     "kind": "image",
+     "id": "frame:c2",
+     "role": "storyboard frame (first frame)"
+    },
+    {
+     "kind": "image",
+     "id": "char:1",
+     "role": "Malik's look"
+    },
+    {
+     "kind": "image",
+     "id": "place:2",
+     "role": "Malik's bedroom"
+    },
+    {
+     "kind": "image",
+     "id": "screen:3",
+     "role": "fomo Token chart down screen, logo, colours and layout exact"
+    },
+    {
+     "kind": "image",
+     "id": "screen:2",
+     "role": "fomo Token chart up screen, logo, colours and layout exact"
+    },
+    {
+     "kind": "image",
+     "id": "screen:4",
+     "role": "fomo Desktop trading screen, logo, colours and layout exact (payoff screen)"
+    }
+   ],
+   "prompt": "Audio: only the spoken lines and a quiet night bedroom with a faint fridge hum, plus one phone ding when the chart turns up, then a car door and the wind on the balcony. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.\nReferences: [Image1] is the first frame. [Image2] is Malik. [Image3] is Malik's bedroom. [Image4] is the fomo \"Token chart down\" screen. [Image5] is the fomo \"Token chart up\" screen. [Image6] is the fomo \"Desktop trading\" screen.\nSummary: Alone in his dark bedroom, Malik hits bottom on a losing trade, tries once more and wins, then grinds through late nights and a red day to a bigger win, and only then gets the car, the penthouse and its balcony over the city.\nStyle: Pixar-style 3D animation, big glossy eyes, soft subsurface skin, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions.\nSetting: Malik's small bedroom at night, near black, lit only by cold blue phone light from below, energy cans and a clock on the desk, a warm tungsten doorway behind him; the light turns green and warm when the chart goes up, and the montage climbs into warm gold: a red coupe, a glass penthouse, its balcony over the city lights at night. No background people except one dealer's hand.\nShots (hard cuts):\nShot 1 | 0-1 s. Extreme close-up on the phone, static. Malik's phone fills the frame, held still and flat-on, no hands or glare on it, and shows [Image4], the fomo Token chart down screen, with its logo, colours and layout exactly; the numbers may differ. No one speaks.\nShot 2 | 1-3 s. High-angle close-up, slow push in. Malik drops his head onto his folded arms in the blue glow, shoulders sagging, eyes squeezed shut, and holds there. No one speaks.\nShot 3 | 3-4 s. Close-up on Malik, static. Malik lifts his head, jaw set, and taps his phone. Malik (quiet, stubborn): \"Come on. One more.\"\nShot 4 | 4-5 s. Extreme close-up on the phone, static, on the ding. Malik's phone fills the frame, held still and flat-on, no hands or glare on it, and shows [Image5], the fomo Token chart up screen, with its logo, colours and layout exactly; the numbers may differ. No one speaks.\nShot 5 | 5-6 s. Medium shot, locked off. Another late night: Malik, already hunched at his desk at 3 a.m., energy cans stacked beside him, eyes red, keeps scrolling. No one speaks.\nShot 6 | 6-7 s. Close-up, static. A red day: Malik drops his phone on the bed and buries his face in his hands, then grabs the phone back up. No one speaks.\nShot 7 | 7-8 s. Over-the-shoulder close-up on the monitor, static. A bigger win: Malik's fist clenches beside a new desktop setup as the monitor fills the frame, held still and flat-on, no hands or glare on it, and shows [Image6], the fomo Desktop trading screen, with its logo, colours and layout exactly; the numbers may differ. No one speaks.\nShot 8 | 8-9 s. Two quick cuts: a close-up of Malik's open palm as a dealer drops car keys into it and Malik's fist closes on them; then a medium shot through the windshield of Malik behind the wheel of a new red coupe, both hands on the wheel, grinning. No one speaks.\nShot 9 | 9-10 s. Two quick cuts: a wide shot tracking in behind Malik as Malik pushes open the glass door of a penthouse, keys spinning on his finger; then a low-angle wide, slow pull out, of Malik walking out onto the balcony over the city lights, arms wide, moving slow and calm. No one speaks.\nKeep: Malik as in [Image2], one of him: the same face shape, light brown skin tone, age and slim build in every shot, and the same beanie, hoodie and headphones from his sheet in every shot, in the bedroom, the car and the penthouse alike; the dealer is only a hand and sleeve, never Malik's hoodie; the screens' logo, colours and layout as [Image4], [Image5] and [Image6].\nAudio: only the spoken lines and a quiet night bedroom with a faint fridge hum, plus one phone ding when the chart turns up, then a car door and the wind on the balcony. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles."
+  }
+ ]
+}
