@@ -3883,6 +3883,8 @@ export interface components {
             own_script: boolean;
             /** Archived At */
             archived_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -6612,6 +6614,9 @@ export interface operations {
             query?: {
                 brand_id?: number | null;
                 archived?: boolean;
+                q?: string;
+                mine?: boolean;
+                status?: ("making" | "done") | null;
             };
             header?: never;
             path?: never;
