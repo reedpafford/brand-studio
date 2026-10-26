@@ -227,7 +227,11 @@ def _not_twice(db: Session, user: User, body: ClipIn) -> None:
 
 
 def _brand_screens(db: Session, brand: Brand) -> dict[int, BrandScreen]:
-    rows = db.scalars(select(BrandScreen).where(BrandScreen.brand_id == brand.id))
+    rows = db.scalars(
+        select(BrandScreen).where(
+            BrandScreen.brand_id == brand.id, BrandScreen.deleted_at.is_(None)
+        )
+    )
     return {s.id: s for s in rows}
 
 

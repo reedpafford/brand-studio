@@ -154,3 +154,30 @@ def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
     assert file.headers["content-type"] == "image/webp"
     moment = client.get(f"/brands/{brands['iron-paws']}/screens", params={"moment": "feeding"})
     assert [s["name"] for s in moment.json()] == ["Chicken bag", "Peanut butter bag"]
+
+
+def test_a_deleted_screen_is_kept_out_of_use_and_can_be_restored(app, owner, db, tmp_path):
+    """Gaps #12: delete with Undo. A deleted screen (or product) is never offered or used."""
+    from app.enhance import screens_of
+
+    fomo = _fomo(owner)
+    base = f"/brands/{fomo}/screens"
+    bag = owner.post(
+        base, json={"name": "Bag", "file_id": upload(owner), "product": "bag", "variant": "Chicken"}
+    ).json()
+    assert owner.delete(f"{base}/{bag['id']}").status_code == 204
+    assert "Bag" not in [s["name"] for s in owner.get(base).json()]
+    assert [s["name"] for s in owner.get(base, params={"deleted": True}).json()] == ["Bag"]
+    brand = db.get(Brand, fomo)
+    assert bag["id"] not in [s.id for s in screens_of(db, brand)]  # prompts never see it
+    again = owner.post(base, json={"name": "Bag", "file_id": upload(owner)})
+    assert again.status_code == 409 and "Restore it" in again.json()["detail"]
+    assert owner.patch(f"{base}/{bag['id']}", json={"name": "B"}).status_code == 404
+    assert owner.post(f"{base}/{bag['id']}/restore").json()["name"] == "Bag"  # Undo
+    assert "Bag" in [s["name"] for s in owner.get(base).json()]
+    assert owner.post(f"{base}/{bag['id']}/restore").status_code == 404  # not deleted
+    owner.delete(f"{base}/{bag['id']}")
+    folder = tmp_path / "ui"
+    folder.mkdir()
+    (folder / "Bag.png").write_bytes(PNG)
+    assert import_screens(db, app.state.storage, brand, folder) == 0  # a deploy never revives it
