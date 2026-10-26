@@ -115,3 +115,19 @@ test("a refused Find roles shows the server's reason alone", async () => {
   expect(await screen.findByText("The cast is already being read for this script.")).toBeInTheDocument();
   expect(screen.queryByText(/weren't found/)).toBeNull();
 });
+
+test("a role on the Cast step leads with its age, gender and job, a guess marked", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7/cast": [200, [{ ...slot, facts: { age_range: { value: "Late 20s", inferred: true }, gender: { value: "woman", inferred: false }, occupation: { value: "nurse", inferred: false } } }]] }));
+  open();
+  const facts = await screen.findByText((_, el) => el?.tagName === "P" && el.textContent === "Late 20s (a guess) · woman · nurse");
+  expect(facts.querySelector(".text-faint")).toHaveTextContent("(a guess)");
+});
+
+test("a role with no facts shows no facts line", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7/cast": [200, [{ ...slot, facts: {} }]] }));
+  open();
+  await screen.findByText("Late 20s.");
+  expect(screen.queryByText(/\(a guess\)/)).toBeNull();
+});

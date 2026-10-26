@@ -562,3 +562,13 @@ test("a frame's problem reads as a name too", async () => {
   await vi.waitFor(() => expect(list).toHaveTextContent("Clip c1: Bo has no approved sheet"));
   expect(list).not.toHaveTextContent(/char:/);
 });
+
+test("an Assets role card leads with the role's facts, a guess marked", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", description: "A tired coach.", sheet_status: "missing", facts: { age_range: { value: "Mid-40s", inferred: true }, gender: { value: "woman", inferred: false }, occupation: { value: "primary-school teacher", inferred: false } } })]],
+    "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, reason: null }],
+  });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).getByText((_, el) => el?.tagName === "P" && el.textContent === "Mid-40s (a guess) · woman · primary-school teacher")).toBeInTheDocument();
+});

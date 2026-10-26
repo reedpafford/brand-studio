@@ -1,3 +1,4 @@
+import { RoleFacts } from "../projects/RoleFacts";
 import { useState } from "react";
 import { Ellipsis, Lock, Pencil, Plus, Users } from "lucide-react";
 import { fileUrl } from "../api/upload";
@@ -58,6 +59,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
                         </button>
                       )}
                     </div>
+                    <RoleFacts facts={s.facts} />
                     {s.description && <p className="line-clamp-2 text-sm text-muted">{s.description}</p>}
                     {appearsText(s.appears_in) && <p className="text-sm text-muted">{appearsText(s.appears_in)}</p>}
                   </div>
