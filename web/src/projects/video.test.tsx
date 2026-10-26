@@ -287,3 +287,99 @@ test("Assets shows where each one is used, the role's description, and the produ
   expect(within(screens).queryByRole("button")).toBeNull(); // nothing to approve
   expect(screen.getByText("3 assets · 2 approved")).toBeInTheDocument();
 });
+
+const still = (o: object = {}) => ({ ...frame, approved: false, earlier: [], change: null, ...o });
+
+test("Change this… sits under every still with its price; a note is sent as it is typed and clears once sent", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, []],
+    "GET /projects/9/storyboard": [200, [still()]],
+    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
+    "POST /projects/9/storyboard/frames/1/change": [201, { id: 8, kind: "image", status: "queued", credits: 4 }],
+  });
+  open("?step=storyboard");
+  const box = await screen.findByLabelText("Change this… c1");
+  expect(screen.getByRole("button", { name: /^Change it/ })).toBeDisabled();
+  expect(screen.getByText("Say what should change")).toBeInTheDocument();
+  await userEvent.type(box, "Bo should look surprised");
+  await userEvent.click(await screen.findByRole("button", { name: "Change it · 4 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/change")?.body).toEqual({ note: "Bo should look surprised" }));
+  await vi.waitFor(() => expect(box).toHaveValue(""));
+});
+
+test("a note that changes what's said is refused in the server's words, kept in the box, with where to change the words", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, []],
+    "GET /projects/9/storyboard": [200, [still()]],
+    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
+    "POST /projects/9/storyboard/frames/1/change": [422, { detail: "The note changes what's said. The spoken lines stay exactly as written." }],
+  });
+  open("?step=storyboard");
+  const box = await screen.findByLabelText("Change this… c1");
+  await userEvent.type(box, "Make Bo say hello");
+  await userEvent.click(await screen.findByRole("button", { name: "Change it · 4 credits" }));
+  expect(await screen.findByText(/The note changes what's said\. The spoken lines stay exactly as written\. To change the words, edit the script\./)).toBeInTheDocument();
+  expect(box).toHaveValue("Make Bo say hello");
+});
+
+test("while a change is made the still says so and the box is read-only; when it lands, what the note changed shows with Before and After", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, []],
+    "GET /projects/9/storyboard": [200, [still({ change: { note: "surprised", status: "changing" } })]],
+    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
+  });
+  open("?step=storyboard");
+  expect(await screen.findByText("Making the change…")).toBeInTheDocument();
+  expect(screen.getByLabelText("Change this… c1")).toHaveAttribute("readonly");
+  expect(screen.getByRole("button", { name: "Changing…" })).toHaveAttribute("aria-busy", "true");
+});
+
+test("what the note changed shows only the changed words, struck and bold, with Before: and After:", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, []],
+    "GET /projects/9/storyboard": [200, [still({ change: { note: "surprised", status: "done", before: "Bo looks sad and drops his ears at the bowl in the kitchen", after: "Bo looks surprised with ears up at the bowl in the kitchen" } })]],
+    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
+  });
+  open("?step=storyboard");
+  const changed = await screen.findByLabelText("What your note changed");
+  expect(within(changed).getByText("Before:")).toBeInTheDocument();
+  expect(within(changed).getByText("After:")).toBeInTheDocument();
+  expect(changed.querySelector("del")).toHaveTextContent("sad");
+  expect(changed.querySelector("strong")).toHaveTextContent("surprised");
+  expect(within(changed).getByRole("button", { name: "Show the whole prompt" })).toBeInTheDocument();
+});
+
+test("a note that left the prompt as it was says so, and nothing is made", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, []],
+    "GET /projects/9/storyboard": [200, [still({ change: { note: "x", status: "unchanged", unchanged: true } })]],
+    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
+  });
+  open("?step=storyboard");
+  expect(await screen.findByText("Your note didn't change the prompt. Try saying it another way.")).toBeInTheDocument();
+});
+
+test("Change this… on a clip has the clip's price, and an editor past the budget is told why", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9": [200, { ...project, credits_used: 590, budget_credits: 600 }],
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]],
+    "GET /projects/9/clips/3/change": [200, { credits: 27 }],
+  });
+  open("?step=clips");
+  await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
+  const button = await screen.findByRole("button", { name: "Change it · 27 credits" });
+  expect(button).toBeDisabled();
+  expect(button).toHaveAccessibleDescription("That's more than this video's budget.");
+});

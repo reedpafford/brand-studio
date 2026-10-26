@@ -14,6 +14,7 @@ import { useOwnScriptStop } from "./useOwnScriptStop";
 import { usePressed } from "./usePressed";
 import { AdviceList, useKeep } from "./Keep";
 import { useMe } from "../auth/useMe";
+import { ChangeBox, type ChangeState } from "./ChangeBox";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -86,7 +87,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const clips = useQuery({
     queryKey: ["project-clips", projectId],
     queryFn: async () => (await api.GET("/projects/{project_id}/clips", { params: { path } })).data ?? [],
-    refetchInterval: () => (anyGoing ? 3000 : false),
+    refetchInterval: (q) => (anyGoing || q.state.data?.some((c) => (c.change as ChangeState)?.status === "changing") ? 3000 : false),
   });
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
@@ -256,6 +257,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
               brandId={props.brandId}
               cost={takeCost(c)}
               stopped={!!stopFor(takeCost(c))}
+              stopFor={stopFor}
+              review={!!props.review}
               onGenerate={(note) => generate.mutate({ clip: c, note })}
               onPick={(take) => review.mutate({ clip: c, take })}
               onApprove={() => review.mutate({ clip: c })}
@@ -286,6 +289,8 @@ function ClipCard(props: {
   brandId: number;
   cost: number | undefined;
   stopped: boolean;
+  stopFor: (cost: number | undefined) => string | null;
+  review: boolean;
   onGenerate: (note?: string) => void;
   onPick: (takeId: number) => void;
   onApprove: () => void;
@@ -376,6 +381,18 @@ function ClipCard(props: {
           </div>
         </div>
       )}
+      {props.review && (
+        <ChangeBox
+          kind="clip"
+          projectId={props.projectId}
+          id={c.id}
+          label={c.clip_id}
+          change={c.change as ChangeState}
+          hold={props.busy ? "This one is still being made" : c.stale ? "Write the clip prompts again first" : null}
+          stopFor={props.stopFor}
+          onUndo={c.takes.length > 1 ? () => props.onPick(c.takes[c.takes.length - 2].id) : undefined}
+        />
+      )}
       {c.inserts.map((i) => (
         <label key={i.shot_id} className="flex min-h-11 w-full items-start gap-3 sm:min-h-0">
           <input type="checkbox" role="switch" className="mt-0.5 size-5 shrink-0 sm:size-4" checked={i.use_real_image} onChange={(e) => props.onRealImage(i.shot_id, e.target.checked)} />
@@ -420,7 +437,7 @@ function ClipCard(props: {
             {price}
           </button>
           )}
-          {c.takes.length > 0 && note === null && (
+          {c.takes.length > 0 && note === null && !props.review && (
             <button className={`${linkText} min-h-11 sm:min-h-9`} onClick={() => setNote("")}>
               Needs a change
             </button>
@@ -431,7 +448,7 @@ function ClipCard(props: {
             </a>
           )}
           <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for ${c.clip_id}`} onClick={() => setEditing(c.prompt)}>
-            Edit prompt
+            {props.review ? "Advanced: edit the prompt" : "Edit prompt"}
           </button>
         </div>
       )}

@@ -17,6 +17,7 @@ import { useOwnScriptStop } from "./useOwnScriptStop";
 import { Badge, Banner, wholeCredits } from "../components";
 import { RotateCcw } from "lucide-react";
 import { usePressed } from "./usePressed";
+import { ChangeBox, type ChangeState } from "./ChangeBox";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -63,7 +64,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const frames = useQuery({
     queryKey: ["storyboard", projectId],
     queryFn: async () => (await api.GET("/projects/{project_id}/storyboard", { params: { path } })).data ?? [],
-    refetchInterval: () => (anyGoing ? 3000 : false),
+    refetchInterval: (q) => (anyGoing || q.state.data?.some((f) => (f.change as ChangeState)?.status === "changing") ? 3000 : false),
   });
   // The run is done but the list on screen is still the old one: wait for the new frames.
   const stillOld = writing !== null && jobOf(writing)?.status === "succeeded" && (frames.data ?? []).some((f) => replaced.includes(f.id));
@@ -109,6 +110,14 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     onSuccess: refresh,
   });
 
+  // Undo of "Change this…": an earlier still comes back with the prompt it was made from. Free.
+  const pick = useMutation({
+    mutationFn: async ({ frame, file }: { frame: Frame; file: number }) => {
+      const { error, response } = await api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/pick", { params: { path: { ...path, frame_id: frame.id } }, body: { file_id: file } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: refresh,
+  });
   const approve = useMutation({
     mutationFn: async ({ frame, yes }: { frame: Frame; yes: boolean }) => {
       const args = { params: { path: { ...path, frame_id: frame.id } } };
@@ -266,6 +275,9 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
               nameOf={nameOf}
               cost={imageCost}
               stopped={!!stopFor(imageCost)}
+              stopFor={stopFor}
+              oneStep={!!props.oneStep}
+              onPick={(file) => pick.mutate({ frame: f, file })}
               onRender={(note) => render.mutate({ frame: f, note })}
               onApprove={(yes) => approve.mutate({ frame: f, yes })}
               onSave={(prompt) => edit.mutate({ frame: f, prompt })}
@@ -298,6 +310,9 @@ function FrameCard(props: {
   nameOf: (id: string) => string;
   cost: number | undefined;
   stopped: boolean;
+  stopFor: (cost: number | undefined) => string | null;
+  oneStep: boolean;
+  onPick: (file: number) => void;
   onRender: (note?: string) => void;
   onApprove: (yes: boolean) => void;
   onSave: (prompt: string) => void;
@@ -346,6 +361,11 @@ function FrameCard(props: {
         )}
         {props.busy ? (
           <span className="text-muted">Drawing…</span>
+        ) : f.file_id !== null && (f.change as ChangeState)?.status === "changing" ? (
+          <>
+            <img src={fileUrl(f.file_id)} alt={`Still for clip ${f.clip_id}`} className="h-full w-full object-cover opacity-50" />
+            <span className="absolute inset-0 grid place-items-center text-sm font-medium">Making the change…</span>
+          </>
         ) : f.file_id !== null ? (
           <button type="button" className="h-full w-full" aria-label={`Open the still for clip ${f.clip_id}`} onClick={props.onOpen}>
             <img src={fileUrl(f.file_id)} alt={`Still for clip ${f.clip_id}`} className="h-full w-full object-cover" />
@@ -405,16 +425,28 @@ function FrameCard(props: {
                 >
                   {f.approved ? "Undo approve" : "Approve"}
                 </button>
-                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => setRedo(redo === null ? "" : null)} aria-expanded={redo !== null}>
-                  {verb}
+                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => (props.oneStep ? props.onRender() : setRedo(redo === null ? "" : null))} aria-expanded={props.oneStep ? undefined : redo !== null}>
+                  {props.oneStep ? "Make another" : verb}
                   {price}
                 </button>
               </>
             )}
             <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>
-              Edit prompt
+              {props.oneStep ? "Advanced: edit the prompt" : "Edit prompt"}
             </button>
           </div>
+          {props.oneStep && f.file_id !== null && (
+            <ChangeBox
+              kind="frame"
+              projectId={props.projectId}
+              id={f.id}
+              label={f.clip_id}
+              change={f.change as ChangeState}
+              hold={props.busy ? "This one is still being made" : f.stale ? "Make the storyboard again first" : null}
+              stopFor={props.stopFor}
+              onUndo={f.earlier.length ? () => props.onPick((f.earlier.at(-1) as { file_id: number }).file_id) : undefined}
+            />
+          )}
           {redo !== null && !phone && redoForm}
           {redo !== null && phone && (
             <Sheet title={`Redo clip ${f.clip_id}`} closeLabel="Cancel" onClose={() => setRedo(null)}>
