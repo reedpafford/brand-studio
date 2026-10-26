@@ -24,6 +24,7 @@ import { errorText as errorClass } from "../ui";
 import { useMe } from "../auth/useMe";
 import { useSheetPrice } from "../library/SheetPanel";
 import { useOwnScriptStop } from "./useOwnScriptStop";
+import { RoleFacts } from "./RoleFacts";
 import { AutoLooks } from "./AutoLooks";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
 
@@ -265,6 +266,7 @@ function AssetCard({
               <span className="text-muted"> · {asset.name}</span>
             )}
           </p>
+          {!asset.locked && <RoleFacts facts={asset.facts} />}
           {asset.description && !asset.locked && (
             <p className="line-clamp-2 text-sm text-muted">
               {asset.description}
