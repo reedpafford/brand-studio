@@ -4,7 +4,6 @@ note never changes what's said (`check.redo_note`, before anything is charged). 
 comes back the same, nothing is made and nothing is charged. The old still or take stays with
 the prompt it was made from, so picking it back is the Undo."""
 
-import math
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -55,10 +54,6 @@ def credits(db: Session, project: Project, row: Row) -> Decimal:
     """Change it · N: rewriting the prompt, plus the still or the new take (a clip with no
     take yet only has its prompt rewritten)."""
     return estimate(db, project.workspace_id, "write-claude", Decimal(1)) + _then(db, project, row)
-
-
-def shown(total: Decimal) -> int:
-    return max(1, math.ceil(total))
 
 
 def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job:

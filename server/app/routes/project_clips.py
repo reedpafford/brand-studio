@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, change, clip_prompts, clip_takes, cut_in
+from app import advice, change, clip_prompts, clip_takes, credits, cut_in
 from app.auth import current_user
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -234,7 +234,7 @@ def change_price(
     project_id: int, clip_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     project, row = _clip(db, user, project_id, clip_id)
-    return PriceOut(credits=change.shown(change.credits(db, project, row)))
+    return PriceOut(credits=credits.price(change.credits(db, project, row)))
 
 
 @router.post(
