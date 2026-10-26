@@ -129,7 +129,7 @@ class UsageOut(BaseModel):
 
 
 OVER_BUDGET = "That's more than this video's budget."
-WAITING_FOR_REED = "This video's length is waiting for Reed's OK, so nothing can be made yet."
+NOT_APPROVED = "This video's length isn't approved yet, so nothing can be made."
 
 
 def enqueue(
@@ -148,13 +148,12 @@ def enqueue(
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. An
     editor's own work (outside a project, or on a video from their own script) past their
     weekly allowance is declined (409), and so is an editor's job that would take a library
-    version over its budget, or on a video still waiting for Reed's OK (409, no Ask Reed):
-    nothing new ever waits as `needs_owner_approval`. The check and the reservation are one
-    locked transaction.
-    `prepaid`: a later step of work the editor already pressed for at its full price (the reel
-    read chain), so the allowance isn't checked again; caps, brand, credits and Usage stay as
-    for any job. `hold`: a later step this press already pays for (e.g. Change it's still or
-    take), checked together with this job."""
+    version over its budget, or on a video whose length isn't approved (409; editors are never
+    sent to Reed, DECISIONS #397/#399), so nothing new ever waits as `needs_owner_approval`.
+    The check and the reservation are one locked transaction. `prepaid`: a later step of work
+    the editor already pressed for at its full price (the reel read chain), so the allowance
+    isn't checked again; caps, brand, credits and Usage stay as for any job. `hold`: a later
+    step this press already pays for (e.g. Change it's still or take), checked together."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if project is not None:
         lock(db, Project, project.id)
@@ -175,7 +174,7 @@ def enqueue(
     if needs_approval(db, user, project, credits + hold):  # Reed, 2026-10-26: no Ask Reed
         db.rollback()
         active = project.status == ProjectStatus.active
-        raise HTTPException(409, OVER_BUDGET if active else WAITING_FOR_REED)
+        raise HTTPException(409, OVER_BUDGET if active else NOT_APPROVED)
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,

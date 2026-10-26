@@ -60,6 +60,7 @@ def test_every_paid_video_route_refuses_an_editor_past_the_budget(owner, editor,
     for url, r in answers.items():
         assert r.status_code in (409, 422), (url, r.status_code, r.text)
     assert {u: r.json()["detail"] for u, r in answers.items()} == dict.fromkeys(answers, BUDGET)
+    assert not any("Reed" in str(r.json()["detail"]) for r in answers.values())
     assert db.query(Job).count() == jobs  # nothing queued, nothing held
     assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()
 
