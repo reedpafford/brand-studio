@@ -22,6 +22,12 @@ def original(db: Session, script: Script) -> ScriptDraft | None:
     )
 
 
+def edited_since_fill(script: Script, draft: ScriptDraft | None) -> bool:
+    """The original's words were changed since the reel last filled them (reel-import §5)."""
+    filled = (script.reel or {}).get("filled_text")
+    return filled is not None and draft is not None and draft.text != filled
+
+
 def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     draft = original(db, script) or ScriptDraft(slot=0)
     project = stand_in_project(db, script, draft, reference)
@@ -58,6 +64,12 @@ def save_written(db: Session, job: Job) -> None:
         db.add(draft)
     if draft.status == "approved":
         return
+    if job.input.get("reel_step") and edited_since_fill(script, draft):
+        script.reel = {**script.reel, "pending_fill_job_id": job.id}  # "New breakdown ready"
+        return
+    if job.input.get("reel_step"):
+        script.reel = {k: v for k, v in script.reel.items() if k != "pending_fill_job_id"}
+        script.reel = {**script.reel, "filled_text": drafts[0].script}
     lib.keep_text(db, draft, drafts[0].script, "write", job.created_by_id)
     draft.text, draft.job_id = drafts[0].script, job.id
     draft.changed_lines = drafts[0].changed_lines

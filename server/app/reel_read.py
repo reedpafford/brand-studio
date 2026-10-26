@@ -26,6 +26,7 @@ from app.reference import checked
 
 log = logging.getLogger(__name__)
 STEPS = ("watch", "write", "cast")
+AGAIN = ("watch", "write")  # Read it again: the breakdown and the script; the cast stays
 WATCH_MODEL = "gemini-3.5-flash"
 KIND = {"watch": "watch-gemini", "write": "write-claude", "cast": "write-claude"}
 NAMES = {"watch": "Finding the shots", "write": "Writing the script", "cast": "Reading the cast"}
@@ -116,6 +117,11 @@ def watch_input(script: Script, mode: str = "video", attempt: int = 1) -> dict:
     reel = script.reel
     said = [{**x, "text": escape(x["text"])} for x in reel["transcript"]]
     prompt = prompts.reel_watch_input(said, shots(reel), frames_only=mode == "frames")
+    if reel.get("note"):  # Read it again: what the last reading got wrong
+        prompt += (
+            "\n<correction>Someone checked the last reading of this reel and says: "
+            f"{escape(reel['note'])}\nFix those points; keep the rest.</correction>"
+        )
     files = {"images": [reel["contact_file_id"]], "videos": [reel["watch_file_id"]]}
     if mode == "frames":  # the watch prompt's rule 7 says how to read them
         files = {"images": [reel["contact_file_id"], *reel.get("grid_file_ids", [])][:10]}
