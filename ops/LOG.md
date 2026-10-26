@@ -5,6 +5,8 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 19:17 · #499 ops: Builder-Screens-3 replaces Builder-Screens-2 in the session table merged (by the Producer)
+- 2026-10-26 19:11 · #498 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-26 19:06 · #496 Made looks say what they cost; the look check says what doesn't fit merged
 - 2026-10-26 18:45 · #497 spec: the look check button reads "Fix it with a note" merged
 - 2026-10-26 18:36 · #494 Look check: "This look reads as …" with Redo it merged
