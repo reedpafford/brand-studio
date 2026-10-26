@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import clip_prompts, clip_takes, prompts, storyboard
-from app.credits import estimate, over_allowance
+from app.credits import estimate, own_script
 from app.enhance import escape
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -43,14 +43,18 @@ def _draw(db: Session, project: Project, row: Row, before: str = "") -> tuple[st
     return "video", clip_takes.take_input(db, project, row), row.seconds
 
 
+def _then(db: Session, project: Project, row: Row) -> Decimal:
+    """What making it again costs once the prompt is rewritten (0 for a clip with no take)."""
+    if isinstance(row, StoryboardFrame) or _has_take(db, row):
+        kind, data, units = _draw(db, project, row)
+        return estimate(db, project.workspace_id, kind, Decimal(units), data)
+    return Decimal(0)
+
+
 def credits(db: Session, project: Project, row: Row) -> Decimal:
     """Change it · N: rewriting the prompt, plus the still or the new take (a clip with no
     take yet only has its prompt rewritten)."""
-    total = estimate(db, project.workspace_id, "write-claude", Decimal(1))
-    if isinstance(row, StoryboardFrame) or _has_take(db, row):
-        kind, data, units = _draw(db, project, row)
-        total += estimate(db, project.workspace_id, kind, Decimal(units), data)
-    return total
+    return estimate(db, project.workspace_id, "write-claude", Decimal(1)) + _then(db, project, row)
 
 
 def shown(total: Decimal) -> int:
@@ -75,8 +79,7 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
         mine = job.input.get("step") == "change" and job.input.get("target_id") == row.id
         if job.input.get(key) == row.id or (mine and job.input.get("target") == target):
             raise HTTPException(409, "This one is still being made.")
-    if declined := over_allowance(db, user, project, credits(db, project, row)):
-        raise HTTPException(409, declined)  # the whole change is checked once, here
+    then = _then(db, project, row)
     data = {
         "step": "change",
         "project_id": project.id,
@@ -91,8 +94,12 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
         ),
         "max_tokens": 4000,
     }
-    job = enqueue(db, user, "write-claude", data, project=project, provider="claude")
-    row.change = {"note": note, "job_id": job.id, "status": "changing"}
+    if own_script(db, project, user):  # the still or take is held on the editor's week until
+        data["then_credits"] = str(then)  # it's queued (reel_read.held), so nothing overshoots
+    # The whole price is checked in one locked step, against the week or the video's budget.
+    job = enqueue(db, user, "write-claude", data, project=project, provider="claude", hold=then)
+    was = {"was_take_id": row.picked_take_id} if target == "clip" else {"was_file_id": row.file_id}
+    row.change = {"note": note, "job_id": job.id, "status": "changing", **was}
     db.commit()
     return job
 
@@ -104,11 +111,12 @@ def save_changed(db: Session, job: Job) -> None:
 
     i = job.input
     model = StoryboardFrame if i["target"] == "frame" else ProjectClip
-    row = db.get(model, i["target_id"])
+    row = db.get(model, i["target_id"], populate_existing=True)  # read fresh: Undo's pick
     if row is None or row.project_id != i["project_id"]:
         return
     before, after = i["before"], ChangedPrompt.model_validate(job.output).prompt.strip()
-    change = {"note": i["note"], "job_id": job.id, "before": before, "after": after}
+    change = {**(row.change or {}), "note": i["note"], "job_id": job.id, "before": before,
+              "after": after}  # fmt: skip
     if row.prompt != before:  # edited by hand while the note was read: never overwrite it
         row.change = {**change, "status": "failed",
                       "error": "The prompt was edited meanwhile. Try the note again."}  # fmt: skip

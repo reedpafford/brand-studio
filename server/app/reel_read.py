@@ -58,7 +58,8 @@ def state(db: Session, script: Script) -> tuple[str, str | None]:
 def held(db: Session, user: User) -> Decimal:
     """Credits held for steps this person already paid for that aren't queued yet: while a
     reel-read step runs, the steps after it; while a Write or variations job runs, the cast
-    read after it. A chain that fails or stops holds nothing, so nothing has to be given back."""
+    read after it; while a Change it note is read, the still or take it pays for. A chain
+    that fails or stops holds nothing, so nothing has to be given back."""
     running = (
         select(Script)
         .join(Job, Job.id == Script.reel_job_id)
@@ -73,8 +74,11 @@ def held(db: Session, user: User) -> Decimal:
     writing = select(Job).where(
         Job.created_by_id == user.id, Job.status.in_(WAITING), Job.kind == "write-claude"
     )
-    casts = sum(1 for j in db.scalars(writing) if j.input.get("then_cast"))
-    return total + price(db, user, ["cast"]) * casts
+    jobs = list(db.scalars(writing))
+    casts = sum(1 for j in jobs if j.input.get("then_cast"))
+    # Change it: the still or take after the rewrite, held until it's queued
+    changes = sum((Decimal(j.input.get("then_credits", "0")) for j in jobs), Decimal(0))
+    return total + price(db, user, ["cast"]) * casts + changes
 
 
 def needs_upload(script: Script) -> bool:
