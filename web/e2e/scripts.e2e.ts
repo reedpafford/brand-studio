@@ -48,10 +48,10 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("button", { name: "Next: Breakdown" }).click();
   await page.getByRole("button", { name: /^Make the breakdown/ }).click();
   await expect(page.getByText(/^Planned · \d+ s/)).toBeVisible({ timeout: 60_000 });
+  // Resizing the open page re-lays it out for the new width a moment later (the layout follows a media query), so wait for it to settle; measuring at once can catch the old layout squeezed into the new width.
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
-    expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), { message: `no sideways scroll at ${width}`, timeout: 10_000 }).toBeLessThanOrEqual(0);
   }
   // Remove the plan, then Undo brings the same plan back.
   await page.getByRole("button", { name: "More for this plan" }).click();
