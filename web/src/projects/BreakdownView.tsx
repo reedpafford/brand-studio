@@ -112,7 +112,7 @@ export function BreakdownView(props: {
   onShowLines?: (lines: number[]) => void; // none in the writing flow: the words are on another step
   onDirty?: (dirty: boolean) => void;
   /** A plan saved on a library version (the writing flow), not on a video: saved through its own route, with no Keep anyway. */
-  preview?: { save: (bd: Breakdown) => Promise<{ problems: string[] }> };
+  preview?: { save: (bd: Breakdown) => Promise<{ problems: string[] }>; keep: (problem: string, undo?: boolean) => void; keepBusy: boolean; again: ReactNode };
 }) {
   const { row, projectId, makeButton, name, preview } = props;
   const queryClient = useQueryClient();
@@ -227,7 +227,7 @@ export function BreakdownView(props: {
   return (
     <div className="space-y-4" aria-label="Breakdown">
       {row.stale && (
-        <Banner tone="warning" title="These shots were made for an older script." action={makeButton("Make new shots", { primary: true })} />
+        <Banner tone="warning" title={preview ? "This plan was made for older words. Make it again so the shots match." : "These shots were made for an older script."} action={preview ? preview.again : makeButton("Make new shots", { primary: true })} />
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
@@ -263,7 +263,7 @@ export function BreakdownView(props: {
           {problemList()}
         </section>
       )}
-      <AdviceList problems={row.problems} kept={row.kept} onKeep={preview ? undefined : (problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} extra={(p) => goButton(p)} />
+      <AdviceList problems={row.problems} kept={row.kept} onKeep={preview ? preview.keep : (problem, undo) => keep.mutate({ problem, undo })} busy={preview ? preview.keepBusy : keep.isPending} owner={owner} extra={(p) => goButton(p)} />
       {bd.hook !== undefined && (
         <p className="text-sm">
           <EditableText value={bd.hook} label="hook" onChange={(v) => change((b) => setHook(b, v))}>

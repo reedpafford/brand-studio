@@ -73,6 +73,15 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
   });
   const p = preview.data;
   // Remove the plan (the owner, before publishing): an editor's video will plan its shots when they start. Undo puts the plan held here back.
+  const keep = useMutation({
+    mutationFn: async ({ problem, undo }: { problem: string; undo?: boolean }) => {
+      const { response, error } = undo
+        ? await api.DELETE("/scripts/{script_id}/drafts/{slot}/breakdown/keep", { params: { path, query: { problem } } })
+        : await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/keep", { params: { path }, body: { problem } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["preview", scriptId, slot] }),
+  });
   const remove = useMutation({
     mutationFn: async (held: Breakdown) => {
       const { response, error } = await api.DELETE("/scripts/{script_id}/drafts/{slot}/breakdown", { params: { path } });
@@ -155,7 +164,7 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
     );
 
   const plan = p!.breakdown as Breakdown;
-  const row = { id: 0, script_version: 0, source: "claude", breakdown: plan, problems: p!.problems, kept: [], stale: false } as components["schemas"]["BreakdownOut"];
+  const row = { id: 0, script_version: 0, source: "claude", breakdown: plan, problems: p!.problems, kept: p!.kept, stale: p!.stale } as components["schemas"]["BreakdownOut"];
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted tabular-nums">
@@ -204,18 +213,21 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
         problem={null}
         name={(id) => (id ? refName(id, pieces, roles) : "")}
         line={null}
-        preview={
-          readOnly
-            ? undefined
-            : {
-                save: async (bd) => {
-                  const { data, error } = await api.PUT("/scripts/{script_id}/drafts/{slot}/breakdown", { params: { path }, body: bd });
-                  if (!data) throw new Error(errorText(error));
-                  toast(`Plan saved for version ${letter}.`);
-                  return data;
-                },
-              }
-        }
+        preview={{
+          keep: (problem, undo) => keep.mutate({ problem, undo }),
+          keepBusy: keep.isPending,
+          again: readOnly ? null : (
+            <Button icon={RotateCcw} price={price} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => setAsking(true)}>
+              Make it again
+            </Button>
+          ),
+          save: async (bd) => {
+            const { data, error } = await api.PUT("/scripts/{script_id}/drafts/{slot}/breakdown", { params: { path }, body: bd });
+            if (!data) throw new Error(errorText(error));
+            toast(`Plan saved for version ${letter}.`);
+            return data;
+          },
+        }}
       />
       {removing && (
         <Dialog title="Remove this plan?" cancelLabel="Keep it" actionLabel="Remove" danger busy={remove.isPending} onCancel={() => setRemoving(false)} onConfirm={() => remove.mutate(plan)}>

@@ -15,7 +15,7 @@ const script = {
 };
 const plan = {
   breakdown: { hook: "Hook.", scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [{ id: "1.1", seconds: 4, camera: "close-up", description: "Mia says no", character_ids: ["slot:31"], place_id: null, screen_ids: [], script_lines: [1], line: "MIA: Hell no!", speaker: "MIA", clip_id: "c1" }] }], clips: [{ id: "c1", seconds: 4, shot_ids: ["1.1"] }] },
-  problems: ["Advice: shot 1.1: a slow hook"], seconds: 4, running: false,
+  problems: ["Advice: shot 1.1: a slow hook"], seconds: 4, running: false, kept: [] as string[], stale: false,
 };
 const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
   "GET /auth/me": [200, owner],
@@ -67,7 +67,7 @@ test("a run in progress shows Planning shots and no button", async () => {
   expect(screen.queryByRole("button", { name: /Make the breakdown/ })).toBeNull();
 });
 
-test("each version has its own tab; a planned one shows its plan, with advice closed and no Keep anyway, and no video-only row", async () => {
+test("each version has its own tab; a planned one shows its plan, with advice closed, and no video-only row", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7/drafts/0/breakdown": [200, plan], "GET /scripts/7": [200, { ...script, versions: [version(0, { has_breakdown: true, estimate_credits: 55.2 }), version(1)] }] }));
   open();
@@ -75,7 +75,6 @@ test("each version has its own tab; a planned one shows its plan, with advice cl
   expect(screen.getByRole("tab", { name: "B" })).toBeInTheDocument();
   expect(await screen.findByText("Planned · 4 s · 1 clip · about 56 credits to make")).toBeInTheDocument(); // credits round up
   expect(screen.getByText("Advice (1)")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Keep anyway/ })).toBeNull();
   expect(screen.queryByText("Where will it be posted?")).toBeNull();
   expect(screen.getByText("Mia · cast at Assets")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it again · 6 credits" }));
@@ -99,4 +98,32 @@ test("Reed can remove a plan after a confirm, and Undo puts the same plan back",
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/breakdown")).toBe(true));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0/breakdown")?.body).toEqual(plan.breakdown));
+});
+
+test("a plan made for older words says so, with Make it again; its advice can be kept and the keep undone", async () => {
+  setViewport(1440);
+  const advice = plan.problems[0];
+  const calls = fakeServer(base({
+    "GET /scripts/7/drafts/0/breakdown": [200, { ...plan, stale: true, kept: [advice] }],
+    "GET /scripts/7": [200, { ...script, versions: [version(0, { has_breakdown: true }), version(1)] }],
+    "DELETE /scripts/7/drafts/0/breakdown/keep": [200, { ...plan, kept: [] }],
+  }));
+  open();
+  expect(await screen.findByText("This plan was made for older words. Make it again so the shots match.")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Make it again · 6 credits" }).length).toBeGreaterThan(0);
+  expect(screen.getByText("Advice (0)")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Undo keep/, hidden: true }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/breakdown/keep")).toBe(true));
+});
+
+test("Keep anyway on a plan's advice calls the plan's keep route", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({
+    "GET /scripts/7/drafts/0/breakdown": [200, plan],
+    "GET /scripts/7": [200, { ...script, versions: [version(0, { has_breakdown: true }), version(1)] }],
+    "POST /scripts/7/drafts/0/breakdown/keep": [200, plan],
+  }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /Keep anyway/, hidden: true }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/breakdown/keep")?.body).toEqual({ problem: plan.problems[0] }));
 });
