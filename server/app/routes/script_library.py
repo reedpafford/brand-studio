@@ -14,11 +14,14 @@ from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
+from app.models.jobs import Job
+from app.models.library import LibraryItem
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.models.scripts import Suggestion
 from app.purge import PURGE_AFTER
 from app.reel import reel_link
 from app.routes.brands import get_brand
+from app.routes.jobs import stop_jobs
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
@@ -417,9 +420,25 @@ def delete_script(
     script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Delete it, undoably (Reed, 2026-10-25): it leaves every list but keeps its versions,
-    history, cast, reel files and videos, so Restore brings it back exactly as it was."""
+    history, cast, reel files and videos, so Restore brings it back as it was. Its own work
+    stops, as on Release (a reel read, a Write, variations, a cast read, its own looks'
+    sheets); Restore doesn't start it again. Its videos are their own and go on."""
     script = _removable(db, user, script_id)
     script.archived, script.deleted_at = True, utcnow()
+    looks = set(db.scalars(select(LibraryItem.id).where(LibraryItem.owner_script_id == script.id)))
+    waiting = db.scalars(
+        select(Job).where(
+            Job.workspace_id == script.workspace_id,
+            Job.project_id.is_(None),
+            Job.status.in_(lib.WAITING),
+        )
+    )
+    mine = [
+        j.id
+        for j in waiting
+        if j.input.get("script_id") == script.id or j.input.get("library_item_id") in looks
+    ]
+    stop_jobs(db, Job.id.in_(mine))
     # app.purge removes it for good PURGE_AFTER on (never one with videos).
     db.commit()
 

@@ -24,11 +24,11 @@ from app.models.script_library import ScriptDraft
 from app.routes import references
 from app.routes.brands import get_brand
 from app.routes.files import get_file
+from app.routes.jobs import stop_jobs
 from app.routes.library import pick_item
 from app.routes.production import progress
 from app.schemas import LongText, Name, ShortText
 
-NOT_STARTED = (JobStatus.queued, JobStatus.needs_owner_approval)
 router = APIRouter(prefix="/projects", tags=["credits"])
 
 
@@ -99,23 +99,10 @@ class ProjectOut(BaseModel):
 
 def archive(db: Session, project: Project) -> None:
     """Put a video away (or release its version): hidden from lists, and every job of it that
-    hasn't finished stops. Jobs not started are cancelled. One already at the provider is
-    cancelled too, at once (so a Restore never shows it as still being made), and marked to be
-    discarded: the worker still waits for it to land, saves nothing from it and records its
-    dollars for the owner (live test: a released video's breakdown went on and charged 3.92).
-    Cancelled jobs aren't counted, so its credits come back."""
+    hasn't finished stops (`stop_jobs`; live test: a released video's breakdown went on and
+    charged 3.92). Cancelled jobs aren't counted, so its credits come back."""
     project.archived_at = utcnow()
-    db.execute(
-        update(Job)
-        .where(Job.project_id == project.id, Job.status.in_(NOT_STARTED))
-        .values(status=JobStatus.cancelled, finished_at=utcnow())
-    )
-    running = db.scalars(
-        select(Job).where(Job.project_id == project.id, Job.status == JobStatus.running)
-    )
-    for job in running:
-        job.input = {**job.input, "discard": True}
-        job.status = JobStatus.cancelled  # finished_at stays empty until the provider is done
+    stop_jobs(db, Job.project_id == project.id)
 
 
 def _mine(db: Session, user: User, project_id: int) -> Project:
