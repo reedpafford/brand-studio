@@ -6,9 +6,10 @@ def test_launch_brands_exist_after_setup(owner):
     assert [b["slug"] for b in owner.get("/brands").json()] == ["fomo", "iron-paws"]
 
 
-def test_create_and_edit_kit(editor):
+def test_create_and_edit_kit(owner, editor):
     logo = upload(editor)
-    r = editor.post("/brands", json={"name": "Night Owl", "colours": ["#112233"]})
+    assert editor.post("/brands", json={"name": "Night Owl"}).status_code == 403  # owner only
+    r = owner.post("/brands", json={"name": "Night Owl", "colours": ["#112233"]})
     assert r.status_code == 201
     brand = r.json()
     assert brand["slug"] == "night-owl"
@@ -40,6 +41,10 @@ def test_only_owner_archives(owner, editor):
     assert editor.delete(f"/brands/{brand_id}").status_code == 403
     assert owner.delete(f"/brands/{brand_id}").status_code == 204
     assert owner.get(f"/brands/{brand_id}").status_code == 404
+    assert editor.post(f"/brands/{brand_id}/restore").status_code == 403
+    assert owner.post(f"/brands/{brand_id}/restore").json()["id"] == brand_id  # Undo
+    assert owner.get(f"/brands/{brand_id}").status_code == 200
+    assert owner.post(f"/brands/{brand_id}/restore").status_code == 404  # not archived
 
 
 def test_other_workspace_cannot_touch_brands_or_screens(owner, outsider):

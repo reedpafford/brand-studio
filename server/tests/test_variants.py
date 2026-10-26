@@ -6,8 +6,8 @@ from app.storyboard import assets
 from tests.conftest import upload
 
 
-def _bags(editor):
-    brand = editor.post("/brands", json={"name": "Iron Paws Test"}).json()["id"]
+def _bags(editor, owner):
+    brand = owner.post("/brands", json={"name": "Iron Paws Test"}).json()["id"]
     ids = {}
     for variant in ("Chicken", "Peanut butter"):
         body = {
@@ -30,8 +30,8 @@ def _lines(db, project):
     return [line for line, _ in assets(db, db.get(Project, project)).values()]
 
 
-def test_project_uses_only_its_chosen_variant(db, editor):
-    _, ids, project = _bags(editor)
+def test_project_uses_only_its_chosen_variant(db, owner, editor):
+    _, ids, project = _bags(editor, owner)
     first = _lines(db, project)  # nothing picked yet: the first variant
     assert any(f"screen:{ids['Chicken']} | product | Bag Chicken |" in x for x in first)
     assert not any(f"screen:{ids['Peanut butter']}" in x for x in first)
@@ -45,8 +45,8 @@ def test_project_uses_only_its_chosen_variant(db, editor):
     assert not any(f"screen:{ids['Chicken']}" in x for x in picked)
 
 
-def test_unknown_variant_is_refused(editor):
-    _, _, project = _bags(editor)
+def test_unknown_variant_is_refused(owner, editor):
+    _, _, project = _bags(editor, owner)
     r = editor.patch(f"/projects/{project}", json={"product_variants": {"bag": "Salmon"}})
     assert (r.status_code, r.json()["detail"]) == (422, "bag comes in: Chicken, Peanut butter.")
     r = editor.patch(f"/projects/{project}", json={"product_variants": {"can": "Chicken"}})
