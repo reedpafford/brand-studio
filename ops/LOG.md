@@ -4,6 +4,10 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 13:02 · #470 Delete or archive a script: the running-work line (spec) merged
+- 2026-10-26 12:46 · #471 A script says when its own work is being made merged
+- 2026-10-26 12:46 · #463 Reel chip with length and status; Write all splits reading and writing merged
+- 2026-10-26 12:17 · #469 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-26 12:15 · #459 Read it again and Fill the script again screens merged
 - 2026-10-26 12:07 · #467 Deleting a script stops its work merged
 - 2026-10-26 12:02 · #466 Change it and cast redraw use the shared price rounding merged
