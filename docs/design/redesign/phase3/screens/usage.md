@@ -218,8 +218,8 @@ For Builder-Server. Every endpoint is owner-only; editors get 404. Generation do
   ```
   { id, at, person {id, name} | null, brand {id, name} | null, what, credits, cost_usd, estimated, status, refunded: {credits, reason, at} | null }
   ```
-- `POST /usage/charges/{id}/refund {reason}` (owner only, once per job): the charge's credits go to 0 and come back to the week or the budget, the dollars stay, and 409 "Those credits were already given back." on a second try.
   `what` is the plain words: "Clip 3 take 2 · Bo tries salmon · B".
+- `POST /usage/charges/{id}/refund {reason}` (owner only, once per job): the charge's credits go to 0 and come back to the week or the budget, the dollars stay, and 409 "Those credits were already given back." on a second try.
 
 **Tests to include:**
 - A new brand appears with zeros.

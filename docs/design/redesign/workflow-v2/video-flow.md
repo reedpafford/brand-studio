@@ -67,6 +67,11 @@ Only characters and places made in **Cast & places** go into the brand's library
     - A name already used by a brand character gives the server's words under Name: "Bo is already in Cast & places. Pick another name."
   - **After:** a copy goes into Cast & places as a normal character, with its approved sheet. The video now uses the library character, and the badge becomes the usual library look. The toast says "Mia saved to Cast & places." with **Undo** (8 s). Undo removes the copy and puts the video back on its own look.
   - It's free: copying makes nothing new.
+- **Delete this look** (in the card's `Ellipsis` menu, `Trash2`, danger): only on a look made for this video (or script), never on a Cast & places character.
+  - **Who:** Reed, or whoever made the video (an editor on their own video).
+  - **Asks first only when stills use it:** "Delete Mia's look? 2 stills use it. They keep their pictures, and the role needs a look again." **Delete** (danger) / **Keep it** (ghost). A look nothing uses yet is deleted at once.
+  - **After:** the card goes back to "Needs a look", or to the library character in use. The toast says "Deleted Mia's look." with **Undo** (8 s), which brings the look back with its sheets and approval.
+  - The credits used to draw it stay used.
 - **Where per-video looks show:** this video's Assets, Storyboard and Clips chips (the chip reads the look's name, with "This video only" in its tooltip). Nowhere else.
 - **Product:** the brand's product picture.
   - For brands with flavours, a flavour picker (cards with the 1:1 picture, as the old brief had). Iron Paws picks its bag here.
@@ -138,7 +143,7 @@ Each version is made only once, so a version started by mistake must be able to 
   - Also on Reed's In production rows, in a row `Ellipsis` menu.
 - **Confirm** (dialog on desktop, sheet on phone):
   - Title: "Release version B?"
-  - Body: "It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted. The 84 credits already used stay used."
+  - Body: "It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted. The 84 credits already used stay used. Anything still being made stops and isn't brought back." (the last sentence as built in #431)
   - When nothing was spent, the last sentence is left out.
   - Buttons: **Release** (danger) / **Keep making it** (ghost).
 - **After:**
@@ -170,6 +175,7 @@ Each version is made only once, so a version started by mistake must be able to 
 - **Looks for one video or one script (gaps #19):**
   - A look made on Assets (or in a script's Cast step) is stored against that video (or script), not the brand's library: `owner: {video_id} | {script_id}`, never listed by `GET /library/*`, never offered in pickers elsewhere.
   - Per look: `GET` with its sheet versions and state, `POST …/sheet` (paid, with the change note), `POST …/approve`, `POST …/pick` for an earlier version.
+  - `DELETE` on a per-video look, with a restore route for Undo (Builder-Server is adding them). It refuses a Cast & places character.
   - `POST /videos/{id}/assets/{slot}/save-to-library` `{name}`: copies the approved look into Cast & places as a normal character and points the slot at it. It returns the new character id, and the Undo is `DELETE` on it, which puts the slot back on the look. It refuses with 409 "Approve the sheet first" or "{Name} is already in Cast & places. Pick another name."
   - A team setting `editors_can_save_looks` (default false) on `GET/PUT /credits/limits` or `/team/settings`. The save route refuses editors with 403 while it's off.
 - **Downloads:** the takes listed per clip, with times; `GET /videos/{id}/clips.zip` for the picked takes; and the stitched video, as today.
