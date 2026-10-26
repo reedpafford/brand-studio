@@ -42,6 +42,7 @@ test("an empty script with no reel offers Write with Claude at its price, and th
   const write = await screen.findByRole("button", { name: "Write with Claude · 6 credits" });
   expect(screen.getByRole("heading", { name: "Write with Claude" })).toBeInTheDocument();
   expect(screen.queryByRole("switch")).toBeNull();
+  expect(screen.getByText("Includes finding the roles.")).toBeInTheDocument();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
   await userEvent.click(write);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/write")).toBe(true));

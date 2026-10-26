@@ -11,6 +11,12 @@ Brand (page 32)                                                     [Save change
 - The amber button follows the tab: **Save changes** on Look (disabled until something changed, reason "No changes yet"), **Add product** on Products, **Add screens** on App screens.
 - Leaving Look with unsaved changes asks in a dialog: "Leave without saving?" **Keep editing** / **Leave** (danger).
 - Phone: tabs as a segmented control at full width; the amber button in the action bar.
+- **Archive brand** (Reed only, gaps #8): in an `Ellipsis` menu at the right of the page title.
+  - Confirm: "Archive {Name}? It leaves the brand menu. Its scripts, videos and screens are kept, and you can bring it back from Usage." **Keep it** / **Archive** (danger).
+  - After: the app switches to the first other brand. Toast: "Archived {Name}." with **Undo** (8 s).
+  - Bringing it back later: Usage → **Show archived** → the brand's row → **Restore** (secondary dense).
+  - Editors never see the menu. An editor who opens an archived brand's link gets "That brand was archived. Ask Reed if you need it." with a link to Scripts.
+  - Server: `POST /brands`, `DELETE /brands/{id}` (archive), and the coming `POST /brands/{id}/restore`.
 
 ## Look
 Two columns ≥ 1024 (Look 7 cols, Voice 5 cols); one column on phone.

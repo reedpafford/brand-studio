@@ -21,6 +21,7 @@ class ProjectClip(Entity, Base):
     file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # the picked take's video
     picked_take_id: Mapped[int | None] = mapped_column(ForeignKey("clip_takes.id", use_alter=True))
     approved: Mapped[bool] = mapped_column(default=False)  # the picked take looks good
+    prompt_ok: Mapped[bool] = mapped_column(default=False)  # its prompt was read: Looks good
     # Insert shot id -> "Use the real image" as the editor set it (else the default, cut_in.py)
     real_images: Mapped[dict[str, bool]] = mapped_column(JSON, default=dict)
 
