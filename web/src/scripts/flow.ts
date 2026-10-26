@@ -14,9 +14,9 @@ export const WRITING_STEPS = [
 export type WritingStep = (typeof WRITING_STEPS)[number]["id"];
 
 /** Steps that are built so far; the rest show in the picker but can't be opened yet. */
-const BUILT: WritingStep[] = ["description", "script", "variations", "cast", "publish"];
+const BUILT: WritingStep[] = ["description", "script", "variations", "cast", "breakdown", "publish"];
 /** Skippable steps that are not built yet: Next steps over them, and the picker marks them as skipped. */
-export const SKIPPED: WritingStep[] = ["directions", "breakdown"];
+export const SKIPPED: WritingStep[] = ["directions"];
 
 export const stepFromParam = (p: string | null): WritingStep => (WRITING_STEPS.find((s) => s.id === p)?.id ?? "description") as WritingStep;
 
@@ -24,14 +24,14 @@ export const hasWords = (s: Script) => (s.versions.find((v) => v.slot === 0)?.te
 
 export function lockReason(step: WritingStep, s: Script): string | null {
   if (!BUILT.includes(step)) return "Coming soon";
-  if ((step === "cast" || step === "publish") && !hasWords(s)) return "Write the script first";
+  if ((step === "cast" || step === "breakdown" || step === "publish") && !hasWords(s)) return "Write the script first";
   return null;
 }
 
 export function stepStates(current: WritingStep, s: Script): { id: WritingStep; label: string; state: StepState; reason?: string }[] {
   return WRITING_STEPS.map((x) => {
     const reason = lockReason(x.id, s);
-    const done = x.id === "description" || (x.id === "script" && hasWords(s)) || (x.id === "cast" && hasWords(s) && (s.cast?.length ?? 0) > 0) || (x.id === "publish" && s.published);
+    const done = x.id === "description" || (x.id === "script" && hasWords(s)) || (x.id === "cast" && hasWords(s) && (s.cast?.length ?? 0) > 0) || (x.id === "breakdown" && s.versions.some((v) => v.has_breakdown)) || (x.id === "publish" && s.published);
     const state: StepState = x.id === current ? "current" : reason !== null ? "todo" : done ? "done" : "open";
     return { id: x.id, label: x.label, state, ...(reason ? { reason } : {}) };
   });

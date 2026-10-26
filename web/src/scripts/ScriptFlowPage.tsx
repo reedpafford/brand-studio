@@ -12,6 +12,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
+import { BreakdownStep } from "./BreakdownStep";
 import { CastStep } from "./CastStep";
 import { DescriptionForm } from "./DescriptionForm";
 import { VariationsStep, variationsReason, writtenVariations } from "./VariationsStep";
@@ -167,6 +168,7 @@ export function ScriptFlowPage() {
       {step === "script" && <ScriptStep scriptId={id} script={s} onEditing={setEditing} />}
       {step === "variations" && <VariationsStep script={s} own={mine} onPicked={setPicked} />}
       {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
+      {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
       {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}
     </main>
   );

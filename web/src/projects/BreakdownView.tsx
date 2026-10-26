@@ -109,10 +109,12 @@ export function BreakdownView(props: {
   problem: ReactNode;
   name: (id: string | null) => string;
   line: number | null;
-  onShowLines: (lines: number[]) => void;
+  onShowLines?: (lines: number[]) => void; // none in the writing flow: the words are on another step
   onDirty?: (dirty: boolean) => void;
+  /** A plan saved on a library version (the writing flow), not on a video: saved through its own route, with no Keep anyway. */
+  preview?: { save: (bd: Breakdown) => Promise<{ problems: string[] }> };
 }) {
-  const { row, projectId, makeButton, name } = props;
+  const { row, projectId, makeButton, name, preview } = props;
   const queryClient = useQueryClient();
   const toast = useToast();
   const { pieces, screens } = useBrandPieces(props.brandId);
@@ -145,13 +147,14 @@ export function BreakdownView(props: {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (preview) return preview.save(draft!);
       const { data, error } = await api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body: draft! });
       if (!data) throw new Error(errorText(error));
       return data;
     },
     onSuccess: async (saved) => {
       toast(saved.problems.length === 0 ? "Saved. No problems." : `Saved. ${saved.problems.length} problem${saved.problems.length === 1 ? "" : "s"} left.`);
-      await queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] });
+      await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
     },
   });
 
@@ -228,7 +231,7 @@ export function BreakdownView(props: {
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
-          {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s of {props.plannedSeconds} s planned
+          {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s{preview ? "" : ` of ${props.plannedSeconds} s planned`}
           <span className="sr-only"> · {row.source === "edit" ? "edited" : "made by Claude"}</span>
         </p>
         {!row.stale && makeButton("Redo", { ask: row.source === "edit" || dirty ? "Replace this breakdown? Your edits are kept in History." : undefined })}
@@ -255,12 +258,12 @@ export function BreakdownView(props: {
         <section className="space-y-1 rounded-lg border border-danger bg-danger-soft p-4 text-sm" aria-label="Problems">
           <h3 className="flex items-center gap-2 font-semibold text-danger">
             <TriangleAlert size={20} strokeWidth={1.75} aria-hidden />
-            {real.length} problem{real.length === 1 ? "" : "s"} to fix before the storyboard
+            {real.length} problem{real.length === 1 ? "" : "s"} {preview ? "in this plan" : "to fix before the storyboard"}
           </h3>
           {problemList()}
         </section>
       )}
-      <AdviceList problems={row.problems} kept={row.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} extra={(p) => goButton(p)} />
+      <AdviceList problems={row.problems} kept={row.kept} onKeep={preview ? undefined : (problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} extra={(p) => goButton(p)} />
       {bd.hook !== undefined && (
         <p className="text-sm">
           <EditableText value={bd.hook} label="hook" onChange={(v) => change((b) => setHook(b, v))}>
@@ -305,9 +308,13 @@ export function BreakdownView(props: {
                             <span className="tabular-nums">{s.seconds} s</span>
                             <span className="text-muted">{s.camera}</span>
                             <span className="ml-auto flex items-center gap-1">
-                              <Button type="button" variant="ghost" dense aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines(s.script_lines)}>
-                                {lines(s.script_lines)[0].toUpperCase() + lines(s.script_lines).slice(1)}
-                              </Button>
+                              {props.onShowLines ? (
+                                <Button type="button" variant="ghost" dense aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines!(s.script_lines)}>
+                                  {lines(s.script_lines)[0].toUpperCase() + lines(s.script_lines).slice(1)}
+                                </Button>
+                              ) : (
+                                <span className="text-muted">{lines(s.script_lines)[0].toUpperCase() + lines(s.script_lines).slice(1)}</span>
+                              )}
                               <Button
                                 type="button"
                                 variant="ghost"
