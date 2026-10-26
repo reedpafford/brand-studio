@@ -544,6 +544,10 @@ test("a problem line never shows a raw id: the character's name stands in, the c
   expect(within(list).getByRole("link", { name: "Approve a look in Assets" })).toHaveAttribute("href", "/b/1/videos/9?step=assets");
   const advice = screen.getByLabelText("Advice for c1");
   expect(advice).not.toHaveTextContent(/char:/);
+  await userEvent.click(within(advice).getByText(/Advice \(/)); // open it
+  const keepLabels = within(advice).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? "");
+  expect(keepLabels.some((l) => l.startsWith("Keep anyway: "))).toBe(true);
+  expect(keepLabels.join(" ")).not.toMatch(/char:|slot:/); // the screen reader hears names too
 });
 
 test("a frame's problem reads as a name too", async () => {

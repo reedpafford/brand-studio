@@ -262,7 +262,7 @@ export function BreakdownView(props: {
           <span className="flex-1 py-3">{words(p)}</span>
           {goButton(p, after)}
           {p.startsWith(CAST) && (
-            <Button variant="ghost" dense aria-label={`Keep anyway: ${p}`} onClick={() => (preview ? preview.keep(p) : keep.mutate({ problem: p }))}>
+            <Button variant="ghost" dense aria-label={`Keep anyway: ${words(p)}`} onClick={() => (preview ? preview.keep(p) : keep.mutate({ problem: p }))}>
               Keep anyway
             </Button>
           )}
