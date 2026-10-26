@@ -225,6 +225,7 @@ function AssetCard({
   });
   // A look's sheet may get one automatic redo, so the press holds the most it can cost; the usual price is the sheet alone.
   const makeUpTo = asset.look_credits ?? undefined;
+  const makeUsual = asset.look_usual_credits ?? price;
   const changeUpTo = item.data?.change_credits || undefined;
   const decline = stopFor(makeUpTo ?? price);
   const drawingNow = asset.sheet_status === "drawing";
@@ -319,7 +320,7 @@ function AssetCard({
                   busy={makeLook.isPending}
                   price={makeUpTo ?? price}
                   upTo={makeUpTo !== undefined}
-                  usually={price}
+                  usually={makeUsual}
                   reason={decline}
                   disabled={!!decline}
                   onClick={() => makeLook.mutate()}
@@ -373,7 +374,7 @@ function AssetCard({
                 </Button>
               )}
               <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={change} onChange={(e) => setChange(e.target.value)} />
-              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={changeUpTo ?? price} upTo={changeUpTo !== undefined} usually={price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
+              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={changeUpTo ?? price} upTo={changeUpTo !== undefined} usually={item.data?.sheet_usual_credits || price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
                 Change it
               </Button>
               {asset.only_here === "video" && canSave && (

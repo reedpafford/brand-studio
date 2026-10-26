@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { Banner, Button, wholeCredits } from "../components";
-import { useSheetPrice } from "../library/SheetPanel";
 
 const START_IN = 5;
 
@@ -22,9 +21,8 @@ export function AutoLooks({ projectId }: { projectId: number }) {
     queryFn: async () => (await api.GET("/projects/{project_id}/assets/missing-looks", { params: { path: { project_id: projectId } } })).data ?? null,
   });
   const m = missing.data;
-  // The press holds the most it can cost (each sheet may get one automatic redo); the usual price is the sheets alone.
-  const { price: sheet } = useSheetPrice();
-  const price = (n: number) => `up to ${wholeCredits(n)} credits${sheet !== undefined && m ? ` (usually ${wholeCredits(sheet * m.slot_ids.length)})` : ""}`;
+  // The press holds the most it can cost (each sheet may get one automatic redo); the server says the usual price too.
+  const price = (n: number) => `up to ${wholeCredits(n)} credits${m ? ` (usually ${wholeCredits(m.usual_credits)})` : ""}`;
   const make = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/assets/make-missing", { params: { path: { project_id: projectId } } });

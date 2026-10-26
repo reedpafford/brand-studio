@@ -563,7 +563,7 @@ test("a frame's problem reads as a name too", async () => {
   expect(list).not.toHaveTextContent(/char:/);
 });
 
-const missing = (o: object = {}) => ({ slot_ids: [3, 4], roles: ["Nate", "Mia"], credits: 8.4, reason: null, ...o });
+const missing = (o: object = {}) => ({ slot_ids: [3, 4], roles: ["Nate", "Mia"], credits: 8.4, usual_credits: 4, reason: null, ...o });
 
 test("missing looks: the price first with a countdown and Not now; Not now is recorded on the server and nothing is made", async () => {
   setViewport(1440);
@@ -574,7 +574,7 @@ test("missing looks: the price first with a countdown and Not now; Not now is re
     "POST /projects/9/assets/make-missing": [200, []],
   });
   open();
-  expect(await screen.findByText("Making looks for Nate and Mia · up to 9 credits (usually 3)")).toBeInTheDocument();
+  expect(await screen.findByText("Making looks for Nate and Mia · up to 9 credits (usually 4)")).toBeInTheDocument();
   expect(screen.getByText(/Starting in \d s/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Not now" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/missing-looks/decline")).toBe(true));
@@ -614,7 +614,7 @@ test("Make a look shows the most it can cost, with the usual price under it, and
   setViewport(1440);
   fakeServer({
     ...base,
-    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", sheet_status: "missing", look_credits: 3.6 })]],
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", sheet_status: "missing", look_credits: 3.6, look_usual_credits: 2 })]],
     "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, reason: null }],
   });
   open();
@@ -627,7 +627,7 @@ test("Change it on a look's sheet shows up to N credits with the usual price und
   fakeServer({
     ...base,
     "GET /projects/9/assets": [200, [own()]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Coach", change_credits: 5, sheet_credits: 4 })],
+    "GET /library/character/12": [200, item({ id: 12, name: "Coach", change_credits: 5, sheet_credits: 4, sheet_usual_credits: 2 })],
     "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, reason: null }],
   });
   open();
