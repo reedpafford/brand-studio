@@ -23,12 +23,15 @@ SCHEMAS = {
     "change": schemas.ChangedPrompt,
     "variations": schemas.Variations,
     "cast_slots": schemas.CastSlots,
+    "look_fit": schemas.LookFit,
 }
+NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
 
 
 @cache
 def system(step: str) -> str:
-    parts = [(HERE / "rules.md").read_text(), (HERE / f"{step}.md").read_text()]
+    parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
+    parts.append((HERE / f"{step}.md").read_text())
     example = HERE / "examples" / f"{step}.json"
     if example.exists():
         ex = json.loads(example.read_text())
@@ -231,13 +234,14 @@ def reference_lines(refs: list[dict]) -> str:
 
 
 def sheet_prompt(
-    kind: str, description: str = "", from_photo: bool = False, change: str = ""
+    kind: str, description: str = "", from_photo: bool = False, change: str = "", role: str = ""
 ) -> str:
     """The Nano Banana prompt for a library item's reference picture. kind "character": a front
     / side / back turnaround sheet, from a description or (from_photo) an uploaded photo of a
     real person as image 1; "place": an empty establishing still. `change` is the editor's note
     when redoing a sheet (the last sheet goes in as the final image). `description` is the
-    item's notes; names stay out so none is drawn."""
+    item's notes; `role` is the script's part for a look made from a cast slot ("Omar, the
+    boyfriend"), given without its name. Names stay out so none is drawn."""
     sections = (HERE / "sheet.md").read_text().split("\n## ")[1:]
     parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
     out = [parts[kind]]
@@ -245,6 +249,8 @@ def sheet_prompt(
         out.append(parts["photo"])
     if description.strip():
         out.append(f"The {kind}: {description.strip()}")
+    if part := role.split(",", 1)[-1].strip():  # "Omar, the boyfriend" -> "the boyfriend"
+        out.append(f"In the story they are {part}; the age, gender and look fit that part.")
     if change.strip():
         out.append(parts["redo"].format(change=change.strip()))
     return " ".join(out)
@@ -306,3 +312,18 @@ def cast_slots_input(
     if reference:
         parts.append(reference)
     return "\n".join(parts)
+
+
+def look_fit_input(description: str, role: str = "") -> str:
+    """The user message for the look_fit check; the sheet image goes before it. `role` is
+    the cast slot's role ("Omar, the boyfriend"); its name is left out."""
+    part = role.split(",", 1)[-1].strip()
+    lines = [f"<character>{description.strip()}</character>"]
+    if part:
+        lines.append(f"<role>{part}</role>")
+    return "\n".join(lines)
+
+
+def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:
+    """The change note for the one automatic redo of a sheet that doesn't fit its role."""
+    return f"The character must read clearly as: {description.strip()}. {fit.problem.strip()}"
