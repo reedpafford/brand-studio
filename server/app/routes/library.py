@@ -70,6 +70,8 @@ class ItemOut(ItemIn):
     owner_project_id: int | None = None  # "This video only"
     owner_script_id: int | None = None  # "This script only"
     look_fit: LookFitOut | None = None  # the sheet doesn't read as its role: advice, Redo it
+    sheet_credits: int = 0  # Make sheet / Redo: the whole press (its check and one redo)
+    change_credits: int = 0  # Change this…: the sheet and its check (never redone by itself)
 
 
 class VersionOut(BaseModel):
@@ -114,6 +116,19 @@ def sheet_status(item: LibraryItem) -> str:
     return "approved" if item.sheet_approved else "needs_approval"
 
 
+def _prices(item: LibraryItem) -> dict:
+    from app.credits import price
+    from app.sheets import SHEET_KINDS, press_price
+
+    db = object_session(item)
+    if db is None or item.kind not in SHEET_KINDS:
+        return {}
+    return {
+        "sheet_credits": price(press_price(db, item)),
+        "change_credits": price(press_price(db, item, change=True)),
+    }
+
+
 def _out(item: LibraryItem) -> ItemOut:
     data = {k: v for k, v in _snapshot(item).items() if k != "sheet_approved"}
     return ItemOut(
@@ -124,6 +139,7 @@ def _out(item: LibraryItem) -> ItemOut:
         owner_project_id=item.owner_project_id,
         owner_script_id=item.owner_script_id,
         look_fit=item.look_fit,
+        **_prices(item),
         **data,
     )
 

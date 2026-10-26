@@ -7,6 +7,7 @@ import json
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
+from app.advice import names, plain
 from app.breakdown import video_model, video_model_block
 from app.enhance import escape, project_context
 from app.models.breakdowns import BreakdownVersion
@@ -75,8 +76,9 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
         if ref.id not in known:
             problems.append(f"{clip.clip_id}: unknown reference {ref.id}")
         elif known[ref.id][1] != ref.kind:
-            problems.append(f"{clip.clip_id}: {ref.id} is not a {ref.kind}")
-    return problems
+            kind = {"image": "a picture", "audio": "a sound"}.get(ref.kind, f"a {ref.kind}")
+            problems.append(f"{clip.clip_id}: {ref.id} is attached as {kind} but isn't one")
+    return plain(problems, names(known))
 
 
 def save_clip_prompts(db: Session, job: Job) -> None:

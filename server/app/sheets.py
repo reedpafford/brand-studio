@@ -2,6 +2,8 @@
 characters and places only the approved house-style sheet, never the uploaded photo; props
 use their pictures as before."""
 
+from decimal import Decimal
+
 from fastapi import HTTPException
 
 from app.models.library import Kind, LibraryItem
@@ -33,3 +35,46 @@ def require_cast_sheets(db, breakdown_data: dict, shot_ids: list[str]) -> None:
         item = db.get(LibraryItem, int(ref.split(":")[1]))
         if item:
             require_sheet(item)
+
+
+SHEET_MODEL, RESOLUTION = "nano-banana-pro", "2K"  # what Make a look and Make sheet draw with
+
+
+def sheet_price(db, workspace_id: int, model: str = SHEET_MODEL) -> Decimal:
+    """One sheet with the given model, as it's drawn."""
+    from app.credits import estimate
+
+    job = {"model": model, "input": {"resolution": RESOLUTION}}
+    return estimate(db, workspace_id, "image", Decimal(1), job)
+
+
+def check_price(db, workspace_id: int) -> Decimal:
+    """One look-fit check (a small Claude call)."""
+    from app.credits import estimate
+
+    return estimate(db, workspace_id, "write-claude", Decimal(1))
+
+
+def is_checked(item: LibraryItem) -> bool:
+    """Sheets of a character drawn from a description get the look-fit check; one from an
+    uploaded photo doesn't (the photo is the truth), nor do places."""
+    return item.kind == Kind.character and not item.source_photo_file_id
+
+
+def worst(sheet: Decimal, check: Decimal, checked: bool, change: bool) -> Decimal:
+    """What one press can spend at most, so the price shown is never below the charge: the
+    sheet, its check, and (unless the press is the person's own change) the one automatic
+    redo with its check."""
+    if not checked:
+        return sheet
+    return (sheet + check) * (1 if change else 2)
+
+
+def press_price(db, item: LibraryItem, change: bool = False) -> Decimal:
+    ws = item.workspace_id
+    return worst(sheet_price(db, ws), check_price(db, ws), is_checked(item), change)
+
+
+def look_price(db, workspace_id: int) -> Decimal:
+    """Make a look: a new character from its role's description, checked."""
+    return worst(sheet_price(db, workspace_id), check_price(db, workspace_id), True, False)

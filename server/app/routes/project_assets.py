@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app import breakdown, cast_roles
 from app.auth import current_user
-from app.credits import get_limits
+from app.credits import fits, get_limits, price
 from app.db import get_db
 from app.enhance import project_screens, screen_name
 from app.models.accounts import User
@@ -30,6 +30,7 @@ from app.routes.script_cast import RoleFacts, role_facts
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, make_sheet
 from app.schemas import Name
+from app.sheets import look_price
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
 
@@ -51,6 +52,8 @@ class AssetOut(BaseModel):
     own_look_id: int | None = None  # the look made for this role here; "Not used" if swapped out
     facts: RoleFacts | None = None  # the role's age range, gender and job (a slot's row only)
     look_fit: LookFitOut | None = None  # its sheet doesn't read as the role: advice, Redo it
+    declined: bool = False  # Not now on the missing-looks note: never made by itself again
+    look_credits: int | None = None  # Make a look on a role: the whole press, rounded up
 
 
 class SaveLookIn(BaseModel):
@@ -120,6 +123,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     used = list(dict.fromkeys(c for s in shots for c in s["character_ids"]))
     places = list(dict.fromkeys(s["place_id"] for s in shots if s.get("place_id")))
     out, seen = [], set()
+    look = price(look_price(db, project.workspace_id))
     for slot in _slots(db, project):
         item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
         item = db.get(LibraryItem, item_id) if item_id else None
@@ -127,6 +131,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
                         slot.role, item, slot.library_item_id is not None, slot))  # fmt: skip
         own = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
         out[-1].own_look_id = own.id if own and not own.archived else None  # removed: gone
+        out[-1].declined = project.slot_looks.get(str(slot.id), 0) is None
+        out[-1].look_credits = look
         seen.add(f"char:{item_id}")
     for ref in used:
         if ref in seen or not ref.startswith("char:"):
@@ -226,6 +232,11 @@ def make_look(
     mine = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
     if mine and not mine.archived:  # a removed one can be made again
         raise HTTPException(409, f"{slot.role} already has a look for this video.")
+    _make_look(db, user, project, slot)
+    return list_assets(project_id, user, db)
+
+
+def _make_look(db: Session, user: User, project: Project, slot: ScriptCastSlot) -> None:
     look = LibraryItem(
         workspace_id=project.workspace_id,
         kind=Kind.character,
@@ -239,7 +250,88 @@ def make_look(
     make_sheet(Kind.character, look.id, SheetIn(), user, db)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+class MissingLooksOut(BaseModel):
+    slot_ids: list[int]  # roles in this video's shots with no character and no look made yet
+    roles: list[str]
+    credits: int  # each look's whole price (its sheet, check and one redo), rounded up
+    reason: str | None = None  # why they can't all be made (plain), or null when they fit
+
+
+def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
+    """The roles Assets makes looks for by itself (Reed, 2026-10-26): every cast slot (a main
+    or recurring role; background people are never slots) that the newest breakdown's shots
+    show, with no character picked and no look made for it here. A look the editor removed,
+    or a role they said Not now to (kept as no look), is never made again by itself."""
+    bd = _newest(db, project)
+    shown = {
+        c for s in (bd.data["scenes"] if bd else []) for x in s["shots"] for c in x["character_ids"]
+    }
+    return [
+        s
+        for s in _slots(db, project)
+        if s.library_item_id is None
+        and str(s.id) not in project.slot_cast
+        and str(s.id) not in project.slot_looks
+        and f"slot:{s.id}" in shown
+    ]
+
+
+def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
+    slots = _missing(db, project)
+    total = look_price(db, project.workspace_id) * len(slots)
+    why = fits(db, project, user, total) if slots else ""
+    n = len(slots)
+    said = f"Making {'a look' if n == 1 else f'{n} looks'} ({price(total)} credits) {why}"
+    return MissingLooksOut(
+        slot_ids=[s.id for s in slots],
+        roles=[cast_roles.short(s.role) or s.role for s in slots],
+        credits=price(total) if slots else 0,
+        reason=said if why else None,
+    )
+
+
+@router.get("/missing-looks", response_model=MissingLooksOut)
+def missing_looks(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """What opening Assets will make by itself, with its price and, if it doesn't fit, why."""
+    return _missing_out(db, user, get_project(db, user, project_id))
+
+
+@router.post(
+    "/make-missing",
+    response_model=list[AssetOut],
+    dependencies=[Depends(generation_on)],
+)
+def make_missing_looks(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Make a look for every role that has none (`_missing`), each for this video only, paid
+    from its budget or the editor's week. All or none: if they don't all fit, nothing is made
+    and the plain reason comes back (409). Each sheet still needs the editor's Approve (or a
+    Redo, or a swap) before Storyboard; Storyboard refuses until then."""
+    project = get_project(db, user, project_id)
+    out = _missing_out(db, user, project)
+    if out.reason:
+        raise HTTPException(409, out.reason)
+    for slot in _missing(db, project):
+        _make_look(db, user, project, slot)
     return list_assets(project_id, user, db)
+
+
+@router.post("/missing-looks/decline", response_model=MissingLooksOut)
+def decline_missing_looks(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Not now: the roles waiting for a look are left for the editor's own Make a look, and
+    opening Assets never makes them by itself again."""
+    project = get_project(db, user, project_id)
+    waiting = {str(s.id): None for s in _missing(db, project)}
+    project.slot_looks = {**project.slot_looks, **waiting}
+    db.commit()
+    return _missing_out(db, user, project)
 
 
 @router.post("/slots/{slot_id}/save-to-library", response_model=SavedOut, status_code=201)

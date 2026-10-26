@@ -85,7 +85,11 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
     if "approved" in params:  # a video from the library is made from an approved version
         extra["approved"] = project.script_draft_id is not None
     found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
-    return found + unknown_ids(db, project, bd) + cast_problems(db, project, script, bd)
+    from app.advice import names, plain
+    from app.storyboard import assets
+
+    found += unknown_ids(db, project, bd) + cast_problems(db, project, script, bd)
+    return plain(found, names(assets(db, project)))
 
 
 def cast_problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
