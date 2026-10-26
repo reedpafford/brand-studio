@@ -51,6 +51,19 @@ test("Scripts · Videos switch: Videos lists the brand's videos with their statu
   expect(screen.getByRole("navigation", { name: "View" })).toBeInTheDocument();
 });
 
+test("a row shows its newest still as the poster and the step it is at, or when it was done", async () => {
+  setViewport(1440);
+  fakeServer(base(editor, [video({ step: "storyboard", poster_file_id: 77 }), video({ id: 10, name: "Bo tries tuna · A", step: "done", finished_at: "2026-10-24T10:00:00Z" }), video({ id: 12, name: "No stills yet", step: "breakdown" })]));
+  open();
+  const row = (await screen.findByRole("link", { name: /Bo tries salmon · B/ })) as HTMLElement;
+  expect(within(row).getByText(/At Storyboard/)).toBeInTheDocument();
+  expect(row.querySelector("img")?.getAttribute("src")).toContain("/files/77");
+  expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).getByText(/Video done · /)).toBeInTheDocument();
+  const bare = screen.getByRole("link", { name: /No stills yet/ });
+  expect(within(bare).getByText(/At Breakdown/)).toBeInTheDocument();
+  expect(bare.querySelector("img")).toBeNull();
+});
+
 test("an editor only ever asks for their own videos; Reed sees everyone's and can turn Mine on", async () => {
   setViewport(1440);
   fakeServer(base(editor, [video({})]));

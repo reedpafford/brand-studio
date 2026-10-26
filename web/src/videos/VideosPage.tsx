@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Clock, Film, Search } from "lucide-react";
+import { fileUrl } from "../api/upload";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
@@ -13,6 +14,7 @@ import { ViewSwitch } from "./ViewSwitch";
 
 type Project = components["schemas"]["ProjectOut"];
 
+const STEP: Record<string, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
 const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** Where a video opens: the new page for one made from a script version (Downloads when it is done), the earlier six-step page for the rest. */
@@ -22,7 +24,7 @@ function Row({ p, mineView }: { p: Project; mineView: boolean }) {
   const done = !!p.finished_at;
   const meta = [
     p.created_by_name || "Someone",
-    done ? `Video done · ${date(p.finished_at!)}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
+    done ? `Video done · ${date(p.finished_at!)}` : p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
     p.own_script && mineView ? "On your week" : null,
     p.script_draft_id ? null : "(earlier way)",
   ]
@@ -31,8 +33,8 @@ function Row({ p, mineView }: { p: Project; mineView: boolean }) {
   return (
     <li>
       <Link to={to(p)} className={`flex min-h-control items-center gap-3 p-4 hover:bg-surface-2 ${p.archived_at ? "opacity-70" : ""}`}>
-        <span aria-hidden className="grid h-[88px] w-14 shrink-0 place-items-center rounded-md bg-surface-2 text-muted">
-          <Film size={20} strokeWidth={1.75} />
+        <span aria-hidden className="grid h-[88px] w-14 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-2 text-muted">
+          {p.poster_file_id ? <img src={fileUrl(p.poster_file_id)} alt="" className="size-full object-cover" /> : <Film size={20} strokeWidth={1.75} />}
         </span>
         <span className="min-w-0 flex-1 space-y-1">
           <span className="block break-words type-card">{p.name}</span>
