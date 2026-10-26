@@ -58,7 +58,7 @@ When Assets opens and a **main or recurring** role has no character, its per-vid
 - **While drawing:** each card shows "Drawing… 14 s". When they land, the note becomes "Made 3 looks · 9 credits. Check each one, then approve." (`Info`).
 - **Still reviewed:** each look lands as "Needs your approval", with **Approve**, **Change this…** (redo with a note), or **Use a Cast & places character** (swap). Next stays disabled until every role is approved, as before.
 - Once a role has a look (made, picked, or turned down with Not now), opening Assets again never makes it again.
-- **Naming the role, never an id:** anything that says a look is missing names the role and points here: "Nate needs a look. Go to Assets." with **Go to Assets** (secondary). It's never "char:3" or "slot 2". This applies to Storyboard, Clips, the breakdown's problems and server messages shown as they are.
+- **Naming the role, never an id:** anything that says a look is missing names the role and points here. In a problem line, the sentence is followed by an inline link, **Approve a look in Assets** (as built in #476). Elsewhere, it's "Nate needs a look." with **Approve a look in Assets** (secondary). It's never "char:3" or "slot 2". This applies to Storyboard, Clips, the breakdown's problems and server messages shown as they are.
 
 ### Looks for this video only (gaps #19; Reed, 2026-10-26)
 Only characters and places made in **Cast & places** go into the brand's library. A look made while making a script or a video stays with it.
