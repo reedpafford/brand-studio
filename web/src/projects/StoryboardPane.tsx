@@ -14,6 +14,8 @@ import { AdviceList, useKeep } from "./Keep";
 import { useMe } from "../auth/useMe";
 import { refName, useRoleNames } from "./names";
 import { useOwnScriptStop } from "./useOwnScriptStop";
+import { usePressed } from "./usePressed";
+import { Banner } from "../components";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -47,7 +49,9 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
   const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
-  const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
+  // A job the list never shows is waited on only briefly (a run that was lost must not read "Writing…" for ever).
+  const pressed = usePressed();
+  const going = (id: number | undefined) => id !== undefined && (jobOf(id) ? GOING.includes(jobOf(id)!.status) : !(id === writing && pressed.unseen));
   // What the server says is going for this project (so a reload mid-run still shows it).
   const mineGoing = (step: string) => (jobs.data ?? []).filter((j) => j.project_id === projectId && j.step === step && GOING.includes(j.status));
   const writingNow = going(writing ?? undefined) || mineGoing("storyboard").length > 0;
@@ -80,6 +84,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
     onSuccess: (job) => {
       setReplaced((queryClient.getQueryData<Frame[]>(["storyboard", projectId]) ?? []).map((f) => f.id));
       setWriting(job.id);
+      pressed.press();
       auto.current = !!props.oneStep;
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
@@ -171,9 +176,18 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
       </section>
     );
 
+  // The newest run that wrote the frames, if it failed: say so, with a way to try again.
+  const frameRun = (jobs.data ?? []).filter((j) => j.project_id === projectId && j.step === "storyboard").sort((a, b) => b.id - a.id)[0];
+  const framesFailed = frameRun?.status === "failed" || (writing !== null && pressed.unseen && !jobOf(writing));
+
   if (list.length === 0)
     return (
       <section className={`${card} space-y-3`} aria-label="Storyboard">
+        {framesFailed && (
+          <Banner title={frameRun?.status === "failed" ? "The frames didn't finish." : "We lost track of the frames."}>
+            {frameRun?.status === "failed" ? "Nothing was charged. Make them again below." : "If they finish, they show up here. Or make them again below."}
+          </Banner>
+        )}
         <p className="text-[length:var(--text-xl)] font-semibold">No frames yet.</p>
         <p className="text-muted">One still per clip, so you can check the look before making video.</p>
         {makeButton}
