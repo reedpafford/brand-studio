@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChartColumn, ChevronDown, Clapperboard, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, ChevronDown, Clapperboard, Plus, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
@@ -10,6 +10,7 @@ import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { applyTheme, getTheme, type Theme } from "../theme";
 import { useMedia } from "../useMedia";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
+import { NewBrand } from "./NewBrand";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
@@ -167,6 +168,8 @@ function TopBar({ brands, brand, current, waiting, rail }: { brands: Brand[]; br
 
 function BrandSwitcher({ brands, brand, current }: { brands: Brand[]; brand?: Brand; current: number | null }) {
   const navigate = useNavigate();
+  const owner = useMe().data?.role === "owner";
+  const [creating, setCreating] = useState(false);
   const { pathname } = useLocation();
   const go = (id: number) => {
     const section = sectionOf(pathname);
@@ -200,10 +203,25 @@ function BrandSwitcher({ brands, brand, current }: { brands: Brand[]; brand?: Br
                 {b.id === current && <Check size={20} strokeWidth={1.75} aria-hidden />}
               </MenuItem>
             ))}
-            <p className="px-3 pb-2 pt-3 text-sm text-muted">Brands are set up by Reed.</p>
+            {owner ? (
+              <div className="mt-1 border-t border-border pt-1">
+                <MenuItem
+                  onClick={() => {
+                    close();
+                    setCreating(true);
+                  }}
+                >
+                  <Plus size={20} strokeWidth={1.75} aria-hidden />
+                  New brand
+                </MenuItem>
+              </div>
+            ) : (
+              <p className="px-3 pb-2 pt-3 text-sm text-muted">Brands are set up by Reed.</p>
+            )}
           </>
         )}
       </Menu>
+      {creating && <NewBrand onClose={() => setCreating(false)} />}
     </div>
   );
 }

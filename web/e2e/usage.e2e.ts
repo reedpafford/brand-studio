@@ -65,3 +65,15 @@ test("Reed releases a version he started by mistake, and it leaves In production
   await page.goto("/production");
   await expect(page.getByRole("link", { name: /^Bo tries salmon, version A, / })).toBeHidden();
 });
+
+test("Reed adds a brand from the brand menu and lands on its Look page", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.getByRole("button", { name: /^Brand: / }).click();
+  await page.getByRole("menuitem", { name: "New brand" }).click();
+  await page.getByLabel("Brand name").fill("Zephyr Studio");
+  await page.getByRole("button", { name: "Create brand" }).click();
+  await expect(page.getByText("Zephyr Studio is ready. Add its logo and colours.")).toBeVisible();
+  await expect(page).toHaveURL(/\/b\/\d+\/brand$/);
+  await expect(page.getByRole("button", { name: "Brand: Zephyr Studio" })).toBeVisible();
+});
