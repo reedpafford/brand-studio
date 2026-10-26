@@ -49,7 +49,7 @@ export const setScene = (bd: Breakdown, id: number, patch: { heading?: string; l
 
 /** The shot or clip a problem sentence is about ("Shot 2.1 …", "Clip c3 …"), as an element id. */
 export function problemTarget(text: string): string | null {
-  const shot = /\bShot (\d+\.\d+)/.exec(text);
+  const shot = /\bshot (\d+\.\d+)/i.exec(text);
   if (shot) return `shot-${shot[1]}`;
   const clip = /\bClip (c\d+)/.exec(text);
   return clip ? `clip-${clip[1]}` : null;

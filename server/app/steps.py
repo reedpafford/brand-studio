@@ -60,3 +60,10 @@ def save_step_result(db: Session, job: Job) -> None:
         saved = False
     if job.input.get("reel_step"):  # a step of reading an imported reel: queue the next
         follow_on(db, job, saved)
+    elif saved and job.input.get("then_cast"):  # Write or variations: the cast read next
+        from app.script_cast_read import after
+
+        try:
+            after(db, job)
+        except Exception:  # never lose the saved words over it
+            log.exception("job %s: queueing the cast read failed", job.id)

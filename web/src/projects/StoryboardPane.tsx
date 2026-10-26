@@ -10,6 +10,9 @@ import { useMedia } from "../useMedia";
 import { Sheet } from "./Sheet";
 import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
+import { AdviceList, useKeep } from "./Keep";
+import { useMe } from "../auth/useMe";
+import { refName, useRoleNames } from "./names";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -56,11 +59,8 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   const imageCost = rate("image");
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
 
-  const nameOf = (id: string) => {
-    if (id === "previous") return "previous frame";
-    const [kind, n] = id.split(":");
-    return pieces.find((p) => p.key === `${kind === "char" ? "character" : kind}-${n}`)?.name ?? id;
-  };
+  const roles = useRoleNames(projectId);
+  const nameOf = (id: string) => refName(id, pieces, roles);
 
   const make = useMutation({
     mutationFn: async () => {
@@ -195,6 +195,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
             <FrameCard
               key={f.id}
               frame={f}
+              projectId={projectId}
               aspect={props.aspect}
               busy={busy}
               failed={job?.status === "failed"}
@@ -226,6 +227,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
 
 function FrameCard(props: {
   frame: Frame;
+  projectId: number;
   aspect: string;
   busy: boolean;
   failed: boolean;
@@ -240,6 +242,8 @@ function FrameCard(props: {
   onOpen: () => void;
 }) {
   const { frame: f } = props;
+  const keep = useKeep(props.projectId, { of: "frame", id: f.id });
+  const owner = useMe().data?.role === "owner";
   const [editing, setEditing] = useState<string | null>(null);
   const [redo, setRedo] = useState<string | null>(null);
   const phone = useMedia("(max-width: 639px)");
@@ -291,13 +295,14 @@ function FrameCard(props: {
         ))}
       </p>
       <SheetWarning blockers={props.blockers} brandId={props.brandId} />
-      {f.problems.length > 0 && (
+      {blocking(f.problems).length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${f.clip_id}`}>
-          {f.problems.map((p) => (
+          {blocking(f.problems).map((p) => (
             <li key={p}>{p}</li>
           ))}
         </ul>
       )}
+      <AdviceList problems={f.problems} kept={f.kept} onKeep={keep.mutate} busy={keep.isPending} owner={owner} name={`Advice for ${f.clip_id}`} />
       {editing !== null ? (
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for clip ${f.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />

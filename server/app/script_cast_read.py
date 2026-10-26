@@ -63,6 +63,26 @@ def job_input(
     return {"step": "cast_slots", "script_id": script.id, "system": system, "prompt": message}
 
 
+def after(db: Session, job: Job) -> None:
+    """Writing a script's words or its variations reads its cast next (Designer #322),
+    already paid for with them: every version written so far, the locked cast as <cast> so
+    locked slots aren't added twice. Version A needn't be approved yet."""
+    from app.models.accounts import User
+    from app.routes.jobs import enqueue
+
+    script = db.get(Script, job.input["script_id"], populate_existing=True)
+    if script is None or script.published or script.archived:
+        return
+    drafts = db.scalars(select(ScriptDraft).where(ScriptDraft.script_id == script.id))
+    versions = {d.slot: d.text for d in drafts if d.text.strip()}
+    if not versions:
+        return
+    data = job_input(db, script, job.input.get("then_cast_reference"), versions)
+    enqueue(
+        db, db.get(User, job.created_by_id), "write-claude", data, provider="claude", prepaid=True
+    )
+
+
 def problems(db: Session, script: Script, job: Job) -> list[str]:
     result = CastSlots.model_validate(job.output)
     names = [name for _, name in _cast(db, script)]
