@@ -13,6 +13,7 @@ from app.models.brands import Brand, BrandScreen
 from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.models.projects import Project
+from app.models.script_library import Script, ScriptDraft
 from app.models.scripts import ScriptVersion, Suggestion
 from app.prompts import check
 from app.prompts.schemas import EnhanceResult
@@ -102,29 +103,54 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     }
 
 
+def draft_job_input(db: Session, script: Script, draft: ScriptDraft) -> dict:
+    """Enhance on a library script version: the same call, with the script standing in for
+    the project. Its text goes with the job, so marks on older words are never applied."""
+    from app.script_preview import stand_in_project
+
+    system, context = project_context(db, stand_in_project(db, script, draft), "enhance")
+    numbered = escape(prompts.number_lines(draft.text))
+    return {
+        "step": "enhance",
+        "script_id": script.id,
+        "draft_id": draft.id,  # not script_draft_id, which marks a breakdown preview
+        "script_text": draft.text,
+        "system": system,
+        "prompt": f"{context}\n<script>\n{numbered}\n</script>",
+    }
+
+
 def save_suggestions(db: Session, job: Job) -> None:
     """Turn the answer into Suggestion rows. Marks that fail the checks are dropped; the
     problems are kept in the job output for the owner/Director to see."""
-    project = db.get(Project, job.input["project_id"])
-    version = db.scalar(
-        select(ScriptVersion).where(
-            ScriptVersion.project_id == project.id,
-            ScriptVersion.version == job.input["script_version"],
+    from app.script_preview import stand_in_project
+
+    if draft_id := job.input.get("draft_id"):
+        draft = db.get(ScriptDraft, draft_id)
+        if draft is None:
+            return  # the variation was removed meanwhile
+        project = stand_in_project(db, db.get(Script, draft.script_id), draft)
+        text, owner = job.input["script_text"], {"script_draft_id": draft.id, "script_version": 0}
+    else:
+        project = db.get(Project, job.input["project_id"])
+        text = db.scalar(
+            select(ScriptVersion.text).where(
+                ScriptVersion.project_id == project.id,
+                ScriptVersion.version == job.input["script_version"],
+            )
         )
-    )
+        owner = {"project_id": project.id, "script_version": job.input["script_version"]}
     result = EnhanceResult.model_validate(job.output)
     brand_screens = {f"screen:{s.id}": s for s in project_screens(db, project)}
-    problems = check.enhance(
-        version.text, result, {k: s.default_for for k, s in brand_screens.items()}
-    )
+    problems = check.enhance(text, result, {k: s.default_for for k, s in brand_screens.items()})
     problems += [
         f"{s.id}: not a single direction line"
         for s in result.suggestions
         if "\n" in s.text.strip() or not s.text.strip() or HEADING.match(s.text.strip())
     ]
     bad = {p.split(":", 1)[0] for p in problems}
-    starts = _line_starts(version.text)
-    lines = version.text.splitlines()
+    starts = _line_starts(text)
+    lines = text.splitlines()
     kept = 0
     for s in result.suggestions:
         if s.id in bad:
@@ -134,8 +160,7 @@ def save_suggestions(db: Session, job: Job) -> None:
         screen = brand_screens.get(s.screen_id or "")
         db.add(
             Suggestion(
-                project_id=project.id,
-                script_version=version.version,
+                **owner,
                 job_id=job.id,
                 key=s.id,
                 kind=s.kind,

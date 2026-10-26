@@ -10,6 +10,7 @@ import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkTex
 import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
 import { blocking } from "./problems";
+import { useOwnScriptStop } from "./useOwnScriptStop";
 import { AdviceList, useKeep } from "./Keep";
 import { useMe } from "../auth/useMe";
 
@@ -86,7 +87,7 @@ function PromptText({ clip }: { clip: Clip }) {
 }
 
 /** One video clip per breakdown clip: make takes, pick and approve one, then stitch them into the video. */
-export function ClipsPane(props: { review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
+export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
   const { projectId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -94,6 +95,7 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
   const frames = useFrames(projectId);
   const blocks = useSheetBlocks(projectId, props.brandId);
   const reviewed = useReviewed(projectId);
+  const stopFor = useOwnScriptStop(props.ownScript);
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
@@ -183,7 +185,8 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
   if (clips.isPending || frames.isPending) return <p className="text-muted">Loading…</p>;
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
   const list = clips.data;
-  const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
+  // On an editor's own script the weekly allowance decides, with the reason; nobody is asked to approve.
+  const over = (cost: number | undefined) => !props.ownScript && cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${Math.round(n)} credits`);
   const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error;
   const takeCost = (c: Clip) => c.take_credits;
@@ -196,6 +199,7 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
   const writeCost = rate("write-claude");
+  const declined = stopFor(writeCost) ?? stopFor(allCost);
 
   if (writingNow)
     return (
@@ -210,11 +214,12 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
       <section className={`${card} space-y-3`} aria-label="Clips">
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
-        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending} onClick={() => write.mutate()}>
+        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending || !!stopFor(writeCost)} onClick={() => write.mutate()}>
           {over(writeCost) ? "Ask Reed to approve" : "Write clip prompts"}
           {price(writeCost)}
         </button>
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
+        {declined && <p className="text-sm text-warning">{declined}</p>}
       </section>
     );
 
@@ -227,7 +232,7 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
         {missing.length > 0 && (
           <button
             className={`${btnPrimary} min-h-11 sm:min-h-9`}
-            disabled={generate.isPending || unread > 0}
+            disabled={generate.isPending || unread > 0 || !!stopFor(allCost)}
             onClick={async () => {
               for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
             }}
@@ -237,6 +242,7 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
           </button>
         )}
       </div>
+      {declined && <p className="text-sm text-warning">{declined}</p>}
       {unread > 0 && <p className="text-sm text-muted">Read each prompt and press Looks good before the takes are made ({unread} left).</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       {waitingForSheet.length > 0 && (
@@ -265,6 +271,7 @@ export function ClipsPane(props: { review?: boolean; projectId: number; brandId:
               brandId={props.brandId}
               cost={takeCost(c)}
               over={over(takeCost(c))}
+              stopped={!!stopFor(takeCost(c))}
               onGenerate={(note) => generate.mutate({ clip: c, note })}
               onPick={(take) => review.mutate({ clip: c, take })}
               onApprove={() => review.mutate({ clip: c })}
@@ -295,6 +302,7 @@ function ClipCard(props: {
   brandId: number;
   cost: number | undefined;
   over: boolean;
+  stopped: boolean;
   onGenerate: (note?: string) => void;
   onPick: (takeId: number) => void;
   onApprove: () => void;
@@ -348,7 +356,7 @@ function ClipCard(props: {
           ))}
         </ul>
       )}
-      <AdviceList problems={c.problems} kept={c.kept} onKeep={keep.mutate} busy={keep.isPending} owner={owner} name={`Advice for ${c.clip_id}`} />
+      <AdviceList problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${c.clip_id}`} />
       {c.takes.length > 0 && (
         <fieldset className="flex flex-wrap items-center gap-3">
           <legend className="sr-only">Takes for clip {c.clip_id}</legend>
@@ -370,7 +378,7 @@ function ClipCard(props: {
           <div className="flex gap-2">
             <button
               className={`${btnPrimary} min-h-11 sm:min-h-9`}
-              disabled={props.busy || !note.trim()}
+              disabled={props.stopped || props.busy || !note.trim()}
               onClick={() => {
                 props.onGenerate(note.trim());
                 setNote(null);
@@ -424,7 +432,7 @@ function ClipCard(props: {
             </Button>
           )}
           {note === null && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.toRead || props.busy || blocking(c.problems).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.toRead || props.stopped || props.busy || blocking(c.problems).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
             {verb}
             {price}
           </button>

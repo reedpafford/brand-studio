@@ -13,6 +13,7 @@ import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
 import { useMe } from "../auth/useMe";
 import { refName, useRoleNames } from "./names";
+import { useOwnScriptStop } from "./useOwnScriptStop";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -28,7 +29,7 @@ export function useFrames(projectId: number) {
 }
 
 /** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. */
-export function StoryboardPane(props: { oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
+export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -39,7 +40,8 @@ export function StoryboardPane(props: { oneStep?: boolean; clips?: number; proje
   const [drawing, setDrawing] = useState<Record<number, number>>({});
   const [writing, setWriting] = useState<number | null>(null);
   const [lightbox, setLightbox] = useState<Frame | null>(null);
-  const auto = useRef(false); // the frames were just asked for, and the stills follow
+  const auto = useRef(false);
+  const stopFor = useOwnScriptStop(props.ownScript); // the frames were just asked for, and the stills follow
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
@@ -127,19 +129,21 @@ export function StoryboardPane(props: { oneStep?: boolean; clips?: number; proje
   const list = frames.data;
   const missing = list.filter((f) => f.file_id === null && !blocking(f.problems).length && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
-  const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
+  // On an editor's own script the weekly allowance decides, with the reason; nobody is asked to approve.
+  const over = (cost: number | undefined) => !props.ownScript && cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${n} credits`);
   // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
   const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
   const makeLabel = over(makeTotal) ? "Ask Reed to approve" : list.length ? "Redo storyboard" : "Make storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
+  const declined = stopFor(makeTotal) ?? stopFor(imageCost);
   const err = make.error ?? render.error ?? edit.error ?? approve.error;
   const approvedCount = list.filter((f) => f.approved).length;
 
   const makeButton = (
     <button
       className={`${list.length ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`}
-      disabled={writingNow || make.isPending}
+      disabled={writingNow || make.isPending || !!stopFor(makeTotal)}
       onClick={() => {
         const made = list.filter((f) => f.file_id !== null).length;
         const ask = made > 0 ? `Replace these frames? The ${made} still${made === 1 ? "" : "s"} you've made will be dropped.` : "Replace these frames? New ones are written from the current breakdown.";
@@ -169,6 +173,7 @@ export function StoryboardPane(props: { oneStep?: boolean; clips?: number; proje
         <p className="text-muted">One still per clip, so you can check the look before making video.</p>
         {makeButton}
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
+        {declined && <p className="text-sm text-warning">{declined}</p>}
       </section>
     );
 
@@ -182,7 +187,7 @@ export function StoryboardPane(props: { oneStep?: boolean; clips?: number; proje
           {missing.length > 0 && (
             <button
               className={btnPrimary}
-              disabled={render.isPending}
+              disabled={render.isPending || !!stopFor(allCost)}
               onClick={async () => {
                 for (const f of missing) await render.mutateAsync({ frame: f }).catch(() => undefined);
               }}
@@ -195,6 +200,7 @@ export function StoryboardPane(props: { oneStep?: boolean; clips?: number; proje
         </span>
       </div>
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
+        {declined && <p className="text-sm text-warning">{declined}</p>}
       {waitingForSheet.length > 0 && (
         <p className="text-sm text-warning">
           {waitingForSheet.length} frame{waitingForSheet.length === 1 ? " waits" : "s wait"} for a sheet ({blockerNames(waitingForSheet.flatMap((f) => blocks.forShot(f.shot_id)))}).
@@ -219,6 +225,7 @@ export function StoryboardPane(props: { oneStep?: boolean; clips?: number; proje
               nameOf={nameOf}
               cost={imageCost}
               over={over(imageCost)}
+              stopped={!!stopFor(imageCost)}
               onRender={(note) => render.mutate({ frame: f, note })}
               onApprove={(yes) => approve.mutate({ frame: f, yes })}
               onSave={(prompt) => edit.mutate({ frame: f, prompt })}
@@ -251,6 +258,7 @@ function FrameCard(props: {
   nameOf: (id: string) => string;
   cost: number | undefined;
   over: boolean;
+  stopped: boolean;
   onRender: (note?: string) => void;
   onApprove: (yes: boolean) => void;
   onSave: (prompt: string) => void;
@@ -317,7 +325,7 @@ function FrameCard(props: {
           ))}
         </ul>
       )}
-      <AdviceList problems={f.problems} kept={f.kept} onKeep={keep.mutate} busy={keep.isPending} owner={owner} name={`Advice for ${f.clip_id}`} />
+      <AdviceList problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${f.clip_id}`} />
       {editing !== null ? (
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for clip ${f.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
@@ -334,7 +342,7 @@ function FrameCard(props: {
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {f.file_id === null ? (
-              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
+              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
                 {verb}
                 {price}
               </button>
@@ -347,7 +355,7 @@ function FrameCard(props: {
                 >
                   {f.approved ? "Undo approve" : "Approve"}
                 </button>
-                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => setRedo(redo === null ? "" : null)} aria-expanded={redo !== null}>
+                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => setRedo(redo === null ? "" : null)} aria-expanded={redo !== null}>
                   {verb}
                   {price}
                 </button>
