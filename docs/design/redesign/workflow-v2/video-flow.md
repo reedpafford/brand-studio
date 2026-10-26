@@ -69,8 +69,8 @@ Only characters and places made in **Cast & places** go into the brand's library
   - It's free: copying makes nothing new.
 - **Delete this look** (in the card's `Ellipsis` menu, `Trash2`, danger): only on a look made for this video (or script), never on a Cast & places character.
   - **Who:** Reed, or whoever made the video (an editor on their own video).
-  - **Asks first only when stills use it:** "Delete Mia's look? 2 stills use it. They keep their pictures, and the role needs a look again." **Delete** (danger) / **Keep it** (ghost). A look nothing uses yet is deleted at once.
-  - **After:** the card goes back to "Needs a look", or to the library character in use. The toast says "Deleted Mia's look." with **Undo** (8 s), which brings the look back with its sheets and approval.
+  - **A look the role still uses can't be removed.** Swap the role to another look first (a Cast & places character, or another look); the server says "Swap the role to another look first." if it is tried. Nothing is asked first: the look is only archived, so stills that show it keep their pictures, and Undo brings it back.
+  - **After:** the look's card goes back to "Needs a look". The toast says "Deleted Mia's look." with **Undo** (8 s), which brings the look back with its sheets and approval.
   - The credits used to draw it stay used.
 - **Where per-video looks show:** this video's Assets, Storyboard and Clips chips (the chip reads the look's name, with "This video only" in its tooltip). Nowhere else.
 - **Product:** the brand's product picture.
