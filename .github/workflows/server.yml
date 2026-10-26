@@ -5,6 +5,7 @@ on:
 jobs:
   lint-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: server
@@ -13,7 +14,11 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
-      - run: sudo apt-get install -y --no-install-recommends ffmpeg  # stitching the final video
+      - name: Install ffmpeg (for stitching the final video; retries once if the mirror stalls)
+        timeout-minutes: 8
+        run: |
+          timeout 180 sudo apt-get install -y --no-install-recommends ffmpeg \
+            || { sudo apt-get update -qq && timeout 240 sudo apt-get install -y --no-install-recommends ffmpeg; }
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
