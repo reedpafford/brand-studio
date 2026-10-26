@@ -137,6 +137,8 @@ class FakeMedia:
 
     name, paid = "replicate", False
 
+    video_failures = 0  # tests: fail this many video watches, like Gemini's upload did (E001)
+
     def __init__(self):
         self._jobs: dict[str, dict] = {}
         self._ids = itertools.count(1)
@@ -149,6 +151,9 @@ class FakeMedia:
     def poll(self, ref: str) -> Result:
         # No usage: the job keeps its estimated credits and no fake dollars are recorded.
         if self._jobs[ref]["kind"] == "watch-gemini":
+            if self._jobs[ref].get("videos") and FakeMedia.video_failures > 0:
+                FakeMedia.video_failures -= 1
+                return Result("failed", error="ModelError: Failed to upload video (E001)")
             return Result("succeeded", output={"text": json.dumps(watch(self._jobs[ref]))})
         return Result("succeeded", output={"url": f"fake://{ref}"}, files=[f"fake://{ref}"])
 

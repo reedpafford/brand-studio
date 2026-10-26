@@ -8,7 +8,7 @@
 import re
 
 from fastapi import HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.accounts import User
@@ -50,6 +50,14 @@ def editable(user: User, script: Script) -> Script:
 def drafts(db: Session, script: Script) -> list[ScriptDraft]:
     query = select(ScriptDraft).where(ScriptDraft.script_id == script.id)
     return list(db.scalars(query.order_by(ScriptDraft.slot)))
+
+
+def has_videos(db: Session, script: Script) -> bool:
+    """A video was made from one of its versions (released ones too): removing the script
+    archives it, and its videos are kept, so it is never purged."""
+    ids = select(ScriptDraft.id).where(ScriptDraft.script_id == script.id)
+    made = or_(Project.script_draft_id.in_(ids), Project.released_draft_id.in_(ids))
+    return db.scalar(select(Project.id).where(made).limit(1)) is not None
 
 
 def get_draft(db: Session, script: Script, slot: int) -> ScriptDraft:

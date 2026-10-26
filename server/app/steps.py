@@ -9,6 +9,17 @@ from app.models.jobs import Job
 log = logging.getLogger(__name__)
 
 
+def step_failed(db: Session, job: Job) -> None:
+    """A step's job failed at the provider: the reel watch retries, then falls back."""
+    from app.reel_read import watch_failed
+
+    if job.input.get("step") == "reel_watch":
+        try:
+            watch_failed(db, job)
+        except Exception:  # never let a retry break the worker
+            log.exception("job %s: retrying the reel watch failed", job.id)
+
+
 def save_step_result(db: Session, job: Job) -> None:
     from app.breakdown import save_breakdown
     from app.clip_prompts import save_clip_prompts

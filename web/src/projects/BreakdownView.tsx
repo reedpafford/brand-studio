@@ -260,7 +260,7 @@ export function BreakdownView(props: {
           {problemList()}
         </section>
       )}
-      <AdviceList problems={row.problems} kept={row.kept} onKeep={keep.mutate} busy={keep.isPending} owner={owner} extra={(p) => goButton(p)} />
+      <AdviceList problems={row.problems} kept={row.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} extra={(p) => goButton(p)} />
       {bd.hook !== undefined && (
         <p className="text-sm">
           <EditableText value={bd.hook} label="hook" onChange={(v) => change((b) => setHook(b, v))}>

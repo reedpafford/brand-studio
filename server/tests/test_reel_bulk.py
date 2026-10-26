@@ -71,7 +71,7 @@ def test_write_all_reads_reels_and_writes_the_rest_at_one_price(app, owner, db, 
     assert (est["reading"], est["writing"], est["failed"]) == (1, 1, [ids[1]])
     assert est["credits"] == 7 + 6  # a reel's read (watch, write, cast) plus a write and cast
     failed = owner.post("/scripts/write", json={"script_ids": ids})
-    assert failed.status_code == 409 and "couldn't be fetched" in failed.json()["detail"]
+    assert failed.status_code == 409 and "uploaded again" in failed.json()["detail"]
     started = owner.post("/scripts/write", json={"script_ids": [ids[0], ids[2]]})
     assert started.status_code == 201, started.text
     _drain(app, db, clip)

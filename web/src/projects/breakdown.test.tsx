@@ -110,6 +110,14 @@ test("Keep anyway on breakdown advice calls keep and takes it out of the count",
   expect(calls.some((c) => c.key === "POST /projects/9/breakdown/keep")).toBe(false);
 });
 
+test("Keep anyway can be undone", async () => {
+  const advice = "Advice: shot 1.2: a montage shot without the main character";
+  const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [advice], kept: [advice] })], "DELETE /projects/9/breakdown/keep": [200, breakdown({ problems: [advice] })] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /Undo keep/, hidden: true }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /projects/9/breakdown/keep")).toBe(true));
+});
+
 test("a real problem stays a red row, apart from the advice", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: ["Shot 1.1 has no clip", "Advice: shot 1.2: a slow hook"] })] });
   open();

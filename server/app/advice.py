@@ -24,3 +24,8 @@ def keep(row, problem: str) -> None:
         raise HTTPException(409, "Only advice can be kept; this one needs fixing.")
     if problem not in (row.kept or []):
         row.kept = [*(row.kept or []), problem]
+
+
+def unkeep(row, problem: str) -> None:
+    """Undo "Keep anyway": the advice shows as new again (nothing to do if it wasn't kept)."""
+    row.kept = [p for p in (row.kept or []) if p != problem]
