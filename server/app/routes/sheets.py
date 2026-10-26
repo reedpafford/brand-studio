@@ -3,6 +3,7 @@ the item's notes, or from its source photo, with the Director's `prompts.sheet_p
 editor approves it; only an approved sheet is ever used in a video (`app/sheets.py`), and the
 source photo never is."""
 
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,10 +19,12 @@ from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
+from app.prompts.schemas import LookFit
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.library import ItemOut, _out, _save_version, get_item, sheet_status
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/library/{kind}/{item_id}/sheet", tags=["library"])
 ASPECT = {Kind.character: "9:16", Kind.place: "16:9"}  # a tall turnaround / a wide view
 RESOLUTION = "2K"
@@ -56,6 +59,13 @@ def make_sheet(
         raise HTTPException(409, "A sheet is being made.")
     if status == "waiting_for_owner":
         raise HTTPException(409, "A sheet is waiting for the owner's OK.")
+    return queue_sheet(db, user, item, body)
+
+
+def queue_sheet(db: Session, user: User, item: LibraryItem, body: SheetIn, fit_redo=False) -> Job:
+    """The sheet's paid image job. A redo with a note (a person's "Change this…", or the
+    one automatic fit redo) is checked after it lands but never redone by itself again."""
+    kind = item.kind
     from_photo = bool(item.source_photo_file_id)
     redo = bool(body.change.strip()) and item.sheet_file_id is not None
     refs = [item.source_photo_file_id] if from_photo else []
@@ -72,7 +82,7 @@ def make_sheet(
         db,
         user,
         "image",
-        {**job, "step": "sheet", "library_item_id": item.id},
+        {**job, "step": "sheet", "library_item_id": item.id, "changed": redo or fit_redo},
         project=project,
         provider="replicate",
     )
@@ -107,8 +117,58 @@ def save_sheet(db: Session, job: Job) -> None:
     file_ids = (job.output or {}).get("file_ids") or []
     if not item or not file_ids:
         return
-    _save_version(db, db.get(User, job.created_by_id), item)
-    item.sheet_file_id, item.sheet_approved = file_ids[0], False
+    user = db.get(User, job.created_by_id)
+    _save_version(db, user, item)
+    item.sheet_file_id, item.sheet_approved, item.look_fit = file_ids[0], False, None
+    if item.kind == Kind.character and not item.source_photo_file_id:
+        check_fit(db, user, item, redo=not job.input.get("changed"))
+
+
+def check_fit(db: Session, user: User, item: LibraryItem, redo: bool) -> None:
+    """Does the new sheet read as its description (age, gender, job)? One cheap Claude look
+    (prompts/look_fit.md, effort low), paid like the sheet; the sheet shows as still being
+    drawn until it answers. A sheet from an uploaded photo is never checked: the photo is the
+    truth. Past the budget or the week the check is skipped, never held."""
+    data = {
+        "step": "look_fit",
+        "library_item_id": item.id,
+        "redo": redo,  # one automatic redo; never after a person's own change
+        "system": [prompts.system("look_fit")],
+        "prompt": prompts.look_fit_input(item.notes, role_for(db, item)),
+        "effort": "low",
+        "max_tokens": 2000,
+        "files": {"reference_images": [item.sheet_file_id]},
+        "fit_images_to": 1024,
+    }
+    project = db.get(Project, item.owner_project_id) if item.owner_project_id else None
+    db.commit()  # a refusal rolls back: never take the landed sheet with it
+    try:
+        enqueue(db, user, "write-claude", data, project=project, provider="claude")
+    except HTTPException:
+        log.info("look %s: the fit check doesn't fit the budget; shown unchecked", item.id)
+
+
+def save_fit(db: Session, job: Job) -> None:
+    """It fits: nothing to say. It doesn't: redo the sheet once with the check's note, within
+    the budget; after that (or past the budget, or after a person's change), the look shows
+    advice: who it reads as, with Redo it and the note prefilled."""
+    item = db.get(LibraryItem, job.input["library_item_id"])
+    if not item or item.archived:
+        return
+    fit = LookFit.model_validate(job.output)
+    if fit.fits:
+        item.look_fit = None
+        return
+    advice = {"seen": fit.seen, "problem": fit.problem}
+    if job.input.get("redo") and item.sheet_file_id:
+        note = prompts.look_fit_redo(item.notes, fit)[:500]
+        db.commit()  # the check's answer stays even if the redo is refused (that rolls back)
+        try:
+            queue_sheet(db, db.get(User, job.created_by_id), item, SheetIn(change=note), True)
+            return
+        except HTTPException:
+            pass  # past the budget: the look shows as it is, with the advice
+    item.look_fit = advice
 
 
 @router.post("/approve", response_model=ItemOut)

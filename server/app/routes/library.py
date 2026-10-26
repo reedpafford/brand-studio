@@ -56,6 +56,11 @@ class ItemPatch(BaseModel):
     source_photo_file_id: int | None = None
 
 
+class LookFitOut(BaseModel):
+    seen: str  # "This look reads as: girl of about 10"
+    problem: str  # Redo it's note, prefilled
+
+
 class ItemOut(ItemIn):
     id: int
     kind: Kind
@@ -64,6 +69,7 @@ class ItemOut(ItemIn):
     sheet_status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
     owner_project_id: int | None = None  # "This video only"
     owner_script_id: int | None = None  # "This script only"
+    look_fit: LookFitOut | None = None  # the sheet doesn't read as its role: advice, Redo it
 
 
 class VersionOut(BaseModel):
@@ -117,6 +123,7 @@ def _out(item: LibraryItem) -> ItemOut:
         sheet_status=sheet_status(item),
         owner_project_id=item.owner_project_id,
         owner_script_id=item.owner_script_id,
+        look_fit=item.look_fit,
         **data,
     )
 

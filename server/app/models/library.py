@@ -39,6 +39,9 @@ class LibraryItem(Entity, Base):
     source_photo_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
     sheet_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
     sheet_approved: Mapped[bool] = mapped_column(default=False)
+    # The look-fit check (prompts/look_fit.md) found the sheet doesn't read as its description:
+    # {"seen": "girl of about 10", "problem": "draw an adult woman…"}; null when it fits.
+    look_fit: Mapped[dict | None] = mapped_column(JSON)
     version: Mapped[int] = mapped_column(default=1)
     archived: Mapped[bool] = mapped_column(default=False)
     # A look made for one video (on Assets) or one script (its Cast step): it stays there, is

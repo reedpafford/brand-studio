@@ -3002,6 +3002,7 @@ export interface components {
             /** Own Look Id */
             own_look_id?: number | null;
             facts?: components["schemas"]["RoleFacts"] | null;
+            look_fit?: components["schemas"]["LookFitOut"] | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -3762,6 +3763,7 @@ export interface components {
             owner_project_id?: number | null;
             /** Owner Script Id */
             owner_script_id?: number | null;
+            look_fit?: components["schemas"]["LookFitOut"] | null;
         };
         /**
          * ItemPatch
@@ -3973,6 +3975,13 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** LookFitOut */
+        LookFitOut: {
+            /** Seen */
+            seen: string;
+            /** Problem */
+            problem: string;
         };
         /** Me */
         Me: {

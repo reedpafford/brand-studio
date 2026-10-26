@@ -318,6 +318,9 @@ class FakeWriter:
         assets = {line.split(" | ")[0] for line in _tag(prompt, "assets").splitlines()}
         return {"clips": [_clip(c, shots, f"frame:{c['id']}" in assets) for c in bd["clips"]]}
 
+    def _look_fit(self, prompt):  # every look fits
+        return {"fits": True, "seen": _tag(prompt, "character"), "problem": ""}
+
     def _change(self, prompt):  # the note, added as one more line
         return {"prompt": f"{_tag(prompt, 'prompt')}\n{_tag(prompt, 'note')}".strip()}
 

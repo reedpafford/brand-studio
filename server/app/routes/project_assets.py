@@ -24,7 +24,7 @@ from app.models.projects import Project
 from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
-from app.routes.library import pick_item, sheet_status
+from app.routes.library import LookFitOut, pick_item, sheet_status
 from app.routes.projects import get_project
 from app.routes.script_cast import RoleFacts, role_facts
 from app.routes.scripts import latest
@@ -50,6 +50,7 @@ class AssetOut(BaseModel):
     only_here: Literal["video", "script"] | None = None  # "This video only" / "This script only"
     own_look_id: int | None = None  # the look made for this role here; "Not used" if swapped out
     facts: RoleFacts | None = None  # the role's age range, gender and job (a slot's row only)
+    look_fit: LookFitOut | None = None  # its sheet doesn't read as the role: advice, Redo it
 
 
 class SaveLookIn(BaseModel):
@@ -104,6 +105,7 @@ def _row(
         slot_id=slot.id if slot else None,
         description=slot.description if slot else "",
         facts=role_facts(slot.description, slot.guessed or []) if slot else None,
+        look_fit=item.look_fit if item else None,
     )
 
 
