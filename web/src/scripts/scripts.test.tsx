@@ -1085,7 +1085,7 @@ test("Review the breakdown: the player and logline, each shot with its time, fra
   expect(within(shots).getByText("GROOM: I do.")).toBeInTheDocument();
   expect(within(shots).getByText("0:00–0:00.4")).toBeInTheDocument();
   expect(within(shots).getByText("Dropped · live action")).toBeInTheDocument();
-  expect(within(shots).getByText(/Shots 3–4 · montage · 0.8 s/)).toBeInTheDocument();
+  expect(within(shots).getByText(/Shots 3–4 · montage · 0.8 s/).closest("summary")!.querySelector("svg")).not.toBeNull(); // the chevron says it opens
   await userEvent.click(within(shots).getByRole("radio", { name: "Lines only" }));
   expect(within(shots).queryByText("Action 3")).toBeNull();
   expect(within(shots).getByText("BRIDE: HELL NO!")).toBeInTheDocument();

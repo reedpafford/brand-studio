@@ -1,6 +1,6 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -65,6 +65,8 @@ export function ReelReviewPage() {
   const player = useRef<HTMLVideoElement>(null);
   const [show, setShow] = useState<Show>("all");
   const [hookOpen, setHookOpen] = useState(false);
+  const [hookCut, setHookCut] = useState(false);
+  const hookText = useRef<HTMLParagraphElement>(null);
   const review = useQuery({
     queryKey: ["reel-breakdown", id],
     retry: false,
@@ -84,6 +86,11 @@ export function ReelReviewPage() {
   };
 
   const r = review.data;
+  // "Show more" only when the hook is cut off.
+  useLayoutEffect(() => {
+    const el = hookText.current;
+    if (el && !hookOpen) setHookCut(el.scrollHeight > el.clientHeight + 1);
+  }, [r?.hook, hookOpen]);
   const shots = r?.shots ?? [];
   const shown = show === "all" ? shots : show === "lines" ? shots.filter((s) => s.line) : shots.filter((s) => s.dropped);
   const inMontage = (n: number) => (show === "all" ? r?.montages.find((m) => n >= m.first && n <= m.last) : undefined);
@@ -101,6 +108,7 @@ export function ReelReviewPage() {
         <li key={`m${m.first}`}>
           <details className="group">
             <summary className="flex min-h-control cursor-pointer list-none items-center gap-2 px-4 py-3 text-muted [&::-webkit-details-marker]:hidden">
+              <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none" />
               <span className="tabular-nums">
                 Shots {m.first}–{m.last} · montage · {m.seconds.toFixed(1)} s
               </span>
@@ -139,12 +147,14 @@ export function ReelReviewPage() {
             <p>{r.logline}</p>
             {r.hook && (
               <div className="space-y-1 text-sm text-muted">
-                <p className={hookOpen ? "" : "line-clamp-3"}>
+                <p ref={hookText} className={hookOpen ? "" : "line-clamp-3"}>
                   Hook · {clock(0)}–{clock(r.hook_seconds)}: {r.hook}
                 </p>
-                <Button variant="ghost" dense onClick={() => setHookOpen(!hookOpen)} aria-expanded={hookOpen}>
-                  {hookOpen ? "Show less" : "Show more"}
-                </Button>
+                {(hookCut || hookOpen) && (
+                  <Button variant="ghost" dense onClick={() => setHookOpen(!hookOpen)} aria-expanded={hookOpen}>
+                    {hookOpen ? "Show less" : "Show more"}
+                  </Button>
+                )}
               </div>
             )}
             <p className="text-sm text-muted">{clock(r.seconds)} long</p>
@@ -153,7 +163,7 @@ export function ReelReviewPage() {
           <section aria-label="Shots" className="min-w-0 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="type-section">Shots</h2>
-              <div role="radiogroup" aria-label="Show" className="inline-flex w-full rounded-lg border border-border bg-surface p-1 sm:w-auto">
+              <div role="radiogroup" aria-label="Show" className="flex w-full overflow-hidden rounded-md border border-border-strong sm:w-fit">
                 {(
                   [
                     ["all", "All"],
@@ -161,7 +171,7 @@ export function ReelReviewPage() {
                     ["dropped", "Dropped"],
                   ] as const
                 ).map(([k, label]) => (
-                  <button key={k} type="button" role="radio" aria-checked={show === k} onClick={() => setShow(k)} className={`min-h-control flex-1 whitespace-nowrap rounded-md px-3 font-medium sm:flex-none lg:min-h-control-dense ${show === k ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`}>
+                  <button key={k} type="button" role="radio" aria-checked={show === k} onClick={() => setShow(k)} className={`min-h-control flex-1 whitespace-nowrap px-3 font-medium sm:flex-none lg:min-h-control-dense ${show === k ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface-2"}`}>
                     {label}
                   </button>
                 ))}
