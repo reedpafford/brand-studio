@@ -4,11 +4,11 @@ Step 3 (Directions) is #185's Suggest directions on its own step. Step 6 (Breakd
 
 ## 3. Directions (`?step=directions`, gaps #4)
 #185's Suggest directions (`phase3/screens/video.md` §2), on its own step, working on version A. Reed's words never change: suggestions only add direction lines (camera, movement, reaction, brand screen).
-- **Before:** one card, "Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change." The amber button is **Suggest directions · N credits**; the step bar has a ghost **Skip this step**.
+- **Before:** one card, "Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change." Under it, the meta line "This step is optional. Press Next to skip it." **Suggest directions · N credits** is secondary (`Sparkles`), and **Next: Variations** stays the amber button, since the step is optional (as built in #362).
   - For an editor, the price counts towards the week. Past the allowance it's disabled, with the reason and the reset day.
 - **While reading:** "Reading your script… 8 s", with skeleton marks under every third line.
 - **Suggestions:** exactly as in `video.md` §2. They're marked lines with the kind label, **Accept** / **Reject** on each, **Accept all**, and notes in a card (desktop: a 320px right column). The amber button becomes **Add 2 directions**; with 0 accepted it reads "Accept at least one suggestion".
-- **After adding:** toast "Added 2 directions. Undo". The step shows A with its direction lines (script font, direction lines in `text-muted` italics), plus **Suggest again · N credits** (ghost). **Next: Variations** comes back.
+- **After adding:** toast "Added 2 directions. Undo". The step shows A with its direction lines (script font, direction lines in `text-muted` italics). The same **Suggest directions · N credits** button runs it again. **Next: Variations** comes back.
 - **Variations** are written from A with its directions, so B and C start with them too.
 - **States:** "This script already reads well. Nothing to suggest." (toast, and the step counts as done). If it fails: "Suggestions didn't finish. Your script is unchanged. Nothing was charged." **Try again**.
 - **Server:** the project Enhance routes, but for a script version: `POST /scripts/{id}/drafts/0/enhance` (paid, estimate first), `GET …/suggestions`, `POST …/suggestions/{id}/accept|reject`, `POST …/apply`. The rule stays: the words never change.

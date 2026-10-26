@@ -1,0 +1,81 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, expect, test, vi } from "vitest";
+import { App } from "../App";
+import { fakeServer } from "../test/server";
+import { setViewport } from "../test/viewport";
+
+const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
+const script = (o: object = {}) => ({
+  id: 7, brand_id: 1, title: "Bo tries salmon", description: "x", reference_id: null, reel_imported: false, new_lines: false, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0, notes: "", reference_replace: "", cast: [],
+  versions: [{ slot: 0, status: "draft", title: "x", seconds: 0, project_id: null, text: "MIA: Hell no!\nBO: Salmon?", words: 5, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }], ...o,
+});
+const mark = (o: object = {}) => ({ id: 1, key: "a", kind: "camera", line: 1, quote: "Hell no!", start: 0, end: 8, placement: "after", text: "Slow push-in on Mia's face.", screen_id: null, reason: "It is the turn.", status: "pending", ...o });
+const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
+  "GET /auth/me": [200, owner],
+  "GET /brands": [200, [{ id: 1, name: "Iron Paws", colours: [] }]],
+  "GET /references": [200, []],
+  "GET /projects": [200, []],
+  "GET /jobs": [200, []],
+  "GET /scripts/7": [200, script()],
+  "GET /scripts/7/drafts/0/suggestions": [200, []],
+  "GET /scripts/7/drafts/0/notes": [200, []],
+  "GET /scripts/7/drafts/0/enhance/estimate": [200, { credits: 4 }],
+  ...o,
+});
+function open() {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/scripts/7?step=directions"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+afterEach(() => vi.unstubAllGlobals());
+
+test("Directions opens with its card, the price on Suggest directions, and Next to skip it", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({ "POST /scripts/7/drafts/0/enhance": [201, { id: 90, kind: "write-claude", status: "queued", step: "enhance", script_id: 7, created_at: new Date().toISOString() }] }));
+  open();
+  expect(await screen.findByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Next: Variations" })).toBeEnabled();
+  await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · 4 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/enhance")).toBe(true));
+});
+
+test("suggestions sit under their line with Accept and Reject; accepting turns the amber button into Add 1 direction, and Next steps aside", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({
+    "GET /scripts/7/drafts/0/suggestions": [200, [mark(), mark({ id: 2, key: "b", kind: "reaction", line: 2, text: "Bo blinks twice.", status: "accepted" })]],
+    "POST /scripts/7/drafts/0/suggestions/1/accept": [200, mark({ status: "accepted" })],
+    "POST /scripts/7/drafts/0/apply": [200, script()],
+  }));
+  open();
+  expect(await screen.findByText(/Slow push-in on Mia's face\./)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add 1 direction" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Next: Variations" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Accept: Slow push-in on Mia's face." }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/suggestions/1/accept")).toBe(true));
+  await userEvent.click(screen.getByRole("button", { name: "Add 1 direction" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/apply")).toBe(true));
+  expect(await screen.findByText("Added 1 direction.")).toBeInTheDocument();
+});
+
+test("an editor past the week's allowance can't press Suggest directions", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /auth/me": [200, { ...owner, id: 2, role: "editor" }], "GET /scripts/7": [200, script({ created_by_id: 2 })], "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }] }));
+  open();
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: /^Suggest directions/ })).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday."));
+  expect(screen.getByRole("button", { name: /^Suggest directions/ })).toBeDisabled();
+});
+
+test("Directions waits for the script's words", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7": [200, script({ versions: [{ ...script().versions[0], text: "", words: 0 }] })] }));
+  open();
+  await screen.findByRole("heading", { name: "Bo tries salmon", level: 1 });
+  expect(screen.queryByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.")).toBeNull();
+});

@@ -116,6 +116,19 @@ def save_preview(
     return _out(db, draft)
 
 
+@router.delete("", response_model=PreviewOut)
+def remove_preview(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Remove the version's saved plan (the screen's Undo saves it back with PUT). Its video
+    then plans its own shots when it is made."""
+    _, draft = _version(db, user, script_id, slot, edit=True)
+    draft.breakdown, draft.breakdown_problems, draft.breakdown_by_id = None, [], None
+    draft.breakdown_text, draft.breakdown_kept = None, []
+    db.commit()
+    return _out(db, draft)
+
+
 def _advice(draft):
     """advice.keep/unkeep work on a row's problems and kept: the version's plan's."""
     return SimpleNamespace(problems=draft.breakdown_problems, kept=draft.breakdown_kept)

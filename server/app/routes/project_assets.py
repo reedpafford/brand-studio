@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app import breakdown
 from app.auth import current_user
 from app.db import get_db
+from app.enhance import project_screens, screen_name
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.library import Kind, LibraryItem
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
 
 
 class AssetOut(BaseModel):
-    kind: str  # character | place
+    kind: str  # character | place | product | screen
     ref: str  # as the breakdown names it: char:5, place:2, or slot:3 until it has a character
     role: str  # the cast slot's role, else the item's name
     library_item_id: int | None
@@ -37,6 +38,8 @@ class AssetOut(BaseModel):
     ready: bool  # nothing left to do for it
     slot_id: int | None = None  # the script's cast slot this row fills; null for other rows
     description: str = ""  # the slot's role, as the script describes it (e.g. "teen, shy")
+    shots: int = 0  # how many of the breakdown's shots it is in ("In 3 shots")
+    file_id: int | None = None  # a product's or screen's picture (the brand's; nothing to make)
 
 
 class SlotCastIn(BaseModel):
@@ -80,8 +83,8 @@ def _row(
 
 @router.get("", response_model=list[AssetOut])
 def list_assets(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Cast slots first (locked, then unlocked), then the breakdown's other characters and
-    its places, each once."""
+    """Cast slots first (locked, then unlocked), then the breakdown's other characters, its
+    places, then the products and screens its shots show, each once."""
     project = get_project(db, user, project_id)
     bd = _newest(db, project)
     data = bd.data if bd else {"scenes": []}
@@ -101,6 +104,20 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         out.append(_row("character", ref, "", db.get(LibraryItem, int(ref[5:])), False))
     for ref in places:
         out.append(_row("place", ref, "", db.get(LibraryItem, int(ref.split(":")[1])), False))
+    screens = {f"screen:{s.id}": s for s in project_screens(db, project)}
+    for ref in dict.fromkeys(r for s in shots for r in s.get("screen_ids", [])):
+        if screen := screens.get(ref):
+            kind = "product" if "product" in screen.tags else "screen"
+            out.append(AssetOut(kind=kind, ref=ref, role="", library_item_id=None,
+                                name=screen_name(screen), locked=False, sheet_status="approved",
+                                ready=True, file_id=screen.file_id))  # fmt: skip
+    for row in out:
+        refs = {row.ref, f"slot:{row.slot_id}"}
+        row.shots = sum(
+            1
+            for s in shots
+            if refs & {*s["character_ids"], s.get("place_id"), *s.get("screen_ids", [])}
+        )
     return out
 
 

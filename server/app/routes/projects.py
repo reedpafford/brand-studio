@@ -272,8 +272,12 @@ def restore_project(
     started that version again it can't come back (one video per version)."""
     project = _mine(db, user, project_id)
     draft = db.get(ScriptDraft, project.released_draft_id) if project.released_draft_id else None
-    if draft and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
-        raise HTTPException(409, "This version has been made again, so this video can't come back.")
+    again = draft and db.scalar(select(Project).where(Project.script_draft_id == draft.id))
+    if again:
+        who, letter = user_name(db, again.created_by_id) or "Someone", "ABC"[draft.slot]
+        raise HTTPException(
+            409, f"{who} started version {letter} again, so this video can't come back."
+        )
     project.archived_at = None
     if draft is not None:
         project.script_draft_id, project.released_draft_id = draft.id, None

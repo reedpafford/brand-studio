@@ -51,6 +51,9 @@ def test_preview_runs_on_the_version_with_its_cast_and_saves(app, db, owner):
     assert owner.get(base).json()["versions"][0]["has_breakdown"] is True
     saved = owner.put(url, json=BREAKDOWN).json()
     assert saved["seconds"] == 5 and saved["breakdown"]["hook"] == BREAKDOWN["hook"]
+    removed = owner.delete(url).json()  # the screen's Undo PUTs it back
+    assert (removed["breakdown"], removed["problems"]) == (None, [])
+    assert owner.get(base).json()["versions"][0]["has_breakdown"] is False
     assert db.scalars(select(Job)).all()[-1].status == "succeeded"
 
 
@@ -103,3 +106,8 @@ def test_a_plan_goes_stale_when_the_words_change_and_its_advice_can_be_kept(owne
     owner.put(f"/scripts/{made['id']}/drafts/0", json={"text": SCRIPT + "\nMOM: Fine."})
     assert owner.get(url).json()["stale"] is True  # planned from the old words
     assert owner.put(url, json=BREAKDOWN).json()["stale"] is False  # saved again: current
+    db.query(ScriptDraft).update({"breakdown_problems": [advice]})
+    db.commit()
+    owner.post(f"{url}/keep", json={"problem": advice})
+    removed = owner.delete(url).json()  # removing the plan clears what was kept
+    assert (removed["kept"], removed["stale"]) == ([], False)

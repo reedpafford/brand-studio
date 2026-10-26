@@ -20,6 +20,7 @@ from app.models.files import StoredFile
 from app.models.projects import Project
 from app.routes.projects import get_project
 from app.storage import Storage
+from app.usage import video_title
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["project clips"])
 
@@ -71,6 +72,11 @@ def _finished(sessionmaker, project_id: int):
     return mark
 
 
+def file_base(title: str) -> str:
+    """'Bo tries salmon · B' → 'bo-tries-salmon-b' (Designer, video-flow.md)."""
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "clips"
+
+
 @router.get("/clips.zip", response_class=StreamingResponse)
 def clips_zip(
     project_id: int,
@@ -80,6 +86,7 @@ def clips_zip(
     db: Session = Depends(get_db),
 ):
     project = get_project(db, user, project_id)
+    base = file_base(video_title(db, project)[0])
     clips = db.scalars(
         select(ProjectClip).where(ProjectClip.project_id == project.id).order_by(ProjectClip.id)
     ).all()
@@ -90,8 +97,9 @@ def clips_zip(
         ).all()
         for take in takes:
             if all_takes or take.id == clip.picked_take_id:
-                name = f"{clip.clip_id}/take{take.number}.mp4" if all_takes else (
-                    f"{clip.clip_id}-take{take.number}.mp4"
+                n = clip.clip_id.lstrip("c")
+                name = f"{base}-clip-{n}/take{take.number}.mp4" if all_takes else (
+                    f"{base}-clip-{n}.mp4"
                 )  # fmt: skip
                 files.append((name, db.get(StoredFile, take.file_id).key))
     if not files:
@@ -100,9 +108,9 @@ def clips_zip(
     if missing := [name for name, key in files if not storage.exists(key)]:
         # Checked before sending, so a missing video never leaves a half-sent zip.
         raise HTTPException(409, f"{missing[0]}'s video file is missing. Make that take again.")
-    safe = re.sub(r"[^A-Za-z0-9 _-]", "", project.name).strip() or "clips"
     # Only the whole video counts as done: a picked take for every clip.
     whole = not all_takes and all(c.picked_take_id for c in clips)
+    kind = "all-takes" if all_takes else "clips"
     return StreamingResponse(
         _stream(
             storage,
@@ -110,5 +118,5 @@ def clips_zip(
             _finished(request.app.state.sessionmaker, project.id) if whole else None,
         ),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{safe}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{base}-{kind}.zip"'},
     )
