@@ -6,7 +6,7 @@ import { useJobs } from "../clip/History";
 import { Button, Card } from "../components";
 import { errorText as errorClass } from "../ui";
 import { Link } from "react-router-dom";
-import { ReadReelButton, useReelImport } from "./ReelImport";
+import { ReadReelButton, ReelProgress, useReelImport } from "./ReelImport";
 import { useAllowanceStop, usePatchScript, type Script } from "./useScript";
 
 /** An empty script's ways to get words: Claude writes it (from the reel, or from the description), or you paste it yourself. */
@@ -39,6 +39,14 @@ export function WriteOptions({ script: s, onOwn }: { script: Script; onOwn: () =
     void queryClient.invalidateQueries({ queryKey: ["script-cast", s.id] }); // the write also found the roles
   }, [last?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The paid read is going: say so, with how long it has taken.
+  if (reel.data?.status === "reading")
+    return (
+      <Card className="max-w-[680px] space-y-2">
+        <ReelProgress scriptId={s.id} />
+        <p className="text-sm text-muted">It keeps going if you leave this page.</p>
+      </Card>
+    );
   // An imported reel is read before anything is written: its lines become the script.
   if (reel.data && reel.data.status !== "done")
     return (

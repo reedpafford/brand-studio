@@ -180,6 +180,9 @@ function DescriptionStep({ script: s, brandName, onEditing, onDone }: { script: 
   const patch = usePatchScript(s.id);
   const [editing, setEditing] = useState(false);
   const refs = useReferences();
+  // A script made from a reel starts as "Untitled reel": its Title is a box right here, not behind Edit description.
+  const fromReel = !!useReelImport(s.id).data && !s.published;
+  const [title, setTitle] = useState<string | null>(null);
   const open = (v: boolean) => {
     setEditing(v);
     onEditing(v);
@@ -214,7 +217,26 @@ function DescriptionStep({ script: s, brandName, onEditing, onDone }: { script: 
     <ReelBlock scriptId={s.id} published={s.published} createdById={s.created_by_id} />
     <Card className="max-w-[680px] space-y-4">
       <dl className="space-y-4">
-        {row("Title", s.title)}
+        {fromReel ? (
+          <form
+            className="flex flex-col gap-2 sm:flex-row sm:items-end"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (title?.trim()) patch.mutate({ title: title.trim() }, { onSuccess: () => setTitle(null) });
+            }}
+          >
+            <div className="min-w-0 flex-1">
+              <Field label="Title" value={title ?? s.title} onChange={(e) => setTitle(e.target.value)} error={patch.isError ? patch.error.message : null} maxLength={200} />
+            </div>
+            {title !== null && title.trim() !== s.title && (
+              <Button type="submit" variant="secondary" busy={patch.isPending} disabled={!title.trim()}>
+                Save title
+              </Button>
+            )}
+          </form>
+        ) : (
+          row("Title", s.title)
+        )}
         {row("What it's for", s.description)}
         {s.reference_id && row("Reference reel", `${refs.data?.find((r) => r.id === s.reference_id)?.name ?? s.reference_id}${s.reference_replace ? ` — ${s.reference_replace}` : ""}`)}
         {row("Notes", s.notes)}
