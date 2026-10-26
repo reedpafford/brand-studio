@@ -216,6 +216,11 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
         preview={{
           keep: (problem, undo) => keep.mutate({ problem, undo }),
           keepBusy: keep.isPending,
+          fixCast: async () => {
+            const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/fix-cast", { params: { path } });
+            if (!data) throw new Error(errorText(error));
+            return data as unknown as { changed_shots: { shot_id: string; before: string[]; after: string[] }[] };
+          },
           again: readOnly ? null : (
             <Button variant="secondary" icon={RotateCcw} price={price} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => setAsking(true)}>
               Make it again
