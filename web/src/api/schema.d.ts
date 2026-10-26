@@ -1581,7 +1581,9 @@ export interface paths {
         /**
          * Delete Script
          * @description Delete it, undoably (Reed, 2026-10-25): it leaves every list but keeps its versions,
-         *     history, cast, reel files and videos, so Restore brings it back exactly as it was.
+         *     history, cast, reel files and videos, so Restore brings it back as it was. Its own work
+         *     stops, as on Release (a reel read, a Write, variations, a cast read, its own looks'
+         *     sheets); Restore doesn't start it again. Its videos are their own and go on.
          */
         delete: operations["delete_script_scripts__script_id__delete"];
         options?: never;
