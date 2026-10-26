@@ -15,7 +15,7 @@ export function Banner({ tone = "danger", title, children, action }: { tone?: ke
   return (
     <div role={tone === "danger" ? "alert" : "status"} className={`flex flex-wrap items-center gap-3 rounded-lg border p-4 ${t.box}`}>
       <Icon size={20} strokeWidth={1.75} aria-hidden className={`shrink-0 ${t.text}`} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-48">
         <p className="font-semibold">{title}</p>
         {children && <p className="text-sm text-muted">{children}</p>}
       </div>
