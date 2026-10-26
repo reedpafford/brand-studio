@@ -3,14 +3,15 @@ edit them (timing, shots, splits and joins are all the Breakdown JSON), and save
 version. The editor starts from it when the version is produced."""
 
 from decimal import Decimal
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import advice, script_preview
 from app import script_library as lib
-from app import script_preview
 from app.auth import current_user
 from app.credits import estimate
 from app.db import get_db
@@ -31,6 +32,8 @@ class PreviewOut(BaseModel):
     problems: list[str]
     seconds: int  # the clips added up (0 before any breakdown)
     running: bool  # a breakdown is being made
+    kept: list[str] = []  # advice kept anyway (never blocks)
+    stale: bool = False  # the words changed since it was planned: plan again or keep it
 
 
 class EstimateOut(BaseModel):
@@ -56,6 +59,8 @@ def _out(db: Session, draft) -> PreviewOut:
         problems=draft.breakdown_problems,
         seconds=sum(c.seconds for c in bd.clips) if bd else 0,
         running=_running(db, draft.id),
+        kept=draft.breakdown_kept,
+        stale=bool(bd and draft.breakdown_text is not None and draft.breakdown_text != draft.text),
     )
 
 
@@ -119,5 +124,45 @@ def remove_preview(
     then plans its own shots when it is made."""
     _, draft = _version(db, user, script_id, slot, edit=True)
     draft.breakdown, draft.breakdown_problems, draft.breakdown_by_id = None, [], None
+    draft.breakdown_text, draft.breakdown_kept = None, []
+    db.commit()
+    return _out(db, draft)
+
+
+def _advice(draft):
+    """advice.keep/unkeep work on a row's problems and kept: the version's plan's."""
+    return SimpleNamespace(problems=draft.breakdown_problems, kept=draft.breakdown_kept)
+
+
+@router.post("/keep", response_model=PreviewOut)
+def keep_advice(
+    script_id: int,
+    slot: Slot,
+    body: advice.KeepIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Keep anyway: this advice on the version's plan stays as it is (never blocks)."""
+    _, draft = _version(db, user, script_id, slot, edit=True)
+    row = _advice(draft)
+    advice.keep(row, body.problem)
+    draft.breakdown_kept = row.kept
+    db.commit()
+    return _out(db, draft)
+
+
+@router.delete("/keep", response_model=PreviewOut)
+def unkeep_advice(
+    script_id: int,
+    slot: Slot,
+    problem: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo Keep anyway (?problem=, the text as shown)."""
+    _, draft = _version(db, user, script_id, slot, edit=True)
+    row = _advice(draft)
+    advice.unkeep(row, problem)
+    draft.breakdown_kept = row.kept
     db.commit()
     return _out(db, draft)

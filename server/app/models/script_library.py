@@ -55,6 +55,8 @@ class ScriptDraft(Entity, Base):
     # Optional breakdown preview, saved with the version; the editor starts from it.
     breakdown: Mapped[dict | None] = mapped_column(JSON)
     breakdown_problems: Mapped[list[str]] = mapped_column(JSON, default=list)
+    breakdown_kept: Mapped[list[str]] = mapped_column(JSON, default=list)  # advice kept anyway
+    breakdown_text: Mapped[str | None] = mapped_column(Text)  # the words it was planned from
     breakdown_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # who planned it
     reserved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # producing it
 

@@ -1662,6 +1662,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/breakdown/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Advice
+         * @description Keep anyway: this advice on the version's plan stays as it is (never blocks).
+         */
+        post: operations["keep_advice_scripts__script_id__drafts__slot__breakdown_keep_post"];
+        /**
+         * Unkeep Advice
+         * @description Undo Keep anyway (?problem=, the text as shown).
+         */
+        delete: operations["unkeep_advice_scripts__script_id__drafts__slot__breakdown_keep_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/drafts/{slot}/produce": {
         parameters: {
             query?: never;
@@ -3640,6 +3664,16 @@ export interface components {
             seconds: number;
             /** Running */
             running: boolean;
+            /**
+             * Kept
+             * @default []
+             */
+            kept: string[];
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
         };
         /** ProduceOut */
         ProduceOut: {
@@ -8362,6 +8396,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_preview__EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_advice_scripts__script_id__drafts__slot__breakdown_keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unkeep_advice_scripts__script_id__drafts__slot__breakdown_keep_delete: {
+        parameters: {
+            query: {
+                problem: string;
+            };
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
                 };
             };
             /** @description Validation Error */
