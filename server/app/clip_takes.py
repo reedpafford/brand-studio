@@ -32,7 +32,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
     known = assets(db, project)
     breakdown = db.get(BreakdownVersion, clip.breakdown_id).data
     shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
-    require_cast_sheets(db, breakdown, shots)
+    require_cast_sheets(db, breakdown, shots, known)
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
     for ref in clip.references:

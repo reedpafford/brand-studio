@@ -248,13 +248,6 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             and "[Image1] is the first frame." not in c.prompt
         ):
             problems.append(f"{c.clip_id}: doesn't name [Image1] the first frame")
-        cast = [r.id for r in c.references if r.id.startswith("char:")]
-        first_seen = list(dict.fromkeys(i for s in clip.shot_ids for i in shots[s].character_ids))
-        for i in first_seen:
-            if i not in cast:
-                problems.append(f"{c.clip_id}: {i} is in the clip but its sheet isn't attached")
-        if cast != [i for i in first_seen if i in cast]:
-            problems.append(f"{c.clip_id}: characters aren't attached in the order they appear")
         if c.seconds != clip.seconds:
             problems.append(f"{c.clip_id}: {c.seconds} s but the breakdown says {clip.seconds} s")
     return problems

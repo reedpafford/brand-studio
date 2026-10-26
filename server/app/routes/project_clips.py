@@ -193,13 +193,14 @@ def edit_clip(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Edit a clip's prompt or references; its problems are checked again. Saving an edit
-    counts as reading it (Looks good)."""
+    """Edit a clip's prompt or references; the cast's sheets are added if missing and its
+    problems are checked again. Saving an edit counts as reading it (Looks good)."""
     project, row = _clip(db, user, project_id, clip_id)
-    row.prompt, row.references = body.prompt, [r.model_dump() for r in body.references]
-    row.prompt_ok = True
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, **body.model_dump())
+    clip = clip_prompts.with_cast(db, project, clip, bd, trim=False)
+    row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
+    row.prompt_ok = True
     row.problems = clip_prompts.clip_problems(db, project, bd, clip)
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
