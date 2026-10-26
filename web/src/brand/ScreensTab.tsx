@@ -83,7 +83,7 @@ export function ScreensTab() {
           {showDeleted && (
             <ul className="grid grid-cols-3 gap-3 lg:grid-cols-6" aria-label="Deleted screens">
               {deleted.data?.map((s) => (
-                <li key={s.id} className="space-y-2 opacity-80">
+                <li key={s.id} className="space-y-2 opacity-60">
                   <MediaCard title={s.name} aspect="9 / 16" image={fileUrl(s.file_id)} icon={Smartphone} />
                   <p className="text-sm text-muted">Deleted</p>
                   <Button variant="secondary" dense className="w-full" aria-label={`Restore ${s.name}`} onClick={() => void restore(s)}>
