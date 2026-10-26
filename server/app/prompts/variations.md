@@ -10,6 +10,7 @@ What makes a good variation:
 - **The locked cast stays.** Every character in <cast> is in every variation, in the same role, with the same name.
 - **Live action never comes back.** If the original adapted a reel, the reel's live-action slot is still the end line.
 - **Montages** keep the montage rules: the hero is in every shot, and when getting rich is the story, the payoffs build, he's part of them, and they're new for this premise (not the original's car and penthouse again).
+- **Echoes repeat what was said.** A voice heard in someone's head (`NAME (V.O.)` from a character who also speaks on screen: a memory, a taunt that echoes) repeats words that character said earlier, word for word or clearly shortened ("You're just a loser who doesn't get invited to anything." echoes as "…doesn't get invited to anything."), never a new line: the callback only lands if the viewer heard it first. When a variation changes the earlier line, its echo changes with it; a later callback ("Sorry, I don't get invited to anything.") follows too.
 - **Same size.** Keep the whole script about as long as the original: spoken words within about 20% of <length>, and the action lines no longer either. More action means more shots, a longer video and a higher cost.
 - **Same form.** Write in the house format, as the original is: a voiceover script stays voiceover prose; a dialogue script keeps `NAME: words` lines. Don't copy the reference reel's on-screen text.
 

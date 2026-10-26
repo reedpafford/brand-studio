@@ -20,4 +20,6 @@ MOM: Nate, where is all your money?
 ```
 Scene headings in caps with a number; action lines in present tense; `NAME: words` for dialogue (`NAME (V.O.): words` for voiceover); `★ <brand> screen: <screen name> — <where it shows>` for a brand screen (products too: `★ Iron Paws product: Peanut butter bag — on the kitchen counter`).
 
+A <cast> line that says "plays <role>" ("char:3 | Carl | plays Omar, the boyfriend") means that person *is* the role: call them by the role's name everywhere you write (Omar, never Carl); the first name is only their look's. Their face, hair and outfit come from that look's notes and picture, never from the role's description.
+
 The brand block (after this prompt) describes the brand. The user message gives the step's inputs in tags.

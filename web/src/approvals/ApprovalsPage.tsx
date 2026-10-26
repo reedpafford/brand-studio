@@ -117,7 +117,7 @@ export function ApprovalsPage() {
       {approveAll.isError && <p role="alert" className={errorClass}>{approveAll.error.message}</p>}
       {held.count === 0 ? (
         <EmptyState icon={Bell} title="Nothing waiting.">
-          When something needs you, editors see "Waiting for Reed to approve" and it shows up here.
+          Editors are never sent here any more: past a budget or their week, their button gives the reason. Requests from before 26 Oct show here until they're handled.
         </EmptyState>
       ) : (
         <Card className="p-0 sm:p-0">

@@ -20,7 +20,7 @@ All labels below are the ones the e2e tests use today. Keep them exactly.
 - Title: **Set up the studio**.
 - Fields:
   - **Setup code (from your server settings)**
-  - **Studio name**
+  - **Studio name**, with the hint "What your team sees when they're invited, e.g. Reed's studio." It's a plain name with spaces and capitals, never a slug.
   - **Your name**
   - **Email**
   - **Password (10 or more characters)**: the counter turns `success` at 10 or more.
@@ -31,7 +31,7 @@ All labels below are the ones the e2e tests use today. Keep them exactly.
 ## Join from an invite (`/invite/:token`)
 - **Checking:** a skeleton card (title bar plus two field bars). After 1s it adds "Checking your invite…".
 - **Good link:**
-  - Title: **Join {studio}**.
+  - Title: **Join {studio}**, using the studio's name as typed ("Join Reed's studio"). If the stored name looks like a slug (no spaces, with dashes, like "owner-reed"), show **Join {owner name}'s studio** instead ("Join Reed's studio"), and use the same words in the line below.
   - Line (meta): "{Name} invited you to {studio} as an editor. Your email is {email}."
   - Fields: **Your name**, **Choose a password (10 or more characters)**.
   - Amber button: **Create my account**.

@@ -72,6 +72,15 @@ def test_brand_block_lists_required_screens_and_their_moments():
     assert block.index("Other screens") < block.index("screen:9")
 
 
+def test_a_screen_that_prints_a_balance_gives_the_payoff_its_number():
+    rich = {"id": 5, "name": "Home (rich)", "tags": ["home"], "default_for": ["win"],
+            "balance": "$348,920.15"}  # fmt: skip
+    block = prompts.brand_block({"name": "fomo"}, [rich])
+    assert 'screen:5 "Home (rich)" (home), shows a balance of $348,920.15' in block
+    for step in ("breakdown", "script_draft", "clip_prompts"):
+        assert "shows a balance" in prompts.system(step)
+
+
 def test_number_lines():
     assert prompts.number_lines("a\nb") == "1| a\n2| b"
 
@@ -236,6 +245,29 @@ def test_variations_advice_covers_length_closeness_and_format():
         "Advice: variation 1 is very close to the original; regenerate with a note",
         "Advice: variation 1: “# The sneakers” isn't house format",
     ]
+
+
+def test_an_echo_repeats_what_was_said_to_his_face():
+    said = "GIRLFRIEND: You're just a loser who doesn't get invited to anything.\n"
+    assert check.echo_lines(said + "GIRLFRIEND (V.O.): Doesn't get invited to anything.") == []
+    assert check.echo_lines(said + "GIRLFRIEND (V.O.): New position can't afford a ticket.") == [
+        "Advice: the echo “New position can't afford a ticket.” calls back to nothing "
+        "Girlfriend said; repeat “You're just a loser who doesn't get invited to anything.”"
+    ]
+    assert check.echo_lines("BRUNO (V.O.): I was the worst dog on the street.") == []  # narrator
+    lines = [
+        "You're just a loser who doesn't get invited to anything.",
+        "New position doesn't get invited to anything.",
+        "Sorry, I don't get invited to anything.",
+    ]  # the callback is no mishearing
+    heard = [{"start": n, "end": n + 1, "text": t} for n, t in enumerate(lines)]  # fmt: skip
+    assert check.misheard(heard) == [
+        "Advice: “New position doesn't get invited to anything.” ends like “You're just a loser "
+        "who doesn't get invited to anything.”; if it echoes it, the transcript may have misheard "
+        "the start"
+    ]
+    for step in ("script_draft", "variations"):
+        assert "Echoes repeat what was said." in prompts.system(step)
 
 
 def test_eval_run_print_writes_the_variations_prompt_for_free(tmp_path):
@@ -463,6 +495,20 @@ def test_clip_prompt_checks_catch_music_aspect_and_cast_order():
         "c2: writes aspect or resolution (those are settings)",
         "c2: characters aren't attached in the order they appear",
     ]
+
+
+def test_the_keep_line_holds_every_attached_characters_look():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    assert check.clip_prompts(bd, cp, 30, 10) == []
+    clip = cp.clips[0]
+    clip.prompt = clip.prompt.replace("[Image2] is Malik.", "[Image2] is Malik. [Image7] is Tasha.")
+    assert "Advice: c2: the Keep line doesn't name Tasha; give their look and outfit" in (
+        check.clip_prompts(bd, cp, 30, 10)
+    )
+    assert "never the rival's black leather jacket" in prompts.system("clip_prompts")
+    for step in ("breakdown", "storyboard", "clip_prompts"):  # a locked look plays the role
+        assert "call them by the role's name everywhere" in prompts.system(step)
 
 
 def test_storyboard_check_keeps_character_sheets_within_the_model_limit():

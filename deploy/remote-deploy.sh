@@ -38,7 +38,8 @@ main() {
   docker compose up -d --build --remove-orphans
 
   for _ in $(seq 1 60); do
-    if curl -fsS --max-time 5 "https://$domain/api/health" >/dev/null; then
+    # The API's own answer, not just any 200 (the web app answers 200 for every page).
+    if curl -fsS --max-time 5 "https://$domain/api/health" | grep -q '"status":"ok"'; then
       echo "Live at https://$domain"
       # Launch brands' screens follow assets/brands/*/screens/screens.json (free, repeatable).
       if grep -q refresh ../server/app/seed.py; then

@@ -16,15 +16,9 @@ test("prices are whole credits, rounded up, and zero is free", () => {
   expect(creditsLabel(0)).toBe("free");
 });
 
-test("a paid button says its price inside, and asks Reed when the spend needs him", () => {
+test("a paid button says its price inside", () => {
   const { rerender } = render(<Button price={7.2}>Make the takes</Button>);
   expect(screen.getByRole("button", { name: "Make the takes · 8 credits" })).toBeEnabled();
-  rerender(
-    <Button price={7.2} ask>
-      Make the takes
-    </Button>,
-  );
-  expect(screen.getByRole("button", { name: "Ask Reed to approve · 8 credits" })).toBeInTheDocument();
   rerender(<Button price={0}>Make the video</Button>);
   expect(screen.getByRole("button", { name: "Make the video · free" })).toBeInTheDocument();
 });
