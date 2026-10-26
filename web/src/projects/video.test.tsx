@@ -646,3 +646,29 @@ test("Change it on a look's sheet shows up to N credits with the usual price und
   expect(await within(card).findByRole("button", { name: "Change it · up to 5 credits" })).toBeEnabled();
   expect(within(card).getByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
 });
+
+test("a look that reads wrong says what it reads as; Redo it puts the problem in the Change this… box, ready to send", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({ look_fit: { seen: "a teenage boy in a hoodie", problem: "Coach should be a woman in her 40s" }, look_credits: 4, look_usual_credits: 2 })]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Coach", change_credits: 4, sheet_usual_credits: 2 })],
+    "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, usual_credits: 0, reason: null }],
+    "POST /library/character/12/sheet": [201, { id: 4, kind: "image", status: "queued", credits: 4 }],
+  });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).getByText("This look reads as: a teenage boy in a hoodie")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Redo it" }));
+  expect(within(card).getByLabelText("Change this…")).toHaveValue("Coach should be a woman in her 40s");
+  await userEvent.click(await within(card).findByRole("button", { name: /^Change it · up to 4 credits/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/12/sheet")?.body).toEqual({ model_id: "nano-banana-pro", change: "Coach should be a woman in her 40s" }));
+});
+
+test("a look with nothing wrong shows no look-check note", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ look_fit: null })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach" })] });
+  open();
+  await screen.findByLabelText("Coach");
+  expect(screen.queryByText(/This look reads as/)).toBeNull();
+});

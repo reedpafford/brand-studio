@@ -145,6 +145,16 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           {status === "needs_approval" && <p className="text-warning">Needs a sheet approval. Videos only use an approved sheet.</p>}
           {status === "none" && !failed && !held && <p className="text-warning">Needs a sheet</p>}
           {failed && <p className="text-danger">Didn't finish · credits returned</p>}
+          {item.look_fit && !drawing && (
+            <div className="space-y-1 rounded-md bg-warning-soft p-2" role="note" aria-label="Look check">
+              <p>This look reads as: {item.look_fit.seen}</p>
+              {(status === "needs_approval" || status === "approved") && redoing === null && (
+                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={!!declined} onClick={() => setRedoing(item.look_fit!.problem)}>
+                  Redo it
+                </button>
+              )}
+            </div>
+          )}
           {drawing && <p className="text-muted">A sheet is being made.</p>}
           {declined && !drawing && !held && <p className="text-warning">{declined}</p>}
         </div>
