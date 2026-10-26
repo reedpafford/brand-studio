@@ -286,7 +286,9 @@ def _may_remove_look(db: Session, user: User, look: LibraryItem) -> None:
     if look.owner_project_id:
         project = db.get(Project, look.owner_project_id)
         if not (user.is_owner or project.created_by_id == user.id):
-            raise HTTPException(403, "Only Reed or whoever made this video can remove its looks.")
+            raise HTTPException(
+                403, "Only the owner or whoever made this video can remove its looks."
+            )
         in_use = look.id in project.cast_ids or look.id in project.slot_cast.values()
     else:
         script = lib.editable(user, lib.get_script(db, user, look.owner_script_id))

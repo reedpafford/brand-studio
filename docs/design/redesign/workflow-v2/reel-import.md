@@ -85,7 +85,7 @@ What to change (textarea, as today): "For example: the altar becomes a car showr
 - The **Script** step is filled in (§6), so Next: Script works straight away.
 
 ## 4. Review the breakdown (`/b/:brandId/scripts/:id/reel`)
-A full page in the writing frame (header, step picker), reached from the done card. ‹ Back goes to the step it came from.
+A page of its own, reached from the done card's **Review the breakdown** (secondary). It has no step picker, because it's a side trip that edits nothing (as built in #453). At the top is ‹ {script title}, which goes back to the step it came from, then the title **Review the breakdown**.
 
 **Desktop (≥ 1024): two columns.**
 - **Left (sticky, 300px):**
@@ -116,7 +116,7 @@ A full page in the writing frame (header, step picker), reached from the done ca
   - the line in the script font, "SPEAKER: words", when there is one
   - Tapping a row seeks the player to that shot.
 - **Live-action shots** are muted (text `--text-faint`) with a neutral badge `Dropped · live action`, and they're never in the script. The meta line counts them.
-- **Montages** with many tiny shots (under 1 s each, 5 or more in a row) are grouped: "Shots 17–40 · montage · 11.7 s" (meta), with a disclosure that opens them.
+- **Montages** with many tiny shots (under 1 s each, 5 or more in a row) are grouped: "Shots 17–40 · montage · 11.7 s" (meta), with a disclosure (`ChevronRight` closed, `ChevronDown` open) that opens them.
 - **Filters:** a segmented control: All · Lines only · Dropped.
 - **Nothing here is edited.** The breakdown is what the reel does; Reed adapts it in the script. Fixes go through Read it again.
 
