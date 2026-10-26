@@ -513,18 +513,13 @@ test("Delete this look removes a kept own look from its menu, and Undo brings it
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/12/unarchive")).toBe(true));
 });
 
-test("a look a role still uses can't be deleted: the server's words show", async () => {
+test("a look a role still uses has no Delete this look: it is offered only once the role is swapped (Not used)", async () => {
   setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [own()]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Coach" })],
-    "DELETE /library/character/12": [409, { detail: "Swap the role to another look first." }],
-  });
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own()]], "GET /library/character/12": [200, item({ id: 12, name: "Coach" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Coach" }));
-  await userEvent.click(await screen.findByRole("menuitem", { name: "Delete this look" }));
-  expect(await screen.findByText("Swap the role to another look first.")).toBeInTheDocument();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).getByText("This video only")).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: /^More for/ })).toBeNull();
 });
 
 test("a Cast & places character has no Delete this look", async () => {

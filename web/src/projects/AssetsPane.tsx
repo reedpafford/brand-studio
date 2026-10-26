@@ -280,7 +280,7 @@ function AssetCard({
             )}
             {using && <Badge>{asset.only_here === "script" ? "This script only" : "This video only"}</Badge>}
           </div>
-          {own && lookId != null && !asset.locked && (
+          {notUsed && lookId != null && !asset.locked && (
             <Menu title="Look actions" trigger={(t) => <Button variant="ghost" dense icon={Ellipsis} aria-label={`More for ${title}`} {...t} />}>
               {(close) => (
                 <MenuItem danger onClick={() => { close(); remove.mutate(); }}>
