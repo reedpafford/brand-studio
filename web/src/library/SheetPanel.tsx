@@ -23,7 +23,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const phone = useMedia("(max-width: 639px)");
   const queryClient = useQueryClient();
   const path = { kind, item_id: item.id };
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
+  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["library", kind] }), queryClient.invalidateQueries({ queryKey: ["assets"] })]);
   const [redoing, setRedoing] = useState<string | null>(null);
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const price = models.data?.find((m) => m.id === MODEL)?.credits_per_unit?.[RESOLUTION];
@@ -35,6 +35,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const held = status === "waiting_for_owner"; // over the weekly allowance: Reed has to say yes
   const failed = last?.status === "failed" && !drawing;
   const photo = item.source_photo_file_id;
+  const notes = (item.notes ?? "").trim(); // a sheet can be drawn from notes alone
   const cost = price === undefined ? "" : ` · ${credits(price)}`;
   // Past an editor's weekly allowance the server declines a new sheet, so don't offer one.
   const { data: me } = useMe();
@@ -135,7 +136,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           {declined && !drawing && !held && <p className="text-warning">{declined}</p>}
         </div>
       </div>
-      {!drawing && !held && status === "none" && (photo || kind === "place") && (
+      {!drawing && !held && status === "none" && (photo || kind === "place" || notes) && (
         <div className="space-y-2">
           <p>{photo ? "Turn this photo into a house-style sheet?" : "Make a sheet from the notes?"}</p>
           <button className={`${btnPrimary} ${btn}`} disabled={make.isPending || !!declined} onClick={() => make.mutate("")}>
@@ -144,7 +145,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           </button>
         </div>
       )}
-      {!drawing && !held && status === "none" && !photo && kind === "character" && <p className="text-muted">Upload a photo to make a sheet.</p>}
+      {!drawing && !held && status === "none" && !photo && !notes && kind === "character" && <p className="text-muted">Upload a photo, or add notes, to make a sheet.</p>}
       {!drawing && !held && (status === "needs_approval" || status === "approved") && (
         <div className="flex flex-wrap gap-2">
           {status === "needs_approval" && (

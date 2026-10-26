@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import reference
 from app.auth import current_user, owner_only, user_name
-from app.credits import credits_used, get_limits, lock, over_cap
+from app.credits import credits_used, get_limits, lock, over_cap, own_script
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
@@ -84,6 +84,7 @@ class ProjectOut(BaseModel):
     created_by_id: int | None  # who asked (for the owner's Approvals list)
     created_by_name: str
     script_draft_id: int | None = None  # made from a library version; null: an earlier-style video
+    own_script: bool = False  # from a script the viewer wrote: it runs on their weekly allowance
     archived_at: datetime | None = None  # put away; POST .../unarchive brings it back
 
 
@@ -112,7 +113,7 @@ def get_project(db: Session, user: User, project_id: int) -> Project:
     return project
 
 
-def _out(db: Session, project: Project) -> ProjectOut:
+def _out(db: Session, project: Project, user: User) -> ProjectOut:
     used = credits_used(db, project)
     return ProjectOut(
         id=project.id,
@@ -129,6 +130,7 @@ def _out(db: Session, project: Project) -> ProjectOut:
         created_by_id=project.created_by_id,
         created_by_name=user_name(db, project.created_by_id),
         script_draft_id=project.script_draft_id,
+        own_script=own_script(db, project, user),
         archived_at=project.archived_at,
     )
 
@@ -200,7 +202,7 @@ def list_projects(
     )
     if brand_id is not None:
         query = query.where(Project.brand_id == brand_id)
-    return [_out(db, p) for p in db.scalars(query.order_by(func.lower(Project.name)))]
+    return [_out(db, p, user) for p in db.scalars(query.order_by(func.lower(Project.name)))]
 
 
 @router.post("", response_model=ProjectOut, status_code=201)
@@ -223,7 +225,7 @@ def create_project(
         project.reference_breakdown = references.load(request, body.reference_id)
     db.add(project)
     db.commit()
-    return _out(db, project)
+    return _out(db, project, user)
 
 
 @router.post("/{project_id}/archive", response_model=ProjectOut)
@@ -234,7 +236,7 @@ def archive_project(
     if project.archived_at is None:
         archive(db, project)
         db.commit()
-    return _out(db, project)
+    return _out(db, project, user)
 
 
 @router.post("/{project_id}/release", response_model=ProjectOut)
@@ -258,7 +260,7 @@ def release_project(
     project.script_draft_id, project.released_draft_id = None, draft.id
     draft.reserved_by_id = None
     db.commit()
-    return _out(db, project)
+    return _out(db, project, user)
 
 
 @router.post("/{project_id}/restore", response_model=ProjectOut)
@@ -277,14 +279,14 @@ def restore_project(
         project.script_draft_id, project.released_draft_id = draft.id, None
         draft.reserved_by_id = project.created_by_id
     db.commit()
-    return _out(db, project)
+    return _out(db, project, user)
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
 def read_project(
     project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    return _out(db, get_project(db, user, project_id))
+    return _out(db, get_project(db, user, project_id), user)
 
 
 @router.patch("/{project_id}", response_model=ProjectOut)
@@ -304,7 +306,7 @@ def update_project(
     if body.reference_id:
         project.reference_breakdown = references.load(request, body.reference_id)
     db.commit()
-    return _out(db, project)
+    return _out(db, project, user)
 
 
 @router.post("/{project_id}/approve", response_model=ProjectOut)
@@ -322,7 +324,7 @@ def approve_project(
     db.refresh(project)
     _release_held_jobs(db, owner, project)
     db.commit()
-    return _out(db, project)
+    return _out(db, project, owner)
 
 
 def _release_held_jobs(db: Session, owner: User, project: Project) -> None:

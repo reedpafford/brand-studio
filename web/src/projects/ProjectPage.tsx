@@ -64,6 +64,8 @@ export function ProjectPage() {
     );
   const p = project.data;
   if (!p) return <p className="p-6">That video doesn't exist.</p>;
+  // A video made from a library version has the new five steps. Old videos keep this page.
+  if (p.script_draft_id) return <Navigate to={`/b/${brandId}/videos/${id}${params.get("step") ? `?step=${params.get("step")}` : ""}`} replace />;
   // A link to a step that is locked lands on the first step that is not finished yet.
   if (lockReason(step, progress) !== null) return <Navigate to={`?stage=${firstUnfinished(progress)}`} replace />;
 

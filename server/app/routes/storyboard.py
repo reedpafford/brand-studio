@@ -225,3 +225,18 @@ def keep_frame_advice(
     advice.keep(frame, body.problem)
     db.commit()
     return _out(db, project, frame)
+
+
+@router.delete("/frames/{frame_id}/keep", response_model=FrameOut)
+def unkeep_frame_advice(
+    project_id: int,
+    frame_id: int,
+    problem: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo Keep anyway on this frame's advice (?problem=, the text as shown)."""
+    project, frame = _frame(db, user, project_id, frame_id)
+    advice.unkeep(frame, problem)
+    db.commit()
+    return _out(db, project, frame)

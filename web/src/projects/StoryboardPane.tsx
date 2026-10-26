@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -10,6 +10,9 @@ import { useMedia } from "../useMedia";
 import { Sheet } from "./Sheet";
 import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
+import { AdviceList, useKeep } from "./Keep";
+import { useMe } from "../auth/useMe";
+import { refName, useRoleNames } from "./names";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -24,7 +27,8 @@ export function useFrames(projectId: number) {
   });
 }
 
-export function StoryboardPane(props: { projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
+/** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. */
+export function StoryboardPane(props: { oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -35,6 +39,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   const [drawing, setDrawing] = useState<Record<number, number>>({});
   const [writing, setWriting] = useState<number | null>(null);
   const [lightbox, setLightbox] = useState<Frame | null>(null);
+  const auto = useRef(false); // the frames were just asked for, and the stills follow
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
   const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
@@ -56,11 +61,8 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   const imageCost = rate("image");
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
 
-  const nameOf = (id: string) => {
-    if (id === "previous") return "previous frame";
-    const [kind, n] = id.split(":");
-    return pieces.find((p) => p.key === `${kind === "char" ? "character" : kind}-${n}`)?.name ?? id;
-  };
+  const roles = useRoleNames(projectId);
+  const nameOf = (id: string) => refName(id, pieces, roles);
 
   const make = useMutation({
     mutationFn: async () => {
@@ -70,6 +72,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
     },
     onSuccess: (job) => {
       setWriting(job.id);
+      auto.current = !!props.oneStep;
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
   });
@@ -109,6 +112,16 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
     if (finishedKey) queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
   }, [finishedKey, projectId, queryClient]);
 
+  // The frames are written: draw the stills that are missing, once.
+  useEffect(() => {
+    const todo = (frames.data ?? []).filter((f) => f.file_id === null && !blocking(f.problems).length && blocks.forShot(f.shot_id).length === 0);
+    if (!auto.current || writingNow || frames.isFetching || todo.length === 0) return;
+    auto.current = false;
+    void (async () => {
+      for (const f of todo) await render.mutateAsync({ frame: f }).catch(() => undefined);
+    })();
+  });
+
   if (frames.isPending) return <p className="text-muted">Loading…</p>;
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const list = frames.data;
@@ -116,14 +129,16 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   const over = (cost: number | undefined) => cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${n} credits`);
-  const makeLabel = over(writeCost) ? "Ask Reed to approve" : list.length ? "Redo storyboard" : "Make storyboard";
+  // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
+  const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
+  const makeLabel = over(makeTotal) ? "Ask Reed to approve" : list.length ? "Redo storyboard" : "Make storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
   const err = make.error ?? render.error ?? edit.error ?? approve.error;
   const approvedCount = list.filter((f) => f.approved).length;
 
   const makeButton = (
     <button
-      className={list.length ? btnSecondary : btnPrimary}
+      className={`${list.length ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`}
       disabled={writingNow || make.isPending}
       onClick={() => {
         const made = list.filter((f) => f.file_id !== null).length;
@@ -133,7 +148,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
       }}
     >
       {makeLabel}
-      {price(writeCost)}
+      {price(makeTotal)}
     </button>
   );
 
@@ -195,6 +210,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
             <FrameCard
               key={f.id}
               frame={f}
+              projectId={projectId}
               aspect={props.aspect}
               busy={busy}
               failed={job?.status === "failed"}
@@ -226,6 +242,7 @@ export function StoryboardPane(props: { projectId: number; brandId: number; aspe
 
 function FrameCard(props: {
   frame: Frame;
+  projectId: number;
   aspect: string;
   busy: boolean;
   failed: boolean;
@@ -240,6 +257,8 @@ function FrameCard(props: {
   onOpen: () => void;
 }) {
   const { frame: f } = props;
+  const keep = useKeep(props.projectId, { of: "frame", id: f.id });
+  const owner = useMe().data?.role === "owner";
   const [editing, setEditing] = useState<string | null>(null);
   const [redo, setRedo] = useState<string | null>(null);
   const phone = useMedia("(max-width: 639px)");
@@ -291,13 +310,14 @@ function FrameCard(props: {
         ))}
       </p>
       <SheetWarning blockers={props.blockers} brandId={props.brandId} />
-      {f.problems.length > 0 && (
+      {blocking(f.problems).length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${f.clip_id}`}>
-          {f.problems.map((p) => (
+          {blocking(f.problems).map((p) => (
             <li key={p}>{p}</li>
           ))}
         </ul>
       )}
+      <AdviceList problems={f.problems} kept={f.kept} onKeep={keep.mutate} busy={keep.isPending} owner={owner} name={`Advice for ${f.clip_id}`} />
       {editing !== null ? (
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for clip ${f.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />

@@ -1155,8 +1155,9 @@ export interface paths {
         put?: never;
         /**
          * Write One
-         * @description Claude writes the original's words from the title, description, cast and reel. A
-         *     script made from an imported reel is written by reading the reel (QA-2), not from here.
+         * @description Claude writes the original's words from the title, description, cast and reel, then
+         *     reads its cast (one price for both). A script made from an imported reel is written by
+         *     reading the reel (QA-2), not from here.
          */
         post: operations["write_one_scripts__script_id__write_post"];
         delete?: never;
@@ -1663,7 +1664,7 @@ export interface paths {
         };
         /**
          * Variations Estimate
-         * @description What one run costs (one Claude call, whether it writes one variation or two).
+         * @description What one run costs: one Claude call (one variation or two), then the cast read.
          */
         get: operations["variations_estimate_scripts__script_id__variations_estimate_get"];
         put?: never;
@@ -1909,7 +1910,11 @@ export interface paths {
          * @description Keep anyway: this advice on the newest breakdown stays as it is (never blocks).
          */
         post: operations["keep_advice_projects__project_id__breakdown_keep_post"];
-        delete?: never;
+        /**
+         * Unkeep Advice
+         * @description Undo Keep anyway on the newest breakdown's advice (?problem=, the text as shown).
+         */
+        delete: operations["unkeep_advice_projects__project_id__breakdown_keep_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2013,7 +2018,11 @@ export interface paths {
          * @description Keep anyway: this frame's advice stays as it is.
          */
         post: operations["keep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_post"];
-        delete?: never;
+        /**
+         * Unkeep Frame Advice
+         * @description Undo Keep anyway on this frame's advice (?problem=, the text as shown).
+         */
+        delete: operations["unkeep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2173,7 +2182,11 @@ export interface paths {
          * @description Keep anyway: this clip's advice stays as it is.
          */
         post: operations["keep_clip_advice_projects__project_id__clips__clip_id__keep_post"];
-        delete?: never;
+        /**
+         * Unkeep Clip Advice
+         * @description Undo Keep anyway on this clip's advice (?problem=, the text as shown).
+         */
+        delete: operations["unkeep_clip_advice_projects__project_id__clips__clip_id__keep_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2398,6 +2411,13 @@ export interface components {
             sheet_status: string;
             /** Ready */
             ready: boolean;
+            /** Slot Id */
+            slot_id?: number | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -2880,6 +2900,8 @@ export interface components {
              * @default []
              */
             steps_done: string[];
+            /** Watched From */
+            watched_from?: string | null;
             /** Failed Step */
             failed_step?: string | null;
             estimate?: components["schemas"]["Estimate"] | null;
@@ -3599,6 +3621,11 @@ export interface components {
             created_by_name: string;
             /** Script Draft Id */
             script_draft_id?: number | null;
+            /**
+             * Own Script
+             * @default false
+             */
+            own_script: boolean;
             /** Archived At */
             archived_at?: string | null;
         };
@@ -8591,6 +8618,39 @@ export interface operations {
             };
         };
     };
+    unkeep_advice_projects__project_id__breakdown_keep_delete: {
+        parameters: {
+            query: {
+                problem: string;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     frames_projects__project_id__storyboard_get: {
         parameters: {
             query?: never;
@@ -8808,6 +8868,40 @@ export interface operations {
                 "application/json": components["schemas"]["KeepIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unkeep_frame_advice_projects__project_id__storyboard_frames__frame_id__keep_delete: {
+        parameters: {
+            query: {
+                problem: string;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -9112,6 +9206,40 @@ export interface operations {
                 "application/json": components["schemas"]["KeepIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unkeep_clip_advice_projects__project_id__clips__clip_id__keep_delete: {
+        parameters: {
+            query: {
+                problem: string;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

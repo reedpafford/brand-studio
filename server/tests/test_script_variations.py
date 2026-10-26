@@ -20,7 +20,7 @@ def test_write_two_variations_then_regenerate_one(app, db, owner):
     mom = owner.post(f"{base}/cast", json={"role": "Mom"}).json()[0]["id"]
     owner.post(f"{base}/cast/{mom}/lock", json={"library_item_id": mia.json()["id"]})
     owner.post(f"{base}/drafts/0/approve")
-    assert owner.get(f"{url}/estimate").json()["credits"] == 3  # one call, one price
+    assert owner.get(f"{url}/estimate").json()["credits"] == 6  # one call, then the cast read
 
     job = owner.post(url, json={})
     assert job.status_code == 201, job.text
@@ -88,3 +88,14 @@ def test_a_regenerated_variation_keeps_its_earlier_text(app, db, owner):
     _work(app, db)
     (earlier,) = owner.get(f"{base}/drafts/1/history").json()
     assert (earlier["text"], earlier["source"]) == (first, "variations")
+
+
+def test_variations_read_the_cast_next_with_every_version(app, db, owner):
+    made = _make(owner, text=LONGER)
+    base = f"/scripts/{made['id']}"
+    owner.post(f"{base}/drafts/0/approve")
+    assert owner.post(f"{base}/variations", json={}).status_code == 201
+    _work(app, db)
+    cast = db.query(Job).filter(Job.input["step"].as_string() == "cast_slots").one()
+    prompt = cast.input["prompt"]
+    assert all(f'<version slot="{n}">' in prompt for n in (0, 1, 2))  # every version written

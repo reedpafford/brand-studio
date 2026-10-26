@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import reel_read, script_write
 from app import script_library as lib
 from app.auth import current_user
-from app.credits import credits_left, estimate
+from app.credits import afford, credits_left, estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.models.script_library import Script
@@ -34,11 +34,12 @@ class WriteManyEstimate(BaseModel):
     reading: int = 0  # scripts whose imported reel is read first (watch, write, cast read)
     writing: int = 0  # scripts that are simply written
     waiting: list[int] = []  # reels still being prepared: Write all waits for them
-    failed: list[int] = []  # reels that couldn't be fetched: upload the video or untick them
+    failed: list[int] = []  # reels that need the video uploaded (fetch failed, or too old)
 
 
 def _price(db: Session, user: User) -> Decimal:
-    return estimate(db, user.workspace_id, "write-claude", Decimal(1), {})
+    """Writing the words, then the cast read that follows it (one press, one price)."""
+    return estimate(db, user.workspace_id, "write-claude", Decimal(2), {})
 
 
 def _writable(db: Session, user: User, script_id: int, row: str = "") -> Script:
@@ -77,6 +78,7 @@ def _cost(db: Session, user: User, script: Script, plan: str) -> Decimal:
 def _queue(db: Session, user: User, request: Request, script: Script):
     reference = script_reference(request, script)
     data = script_write.job_input(db, script, reference)
+    data |= {"then_cast": True, "then_cast_reference": reference}  # cast read next, prepaid
     return enqueue(db, user, "write-claude", data, provider="claude")
 
 
@@ -100,11 +102,13 @@ def write_one(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Claude writes the original's words from the title, description, cast and reel. A
-    script made from an imported reel is written by reading the reel (QA-2), not from here."""
+    """Claude writes the original's words from the title, description, cast and reel, then
+    reads its cast (one price for both). A script made from an imported reel is written by
+    reading the reel (QA-2), not from here."""
     script = _writable(db, user, script_id)
     if _plan(db, script) != "write":
         raise HTTPException(409, "Read the reel first.")
+    afford(db, user, _price(db, user), "Writing this script")
     return _queue(db, user, request, script)
 
 
@@ -147,10 +151,8 @@ def write_many(
         are = "reel is" if waiting == 1 else "reels are"
         raise HTTPException(409, f"{waiting} {are} still being prepared. Try again shortly.")
     if failed := plans.count("failed"):
-        it = "reel" if failed == 1 else "reels"
-        raise HTTPException(
-            409, f"{failed} {it} couldn't be fetched. Upload the video or untick it."
-        )
+        it = "reel needs" if failed == 1 else "reels need"
+        raise HTTPException(409, f"{failed} {it} the video uploaded again. Upload it or untick it.")
     costs = [_cost(db, user, s, p) for s, p in zip(scripts, plans, strict=True)]
     total, left = sum(costs, Decimal(0)), credits_left(db, user)
     if left is not None and total > left:

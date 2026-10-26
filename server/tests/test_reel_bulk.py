@@ -69,9 +69,9 @@ def test_write_all_reads_reels_and_writes_the_rest_at_one_price(app, owner, db, 
     _drain(app, db, clip, refused=LINKS[1])
     est = owner.post("/scripts/write/estimate", json={"script_ids": ids}).json()
     assert (est["reading"], est["writing"], est["failed"]) == (1, 1, [ids[1]])
-    assert est["credits"] == 7 + 3  # a reel's read (watch, write, cast) plus one write
+    assert est["credits"] == 7 + 6  # a reel's read (watch, write, cast) plus a write and cast
     failed = owner.post("/scripts/write", json={"script_ids": ids})
-    assert failed.status_code == 409 and "couldn't be fetched" in failed.json()["detail"]
+    assert failed.status_code == 409 and "uploaded again" in failed.json()["detail"]
     started = owner.post("/scripts/write", json={"script_ids": [ids[0], ids[2]]})
     assert started.status_code == 201, started.text
     _drain(app, db, clip)
@@ -81,12 +81,12 @@ def test_write_all_reads_reels_and_writes_the_rest_at_one_price(app, owner, db, 
 
 def test_write_all_is_all_or_none_over_reading_too(app, owner, editor, db, clip):
     owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 9, "per_video_max_credits": 729}
+        "/credits/limits", json={"weekly_quick_clip_credits": 12, "per_video_max_credits": 729}
     )
     ids = [s["id"] for s in _bulk(editor, [{"reel_url": LINKS[0]}, {"title": "Plain"}]).json()]
     _drain(app, db, clip)
     declined = editor.post("/scripts/write", json={"script_ids": ids})
-    assert declined.status_code == 409 and "10 credits" in declined.json()["detail"]
+    assert declined.status_code == 409 and "13 credits" in declined.json()["detail"]
     assert db.query(Job).filter(Job.kind != "reel_prepare").count() == 0
 
 
