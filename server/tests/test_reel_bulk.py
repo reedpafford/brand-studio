@@ -45,6 +45,8 @@ def test_each_link_becomes_a_draft_with_its_own_prep(owner, db):
     assert made.status_code == 201, made.text
     titles = [s["title"] for s in made.json()]
     assert titles == ["Untitled reel"] * 3 + ["Plain"]
+    reels = [s["reel"] for s in made.json()]
+    assert reels == [{"status": "preparing", "seconds": None, "fetch_error": None}] * 3 + [None]
     jobs = db.query(Job).filter(Job.kind == "reel_prepare").all()
     assert sorted(j.input["url"] for j in jobs) == sorted(LINKS)
 
@@ -70,6 +72,12 @@ def test_write_all_reads_reels_and_writes_the_rest_at_one_price(app, owner, db, 
     est = owner.post("/scripts/write/estimate", json={"script_ids": ids}).json()
     assert (est["reading"], est["writing"], est["failed"]) == (1, 1, [ids[1]])
     assert est["credits"] == 7 + 6  # a reel's read (watch, write, cast) plus a write and cast
+    assert (est["read_credits"], est["write_credits"]) == (7, 6)
+    rows = {r["id"]: r["reel"] for r in owner.get("/scripts").json()}
+    assert rows[ids[0]]["status"] == "ready" and rows[ids[0]]["seconds"] > 0
+    assert rows[ids[1]]["fetch_error"] == BLOCKED  # the plain reason, per row
+    assert owner.get(f"/scripts/{ids[1]}").json()["reel"]["fetch_error"] == BLOCKED
+    assert rows[ids[2]] is None
     failed = owner.post("/scripts/write", json={"script_ids": ids})
     assert failed.status_code == 409 and "uploaded again" in failed.json()["detail"]
     started = owner.post("/scripts/write", json={"script_ids": [ids[0], ids[2]]})
