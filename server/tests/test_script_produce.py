@@ -5,6 +5,7 @@ import json
 from fastapi.testclient import TestClient
 
 from app import credits, prompts
+from app.db import utcnow
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
@@ -280,3 +281,24 @@ def test_an_unlocked_slot_in_the_breakdown_is_known_and_blocks_nothing(owner, ed
     bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{stranger}"]
     wrong = editor.put(url, json=bd)  # another script's slot is still unknown
     assert wrong.status_code == 422 and f"unknown slot:{stranger}" in wrong.json()["detail"]
+
+
+def test_editors_search_and_filter_their_videos(app, owner, editor, db):
+    """Gaps #13: by name, mine only, making or done, and brand."""
+    dip, _ = _published(owner, db, breakdown=BREAKDOWN)
+    mine = editor.post(f"{dip}/drafts/0/produce").json()["project_id"]
+    two, _ = _second_editor(app, owner, db)
+    fomo = owner.get("/brands").json()[0]["id"]
+    theirs = two.post("/projects", json={"brand_id": fomo, "name": "Salmon"}).json()["id"]
+
+    def ids(**params):
+        return [p["id"] for p in editor.get("/projects", params=params).json()]
+
+    assert ids(q="dip") == [mine] and ids(q="SALM") == [theirs]
+    assert ids(mine=True) == [mine]
+    assert ids(status="making") == [mine, theirs] and ids(status="done") == []
+    db.get(Project, mine).finished_at = utcnow()
+    db.commit()
+    assert ids(status="done") == [mine]
+    assert editor.get("/projects", params={"status": "done"}).json()[0]["finished_at"]
+    assert ids(brand_id=fomo, mine=True, status="done", q="d") == [mine]
