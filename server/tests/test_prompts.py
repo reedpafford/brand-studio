@@ -884,3 +884,15 @@ def test_an_adapted_montage_keeps_the_references_length():
         prompts.watch_breakdown(watch, transcript, cuts)
     )
     assert "the montage runs about as long as its montage" in prompts.system("breakdown")
+
+
+def test_the_keep_line_holds_every_attached_characters_look():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    assert check.clip_prompts(bd, cp, 30, 10) == []
+    clip = cp.clips[0]
+    clip.prompt = clip.prompt.replace("[Image2] is Malik.", "[Image2] is Malik. [Image7] is Tasha.")
+    assert "Advice: c2: the Keep line doesn't name Tasha; give their look and outfit" in (
+        check.clip_prompts(bd, cp, 30, 10)
+    )
+    assert "never the rival's black leather jacket" in prompts.system("clip_prompts")

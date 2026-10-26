@@ -230,6 +230,12 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         if _montage(clip.shot_ids, shots):  # guests and crowds elsewhere are never cast
             problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
+        keep = next((x for x in c.prompt.splitlines() if x.startswith("Keep: ")), "")
+        problems += [  # each attached character holds their look by name (live test, 10-26)
+            f"{ADVICE}{c.clip_id}: the Keep line doesn't name {who}; give their look and outfit"
+            for who in dict.fromkeys(CAST.findall(c.prompt))
+            if keep and who not in keep
+        ]
         shape, _ = _shape(c.prompt, c.seconds)
         problems += [f"{c.clip_id}: {p}" for p in shape]
         problems += [
