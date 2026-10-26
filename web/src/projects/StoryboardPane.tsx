@@ -135,7 +135,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
   const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
   const makeLabel = list.length ? "Redo storyboard" : "Make storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
-  const declined = stopFor(makeTotal) ?? stopFor(imageCost);
+  const declined = stopFor(makeTotal) ?? stopFor(allCost) ?? stopFor(imageCost);
   const err = make.error ?? render.error ?? edit.error ?? approve.error;
   const approvedCount = list.filter((f) => f.approved).length;
 

@@ -219,6 +219,19 @@ test("Redo asks what should change and sends it as the note for that render only
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/render")?.body).toEqual({ note: "Warmer light" }));
 });
 
+test("an editor with room for one still but not all of them gets Make all stills off, with the reason shown", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 597, budget_credits: 600 }],
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2" }), frame({ id: 3, clip_id: "c3" })]],
+  });
+  open();
+  const all = await screen.findByRole("button", { name: "Make all stills · 6 credits" });
+  expect(all).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /^Make still · 3 credits/ })[0]).toBeEnabled();
+});
+
 test("a frame whose character has no approved sheet says so, links to the character, and is skipped by Make all stills", async () => {
   const withMia = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [{ id: "1.1", character_ids: ["char:4"], place_id: null }, { id: "2.1", character_ids: [], place_id: null }] }] } };
   fakeServer({
