@@ -43,11 +43,29 @@ Everything this version needs on screen, approved before anything is drawn.
 - **Unlocked role** (as built tonight; Producer, 2026-10-25):
   - the role, the kind, the description (meta, 2 lines), and "In 3 shots"
   - **Use a Cast & places character** (secondary) picks one of the brand's characters for this video. Picking another one swaps it.
-  - **Make a look** (secondary) makes a new character in Cast & places from the role's name and description, gives it to this video, and opens its sheet panel to draw and approve it. The new character stays in the brand's library for later videos.
-  - The Assets step never approves, unapproves or redraws a character that's already in Cast & places. It only picks, swaps or makes a new one. A shared character's sheet changes on its own page.
-  - the badge "Needs a look" (warning) until the role's character has an approved sheet
-  - Later (gaps #19): a look kept for this video only, which doesn't touch the brand's library.
-- **Place:** the same as an unlocked role, with 16:9 sheets.
+  - **Make a look** (secondary) makes a look for this video only, from the role's name and description (see "Looks for this video only" below). It never adds anything to Cast & places.
+  - The Assets step never approves, unapproves or redraws a character that's already in Cast & places. It only picks or swaps one. A shared character's sheet changes on its own page.
+  - the badge "Needs a look" (warning) until the role has an approved sheet, either a library character's or this video's own look
+- **Place:** the same as an unlocked role, with 16:9 sheets. A place made here is also for this video only.
+
+### Looks for this video only (gaps #19; Reed, 2026-10-26)
+Only characters and places made in **Cast & places** go into the brand's library. A look made while making a script or a video stays with it.
+- **Who owns it:**
+  - Made on a video's Assets: that video only.
+  - Made in the writing flow's Cast step (`variations-characters-publish.md` §5, Make one): that script, for every version made from it.
+  - It's never listed in Cast & places, never offered in another script's or video's picker, and never shown in Usage's library counts.
+- **On the card:**
+  - The role, the look's 9:16 sheet, and a neutral badge "This video only" ("This script only" for a script's look).
+  - Its own sheet buttons, because it belongs here: **Approve**, and a **Change this…** box to redraw it (`change-notes.md` §1). It's paid like any sheet. Its earlier versions stay, and picking one back is free.
+  - **Use a Cast & places character** still swaps the role to a library character. The per-video look is kept, with "Not used" (meta), so swapping back is free.
+- **Save to Cast & places** (secondary dense, `Users`, in the card's `Ellipsis` menu on phone):
+  - **Who sees it:** Reed always. An editor only when Team's **Editors can save looks to Cast & places** is on (`phase3/screens/studio.md`; off by default). With it off, editors don't see the button at all.
+  - **Needs an approved sheet.** Before that, it's disabled with "Approve the sheet first".
+  - **Asks for a name** (dialog on desktop, sheet on phone): "Save to Cast & places", with **Name** filled with the role ("Mia"), and the meta line "It becomes a normal character any script can use. This video keeps its look either way." **Save** (amber in the dialog) / **Cancel** (ghost).
+    - A name already used by a brand character gives the server's words under Name: "Bo is already in Cast & places. Pick another name."
+  - **After:** a copy goes into Cast & places as a normal character, with its approved sheet. The video now uses the library character, and the badge becomes the usual library look. The toast says "Mia saved to Cast & places." with **Undo** (8 s). Undo removes the copy and puts the video back on its own look.
+  - It's free: copying makes nothing new.
+- **Where per-video looks show:** this video's Assets, Storyboard and Clips chips (the chip reads the look's name, with "This video only" in its tooltip). Nowhere else.
 - **Product:** the brand's product picture.
   - For brands with flavours, a flavour picker (cards with the 1:1 picture, as the old brief had). Iron Paws picks its bag here.
   - The pick applies to every shot that shows the product.
@@ -147,4 +165,9 @@ Each version is made only once, so a version started by mistake must be able to 
 - **Budget:** set when the breakdown is made (twice its estimate, capped at $75). Editors' own scripts are charged to their weekly allowance instead, and refused past it.
 - **Kept problems:** a "keep anyway" flag per breakdown problem.
 - **Assets:** `GET /videos/{id}/assets` lists the cast slots (from the script's cast, locked ones with their sheet), places, products and screens, each with its state. Per asset: make a look from the role description (paid), use a library character, approve, and pick a flavour.
+- **Looks for one video or one script (gaps #19):**
+  - A look made on Assets (or in a script's Cast step) is stored against that video (or script), not the brand's library: `owner: {video_id} | {script_id}`, never listed by `GET /library/*`, never offered in pickers elsewhere.
+  - Per look: `GET` with its sheet versions and state, `POST …/sheet` (paid, with the change note), `POST …/approve`, `POST …/pick` for an earlier version.
+  - `POST /videos/{id}/assets/{slot}/save-to-library` `{name}`: copies the approved look into Cast & places as a normal character and points the slot at it. It returns the new character id, and the Undo is `DELETE` on it, which puts the slot back on the look. It refuses with 409 "Approve the sheet first" or "{Name} is already in Cast & places. Pick another name."
+  - A team setting `editors_can_save_looks` (default false) on `GET/PUT /credits/limits` or `/team/settings`. The save route refuses editors with 403 while it's off.
 - **Downloads:** the takes listed per clip, with times; `GET /videos/{id}/clips.zip` for the picked takes; and the stitched video, as today.
