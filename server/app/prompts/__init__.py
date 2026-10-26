@@ -23,12 +23,15 @@ SCHEMAS = {
     "change": schemas.ChangedPrompt,
     "variations": schemas.Variations,
     "cast_slots": schemas.CastSlots,
+    "look_fit": schemas.LookFit,
 }
+NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
 
 
 @cache
 def system(step: str) -> str:
-    parts = [(HERE / "rules.md").read_text(), (HERE / f"{step}.md").read_text()]
+    parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
+    parts.append((HERE / f"{step}.md").read_text())
     example = HERE / "examples" / f"{step}.json"
     if example.exists():
         ex = json.loads(example.read_text())
@@ -306,3 +309,18 @@ def cast_slots_input(
     if reference:
         parts.append(reference)
     return "\n".join(parts)
+
+
+def look_fit_input(description: str, role: str = "") -> str:
+    """The user message for the look_fit check; the sheet image goes before it. `role` is
+    the cast slot's role ("Omar, the boyfriend"); its name is left out."""
+    part = role.split(",", 1)[-1].strip()
+    lines = [f"<character>{description.strip()}</character>"]
+    if part:
+        lines.append(f"<role>{part}</role>")
+    return "\n".join(lines)
+
+
+def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:
+    """The change note for the one automatic redo of a sheet that doesn't fit its role."""
+    return f"The character must read clearly as: {description.strip()}. {fit.problem.strip()}"
