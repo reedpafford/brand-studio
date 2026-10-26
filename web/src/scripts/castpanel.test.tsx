@@ -131,3 +131,10 @@ test("a role with no facts shows no facts line", async () => {
   await screen.findByText("Late 20s.");
   expect(screen.queryByText(/\(a guess\)/)).toBeNull();
 });
+
+test("a first fact the server sends in lower case starts with a capital", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7/cast": [200, [{ ...slot, facts: { age_range: { value: "late 20s", inferred: false } } }]] }));
+  open();
+  expect(await screen.findByText("Late 20s")).toBeInTheDocument();
+});

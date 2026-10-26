@@ -11,7 +11,7 @@ export function RoleFacts({ facts }: { facts: Facts }) {
       {parts.map((f, i) => (
         <span key={i}>
           {i > 0 && " · "}
-          {f.value}
+          {i === 0 ? f.value.charAt(0).toUpperCase() + f.value.slice(1) : f.value}
           {f.inferred && <span className="text-faint"> (a guess)</span>}
         </span>
       ))}

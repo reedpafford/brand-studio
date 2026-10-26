@@ -572,3 +572,50 @@ test("an Assets role card leads with the role's facts, a guess marked", async ()
   const card = await screen.findByLabelText("Coach");
   expect(within(card).getByText((_, el) => el?.tagName === "P" && el.textContent === "Mid-40s (a guess) · woman · primary-school teacher")).toBeInTheDocument();
 });
+
+const missing = (o: object = {}) => ({ slot_ids: [3, 4], roles: ["Nate", "Mia"], credits: 8.4, reason: null, ...o });
+
+test("missing looks: the price first with a countdown and Not now; Not now is recorded on the server and nothing is made", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets/missing-looks": [200, missing()],
+    "POST /projects/9/assets/missing-looks/decline": [204, null],
+    "POST /projects/9/assets/make-missing": [200, []],
+  });
+  open();
+  expect(await screen.findByText("Making looks for Nate and Mia · 9 credits")).toBeInTheDocument();
+  expect(screen.getByText(/Starting in \d s/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Not now" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/missing-looks/decline")).toBe(true));
+  expect(screen.queryByText(/Making looks for/)).toBeNull();
+  await new Promise((r) => setTimeout(r, 1500));
+  expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(false);
+});
+
+test("missing looks that fit are made after the countdown, and the note then says what was made", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing()], "POST /projects/9/assets/make-missing": [200, []] });
+  open();
+  await screen.findByText(/Starting in \d s/);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(true), { timeout: 9000 });
+  expect(await screen.findByText("Made 2 looks · 9 credits. Check each one, then approve.")).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /projects/9/assets/make-missing")).toHaveLength(1); // once
+}, 20000);
+
+test("missing looks that don't fit are not made: the server's reason shows and there is no countdown", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing({ reason: "Making a look (8 credits) would go over this video's budget." })] });
+  open();
+  expect(await screen.findByText("Making a look (8 credits) would go over this video's budget.")).toBeInTheDocument();
+  expect(screen.queryByText(/Starting in/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Not now" })).toBeNull();
+  expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(false);
+});
+
+test("a refused start shows the server's reason", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing({ slot_ids: [3], roles: ["Nate"] })], "POST /projects/9/assets/make-missing": [409, { detail: "Making a look (8 credits) would go over this video's budget." }] });
+  open();
+  expect(await screen.findByText("Making a look (8 credits) would go over this video's budget.", {}, { timeout: 9000 })).toBeInTheDocument();
+}, 20000);

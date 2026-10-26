@@ -25,6 +25,7 @@ import { useMe } from "../auth/useMe";
 import { useSheetPrice } from "../library/SheetPanel";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { RoleFacts } from "./RoleFacts";
+import { AutoLooks } from "./AutoLooks";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
 
 type Asset = components["schemas"]["AssetOut"];
@@ -489,6 +490,7 @@ export function AssetsPane({
     );
   return (
     <div className="space-y-6">
+      <AutoLooks projectId={projectId} />
       {cast.length > 0 && (
         <section aria-label="Cast" className="space-y-3">
           <h3 className="type-section">Cast</h3>
