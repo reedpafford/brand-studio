@@ -1,7 +1,7 @@
 """The Script Library (workflow v2): scripts owned by a brand, each with up to three versions
 (the original in slot 0 and up to two variations). Rules: `app/script_library.py`."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -15,6 +15,7 @@ from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.models.scripts import Suggestion
+from app.purge import PURGE_AFTER
 from app.reel import reel_link
 from app.routes.brands import get_brand
 from app.routes.references import catalogue
@@ -24,7 +25,6 @@ from app.routes.script_import import UNTITLED, one_at_a_time, prepare
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
-PURGE_AFTER = timedelta(days=30)  # Designer #322; the purge itself isn't built yet
 router = APIRouter(prefix="/scripts", tags=["script library"])
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Slot = Annotated[int, Field(ge=0, le=lib.MAX_SLOT)]
@@ -389,7 +389,7 @@ def delete_script(
     history, cast, reel files and videos, so Restore brings it back exactly as it was."""
     script = _removable(db, user, script_id)
     script.archived, script.deleted_at = True, utcnow()
-    # Purging long-deleted scripts would go here (never one with videos: lib.has_videos).
+    # app.purge removes it for good PURGE_AFTER on (never one with videos).
     db.commit()
 
 
