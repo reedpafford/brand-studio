@@ -51,6 +51,7 @@ def fetch(url: str, folder: Path) -> Path:
     plain Refused; the raw output is never logged (it holds nothing secret, but no need)."""
     out = folder / "reel.mp4"
     args = [sys.executable, "-m", "yt_dlp", "--no-playlist", "--no-cookies", "--quiet"]
+    args += ["--write-info-json"]  # reel.info.json: its caption names the script
     args += ["--max-filesize", f"{MAX_MB}M", "-f", "mp4/best[ext=mp4]/best", "-o", str(out), url]
     try:
         done = _run(args, FETCH_TIMEOUT)
@@ -202,6 +203,26 @@ def warm() -> None:
     done = _run([sys.executable, "-m", "app.whisper", "--warm"], 900)
     if done.returncode != 0:
         raise RuntimeError(f"Loading the speech model failed ({done.returncode}).")
+
+
+def caption(folder: Path) -> str:
+    """The reel's caption as its page shows it (from yt-dlp's info file), or ""."""
+    try:
+        info = json.loads((folder / "reel.info.json").read_text())
+    except (OSError, ValueError):
+        return ""
+    return str(info.get("description") or info.get("title") or "").strip()
+
+
+def name_for(caption_text: str, transcript: list[dict], limit: int = 60) -> str:
+    """A script's name from an imported reel: its caption's first line, else its first spoken
+    line, cut at a word to fit ("" if neither has words)."""
+    lines = [caption_text, *(t.get("text", "") for t in transcript)]
+    first = next((line.strip().splitlines()[0] for line in lines if line.strip()), "")
+    first = first.strip(" \"'“”")
+    if len(first) <= limit:
+        return first
+    return first[:limit].rsplit(" ", 1)[0].rstrip(",.;:—-") + "…"
 
 
 def transcribe(path: Path) -> list[dict]:

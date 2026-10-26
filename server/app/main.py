@@ -39,6 +39,7 @@ from app.routes import (
     storyboard,
     team,
     usage,
+    workspace,
 )
 from app.routes.scripts import MAX_DOC_BYTES
 from app.settings import Settings, check_production, get_settings
@@ -57,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         health,
         auth,
         team,
+        workspace,
         files,
         brands,
         screens,

@@ -67,6 +67,30 @@ def test_import_folder_uses_manifest_or_filename(app, owner, db, tmp_path):
     assert screens["trading-chart-up-mobile"]["default_for"] == ["win"]  # the editor's change
 
 
+def test_a_screens_printed_balance_is_seeded_and_reaches_the_prompts(app, owner, db, tmp_path):
+    """Reed, decision C: the payoff uses the number the screen picture shows."""
+    from app.enhance import project_context
+    from app.models.projects import Project
+
+    folder = tmp_path / "fomo-ui"
+    folder.mkdir()
+    (folder / "home-rich.png").write_bytes(PNG)
+    (folder / "screens.json").write_text('{"home-rich.png": {"balance": "$348,920.15"}}')
+    fomo = db.query(Brand).filter_by(slug="fomo").one()
+    import_screens(db, app.state.storage, fomo, folder)
+    rich = next(
+        s for s in owner.get(f"/brands/{fomo.id}/screens").json() if s["name"] == "home-rich"
+    )
+    assert rich["balance"] == "$348,920.15"
+    (folder / "screens.json").write_text('{"home-rich.png": {"balance": "$350,000"}}')
+    import_screens(db, app.state.storage, fomo, folder)  # a manifest change reaches it
+    listed = owner.get(f"/brands/{fomo.id}/screens").json()
+    assert [s["balance"] for s in listed if s["id"] == rich["id"]] == ["$350,000"]
+    pid = owner.post("/projects", json={"brand_id": fomo.id, "name": "Rich"}).json()["id"]
+    system, _ = project_context(db, db.get(Project, pid), "breakdown")
+    assert "shows a balance of $350,000" in "".join(system)
+
+
 def _setup_with_screens_dir(app, client, folder):
     """`folder` plays fomo's screens folder: <assets>/fomo/screens."""
     assets = folder / "_assets"  # inside the test's own tmp folder

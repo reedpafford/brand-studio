@@ -73,7 +73,13 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
     brand; cached together) and the <brief> and <cast> for the user message."""
     brand = db.get(Brand, project.brand_id)
     screens = [
-        {"id": s.id, "name": screen_name(s), "tags": s.tags, "default_for": s.default_for}
+        {
+            "id": s.id,
+            "name": screen_name(s),
+            "tags": s.tags,
+            "default_for": s.default_for,
+            "balance": s.balance,
+        }
         for s in project_screens(db, project)
     ]
     brand_dict = {

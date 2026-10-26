@@ -43,4 +43,5 @@ class BrandScreen(Entity, Base):
     # each project picks one variant per product, and only that one is used.
     product: Mapped[str] = mapped_column(String(60), default="")
     variant: Mapped[str] = mapped_column(String(60), default="")
+    balance: Mapped[str] = mapped_column(String(40), default="")  # as printed on it, if any
     deleted_at: Mapped[datetime | None]  # deleted, kept for Undo; never used while set

@@ -51,10 +51,11 @@ class LocalProvider:
         if input.get("url"):
             video = self.fetch_link(input["url"], folder)
             files, names = [video], ["video"]
+            said = reel.caption(folder)
         else:
             video = folder / "reel.mp4"
             video.write_bytes(self.storage.get(input["video_key"]))
-            files, names = [], []
+            files, names, said = [], [], ""
         seconds = reel.probe(video)
         cut_times = reel.cuts(video)
         files.append(reel.contact_sheet(video, cut_times, seconds, folder))
@@ -67,6 +68,7 @@ class LocalProvider:
             "cuts": cut_times,
             "stats": reel.stats(cut_times, seconds),
             "transcript": self.transcribe(video),
+            "caption": said,
             "files": names,  # what each of the worker's file_ids is, in order
         }
         return {"output": output, "files": [f"local://{f}" for f in files]}

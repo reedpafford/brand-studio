@@ -138,6 +138,12 @@ def _finish(
 ) -> bool:
     """Record a finished job: outputs, status, real credits and usage, then the step's own
     saving (e.g. Enhance suggestions). Returns False to try again on the next tick."""
+    if job.input.get("discard"):  # its video was released or archived while it ran: nothing
+        moved = _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
+        if moved:  # is downloaded or kept, but what it cost the owner is still listed
+            db.add_all(_usage(job, provider, result))  # dollars only; no credits
+        db.commit()
+        return True
     files: list[StoredFile] = []
     if result.state == "succeeded" and result.files:
         try:
@@ -150,12 +156,6 @@ def _finish(
         except Exception as exc:  # noqa: BLE001 - paid work is done: keep its usage
             result.state, result.error = "failed", f"Saving the output failed: {exc!r}"
     new = JobStatus.succeeded if result.state == "succeeded" else JobStatus.failed
-    if job.input.get("discard"):  # its video was released or archived while it ran
-        moved = _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
-        if moved and result.usage:
-            db.add_all(_usage(job, provider, result))  # the dollars, for the owner; no credits
-        db.commit()
-        return True
     moved = _move(
         db,
         job,

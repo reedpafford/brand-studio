@@ -74,10 +74,11 @@ def test_a_role_listed_twice_is_one_slot(db, owner):
             "slots": [
                 {**row, "role": "Nate", "appears_in": [0]},
                 {**row, "role": "nate", "appears_in": [1]},
+                {**row, "role": "Nate, the teen groom", "appears_in": [2]},  # the live test
             ]
         },
     )
     save_cast_slots(db, job)
     db.commit()
     cast = owner.get(f"/scripts/{made['id']}").json()["cast"]
-    assert [(s["role"], s["appears_in"]) for s in cast] == [("Nate", [0, 1])]
+    assert [(s["role"], s["appears_in"]) for s in cast] == [("Nate", [0, 1, 2])]

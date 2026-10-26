@@ -39,7 +39,13 @@ class ImproveOut(BaseModel):
 
 def job_input(db: Session, brand: Brand, body: ImproveIn, references: str) -> dict:
     screens = [
-        {"id": s.id, "name": s.name, "tags": s.tags, "default_for": s.default_for}
+        {
+            "id": s.id,
+            "name": s.name,
+            "tags": s.tags,
+            "default_for": s.default_for,
+            "balance": s.balance,
+        }
         for s in screens_of(db, brand)
     ]
     brand_dict = {

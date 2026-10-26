@@ -284,6 +284,34 @@ def storyboard(
 SHOT_LINE = re.compile(r"^Shot \d+ \| (\d+)[-–](\d+) s\.", re.M)  # hyphen or en dash
 
 
+SHOT_ANY = re.compile(r"^Shot (\d+) \|(.*)$", re.M)
+
+
+def _shot_times(prompt: str) -> str:
+    """What's wrong with the shot times, in plain words ("" if they run back to back)."""
+    shots = SHOT_ANY.findall(prompt)
+    if not shots:
+        return "has no shot times (each shot line starts like “Shot 1 | 0-2 s.”)"
+    end = 0
+    for k, (number, rest) in enumerate(shots):
+        times = re.match(r" (\d+)[-–](\d+) s\.", rest)
+        which = "the last shot" if k == len(shots) - 1 else f"shot {number}"
+        if not times:
+            return f"{which}'s times aren't whole seconds; write them like “0-2 s.”"
+        start, stop = int(times[1]), int(times[2])
+        if stop <= start:
+            return f"has an empty {which.removeprefix('the ')} ({start}–{stop} s). " + (
+                "Remove it or give it a length."
+            )
+        if start != end:
+            before = (
+                "Start the first shot at 0 s." if k == 0 else f"The shot before ends at {end} s."
+            )
+            return f"{which} starts at {start} s. {before}"
+        end = stop
+    return ""
+
+
 def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
     """The Seedance prompt shape (Reed, 2026-10-23): the same audio line first and last, a
     Summary line, whole-second shots back to back from 0 to `seconds`, a Keep line before the
@@ -299,9 +327,9 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
     if SETTINGS_WORDS.search(QUOTED.sub("", prompt)):
         problems.append("writes aspect or resolution (those are settings)")
     times = [(int(a), int(b)) for a, b in SHOT_LINE.findall(prompt)]
-    ends = [0] + [end for _, end in times]
-    if not times or any(start != ends[i] or end <= start for i, (start, end) in enumerate(times)):
-        problems.append("shot times aren't whole seconds back to back from 0")
+    wrong = _shot_times(prompt)
+    if wrong:
+        problems.append(wrong)
     elif times[-1][1] != seconds:
         problems.append(f"shots end at {times[-1][1]} s, the clip is {seconds} s")
     return problems, len(times)

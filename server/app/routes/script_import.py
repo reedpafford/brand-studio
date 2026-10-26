@@ -314,4 +314,8 @@ def save_prepared(db: Session, job: Job) -> None:
         reel["watch_file_id"] = files.get("watch")
         if "video" in files:
             reel["video_file_id"] = files["video"]
+        if script.title == UNTITLED:  # named from its caption, else its first line
+            script.title = media.name_for(output.get("caption", ""), reel["transcript"]) or (
+                UNTITLED
+            )
     script.reel = reel

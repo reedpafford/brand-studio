@@ -75,11 +75,34 @@ def test_budget_is_twice_planned_length(project, editor, ed, db):
     assert (got["credits_used"], got["budget_pct"]) == (15, 75)
 
 
-def test_over_budget_job_waits_for_owner(project, owner, editor, ed, db):
+def _held(db, ed, model, credits):
+    """A job held for the owner's OK, as editors' over-budget jobs were before #399."""
+    from app.models.jobs import Job
+
+    held = Job(workspace_id=ed.workspace_id, created_by_id=ed.id, kind="video-480p",
+               provider="fake", input={}, project_id=model.id, credits=Decimal(credits),
+               status="needs_owner_approval")  # fmt: skip
+    db.add(held)
+    db.commit()
+    return held
+
+
+def test_over_budget_job_is_refused_and_one_already_held_waits_for_owner(
+    project, owner, editor, ed, db
+):
+    """Reed, 2026-10-26 (#399): past a library version's budget an editor is refused with the
+    reason, never sent to Reed. A job held before that change still waits and can be OK'd."""
+    import pytest
+    from fastapi import HTTPException
+
     _, model = project
     enqueue(db, ed, "video-480p", {}, units=15, project=model)
-    held = enqueue(db, ed, "video-480p", {}, units=10, project=model)
-    assert held.status == "needs_owner_approval"
+    with pytest.raises(HTTPException) as refused:
+        enqueue(db, ed, "video-480p", {}, units=10, project=model)
+    assert (refused.value.status_code, refused.value.detail) == (
+        409, "That's more than this video's budget."
+    )  # fmt: skip
+    held = _held(db, ed, model, 10)
     _run(db)
     db.refresh(held)
     assert held.status == "needs_owner_approval"  # the worker leaves it alone
@@ -184,11 +207,14 @@ def test_two_project_jobs_at_once_cannot_both_fit(app, project, ed, db, monkeypa
     enqueue(db, ed, "video-480p", {}, units=15, project=model)  # 15 of 20 used
 
     def make(s):
-        return enqueue(
-            s, s.get(User, ed.id), "video-480p", {}, units=5, project=s.get(Project, model.id)
-        )
+        try:
+            return enqueue(
+                s, s.get(User, ed.id), "video-480p", {}, units=5, project=s.get(Project, model.id)
+            )
+        except HTTPException as exc:
+            return type("Declined", (), {"status": f"declined {exc.status_code}"})()
 
-    assert _race(app, monkeypatch, make) == ["needs_owner_approval", "queued"]
+    assert _race(app, monkeypatch, make) == ["declined 409", "queued"]
 
 
 def test_two_quick_clips_at_once_cannot_both_fit(app, ed, db, monkeypatch):
@@ -205,7 +231,7 @@ def test_two_quick_clips_at_once_cannot_both_fit(app, ed, db, monkeypatch):
 
 def test_other_workspace_is_shut_out(project, ed, outsider, db):
     body, model = project
-    held = enqueue(db, ed, "video-480p", {}, units=99, project=model)
+    held = _held(db, ed, model, 99)
     url = f"/projects/{body['id']}"
     assert outsider.get("/projects").json() == []
     assert outsider.get("/credits/rates").json() == []
@@ -300,8 +326,7 @@ def test_owner_cannot_approve_past_the_cap(owner, editor, ed, db):
     ).json()
     model = db.get(Project, project["id"])
     enqueue(db, ed, "video-480p", {}, units=190, project=model)
-    held = enqueue(db, ed, "video-480p", {}, units=100, project=model)  # 290 > 200 budget
-    assert held.status == "needs_owner_approval"
+    held = _held(db, ed, model, 100)  # 290 > 200 budget, held before #399
     _raise_video_cap(owner, 250)  # the owner lowers the cap meanwhile
     r = owner.post(f"/jobs/{held.id}/approve")
     assert r.status_code == 409 and "limit" in r.json()["detail"]
@@ -361,9 +386,9 @@ def test_videos_from_an_editors_own_script_use_their_allowance(owner, editor, ed
     with pytest.raises(HTTPException):
         enqueue(db, ed, "video-480p", {}, units=50)  # the same allowance as Quick clips
     reeds = video(owner, 10)  # budget 20
-    assert enqueue(db, ed, "video-480p", {}, units=30, project=reeds).status == (
-        "needs_owner_approval"
-    )
+    with pytest.raises(HTTPException) as err:
+        enqueue(db, ed, "video-480p", {}, units=30, project=reeds)
+    assert err.value.detail == "That's more than this video's budget."  # #399: no Ask Reed
 
 
 def test_owner_sees_each_editors_allowance(owner, editor, ed, db):

@@ -2,7 +2,7 @@
 by default (e.g. fomo's trading screens appear whenever a scene is about trading)."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -36,11 +36,13 @@ class ScreenPatch(BaseModel):
     default_for: list[Slug] | None = None
     product: ShortText | None = None
     variant: ShortText | None = None
+    balance: str | None = Field(None, max_length=40)
 
 
 class ScreenOut(ScreenIn):
     id: int
     brand_id: int
+    balance: str  # the money the picture shows, e.g. "$348,920.15" (set with PATCH or seed)
 
 
 def _get_screen(

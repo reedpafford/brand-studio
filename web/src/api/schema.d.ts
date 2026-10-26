@@ -245,6 +245,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Workspace */
+        get: operations["read_workspace_workspace_get"];
+        /** Rename Workspace */
+        put: operations["rename_workspace_workspace_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files": {
         parameters: {
             query?: never;
@@ -4459,6 +4477,8 @@ export interface components {
             id: number;
             /** Brand Id */
             brand_id: number;
+            /** Balance */
+            balance: string;
         };
         /** ScreenPatch */
         ScreenPatch: {
@@ -4474,6 +4494,8 @@ export interface components {
             product?: string | null;
             /** Variant */
             variant?: string | null;
+            /** Balance */
+            balance?: string | null;
         };
         /** ScriptPatch */
         ScriptPatch: {
@@ -5086,6 +5108,18 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** WorkspaceIn */
+        WorkspaceIn: {
+            /** Name */
+            name: string;
+        };
+        /** WorkspaceOut */
+        WorkspaceOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** WriteManyEstimate */
         WriteManyEstimate: {
             /** Count */
@@ -5126,6 +5160,8 @@ export interface components {
             workspace_name: string;
             /** Invited By Name */
             invited_by_name: string;
+            /** Owner Name */
+            owner_name: string;
             /** Email */
             email: string;
             role: components["schemas"]["Role"];
@@ -5774,6 +5810,59 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_workspace_workspace_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceOut"];
+                };
+            };
+        };
+    };
+    rename_workspace_workspace_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceOut"];
+                };
             };
             /** @description Validation Error */
             422: {
