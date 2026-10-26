@@ -15,6 +15,8 @@ export function useMayManageVideo() {
   return (v: { created_by_id: number | null }) => me?.role === "owner" || (!!me && v.created_by_id === me.id);
 }
 
+const STOPS = "Anything still being made stops and isn't brought back.";
+
 /** Release a started version (back to Ready to make) or archive a video, each after a confirm and with Undo. Render `dialog` on the page. */
 export function useVideoActions(onGone?: () => void) {
   const [ask, setAsk] = useState<{ kind: "release" | "archive"; target: VideoTarget } | null>(null);
@@ -61,8 +63,8 @@ export function useVideoActions(onGone?: () => void) {
       onConfirm={() => void confirm()}
     >
       {ask.kind === "release"
-        ? `It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted.${ask.target.creditsUsed > 0 ? ` The ${Math.round(ask.target.creditsUsed)} credits already used stay used.` : ""}`
-        : "It leaves the lists. Its clips and downloads are kept, and you can restore it."}
+        ? `It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted.${ask.target.creditsUsed > 0 ? ` The ${Math.round(ask.target.creditsUsed)} credits already used stay used.` : ""} ${STOPS}`
+        : `It leaves the lists. Its clips and downloads are kept, and you can restore it. ${STOPS}`}
       {problem && <p role="alert" className={`mt-2 ${errorClass}`}>Couldn't do that. Nothing changed. {problem}</p>}
     </Dialog>
   );
