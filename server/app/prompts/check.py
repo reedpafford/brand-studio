@@ -70,14 +70,23 @@ def breakdown(
     min_s: int,
     max_s: int,
     end_line: str = "",
+    brand: str = "",  # the brand's name: a near end line must still say it
+    approved: bool = False,  # Reed approved the words: the end line never blocks (advice)
 ) -> list[str]:
     lines = script.splitlines()
     shots = [shot for scene in bd.scenes for shot in scene.shots]
     problems = []
     said = [TAG.sub("", text) for text in lines if text.strip()]
     said = [text for text in said if not text.startswith(("SCENE", SCREEN_LINE, "["))]
-    if end_line and not (said and _exact(end_line) in _exact(said[-1])):
+    ends = ends_on(end_line, said[-1] if said else "", brand, said[-2] if len(said) > 1 else "")
+    if ends == "no" and not approved:
         problems.append("the script doesn't end on the brand's end line")
+    elif ends == "no":
+        problems.append(f"{ADVICE}the script doesn't end on the brand's end line")
+    elif ends == "near":
+        problems.append(
+            f"{ADVICE}the last line is close to the brand's end line but not word for word"
+        )
     covered = {n for shot in shots for n in shot.script_lines}
     shown = {n for shot in shots if shot.screen_ids for n in shot.script_lines}
     for n, text in enumerate(lines, 1):
@@ -365,6 +374,44 @@ def _exact(text: str) -> str:
     return " ".join(text.split())
 
 
+NEAR = 0.5  # share of the end line's words a near match needs (Reed: never block a near one)
+
+
+def ends_on(end_line: str, last: str, brand: str = "", before: str = "") -> str:
+    """Does the script's last spoken line say the brand's end line? "yes" ignoring case,
+    punctuation, curly quotes, spacing and the speaker's label (FOMO or fomo, a dropped
+    comma), also when it is split over the last two lines (`before`, then `last`). "near"
+    when at least half its words are there (advice, never a block) and it still names the
+    brand, else "no" (another app's name, or "the app", blocks). With no end line, always
+    "yes". Only the end line is matched this loosely; spoken lines elsewhere stay exact."""
+    if not end_line.strip():
+        return "yes"
+    want, got = _spoken(end_line), _spoken(last)
+    both = f"{_spoken(before)} {got}".strip()
+    if f" {want} " in f" {got} ":  # whole words
+        return "yes"
+    split = bool(before) and bool(got) and f" {got} " in f" {want} "  # last ends the end line
+    if split and f" {want} " in f" {both} ":
+        return "yes"
+    text = both if split else got
+    named = bool(_words(brand)) and f" {_words(brand)} " in f" {text} "
+    said = set(text.split())
+    if named and sum(w in said for w in want.split()) / len(want.split()) >= NEAR:
+        return "near"
+    return "no"
+
+
+SPEAKER = re.compile(r"^\s*[A-Z][A-Z .'-]*(?:\([^)]*\))?:")  # "NATE:" or "NATE (V.O.):"
+
+
+def _spoken(line: str) -> str:
+    return _words(_straight(SPEAKER.sub("", line)))
+
+
+def _straight(text: str) -> str:
+    return text.translate(str.maketrans("‘’“”", "''\"\""))
+
+
 def _words(text: str) -> str:
     return " ".join(re.findall(r"[\w']+", text.lower()))
 
@@ -381,6 +428,7 @@ def variations(
     never_say: list[str],
     count: int,
     cast: list[str] = (),
+    brand: str = "",  # the brand's name: a near end line must still say it
 ) -> list[str]:
     """Alternates of an approved script (workflow v2): the brand, the end line and the locked
     cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
@@ -395,8 +443,13 @@ def variations(
         name = f"variation {i}"
         lines = [line.strip() for line in script.splitlines() if line.strip()]
         said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
-        if end_line and not (said and _exact(end_line) in _exact(said[-1])):
-            problems.append(f"{name} doesn't end on the brand's end line; add it as the last line")
+        ends = ends_on(end_line, said[-1] if said else "", brand, said[-2] if len(said) > 1 else "")
+        if ends == "no":  # advice: variations come from an approved original (Reed)
+            problems.append(f"{ADVICE}{name} doesn't end on the brand's end line")
+        elif ends == "near":
+            problems.append(
+                f"{ADVICE}{name}'s last line is close to the brand's end line, not word for word"
+            )
         for star in sorted(stars - _stars(script)):
             problems.append(f"{name} drops the ★ line for {star}; put it back where it fits")
         for phrase in never_say:
@@ -489,7 +542,7 @@ def reference_lines(script: str, reel: list[str], new_lines: bool = False) -> li
 def _plain(text: str) -> str:
     """Curly quotes as straight ones and whitespace evened out: a phone or a model may type
     either, and only the words count."""
-    return _exact(text.translate(str.maketrans("‘’“”", "''\"\"")))
+    return _exact(_straight(text))
 
 
 def reel_watch(watch: ReelWatch, cuts: list[dict], transcript: list[dict]) -> list[str]:
@@ -537,7 +590,7 @@ def role_key(name: str) -> str:
 
 
 def reel_speakers(
-    script: str, speakers: list[str], cast: list[str] = (), end_line: str = ""
+    script: str, speakers: list[str], cast: list[str] = (), end_line: str = "", brand: str = ""
 ) -> list[str]:
     """No invented speakers in a draft that adapts an imported reel: it has no more speaking
     characters than the reel (`speakers`, its kept shots' roles), not counting one who only
@@ -546,7 +599,9 @@ def reel_speakers(
     for m in re.finditer(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:\s*(.*)$", script, re.M):
         said.setdefault(role_key(m.group(1)), []).append(m.group(2))
     if end_line:
-        said = {k: v for k, v in said.items() if any(_exact(end_line) not in _exact(x) for x in v)}
+        said = {
+            k: v for k, v in said.items() if any(ends_on(end_line, x, brand) == "no" for x in v)
+        }
     reel = {role_key(x) for x in speakers if x.strip()}
     if len(said) <= len(reel):
         return []

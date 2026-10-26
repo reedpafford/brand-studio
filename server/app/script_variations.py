@@ -80,8 +80,9 @@ def save_variations(db: Session, job: Job) -> None:
     names = [item.name for item, _ in _locked(db, script)]
     slots = job.input["slots"]
     found = check.variations(
-        original.text, result, screens, brand.end_line, brand.never_say, len(slots), cast=names
-    )
+        original.text, result, screens, brand.end_line, brand.never_say, len(slots), cast=names,
+        brand=brand.name,
+    )  # fmt: skip
     for n, (slot, made) in enumerate(zip(slots, result.variations, strict=False), 1):
         draft = db.scalar(
             select(ScriptDraft).where(ScriptDraft.script_id == script.id, ScriptDraft.slot == slot)
