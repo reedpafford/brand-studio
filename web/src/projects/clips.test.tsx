@@ -95,12 +95,28 @@ test("Make clip queues a take", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/generate")).toBe(true));
 });
 
-test("advice on a clip is shown but never stops Make clip", async () => {
+test("advice on a clip is closed under Advice (1), and Keep anyway calls keep; Make clip stays open", async () => {
   const advice = "Advice: c1: shot 6: a quick cut names nobody";
-  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ problems: [advice] })]] });
+  const calls = fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ problems: [advice] })]], "POST /projects/9/clips/1/keep": [200, clip({})] });
   open();
-  expect(await screen.findByText(advice)).toBeInTheDocument();
+  const box = await screen.findByLabelText("Advice for c1");
+  expect(box).not.toHaveAttribute("open");
+  expect(within(box).getByText("Advice (1)")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make clip · 24 credits" })).toBeEnabled();
+  await userEvent.click(within(box).getByRole("button", { name: /Keep anyway/, hidden: true }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/1/keep")?.body).toEqual({ problem: advice }));
+});
+
+test("shot chips never show a raw id: an uncast slot shows its role with a hint", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [{ kind: "character", ref: "slot:28", role: "Nate", library_item_id: null, name: "", locked: false, sheet_status: "missing", ready: false }]],
+    "GET /projects/9/storyboard": [200, [{ ...frames[0], reference_ids: ["slot:28", "frame:c1", "char:99"] }, frames[1]]],
+  });
+  open("?stage=storyboard");
+  expect(await screen.findByText("Nate · cast at Assets")).toBeInTheDocument();
+  expect(screen.getByText("First frame")).toBeInTheDocument();
+  expect(screen.queryByText(/slot:|frame:|char:/)).toBeNull();
 });
 
 test("a take still rendering shows on its own clip after a reload, with the time", async () => {
