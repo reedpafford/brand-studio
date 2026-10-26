@@ -150,6 +150,7 @@ test("the script step saves the words as the original; Next needs them", async (
   open("/b/1/scripts/7?step=script");
   const next = await screen.findByRole("button", { name: "Next: Variations" });
   expect(next).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Paste or write it yourself" }));
   await userEvent.type(screen.getByLabelText("Your script"), "BO: Salmon?");
   await userEvent.click(screen.getByRole("button", { name: "Save script" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "BO: Salmon?" }));
@@ -238,7 +239,8 @@ test("Cast: a role can be added, locked to a character with an approved sheet, a
   expect(screen.getByText("In A, B and C")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Lock Mia to a look" }));
   const panel = await screen.findByRole("dialog", { name: "Lock Mia to a look" });
-  expect(within(panel).getByRole("button", { name: "Bo needs an approved sheet" })).toBeDisabled();
+  expect(within(panel).getByRole("button", { name: "Bo has no approved sheet yet" })).toBeDisabled();
+  expect(within(panel).getByText("No approved sheet yet")).toBeInTheDocument();
   await userEvent.click(within(panel).getByRole("button", { name: "Lock to Mia" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/cast/31/lock")?.body).toEqual({ library_item_id: 4 }));
   await userEvent.click(screen.getByRole("button", { name: "Add a role" }));

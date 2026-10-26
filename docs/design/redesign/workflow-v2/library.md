@@ -102,6 +102,23 @@ The server route is `DELETE /scripts/{id}`.
   - If the call fails: toast "Couldn't delete it. Nothing changed." with **Try again**.
 - **Server:** Undo needs the script to still exist. So a delete only marks it (`deleted_at` or `archived`), and a restore route (`POST /scripts/{id}/restore`) clears it. Marked scripts can be removed for good later, after a day.
 
+## Deleted and archived (gaps #11)
+- **Filter:** a toggle button **Deleted and archived** (`aria-pressed`, `Archive` icon) at the end of the filter row. On phone it's in the Filters sheet, under Mine.
+  - On, it shows only scripts that were deleted or archived. The other filters and search still apply.
+  - Reed sees every one. An editor sees only their own.
+- **Each row:**
+  - The usual poster, title and meta. The version chips are shown but don't open anything.
+  - A badge after the title:
+    - "Deleted · 2 days ago" (neutral), with the meta line "Removed for good on 24 Nov" (30 days after the delete)
+    - or "Archived" (neutral), with "Its videos are kept"
+  - **Restore** (secondary, dense on desktop, 44px on phone) on the right.
+- **Restore:**
+  - It brings the script back exactly as it was, with its versions, cast and reel.
+  - Toast: "Restored "Bo tries salmon"." with **Open** (ghost). The row leaves this view.
+  - If a published version was being made when it was archived, it comes back with its chip as it was.
+- **Empty:** "Nothing deleted or archived." with ghost **Show all scripts**.
+- **Server:** `GET /scripts?removed=1` (each row gains `removed: deleted | archived`, `removed_at`) and `POST /scripts/{id}/restore`.
+
 ## Phone (390) and tablet (< 1024)
 - **Title row:** "Scripts" (page 26), plus an `Ellipsis` icon button that holds Bulk create.
 - **Allowance:** meta under the title (editors only).

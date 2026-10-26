@@ -13,6 +13,7 @@ import { useReferences } from "../projects/BriefPickers";
 import { useBrands } from "../shell/useBrands";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
+import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
 
 type Row = components["schemas"]["ScriptRow"];
@@ -105,6 +106,8 @@ export function ScriptsPage() {
     );
   const panelTo = (id: number, slot: number) => `?${new URLSearchParams({ ...Object.fromEntries(params), make: `${id}.${slot}` })}`;
   const videos = useProjectList(brandId);
+  const mayDelete = useMayDelete();
+  const del = useDeleteScript();
   const ownVideo = (v: Version) => !!v.project_id && (owner || v.editor?.id === me?.id || videos.data?.find((p) => p.id === v.project_id)?.created_by_id === me?.id);
   const making = /^(\d+)\.(\d+)$/.exec(params.get("make") ?? "");
   // An editor starts on what is ready to make; Reed on everything.
@@ -287,7 +290,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.map((r) => (
-          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} refThumb={!!r.reference_id && !!refs.data?.find((x) => x.id === r.reference_id)?.has_thumbnail} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} />
+          <ScriptItem key={r.id} mayOpen={r.published || owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} refThumb={!!r.reference_id && !!refs.data?.find((x) => x.id === r.reference_id)?.has_thumbnail} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} onDelete={mayDelete(r) ? () => del.ask(toTarget(r)) : undefined} />
         ))}
       </ul>
     </Card>
@@ -383,12 +386,13 @@ export function ScriptsPage() {
         </>
       )}
       <LegacyVideos brandId={brandId} />
+      {del.dialog}
       {making && <VersionPanel scriptId={Number(making[1])} slot={Number(making[2])} brandId={brandId} onClose={() => set("make", "")} />}
     </main>
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, panelTo, ownVideo, meId }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number }) {
+function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, panelTo, ownVideo, meId, onDelete }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number; onDelete?: () => void }) {
   const brandId = r.brand_id;
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   return (
@@ -437,6 +441,11 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
           })}
         </ul>
       </div>
+      {onDelete && (
+        <div className="shrink-0">
+          <ScriptMenu title={r.title} onDelete={onDelete} />
+        </div>
+      )}
     </li>
   );
 }

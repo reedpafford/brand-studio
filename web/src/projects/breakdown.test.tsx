@@ -89,12 +89,33 @@ test("problems are listed in plain words and stop Next, with the reason", async 
   expect(next).toHaveAccessibleDescription("Fix the 2 problems in Shots first");
 });
 
-test("advice is listed but never stops Next", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: ["Advice: shot 1.2: a montage shot without the main character"] })] });
+test("advice sits closed under one line, not as an error, and never stops Next", async () => {
+  const advice = "Advice: shot 1.2: a montage shot without the main character";
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [advice] })] });
+  open();
+  const box = await screen.findByLabelText("Advice");
+  expect(box).not.toHaveAttribute("open");
+  expect(within(box).getByText("Advice (1)")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Problems")).toBeNull();
+  expect(within(box).getByText("shot 1.2: a montage shot without the main character")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeEnabled();
+});
+
+test("Keep anyway on breakdown advice calls keep and takes it out of the count", async () => {
+  const advice = "Advice: shot 1.2: a montage shot without the main character";
+  const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [advice], kept: [advice] })], "POST /projects/9/breakdown/keep": [200, breakdown({})] });
+  open();
+  expect(await screen.findByText("Advice (0)")).toBeInTheDocument();
+  expect(screen.getByText("Kept · Reed will see it")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "POST /projects/9/breakdown/keep")).toBe(false);
+});
+
+test("a real problem stays a red row, apart from the advice", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: ["Shot 1.1 has no clip", "Advice: shot 1.2: a slow hook"] })] });
   open();
   const box = await screen.findByLabelText("Problems");
-  expect(within(box).getByText("Advice: shot 1.2: a montage shot without the main character")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeEnabled();
+  expect(within(box).getByText("Shot 1.1 has no clip")).toBeInTheDocument();
+  expect(within(box).queryByText(/slow hook/)).toBeNull();
 });
 
 test("a breakdown made for an older script is flagged and offers a new one", async () => {

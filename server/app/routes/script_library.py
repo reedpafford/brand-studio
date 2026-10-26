@@ -1,7 +1,7 @@
 """The Script Library (workflow v2): scripts owned by a brand, each with up to three versions
 (the original in slot 0 and up to two variations). Rules: `app/script_library.py`."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -13,17 +13,17 @@ from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
-from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.reel import reel_link
 from app.routes.brands import get_brand
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
-from app.routes.script_import import UNTITLED, delete_bytes, drop_files, one_at_a_time, prepare
+from app.routes.script_import import UNTITLED, one_at_a_time, prepare
 from app.routes.scripts import ScriptText
 from app.schemas import LongText
 
+PURGE_AFTER = timedelta(days=30)  # Designer #322; the purge itself isn't built yet
 router = APIRouter(prefix="/scripts", tags=["script library"])
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Slot = Annotated[int, Field(ge=0, le=lib.MAX_SLOT)]
@@ -111,6 +111,8 @@ class ScriptRow(BaseModel):
     versions_left: int  # approved versions not produced yet
     poster_file_id: int | None = None  # the first still of its newest finished video
     reference_name: str | None = None  # the reel it adapts, by name
+    removed_at: datetime | None = None  # in the removed list: when it was deleted
+    purge_on: datetime | None = None  # and when it goes for good (30 days on)
     reel_imported: bool = False  # adapts its own imported reel, not a catalogue one
 
 
@@ -214,12 +216,18 @@ def list_scripts(
     versions_left: int | None = None,  # at least this many versions left to produce
     min_seconds: int | None = None,
     max_seconds: int | None = None,
+    removed: bool = False,  # true: the deleted (archived) scripts instead, to restore
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     """The Script Library: what the caller may see, newest first, filtered."""
-    query = select(Script).where(Script.workspace_id == user.workspace_id, ~Script.archived)
-    if not user.is_owner:
+    query = select(Script).where(
+        Script.workspace_id == user.workspace_id,
+        Script.archived if removed else ~Script.archived,
+    )
+    if not user.is_owner and removed:  # only the ones they could restore: their own
+        query = query.where(Script.created_by_id == user.id, ~Script.published)
+    elif not user.is_owner:
         query = query.where(or_(Script.published, Script.created_by_id == user.id))
     if brand_id is not None:
         query = query.where(Script.brand_id == brand_id)
@@ -262,6 +270,8 @@ def list_scripts(
         row.reference_name = names.get(row.reference_id) if row.reference_id else None
         if script.reference_breakdown:
             row.reference_name = lib.reel_name(script.reference_breakdown)
+        if script.archived and script.deleted_at:
+            row.removed_at, row.purge_on = script.deleted_at, script.deleted_at + PURGE_AFTER
     return rows
 
 
@@ -358,29 +368,34 @@ def update_script(
     return _out(db, script)
 
 
-@router.delete("/{script_id}", status_code=204)
-def delete_script(
-    script_id: int,
-    request: Request,
-    user: User = Depends(current_user),
-    db: Session = Depends(get_db),
-):
-    """Delete it, or archive it if a video was made from any version (videos stay)."""
-    script = lib.get_script(db, user, script_id)
+def _removable(db: Session, user: User, script_id: int, archived: bool = False) -> Script:
+    script = lib.get_script(db, user, script_id, archived)
     if not (user.is_owner or (script.created_by_id == user.id and not script.published)):
         raise HTTPException(403, "Only its author (before publishing) or the owner can remove it.")
-    ids = [d.id for d in lib.drafts(db, script)]
-    old: list[str] = []
-    if ids and db.scalar(select(Project.id).where(Project.script_draft_id.in_(ids)).limit(1)):
-        script.archived = True
-    else:
-        db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
-        db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(ids)))
-        db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
-        old = drop_files(db, script.reel)  # an imported reel's own files
-        db.delete(script)
+    return script
+
+
+@router.delete("/{script_id}", status_code=204)
+def delete_script(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Delete it, undoably (Reed, 2026-10-25): it leaves every list but keeps its versions,
+    history, cast, reel files and videos, so Restore brings it back exactly as it was."""
+    script = _removable(db, user, script_id)
+    script.archived, script.deleted_at = True, utcnow()
+    # Purging long-deleted scripts (rows and reel files) would go here; not done yet.
     db.commit()
-    delete_bytes(request, old)
+
+
+@router.post("/{script_id}/restore", response_model=ScriptOut)
+def restore_script(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo a delete: who may delete it may restore it."""
+    script = _removable(db, user, script_id, archived=True)  # 404 unless it's deleted
+    script.archived, script.deleted_at = False, None
+    db.commit()
+    return _out(db, script)
 
 
 @router.put("/{script_id}/drafts/{slot}", response_model=ScriptOut)

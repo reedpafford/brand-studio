@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import script_library as lib
 from app import script_variations
 from app.auth import current_user
-from app.credits import estimate
+from app.credits import afford, estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.routes.clips import generation_on
@@ -32,9 +32,13 @@ class VariationsIn(BaseModel):
 def variations_estimate(
     script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    """What one run costs (one Claude call, whether it writes one variation or two)."""
+    """What one run costs: one Claude call (one variation or two), then the cast read."""
     lib.get_script(db, user, script_id)
-    return EstimateOut(credits=estimate(db, user.workspace_id, "write-claude", Decimal(1), {}))
+    return EstimateOut(credits=_price(db, user))
+
+
+def _price(db: Session, user: User) -> Decimal:
+    return estimate(db, user.workspace_id, "write-claude", Decimal(2), {})
 
 
 @router.post("", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)])
@@ -62,4 +66,6 @@ def write_variations(
     data = script_variations.job_input(
         db, script, original, slots, keep_apart, body.note, reference
     )
+    data |= {"then_cast": True, "then_cast_reference": reference}  # cast read next, prepaid
+    afford(db, user, _price(db, user), "Writing variations")
     return enqueue(db, user, "write-claude", data, provider="claude")

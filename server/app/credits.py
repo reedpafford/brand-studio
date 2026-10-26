@@ -143,12 +143,11 @@ def week_start() -> datetime:
 def own_script(db: Session, project: Project, user: User) -> bool:
     """A video this editor makes from a script they wrote: it runs on their weekly allowance,
     not a budget the owner approves (Reed, 2026-10-25). Someone else's script is not theirs."""
-    if user.is_owner or project.script_draft_id is None:
+    draft_id = project.script_draft_id or project.released_draft_id
+    if user.is_owner or draft_id is None:
         return False
     author = db.scalar(
-        select(Script.created_by_id)
-        .join(ScriptDraft)
-        .where(ScriptDraft.id == project.script_draft_id)
+        select(Script.created_by_id).join(ScriptDraft).where(ScriptDraft.id == draft_id)
     )
     return author == user.id
 
@@ -161,7 +160,11 @@ def quick_clip_used(db: Session, user: User) -> Decimal:
 
     own = (
         select(Project.id)
-        .join(ScriptDraft, ScriptDraft.id == Project.script_draft_id)
+        # a released video keeps counting: releasing must not hand the credits back
+        .join(
+            ScriptDraft,
+            ScriptDraft.id == func.coalesce(Project.script_draft_id, Project.released_draft_id),
+        )
         .join(Script, Script.id == ScriptDraft.script_id)
         .where(Script.created_by_id == user.id)
     )
@@ -178,6 +181,18 @@ def credits_left(db: Session, user: User) -> Decimal | None:
     if user.is_owner:
         return None
     return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
+
+
+def afford(db: Session, user: User, total: Decimal, what: str) -> None:
+    """All or none: an editor's allowance must cover the whole press (e.g. writing and the cast
+    read after it) before any of it is queued."""
+    left = credits_left(db, user)
+    if left is not None and total > left:
+        raise HTTPException(
+            409,
+            f"{what} takes {total:.0f} credits and you have {max(left, 0):.0f} left this week. "
+            "It resets Monday.",
+        )
 
 
 def over_allowance(db: Session, user: User, project: Project | None, credits: Decimal) -> str:

@@ -10,7 +10,8 @@ import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkTex
 import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
 import { blocking } from "./problems";
-import { KeepControl, useKeep } from "./Keep";
+import { AdviceList, useKeep } from "./Keep";
+import { useMe } from "../auth/useMe";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -303,6 +304,7 @@ function ClipCard(props: {
 }) {
   const { clip: c } = props;
   const keep = useKeep(props.projectId, { of: "clip", id: c.id });
+  const owner = useMe().data?.role === "owner";
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const failed = props.job?.status === "failed";
@@ -339,16 +341,14 @@ function ClipCard(props: {
           <PromptText clip={c} />
         </div>
       )}
-      {c.problems.length > 0 && (
-        <ul className="text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
-          {c.problems.map((p) => (
-            <li key={p} className="flex flex-wrap items-center gap-x-2">
-              <span>{p}</span>
-              <KeepControl problem={p} kept={c.kept} onKeep={keep.mutate} busy={keep.isPending} />
-            </li>
+      {blocking(c.problems).length > 0 && (
+        <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
+          {blocking(c.problems).map((p) => (
+            <li key={p}>{p}</li>
           ))}
         </ul>
       )}
+      <AdviceList problems={c.problems} kept={c.kept} onKeep={keep.mutate} busy={keep.isPending} owner={owner} name={`Advice for ${c.clip_id}`} />
       {c.takes.length > 0 && (
         <fieldset className="flex flex-wrap items-center gap-3">
           <legend className="sr-only">Takes for clip {c.clip_id}</legend>

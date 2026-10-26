@@ -117,6 +117,11 @@ def reference_block(ref: dict, replace: str = "") -> str:
         if b["start"] >= live_from:
             what = "Live-action tag: removed; the brand's end line goes here."
         lines.append(f"- {b['start']:.1f}–{b['end']:.1f} s {what}")
+    if m := ref.get("montage"):
+        lines.append(
+            f"Montage: {m['start']:.1f}–{m['end']:.1f} s ({m['end'] - m['start']:.1f} s): keep "
+            "about this length (grind beats, then the payoff run)."
+        )
     lines.append("Shots (time, framing, camera, action, emotion, line):")
     for s in ref["shots"]:
         if live_action(s):
@@ -151,13 +156,15 @@ def watch_system() -> str:
     )
 
 
-def reel_watch_input(transcript: list[dict], cuts: list[dict]) -> str:
-    """Prep's cut list [{n, start, end}] and transcript [{start, end, text}], numbered."""
+def reel_watch_input(transcript: list[dict], cuts: list[dict], frames_only: bool = False) -> str:
+    """Prep's cut list [{n, start, end}] and transcript [{start, end, text}], numbered.
+    `frames_only` when the video couldn't be sent and the watch gets frames instead."""
     shots = [f"{c['n']}. {c['start']:.2f}–{c['end']:.2f}" for c in cuts]
     said = [
         f"{n}| {x['start']:.2f}–{x['end']:.2f} {x['text']}" for n, x in enumerate(transcript, 1)
     ]
-    return "\n".join(["<cuts>", *shots, "</cuts>", "<transcript>", *said, "</transcript>"])
+    head = ["<watched_from>frames</watched_from>"] if frames_only else []
+    return "\n".join([*head, "<cuts>", *shots, "</cuts>", "<transcript>", *said, "</transcript>"])
 
 
 def watch_breakdown(
