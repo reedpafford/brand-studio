@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock } from "lucide-react";
+import { Lock, Users, Wand2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -9,13 +9,19 @@ import {
   Badge,
   Button,
   Card,
+  Dialog,
   EmptyState,
+  Field,
+  TextArea,
   useToast,
   Select,
   Skeleton,
   wholeCredits,
 } from "../components";
 import { errorText as errorClass } from "../ui";
+import { useMe } from "../auth/useMe";
+import { useSheetPrice } from "../library/SheetPanel";
+import { useOwnScriptStop } from "./useOwnScriptStop";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
 
 type Asset = components["schemas"]["AssetOut"];
@@ -23,6 +29,7 @@ type Asset = components["schemas"]["AssetOut"];
 export function useAssets(projectId: number) {
   return useQuery({
     queryKey: ["assets", projectId],
+    refetchInterval: (q) => (q.state.data?.some((a) => a.sheet_status === "drawing") ? 3000 : false),
     queryFn: async () =>
       (
         await api.GET("/projects/{project_id}/assets", {
@@ -75,10 +82,14 @@ function AssetCard({
   asset,
   projectId,
   brandId,
+  stopFor,
+  canSave,
 }: {
   asset: Asset;
   projectId: number;
   brandId: number;
+  stopFor: (cost: number | undefined) => string | null;
+  canSave: boolean;
 }) {
   const kind: "place" | "character" =
     asset.kind === "place" ? "place" : "character";
@@ -139,24 +150,64 @@ function AssetCard({
       if (done) toast(`Redrew ${done.count} still${done.count === 1 ? "" : "s"} for the new cast · ${wholeCredits(done.credits)} credits.`);
     },
   });
-  // No character for this role yet: make one from the role and give it to the slot. It joins the brand's Cast & places, where its look is made and approved.
+  // No character for this role yet: make a look for this video only from the role and its description, and draw its sheet in the same press.
+  const { model, price } = useSheetPrice();
+  const slot = asset.slot_id ?? Number(asset.ref.split(":")[1]);
   const makeLook = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/library/{kind}", {
-        params: { path: { kind: "character" } },
-        body: {
-          name: asset.role,
-          notes: asset.description || asset.role, // enough to draw a first look from; its page can say more
-          brand_ids: [brandId],
-          image_file_ids: [],
-          source_photo_file_id: null,
-          outfits: [],
-        },
+      const { response, error } = await api.POST("/projects/{project_id}/assets/slots/{slot_id}/make-look", { params: { path: { project_id: projectId, slot_id: slot } } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: refresh,
+  });
+  // A look made for this video (or script) has its own sheet buttons here: Approve, and Change this…
+  const own = asset.only_here != null;
+  const using = own && asset.own_look_id === asset.library_item_id;
+  const notUsed = own && !using;
+  const [change, setChange] = useState("");
+  const approve = useMutation({
+    mutationFn: async () => {
+      const { response, error } = await api.POST("/library/{kind}/{item_id}/sheet/approve", { params: { path: { kind, item_id: id! } } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: async () => {
+      await refresh();
+      toast(`${asset.role}'s look approved.`, async () => {
+        await api.DELETE("/library/{kind}/{item_id}/sheet/approve", { params: { path: { kind, item_id: id! } } });
+        await refresh();
       });
-      if (!data) throw new Error(errorText(error));
-      await choose.mutateAsync(data.id);
     },
   });
+  const redraw = useMutation({
+    mutationFn: async (note: string) => {
+      const { response, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind, item_id: id! } }, body: { model_id: model, change: note } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: async () => {
+      setChange("");
+      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refresh();
+    },
+  });
+  const [saving, setSaving] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await api.POST("/projects/{project_id}/assets/slots/{slot_id}/save-to-library", { params: { path: { project_id: projectId, slot_id: slot } }, body: { name } });
+      if (!data) throw new Error(errorText(error));
+      return { copy: data.library_item_id, name };
+    },
+    onSuccess: async ({ copy, name }) => {
+      setSaving(null);
+      await refresh();
+      toast(`${name} saved to Cast & places.`, async () => {
+        await api.DELETE("/library/{kind}/{item_id}", { params: { path: { kind: "character", item_id: copy } } });
+        await refresh();
+      });
+    },
+  });
+  const decline = stopFor(price);
+  const drawingNow = asset.sheet_status === "drawing";
+  const changeReason = !change.trim() ? "Say what should change" : drawingNow ? "This one is still being made" : decline;
   const status = STATUS[asset.sheet_status] ?? STATUS.none;
   const sheet = item.data?.sheet_file_id;
   const ratio = kind === "place" ? "16 / 9" : "9 / 16";
@@ -210,7 +261,16 @@ function AssetCard({
             ) : (
               <Badge tone={status.tone}>{status.text}</Badge>
             )}
+            {using && <Badge>{asset.only_here === "script" ? "This script only" : "This video only"}</Badge>}
           </div>
+          {notUsed && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted">Not used: this {asset.only_here === "script" ? "script" : "video"}'s own look is kept.</p>
+              <Button variant="secondary" busy={choose.isPending} onClick={() => choose.mutate(asset.own_look_id!)}>
+                Use its own look again
+              </Button>
+            </div>
+          )}
           {!asset.locked &&
             id !== null &&
             asset.slot_id != null &&
@@ -221,9 +281,13 @@ function AssetCard({
             )}
           {!asset.locked && (slotLeft || swapping) && (
             <div className="space-y-2">
-              {slotLeft && (
+              {slotLeft && kind === "character" && (
                 <Button
+                  variant="secondary"
                   busy={makeLook.isPending}
+                  price={price}
+                  reason={decline}
+                  disabled={!!decline}
                   onClick={() => makeLook.mutate()}
                 >
                   Make a look
@@ -267,8 +331,27 @@ function AssetCard({
               )}
             </div>
           )}
+          {using && !asset.locked && (
+            <div className="space-y-2">
+              {asset.sheet_status === "needs_approval" && (
+                <Button variant="secondary" busy={approve.isPending} onClick={() => approve.mutate()}>
+                  Approve
+                </Button>
+              )}
+              <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={change} onChange={(e) => setChange(e.target.value)} />
+              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
+                Change it
+              </Button>
+              {asset.only_here === "video" && canSave && (
+                <Button variant="secondary" dense icon={Users} reason={asset.sheet_status === "approved" ? null : "Approve the sheet first"} disabled={asset.sheet_status !== "approved"} onClick={() => setSaving(asset.role)}>
+                  Save to Cast &amp; places
+                </Button>
+              )}
+            </div>
+          )}
           {!asset.locked &&
             id !== null &&
+            !own &&
             asset.sheet_status !== "approved" && (
               <Link
                 to={`/b/${brandId}/library/${kind === "place" ? "places" : "characters"}/${id}?back=${encodeURIComponent(here.pathname + here.search)}`}
@@ -277,10 +360,18 @@ function AssetCard({
                 Make its look in Cast &amp; places
               </Link>
             )}
-          {(choose.error ?? makeLook.error) && (
+          {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error) && (
             <p role="alert" className={errorClass}>
-              {(choose.error ?? makeLook.error)!.message}
+              {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error)!.message}
             </p>
+          )}
+          {saving !== null && (
+            <Dialog title="Save to Cast & places" actionLabel="Save" busy={save.isPending} onCancel={() => { setSaving(null); save.reset(); }} onConfirm={() => save.mutate(saving.trim())}>
+              <div className="space-y-2">
+                <Field label="Name" value={saving} onChange={(e) => setSaving(e.target.value)} error={save.isError ? save.error.message : null} maxLength={80} />
+                <p className="text-sm text-muted">It becomes a normal character any script can use. This video keeps its look either way.</p>
+              </div>
+            </Dialog>
           )}
         </div>
       </Card>
@@ -293,12 +384,23 @@ export function AssetsPane({
   projectId,
   brandId,
   variants,
+  ownScript,
+  used,
+  budget,
 }: {
   projectId: number;
   brandId: number;
   variants: Record<string, string>;
+  ownScript?: boolean;
+  used: number;
+  budget: number;
 }) {
   const assets = useAssets(projectId);
+  const stopFor = useOwnScriptStop(ownScript, { used, budget });
+  const { data: me } = useMe();
+  const limits = useQuery({ queryKey: ["credit-limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
+  // Reed always may save a look to Cast & places; an editor only when Team allows it.
+  const canSave = me?.role === "owner" || !!limits.data?.editors_can_save_looks;
   const queryClient = useQueryClient();
   const picks = useBriefChoices(brandId, variants);
   const flavour = useMutation({
@@ -344,6 +446,8 @@ export function AssetsPane({
           asset={a}
           projectId={projectId}
           brandId={brandId}
+          stopFor={stopFor}
+          canSave={canSave}
         />
       ))}
     </div>

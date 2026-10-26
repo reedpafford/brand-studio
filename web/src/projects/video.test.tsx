@@ -31,6 +31,8 @@ const base: Record<string, [number, unknown]> = {
   "GET /brands/1/screens": [200, []],
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
+  "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", credits_per_unit: { "2K": 1.5 } }]],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729, editors_can_save_looks: false }],
 };
 
 function open(query = "?step=assets") {
@@ -121,19 +123,18 @@ test("a prompt shows pictures by name, never [Image1]", async () => {
   expect(prompt).not.toHaveTextContent("[Image");
 });
 
-test("a role with no character can make one, so Assets is never a dead end", async () => {
+test("a role with no character makes a look for this video only in one press, with the price inside the button", async () => {
   setViewport(1440);
   const calls = fakeServer({
     ...base,
-    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", library_item_id: null, name: "", role: "Coach", sheet_status: "missing" })]],
-    "POST /library/character": [201, item({ id: 12, name: "Coach" })],
-    "PUT /projects/9/assets/slots/3": [200, []],
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", sheet_status: "missing" })]],
+    "POST /projects/9/assets/slots/3/make-look": [200, []],
   });
   open();
   expect(screen.queryByLabelText("Use a Cast & places character")).toBeNull();
-  await userEvent.click(await screen.findByRole("button", { name: "Make a look" }));
-  await vi.waitFor(() => expect(calls.map((c) => c.key)).toEqual(expect.arrayContaining(["POST /library/character", "PUT /projects/9/assets/slots/3"])));
-  expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", notes: "Coach", brand_ids: [1] });
+  await userEvent.click(await screen.findByRole("button", { name: "Make a look · 2 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/make-look")).toBe(true));
+  expect(calls.some((c) => c.key === "POST /library/character")).toBe(false); // never added to Cast & places
 });
 
 test("an approved picked character shows no buttons: it is shared with every video", async () => {
@@ -224,19 +225,6 @@ test("a filled slot can be swapped for another character", async () => {
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/assets/slots/3")?.body).toEqual({ library_item_id: 8 }));
 });
 
-test("Make a look draws from the role's description", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", description: "A tired coach in a grey hoodie", sheet_status: "missing" })]],
-    "POST /library/character": [201, item({ id: 12, name: "Coach" })],
-    "PUT /projects/9/assets/slots/3": [200, []],
-  });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Make a look" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Coach", notes: "A tired coach in a grey hoodie" }));
-});
-
 test("on an editor's own script past the weekly allowance the storyboard is declined with the reason, never Ask Reed", async () => {
   setViewport(1440);
   fakeServer({
@@ -286,4 +274,92 @@ test("Assets shows where each one is used, the role's description, and the produ
   expect(within(screens).getByText("fomo Home")).toBeInTheDocument();
   expect(within(screens).queryByRole("button")).toBeNull(); // nothing to approve
   expect(screen.getByText("3 assets · 2 approved")).toBeInTheDocument();
+});
+
+const own = (o: object = {}) => asset({ ref: "slot:3", slot_id: 3, library_item_id: 12, own_look_id: 12, only_here: "video", role: "Coach", name: "Coach", sheet_status: "needs_approval", ...o });
+
+test("a look for this video only says so, is approved here with Undo, and is redrawn from a plain note at its price", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own()]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Coach" })],
+    "POST /library/character/12/sheet/approve": [200, {}],
+    "DELETE /library/character/12/sheet/approve": [204, null],
+    "POST /library/character/12/sheet": [201, { id: 4, kind: "image", status: "queued", credits: 1.5 }],
+  });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).getByText("This video only")).toBeInTheDocument();
+  expect(within(card).queryByRole("link")).toBeNull(); // no trip to Cast & places
+  expect(within(card).getByRole("button", { name: /Change it/ })).toBeDisabled();
+  expect(within(card).getByText("Say what should change")).toBeInTheDocument();
+  await userEvent.type(within(card).getByLabelText("Change this…"), "Warmer light");
+  await userEvent.click(within(card).getByRole("button", { name: "Change it · 2 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/12/sheet")?.body).toEqual({ model_id: "nano-banana-pro", change: "Warmer light" }));
+  await userEvent.click(within(card).getByRole("button", { name: "Approve" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/12/sheet/approve")).toBe(true));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/12/sheet/approve")).toBe(true));
+});
+
+test("Save to Cast & places needs an approved sheet first", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /auth/me": [200, { ...editor, role: "owner" }],
+    "GET /projects/9/assets": [200, [own({ sheet_status: "needs_approval" })]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Coach" })],
+  });
+  open();
+  const save = await within(await screen.findByLabelText("Coach")).findByRole("button", { name: "Save to Cast & places" });
+  expect(save).toBeDisabled();
+  expect(save).toHaveAccessibleDescription("Approve the sheet first");
+});
+
+test("an approved look is saved under a name; Undo removes the copy", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /auth/me": [200, { ...editor, role: "owner" }],
+    "GET /projects/9/assets": [200, [own({ sheet_status: "approved", ready: true })]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Coach", sheet_status: "approved" })],
+    "POST /projects/9/assets/slots/3/save-to-library": [201, { library_item_id: 30, assets: [] }],
+    "DELETE /library/character/30": [204, null],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Save to Cast & places" }));
+  const name = await screen.findByLabelText("Name");
+  expect(name).toHaveValue("Coach");
+  expect(screen.getByText("It becomes a normal character any script can use. This video keeps its look either way.")).toBeInTheDocument();
+  await userEvent.clear(name);
+  await userEvent.type(name, "Coach Dan");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/assets/slots/3/save-to-library")?.body).toEqual({ name: "Coach Dan" }));
+  expect(await screen.findByText("Coach Dan saved to Cast & places.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/30")).toBe(true));
+});
+
+test("an editor doesn't see Save to Cast & places unless Team allows it", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ sheet_status: "approved", ready: true })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach", sheet_status: "approved" })] });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  await within(card).findByRole("button", { name: /Change it/ });
+  expect(within(card).queryByRole("button", { name: "Save to Cast & places" })).toBeNull();
+});
+
+test("when the role has gone back to a Cast & places character, the video's own look is kept and offered again", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: 5, own_look_id: 12, only_here: "video", role: "Coach", name: "Bo" })]],
+    "PUT /projects/9/assets/slots/3": [200, []],
+  });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).getByText(/Not used/)).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Use its own look again" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/assets/slots/3")?.body).toEqual({ library_item_id: 12 }));
 });
