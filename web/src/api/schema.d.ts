@@ -2843,6 +2843,22 @@ export interface paths {
          */
         get: operations["missing_looks_projects__project_id__assets_missing_looks_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/make-missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Make Missing Looks
          * @description Make a look for every role that has none (`_missing`), each for this video only, paid
@@ -2850,7 +2866,28 @@ export interface paths {
          *     and the plain reason comes back (409). Each sheet still needs the editor's Approve (or a
          *     Redo, or a swap) before Storyboard; Storyboard refuses until then.
          */
-        post: operations["make_missing_looks_projects__project_id__assets_missing_looks_post"];
+        post: operations["make_missing_looks_projects__project_id__assets_make_missing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/missing-looks/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline Missing Looks
+         * @description Not now: the roles waiting for a look are left for the editor's own Make a look, and
+         *     opening Assets never makes them by itself again.
+         */
+        post: operations["decline_missing_looks_projects__project_id__assets_missing_looks_decline_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3028,6 +3065,11 @@ export interface components {
             only_here?: ("video" | "script") | null;
             /** Own Look Id */
             own_look_id?: number | null;
+            /**
+             * Declined
+             * @default false
+             */
+            declined: boolean;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -11556,7 +11598,7 @@ export interface operations {
             };
         };
     };
-    make_missing_looks_projects__project_id__assets_missing_looks_post: {
+    make_missing_looks_projects__project_id__assets_make_missing_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -11574,6 +11616,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_missing_looks_projects__project_id__assets_missing_looks_decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingLooksOut"];
                 };
             };
             /** @description Validation Error */

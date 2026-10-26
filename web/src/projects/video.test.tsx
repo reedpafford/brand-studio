@@ -45,10 +45,7 @@ function open(query = "?step=assets") {
   );
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-  sessionStorage.clear(); // "Not now" on missing looks is remembered for the visit
-});
+afterEach(() => vi.unstubAllGlobals());
 
 test("the five steps, and Storyboard waits until every asset is approved", async () => {
   setViewport(1440);
@@ -533,28 +530,67 @@ test("a Cast & places character has no Delete this look", async () => {
   expect(screen.queryByRole("button", { name: /^More for/ })).toBeNull();
 });
 
+test("a problem line never shows a raw id: the character's name stands in, the clip says Clip c1, and a missing look links to Assets", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /library/character": [200, [{ id: 5, name: "Bo", image_file_ids: [], brand_ids: [1] }]],
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, problems: ["c1: char:5 is in the clip but its sheet isn't attached", "Advice: c1: the Keep line doesn't name char:5; give their look"] })]],
+  });
+  open("?step=clips");
+  const list = await screen.findByLabelText("Problems for c1");
+  expect(list).toHaveTextContent("Clip c1: Bo is in the clip but its sheet isn't attached");
+  expect(list).not.toHaveTextContent(/char:|slot:/);
+  expect(within(list).getByRole("link", { name: "Approve a look in Assets" })).toHaveAttribute("href", "/b/1/videos/9?step=assets");
+  const advice = screen.getByLabelText("Advice for c1");
+  expect(advice).not.toHaveTextContent(/char:/);
+  await userEvent.click(within(advice).getByText(/Advice \(/)); // open it
+  const keepLabels = within(advice).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? "");
+  expect(keepLabels.some((l) => l.startsWith("Keep anyway: "))).toBe(true);
+  expect(keepLabels.join(" ")).not.toMatch(/char:|slot:/); // the screen reader hears names too
+});
+
+test("a frame's problem reads as a name too", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /library/character": [200, [{ id: 5, name: "Bo", image_file_ids: [], brand_ids: [1] }]],
+    "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, earlier: [], change: null, file_id: null, problems: ["c1: char:5 has no approved sheet"] }]],
+  });
+  open("?step=storyboard");
+  const list = await screen.findByLabelText("Problems for c1");
+  await vi.waitFor(() => expect(list).toHaveTextContent("Clip c1: Bo has no approved sheet"));
+  expect(list).not.toHaveTextContent(/char:/);
+});
+
 const missing = (o: object = {}) => ({ slot_ids: [3, 4], roles: ["Nate", "Mia"], credits: 8.4, reason: null, ...o });
 
-test("missing looks: the price first with a countdown and Not now; Not now stops it and it stays stopped", async () => {
+test("missing looks: the price first with a countdown and Not now; Not now is recorded on the server and nothing is made", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing()], "POST /projects/9/assets/missing-looks": [200, []] });
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets/missing-looks": [200, missing()],
+    "POST /projects/9/assets/missing-looks/decline": [204, null],
+    "POST /projects/9/assets/make-missing": [200, []],
+  });
   open();
   expect(await screen.findByText("Making looks for Nate and Mia · 9 credits")).toBeInTheDocument();
   expect(screen.getByText(/Starting in \d s/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Not now" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/missing-looks/decline")).toBe(true));
   expect(screen.queryByText(/Making looks for/)).toBeNull();
   await new Promise((r) => setTimeout(r, 1500));
-  expect(calls.some((c) => c.key === "POST /projects/9/assets/missing-looks")).toBe(false);
+  expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(false);
 });
 
 test("missing looks that fit are made after the countdown, and the note then says what was made", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing()], "POST /projects/9/assets/missing-looks": [200, []] });
+  const calls = fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing()], "POST /projects/9/assets/make-missing": [200, []] });
   open();
   await screen.findByText(/Starting in \d s/);
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/missing-looks")).toBe(true), { timeout: 9000 });
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(true), { timeout: 9000 });
   expect(await screen.findByText("Made 2 looks · 9 credits. Check each one, then approve.")).toBeInTheDocument();
-  expect(calls.filter((c) => c.key === "POST /projects/9/assets/missing-looks")).toHaveLength(1); // once
+  expect(calls.filter((c) => c.key === "POST /projects/9/assets/make-missing")).toHaveLength(1); // once
 }, 20000);
 
 test("missing looks that don't fit are not made: the server's reason shows and there is no countdown", async () => {
@@ -564,12 +600,12 @@ test("missing looks that don't fit are not made: the server's reason shows and t
   expect(await screen.findByText("Making a look (8 credits) would go over this video's budget.")).toBeInTheDocument();
   expect(screen.queryByText(/Starting in/)).toBeNull();
   expect(screen.queryByRole("button", { name: "Not now" })).toBeNull();
-  expect(calls.some((c) => c.key === "POST /projects/9/assets/missing-looks")).toBe(false);
+  expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(false);
 });
 
 test("a refused start shows the server's reason", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing({ slot_ids: [3], roles: ["Nate"] })], "POST /projects/9/assets/missing-looks": [409, { detail: "Making a look (8 credits) would go over this video's budget." }] });
+  fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing({ slot_ids: [3], roles: ["Nate"] })], "POST /projects/9/assets/make-missing": [409, { detail: "Making a look (8 credits) would go over this video's budget." }] });
   open();
   expect(await screen.findByText("Making a look (8 credits) would go over this video's budget.", {}, { timeout: 9000 })).toBeInTheDocument();
 }, 20000);
