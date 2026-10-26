@@ -248,7 +248,8 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     db.add(spent)  # the video's budget is all used
     db.commit()
     jobs, looks = db.query(Job).count(), db.query(LibraryItem).count()
-    refused = editor.post(url)
+    make = f"/projects/{pid}/assets/make-missing"
+    refused = editor.post(make)
     reason = f"Making a look ({one} credits) would go over this video's budget."
     assert (refused.status_code, refused.json()["detail"]) == (409, reason)
     assert editor.get(url).json()["reason"] == reason  # said before the press too
@@ -257,11 +258,24 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     db.delete(spent)
     db.commit()
     jobs -= 1
-    rows = editor.post(url)
+    rows = editor.post(make)
     assert rows.status_code == 200, rows.text
     row = _row(editor, pid, nate)
     assert (row["only_here"], row["sheet_status"], row["ready"]) == ("video", "drawing", False)
     assert editor.get(url).json()["slot_ids"] == []  # made once
-    assert editor.post(url).status_code == 200 and db.query(Job).count() == jobs + 1
+    assert editor.post(make).status_code == 200 and db.query(Job).count() == jobs + 1
     _drawn(db, editor, row["own_look_id"])
     assert _row(editor, pid, nate)["sheet_status"] == "needs_approval"  # the editor's review
+
+
+def test_not_now_on_the_missing_looks_sticks(owner, editor, db):
+    _, pid, nate = _video(owner, editor, db)
+    url = f"/projects/{pid}/assets"
+    assert editor.get(f"{url}/missing-looks").json()["slot_ids"] == [nate]
+    jobs = db.query(Job).count()
+    assert editor.post(f"{url}/missing-looks/decline").json()["slot_ids"] == []
+    assert _row(editor, pid, nate)["declined"] is True
+    assert editor.post(f"{url}/make-missing").status_code == 200  # opening again: nothing
+    assert db.query(Job).count() == jobs
+    made = editor.post(f"{url}/slots/{nate}/make-look")  # the card's own button still works
+    assert made.status_code == 200 and _row(editor, pid, nate)["declined"] is False

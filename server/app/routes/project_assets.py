@@ -48,6 +48,7 @@ class AssetOut(BaseModel):
     file_id: int | None = None  # a product's or screen's picture (the brand's; nothing to make)
     only_here: Literal["video", "script"] | None = None  # "This video only" / "This script only"
     own_look_id: int | None = None  # the look made for this role here; "Not used" if swapped out
+    declined: bool = False  # Not now on the missing-looks note: never made by itself again
 
 
 class SaveLookIn(BaseModel):
@@ -122,6 +123,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
                         slot.role, item, slot.library_item_id is not None, slot))  # fmt: skip
         own = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
         out[-1].own_look_id = own.id if own and not own.archived else None  # removed: gone
+        out[-1].declined = project.slot_looks.get(str(slot.id), 0) is None
         seen.add(f"char:{item_id}")
     for ref in used:
         if ref in seen or not ref.startswith("char:"):
@@ -251,8 +253,8 @@ class MissingLooksOut(BaseModel):
 def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
     """The roles Assets makes looks for by itself (Reed, 2026-10-26): every cast slot (a main
     or recurring role; background people are never slots) that the newest breakdown's shots
-    show, with no character picked and no look made for it here. A look the editor removed
-    is never made again by itself."""
+    show, with no character picked and no look made for it here. A look the editor removed,
+    or a role they said Not now to (kept as no look), is never made again by itself."""
     bd = _newest(db, project)
     shown = {
         c for s in (bd.data["scenes"] if bd else []) for x in s["shots"] for c in x["character_ids"]
@@ -290,7 +292,7 @@ def missing_looks(
 
 
 @router.post(
-    "/missing-looks",
+    "/make-missing",
     response_model=list[AssetOut],
     dependencies=[Depends(generation_on)],
 )
@@ -308,6 +310,19 @@ def make_missing_looks(
     for slot in _missing(db, project):
         _make_look(db, user, project, slot)
     return list_assets(project_id, user, db)
+
+
+@router.post("/missing-looks/decline", response_model=MissingLooksOut)
+def decline_missing_looks(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Not now: the roles waiting for a look are left for the editor's own Make a look, and
+    opening Assets never makes them by itself again."""
+    project = get_project(db, user, project_id)
+    waiting = {str(s.id): None for s in _missing(db, project)}
+    project.slot_looks = {**project.slot_looks, **waiting}
+    db.commit()
+    return _missing_out(db, user, project)
 
 
 @router.post("/slots/{slot_id}/save-to-library", response_model=SavedOut, status_code=201)
