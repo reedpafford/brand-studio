@@ -1,6 +1,20 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-26 01:08 · #359 Writing step 6 spec: the optional Breakdown plan per version merged
+- 2026-10-26 01:05 · #357 Directions: Enhance on a library script version (gaps #4) merged
+- 2026-10-26 01:05 · #355 Video page follow-up: swap a character, own-script decline, Undo Keep anyway merged
+- 2026-10-26 00:56 · #356 Removed scripts say deleted or archived; archived ones are never purged merged
+- 2026-10-26 00:48 · #331 New video page 3/3: Downloads, and Make this version opens the new page merged
+- 2026-10-26 00:47 · #330 New video page 2/3: one-press storyboard, clip prompts read first, Keep it anyway merged
+- 2026-10-26 00:36 · #354 Fix the red browser tests: the write already finds the roles merged
+- 2026-10-26 00:24 · #347 Video flow: asset rows name their slot and role; own_script; undo Keep anyway merged
+- 2026-10-26 00:19 · #350 Reel watch: retry the video once, then watch from frames merged
+- 2026-10-26 00:13 · #351 ops: HANDOFF/LOG refresh 2026-10-26 00:15Z (by the Producer) merged
+- 2026-10-26 00:13 · #327 New video page 1/3: five steps, Breakdown shape row, Assets step merged
+- 2026-10-26 00:13 · #348 Breakdown: an adapted montage keeps about the reference's length merged
+- 2026-10-26 00:13 · #346 Advice collapses under one line with Keep anyway; chips never show raw ids merged
+- 2026-10-26 · #353 Fix main's browser tests: writing a variation now finds the roles closed without merging (#354, a fix for the same red tests, merged).
 - 2026-10-25 22:56 · #340 The cast read follows Write and variations, at one price merged
 - 2026-10-25 22:51 · #339 Removed scripts list: GET /scripts?removed=1 with a removed-for-good date merged
 - 2026-10-25 22:51 · #345 Script draft: montage money climbs (imported reels too); the aspect check ignores clock times merged
