@@ -166,3 +166,35 @@ def test_deleting_a_script_stops_its_work_and_restore_doesnt_start_it(owner, edi
     assert (stopped.status, stopped.output) == (JobStatus.cancelled, None)
     assert db.query(Usage).filter_by(job_id=write.id).count() == 1  # its dollars, once
     assert not [j for j in db.query(Job).all() if j.input.get("step") == "cast_slots"]
+
+
+def test_a_script_says_its_own_work_is_being_made(owner, editor, ed, db, project):  # noqa: F811
+    """Producer, for the Delete and Archive confirm (spec #468): Reed sees an editor's running
+    work on the script; its videos' jobs aren't the script's."""
+    from tests.test_script_library import SCRIPT, _make
+
+    sid = _make(editor, text=SCRIPT)["id"]
+
+    def running():
+        row = next(r for r in owner.get("/scripts").json() if r["id"] == sid)
+        assert owner.get(f"/scripts/{sid}").json()["running"] == row["running"]
+        return row["running"]
+
+    assert running() is False
+    video = Job(workspace_id=ed.workspace_id, created_by_id=ed.id, kind="image", provider="fake",
+                input={"script_id": sid}, project_id=project[1].id)  # fmt: skip
+    write = Job(workspace_id=ed.workspace_id, created_by_id=ed.id, kind="write-claude",
+                provider="fake", input={"step": "script_draft", "script_id": sid})  # fmt: skip
+    db.add(video)
+    db.commit()
+    assert running() is False  # a video's job never counts
+    db.add(write)
+    db.commit()
+    assert running() is True  # the editor's Write, seen by Reed
+    write.status = JobStatus.running
+    db.commit()
+    assert running() is True
+    write.status = JobStatus.succeeded
+    db.delete(video)
+    db.commit()
+    assert running() is False
