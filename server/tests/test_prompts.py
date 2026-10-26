@@ -787,7 +787,8 @@ def test_a_frames_only_watch_says_so_and_keeps_the_cuts_and_words():
     assert text.startswith("<watched_from>frames</watched_from>\n<cuts>\n1. 0.00–0.40")
     assert text.split("\n", 1)[1] == prompts.reel_watch_input(transcript, cuts)
     assert "**Frames only.**" in prompts.watch_system()
-    assert "each row is one shot from <cuts>" in prompts.watch_system()  # #304's grids
+    assert "each row is one shot from <cuts>" in prompts.watch_system()
+    assert "corner label gives its shot number and time" in prompts.watch_system()  # #304's grids
 
 
 def test_an_adapted_montage_keeps_the_references_length():

@@ -102,8 +102,8 @@ def test_too_many_references_and_audio_alone_are_refused(editor, fomo):
     assert "Audio references need" in editor.post("/clips", json=beach).json()["detail"]
 
 
-def test_screen_from_another_brand_is_refused(editor, fomo):
-    other = editor.post("/brands", json={"name": "Other"}).json()["id"]
+def test_screen_from_another_brand_is_refused(owner, editor, fomo):
+    other = owner.post("/brands", json={"name": "Other"}).json()["id"]
     r = editor.post("/clips", json=_clip(fomo, brand_id=other, screen_ids=[fomo["screen"]]))
     assert r.status_code == 404
 

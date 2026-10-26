@@ -14,6 +14,7 @@ from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
+from app.models.scripts import Suggestion
 from app.reel import reel_link
 from app.routes.brands import get_brand
 from app.routes.references import catalogue
@@ -505,6 +506,7 @@ def remove_draft(
     if slot == 0 or draft.status == "approved":
         raise HTTPException(409, "Only a variation that isn't approved yet can be removed.")
     db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id == draft.id))
+    db.execute(delete(Suggestion).where(Suggestion.script_draft_id == draft.id))  # SQLite too
     db.delete(draft)
     db.commit()
     return _out(db, script)

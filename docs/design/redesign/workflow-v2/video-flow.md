@@ -74,6 +74,7 @@ As specced in `phase3/screens/video.md` §5, with the prompt review kept (decisi
 4. Review each take: **Looks good**, or **Needs a change → Redo**
 
 Every redo adds a take, and the takes stay listed (they're downloadable in step 5).
+- **Looks good is kept on the server** (`prompt_ok` per clip, #366), not in the browser. So it holds on every device and for everyone who opens the video. Saving your own edit to a prompt counts as Looks good (you read it to edit it). A prompt that is written again clears it. **Make the takes** stays disabled with "Mark every prompt as Looks good first (1 left)" until every clip is ok. **Undo** clears the flag.
 
 ## 5. Downloads (replaces Final video; decision a)
 ```

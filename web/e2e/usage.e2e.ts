@@ -35,3 +35,19 @@ test("Reed opens In production from the rail and sees the version being made, wi
   await expect(page.getByRole("link", { name: /^Bo tries salmon/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("Reed releases a version he started by mistake, and it leaves In production", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.goto("/production");
+  const row = page.getByRole("link", { name: /^Bo tries salmon, version A, / });
+  await expect(row).toBeVisible();
+  await row.click();
+  await page.getByRole("button", { name: /^More for Bo tries salmon/ }).click();
+  await page.getByRole("menuitem", { name: "Release this version" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Release", exact: true }).click();
+  await expect(page.getByText("The version is ready to make again.")).toBeVisible();
+  await expect(page).toHaveURL(/\/scripts$/);
+  await page.goto("/production");
+  await expect(page.getByRole("link", { name: /^Bo tries salmon, version A, / })).toBeHidden();
+});
