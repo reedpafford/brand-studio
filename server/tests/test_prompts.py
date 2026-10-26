@@ -183,6 +183,18 @@ def test_variations_example_passes_and_every_check_says_what_to_do():
     ]
 
 
+def test_variations_end_line_ignores_case_and_a_near_miss_is_advice():
+    original, result, end = _variation_case()
+    v = result.variations[0]
+    body = v.script.rsplit("\n", 1)[0]
+    v.script = body + "\nMALIK: WANT TO TRADE LIKE ME? DOWNLOAD FOMO THROUGH THE LINK IN MY BIO"
+    assert not [p for p in check.variations(original, result, {}, end, [], 1) if "end line" in p]
+    v.script = body + "\nMALIK: Want to trade like me? Get fomo through the link in my bio."
+    assert [p for p in check.variations(original, result, {}, end, [], 1) if "end line" in p] == [
+        "Advice: variation 1's last line is close to the brand's end line, not word for word"
+    ]
+
+
 def test_variations_advice_covers_length_closeness_and_format():
     original, result, end = _variation_case()
     v = result.variations[0]
@@ -615,6 +627,36 @@ def test_breakdown_check_wants_the_script_to_end_on_the_brands_end_line():
     assert "the script doesn't end on the brand's end line" not in check.breakdown(
         ended, bd, FOMO, 4, 30, end_line=end
     )
+
+
+def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
+    """Reed: "Marriage Rejection" ends on fomo's end line with FOMO in caps; never blocked."""
+    end = "Want to trade like me? Download fomo through the link in my bio."
+    caps = "NATE: Want to trade like me?! Download FOMO through the link in my bio"
+    curly = "NATE: “Want to trade like me… download fomo, through the link in my bio!”"
+    near = "NATE: Want to trade like me? Get fomo through the link in my bio."
+    other = "NATE: Sorry, I'm fully booked."
+    assert [check.ends_on(end, x) for x in (caps, curly, near, other)] == [
+        "yes", "yes", "near", "no"
+    ]  # fmt: skip
+    assert check.ends_on(end, "NATE: ... in my biology") != "yes"  # whole words only
+    assert check.ends_on("", other) == "yes"  # a brand with no end line
+
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+
+    tag = "★ fomo screen: Home — closing tag"
+
+    def ending(last):
+        return check.breakdown(script.replace(tag, f"{last}\n{tag}"), bd, FOMO, 4, 30, end_line=end)
+
+    assert not [p for p in ending(caps) if "end line" in p]  # passes cleanly
+    assert not [p for p in ending(curly) if "end line" in p]
+    advice = [p for p in ending(near) if "end line" in p]
+    assert advice == [
+        "Advice: the last line is close to the brand's end line but not word for word"
+    ]
+    assert "the script doesn't end on the brand's end line" in ending(other)  # still blocks
 
 
 def test_sheet_prompts_are_house_style_with_no_names_or_text():
