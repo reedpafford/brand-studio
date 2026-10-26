@@ -227,3 +227,33 @@ test("a frame whose character has no approved sheet says so, links to the charac
   expect(screen.getByText(/1 frame waits for a sheet \(Mia\)\./)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make all stills · 3 credits" })).toBeInTheDocument(); // only the frame that can be made
 });
+
+test("after Redo storyboard the old frames are not shown while the new ones load, so none of them can be pressed", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ id: 1, file_id: 40 })]], "POST /projects/9/storyboard": [201, { id: 7, kind: "write-claude", step: "storyboard", status: "queued", credits: 6, project_id: 9 }] });
+  // The server replaces the frames when the run finishes; the new list is slow to arrive.
+  const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation();
+  let release: () => void = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  let asked = false;
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    const path = new URL(req.url).pathname.replace(/^\/api/, "");
+    if (req.method === "POST" && path === "/projects/9/storyboard") asked = true;
+    if (asked && req.method === "GET" && path === "/jobs") return json([{ id: 7, kind: "write-claude", step: "storyboard", status: "succeeded", credits: 6, project_id: 9, created_at: new Date().toISOString() }]);
+    if (asked && req.method === "GET" && path === "/projects/9/storyboard") {
+      await held;
+      return json([frame({ id: 5, file_id: 60 })]);
+    }
+    return inner!(req.clone(), init);
+  }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Redo storyboard · 6 credits" }));
+  // The run has finished but the new frames haven't come: the old ones are gone from the screen.
+  expect(await screen.findByText("Writing your frames…")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Redo · / })).toBeNull();
+  release();
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Redo · / })).toBeInTheDocument();
+});

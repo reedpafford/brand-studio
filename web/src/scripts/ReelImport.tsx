@@ -108,12 +108,21 @@ export function ReelPicker({ brandId }: { brandId: number }) {
 
 /** The reel's preparation for a script made from one; null when the script isn't. Polls while it is being got. */
 export function useReelImport(scriptId: number) {
+  const queryClient = useQueryClient();
+  const key = ["script-import", scriptId];
   return useQuery({
-    queryKey: ["script-import", scriptId],
+    queryKey: key,
     queryFn: async () => {
+      const before = queryClient.getQueryData<{ status: string }>(key)?.status;
       const { data, response } = await api.GET("/scripts/{script_id}/import", { params: { path: { script_id: scriptId } } });
       if (response.status === 404) return null;
       if (!data) throw new Error("load");
+      // The read has just finished: it wrote the script and the cast, so bring them in (an open Script step must not keep offering to write).
+      if (data.status === "done" && before !== undefined && before !== "done") {
+        void queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] });
+        void queryClient.invalidateQueries({ queryKey: ["script-cast", scriptId] });
+        void queryClient.invalidateQueries({ queryKey: ["scripts"] });
+      }
       return data;
     },
     refetchInterval: (q) => (q.state.data?.status === "preparing" || q.state.data?.status === "reading" ? 2000 : false),

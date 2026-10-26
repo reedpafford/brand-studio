@@ -111,6 +111,8 @@ function AssetCard({
       queryClient.invalidateQueries({ queryKey: ["assets", projectId] }),
       queryClient.invalidateQueries({ queryKey: ["library", kind] }),
       queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] }),
+      queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }),
+      queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
     ]);
   const choose = useMutation({
     mutationFn: async (itemId: number) => {

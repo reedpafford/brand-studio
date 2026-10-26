@@ -76,7 +76,7 @@ Reed, 2026-10-25 (#197): once the script and its variations are approved, the ap
     - Unlocked: **Lock to a look** (secondary) and the meta line "Generated at Assets".
 - **Lock to a look** opens a sheet (phone) or side panel (desktop) with two tabs:
   - **From Cast & places:** this brand's characters that have an approved sheet, as 9:16 cards with the name. A search field shows once there are more than 8. Picking one locks the slot to that sheet. Characters without an approved sheet are shown too, with "No approved sheet yet" (meta) and **Make sheet · N credits** (secondary) in place. It runs that character's house-style sheet from its photo, shows **Approve** / **Redo** in the same card, and approving locks the slot to it. Nothing opens in another page.
-  - **Make one:** a name (filled with the role), a photo (optional), and the description (filled). Then **Make a look · N credits**, which runs the house-style sheet and comes back for **Approve**. Approving adds the character to Cast & places and locks the slot to it.
+  - **Make one:** a name (filled with the role), a photo (optional), and the description (filled). Then **Make a look · N credits**, which runs the house-style sheet and comes back for **Approve**. Approving locks the slot to it. The look belongs to this script only (gaps #19, `video-flow.md` §2, Looks for this video only): it isn't added to Cast & places, and it gets **Save to Cast & places** under the same rules.
 - **Editing the cast** (the owner, before publishing):
   - **＋ Add a role** (ghost): role name, kind and description.
   - Rename a slot: `Pencil` on the role.
