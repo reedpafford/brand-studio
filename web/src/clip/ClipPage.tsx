@@ -97,7 +97,7 @@ function Studio({ models }: { models: Model[] }) {
     file_ids: [],
     improved,
   };
-  // Ask the server what this would cost and whether Reed must approve it. Nothing is queued.
+  // Ask the server what this would cost, and whether this person may spend it. Nothing is queued.
   const settledBody = useDebounced(body);
   const estimate = useQuery({
     queryKey: ["estimate", settledBody],
@@ -118,7 +118,7 @@ function Studio({ models }: { models: Model[] }) {
     },
     onSuccess: () => {
       setSent(JSON.stringify(body));
-      toast(estimate.data?.needs_owner_approval ? "Sent to Reed for approval. It will show in History." : "Clip queued. It will show in History.");
+      toast("Clip queued. It will show in History.");
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["allowance"] });
     },
@@ -161,7 +161,6 @@ function Studio({ models }: { models: Model[] }) {
     <div className="space-y-1">
       <Button
         price={credits}
-        ask={!!estimate.data?.needs_owner_approval}
         busy={generate.isPending}
         disabled={reason !== null}
         reason={reason}
@@ -170,7 +169,6 @@ function Studio({ models }: { models: Model[] }) {
       >
         Generate
       </Button>
-      {!reason && estimate.data?.needs_owner_approval && <p className="text-center text-sm text-warning">{estimate.data.reason}</p>}
       {generate.isError && <p role="alert" className="text-center text-sm text-danger">{generate.error.message}</p>}
     </div>
   );

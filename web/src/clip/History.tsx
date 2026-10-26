@@ -12,9 +12,9 @@ const WORDS = {
   succeeded: "Ready",
   failed: "Didn't finish · credits returned",
   cancelled: "Cancelled",
-  needs_owner_approval: "Waiting for Reed to approve",
+  needs_owner_approval: "Not started",
 } as const;
-const TONES: Record<keyof typeof WORDS, Tone> = { queued: "media", running: "media", succeeded: "media", failed: "danger", cancelled: "neutral", needs_owner_approval: "warning" };
+const TONES: Record<keyof typeof WORDS, Tone> = { queued: "media", running: "media", succeeded: "media", failed: "danger", cancelled: "neutral", needs_owner_approval: "neutral" };
 const FILTERS = { all: "All", ready: "Ready", making: "Making", failed: "Didn't finish" } as const;
 type Filter = keyof typeof FILTERS;
 const inFilter = (status: string, f: Filter) => f === "all" || (f === "ready" && status === "succeeded") || (f === "making" && ACTIVE.includes(status)) || (f === "failed" && status === "failed");

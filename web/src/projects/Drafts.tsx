@@ -5,6 +5,7 @@ import { Elapsed, useJobs } from "../clip/History";
 import { Sparkles } from "lucide-react";
 import { Badge, Banner, Button, Card, Skeleton } from "../components";
 import { errorText as errorClass } from "../ui";
+import { useOwnScriptStop } from "./useOwnScriptStop";
 
 const GOING = ["queued", "running", "needs_owner_approval"];
 
@@ -45,7 +46,7 @@ export function DraftsPanel({
   const cost = rates.data?.find(
     (r) => r.kind === "write-claude",
   )?.credits_per_unit;
-  const over = cost !== undefined && used + cost > budget;
+  const stop = useOwnScriptStop(false, { used, budget })(cost);
 
   const write = useMutation({
     mutationFn: async () => {
@@ -87,7 +88,7 @@ export function DraftsPanel({
             <div className="space-y-3">
               <p className="text-sm text-muted" role="status">
                 {latest.status === "needs_owner_approval" ? (
-                  <Badge tone="warning">Waiting for Reed to approve</Badge>
+                  <Badge>Not started</Badge>
                 ) : (
                   <>
                     {latest.status === "queued"
@@ -102,7 +103,8 @@ export function DraftsPanel({
           ) : (
             <Button
               variant={list.length ? "secondary" : "primary"}
-              ask={over}
+              disabled={!!stop}
+              reason={stop}
               price={price}
               busy={write.isPending}
               onClick={() => write.mutate()}

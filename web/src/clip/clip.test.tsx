@@ -137,11 +137,13 @@ test("Generate sends the brand pieces to the server and says the clip is queued"
   });
 });
 
-test("when the clip would need Reed's approval, say so before the click", async () => {
-  fakeServer({ ...studio, "POST /clips/estimate": [200, { ...estimateOk, needs_owner_approval: true, reason: "This goes past your weekly quick-clip allowance, so Reed will need to approve it." }] });
+test("past the weekly allowance Generate is disabled with the server's reason, and nothing offers to ask Reed", async () => {
+  fakeServer({ ...studio, "POST /clips/estimate": [409, { detail: "That's more than this week's 150 free credits (145 used). It resets on Monday." }] });
   open();
   await userEvent.type(await screen.findByLabelText(/What happens/), "A long calm shot of the city");
-  expect(await screen.findByText(/Reed will need to approve it/)).toBeInTheDocument();
+  expect(await screen.findByText("That's more than this week's 150 free credits (145 used). It resets on Monday.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Generate/ })).toBeDisabled();
+  expect(screen.queryByText(/Ask Reed/)).toBeNull();
 });
 
 test("a refusal from the server is shown as the reason Generate is off", async () => {
@@ -187,22 +189,6 @@ test("Try again on a failed clip brings back its prompt, settings and pieces wit
   expect(screen.getByRole("button", { name: "16:9" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "720p" })).toHaveAttribute("aria-pressed", "true");
   expect(calls.some((c) => c.key === "POST /clips")).toBe(false);
-});
-
-test("over the weekly allowance the button asks Reed instead of blocking, and the toast says so", async () => {
-  const calls = fakeServer({
-    ...studio,
-    "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 150 }],
-    "POST /clips/estimate": [200, { ...estimateOk, credits: 68, needs_owner_approval: true, reason: "This goes past your weekly quick-clip allowance, so Reed will need to approve it." }],
-    "POST /clips": [201, { id: 7, kind: "video", status: "needs_owner_approval", credits: 68 }],
-  });
-  open();
-  await userEvent.type(await screen.findByLabelText(/What happens/), "A long calm shot of the city");
-  const ask = await screen.findByRole("button", { name: "Ask Reed to approve · 68 credits" });
-  await vi.waitFor(() => expect(ask).toBeEnabled());
-  await userEvent.click(ask);
-  expect(await screen.findByText("Sent to Reed for approval. It will show in History.")).toBeInTheDocument();
-  expect(calls.some((c) => c.key === "POST /clips")).toBe(true);
 });
 
 test("the button stays on while you keep typing, and a second press needs a change first", async () => {

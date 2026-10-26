@@ -37,7 +37,7 @@ const STATUS: Record<
   approved: { tone: "success", text: "Approved" },
   needs_approval: { tone: "warning", text: "Needs your approval" },
   drawing: { tone: "neutral", text: "Drawing…" },
-  waiting_for_owner: { tone: "warning", text: "Waiting for Reed" },
+  waiting_for_owner: { tone: "neutral", text: "Not started" },
   none: { tone: "warning", text: "Needs a look" },
   missing: { tone: "warning", text: "Needs a look" },
 };

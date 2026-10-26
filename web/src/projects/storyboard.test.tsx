@@ -102,10 +102,19 @@ test("a still opens full size with the prompt Claude wrote", async () => {
   expect(within(box).getByText("Mia in a cold blue kitchen")).toBeInTheDocument();
 });
 
-test("paid buttons ask Reed when the project is close to its budget", async () => {
+test("close to the budget an editor's paid button is off with the reason, and Reed's is the plain label", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }], "GET /projects/9/storyboard": [200, []] });
   open();
-  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 6 credits" })).toBeInTheDocument();
+  const make = await screen.findByRole("button", { name: "Make storyboard · 6 credits" });
+  expect(make).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(screen.queryByText(/Ask Reed/)).toBeNull();
+});
+
+test("Reed near the budget can press the plain Make storyboard", async () => {
+  fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }], "GET /projects/9/storyboard": [200, []] });
+  open();
+  expect(await screen.findByRole("button", { name: "Make storyboard · 6 credits" })).toBeEnabled();
 });
 
 test("Storyboard stays locked until there are shots", async () => {
