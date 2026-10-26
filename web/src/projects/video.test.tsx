@@ -717,6 +717,21 @@ test("Approve all on the storyboard approves the frames that can be, says why th
   expect(screen.queryByText(/Approved 1\./)).toBeNull();
 });
 
+test("the Approve all result line goes away on the next action, but not when its own links are pressed", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [waiting(1), waiting(2, { file_id: null })]],
+    "POST /projects/9/storyboard/approve-all": [200, { approved: [1], skipped: [{ id: 2, reason: "no still yet" }] }],
+  });
+  open("?step=storyboard");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve 1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Clip c2" }));
+  expect(screen.getByText(/Approved 1\./)).toBeInTheDocument();
+  await userEvent.click(document.body);
+  await vi.waitFor(() => expect(screen.queryByText(/Approved 1\./)).toBeNull());
+});
+
 test("Approve all is not offered when every frame is approved or has no still", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }, waiting(2, { file_id: null })]] });

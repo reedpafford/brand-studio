@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { api, errorText } from "../api/client";
@@ -44,6 +44,20 @@ export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "c
     },
   });
 
+  // The line stays until the next action on the page (a press anywhere but on the line itself).
+  useEffect(() => {
+    if (!result) return;
+    const away = (e: Event) => {
+      if (!(e.target as Element | null)?.closest?.("[data-approve-line]")) setResult(null);
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", away);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", away);
+    };
+  }, [result]);
+
   const button =
     opts.ready > 0 ? (
       <Button variant="secondary" icon={Check} busy={run.isPending} className="w-full sm:w-auto" onClick={() => run.mutate()}>
@@ -57,14 +71,14 @@ export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "c
     run.isError ? (
       <p role="alert" className="text-sm text-danger">{run.error.message}</p>
     ) : result && result.approved.length + left.length > 0 ? (
-      <p className="text-sm text-muted" role="status">
+      <p className="text-sm text-muted" role="status" data-approve-line>
         Approved {result.approved.length}.
         {left.length > 0 && ` ${left.length} not approved: `}
         {left.map((s, i) => {
           const clip = label(s.id);
           return (
             <span key={s.id}>
-              {i > 0 && ", "}
+              {i > 0 && " · "}
               <button type="button" className="underline" onClick={() => show(`${noun === "frame" ? "Frame" : "Clip"} ${clip}`)}>
                 Clip {clip}
               </button>
