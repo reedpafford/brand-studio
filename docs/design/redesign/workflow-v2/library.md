@@ -130,6 +130,18 @@ The server route is `DELETE /scripts/{id}`.
 - **Action bar:** **＋ New script**.
 - **Tablet (768):** the same as phone. Rows are cards in 2 columns.
 
+## Videos (gaps #13)
+A **Scripts · Videos** segmented control under the page title (44px on phone) switches the page to the brand's videos (`?view=videos`). Scripts stays the default.
+- **Who sees what:** an editor sees the videos they're making or made (`mine=true` is always on). Reed sees everyone's, with a **Mine** toggle.
+- **Filters:** a search field ("Search videos", 300 ms after typing stops; it matches the script title and, for B and C, the version's title), then **Status: Any · Making · Video done**, and an **Archived** toggle. The same Filters sheet applies on phone.
+- **Rows** use the In production row's shape (poster, "{script title} · {letter}", meta "{who} · {step or 'Video done · 24 Oct'}"). The status shows as a chip: "In production" (warning, `Clock`) or "Video done" (success, `Check`). An archived row is muted, with an "Archived" badge.
+  - The row opens the video at its current step (Downloads when done).
+  - On an editor's own script, the meta adds "On your week".
+- **Count line:** "6 videos", or "2 of 6 videos" when filtered.
+- **Empty:** for an editor, "You haven't started a video yet. Pick a version that's Ready to make." with **Show scripts** (ghost). With filters: "Nothing matches these filters." with **Clear filters**.
+- Earlier-way videos are listed here too, with "(earlier way)" in the meta, so the closed "Videos made before scripts" disclosure moves into this view.
+- **Server:** `GET /projects?brand_id&q&mine&status=making|done&archived` (#374). Rows carry `finished_at`, `archived_at`, `own_script`, `script_draft_id` and `created_by_name`.
+
 ## Videos made before scripts
 - A closed disclosure at the bottom: "Videos made before scripts (4)". It only shows when there are any.
 - Open, it shows the old video cards (`MediaCard`, as #180). Each opens its project in today's six-step video page. Nothing is migrated or hidden.

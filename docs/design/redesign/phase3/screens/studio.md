@@ -57,6 +57,13 @@ Waiting invites (section)
 └──────────────────────────────────────────────────────────────────────┘
 ```
 - **People:** 44px avatar (initial), name (body 600), email (meta), the role as a neutral badge ("Owner", "Editor"). **Remove** (ghost dense, `aria-label="Remove Sam"`) opens the danger dialog: "Remove Sam from the team? Their videos stay." **Keep them** / **Remove**.
+  - **After removing:** toast "Sam removed." with **Undo** (8 s). Undo puts Sam back with the same role and password (`POST /team/members/{id}/restore`).
+  - **Change role** (gaps #16, Reed only): each other person's row has an `Ellipsis` menu (44px on phone) with **Make owner** or **Make editor**, and **Remove** moves into the same menu.
+    - Make owner asks first: "Make Sam an owner? Owners see dollars, approve spending, and manage the team." **Keep as editor** / **Make owner**.
+    - Make editor asks first: "Make Jo an editor? Jo stops seeing dollars and can't manage the team." **Keep as owner** / **Make editor**.
+    - After: the badge changes, with the toast "Sam is now an owner." and **Undo** (it sets the old role back).
+    - Reed's own row has no menu, because nobody can change their own role (the server refuses it: "You can't change your own role."). So there's always at least one owner.
+  - **Removed people** (gaps #16): a ghost **Show removed (2)** under People, only when there are any (`GET /team/members?removed=true`). Open, it lists each removed person muted, with "Removed {date}" (meta) and **Restore** (secondary dense, 44px on phone). Restore gives the toast "Sam is back on the team."
 - **Waiting invites:** email, role, "expires 31 Oct" (meta), **Copy a new link** (secondary dense, `Copy`, `aria-label="Copy a new link for jo@example.com"`) and **Cancel** (ghost dense). The server keeps only a hash of each link, so the old one can't be shown again: Copy a new link makes a fresh link and copies it, and the old link stops working. The label says so before the press. It becomes "Copied" with `Check` for 2 s, with the toast "Link copied. The old link no longer works."
 - **Invite someone** opens a dialog (sheet on phone): **Email**, **Role** (select: Editor, Owner; Editor first), amber **Create invite link**. Then the dialog shows the link in a read-only field (`aria-label="Invite link"`) with **Copy link** and the meta line "Send this link to them. It works once and expires in 7 days." and **Done** (ghost). No toast while this panel is open: it already says it.
 
