@@ -19,6 +19,7 @@ import { Badge, Banner, wholeCredits } from "../components";
 import { RotateCcw } from "lucide-react";
 import { usePressed } from "./usePressed";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
+import { useApproveAll } from "./ApproveAll";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -147,6 +148,15 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     })();
   });
 
+  const rows = frames.data ?? [];
+  const approveAll = useApproveAll({
+    projectId,
+    kind: "storyboard",
+    noun: "frame",
+    rows,
+    ready: rows.filter((f) => f.file_id !== null && !f.approved && !f.stale && !f.still_stale && blocking(f.problems).length === 0).length,
+    waiting: rows.filter((f) => !f.approved).length,
+  });
   if (frames.isPending) return <p className="text-muted">Loading…</p>;
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const list = frames.data;
@@ -227,7 +237,8 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
         <h2 className="text-[length:var(--text-md)] font-semibold">
           Storyboard <span className="font-normal text-muted">· {list.length} frame{list.length === 1 ? "" : "s"} · {approvedCount} approved</span>
         </h2>
-        <span className="flex gap-2">
+        <span className="flex w-full flex-wrap gap-2 sm:w-auto">
+          {approveAll.button}
           {missing.length > 0 && (
             <button
               className={outOfDate.length > 0 ? btnSecondary : btnPrimary}
@@ -249,6 +260,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
           {makeButton}
         </span>
       </div>
+      {approveAll.line}
       {castNote}
       {redrawBlocked && redrawBlocked !== declined && <p className="text-sm text-warning">{redrawBlocked}</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
