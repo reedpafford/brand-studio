@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Ellipsis, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Dialog, Field, Menu, MenuItem, Select, Skeleton, useToast } from "../components";
+import { Badge, Banner, Button, Dialog, Field, Menu, MenuItem, Select, Skeleton, useToast, wholeCredits } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { Money } from "./parts";
@@ -13,11 +13,10 @@ const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "nume
 const STATUS: Record<string, string> = { succeeded: "Done", failed: "Didn't finish", running: "Making", queued: "Waiting" };
 
 type Charge = NonNullable<ReturnType<typeof useCharges>["data"]>["pages"][number]["items"][number];
-/** What was given back this visit: the charge id → the credits it had and the reason. */
-type Given = Record<number, { credits: number; reason: string }>;
+const credits = (n: number) => (n === 1 ? "1 credit" : `${n} credits`);
 
 /** Reed's "Give credits back" on one charge: a reason is required, and it can be done once. */
-function GiveBack({ charge, onGiven }: { charge: Charge; onGiven: (g: { credits: number; reason: string }) => void }) {
+function GiveBack({ charge }: { charge: Charge }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [asking, setAsking] = useState(false);
@@ -30,12 +29,11 @@ function GiveBack({ charge, onGiven }: { charge: Charge; onGiven: (g: { credits:
     },
     onSuccess: async (d) => {
       setAsking(false);
-      onGiven({ credits: charge.credits, reason: d.reason });
-      toast(`${Math.round(charge.credits)} credits given back.`);
+      toast(`${credits(wholeCredits(d.credits))} given back.`);
       await queryClient.invalidateQueries({ queryKey: ["usage"] });
     },
   });
-  const shown = Math.round(charge.credits);
+  const shown = wholeCredits(charge.credits);
   return (
     <>
       <Menu title="Charge actions" align="right" trigger={(t) => <Button variant="ghost" dense icon={Ellipsis} aria-label={`Actions for ${charge.what}`} {...t} />}>
@@ -47,7 +45,7 @@ function GiveBack({ charge, onGiven }: { charge: Charge; onGiven: (g: { credits:
         )}
       </Menu>
       {asking && (
-        <Dialog title={`Give back ${shown} credits?`} cancelLabel="Keep the charge" actionLabel="Give credits back" busy={give.isPending} holdReason={reason.trim() ? null : "Say why"} onCancel={() => setAsking(false)} onConfirm={() => give.mutate()}>
+        <Dialog title={`Give back ${credits(shown)}?`} cancelLabel="Keep the charge" actionLabel="Give credits back" busy={give.isPending} holdReason={reason.trim() ? null : "Say why"} onCancel={() => setAsking(false)} onConfirm={() => give.mutate()}>
           <div className="space-y-3">
             <p>
               For "{charge.what}". The credits go back to {charge.person?.name ? `${charge.person.name}'s week` : "the week"} or the video's budget. The <Money value={charge.cost_usd} estimated={charge.estimated} /> stays on the bill: the service was still paid. This can't be undone, and it can only be done once.
@@ -60,14 +58,15 @@ function GiveBack({ charge, onGiven }: { charge: Charge; onGiven: (g: { credits:
   );
 }
 
-/** The credits cell: the number, or the old number struck through once given back, with its badge. */
-function CreditsCell({ charge, given }: { charge: Charge; given?: { credits: number; reason: string } }) {
-  if (!charge.refunded && !given) return <>{charge.credits}</>;
+/** The credits cell: the number, or the original number struck through once given back, with its badge (the reason is its tooltip). `words` adds "credits" before the badge on a phone line. */
+function CreditsCell({ charge, words }: { charge: Charge; words?: boolean }) {
+  const back = charge.refunded;
+  if (!back) return <>{words ? credits(charge.credits) : charge.credits}</>;
   return (
-    <span className="inline-flex flex-wrap items-center justify-end gap-2">
-      {given && <del className="text-muted">{Math.round(given.credits)}</del>}
-      <span>0</span>
-      <span title={given?.reason}>
+    <span className="inline-flex flex-wrap items-center justify-end gap-x-2">
+      <del className="text-muted">{wholeCredits(back.credits)}</del>
+      <span>{words ? "0 credits" : "0"}</span>
+      <span title={back.reason}>
         <Badge>Credits given back</Badge>
       </span>
     </span>
@@ -83,9 +82,7 @@ export function Charges() {
   const charges = useCharges(open, brand);
   const items = charges.data?.pages.flatMap((p) => p.items) ?? [];
   const owner = useMe().data?.role === "owner";
-  const [given, setGiven] = useState<Given>({});
-  const mayGive = (c: Charge) => owner && !c.refunded && !given[c.id] && c.credits > 0;
-  const giveBack = (c: Charge) => (mayGive(c) ? <GiveBack charge={c} onGiven={(g) => setGiven((x) => ({ ...x, [c.id]: g }))} /> : null);
+  const giveBack = (c: Charge) => (owner && !c.refunded && c.credits > 0 ? <GiveBack charge={c} /> : null);
   return (
     <details className="group border-t border-border pt-3" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary className="flex min-h-control cursor-pointer list-none items-center gap-2 font-medium [&::-webkit-details-marker]:hidden">
@@ -128,7 +125,7 @@ export function Charges() {
                     <td className="py-2 pr-3">{c.person?.name ?? "—"}</td>
                     <td className="py-2 pr-3">{c.brand?.name ?? "—"}</td>
                     <td className="py-2 pr-3">{c.what}</td>
-                    <td className="py-2 pr-3 text-right"><CreditsCell charge={c} given={given[c.id]} /></td>
+                    <td className="py-2 pr-3 text-right"><CreditsCell charge={c} /></td>
                     <td className="py-2 pr-3 text-right"><Money value={c.cost_usd} estimated={c.estimated} /></td>
                     <td className="py-2 pr-3">{STATUS[c.status] ?? c.status}</td>
                     <td className="py-2 text-right">{giveBack(c)}</td>
@@ -143,7 +140,7 @@ export function Charges() {
                   <div className="min-w-0 flex-1 space-y-1">
                     <p>{c.what}</p>
                     <p className="text-sm text-muted">
-                      {[c.person?.name, when(c.at)].filter(Boolean).join(" · ")} · <CreditsCell charge={c} given={given[c.id]} /> credits · <Money value={c.cost_usd} estimated={c.estimated} />
+                      {[c.person?.name, when(c.at)].filter(Boolean).join(" · ")} · <CreditsCell charge={c} words /> · <Money value={c.cost_usd} estimated={c.estimated} />
                     </p>
                   </div>
                   {giveBack(c)}
