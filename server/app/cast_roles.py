@@ -3,6 +3,7 @@ locked ones and those cast at the Assets step. Every model call that sees the ca
 so a shot never gets the wrong person (Reed, "Turned down in Paris": the rich older man
 showed up in Nate's proposal). A deterministic check and fix use the same map."""
 
+import math
 import re
 from decimal import Decimal
 
@@ -32,10 +33,9 @@ def cast_roles(db: Session, project: Project) -> dict[int, list[ScriptCastSlot]]
 
 
 def plays(slots: list[ScriptCastSlot]) -> str:
-    """'plays Nate: shy, 20s' for a cast line ('' with no role)."""
-    return "; ".join(
-        f"plays {s.role}" + (f": {s.description}" if s.description else "") for s in slots
-    )
+    """'plays Nate, the groom' for a cast line ('' with no role). Only the role's name: the
+    look is used as is, so its own notes say how they look, never the role's description."""
+    return "; ".join(f"plays {s.role}" for s in slots)
 
 
 def short(role: str) -> str:
@@ -212,7 +212,7 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
         (estimate(db, project.workspace_id, "image", Decimal(1), i) for i in inputs), Decimal(0)
     )
     n = len(frames)
-    stills = "still" if n == 1 else "stills"
+    stills = "1 still shows" if n == 1 else f"{n} stills show"
     if own_script(db, project, user):
         left = credits_left(db, user)
         fits = left is None or total <= left
@@ -222,8 +222,8 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
         why = "would go over this video's budget."
     if not fits:
         reason = (
-            f"Frames rewritten for the new cast. {n} {stills} still show the old cast: "
-            f"redrawing them ({total:.0f} credits) {why}"
+            f"Frames rewritten for the new cast. {stills} the old cast: "
+            f"redrawing {'it' if n == 1 else 'them'} ({max(1, math.ceil(total))} credits) {why}"
         )
         result = {"redraw_refused": {"count": n, "credits": float(total), "reason": reason}}
         project.cast_redraw = result

@@ -43,9 +43,29 @@ def test_cast_lines_name_the_role_each_character_plays(owner, editor, db):
     pid, mia, kid = _video(owner, editor, db)
     job = editor.post(f"/projects/{pid}/breakdown").json()
     prompt = db.get(Job, job["id"]).input["prompt"]
-    assert f"char:{kid} | Kid | plays Nate: teen" in prompt  # cast at Assets
+    assert f"char:{kid} | Kid | plays Nate" in prompt  # cast at Assets
+    assert "teen" not in prompt.split("</cast>")[0]  # the look's own notes say how he looks
     assert f"char:{mia} | Mia | plays Mom" in prompt  # locked
     assert "slot:" not in prompt.split("</cast>")[0]  # both roles are cast
+
+
+def test_a_filled_slot_is_one_asset_line_the_looks_own(owner, editor, db):
+    """Director (video 7): Omar, locked to Carl, was listed twice (char:3 and slot:N, two
+    names, two outfits). Now the slot is the look's line, printed once."""
+    from app.storyboard import assets, job_input
+
+    pid, mia, kid = _video(owner, editor, db)
+    project = db.get(Project, pid)
+    known = assets(db, project)
+    slots = [k for k in known if k.startswith("slot:")]
+    assert len(slots) == 2 and {known[k][0] for k in slots} == {
+        known[f"char:{mia}"][0],
+        known[f"char:{kid}"][0],
+    }  # either id still works
+    assert known[f"char:{kid}"][0] == f"char:{kid} | character | Kid | plays Nate"
+    bd = db.query(BreakdownVersion).filter_by(project_id=pid).first()
+    lines = job_input(db, project, bd, False)["prompt"].split("<assets>")[1]
+    assert lines.count("plays Nate") == 1 and "slot:" not in lines.split("</assets>")[0]
 
 
 def test_a_redone_breakdown_with_the_wrong_person_stops_stills_and_is_fixed_for_free(
@@ -150,6 +170,8 @@ def test_a_recast_past_the_budget_redraws_nothing_and_says_why(owner, editor, db
     assert db.query(Job).count() == jobs  # nothing charged
     refused = editor.get(f"/projects/{pid}").json()["cast_redraw"]["redraw_refused"]
     assert refused["count"] == 1 and "would go over this video's budget" in refused["reason"]
+    assert "1 still shows the old cast: redrawing it (" in refused["reason"]
+    assert "(0 credits)" not in refused["reason"]  # a small price rounds up, never to nothing
     still = next(f for f in editor.get(f"/projects/{pid}/storyboard").json() if f["id"] == frame.id)
     assert still["still_stale"] is True  # "Out of date"
 
