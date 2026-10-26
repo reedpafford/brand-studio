@@ -22,6 +22,7 @@ The #179 frame (the one-line phone header, step picker, one Next, Back) with **5
   - If twice the estimate would go over $75: a danger banner, "This version would cost more than one video can (729 credits). Shorten it here: join or remove shots." The amber Next stays disabled with that reason.
   - Editors on their own script see their weekly line instead of a budget.
 - **Checks:** the montage check counts hand and screen inserts, and no problem is a dead end.
+  - **One-click fixes** (DECISIONS #520): every blocking problem on Breakdown, Edit shot, Assets, Storyboard and Clips has a fix on the same screen. See `one-click-fixes.md`.
   - Every problem has **Go to**, plus either a fix in place or **Keep it anyway** (ghost). Keep it anyway marks the problem "Kept · Reed will see it" (meta) and stops it blocking Next.
   - Only the $75 cap blocks for good.
   - **Cast mismatch** ("Shot 1.1: the script has Nate proposing, but the shot shows Mogging BF.") has a free **Put the right cast in each shot** (`change-notes.md` §2).
