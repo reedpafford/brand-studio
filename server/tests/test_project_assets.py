@@ -39,6 +39,7 @@ def test_assets_list_slots_and_cast_an_unlocked_one(owner, editor, db):
     assert [(r["slot_id"], r["description"]) for r in rows] == [
         (mom, ""), (nate, "teen"), (None, "")
     ]  # fmt: skip
+    assert [r["shots"] for r in rows] == [1, 1, 1]  # "In 1 shot", a slot:N shot included
     kid = editor.post(
         "/library/character", json={"name": "Kid", "image_file_ids": [upload(editor)]}
     )
@@ -97,3 +98,27 @@ def test_recasting_a_slot_leaves_a_shared_character_alone(owner, editor, db):
     shots = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]["scenes"][0]["shots"]
     assert shots[0]["character_ids"] == [f"char:{mia}"]
     assert mia in editor.get(f"/projects/{pid}").json()["cast_ids"]
+
+
+def test_assets_list_the_products_and_screens_the_shots_show(owner, editor, db):
+    fomo = owner.get("/brands").json()[0]["id"]
+    screen = owner.post(f"/brands/{fomo}/screens", json={"name": "Buy", "file_id": upload(owner)})
+    bag = owner.post(
+        f"/brands/{fomo}/screens",
+        json={"name": "Bag", "file_id": upload(owner), "tags": ["product"]},
+    )
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    bd = copy.deepcopy(BREAKDOWN)
+    ids = [f"screen:{screen.json()['id']}", f"screen:{bag.json()['id']}"]
+    bd["scenes"][0]["shots"][0]["screen_ids"] = ids
+    bd["scenes"][0]["shots"][1]["screen_ids"] = ids[1:]
+    owner.put(f"{base}/drafts/0/breakdown", json=bd)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    rows = editor.get(f"/projects/{pid}/assets").json()
+    assert [(r["kind"], r["name"], r["shots"], r["ready"]) for r in rows] == [
+        ("screen", "Buy", 1, True), ("product", "Bag", 2, True)
+    ]  # fmt: skip
+    assert rows[0]["file_id"] == screen.json()["file_id"]

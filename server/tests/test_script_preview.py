@@ -47,6 +47,9 @@ def test_preview_runs_on_the_version_with_its_cast_and_saves(app, db, owner):
     assert owner.get(base).json()["versions"][0]["has_breakdown"] is True
     saved = owner.put(url, json=BREAKDOWN).json()
     assert saved["seconds"] == 5 and saved["breakdown"]["hook"] == BREAKDOWN["hook"]
+    removed = owner.delete(url).json()  # the screen's Undo PUTs it back
+    assert (removed["breakdown"], removed["problems"]) == (None, [])
+    assert owner.get(base).json()["versions"][0]["has_breakdown"] is False
     assert db.scalars(select(Job)).all()[-1].status == "succeeded"
 
 
