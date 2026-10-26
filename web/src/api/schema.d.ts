@@ -4316,6 +4316,18 @@ export interface components {
             /** Problems */
             problems: string[];
         };
+        /** ReelRow */
+        ReelRow: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "ready" | "reading" | "done" | "failed";
+            /** Seconds */
+            seconds: number | null;
+            /** Fetch Error */
+            fetch_error?: string | null;
+        };
         /** Reference */
         Reference: {
             /**
@@ -4575,6 +4587,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
         };
         /** SetupIn */
         SetupIn: {
@@ -4970,6 +4983,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
             /** Spend Usd */
             spend_usd: number;
             /** Spend Estimated */
@@ -5142,6 +5156,16 @@ export interface components {
              */
             reading: number;
             /**
+             * Read Credits
+             * @default 0
+             */
+            read_credits: number;
+            /**
+             * Write Credits
+             * @default 0
+             */
+            write_credits: number;
+            /**
              * Writing
              * @default 0
              */
@@ -5279,6 +5303,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
             /** Notes */
             notes: string;
             /** Reference Replace */

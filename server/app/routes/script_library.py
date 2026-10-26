@@ -97,6 +97,12 @@ class VersionOut(VersionSummary):
     planned_by: Person | None = None  # who saved the breakdown
 
 
+class ReelRow(BaseModel):
+    status: Literal["preparing", "ready", "reading", "done", "failed"]
+    seconds: float | None  # once prepared
+    fetch_error: str | None = None  # the reel couldn't be got or prepared: the plain reason
+
+
 class ScriptRow(BaseModel):
     id: int
     brand_id: int
@@ -117,6 +123,7 @@ class ScriptRow(BaseModel):
     removed_at: datetime | None = None  # in the removed list: when it was removed
     purge_on: datetime | None = None  # deleted only: when it goes for good (30 days on)
     reel_imported: bool = False  # adapts its own imported reel, not a catalogue one
+    reel: ReelRow | None = None  # made from a reel link or upload: where its reel is
 
 
 class ScriptOut(ScriptRow):
@@ -162,6 +169,20 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
     )
 
 
+def _reel(db: Session, script: Script) -> ReelRow | None:
+    if script.reel is None:
+        return None
+    from app import reel_read
+
+    status, failed = reel_read.state(db, script)
+    problem = script.reel.get("problem") or "We couldn't prepare this reel. Upload it again."
+    return ReelRow(
+        status=status,
+        seconds=script.reel.get("seconds"),
+        fetch_error=problem if failed == "prepare" else None,
+    )
+
+
 def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOut:
     versions = [_version(db, d, full) for d in lib.drafts(db, script)]
     statuses = [v.status for v in versions]
@@ -172,6 +193,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         description=script.description,
         reference_id=script.reference_id,
         reel_imported=script.reference_breakdown is not None,
+        reel=_reel(db, script),
         published=script.published,
         status=lib.script_status(script, statuses),
         created_by_id=script.created_by_id,
