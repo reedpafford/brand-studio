@@ -37,7 +37,7 @@ export const isAdvice = (p: string) => p.startsWith(PREFIX);
 const plain = (p: string) => (p.startsWith(PREFIX) ? p.slice(PREFIX.length) : p);
 
 /** Advice under one closed line, "Advice (n)", in a neutral tone; the count leaves out advice already kept. Real problems are shown elsewhere. */
-export function AdviceList({ problems, kept = [], onKeep, busy, owner, extra, name = "Advice" }: { problems: string[]; kept?: string[]; onKeep?: (problem: string, undo?: boolean) => void; busy?: boolean; owner?: boolean; extra?: (problem: string) => ReactNode; name?: string }) {
+export function AdviceList({ problems, kept = [], onKeep, busy, owner, extra, label, name = "Advice" }: { label?: (p: string) => string; problems: string[]; kept?: string[]; onKeep?: (problem: string, undo?: boolean) => void; busy?: boolean; owner?: boolean; extra?: (problem: string) => ReactNode; name?: string }) {
   // A cast problem the person kept anyway is listed here too, so it can be looked at and its keep undone.
   const advice = problems.filter((p) => isAdvice(p) || (p.startsWith(CAST) && kept.includes(p)));
   if (advice.length === 0) return null;
@@ -48,7 +48,7 @@ export function AdviceList({ problems, kept = [], onKeep, busy, owner, extra, na
       <ul className="pb-2">
         {advice.map((p) => (
           <li key={p} className={`flex flex-wrap items-center gap-x-2 ${kept.includes(p) ? "text-muted" : ""}`}>
-            <span className="flex-1 py-2">{plain(p)}</span>
+            <span className="flex-1 py-2">{label ? label(plain(p)) : plain(p)}</span>
             {extra?.(p)}
             {!onKeep ? null : kept.includes(p) ? (
               <>
