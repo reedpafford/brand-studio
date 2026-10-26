@@ -30,7 +30,7 @@ from app.references import LONG_SIDE, bind_names, media_seconds
 from app.routes.brands import get_brand
 from app.routes.files import get_file
 from app.routes.jobs import JobOut, enqueue
-from app.routes.library import get_item
+from app.routes.library import pick_item
 from app.sheets import require_sheet, usable_files
 from app.storage import Storage
 
@@ -105,7 +105,7 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
         (Kind.prop, body.prop_ids),
     ):
         for item_id in dict.fromkeys(ids):
-            item = get_item(db, user, kind, item_id)
+            item = pick_item(db, user, kind, item_id)
             require_sheet(item)  # characters and places: only an approved sheet, never a photo
             pictures = usable_files(item)
             images += pictures

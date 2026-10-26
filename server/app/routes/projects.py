@@ -24,7 +24,7 @@ from app.models.script_library import ScriptDraft
 from app.routes import references
 from app.routes.brands import get_brand
 from app.routes.files import get_file
-from app.routes.library import get_item
+from app.routes.library import pick_item
 from app.routes.production import progress
 from app.schemas import LongText, Name, ShortText
 
@@ -168,7 +168,7 @@ def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
         if field == "cast_ids":
             value = sorted(set(value))
             for item_id in value:
-                get_item(db, user, Kind.character, item_id)
+                pick_item(db, user, Kind.character, item_id, project)
         elif field == "reference_file_id" and value is not None:
             get_file(db, user, value, "video")
         elif field == "reference_breakdown" and value is not None:

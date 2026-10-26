@@ -15,7 +15,7 @@ from app.db import get_db
 from app.models.accounts import User
 from app.models.library import Kind
 from app.models.script_library import Script, ScriptCastSlot
-from app.routes.library import get_item
+from app.routes.library import pick_item
 from app.schemas import LongText
 from app.sheets import require_sheet
 
@@ -154,7 +154,7 @@ def lock(
 ):
     """Lock the role to a character's approved look; it's used as-is in every version."""
     script, slot = _slot(db, user, script_id, slot_id)
-    item = get_item(db, user, Kind.character, body.library_item_id)
+    item = pick_item(db, user, Kind.character, body.library_item_id, script_id=script.id)
     require_sheet(item)  # 422 "Approve Maya's sheet first."
     if not item.sheet_file_id:
         raise HTTPException(422, f"Approve {item.name}'s sheet first.")

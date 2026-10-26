@@ -41,6 +41,11 @@ class LibraryItem(Entity, Base):
     sheet_approved: Mapped[bool] = mapped_column(default=False)
     version: Mapped[int] = mapped_column(default=1)
     archived: Mapped[bool] = mapped_column(default=False)
+    # A look made for one video (on Assets) or one script (its Cast step): it stays there, is
+    # never listed in Cast & places and never offered elsewhere (gaps #19).
+    owner_project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
+    owner_script_id: Mapped[int | None] = mapped_column(ForeignKey("scripts.id"))
+    copied_from_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))  # Undo
 
     brands: Mapped[list[Brand]] = relationship(secondary=item_brands)
 

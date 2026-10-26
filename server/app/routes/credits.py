@@ -33,11 +33,13 @@ class RateOut(BaseModel):
 class LimitsIn(BaseModel):
     weekly_quick_clip_credits: Decimal = Field(ge=0, le=100000)
     per_video_max_credits: int = Field(gt=0, le=100000)  # required: never reset by omission
+    editors_can_save_looks: bool | None = None  # Team: left as is when not sent
 
 
 class LimitsOut(BaseModel):
     weekly_quick_clip_credits: float
     per_video_max_credits: int
+    editors_can_save_looks: bool
 
 
 class AllowanceOut(BaseModel):
@@ -89,7 +91,7 @@ def set_limits(body: LimitsIn, owner: User = Depends(owner_only), db: Session = 
     limits = db.scalar(
         select(CreditLimits).where(CreditLimits.workspace_id == owner.workspace_id)
     ) or CreditLimits(workspace_id=owner.workspace_id)
-    for field, value in body.model_dump().items():
+    for field, value in body.model_dump(exclude_none=True).items():
         setattr(limits, field, value)
     db.add(limits)
     db.commit()

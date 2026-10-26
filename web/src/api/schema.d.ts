@@ -435,7 +435,8 @@ export interface paths {
         post?: never;
         /**
          * Archive Item
-         * @description Archive (reversible: see unarchive). Anyone on the team can do this.
+         * @description Archive (reversible: see unarchive). Anyone on the team can do this. On a look just
+         *     saved to Cast & places, it's the Undo: the video goes back on its own look.
          */
         delete: operations["archive_item_library__kind___item_id__delete"];
         options?: never;
@@ -2619,6 +2620,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/assets/slots/{slot_id}/make-look": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Look
+         * @description Make a look for this video only, from the role's name and description, cast the role
+         *     to it, and draw its sheet (paid, from this video's budget). Never in Cast & places.
+         */
+        post: operations["make_look_projects__project_id__assets_slots__slot_id__make_look_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/slots/{slot_id}/save-to-library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save To Library
+         * @description Copy this video's look into Cast & places as a normal character (free: same sheet) and
+         *     use the copy here. Reed always; editors only with the Team setting on.
+         */
+        post: operations["save_to_library_projects__project_id__assets_slots__slot_id__save_to_library_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/improve": {
         parameters: {
             query?: never;
@@ -2765,6 +2808,10 @@ export interface components {
             shots: number;
             /** File Id */
             file_id?: number | null;
+            /** Only Here */
+            only_here?: ("video" | "script") | null;
+            /** Own Look Id */
+            own_look_id?: number | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -3467,6 +3514,10 @@ export interface components {
              * @enum {string}
              */
             sheet_status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
+            /** Owner Project Id */
+            owner_project_id?: number | null;
+            /** Owner Script Id */
+            owner_script_id?: number | null;
         };
         /**
          * ItemPatch
@@ -3644,6 +3695,8 @@ export interface components {
             weekly_quick_clip_credits: number | string;
             /** Per Video Max Credits */
             per_video_max_credits: number;
+            /** Editors Can Save Looks */
+            editors_can_save_looks?: boolean | null;
         };
         /** LimitsOut */
         LimitsOut: {
@@ -3651,6 +3704,8 @@ export interface components {
             weekly_quick_clip_credits: number;
             /** Per Video Max Credits */
             per_video_max_credits: number;
+            /** Editors Can Save Looks */
+            editors_can_save_looks: boolean;
         };
         /** LinkIn */
         LinkIn: {
@@ -3790,6 +3845,39 @@ export interface components {
             expires_at: string;
             /** Token */
             token: string;
+        };
+        /** NewItemIn */
+        NewItemIn: {
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Brand Ids
+             * @default []
+             */
+            brand_ids: number[];
+            /**
+             * Image File Ids
+             * @default []
+             */
+            image_file_ids: number[];
+            /**
+             * Outfits
+             * @default []
+             */
+            outfits: components["schemas"]["Outfit"][];
+            /** Voice File Id */
+            voice_file_id?: number | null;
+            /** Source Photo File Id */
+            source_photo_file_id?: number | null;
+            /** Owner Project Id */
+            owner_project_id?: number | null;
+            /** Owner Script Id */
+            owner_script_id?: number | null;
         };
         /** NoteOut */
         NoteOut: {
@@ -4151,6 +4239,18 @@ export interface components {
         /** RoleIn */
         RoleIn: {
             role: components["schemas"]["Role"];
+        };
+        /** SaveLookIn */
+        SaveLookIn: {
+            /** Name */
+            name: string;
+        };
+        /** SavedOut */
+        SavedOut: {
+            /** Library Item Id */
+            library_item_id: number;
+            /** Assets */
+            assets: components["schemas"]["AssetOut"][];
         };
         /** Scene */
         Scene: {
@@ -6006,7 +6106,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ItemIn"];
+                "application/json": components["schemas"]["NewItemIn"];
             };
         };
         responses: {
@@ -10560,6 +10660,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_look_projects__project_id__assets_slots__slot_id__make_look_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_to_library_projects__project_id__assets_slots__slot_id__save_to_library_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveLookIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedOut"];
                 };
             };
             /** @description Validation Error */

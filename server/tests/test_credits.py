@@ -58,7 +58,8 @@ def test_only_owner_sets_rates_and_limits(owner, editor):
     assert owner.put("/credits/rates/image-x", json=rate).json()["credits_per_unit"] == 3
     limits = {"weekly_quick_clip_credits": 200, "per_video_max_credits": 500}
     assert editor.put("/credits/limits", json=limits).status_code == 403
-    assert owner.put("/credits/limits", json=limits).json() == limits
+    saved = owner.put("/credits/limits", json=limits).json()
+    assert saved == {**limits, "editors_can_save_looks": False}  # off unless Reed turns it on
 
 
 def test_kind_without_rate_is_allowed_at_one_credit_per_unit(ed, db):
@@ -314,7 +315,11 @@ def test_limits_put_needs_the_cap_so_it_is_never_reset_by_omission(owner):
 
 def test_default_cap_is_75_dollars_and_no_editor_length_limit(editor):
     limits = editor.get("/credits/limits").json()
-    assert limits == {"weekly_quick_clip_credits": 145, "per_video_max_credits": 729}
+    assert limits == {
+        "weekly_quick_clip_credits": 145,
+        "per_video_max_credits": 729,
+        "editors_can_save_looks": False,
+    }
     assert 729 * 0.1028 <= 75  # floored: never more than $75
 
 

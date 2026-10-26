@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app import script_library as lib
 from app.db import utcnow
 from app.models.files import StoredFile
+from app.models.library import LibraryItem, LibraryItemVersion
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.models.scripts import Suggestion
 from app.storage import Storage
@@ -47,6 +48,10 @@ def purge_deleted(db: Session, storage: Storage) -> int:
         db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(drafts)))
         db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
         db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
+        for look in db.scalars(select(LibraryItem).where(LibraryItem.owner_script_id == script.id)):
+            db.execute(delete(LibraryItemVersion).where(LibraryItemVersion.item_id == look.id))
+            look.brands = []  # the script's own looks go with it (gaps #19)
+            db.delete(look)
         files = db.scalars(select(StoredFile).where(StoredFile.id.in_(reel_file_ids(script)))).all()
         keys = [f.key for f in files]
         for file in files:

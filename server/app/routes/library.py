@@ -37,6 +37,13 @@ class ItemIn(BaseModel):
     source_photo_file_id: int | None = None
 
 
+class NewItemIn(ItemIn):
+    # A look for one video or one script only (gaps #19): never listed here, never offered
+    # elsewhere. Set once, on create.
+    owner_project_id: int | None = None
+    owner_script_id: int | None = None
+
+
 class ItemPatch(BaseModel):
     """Send only the fields you want to change."""
 
@@ -55,6 +62,8 @@ class ItemOut(ItemIn):
     version: int
     sheet_file_id: int | None  # the house-style sheet; only an approved one is used in videos
     sheet_status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
+    owner_project_id: int | None = None  # "This video only"
+    owner_script_id: int | None = None  # "This script only"
 
 
 class VersionOut(BaseModel):
@@ -102,7 +111,13 @@ def sheet_status(item: LibraryItem) -> str:
 def _out(item: LibraryItem) -> ItemOut:
     data = {k: v for k, v in _snapshot(item).items() if k != "sheet_approved"}
     return ItemOut(
-        id=item.id, kind=item.kind, version=item.version, sheet_status=sheet_status(item), **data
+        id=item.id,
+        kind=item.kind,
+        version=item.version,
+        sheet_status=sheet_status(item),
+        owner_project_id=item.owner_project_id,
+        owner_script_id=item.owner_script_id,
+        **data,
     )
 
 
@@ -117,6 +132,28 @@ def get_item(
         or item.kind != kind
         or item.archived != archived
     ):
+        raise HTTPException(404, f"No such {kind}.")
+    return item
+
+
+def owned(item: LibraryItem) -> bool:
+    return item.owner_project_id is not None or item.owner_script_id is not None
+
+
+def pick_item(
+    db: Session, user: User, kind: Kind, item_id: int, project=None, script_id: int | None = None
+) -> LibraryItem:
+    """An item picked for a video (`project`) or a script: a look made for another video or
+    script isn't offered here, so it's not found (gaps #19)."""
+    item = get_item(db, user, kind, item_id)
+    if project is not None and script_id is None and project.script_draft_id:
+        from app.models.script_library import ScriptDraft
+
+        script_id = db.get(ScriptDraft, project.script_draft_id).script_id
+    mine = (project is not None and item.owner_project_id == project.id) or (
+        script_id is not None and item.owner_script_id == script_id
+    )
+    if owned(item) and not mine:
         raise HTTPException(404, f"No such {kind}.")
     return item
 
@@ -167,6 +204,8 @@ def list_items(
         LibraryItem.workspace_id == user.workspace_id,
         LibraryItem.kind == kind,
         LibraryItem.archived.is_(archived),
+        LibraryItem.owner_project_id.is_(None),  # a video's or script's own look stays there
+        LibraryItem.owner_script_id.is_(None),
     )
     if brand_id is not None:
         query = query.where(LibraryItem.brands.any(id=brand_id))
@@ -175,10 +214,21 @@ def list_items(
 
 @router.post("", response_model=ItemOut, status_code=201)
 def create_item(
-    kind: Kind, body: ItemIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+    kind: Kind, body: NewItemIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
+    from app import script_library as lib
+    from app.routes.projects import get_project
+
+    values = body.model_dump()
+    project_id, script_id = values.pop("owner_project_id"), values.pop("owner_script_id")
+    if project_id and script_id:
+        raise HTTPException(422, "A look belongs to one video or one script, not both.")
     item = LibraryItem(workspace_id=user.workspace_id, kind=kind)
-    _apply(db, user, item, body.model_dump())
+    if project_id:
+        item.owner_project_id = get_project(db, user, project_id).id
+    if script_id:
+        item.owner_script_id = lib.editable(user, lib.get_script(db, user, script_id)).id
+    _apply(db, user, item, values)
     db.add(item)
     db.commit()
     return _out(item)
@@ -211,8 +261,16 @@ def update_item(
 def archive_item(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> None:
-    """Archive (reversible: see unarchive). Anyone on the team can do this."""
-    get_item(db, user, kind, item_id).archived = True
+    """Archive (reversible: see unarchive). Anyone on the team can do this. On a look just
+    saved to Cast & places, it's the Undo: the video goes back on its own look."""
+    item = get_item(db, user, kind, item_id)
+    if item.copied_from_id:
+        from app.routes.project_assets import undo_save
+
+        if undo_save(db, user, item):
+            db.commit()
+            return
+    item.archived = True
     db.commit()
 
 
