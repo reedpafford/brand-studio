@@ -289,7 +289,7 @@ def test_eval_scoring_runs_the_variations_check(tmp_path):
     script = "\n".join(case["script"]).replace("Peanut butter flavor.", "Chicken flavor.")
     answer = {"variations": [{"title": "x", "premise": "x", "script": script, "changes": []}]}
     (tmp_path / "ironpaws-pitbull1-variations.variations.json").write_text(json.dumps(answer))
-    one = {"description": "x", "recurring": True}
+    one = {"description": "30s man, a cook", "recurring": True}
     slots = [
         one | {"role": "Bruno, the pitbull (narrator)", "kind": "Main", "appears_in": [0, 1]},
         one | {"role": "The crowd at the dog park", "kind": "Helper", "appears_in": [1]},
@@ -312,7 +312,7 @@ def test_cast_slots_keep_the_names_the_cast_and_scripts_use(tmp_path):
     case = next(c for c in CASES["cases"] if c["id"] == "ironpaws-pitbull1-variations")
     answer = {"variations": [{"title": "x", "premise": "x", "script": "x", "changes": []}]}
     (tmp_path / f"{case['id']}.variations.json").write_text(json.dumps(answer))
-    slot = {"description": "x", "kind": "Main", "appears_in": [0], "recurring": True}
+    slot = {"description": "30s man, a cook", "kind": "Main", "appears_in": [0], "recurring": True}
     slots = [slot | {"role": "The dog (narrator)"}, slot | {"role": "His owner"}]
     (tmp_path / f"{case['id']}.cast_slots.json").write_text(json.dumps({"slots": slots}))
     problems = score(tmp_path, case)
@@ -328,7 +328,7 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     }
     assert check.cast_slots(versions, result) == []
     assert check.cast_slots(versions, schemas.CastSlots(slots=[])) == ["no cast slots; regenerate"]
-    extra = {"description": "x", "kind": "Helper", "recurring": False}
+    extra = {"description": "30s man, a cook", "kind": "Helper", "recurring": False}
     result.slots += [
         schemas.CastSlot(role="Wedding guests", appears_in=[0], **extra),
         schemas.CastSlot(role="Malik, again", appears_in=[3], **extra),
@@ -858,7 +858,7 @@ def test_eval_scores_a_reel_import_from_the_watch_to_the_cast(tmp_path):
     ])  # fmt: skip
     drafts = [{"hook_idea": "x", "script": good}, {"hook_idea": "y", "script": good}]
     (tmp_path / "reel-import-altar.script_draft.json").write_text(json.dumps({"drafts": drafts}))
-    slots = [{"role": r, "description": "x", "kind": k, "appears_in": [0], "recurring": True}
+    slots = [{"role": r, "description": "30s man", "kind": k, "appears_in": [0], "recurring": True}
              for r, k in [("Groom", "Main"), ("Bride", "Main")]]  # fmt: skip
     (tmp_path / "reel-import-altar.cast_slots.json").write_text(json.dumps({"slots": slots}))
     assert score(tmp_path, case) == []
@@ -936,3 +936,23 @@ def test_an_adapted_montage_keeps_the_references_length():
         prompts.watch_breakdown(watch, transcript, cuts)
     )
     assert "the montage runs about as long as its montage" in prompts.system("breakdown")
+
+
+def test_a_role_says_its_age_gender_and_job_and_its_sheet_fits_the_part():
+    slot = {"kind": "Main", "appears_in": [0], "recurring": True}
+    result = schemas.CastSlots(slots=[
+        {**slot, "role": "Ms Lee, the teacher", "description": "Kind, round glasses, a cardigan."},
+        {**slot, "role": "Omar, the boyfriend", "description": "20s man, an office worker",
+         "guessed": ["occupation"]},
+    ])  # fmt: skip
+    assert check.cast_slots({0: "MS LEE: Hi.\nOMAR: Hey."}, result) == [
+        "Advice: Ms Lee, the teacher: the description doesn't say their age or gender"
+    ]
+    text = prompts.sheet_prompt(
+        "character", "20s man, an office worker", role="Omar, the boyfriend"
+    )
+    assert "In the story they are the boyfriend; the age, gender and look fit that part." in text
+    assert "Omar" not in text  # names are never drawn
+    assert "starts with who they are: an age range, a gender and a role or job" in (
+        prompts.system("cast_slots")
+    )

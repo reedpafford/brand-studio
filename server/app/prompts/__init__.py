@@ -231,13 +231,14 @@ def reference_lines(refs: list[dict]) -> str:
 
 
 def sheet_prompt(
-    kind: str, description: str = "", from_photo: bool = False, change: str = ""
+    kind: str, description: str = "", from_photo: bool = False, change: str = "", role: str = ""
 ) -> str:
     """The Nano Banana prompt for a library item's reference picture. kind "character": a front
     / side / back turnaround sheet, from a description or (from_photo) an uploaded photo of a
     real person as image 1; "place": an empty establishing still. `change` is the editor's note
     when redoing a sheet (the last sheet goes in as the final image). `description` is the
-    item's notes; names stay out so none is drawn."""
+    item's notes; `role` is the script's part for a look made from a cast slot ("Omar, the
+    boyfriend"), given without its name. Names stay out so none is drawn."""
     sections = (HERE / "sheet.md").read_text().split("\n## ")[1:]
     parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
     out = [parts[kind]]
@@ -245,6 +246,8 @@ def sheet_prompt(
         out.append(parts["photo"])
     if description.strip():
         out.append(f"The {kind}: {description.strip()}")
+    if part := role.split(",", 1)[-1].strip():  # "Omar, the boyfriend" -> "the boyfriend"
+        out.append(f"In the story they are {part}; the age, gender and look fit that part.")
     if change.strip():
         out.append(parts["redo"].format(change=change.strip()))
     return " ".join(out)

@@ -113,8 +113,14 @@ class CastSlot(BaseModel):
         "pitbull (narrator)'; an unnamed role by its part, e.g. 'His owner'."
     )
     description: str = Field(
-        description="A short look for drawing the sheet: age, build, hair or coat, signature "
-        "outfit. Plain and drawable; no celebrity look-alikes, no logos."
+        description="Who they are, then how they look: starts with age range, gender and role "
+        "or job ('Mid-40s woman, a primary-school teacher; …'), then build, hair or coat, skin, "
+        "signature outfit. Plain and drawable; no celebrity look-alikes, no logos."
+    )
+    guessed: list[Literal["age", "gender", "occupation"]] = Field(
+        default_factory=list,
+        description="Which of age, gender and occupation the scripts and brief don't say, so "
+        "you inferred them from context. Empty when all three are stated.",
     )
     kind: Literal["Main", "Helper", "Rival", "Family"] = Field(
         description="Main for the hero and the story's other lead; Helper for a mentor, coach "
