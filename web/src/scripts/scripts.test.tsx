@@ -1059,6 +1059,63 @@ test("while a paid reel read runs, the Script step shows Reading the reel with t
   expect(await screen.findByText(/Reading the reel… 1m \d+s/)).toBeInTheDocument();
 });
 
+const shot = (n: number, o: object = {}) => ({ n, start: n * 0.4 - 0.4, end: n * 0.4, framing: "wide three-shot, eye level", camera: "static", action: `Action ${n}`, speaker: "", line: "", dropped: false, ...o });
+const review = (o: object = {}) => ({
+  logline: "A groom is dumped at the altar for a richer man.",
+  hook_seconds: 4.88,
+  hook: "Cold open mid-climax: 'I do' answered by a screamed 'HELL NO!'",
+  seconds: 45,
+  shots: [shot(1, { speaker: "groom", line: "I do." }), shot(2, { action: "Bride screams", speaker: "bride", line: "HELL NO!" }), shot(3), shot(4), shot(5, { dropped: true, action: "Handheld phone clips" })],
+  dropped: 1,
+  lines: 2,
+  montages: [{ first: 3, last: 4, seconds: 0.8 }],
+  video_file_id: 3,
+  ...o,
+});
+
+test("Review the breakdown: the player and logline, each shot with its time, framing, action and line, dropped live action muted, a montage that opens, and the filter", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [200, review()] });
+  open("/b/1/scripts/7/reel");
+  expect(await screen.findByText("A groom is dumped at the altar for a richer man.")).toBeInTheDocument();
+  expect(screen.getByLabelText("The reel")).toHaveAttribute("src", expect.stringContaining("/files/3"));
+  expect(screen.getByText(/Hook · 0:00–0:04.9: Cold open/)).toBeInTheDocument();
+  expect(screen.getByText("5 shots · 1 dropped (live action) · 2 lines")).toBeInTheDocument();
+  const shots = screen.getByLabelText("Shots");
+  expect(within(shots).getByText("GROOM: I do.")).toBeInTheDocument();
+  expect(within(shots).getByText("0:00–0:00.4")).toBeInTheDocument();
+  expect(within(shots).getByText("Dropped · live action")).toBeInTheDocument();
+  expect(within(shots).getByText(/Shots 3–4 · montage · 0.8 s/).closest("summary")!.querySelector("svg")).not.toBeNull(); // the chevron says it opens
+  await userEvent.click(within(shots).getByRole("radio", { name: "Lines only" }));
+  expect(within(shots).queryByText("Action 3")).toBeNull();
+  expect(within(shots).getByText("BRIDE: HELL NO!")).toBeInTheDocument();
+  await userEvent.click(within(shots).getByRole("radio", { name: "Dropped" }));
+  expect(within(shots).getByText("Handheld phone clips")).toBeInTheDocument();
+  expect(within(shots).queryByText("GROOM: I do.")).toBeNull();
+});
+
+test("Use this reel goes to the Script step with the toast", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [200, review()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
+  open("/b/1/scripts/7/reel");
+  await userEvent.click(await screen.findByRole("button", { name: "Use this reel" }));
+  expect(await screen.findByText(/Script filled from the reel\. Adapt it for/)).toBeInTheDocument();
+});
+
+test("a reel that hasn't been read yet says so in the server's words", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [409, { detail: "The reel hasn't been read yet." }] });
+  open("/b/1/scripts/7/reel");
+  expect(await screen.findByText("The reel hasn't been read yet.")).toBeInTheDocument();
+});
+
+test("the done card has Review the breakdown, which opens the review", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
+  open("/b/1/scripts/7");
+  expect(await screen.findByRole("link", { name: "Review the breakdown" })).toHaveAttribute("href", "/b/1/scripts/7/reel");
+});
+
 test("a script made from an imported reel carries a Reel chip in the library; one that isn't doesn't", async () => {
   setViewport(1440);
   const reel = script({ id: 31, title: "Altar swap", reel_imported: true, versions: [v(0, "draft")] });
