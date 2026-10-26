@@ -21,3 +21,15 @@ export function refName(id: string, pieces: Piece[], roles: Map<string, string>)
   if (kind === "slot") return `${roles.get(id) || "A role"} · cast at Assets`;
   return pieces.find((p) => p.key === `${kind === "char" ? "character" : kind}-${n}`)?.name ?? KIND[kind] ?? "Picture";
 }
+
+const REF = /\b(?:char|place|prop|screen|slot|frame):\w+/g;
+
+/** A problem line in words: "c3: char:5 is in the clip…" reads "Clip c3: Mia is in the clip…". A raw id is never shown. `nameOf` is refName for the page's pieces and roles. */
+export function plainWords(text: string, nameOf: (id: string) => string): string {
+  return text
+    .replace(/^(c\d+): /, "Clip $1: ")
+    .replace(REF, (id) => (id.startsWith("frame:") ? "the first frame" : nameOf(id).replace(" · cast at Assets", "")));
+}
+
+/** A problem about a character with no approved look: the fix is on Assets. */
+export const aboutMissingLook = (text: string) => /sheet isn't attached|no approved (sheet|look)|needs an approved (sheet|look)|has no look/i.test(text);
