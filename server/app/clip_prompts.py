@@ -3,6 +3,7 @@ references (storyboard frame, cast, place, screens, voice samples). Saved per cl
 problems `check.clip_prompts` finds; the editor can edit them before generating."""
 
 import json
+import re
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -19,7 +20,8 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
-from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts
+from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts, Reference
+from app.storyboard import CHAR, _name, _renumber, _same, nearest_first
 from app.storyboard import assets as picture_assets
 
 # asset id -> (line for the prompt, kind for Seedance, its file ids)
@@ -68,12 +70,91 @@ def job_input(db: Session, project: Project, bd: BreakdownVersion) -> dict:
     }
 
 
+TAGS = re.compile(r"(\[Image)(\d+)\]")
+
+
+def _pictures(known: Assets) -> dict[str, tuple[str, list[int]]]:
+    return {k: (line, files) for k, (line, _, files) in known.items()}
+
+
+def _cast(bd: Breakdown, clip_id: str, pics: dict) -> list[str]:
+    """The clip's characters in the order they first appear, nearest the camera first."""
+    clip = next((c for c in bd.clips if c.id == clip_id), None)
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    out: list[str] = []
+    for sid in clip.shot_ids if clip else []:
+        for ref in nearest_first(shots[sid], pics) if sid in shots else []:
+            if not any(_same(pics, ref, r) for r in out):
+                out.append(ref)
+    return out
+
+
+def _add(prompt: str, start: str, text: str) -> str:
+    lines = prompt.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith(start):
+            lines[i] = f"{line.rstrip()} {text}"
+            return "\n".join(lines)
+    return prompt
+
+
+def with_cast(
+    db: Session, project: Project, clip: ClipPrompt, bd: Breakdown, known=None, trim=True
+) -> ClipPrompt:
+    """The clip twin of `storyboard.with_cast` (Reed, 2026-10-26): whatever the AI picked, the
+    server attaches the approved sheet of every character in the clip's shots, in the order
+    they first appear (nearest the camera first), after the first frame ([Image1]) and before
+    the place and screens, within the video model's limit. Every [ImageN] follows its picture;
+    an added character joins the References and Keep lines. Free; doing it again changes
+    nothing. With trim off (an edit, or a saved clip) nothing already picked is dropped."""
+    known = known if known is not None else assets(db, project)
+    pics = _pictures(known)
+    images = [r for r in clip.references if r.kind == "image"]
+    others = [r for r in clip.references if r.kind != "image"]
+    first = [r for r in images if r.id.startswith("frame:")]
+    people = [r for r in images if r.id.startswith(CHAR)]
+    objects = [r for r in images if r not in first and r not in people]
+    cast = [c for c in _cast(bd, clip.clip_id, pics) if pics.get(c, ("", []))[1]]
+    missing = [c for c in cast if not any(_same(pics, c, r.id) for r in people)]
+
+    def rank(r: Reference) -> int:
+        return next((i for i, c in enumerate(cast) if _same(pics, r.id, c)), len(cast))
+
+    room = len(people) + len(missing)
+    if limit := video_model().max_reference_images:
+        room = min(room, max(limit - len(first) - len(objects), 0))
+    added = [Reference(kind="image", id=c, role=f"{_name(pics, c)}'s look") for c in missing]
+    if trim:  # stable: people not in the clip stay last
+        people = sorted(people + added, key=rank)[:room]
+    elif added := added[: max(room - len(people), 0)]:
+        people = sorted(people + added, key=rank)
+    new = first + people + objects
+    if new == images:
+        return clip
+    moved = {i + 1: new.index(r) + 1 for i, r in enumerate(images) if r in new}
+    dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(images) if r not in new}
+    prompt = _renumber(clip.prompt, moved, dropped, TAGS)
+    for r in (r for r in new if r not in images):
+        who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
+        prompt = _add(prompt, "References: ", f"{tag} is {who}.")
+        prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
+    return clip.model_copy(update={"prompt": prompt, "references": new + others})
+
+
 def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt) -> list[str]:
+    """A character in the clip without an approved look is flagged by name (a role not cast
+    yet waits for Assets and is never a problem); sheets are attached by `with_cast`."""
     m = video_model()
     problems = check.clip_prompts(
         bd, ClipPrompts(clips=[clip]), m.max_reference_images, m.max_reference_audios
     )
     known = assets(db, project)
+    pics = _pictures(known)
+    for c in _cast(bd, clip.clip_id, pics):
+        if c in pics and (pics[c][1] or pics[c][0].endswith("(no look yet)")):
+            continue
+        if not any(_same(pics, c, r.id) for r in clip.references):
+            problems.append(f"{_name(pics, c)} has no approved look yet. Approve one in Assets.")
     for ref in clip.references:
         if ref.id not in known:
             problems.append(f"{clip.clip_id}: unknown reference {ref.id}")
@@ -81,6 +162,29 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
             kind = {"image": "a picture", "audio": "a sound"}.get(ref.kind, f"a {ref.kind}")
             problems.append(f"{clip.clip_id}: {ref.id} is attached as {kind} but isn't one")
     return plain(problems, names(known))
+
+
+def repair(db: Session, project: Project) -> int:
+    """Give every clip of the video its characters' sheets (`with_cast`, nothing dropped),
+    and check it again. Free and idempotent: on deploy for clips saved before
+    (app.seed refresh). Returns how many clips changed."""
+    known, changed = assets(db, project), 0
+    breakdowns: dict[int, Breakdown] = {}
+    for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)):
+        if row.breakdown_id not in breakdowns:
+            data = db.get(BreakdownVersion, row.breakdown_id).data
+            breakdowns[row.breakdown_id] = Breakdown.model_validate(data)
+        bd = breakdowns[row.breakdown_id]
+        was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
+                         references=[Reference(**r) for r in row.references])  # fmt: skip
+        now = with_cast(db, project, was, bd, known, trim=False)
+        problems = clip_problems(db, project, bd, now)
+        if now == was and problems == (row.problems or []):
+            continue
+        row.prompt, row.references = now.prompt, [r.model_dump() for r in now.references]
+        row.problems = problems
+        changed += 1
+    return changed
 
 
 def save_clip_prompts(db: Session, job: Job) -> None:
@@ -104,9 +208,11 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             db.flush()
             db.execute(delete(ClipTake).where(ClipTake.clip_id == row.id))
             db.delete(row)
+    known = assets(db, project)
     for c in result.clips:
         if c.clip_id not in wanted or (only is not None and c.clip_id not in only):
             continue
+        c = with_cast(db, project, c, bd, known)
         row = rows.get(c.clip_id)
         if row is None:
             row = ProjectClip(project_id=project.id, clip_id=c.clip_id)

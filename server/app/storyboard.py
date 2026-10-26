@@ -66,13 +66,17 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         out[key] = (" | ".join(x for x in parts if x), usable_files(item))
     for slot in script_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
+        # A locked role uses the sheet it was locked with, even if its look has a newer sheet
+        # waiting for approval (Reed's live test: "Mogging BF" read as not approved).
+        locked = [slot.sheet_file_id] if slot.library_item_id and slot.sheet_file_id else None
         if f"char:{item_id}" in out:  # the look's own line: its notes win (Reed: used as is)
-            out[f"slot:{slot.id}"] = out[f"char:{item_id}"]
+            line, files = out[f"char:{item_id}"]
+            out[f"char:{item_id}"] = out[f"slot:{slot.id}"] = (line, locked or files)
             continue
         item = db.get(LibraryItem, item_id) if item_id else None
         look = "" if item else " (no look yet)"
         line = f"slot:{slot.id} | character | {slot.role} | {slot.description}{look}"
-        out[f"slot:{slot.id}"] = (line, usable_files(item) if item else [])
+        out[f"slot:{slot.id}"] = (line, locked or (usable_files(item) if item else []))
     brand = db.get(Brand, project.brand_id)
     for s in project_screens(db, project):
         product = "product" in s.tags  # e.g. the Iron Paws bag: shown as a product, no face
@@ -142,8 +146,11 @@ def _same(known: dict, a: str, b: str) -> bool:
 IMAGES = re.compile(r"(?i)\b(images?\s+)(\d+(?:\s*(?:,|and|&)\s*\d+)*)")
 
 
-def _renumber(prompt: str, moved: dict[int, int], names: dict[int, str]) -> str:
-    """'image N' follows its picture to its new place; a dropped one becomes the name."""
+def _renumber(
+    prompt: str, moved: dict[int, int], names: dict[int, str], pattern: re.Pattern = IMAGES
+) -> str:
+    """'image N' (or a clip's '[ImageN]', `pattern`) follows its picture to its new place;
+    a dropped one becomes the name."""
 
     def one(n: str) -> str:
         k = int(n)
@@ -153,9 +160,10 @@ def _renumber(prompt: str, moved: dict[int, int], names: dict[int, str]) -> str:
         nums = [int(n) for n in re.findall(r"\d+", m[2])]
         if len(nums) == 1 and nums[0] in names:
             return names[nums[0]]
-        return m[1] + re.sub(r"\d+", lambda d: one(d[0]), m[2])
+        tail = m[0][m.end(2) - m.start() :]
+        return m[1] + re.sub(r"\d+", lambda d: one(d[0]), m[2]) + tail
 
-    return IMAGES.sub(fix, prompt)
+    return pattern.sub(fix, prompt)
 
 
 def with_cast(
@@ -282,7 +290,7 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     character sheets first, then the place, props and screens, in the frame's order."""
     known = assets(db, project)
     breakdown = db.get(BreakdownVersion, frame.breakdown_id)
-    require_cast_sheets(db, breakdown.data, [frame.shot_id])
+    require_cast_sheets(db, breakdown.data, [frame.shot_id], known)
     characters, objects = [], []
     for ref in frame.reference_ids:
         if ref not in known:

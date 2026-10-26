@@ -168,6 +168,19 @@ def repair_frames(db: Session) -> int:
     return changed
 
 
+def repair_clips(db: Session) -> int:
+    """Clips saved before the server attached their characters' sheets (Reed: a look read
+    as not approved): fixed for free, with no model call; running it again changes nothing."""
+    from app.clip_prompts import repair
+    from app.models.clips import ProjectClip
+    from app.models.projects import Project
+
+    ids = db.scalars(select(ProjectClip.project_id).distinct()).all()
+    changed = sum(repair(db, db.get(Project, pid)) for pid in ids)
+    db.commit()
+    return changed
+
+
 def plain_stored(db: Session) -> int:
     """Problems saved before they were said in plain words ("c3: char:3 …"): the clip id
     dropped and every id named, kept advice too, so a kept one stays kept. Free; running it
@@ -318,6 +331,7 @@ def main(folder: str, slug: str = "fomo") -> None:
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
+            print(f"Gave {repair_clips(db)} clips their characters' sheets.")
             print(f"Said {plain_stored(db)} saved checks in plain words.")
             if rewrite_owner_clips(db):
                 print("Rewrote clip prompts on 1 video.")
