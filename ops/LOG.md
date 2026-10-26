@@ -5,6 +5,11 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 18:04 · #492 Made looks say what they really cost; "1 credit", never "1 credits" merged
+- 2026-10-26 17:39 · #487 A made look is checked against its role, redone once, then advised merged
+- 2026-10-26 17:27 · #489 Change it: a refused still never loses the rewrite it paid for merged
+- 2026-10-26 17:17 · #486 Role cards lead with age, gender and job, a guess marked merged
+- 2026-10-26 17:15 · #490 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-26 17:01 · #485 Roles carry their facts, guesses marked; a role's look is drawn as its part merged
 - 2026-10-26 16:45 · #488 spec: prices that can vary show "up to N credits" merged
 - 2026-10-26 16:39 · #483 Assets: missing looks made on their own, price first (screens) merged
