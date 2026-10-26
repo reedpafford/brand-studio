@@ -11,7 +11,7 @@ const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspac
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 const row = (o: object = {}) => ({
   id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
-  versions: [{ slot: 0, status: "draft", title: "x", seconds: 0, project_id: null }], removed_at: daysAgo(2), purge_on: "2026-11-24T10:00:00Z", ...o,
+  versions: [{ slot: 0, status: "draft", title: "x", seconds: 0, project_id: null }], removed: "deleted", removed_at: daysAgo(2), purge_on: "2026-11-24T10:00:00Z", ...o,
 });
 const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
   "GET /auth/me": [200, owner],
@@ -55,9 +55,9 @@ test("a removed script that kept its videos reads Archived, and an empty view sa
   expect(screen.getByText("Its videos are kept")).toBeInTheDocument();
 });
 
-test("a script archived because a video was made from it reads Archived with no removal date, whatever the server says", async () => {
+test("a script the server calls archived reads Archived with no removal date", async () => {
   setViewport(1440);
-  fakeServer(base({ "GET /scripts": [200, [row({ versions: [{ slot: 0, status: "done", title: "x", seconds: 0, project_id: 5 }] })]] }));
+  fakeServer(base({ "GET /scripts": [200, [row({ removed: "archived", purge_on: null, versions: [{ slot: 0, status: "done", title: "x", seconds: 0, project_id: 5 }] })]] }));
   open();
   expect(await screen.findByText("Archived")).toBeInTheDocument();
   expect(screen.getByText("Its videos are kept")).toBeInTheDocument();
