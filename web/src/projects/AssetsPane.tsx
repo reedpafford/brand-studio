@@ -56,6 +56,7 @@ function AssetCard({
   const queryClient = useQueryClient();
   const here = useLocation();
   const [pick, setPick] = useState("");
+  const [swapping, setSwapping] = useState(false);
   const id = asset.library_item_id;
   const item = useQuery({
     queryKey: ["library", kind, "item", id],
@@ -86,7 +87,7 @@ function AssetCard({
     ]);
   const choose = useMutation({
     mutationFn: async (itemId: number) => {
-      const slot = Number(asset.ref.split(":")[1]);
+      const slot = asset.slot_id ?? Number(asset.ref.split(":")[1]);
       const { response, error } = await api.PUT(
         "/projects/{project_id}/assets/slots/{slot_id}",
         {
@@ -98,6 +99,7 @@ function AssetCard({
     },
     onSuccess: async () => {
       setPick("");
+      setSwapping(false);
       await refresh();
     },
   });
@@ -108,7 +110,7 @@ function AssetCard({
         params: { path: { kind: "character" } },
         body: {
           name: asset.role,
-          notes: asset.role, // enough to draw a first look from; its page can say more
+          notes: asset.description || asset.role, // enough to draw a first look from; its page can say more
           brand_ids: [brandId],
           image_file_ids: [],
           source_photo_file_id: null,
@@ -167,15 +169,26 @@ function AssetCard({
               <Badge tone={status.tone}>{status.text}</Badge>
             )}
           </div>
-          {!asset.locked && slotLeft && (
-            <div className="space-y-2">
-              <Button
-                busy={makeLook.isPending}
-                onClick={() => makeLook.mutate()}
-              >
-                Make a look
+          {!asset.locked &&
+            id !== null &&
+            asset.slot_id != null &&
+            !swapping && (
+              <Button variant="ghost" onClick={() => setSwapping(true)}>
+                Use a different character
               </Button>
-              {(characters.data ?? []).length > 0 && (
+            )}
+          {!asset.locked && (slotLeft || swapping) && (
+            <div className="space-y-2">
+              {slotLeft && (
+                <Button
+                  busy={makeLook.isPending}
+                  onClick={() => makeLook.mutate()}
+                >
+                  Make a look
+                </Button>
+              )}
+              {(characters.data ?? []).filter((c) => c.id !== id).length >
+                0 && (
                 <>
                   <Select
                     label="Use a Cast & places character"
@@ -183,12 +196,16 @@ function AssetCard({
                     onChange={(e) => setPick(e.target.value)}
                   >
                     <option value="">Choose…</option>
-                    {(characters.data ?? []).map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                        {c.sheet_status === "approved" ? "" : " · needs a look"}
-                      </option>
-                    ))}
+                    {(characters.data ?? [])
+                      .filter((c) => c.id !== id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                          {c.sheet_status === "approved"
+                            ? ""
+                            : " · needs a look"}
+                        </option>
+                      ))}
                   </Select>
                   <Button
                     variant="secondary"
@@ -200,6 +217,11 @@ function AssetCard({
                     Use this character
                   </Button>
                 </>
+              )}
+              {swapping && (
+                <Button variant="ghost" onClick={() => setSwapping(false)}>
+                  Cancel
+                </Button>
               )}
             </div>
           )}

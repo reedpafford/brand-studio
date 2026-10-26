@@ -22,7 +22,11 @@ class Suggestion(Entity, Base):
     are applied together to make the next version."""
 
     __tablename__ = "script_suggestions"
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
+    # or a library script version's (then script_version is 0: its job's text dates it)
+    script_draft_id: Mapped[int | None] = mapped_column(
+        ForeignKey("script_drafts.id", ondelete="CASCADE"), index=True
+    )
     script_version: Mapped[int]
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
     key: Mapped[str] = mapped_column(String(20))  # s1, s2, ... as Claude numbered them

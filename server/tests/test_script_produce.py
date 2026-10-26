@@ -254,6 +254,9 @@ def test_deleting_a_produced_script_keeps_its_video(owner, editor, db):
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     assert owner.delete(base).status_code == 204
     assert editor.get(f"/projects/{pid}").status_code == 200  # the video stays
+    (row,) = owner.get("/scripts?removed=1").json()
+    assert (row["removed"], row["purge_on"]) == ("archived", None)  # never removed for good
+    assert row["removed_at"]
     assert owner.post(f"{base}/restore").json()["versions"][0]["project_id"] == pid
 
 
