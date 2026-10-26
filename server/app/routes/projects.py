@@ -95,14 +95,22 @@ class ProjectOut(BaseModel):
 
 
 def archive(db: Session, project: Project) -> None:
-    """Put a video away: hidden from lists, and its jobs that haven't started are cancelled
-    (cancelled jobs aren't counted, so their credits come back). Running jobs finish."""
+    """Put a video away (or release its version): hidden from lists, and every job of it that
+    hasn't finished stops. Jobs not started are cancelled; one already at the provider is
+    marked to be discarded: when it lands nothing is saved from it and it ends cancelled, so
+    its credits come back, while its dollars are still recorded for the owner (live test: a
+    released video's breakdown went on and charged 3.92). Cancelled jobs aren't counted."""
     project.archived_at = utcnow()
     db.execute(
         update(Job)
         .where(Job.project_id == project.id, Job.status.in_(NOT_STARTED))
         .values(status=JobStatus.cancelled, finished_at=utcnow())
     )
+    running = db.scalars(
+        select(Job).where(Job.project_id == project.id, Job.status == JobStatus.running)
+    )
+    for job in running:
+        job.input = {**job.input, "discard": True}
 
 
 def _mine(db: Session, user: User, project_id: int) -> Project:

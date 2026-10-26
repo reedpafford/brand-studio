@@ -1758,6 +1758,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/produce/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Produce Estimate
+         * @description The price on "Make this version": nothing when the version has a saved plan,
+         *     otherwise the breakdown that starts with it (no paid work starts without a price).
+         */
+        get: operations["produce_estimate_scripts__script_id__drafts__slot__produce_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/drafts/{slot}/produce": {
         parameters: {
             query?: never;
@@ -3751,6 +3772,11 @@ export interface components {
              * @default false
              */
             stale: boolean;
+        };
+        /** ProduceEstimate */
+        ProduceEstimate: {
+            /** Credits */
+            credits: number;
         };
         /** ProduceOut */
         ProduceOut: {
@@ -8728,6 +8754,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    produce_estimate_scripts__script_id__drafts__slot__produce_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProduceEstimate"];
                 };
             };
             /** @description Validation Error */
