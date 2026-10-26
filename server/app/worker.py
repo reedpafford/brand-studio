@@ -52,6 +52,21 @@ def _move(db: Session, job: Job, old: JobStatus, new: JobStatus, **values) -> bo
     return done.rowcount == 1
 
 
+def _stop(db: Session, job: Job) -> bool:
+    """A job its video's release stopped (cancelled, or still running if it was mid-call):
+    done now. Only once, so its cost is recorded once."""
+    done = db.execute(
+        update(Job)
+        .where(
+            Job.id == job.id,
+            Job.status.in_((JobStatus.running, JobStatus.cancelled)),
+            Job.finished_at.is_(None),
+        )
+        .values(status=JobStatus.cancelled, finished_at=utcnow())
+    )
+    return done.rowcount == 1
+
+
 def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
     if detail:
         log.warning("job %s failed: %s", job.id, detail)
@@ -139,7 +154,7 @@ def _finish(
     """Record a finished job: outputs, status, real credits and usage, then the step's own
     saving (e.g. Enhance suggestions). Returns False to try again on the next tick."""
     if job.input.get("discard"):  # its video was released or archived while it ran: nothing
-        moved = _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
+        moved = _stop(db, job)
         if moved:  # is downloaded or kept, but what it cost the owner is still listed
             db.add_all(_usage(job, provider, result))  # dollars only; no credits
         db.commit()
@@ -192,10 +207,13 @@ def check_running(
     storage: Storage | None = None,
     only: set[str] | None = None,
 ) -> None:
-    query = select(Job).where(Job.status == JobStatus.running, Job.provider_ref.is_not(None))
+    stopped = (Job.status == JobStatus.cancelled) & Job.finished_at.is_(None)  # by a release
+    query = select(Job).where(
+        (Job.status == JobStatus.running) | stopped, Job.provider_ref.is_not(None)
+    )
     for job in db.scalars(_mine(query, only)).all():
         if job.provider not in providers:
-            _fail(db, job, UNKNOWN, job.provider)
+            _stop(db, job) if job.input.get("discard") else _fail(db, job, UNKNOWN, job.provider)
             db.commit()
             continue
         try:
@@ -204,7 +222,7 @@ def check_running(
             log.warning("job %s: network error while checking; will retry", job.id)
             continue
         except Exception as exc:  # noqa: BLE001 - a broken answer fails the job, not the worker
-            _fail(db, job, FAILED, repr(exc))
+            _stop(db, job) if job.input.get("discard") else _fail(db, job, FAILED, repr(exc))
             db.commit()
             continue
         if result.state == "running":
