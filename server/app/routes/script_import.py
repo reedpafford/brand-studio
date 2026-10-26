@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,13 +16,14 @@ from app import reel_read as read
 from app import script_library as lib
 from app import script_write
 from app.auth import current_user
-from app.credits import credits_left
+from app.credits import credits_left, shown
 from app.db import get_db
 from app.filetypes import matches
 from app.models.accounts import User
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.script_library import Script, ScriptDraft
+from app.prompts import check
 from app.routes.brands import get_brand
 from app.routes.clips import generation_on
 from app.routes.jobs import enqueue
@@ -68,6 +69,13 @@ class ImportOut(BaseModel):
     watched_from: str | None = None  # video | frames (Gemini couldn't take the video)
     failed_step: str | None = None  # prepare | watch | write | cast
     estimate: Estimate | None = None  # once ready: what "Read this reel" costs now
+    read_again_credits: float | None = None  # once read: "Read it again · N credits"
+    edited_since_fill: bool = False  # the script's words changed since the reel filled them
+    new_fill_ready: bool = False  # "New breakdown ready. Your script edits are kept."
+
+
+class ReadAgainIn(BaseModel):
+    note: str = Field("", max_length=1000)  # "What did it get wrong? (optional)"
 
 
 def _out(db: Session, script: Script, user: User) -> ImportOut:
@@ -86,7 +94,12 @@ def _out(db: Session, script: Script, user: User) -> ImportOut:
             credits_left=None if left is None else max(left, 0),
             tries=(reel.get("tries") or {}).get(failed or "", 0),
         )
+    draft = script_write.original(db, script)
+    again = read.price(db, user, list(read.AGAIN)) if status == "done" else None
     return ImportOut(
+        read_again_credits=None if again is None else float(again),
+        edited_since_fill=script_write.edited_since_fill(script, draft),
+        new_fill_ready=bool(reel.get("pending_fill_job_id")),
         script_id=script.id,
         status=status,
         source=reel.get("source", "upload"),
@@ -288,9 +301,74 @@ def read_reel(script_id: int, user: User = Depends(current_user), db: Session = 
     if left is not None and total > left:
         raise HTTPException(
             409,
-            f"This reel needs {total:.0f} credits; you have {max(left, 0):.0f} left this week.",
+            "This reel needs {} credits; you have {} left this week.".format(*shown(total, left)),
         )
     read.queue(db, user, script, steps[0])
+    return _out(db, script, user)
+
+
+@router.post(
+    "/{script_id}/import/read-again",
+    response_model=ImportOut,
+    status_code=201,
+    dependencies=[Depends(generation_on)],
+)
+def read_again(
+    script_id: int,
+    body: ReadAgainIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Read it again (reel-import.md §5): the breakdown and the script steps run again with
+    the note; the download and transcript are kept. Priced first; past an editor's week it's
+    refused, never held. A note that changes the reel's words is refused before any charge."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    status, _ = read.state(db, script)
+    if status != "done":
+        raise HTTPException(409, "Read the reel first; then it can be read again.")
+    if (original := script_write.original(db, script)) and original.status == "approved":
+        raise HTTPException(409, "Version A is approved, so the reel can't rewrite it.")
+    note = body.note.strip()
+    if wrong := check.reel_note(note, [x["text"] for x in script.reel.get("transcript", [])]):
+        raise HTTPException(422, wrong)
+    total, left = read.price(db, user, list(read.AGAIN)), credits_left(db, user)
+    if left is not None and total > left:
+        raise HTTPException(
+            409,
+            "Reading it again needs {} credits; you have {} left this week. It resets on "
+            "Monday.".format(*shown(total, left)),
+        )
+    done = [s for s in script.reel.get("done", []) if s not in read.AGAIN]
+    previous = read.last_reading(db, script)  # so the watch keeps what the note doesn't touch
+    script.reel = {**script.reel, "done": done, "note": note, "last_reading": previous}
+    read.queue(db, user, script, read.AGAIN[0])
+    return _out(db, script, user)
+
+
+@router.post("/{script_id}/fill-from-reel", response_model=ImportOut)
+def fill_from_reel(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Fill the script again (free): the reel's newest script replaces the edited words (the
+    old words stay in the version's history). The screen asks first."""
+    from app.prompts.schemas import ScriptDrafts
+
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    draft = script_write.original(db, script)
+    if draft is not None and draft.status == "approved":
+        raise HTTPException(409, "These words are approved and can't change.")
+    job = db.get(Job, (script.reel or {}).get("pending_fill_job_id") or 0)
+    if job is None or job.status != JobStatus.succeeded:
+        raise HTTPException(409, "There's no new script from the reel to fill in.")
+    words = ScriptDrafts.model_validate(job.output).drafts[0].script
+    if draft is None:
+        draft = ScriptDraft(script_id=script.id, slot=0)
+        db.add(draft)
+    lib.keep_text(db, draft, words, "write", user.id)
+    draft.text, draft.job_id = words, job.id
+    reel = {k: v for k, v in script.reel.items() if k != "pending_fill_job_id"}
+    script.reel = {**reel, "filled_text": words}
+    db.commit()
     return _out(db, script, user)
 
 

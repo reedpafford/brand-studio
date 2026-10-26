@@ -5,6 +5,7 @@ transaction as the check, with the project (or, for quick clips, the editor) row
 Failed and cancelled jobs stop counting; on success the real cost replaces the estimate."""
 
 import logging
+import math
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -184,15 +185,21 @@ def credits_left(db: Session, user: User) -> Decimal | None:
     return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
 
 
+def shown(total: Decimal, left: Decimal) -> tuple[int, int]:
+    """A price and what's left, as a refusal says them: the price rounded up, what's left
+    rounded down, so it never reads "needs 4; you have 4 left"."""
+    return math.ceil(total), max(math.floor(left), 0)
+
+
 def afford(db: Session, user: User, total: Decimal, what: str) -> None:
     """All or none: an editor's allowance must cover the whole press (e.g. writing and the cast
     read after it) before any of it is queued."""
     left = credits_left(db, user)
     if left is not None and total > left:
+        price, have = shown(total, left)
         raise HTTPException(
             409,
-            f"{what} takes {total:.0f} credits and you have {max(left, 0):.0f} left this week. "
-            "It resets Monday.",
+            f"{what} takes {price} credits and you have {have} left this week. It resets Monday.",
         )
 
 
