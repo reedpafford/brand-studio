@@ -1,4 +1,3 @@
-import { ReelChip } from "./ReelImport";
 import { useEffect, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, CircleAlert, Clock, FileText, Layers, Pencil, Plus, Search } from "lucide-react";
@@ -16,6 +15,7 @@ import { useBrands } from "../shell/useBrands";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
+import { ReelChip } from "./ReelImport";
 import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
 import { ViewSwitch } from "../videos/ViewSwitch";
 

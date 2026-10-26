@@ -190,11 +190,12 @@ export function ReadReelButton({ scriptId, createdById, className }: { scriptId:
 }
 
 type ReelRow = components["schemas"]["ReelRow"];
+const SpinIcon = (p: { size?: number; strokeWidth?: number; className?: string; "aria-hidden"?: boolean }) => <LoaderCircle {...p} className={`${p.className ?? ""} animate-spin motion-reduce:animate-none`} />;
 /** The chip a reel script wears in lists: "Reel · 45 s", "Reading the reel…", or why the reel couldn't be got. */
 export function ReelChip({ reel }: { reel?: ReelRow | null }) {
   if (!reel) return <Badge icon={Film}>Reel</Badge>;
   if (reel.status === "failed") return <span title={reel.fetch_error ?? undefined}><Badge tone="danger" icon={CircleAlert}>Couldn't get the reel</Badge></span>;
-  if (reel.status === "preparing" || reel.status === "reading") return <Badge icon={LoaderCircle}>{reel.status === "reading" ? "Reading the reel…" : "Getting the reel…"}</Badge>;
+  if (reel.status === "preparing" || reel.status === "reading") return <Badge icon={SpinIcon}>{reel.status === "reading" ? "Reading the reel…" : "Getting the reel…"}</Badge>;
   return <Badge icon={Film}>{reel.seconds ? `Reel · ${Math.round(reel.seconds)} s` : "Reel"}</Badge>;
 }
 
