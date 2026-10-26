@@ -34,7 +34,9 @@ export function WriteOptions({ script: s, onOwn }: { script: Script; onOwn: () =
   const writing = last?.status === "queued" || last?.status === "running" || (startedId !== undefined && (last?.id ?? 0) < startedId);
   // The words arrive with the job: bring them in.
   useEffect(() => {
-    if (last?.status === "succeeded") void queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
+    if (last?.status !== "succeeded") return;
+    void queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
+    void queryClient.invalidateQueries({ queryKey: ["script-cast", s.id] }); // the write also found the roles
   }, [last?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // An imported reel is read before anything is written: its lines become the script.
@@ -83,6 +85,7 @@ export function WriteOptions({ script: s, onOwn }: { script: Script; onOwn: () =
         <Button icon={Sparkles} price={credits} disabled={credits === undefined || stop !== null || patch.isPending} reason={stop} onClick={() => write.mutate()}>
           {last?.status === "failed" ? "Try again" : label}
         </Button>
+        {credits !== undefined && <p className="text-sm text-muted">Includes finding the roles.</p>}
       </div>
       <div className="border-t border-border pt-3">
         <Button variant="ghost" onClick={onOwn}>

@@ -84,9 +84,13 @@ test("an empty script with a reel is written from the reference, at the price sh
   expect(made.ok()).toBeTruthy();
   await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=script`);
   await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeVisible();
+  await expect(page.getByText("Includes finding the roles.")).toBeVisible();
   await page.getByRole("button", { name: /^Write from the reference · \d+ credits?$/ }).click();
   await expect(page.getByRole("list", { name: "Script text" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeHidden();
+  // The write also found the roles, so the Cast step already has them.
+  await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();
+  await expect(page.getByText(/^\d+ roles? · 0 locked$/)).toBeVisible();
 });
 
 test("a deleted script is found under Deleted and archived, and Restore puts it back", async ({ page }) => {
