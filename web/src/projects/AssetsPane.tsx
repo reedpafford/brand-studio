@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   EmptyState,
+  useToast,
   Select,
   Skeleton,
 } from "../components";
@@ -81,6 +82,7 @@ function AssetCard({
   const kind: "place" | "character" =
     asset.kind === "place" ? "place" : "character";
   const queryClient = useQueryClient();
+  const toast = useToast();
   const here = useLocation();
   const [pick, setPick] = useState("");
   const [swapping, setSwapping] = useState(false);
@@ -130,6 +132,10 @@ function AssetCard({
       setPick("");
       setSwapping(false);
       await refresh();
+      // The frames are rewritten for the new cast, and their stills redrawn when the video can pay for it.
+      const video = await queryClient.fetchQuery({ queryKey: ["project", projectId], staleTime: 0, queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: projectId } } })).data ?? null });
+      const done = (video?.cast_redraw as { redrawn_for_cast?: { count: number; credits: number } } | null | undefined)?.redrawn_for_cast;
+      if (done) toast(`Redrew ${done.count} still${done.count === 1 ? "" : "s"} for the new cast · ${Math.ceil(done.credits - 1e-9)} credits.`);
     },
   });
   // No character for this role yet: make one from the role and give it to the slot. It joins the brand's Cast & places, where its look is made and approved.

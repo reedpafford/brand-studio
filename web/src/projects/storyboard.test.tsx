@@ -257,3 +257,29 @@ test("after Redo storyboard the old frames are not shown while the new ones load
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Redo · / })).toBeInTheDocument();
 });
+
+test("stills that show the old cast say Out of date and Redraw N stills shows the price; a redrawn one says Redrawn", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [withStill({ still_stale: true }), withStill({ id: 2, clip_id: "c2", still_stale: true }), withStill({ id: 3, clip_id: "c3", redrawn: true })]],
+    "POST /projects/9/storyboard/frames/1/render": [201, { id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9 }],
+    "POST /projects/9/storyboard/frames/2/render": [201, { id: 12, kind: "image", step: "frame", frame_id: 2, status: "queued", credits: 3, project_id: 9 }],
+  });
+  open();
+  expect(within(await screen.findByLabelText("Frame c1")).getByText("Out of date")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Frame c3")).getByText("Redrawn")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Redraw 2 stills · 6 credits" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/render")).length).toBe(2));
+});
+
+test("an editor past the video's budget is told why and can't redraw; the price shows first", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }],
+    "GET /projects/9/storyboard": [200, [withStill({ still_stale: true }), withStill({ id: 2, clip_id: "c2", still_stale: true })]],
+  });
+  open();
+  const redraw = await screen.findByRole("button", { name: "Redraw 2 stills · 6 credits" });
+  expect(redraw).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+});
