@@ -199,3 +199,51 @@ test("on a phone a script card is one link, with one meta line under the chips",
   expect(title.className).toMatch(/after:absolute/); // the whole card is the link
   expect(screen.getByText(/^Reed · \$19\.40 · 1 left · /)).toBeInTheDocument();
 });
+
+const charge = (o: object = {}) => ({ id: 41, at: "2026-10-24T10:00:00Z", person: { id: 2, name: "Sam" }, brand: { id: 1, name: "Iron Paws" }, what: "Clip 3 take 2 · Bo tries salmon · B", credits: 27, cost_usd: 2.36, estimated: false, status: "succeeded", refunded: false, ...o });
+
+test("Reed gives credits back from a charge's menu: a reason is required, the old number is struck, the badge and the toast say so, and it can't be done twice", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /usage/summary": [200, summary],
+    "GET /usage/brands": [200, brands([row()])],
+    "GET /usage/charges": [200, { next_cursor: null, items: [charge(), charge({ id: 42, what: "Quick clip", credits: 0 }), charge({ id: 43, what: "Clip 1 take 1", credits: 0, refunded: true })] }],
+    "POST /usage/charges/41/refund": [200, { job_id: 5, credits: 27, reason: "Wrong cast in the shot", by: { id: 1, name: "Reed" }, at: "2026-10-26T10:00:00Z" }],
+  });
+  open();
+  await userEvent.click(await screen.findByText("Every charge"));
+  await screen.findByText("Clip 3 take 2 · Bo tries salmon · B");
+  expect(screen.getAllByRole("button", { name: /^Actions for/ })).toHaveLength(1); // not on a 0-credit charge, nor one already given back
+  expect(screen.getByText("Credits given back")).toBeInTheDocument(); // the one that was
+  await userEvent.click(screen.getByRole("button", { name: "Actions for Clip 3 take 2 · Bo tries salmon · B" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Give credits back" }));
+  expect(await screen.findByText("Give back 27 credits?")).toBeInTheDocument();
+  expect(screen.getByText(/stays on the bill: the service was still paid/)).toBeInTheDocument();
+  const action = screen.getByRole("button", { name: "Give credits back" });
+  expect(action).toBeDisabled();
+  expect(action).toHaveAccessibleDescription("Say why");
+  await userEvent.type(screen.getByLabelText("Reason"), "Wrong cast in the shot");
+  await userEvent.click(screen.getByRole("button", { name: "Give credits back" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /usage/charges/41/refund")?.body).toEqual({ reason: "Wrong cast in the shot" }));
+  expect(await screen.findByText("27 credits given back.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Actions for Clip 3 take 2 · Bo tries salmon · B" })).toBeNull();
+});
+
+test("a charge that was already given back shows the server's words if it's tried again", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /usage/summary": [200, summary],
+    "GET /usage/brands": [200, brands([row()])],
+    "GET /usage/charges": [200, { next_cursor: null, items: [charge()] }],
+    "POST /usage/charges/41/refund": [409, { detail: "Those credits were already given back." }],
+  });
+  open();
+  await userEvent.click(await screen.findByText("Every charge"));
+  await userEvent.click(await screen.findByRole("button", { name: /^Actions for/ }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Give credits back" }));
+  await userEvent.type(screen.getByLabelText("Reason"), "x");
+  await userEvent.click(screen.getByRole("button", { name: "Give credits back" }));
+  expect(await screen.findByText("Those credits were already given back.")).toBeInTheDocument();
+});
