@@ -108,7 +108,7 @@ export function InvitePage() {
       </AuthShell>
     );
   const i = invite.data;
-  const studio = studioName(i.workspace_name, i.invited_by_name);
+  const studio = studioName(i.workspace_name, i.owner_name);
   return (
     <AuthForm
       title={`Join ${studio}`}

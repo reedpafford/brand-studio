@@ -9,6 +9,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { CreditLimits } from "./CreditLimits";
+import { StudioName } from "./StudioName";
 import { restoreMember, setRole, useRemovedMembers } from "./memberActions";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -100,6 +101,7 @@ export function TeamPage() {
           {remove.isError ? "Try again." : "Check your connection."}
         </Banner>
       )}
+      {isOwner && me && <StudioName owner={me.name} />}
       {isOwner && <CreditLimits />}
       <section className="space-y-3" aria-label="People">
         <h2 className="type-section">People</h2>

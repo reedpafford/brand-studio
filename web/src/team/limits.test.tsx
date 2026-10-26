@@ -13,6 +13,7 @@ const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number
   "GET /brands": [200, [{ id: 1, name: "Iron Paws", colours: [] }]],
   "GET /team/members": [200, [{ id: 1, name: "Reed", email: "reed@b.co", role: "owner" }]],
   "GET /team/invites": [200, []],
+  "GET /workspace": [200, { id: 1, name: "Iron Paws Studio" }],
   "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
   "GET /credits/allowances": [200, [{ user_id: 2, name: "Sam", quick_clip_credits_used: 120, quick_clip_credits_allowed: 145 }]],
   ...o,
@@ -102,4 +103,30 @@ test("Editors can save looks to Cast & places is a switch that saves at once, sa
   expect(await screen.findByText("Editors can now save looks.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /credits/limits").at(-1)?.body).toMatchObject({ editors_can_save_looks: false }));
+});
+
+test("Studio name is filled, Save waits for a change, and Undo puts the old name back", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({ "PUT /workspace": [200, { id: 1, name: "Reed's studio" }] }));
+  open();
+  const name = await screen.findByLabelText("Studio name");
+  expect(name).toHaveValue("Iron Paws Studio");
+  expect(screen.getByText("Shown on invite links.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Save" })).toHaveAccessibleDescription("No changes yet");
+  await userEvent.clear(name);
+  await userEvent.type(name, "Reed's studio");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /workspace")?.body).toEqual({ name: "Reed's studio" }));
+  expect(await screen.findByText("Studio name saved.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /workspace").at(-1)?.body).toEqual({ name: "Iron Paws Studio" }));
+});
+
+test("a studio stored as a slug shows as Reed's studio, and Save is ready", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /workspace": [200, { id: 1, name: "owner-reed" }] }));
+  open();
+  expect(await screen.findByLabelText("Studio name")).toHaveValue("Reed's studio");
+  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
 });
