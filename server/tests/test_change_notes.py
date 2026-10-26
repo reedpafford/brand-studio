@@ -216,3 +216,22 @@ def test_a_stills_change_remembers_the_still_it_replaces(app, db, editor, setup)
     _run(app, db, FakeClaude({"prompt": f"{frame.prompt} Brighter."}))
     db.expire_all()
     assert db.get(StoryboardFrame, frame.id).change["was_file_id"] == old  # kept after the rewrite
+
+
+def test_a_refused_still_never_loses_the_rewrite_it_paid_for(app, db, editor, setup):  # noqa: F811
+    """A Change it rewrite lands after the video's money ran out: the still is refused, but
+    the new prompt (a paid answer) is kept and the change says why."""
+    url, frame = _frame(app, db, editor, setup)
+    editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
+    project = db.get(Project, setup["project"])
+    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
+               project_id=project.id, credits=project.budget_credits * 10,
+               status="succeeded"))  # fmt: skip
+    db.commit()
+    after = f"{frame.prompt} Brighter."
+    _run(app, db, FakeClaude({"prompt": after}))
+    db.expire_all()
+    row = db.get(StoryboardFrame, frame.id)
+    assert row.prompt == after  # kept, though nothing more could be made
+    assert row.change["status"] == "failed" and row.change["error"]
+    assert "made_job_id" not in row.change
