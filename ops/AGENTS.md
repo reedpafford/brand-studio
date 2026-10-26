@@ -33,7 +33,7 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 |---|---|
 | Builder-Server | session_018dLQ8ebqVoMUp8bEcDnRdm |
 | Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
-| Builder-Screens-2 (editor video flow) | session_017XkFBpccAcSyMbGVXosiT4 |
+| Builder-Screens-3 (editor video flow; replaced Builder-Screens-2 on 2026-10-26) | session_01RY7gQZ2FyTVwVAYrbX5MXu |
 | QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
 | QA-2 (web) | session_0151NB9uZupi8GLzzTbeAtEv |
 | Designer | session_01USbuJ9znkRnKbNV4cnJUNW |
