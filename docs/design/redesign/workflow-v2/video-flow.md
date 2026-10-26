@@ -104,6 +104,13 @@ Only characters and places made in **Cast & places** go into the brand's library
 ## 3. Storyboard
 As specced in `phase3/screens/video.md` §4, with the plain-English **Change this…** box under each still and the automatic frame rewrite after a cast change (`change-notes.md` §1, §3). **Make storyboard** writes the frames and draws the stills in one press. Each frame uses the approved assets, so the "needs an approved sheet" block no longer happens here: Assets prevents it.
 
+### Approve all (Reed, 2026-10-26; DECISIONS)
+- **Where:** in the Storyboard step bar, before the amber button: **Approve all** (secondary, `Check`), or **Approve 8** when not every frame can be approved. On phone it sits in the step header row, full width, 44px, above the grid. The amber stays where it is (Next, Make, Redraw).
+- **Shown** only when at least one frame has a still, no blocking problem, and isn't approved yet. Otherwise it's hidden.
+- **What it does:** it approves every frame that has a still and no blocking problem. The others are left alone. No dialog, because it can be undone.
+- **Result line**, under the step bar (meta, until the next action on the page): "Approved 8. 2 not approved: Clip 3 has no still yet, Clip 5 has a problem to fix." Each named clip is a link that scrolls to its card and outlines it for 1.5 s. When all were approved, the line is just "Approved 10."
+- **Undo:** the toast "Approved 8 frames." with **Undo** (8 s) takes back exactly those 8 (frames already approved before stay approved). Each card's own **Undo approval** still works afterwards.
+
 ## 4. Clips
 As specced in `phase3/screens/video.md` §5, with the prompt review kept (decision b). Each clip has the **Change this…** box, and Edit moves to **Advanced: edit the prompt** (`change-notes.md` §1):
 1. **Write clip prompts · N credits**
@@ -113,6 +120,17 @@ As specced in `phase3/screens/video.md` §5, with the prompt review kept (decisi
 
 Every redo adds a take, and the takes stay listed (they're downloadable in step 5).
 - **Looks good is kept on the server** (`prompt_ok` per clip, #366), not in the browser. So it holds on every device and for everyone who opens the video. Saving your own edit to a prompt counts as Looks good (you read it to edit it). A prompt that is written again clears it. **Make the takes** stays disabled with "Mark every prompt as Looks good first (1 left)" until every clip is ok. **Undo** clears the flag.
+
+### Clips made for an older storyboard or breakdown (Reed, 2026-10-26; DECISIONS)
+The Clips step never dead-ends.
+- **A clip is stale** when its prompt was written for an older storyboard or breakdown. Its card shows the badge "Made for an older storyboard" (warning) (or "…older breakdown").
+- **Section note** at the top of Clips (`TriangleAlert`, warning), when any clip is stale: "3 clips were made for an older storyboard. Rewrite their prompts so they match." with **Rewrite clip prompts · N credits** (the price covers all stale clips). While any clip is stale, this is the step's amber button; **Make the takes** waits, with the reason "Rewrite the clips made for an older storyboard first (3)".
+- **Per clip:** a stale card has **Rewrite this clip's prompt · N credits** (secondary) in place of **Change this…**.
+- **After a rewrite:** the new prompt shows for reading again (**Looks good** is cleared). The clip's takes are kept and listed as earlier takes ("Earlier: 2"), still downloadable; the next take is made from the new prompt.
+- **Automatic:** after a storyboard or breakdown change, the server rewrites stale prompts on its own, as for frames (free if it can, otherwise within the video's budget, or the editor's week on their own script). While that runs, the note reads "Rewriting clip prompts…" (with `LoaderCircle`, spinning) and shows **no** button. When it lands: "Rewrote 3 clip prompts. Read them, then mark each Looks good."
+- **Past the money:** the automatic rewrite doesn't run, and the note keeps its button. For an editor it's disabled with the usual reason under it ("That's more than this video's budget." / the week's reason). For Reed it's the plain priced button. Nothing ever names the owner ("Ask Reed" never appears), and editors never see dollars.
+- **Approve all** works on Clips the same way as on Storyboard: it approves every clip with a picked take (and no blocking problem). The result line reads e.g. "Approved 4. 1 not approved: Clip 2 has no take yet.", and the toast "Approved 4 clips." has **Undo** (8 s).
+- **Server:** `POST /projects/{id}/clips/rewrite {clip_ids?}` (all stale when empty; paid, all or none, refusal in plain words); per clip `stale: "storyboard" | "breakdown" | null`; the clips reply carries `auto_rewrite: {running: bool, refused: {credits, reason} | null}`; `POST /projects/{id}/storyboard/approve-all` and `…/clips/approve-all` return `{approved: [ids], skipped: [{id, reason}]}`, and `…/unapprove {ids}` is the Undo.
 
 ## 5. Downloads (replaces Final video; decision a)
 ```
