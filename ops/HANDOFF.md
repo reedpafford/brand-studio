@@ -1,4 +1,4 @@
-as of 695763c · 2026-10-26 19:11 UTC
+as of e612631 · 2026-10-26 20:11 UTC
 # Handoff (rewritten each refresh by the Scribe; under 80 lines)
 ## Built (on main)
 - Foundation: server, accounts, files, brands, libraries, jobs/worker/usage, credits (#2–#8).
@@ -60,7 +60,7 @@ as of 695763c · 2026-10-26 19:11 UTC
 ## Open PRs (0, not counting the Scribe's own)
 - None.
 ## Next (assignments per the Producer, 2026-10-26)
-- Builder-Screens-2: Back from Review the breakdown goes to the script's first step (follow-up).
+- Builder-Screens-3 (replaced Builder-Screens-2 on 2026-10-26, per ops/AGENTS.md #499): Back from Review the breakdown goes to the script's first step (follow-up).
 - Builder-Server: the rest of the live-test findings.
 - Director: Betty after the montage rule; the reel-import evals per #277.
 - QA-Live: the live end-to-end test.
