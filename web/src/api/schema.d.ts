@@ -5477,6 +5477,13 @@ export interface components {
             problems: string[];
             /** Changed Lines */
             changed_lines: string[];
+            /**
+             * Rewritten
+             * @default []
+             */
+            rewritten: {
+                [key: string]: unknown;
+            }[];
             /** Has Breakdown */
             has_breakdown: boolean;
             /** Approved At */
