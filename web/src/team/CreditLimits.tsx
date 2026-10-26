@@ -8,7 +8,7 @@ import { money } from "../usage/parts";
 
 /** 1 credit = $0.1028 (ops/DECISIONS). Only Reed ever sees these dollars. */
 const CREDIT_USD = 0.1028;
-type Limits = { weekly_quick_clip_credits: number; per_video_max_credits: number };
+type Limits = { weekly_quick_clip_credits: number; per_video_max_credits: number; editors_can_save_looks?: boolean };
 
 const whole = (s: string) => /^\d+$/.test(s.trim());
 const dollars = (s: string) => (whole(s) ? `≈ ${money(Number(s) * CREDIT_USD)}` : "");
@@ -54,6 +54,14 @@ export function CreditLimits() {
       },
     );
   };
+  // The switch saves at once (the two numbers keep their saved values) and can be undone.
+  const setSaveLooks = (on: boolean) => {
+    if (!saved) return;
+    put.mutate(
+      { weekly_quick_clip_credits: saved.weekly_quick_clip_credits, per_video_max_credits: saved.per_video_max_credits, editors_can_save_looks: on },
+      { onSuccess: () => toast(on ? "Editors can now save looks." : "Only you can save looks now.", () => setSaveLooks(!on)) },
+    );
+  };
   // An editor who has already used more than the new allowance can't make anything more until Monday: say so first.
   const over = (allowances.data ?? []).filter((a) => a.quick_clip_credits_used > Number(weekly));
   const press = () => (over.length > 0 && Number(weekly) < (saved?.weekly_quick_clip_credits ?? 0) ? setAsking(over[0].name) : save());
@@ -86,6 +94,13 @@ export function CreditLimits() {
             Save limits
           </Button>
         </div>
+      </Card>
+      <Card className="space-y-1">
+        <label className="flex min-h-control items-center gap-3 font-medium">
+          <input type="checkbox" role="switch" className="size-5" checked={saved.editors_can_save_looks} disabled={put.isPending} onChange={(e) => setSaveLooks(e.target.checked)} />
+          Editors can save looks to Cast &amp; places
+        </label>
+        <p className="text-sm text-muted">When on, an editor can copy a look made for one video into the brand's Cast &amp; places. Reed always can.</p>
       </Card>
       {asking && first && (
         <Dialog title="Lower the weekly allowance?" cancelLabel={`Keep ${saved.weekly_quick_clip_credits}`} actionLabel={`Save ${weekly}`} busy={put.isPending} onCancel={() => setAsking(null)} onConfirm={save}>
