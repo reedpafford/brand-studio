@@ -8,6 +8,7 @@ import { Button, Card, Field, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
+import { useJobs } from "../clip/History";
 import { useAllowanceStop } from "./useScript";
 
 const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
@@ -137,6 +138,26 @@ const ROWS: { id: "got" | "heard" | "watch" | "write" | "cast"; label: string }[
   { id: "write", label: "Writing the script" },
   { id: "cast", label: "Filling in the cast" },
 ];
+
+/** "Reading the reel… 1m 10s": how long the paid read has been going, from its first job (or from when this page saw it start). */
+export function ReelProgress({ scriptId }: { scriptId: number }) {
+  const jobs = useJobs();
+  const [seen] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const running = (jobs.data ?? []).filter((j) => j.script_id === scriptId && (j.status === "queued" || j.status === "running"));
+  const from = running.length ? Math.min(...running.map((j) => Date.parse(j.created_at))) : seen;
+  const secs = Math.max(0, Math.floor((now - (Number.isFinite(from) ? from : seen)) / 1000));
+  return (
+    <p role="status" className="flex items-center gap-2">
+      <LoaderCircle size={20} strokeWidth={1.75} aria-hidden className="animate-spin motion-reduce:animate-none" />
+      Reading the reel… {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}
+    </p>
+  );
+}
 
 /** What the server says is left this week, if it says the read doesn't fit. The usual wording comes from the allowance itself. */
 const notEnough = (e?: { credits: number; credits_left: number | null } | null) => (e && e.credits_left !== null && e.credits > e.credits_left ? "That's more than the credits you have left this week. It resets on Monday." : null);

@@ -7,11 +7,11 @@ import { useToast } from "../toast";
 import { useMedia, useRail } from "../useMedia";
 import { ActionBar } from "../shell/ActionBar";
 import { Sheet } from "./Sheet";
-import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User } from "lucide-react";
+import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User, Users } from "lucide-react";
 import { Badge, Banner, Button, Menu, MenuItem } from "../components";
 import { errorText as errorClass, input } from "../ui";
 import { useMe } from "../auth/useMe";
-import { blocking } from "./problems";
+import { blocking, CAST } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
@@ -112,7 +112,7 @@ export function BreakdownView(props: {
   onShowLines?: (lines: number[]) => void; // none in the writing flow: the words are on another step
   onDirty?: (dirty: boolean) => void;
   /** A plan saved on a library version (the writing flow), not on a video: saved through its own route, with no Keep anyway. */
-  preview?: { save: (bd: Breakdown) => Promise<{ problems: string[] }>; keep: (problem: string, undo?: boolean) => void; keepBusy: boolean; again: ReactNode };
+  preview?: { save: (bd: Breakdown) => Promise<{ problems: string[] }>; fixCast: () => Promise<{ changed_shots: { shot_id: string; before: string[]; after: string[] }[] }>; keep: (problem: string, undo?: boolean) => void; keepBusy: boolean; again: ReactNode };
 }) {
   const { row, projectId, makeButton, name, preview } = props;
   const queryClient = useQueryClient();
@@ -128,7 +128,7 @@ export function BreakdownView(props: {
   const line = props.line;
   const keep = useKeep(projectId, { of: "breakdown" });
   const owner = useMe().data?.role === "owner";
-  const real = blocking(row.problems); // advice is listed apart, closed
+  const real = blocking(row.problems, row.kept); // advice is listed apart, closed
 
   // A line picked in the script brings its shot into view.
   useEffect(() => {
@@ -159,6 +159,44 @@ export function BreakdownView(props: {
       if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] })]);
     },
   });
+
+  // "Put the right cast in each shot": free, no model call. Undo puts each changed shot's earlier cast back.
+  type Changed = { shot_id: string; before: string[]; after: string[] };
+  const fixCast = useMutation({
+    mutationFn: async () => {
+      if (preview) return (await preview.fixCast()).changed_shots as Changed[];
+      const { data, error } = await api.POST("/projects/{project_id}/breakdown/fix-cast", { params: { path: { project_id: projectId } } });
+      if (!data) throw new Error(errorText(error));
+      return data.changed_shots as Changed[];
+    },
+    onSuccess: async (changed) => {
+      const fresh = async () => {
+        await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
+        if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
+      };
+      await fresh();
+      const put = (body: Breakdown) => (preview ? preview.save(body) : api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body }));
+      toast(`Cast fixed in ${changed.length} shot${changed.length === 1 ? "" : "s"}.`, async () => {
+        const back = clone(row.breakdown); // the breakdown as it was before the fix (this view still holds it)
+        for (const scene of back.scenes) for (const shot of scene.shots) {
+          const was = changed.find((c) => c.shot_id === shot.id);
+          if (was) shot.character_ids = was.before;
+        }
+        await put(back);
+        await fresh();
+      });
+    },
+  });
+  const castOpen = real.filter((p) => p.startsWith(CAST));
+  const castFix = castOpen.length > 0 && (
+    <div className="space-y-1 pt-2">
+      <Button variant="secondary" icon={Users} busy={fixCast.isPending} onClick={() => fixCast.mutate()}>
+        Put the right cast in each shot
+      </Button>
+      <p className="text-sm text-muted">Free. Uses who the script names in each line.</p>
+      {fixCast.error && <p role="alert" className={errorClass}>{fixCast.error.message}</p>}
+    </div>
+  );
 
   const goTo = (target: string) => {
     document.getElementById(target)?.scrollIntoView?.({ behavior: "smooth", block: "center" });
@@ -221,6 +259,11 @@ export function BreakdownView(props: {
         <li key={p} className="flex items-start gap-2">
           <span className="flex-1 py-3">{p}</span>
           {goButton(p, after)}
+          {p.startsWith(CAST) && (
+            <Button variant="ghost" dense aria-label={`Keep anyway: ${p}`} onClick={() => (preview ? preview.keep(p) : keep.mutate({ problem: p }))}>
+              Keep anyway
+            </Button>
+          )}
         </li>
       ))}
     </ul>
@@ -252,6 +295,7 @@ export function BreakdownView(props: {
           {problemsOpen && (
             <Sheet title={`Problems (${real.length})`} onClose={() => setProblemsOpen(false)}>
               {problemList(() => setProblemsOpen(false))}
+              {castFix}
             </Sheet>
           )}
         </>
@@ -263,6 +307,7 @@ export function BreakdownView(props: {
             {real.length} problem{real.length === 1 ? "" : "s"} {preview ? "in this plan" : "to fix before the storyboard"}
           </h3>
           {problemList()}
+          {castFix}
         </section>
       )}
       <AdviceList problems={row.problems} kept={row.kept} onKeep={preview ? preview.keep : (problem, undo) => keep.mutate({ problem, undo })} busy={preview ? preview.keepBusy : keep.isPending} owner={owner} extra={(p) => goButton(p)} />

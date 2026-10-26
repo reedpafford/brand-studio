@@ -11,7 +11,9 @@ export function useMe() {
       if (!data) throw new Error("Could not check sign-in");
       return data;
     },
-    retry: false,
+    // A hiccup is retried quietly (about two seconds) before anyone sees "Can't reach the server".
+    retry: 3,
+    retryDelay: (n) => 300 * 2 ** n,
     staleTime: Infinity,
   });
 }
