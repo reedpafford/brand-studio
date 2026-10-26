@@ -91,18 +91,24 @@ const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids
 const clip = (o: object) => ({ id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
 const toClips = { ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown] };
 
-test("a clip's prompt is read and marked Looks good before its take can be made", async () => {
+test("a clip's prompt is read and marked Looks good (on the server) before its take can be made", async () => {
   setViewport(1440);
-  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({})]] });
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false })]], "POST /projects/9/clips/3/prompt-ok": [200, clip({ prompt_ok: true })] });
   open("?step=clips");
   expect(await screen.findByText("Bo sniffs the salmon")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 looks good" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/prompt-ok")).toBe(true));
+});
+
+test("a prompt already marked Looks good keeps its badge, lets the take be made, and can be undone", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]], "DELETE /projects/9/clips/3/prompt-ok": [200, clip({ prompt_ok: false })] });
+  open("?step=clips");
+  expect(await screen.findByText("Looks good")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
-  // The prompt stays, marked, and can be taken back.
-  expect(screen.getByText("Looks good")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 undo looks good" }));
-  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /projects/9/clips/3/prompt-ok")).toBe(true));
 });
 
 test("a prompt shows pictures by name, never [Image1]", async () => {
@@ -153,7 +159,7 @@ test("one-press Make storyboard asks Reed when the writing plus the stills pass 
   expect(await screen.findByRole("button", { name: "Ask Reed to approve · 15 credits" })).toBeInTheDocument();
 });
 
-const take = (id: number, number: number) => ({ id, number, file_id: 50 + id });
+const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, created_at: `2026-10-26T10:4${number}:00` });
 const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)], picked_take_id: 2 });
 
 test("Downloads: the zip, the picked take and the older take each download", async () => {
@@ -164,6 +170,7 @@ test("Downloads: the zip, the picked take and the older take each download", asy
   expect(zip).toHaveAttribute("href", "/api/projects/9/clips.zip");
   expect(screen.getByRole("link", { name: "Download clip 1 (bo-tries-salmon-b-clip-1.mp4)" })).toHaveAttribute("href", expect.stringContaining("/files/52"));
   expect(screen.getByText("Older takes (1)")).toBeInTheDocument();
+  expect(screen.getByText(/Take 1 · made \d{1,2}:41/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /Download clip 1 take 1/ })).toBeInTheDocument();
 });
 
@@ -251,4 +258,30 @@ test("on an editor's own script the header shows the week, not a budget", async 
   open();
   expect(await screen.findByText("This week: 3 of 145 credits")).toBeInTheDocument();
   expect(screen.queryByText(/% ·|credits · \d+%/)).toBeNull();
+});
+
+test("Assets shows where each one is used, the role's description, and the products and app screens the shots show", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [
+      200,
+      [
+        asset({ slot_id: 3, description: "A tired coach in a grey hoodie", shots: 3 }),
+        { kind: "product", ref: "screen:4", role: "", library_item_id: null, name: "Peanut butter bag", locked: false, sheet_status: "approved", ready: true, slot_id: null, description: "", shots: 1, file_id: 90 },
+        { kind: "screen", ref: "screen:7", role: "", library_item_id: null, name: "fomo Home", locked: false, sheet_status: "approved", ready: true, slot_id: null, description: "", shots: 2, file_id: 91 },
+      ],
+    ],
+  });
+  open();
+  const cast = await screen.findByLabelText("Bo");
+  expect(within(cast).getByText("A tired coach in a grey hoodie")).toBeInTheDocument();
+  expect(within(cast).getByText("In 3 shots")).toBeInTheDocument();
+  const products = screen.getByLabelText("Products");
+  expect(within(products).getByText("Peanut butter bag")).toBeInTheDocument();
+  expect(within(products).getByText("In 1 shot")).toBeInTheDocument();
+  const screens = screen.getByLabelText("App screens");
+  expect(within(screens).getByText("fomo Home")).toBeInTheDocument();
+  expect(within(screens).queryByRole("button")).toBeNull(); // nothing to approve
+  expect(screen.getByText("3 assets · 2 approved")).toBeInTheDocument();
 });

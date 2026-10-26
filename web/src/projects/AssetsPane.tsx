@@ -42,6 +42,33 @@ const STATUS: Record<
   missing: { tone: "warning", text: "Needs a look" },
 };
 
+const InShots = ({ n }: { n: number }) => (
+  <p className="text-sm text-muted">
+    In {n} shot{n === 1 ? "" : "s"}
+  </p>
+);
+
+/** A product or an app screen the shots show: the brand's own picture, nothing to make or approve. */
+function PictureCard({ asset }: { asset: Asset }) {
+  return (
+    <section aria-label={asset.name}>
+      <Card className="flex items-center gap-4">
+        {asset.file_id != null && (
+          <img
+            src={fileUrl(asset.file_id)}
+            alt=""
+            className="size-20 shrink-0 rounded-md bg-surface-2 object-cover"
+          />
+        )}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="font-medium">{asset.name}</p>
+          {asset.shots > 0 && <InShots n={asset.shots} />}
+        </div>
+      </Card>
+    </section>
+  );
+}
+
 function AssetCard({
   asset,
   projectId,
@@ -160,6 +187,12 @@ function AssetCard({
               <span className="text-muted"> · {asset.name}</span>
             )}
           </p>
+          {asset.description && !asset.locked && (
+            <p className="line-clamp-2 text-sm text-muted">
+              {asset.description}
+            </p>
+          )}
+          {asset.shots > 0 && <InShots n={asset.shots} />}
           <div className="flex flex-wrap gap-2">
             {asset.locked ? (
               <Badge icon={Lock}>Locked by Reed</Badge>
@@ -285,6 +318,15 @@ export function AssetsPane({
   const list = assets.data ?? [];
   const cast = list.filter((a) => a.kind === "character");
   const places = list.filter((a) => a.kind === "place");
+  const products = list.filter((a) => a.kind === "product");
+  const screens = list.filter((a) => a.kind === "screen");
+  const pictures = (rows: Asset[]) => (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {rows.map((a) => (
+        <PictureCard key={a.ref} asset={a} />
+      ))}
+    </div>
+  );
   const grid = (rows: Asset[]) => (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {rows.map((a) => (
@@ -317,9 +359,10 @@ export function AssetsPane({
           {grid(places)}
         </section>
       )}
-      {picks.products.size > 0 && (
+      {(picks.products.size > 0 || products.length > 0) && (
         <section aria-label="Products" className="space-y-3">
           <h3 className="type-section">Products</h3>
+          {products.length > 0 && pictures(products)}
           <FlavourPicker
             products={picks.products}
             chosen={picks.chosen}
@@ -330,6 +373,12 @@ export function AssetsPane({
               {flavour.error.message}
             </p>
           )}
+        </section>
+      )}
+      {screens.length > 0 && (
+        <section aria-label="App screens" className="space-y-3">
+          <h3 className="type-section">App screens</h3>
+          {pictures(screens)}
         </section>
       )}
     </div>
