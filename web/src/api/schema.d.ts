@@ -841,7 +841,7 @@ export interface paths {
          * Refund Charge
          * @description Give one charge's credits back (owner only; editors never see it). The job's credits
          *     go to 0, so the editor's week and the video's budget get them back; the dollars the
-         *     service charged stay on the bill. Asking again changes nothing.
+         *     service charged stay on the bill. Once per charge: asking again is refused (409).
          */
         post: operations["refund_charge_usage_charges__charge_id__refund_post"];
         delete?: never;
