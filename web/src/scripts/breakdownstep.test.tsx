@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -80,4 +80,23 @@ test("each version has its own tab; a planned one shows its plan, with advice cl
   expect(screen.getByText("Mia · cast at Assets")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it again · 6 credits" }));
   expect(await screen.findByRole("alertdialog", { name: "Make the breakdown again?" })).toBeInTheDocument();
+});
+
+test("Reed can remove a plan after a confirm, and Undo puts the same plan back", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({
+    "GET /scripts/7/drafts/0/breakdown": [200, plan],
+    "GET /scripts/7": [200, { ...script, versions: [version(0, { has_breakdown: true }), version(1)] }],
+    "DELETE /scripts/7/drafts/0/breakdown": [200, { breakdown: null, problems: [], seconds: 0, running: false }],
+    "PUT /scripts/7/drafts/0/breakdown": [200, plan],
+  }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for this plan" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Remove the plan" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "Remove this plan?" });
+  expect(dialog).toHaveTextContent("An editor's video will plan its shots when they start.");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/breakdown")).toBe(true));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0/breakdown")?.body).toEqual(plan.breakdown));
 });
