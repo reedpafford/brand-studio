@@ -60,7 +60,25 @@ Waiting invites (section)
 - **Waiting invites:** email, role, "expires 31 Oct" (meta), **Copy a new link** (secondary dense, `Copy`, `aria-label="Copy a new link for jo@example.com"`) and **Cancel** (ghost dense). The server keeps only a hash of each link, so the old one can't be shown again: Copy a new link makes a fresh link and copies it, and the old link stops working. The label says so before the press. It becomes "Copied" with `Check` for 2 s, with the toast "Link copied. The old link no longer works."
 - **Invite someone** opens a dialog (sheet on phone): **Email**, **Role** (select: Editor, Owner; Editor first), amber **Create invite link**. Then the dialog shows the link in a read-only field (`aria-label="Invite link"`) with **Copy link** and the meta line "Send this link to them. It works once and expires in 7 days." and **Done** (ghost). No toast while this panel is open: it already says it.
 
+- **Credit limits** (Reed only, gaps #9): a card above People.
+  ```
+  Credit limits (section)
+  Editors' weekly allowance   [ 145 ] credits   ≈ $14.91 a week (meta)
+    Free generation for each editor's own scripts and quick clips. Resets on Monday.
+  Most one video can cost     [ 729 ] credits   ≈ $74.94 (meta)
+    For everyone, Reed too. A video's budget is twice its estimate, up to this.
+                                              [Save limits]  (secondary)
+  ```
+  - Two number inputs (`inputmode="numeric"`, whole credits, 120px). The dollars beside them use the credit rate (1 credit = $0.1028), and they update as Reed types. Only Reed ever sees this card, and only he sees dollars here.
+  - **Save limits** is secondary, because **Invite someone** stays the page's amber button. It's disabled until something changes, with the reason "No changes yet".
+  - Checks under each field: "Use a whole number of credits.", "The weekly allowance can be 0 or more.", "The cap needs to be at least 1 credit."
+  - Lowering the allowance below what an editor has used this week asks first: "Sam has used 120 credits this week. With 100, Sam can't make anything more until Monday." **Keep 145** / **Save 100**.
+  - After: toast "Limits saved." with **Undo** (it saves the old values back). Editors' meters and stop reasons use the new numbers on their next load.
+  - The existing per-editor allowance rows (#228) stay under People, and now read against the new allowance.
+  - Server: `GET /credits/limits` and `PUT /credits/limits {weekly_quick_clip_credits, per_video_max_credits}`. Both fields are always sent.
+
 ### Phone
+- The Credit limits card comes first. Each field takes the full width, with its dollars and helper under it, and **Save limits** is full width at 44px.
 - People and invites as stacked rows: the email (wrapping, never cut) and its meta line, then the buttons on a row under them. **Remove**, **Copy a new link** and **Cancel** are 44px. **Invite someone** in the action bar.
 
 ### States

@@ -17,7 +17,12 @@
 └──────────────────┴──────────────────────────────────────────────────────────────────┘
 ```
 - **Top bar.** 60px, `bg-bg`, 1px bottom border, sticky.
-  - **Brand switcher** (left): a `secondary` button showing the brand dot (`--brand`), the brand name (700) and `ChevronDown`. It opens a menu listing every brand with its dot, a ✓ on the current one, and "Brands are set up by Reed." in muted text at the bottom.
+  - **Brand switcher** (left): a `secondary` button showing the brand dot (`--brand`), the brand name (700) and `ChevronDown`. It opens a menu listing every brand with its dot, a ✓ on the current one, and, for editors, "Brands are set up by Reed." in muted text at the bottom.
+    - **Reed** gets a divider and **＋ New brand** (`Plus`) at the bottom instead (gaps #8). It opens a dialog (a sheet on phone):
+      - **Brand name** (input, required), with the helper "You add its logo, colours and screens next."
+      - The amber button is **Create brand**. When it's disabled: "Give it a name first". If the name is taken, the server's words show under the field ("A brand with that name already exists.").
+      - After: the app switches to the new brand and opens its Brand page on **Look**. Toast: "{Name} is ready. Add its logo and colours." The new brand shows up on Usage straight away.
+      - Archived brands aren't listed here.
   - Switching keeps the section. For example, Cast & places in fomo becomes Cast & places in Iron Paws. A video page goes to that brand's Videos.
   - **Approvals pill** (right, Reed only): `Bell` "Approvals" with an amber count when the count is above 0. It opens /approvals. When nothing is waiting, it shows plain "Approvals" with no count.
   - **Avatar** (44px, initial): opens the account menu:
