@@ -82,3 +82,18 @@ def test_a_bad_file_is_skipped_and_the_others_still_load(owner, db, refs, caplog
 def test_every_draft_file_in_the_repo_is_valid(path):
     """A bad DRAFT-*.json fails CI here before a deploy skips it on live."""
     seed_drafts.load(path, str(REPO_ROOT / "docs/references"))
+
+
+def test_seeded_drafts_are_by_the_first_active_owner(owner, db, refs):
+    """QA on #504: a removed owner (the QA test owner) never authors seeded drafts."""
+    from app.models.accounts import Role, User
+
+    reed = db.query(User).filter_by(email="reed@example.com").one()
+    other = User(workspace_id=reed.workspace_id, email="o@example.com", name="Other",
+                 password_hash="x", role=Role.owner)  # fmt: skip
+    db.add(other)
+    reed.active = False  # removed: the first owner by id, but not active
+    db.commit()
+    _write(refs, "DRAFT-fomo.json", DRAFT)
+    assert seed_drafts.import_drafts(db, str(refs)) == 1
+    assert db.query(Script).one().created_by_id == other.id
