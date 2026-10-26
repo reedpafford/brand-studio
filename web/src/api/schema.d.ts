@@ -2881,6 +2881,8 @@ export interface components {
              * @default []
              */
             steps_done: string[];
+            /** Watched From */
+            watched_from?: string | null;
             /** Failed Step */
             failed_step?: string | null;
             estimate?: components["schemas"]["Estimate"] | null;

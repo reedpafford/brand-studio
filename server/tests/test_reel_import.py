@@ -145,8 +145,8 @@ def test_replaced_and_unreadable_uploads_leave_no_files(app, owner, db, clip, tm
     _work(app, db)
     assert owner.get(f"/scripts/{bad}/import").json()["video_file_id"] is None
     db.expire_all()
-    assert db.query(StoredFile).count() == 3  # only the replacement's video, sheet, watch copy
-    assert len([p for p in Path(app.state.settings.storage_dir).rglob("*") if p.is_file()]) == 3
+    assert db.query(StoredFile).count() == 4  # the replacement's video, sheet, watch copy, grid
+    assert len([p for p in Path(app.state.settings.storage_dir).rglob("*") if p.is_file()]) == 4
 
 
 def test_a_worker_can_take_only_some_providers(app, owner, db, clip):
@@ -241,3 +241,12 @@ def test_transcription_keeps_lines_spoken_over_music(monkeypatch, capsys):
     whisper.main("reel.mp4")
     said = [x["text"] for x in json.loads(capsys.readouterr().out)]
     assert asked["vad_filter"] is False and said == ["I do.", "Huh?!"]  # the invented one dropped
+
+
+def test_frame_grids_hold_three_frames_a_shot_within_geminis_limits(clip, tmp_path, monkeypatch):
+    labels, label = [], reel._label
+    monkeypatch.setattr(reel, "_label", lambda f, text: labels.append(text) or label(f, text))
+    grids = reel.frame_grids(clip, reel.cuts(clip), reel.probe(clip), tmp_path)
+    assert len(grids) == 1 and grids[0].stat().st_size < 7 * 1024 * 1024
+    assert Image.open(grids[0]).width == 3 * 240  # one row per shot, three frames across
+    assert labels[0].startswith("1 · ") and labels[0].endswith("s")  # shot number and time
