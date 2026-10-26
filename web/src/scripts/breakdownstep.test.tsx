@@ -110,7 +110,7 @@ test("a plan made for older words says so, with Make it again; its advice can be
   }));
   open();
   expect(await screen.findByText("This plan was made for older words. Make it again so the shots match.")).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: "Make it again · 6 credits" }).length).toBeGreaterThan(0);
+  expect(screen.getAllByRole("button", { name: "Make it again · 6 credits" })).toHaveLength(1); // the banner's, not a second one in the bar
   expect(screen.getByText("Advice (0)")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Undo keep/, hidden: true }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/breakdown/keep")).toBe(true));

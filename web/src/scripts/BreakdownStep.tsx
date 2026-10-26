@@ -173,7 +173,7 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
       </p>
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-2">
-          {button}
+          {!p!.stale && button /* a stale plan has its Make it again in the banner */}
           {owner && (
             <Menu
               title="More for this plan"
@@ -217,7 +217,7 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
           keep: (problem, undo) => keep.mutate({ problem, undo }),
           keepBusy: keep.isPending,
           again: readOnly ? null : (
-            <Button icon={RotateCcw} price={price} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => setAsking(true)}>
+            <Button variant="secondary" icon={RotateCcw} price={price} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => setAsking(true)}>
               Make it again
             </Button>
           ),
