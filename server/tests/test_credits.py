@@ -406,3 +406,10 @@ def test_owner_sees_each_editors_allowance(owner, editor, ed, db):
     ]
     assert editor.get("/credits/allowances").status_code == 403
     assert_no_dollars(owner, ["/credits/allowances"])
+
+
+def test_one_rounding_for_every_price_shown():
+    """Change it, the cast redraw and refusals all round a price the same way: up, never 0."""
+    price, shown = credits_module.price, credits_module.shown
+    assert [price(Decimal(x)) for x in ("0.2", "1", "3.01")] == [1, 1, 4]
+    assert shown(Decimal("3.01"), Decimal("3.99")) == (4, 3)

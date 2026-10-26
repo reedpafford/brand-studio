@@ -312,6 +312,22 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     return job
 
 
+def stop_jobs(db: Session, *where) -> None:
+    """Stop the matching jobs that haven't finished. Jobs not started are cancelled. One already
+    at the provider is cancelled too, at once (so a Restore never shows it as still being
+    made), and marked to be discarded: the worker still waits for it to land, saves nothing
+    from it and records its dollars once. Credits held for the steps after a stopped job go
+    with it, so nothing has to be given back."""
+    db.execute(  # conditional, so it can't race the worker picking a job up
+        update(Job)
+        .where(*where, Job.status.in_((JobStatus.queued, JobStatus.needs_owner_approval)))
+        .values(status=JobStatus.cancelled, finished_at=utcnow())
+    )
+    for job in db.scalars(select(Job).where(*where, Job.status == JobStatus.running)):
+        job.input = {**job.input, "discard": True}
+        job.status = JobStatus.cancelled  # finished_at stays empty until the provider is done
+
+
 @router.get("/usage", response_model=list[UsageOut])
 def list_usage(owner: User = Depends(owner_only), db: Session = Depends(get_db)):
     return db.scalars(

@@ -185,10 +185,15 @@ def credits_left(db: Session, user: User) -> Decimal | None:
     return get_limits(db, user.workspace_id).weekly_quick_clip_credits - quick_clip_used(db, user)
 
 
+def price(total: Decimal) -> int:
+    """A price as a button or a refusal says it: rounded up, so it's never below the charge."""
+    return max(1, math.ceil(total))
+
+
 def shown(total: Decimal, left: Decimal) -> tuple[int, int]:
     """A price and what's left, as a refusal says them: the price rounded up, what's left
     rounded down, so it never reads "needs 4; you have 4 left"."""
-    return math.ceil(total), max(math.floor(left), 0)
+    return price(total), max(math.floor(left), 0)
 
 
 def afford(db: Session, user: User, total: Decimal, what: str) -> None:

@@ -120,3 +120,49 @@ def test_restoring_a_video_never_leaves_stopped_work_running(owner, editor, db):
     assert stopped.finished_at is not None and stopped.output is None
     assert db.query(Usage).filter_by(job_id=job.id).count() == 1
     assert credits_used(db, db.get(Project, pid)) == 0
+
+
+def test_deleting_a_script_stops_its_work_and_restore_doesnt_start_it(owner, editor, ed, db):  # noqa: F811
+    """Producer, after the live test: a deleted script's running Write, its held cast read and
+    its own look's sheet stop, as on Release; another script's work goes on."""
+    from app.credits import credits_left
+    from app.models.library import LibraryItem
+    from tests.test_script_library import SCRIPT, _make
+
+    sid, other = _make(editor, text=SCRIPT)["id"], _make(editor, text=SCRIPT)["id"]
+    look = editor.post(
+        "/library/character", json={"name": "Bo", "notes": "a pug", "owner_script_id": sid}
+    ).json()["id"]
+    assert db.get(LibraryItem, look).owner_script_id == sid
+
+    def job(**input):
+        made = Job(workspace_id=ed.workspace_id, created_by_id=ed.id, kind="write-claude",
+                   provider="fake", input=input, credits=Decimal(1))  # fmt: skip
+        db.add(made)
+        db.commit()
+        return made
+
+    write = job(step="script_draft", script_id=sid, then_cast=True)
+    fake = FakeProvider(polls_until_done=1)
+    run_once(db, {"fake": fake})  # the Write is at the provider
+    sheet = job(step="sheet", library_item_id=look)
+    elsewhere = job(step="script_draft", script_id=other)
+    db.refresh(write)
+    assert write.status == JobStatus.running
+    before = credits_left(db, ed)
+
+    assert editor.delete(f"/scripts/{sid}").status_code == 204
+    db.expire_all()
+    assert db.get(Job, write.id).status == JobStatus.cancelled  # stopped at once
+    assert db.get(Job, sheet.id).status == JobStatus.cancelled
+    assert db.get(Job, elsewhere.id).status == JobStatus.queued  # not this script's
+    assert credits_left(db, ed) > before  # the Write, its held cast read and the sheet are back
+
+    assert editor.post(f"/scripts/{sid}/restore").status_code == 200
+    for _ in range(3):  # the Write lands; nothing is saved and no cast read starts
+        run_once(db, {"fake": fake})
+        db.expire_all()
+    stopped = db.get(Job, write.id)
+    assert (stopped.status, stopped.output) == (JobStatus.cancelled, None)
+    assert db.query(Usage).filter_by(job_id=write.id).count() == 1  # its dollars, once
+    assert not [j for j in db.query(Job).all() if j.input.get("step") == "cast_slots"]
