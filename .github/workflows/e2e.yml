@@ -19,11 +19,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
-      - name: Install ffmpeg (for the stand-in videos; retries once if the mirror stalls)
-        timeout-minutes: 8
-        run: |
-          timeout 180 sudo apt-get install -y --no-install-recommends ffmpeg \
-            || { sudo dpkg --configure -a; sudo apt-get update -qq && timeout 240 sudo apt-get install -y --no-install-recommends ffmpeg; }
+      - name: Install ffmpeg (the stand-in videos)
+        uses: ./.github/actions/ffmpeg
+        timeout-minutes: 16
       - run: uv sync --locked
         working-directory: server
       - run: npm ci
