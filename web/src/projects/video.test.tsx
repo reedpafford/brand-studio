@@ -529,3 +529,36 @@ test("a Cast & places character has no Delete this look", async () => {
   await screen.findByLabelText("Bo");
   expect(screen.queryByRole("button", { name: /^More for/ })).toBeNull();
 });
+
+test("a problem line never shows a raw id: the character's name stands in, the clip says Clip c1, and a missing look links to Assets", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /library/character": [200, [{ id: 5, name: "Bo", image_file_ids: [], brand_ids: [1] }]],
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, problems: ["c1: char:5 is in the clip but its sheet isn't attached", "Advice: c1: the Keep line doesn't name char:5; give their look"] })]],
+  });
+  open("?step=clips");
+  const list = await screen.findByLabelText("Problems for c1");
+  expect(list).toHaveTextContent("Clip c1: Bo is in the clip but its sheet isn't attached");
+  expect(list).not.toHaveTextContent(/char:|slot:/);
+  expect(within(list).getByRole("link", { name: "Approve a look in Assets" })).toHaveAttribute("href", "/b/1/videos/9?step=assets");
+  const advice = screen.getByLabelText("Advice for c1");
+  expect(advice).not.toHaveTextContent(/char:/);
+  await userEvent.click(within(advice).getByText(/Advice \(/)); // open it
+  const keepLabels = within(advice).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? "");
+  expect(keepLabels.some((l) => l.startsWith("Keep anyway: "))).toBe(true);
+  expect(keepLabels.join(" ")).not.toMatch(/char:|slot:/); // the screen reader hears names too
+});
+
+test("a frame's problem reads as a name too", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /library/character": [200, [{ id: 5, name: "Bo", image_file_ids: [], brand_ids: [1] }]],
+    "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, earlier: [], change: null, file_id: null, problems: ["c1: char:5 has no approved sheet"] }]],
+  });
+  open("?step=storyboard");
+  const list = await screen.findByLabelText("Problems for c1");
+  await vi.waitFor(() => expect(list).toHaveTextContent("Clip c1: Bo has no approved sheet"));
+  expect(list).not.toHaveTextContent(/char:/);
+});
