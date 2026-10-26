@@ -24,6 +24,7 @@ class ProjectClip(Entity, Base):
     prompt_ok: Mapped[bool] = mapped_column(default=False)  # its prompt was read: Looks good
     # Insert shot id -> "Use the real image" as the editor set it (else the default, cut_in.py)
     real_images: Mapped[dict[str, bool]] = mapped_column(JSON, default=dict)
+    change: Mapped[dict | None] = mapped_column(JSON)  # the last note: app/change.py
 
 
 class ClipTake(Entity, Base):
@@ -34,6 +35,7 @@ class ClipTake(Entity, Base):
     number: Mapped[int]  # 1, 2, … within the clip
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
+    prompt: Mapped[str | None] = mapped_column(Text)  # what it was made from; picked back with it
 
 
 class FinalVideo(Entity, Base):

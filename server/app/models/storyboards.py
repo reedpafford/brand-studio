@@ -23,3 +23,4 @@ class StoryboardFrame(Entity, Base):
     still_stale: Mapped[bool] = mapped_column(default=False)  # the still shows the old cast
     redrawn: Mapped[bool] = mapped_column(default=False)  # redrawn for a new cast, not approved
     earlier: Mapped[list[dict]] = mapped_column(JSON, default=list)  # [{file_id, prompt}]
+    change: Mapped[dict | None] = mapped_column(JSON)  # the last note: app/change.py

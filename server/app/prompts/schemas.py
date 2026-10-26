@@ -245,6 +245,13 @@ class ClipPrompts(BaseModel):
     clips: list[ClipPrompt]
 
 
+# --- Change it: a still's or clip's prompt rewritten from a plain-English note ---
+
+
+class ChangedPrompt(BaseModel):
+    prompt: str = Field(description="The whole prompt with only the note's change made.")
+
+
 # --- Quick clip: Improve prompt ---
 
 

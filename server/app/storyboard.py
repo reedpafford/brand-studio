@@ -164,6 +164,6 @@ def save_still(db: Session, job: Job) -> None:
         if frame.file_id and frame.file_id != file_ids[0]:  # the old still stays, to pick back
             frame.earlier = [
                 *(frame.earlier or []),
-                {"file_id": frame.file_id, "prompt": frame.prompt},
+                {"file_id": frame.file_id, "prompt": job.input.get("was_prompt", frame.prompt)},
             ]
         frame.file_id, frame.approved, frame.still_stale = file_ids[0], False, False

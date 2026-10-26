@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, clip_prompts, clip_takes, cut_in
+from app import advice, change, clip_prompts, clip_takes, cut_in
 from app.auth import current_user
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -26,7 +26,7 @@ from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.scripts import latest
-from app.routes.storyboard import _newest_breakdown
+from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
 from app.schemas import LongText
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["project clips"])
@@ -83,6 +83,7 @@ class ProjectClipOut(BaseModel):
     take_credits: float  # what one more take costs (shown on Make clip / Redo)
     stale: bool  # made from an older breakdown
     inserts: list[InsertOut]
+    change: dict | None  # the last Change it note, as on a frame (app/change.py)
 
 
 def _takes(db: Session, row: ProjectClip) -> list[ClipTake]:
@@ -228,6 +229,35 @@ def generate(
     )
 
 
+@router.get("/clips/{clip_id}/change", response_model=PriceOut)
+def change_price(
+    project_id: int, clip_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    project, row = _clip(db, user, project_id, clip_id)
+    return PriceOut(credits=change.shown(change.credits(db, project, row)))
+
+
+@router.post(
+    "/clips/{clip_id}/change",
+    response_model=JobOut,
+    status_code=201,
+    dependencies=[Depends(generation_on)],
+)
+def change_clip(
+    project_id: int,
+    clip_id: int,
+    body: ChangeIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Change it: the note rewrites this clip's prompt; once there's a take, a new take is
+    made from it (one price). A note that changes what's said is refused before any charge."""
+    project, row = _clip(db, user, project_id, clip_id)
+    if _stale(db, row, _newest_breakdown(db, project)):
+        raise HTTPException(409, "Write the clip prompts again first.")
+    return change.start(db, user, project, row, body.note)
+
+
 @router.post("/clips/{clip_id}/takes/{take_id}/pick", response_model=ProjectClipOut)
 def pick_take(
     project_id: int,
@@ -258,7 +288,7 @@ def approve(
     project, row = _clip(db, user, project_id, clip_id)
     if not row.picked_take_id:
         raise HTTPException(409, "Make a take of this clip first.")
-    row.approved = True
+    row.approved, row.change = True, None
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
@@ -292,9 +322,11 @@ def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[st
 def prompt_looks_good(
     project_id: int, clip_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    """Looks good: the editor read this clip's prompt."""
+    """Looks good: the editor read this clip's prompt (and what a note changed in it)."""
     project, row = _clip(db, user, project_id, clip_id)
     row.prompt_ok = True
+    if not row.picked_take_id:
+        row.change = None
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
