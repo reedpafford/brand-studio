@@ -277,7 +277,7 @@ def test_removed_scripts_have_their_own_list_with_a_purge_date(owner, editor):
     rows = owner.get("/scripts?removed=1").json()
     assert [s["title"] for s in rows] == ["Reed's", "Mine"]
     gone, purge = (datetime.fromisoformat(rows[0][k]) for k in ("removed_at", "purge_on"))
-    assert purge - gone == timedelta(days=30)
+    assert purge - gone == timedelta(days=30) and rows[0]["removed"] == "deleted"
     assert owner.get("/scripts").json() == []
     owner.post(f"/scripts/{reeds['id']}/restore")
     assert [s["title"] for s in owner.get("/scripts").json()] == ["Reed's"]

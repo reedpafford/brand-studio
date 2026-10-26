@@ -90,6 +90,16 @@ def test_flags_and_the_attention_order(owner, editor, db):
     assert page.headers["x-total-count"] == "4"
 
 
+def test_the_catch_all_failure_says_what_to_do(owner, editor, db):
+    from app.worker import FAILED
+
+    pid = _video(owner, editor, db)
+    _job(db, pid, JobStatus.failed)
+    db.query(Job).update({"error": FAILED})
+    db.commit()
+    assert _row(owner, pid)["flag_problem"] == "It didn't finish. Open the video to try again."
+
+
 def test_a_job_that_ran_after_a_failure_clears_it(owner, editor, db):
     pid = _video(owner, editor, db)
     _job(db, pid, JobStatus.failed)
