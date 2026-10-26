@@ -102,6 +102,18 @@ def keep_advice(
     return _out(row, version.version)
 
 
+@router.delete("/keep", response_model=BreakdownOut)
+def unkeep_advice(
+    project_id: int, problem: str, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo Keep anyway on the newest breakdown's advice (?problem=, the text as shown)."""
+    project, version = _working(db, user, project_id)
+    row = _newest(db, project)
+    advice.unkeep(row, problem)
+    db.commit()
+    return _out(row, version.version)
+
+
 @router.put("", response_model=BreakdownOut)
 def save(
     project_id: int,

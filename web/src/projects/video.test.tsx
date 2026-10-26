@@ -87,6 +87,34 @@ test("a role with no character picks one from the library", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
 });
 
+const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], kept: [], file_id: 40, approved: true, stale: false };
+const clip = (o: object) => ({ id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
+const toClips = { ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown] };
+
+test("a clip's prompt is read and marked Looks good before its take can be made", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({})]] });
+  open("?step=clips");
+  expect(await screen.findByText("Bo sniffs the salmon")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 looks good" }));
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
+  // The prompt stays, marked, and can be taken back.
+  expect(screen.getByText("Looks good")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 undo looks good" }));
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
+});
+
+test("a prompt shows pictures by name, never [Image1]", async () => {
+  setViewport(1440);
+  const references = [{ kind: "image", id: "frame:c1", role: "frame:c1" }, { kind: "image", id: "char:5", role: "Bo's look" }, { kind: "image", id: "screen:2", role: "screen:2" }];
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt: "[Image1] is the first frame. [Image2] eats. [Image3] shows.", references })]] });
+  open("?step=clips");
+  const prompt = await screen.findByLabelText("Prompt for clip c1");
+  expect(prompt).toHaveTextContent("First frame is the first frame. Bo's look eats. Picture 3 shows.");
+  expect(prompt).not.toHaveTextContent("[Image");
+});
+
 test("a role with no character can make one, so Assets is never a dead end", async () => {
   setViewport(1440);
   const calls = fakeServer({
@@ -110,4 +138,62 @@ test("an approved picked character shows no buttons: it is shared with every vid
   expect(within(card).getByText("Approved")).toBeInTheDocument();
   expect(within(card).queryByRole("button")).toBeNull();
   expect(within(card).queryByRole("link")).toBeNull();
+});
+
+test("one-press Make storyboard asks Reed when the writing plus the stills pass the budget, not only the writing", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 590, budget_credits: 600 }],
+    "GET /projects/9/assets": [200, []],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image", unit: "image", credits_per_unit: 4 }]],
+    "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
+  });
+  open("?step=storyboard");
+  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 15 credits" })).toBeInTheDocument();
+});
+
+const take = (id: number, number: number) => ({ id, number, file_id: 50 + id });
+const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)], picked_take_id: 2 });
+
+test("Downloads: the zip, the picked take and the older take each download", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
+  expect(zip).toHaveAttribute("href", "/api/projects/9/clips.zip");
+  expect(screen.getByRole("link", { name: "Download clip 1 (bo-tries-salmon-b-clip-1.mp4)" })).toHaveAttribute("href", expect.stringContaining("/files/52"));
+  expect(screen.getByText("Older takes (1)")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Download clip 1 take 1/ })).toBeInTheDocument();
+});
+
+test("Downloads puts the clips together by itself the first time, for free", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/video": [201, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByText("Putting your clips together…")).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/video")).toHaveLength(1));
+});
+
+test("a video made from a library version opens on the new page", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9": [200, { ...project, script_draft_id: 4 }], "GET /projects/9/assets": [200, []] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/projects/9?step=breakdown"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByRole("heading", { name: "Breakdown", level: 2 })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Steps" })).toHaveTextContent("Downloads");
+});
+
+test("on a phone the zip button sits in the action bar", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
+  expect(zip.closest(".border-t.text-center")).not.toBeNull();
+  expect(screen.getByText("Made from: Clip 1 Take 2")).toBeInTheDocument();
 });

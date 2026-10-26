@@ -10,7 +10,8 @@ import { AssetsPane, useAssets } from "./AssetsPane";
 import { BreakdownPane } from "./BreakdownPane";
 import { useBriefChoices } from "./BriefPickers";
 import { ClipsPane } from "./ClipsPane";
-import { FinalPane } from "./FinalPane";
+import { DownloadsPane } from "./DownloadsPane";
+
 import { Meter, WaitingBadge } from "./Meter";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
@@ -33,7 +34,7 @@ export function VideoPage() {
     queryKey: ["project", id],
     queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
   });
-  const { progress, loading, script } = useProgress(id);
+  const { progress, loading, script, media } = useProgress(id);
   const assets = useAssets(id);
   const p = project.data;
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
@@ -108,9 +109,9 @@ export function VideoPage() {
         </div>
       )}
       {step === "assets" && <AssetsPane projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} />}
-      {step === "storyboard" && <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "clips" && <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "downloads" && <FinalPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
+      {step === "storyboard" && <StoryboardPane oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "clips" && <ClipsPane review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       {panel && (
         <ScriptPanel
           projectId={id}
