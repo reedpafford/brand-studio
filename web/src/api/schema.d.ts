@@ -4371,6 +4371,18 @@ export interface components {
              */
             at: string;
         };
+        /** RefundedOut */
+        RefundedOut: {
+            /** Credits */
+            credits: number;
+            /** Reason */
+            reason: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
         /** RenderIn */
         RenderIn: {
             /**
@@ -4872,11 +4884,7 @@ export interface components {
             estimated: boolean;
             /** Status */
             status: string;
-            /**
-             * Refunded
-             * @default false
-             */
-            refunded: boolean;
+            refunded?: components["schemas"]["RefundedOut"] | null;
         };
         /** UsageChargesOut */
         UsageChargesOut: {

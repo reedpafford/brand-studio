@@ -404,7 +404,15 @@ class UsageCharge(BaseModel):
     cost_usd: float
     estimated: bool
     status: str
-    refunded: bool = False  # its credits were given back (the dollars stay spent)
+    # Its credits were given back (the dollars stay spent): what it cost before, why and when,
+    # so the struck credits and the reason survive a reload. Null if not refunded.
+    refunded: "RefundedOut | None" = None
+
+
+class RefundedOut(BaseModel):
+    credits: float  # what it was charged before the refund (`credits` above is now 0)
+    reason: str
+    at: datetime
 
 
 class UsageChargesOut(BaseModel):
@@ -437,15 +445,16 @@ def charges(
         b.id: b.name
         for b in db.scalars(select(Brand).where(Brand.workspace_id == owner.workspace_id))
     }
-    refunded = set(
-        db.scalars(
-            select(ChargeRefund.job_id).where(ChargeRefund.job_id.in_([j.id for _, j in rows]))
+    refunded = {
+        r.job_id: RefundedOut(credits=float(r.credits), reason=r.reason, at=r.created_at)
+        for r in db.scalars(
+            select(ChargeRefund).where(ChargeRefund.job_id.in_([j.id for _, j in rows]))
         )
-    )
+    }
     items = [
         UsageCharge(
             id=row.id,
-            refunded=job.id in refunded,
+            refunded=refunded.get(job.id),
             at=row.created_at,
             person=_who(db, job.created_by_id),
             brand=UsageBrandRef(id=job.brand_id, name=names[job.brand_id])
