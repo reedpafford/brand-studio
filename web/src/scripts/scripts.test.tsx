@@ -1116,6 +1116,17 @@ test("the done card has Review the breakdown, which opens the review", async () 
   expect(await screen.findByRole("link", { name: "Review the breakdown" })).toHaveAttribute("href", "/b/1/scripts/7/reel");
 });
 
+test("a script made from an imported reel carries a Reel chip in the library; one that isn't doesn't", async () => {
+  setViewport(1440);
+  const reel = script({ id: 31, title: "Altar swap", reel_imported: true, versions: [v(0, "draft")] });
+  const plain = script({ id: 32, title: "Plain script", reel_imported: false, versions: [v(0, "draft")] });
+  fakeServer({ ...base, "GET /scripts": [200, [reel, plain]] });
+  open();
+  const row = (await screen.findByRole("heading", { name: "Altar swap" })).closest("li")!;
+  expect(within(row).getByText("Reel")).toBeInTheDocument();
+  expect(within(screen.getByRole("heading", { name: "Plain script" }).closest("li")!).queryByText("Reel")).toBeNull();
+});
+
 test("Bulk create, Reel links: one link per line, bad lines are named and block the button, then one draft per reel is made and Write all reads and writes at one price", async () => {
   setViewport(1440);
   const calls = fakeServer({
@@ -1130,10 +1141,13 @@ test("Bulk create, Reel links: one link per line, bad lines are named and block 
   const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
   await userEvent.click(within(dialog).getByRole("radio", { name: "Reel links" }));
   expect(within(dialog).queryByLabelText(/^Title \d$/)).toBeNull();
+  expect(within(dialog).getByRole("button", { name: "Make 0 drafts" })).toHaveAccessibleDescription("Paste at least one reel link");
   await userEvent.type(within(dialog).getByLabelText("Paste reel links, one per line"), "https://www.instagram.com/reel/Abc123/{Enter}https://example.com/nope{Enter}https://www.instagram.com/reel/Def456/");
   expect(within(dialog).getByText("Line 2 isn't a reel link")).toBeInTheDocument();
-  await userEvent.click(within(dialog).getByRole("button", { name: "Make 3 drafts" }));
-  expect(calls.some((c) => c.key === "POST /scripts/bulk")).toBe(false); // a bad line blocks it
+  const make = within(dialog).getByRole("button", { name: "Make 2 drafts" }); // counts only the two real reel links
+  expect(make).toBeDisabled(); // a bad line blocks it, and says why
+  expect(make).toHaveAccessibleDescription("Fix the lines that aren't reel links");
+  expect(calls.some((c) => c.key === "POST /scripts/bulk")).toBe(false);
   const box = within(dialog).getByLabelText("Paste reel links, one per line");
   await userEvent.clear(box);
   await userEvent.type(box, "https://www.instagram.com/reel/Abc123/{Enter}https://www.instagram.com/p/Def456/");

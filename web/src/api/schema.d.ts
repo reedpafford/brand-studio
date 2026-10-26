@@ -1461,6 +1461,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/import/read-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Again
+         * @description Read it again (reel-import.md §5): the breakdown and the script steps run again with
+         *     the note; the download and transcript are kept. Priced first; past an editor's week it's
+         *     refused, never held. A note that changes the reel's words is refused before any charge.
+         */
+        post: operations["read_again_scripts__script_id__import_read_again_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/fill-from-reel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fill From Reel
+         * @description Fill the script again (free): the reel's newest script replaces the edited words (the
+         *     old words stay in the version's history). The screen asks first.
+         */
+        post: operations["fill_from_reel_scripts__script_id__fill_from_reel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts": {
         parameters: {
             query?: never;
@@ -3470,6 +3513,18 @@ export interface components {
             /** Failed Step */
             failed_step?: string | null;
             estimate?: components["schemas"]["Estimate"] | null;
+            /** Read Again Credits */
+            read_again_credits?: number | null;
+            /**
+             * Edited Since Fill
+             * @default false
+             */
+            edited_since_fill: boolean;
+            /**
+             * New Fill Ready
+             * @default false
+             */
+            new_fill_ready: boolean;
         };
         /** ImproveIn */
         ImproveIn: {
@@ -4356,12 +4411,32 @@ export interface components {
             /** Credits Per Unit */
             credits_per_unit: number;
         };
+        /** ReadAgainIn */
+        ReadAgainIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** ReadOut */
         ReadOut: {
             /** Running */
             running: boolean;
             /** Problems */
             problems: string[];
+        };
+        /** ReelRow */
+        ReelRow: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "ready" | "reading" | "done" | "failed";
+            /** Seconds */
+            seconds: number | null;
+            /** Fetch Error */
+            fetch_error?: string | null;
         };
         /** Reference */
         Reference: {
@@ -4622,6 +4697,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
         };
         /** SetupIn */
         SetupIn: {
@@ -5044,6 +5120,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
             /** Spend Usd */
             spend_usd: number;
             /** Spend Estimated */
@@ -5216,6 +5293,16 @@ export interface components {
              */
             reading: number;
             /**
+             * Read Credits
+             * @default 0
+             */
+            read_credits: number;
+            /**
+             * Write Credits
+             * @default 0
+             */
+            write_credits: number;
+            /**
              * Writing
              * @default 0
              */
@@ -5353,6 +5440,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
             /** Notes */
             notes: string;
             /** Reference Replace */
@@ -5389,6 +5477,13 @@ export interface components {
             problems: string[];
             /** Changed Lines */
             changed_lines: string[];
+            /**
+             * Rewritten
+             * @default []
+             */
+            rewritten: {
+                [key: string]: unknown;
+            }[];
             /** Has Breakdown */
             has_breakdown: boolean;
             /** Approved At */
@@ -8338,6 +8433,72 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_again_scripts__script_id__import_read_again_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadAgainIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fill_from_reel_scripts__script_id__fill_from_reel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

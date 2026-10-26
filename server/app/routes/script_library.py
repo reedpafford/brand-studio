@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
+from app import rewritten
 from app import script_library as lib
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
@@ -89,12 +90,20 @@ class VersionOut(VersionSummary):
     changes: list[str]
     problems: list[str]
     changed_lines: list[str]  # the reel's lines rewritten for the brand swap
+    # "Was:" marks until approval: [{line_index (0-based line of text), text, was}]
+    rewritten: list[dict] = []
     has_breakdown: bool
     approved_at: datetime | None
     variation_of: str | None = None  # "A": a variation of the original; null for the original
     estimate_credits: float = 0  # to make it: 1 credit a second (480p), from its length
     clips: int = 0  # in the saved breakdown
     planned_by: Person | None = None  # who saved the breakdown
+
+
+class ReelRow(BaseModel):
+    status: Literal["preparing", "ready", "reading", "done", "failed"]
+    seconds: float | None  # once prepared
+    fetch_error: str | None = None  # the reel couldn't be got or prepared: the plain reason
 
 
 class ScriptRow(BaseModel):
@@ -117,6 +126,7 @@ class ScriptRow(BaseModel):
     removed_at: datetime | None = None  # in the removed list: when it was removed
     purge_on: datetime | None = None  # deleted only: when it goes for good (30 days on)
     reel_imported: bool = False  # adapts its own imported reel, not a catalogue one
+    reel: ReelRow | None = None  # made from a reel link or upload: where its reel is
 
 
 class ScriptOut(ScriptRow):
@@ -153,12 +163,32 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         changes=draft.changes,
         problems=draft.problems,
         changed_lines=draft.changed_lines or [],
+        rewritten=[
+            {**m, "text": lines[m["line_index"]]}
+            for lines in [draft.text.splitlines()]
+            for m in draft.rewritten or []
+            if m["line_index"] < len(lines)
+        ],
         has_breakdown=draft.breakdown is not None,
         approved_at=draft.approved_at,
         variation_of="A" if draft.slot else None,
         estimate_credits=lib.seconds(draft),
         clips=len((draft.breakdown or {}).get("clips", [])),
         planned_by=_person(db, draft.breakdown_by_id) if draft.breakdown else None,
+    )
+
+
+def _reel(db: Session, script: Script) -> ReelRow | None:
+    if script.reel is None:
+        return None
+    from app import reel_read
+
+    status, failed = reel_read.state(db, script)
+    problem = script.reel.get("problem") or "We couldn't prepare this reel. Upload it again."
+    return ReelRow(
+        status=status,
+        seconds=script.reel.get("seconds"),
+        fetch_error=problem if failed == "prepare" else None,
     )
 
 
@@ -172,6 +202,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         description=script.description,
         reference_id=script.reference_id,
         reel_imported=script.reference_breakdown is not None,
+        reel=_reel(db, script),
         published=script.published,
         status=lib.script_status(script, statuses),
         created_by_id=script.created_by_id,
@@ -424,6 +455,8 @@ def write_draft(
         draft = ScriptDraft(script_id=script.id, slot=slot)
         db.add(draft)
     lib.keep_text(db, draft, body.text, "edit", user.id)
+    if draft.rewritten:  # the "Was:" marks follow their lines until approval
+        draft.rewritten = rewritten.follow(draft.text or "", body.text, draft.rewritten)
     draft.text, draft.target_seconds = body.text, body.target_seconds
     db.commit()
     return _out(db, script)
@@ -440,6 +473,7 @@ def approve_draft(
         raise HTTPException(422, "Write the script first.")
     if draft.status != "approved":
         draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), user.id
+        draft.rewritten = []  # approved: the "Was:" marks and the banner go
         db.commit()
     return _out(db, script)
 

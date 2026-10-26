@@ -251,3 +251,103 @@ def test_a_video_watch_that_works_on_retry_stays_video(app, owner, db, clip, mon
     owner.post(f"{url}/import/read")
     _drain(app, db)
     assert owner.get(f"{url}/import").json()["watched_from"] == "video"
+
+
+def _read(app, client, db, clip) -> str:
+    url = _ready(app, client, db, clip)
+    client.post(f"{url}/import/read")
+    _drain(app, db)
+    return url
+
+
+def test_read_it_again_redoes_the_breakdown_and_script_with_the_note(app, owner, db, clip):
+    """reel-import.md §5: priced first; the note goes to the watch; the download, transcript
+    and cast are kept; an unedited script is filled again."""
+    url = _read(app, owner, db, clip)
+    done = owner.get(f"{url}/import").json()
+    assert done["read_again_credits"] > 0 and done["edited_since_fill"] is False
+    jobs = db.query(Job).count()
+    said = owner.post(f"{url}/import/read-again", json={"note": "Change the line to “Yes.”"})
+    assert (said.status_code, said.json()["detail"]) == (422, check.READ_AGAIN)
+    quoted = owner.post(f"{url}/import/read-again", json={"note": 'She says "Maybe."'})
+    assert quoted.status_code == 422  # words nobody says in the reel
+    assert db.query(Job).count() == jobs  # nothing charged
+    again = owner.post(f"{url}/import/read-again", json={"note": "Shot 2 is the bride."})
+    assert again.status_code == 201 and again.json()["status"] == "reading"
+    watch = db.query(Job).filter(Job.kind == "watch-gemini").order_by(Job.id.desc()).first()
+    prompt = watch.input["input"]["prompt"]
+    assert "Shot 2 is the bride." in prompt
+    assert "<last_reading>" in prompt and "logline" in prompt  # the last reading, to keep
+    _drain(app, db)
+    steps = [j.input.get("reel_step") for j in db.query(Job).order_by(Job.id)][jobs:]
+    assert steps == ["watch", "write"]  # not the prep, not the cast
+    after = owner.get(f"{url}/import").json()
+    assert (after["status"], after["edited_since_fill"], after["new_fill_ready"]) == (
+        "done", False, False
+    )  # fmt: skip
+
+
+def test_read_it_again_keeps_your_edits_until_you_fill_again(app, owner, db, clip):
+    url = _read(app, owner, db, clip)
+    owner.put(f"{url}/drafts/0", json={"text": "GROOM: My own words."})
+    assert owner.get(f"{url}/import").json()["edited_since_fill"] is True
+    owner.post(f"{url}/import/read-again", json={})
+    _drain(app, db)
+    kept = owner.get(f"{url}/import").json()
+    assert (kept["edited_since_fill"], kept["new_fill_ready"]) == (True, True)
+    assert owner.get(url).json()["versions"][0]["text"] == "GROOM: My own words."
+    filled = owner.post(f"{url}/fill-from-reel")
+    assert filled.status_code == 200
+    assert (filled.json()["edited_since_fill"], filled.json()["new_fill_ready"]) == (False, False)
+    assert owner.get(url).json()["versions"][0]["text"] != "GROOM: My own words."
+    assert owner.post(f"{url}/fill-from-reel").status_code == 409  # nothing new now
+
+
+def test_read_it_again_past_the_week_runs_nothing(app, owner, editor, db, clip):
+    url = _read(app, editor, db, clip)
+    limits = owner.get("/credits/limits").json()
+    owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 0})
+    jobs = db.query(Job).count()
+    refused = editor.post(f"{url}/import/read-again", json={})
+    assert refused.status_code == 409 and "you have 0 left this week" in refused.json()["detail"]
+    assert db.query(Job).count() == jobs and "Reed" not in refused.json()["detail"]
+
+
+def test_a_refusal_rounds_the_price_up_and_whats_left_down():
+    """QA on #452: 3.5 left reads "3 left", so it never says "needs 4; you have 4 left"."""
+    from decimal import Decimal
+
+    from app.credits import shown
+
+    assert shown(Decimal("3.6"), Decimal("3.5")) == (4, 3)
+    assert shown(Decimal("2"), Decimal("-1")) == (2, 0)
+
+
+def test_fill_from_reel_brings_the_new_scripts_own_was_marks(app, owner, db, clip):
+    """QA on #452 + #455: after Fill the script again, the "Was:" marks are the new script's,
+    never the old ones left on the wrong lines."""
+    from app.models.script_library import ScriptDraft
+
+    url = _read(app, owner, db, clip)
+    sid = int(url.rsplit("/", 1)[1])
+    draft = db.query(ScriptDraft).filter_by(script_id=sid, slot=0).one()
+    draft.rewritten = [{"line_index": 0, "was": "an old mark"}]  # left from an earlier write
+    db.commit()
+    owner.put(f"{url}/drafts/0", json={"text": "GROOM: My own words."})
+    db.expire_all()  # the worker here shares this session: let it see the edit
+    again = owner.post(f"{url}/import/read-again", json={})
+    assert again.status_code == 201, again.text
+    _drain(app, db)
+    db.expire_all()
+    pending = db.get(Job, db.get(Script, sid).reel["pending_fill_job_id"])
+    new = "SCENE 1\nGROOM: Will you buy me a coin?\nBRIDE: No."  # the reel's line, rewritten
+    pending.output = {"drafts": [{**pending.output["drafts"][0], "script": new,
+                                  "changed_lines": ["Will you buy me a coin?"]}]}  # fmt: skip
+    db.commit()
+    marks = owner.post(f"{url}/fill-from-reel").json()
+    version = owner.get(url).json()["versions"][0]
+    assert version["rewritten"] == [
+        {"line_index": 1, "was": "Will you marry me?", "text": "GROOM: Will you buy me a coin?"}
+    ]
+    assert version["changed_lines"] == ["Will you buy me a coin?"]
+    assert marks["edited_since_fill"] is False
