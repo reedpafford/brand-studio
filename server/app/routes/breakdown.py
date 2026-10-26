@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, storyboard
+from app import advice, breakdown, clip_prompts, storyboard
 from app.advice import names, plain
 from app.auth import current_user
 from app.db import get_db
@@ -141,6 +141,7 @@ def save(
     )
     db.add(row)
     db.commit()
+    clip_prompts.follow(db, project, user)  # stale clip prompts are rewritten, within budget
     return _out(row, version.version)
 
 
@@ -169,7 +170,9 @@ def fix_cast(project_id: int, user: User = Depends(current_user), db: Session = 
     from app import cast_roles
 
     redrawn = cast_roles.redraw(db, project, user, cast_roles.carry_frames(db, project, row, new))
+    cast_roles.carry_clips(db, project, row, new)
     db.commit()
+    clip_prompts.follow(db, project, user)
     out = _out(new, version.version)
     old = Breakdown.model_validate(row.data)
     out.changed_shots, out.cast_redraw = cast_roles.changed_shots(old, fixed), redrawn

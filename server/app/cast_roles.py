@@ -152,6 +152,43 @@ def _look(db: Session, ref: str):
     )
 
 
+def _recast(db: Session, text: str, swap: dict[str, str]) -> str:
+    """The old look's name and description swapped for the new one's (free)."""
+    for was, now in swap.items():
+        a, b = _look(db, was), _look(db, now)
+        if a and b:
+            text = re.sub(rf"(?<!\w){re.escape(a.name)}(?!\w)", b.name, text)
+            if a.notes and b.notes:
+                text = text.replace(a.notes, b.notes)
+    return text
+
+
+def carry_clips(db: Session, project: Project, old_row, new_row) -> int:
+    """Clip prompts follow a recast like frames (free, no model call): a clip whose shots
+    only changed who plays a role moves to the new breakdown with its references, the look's
+    name and description swapped. Its takes stay (they show the old cast, so it isn't
+    approved any more). Others stay behind as stale, for clip_prompts.follow. How many moved."""
+    from app.models.clips import ProjectClip
+    from app.prompts.schemas import Breakdown
+
+    old, new = Breakdown.model_validate(old_row.data), Breakdown.model_validate(new_row.data)
+    swaps = _swaps(old, new)
+    clips = {c.id: c.shot_ids for c in new.clips}
+    moved = 0
+    for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == old_row.id)):
+        mine = clips.get(clip.clip_id)
+        if not mine or any(swaps.get(s, {}) is None for s in mine):
+            continue
+        swap = {k: v for s in mine for k, v in (swaps.get(s) or {}).items()}
+        clip.breakdown_id = new_row.id
+        moved += 1
+        if swap:
+            clip.references = [{**r, "id": swap.get(r["id"], r["id"])} for r in clip.references]
+            clip.prompt = _recast(db, clip.prompt, swap)
+            clip.approved = clip.prompt_ok = False
+    return moved
+
+
 def carry_frames(db: Session, project: Project, old_row, new_row, same_look=False) -> list:
     """Frames of the replaced breakdown move to the new one when only who plays a role
     changed: their references, the look's name and its description are swapped in the
@@ -176,12 +213,7 @@ def carry_frames(db: Session, project: Project, old_row, new_row, same_look=Fals
         if not swap:
             continue
         frame.reference_ids = [swap.get(r, r) for r in frame.reference_ids]
-        for was, now in swap.items():
-            a, b = _look(db, was), _look(db, now)
-            if a and b:
-                frame.prompt = re.sub(rf"(?<!\w){re.escape(a.name)}(?!\w)", b.name, frame.prompt)
-                if a.notes and b.notes:
-                    frame.prompt = frame.prompt.replace(a.notes, b.notes)
+        frame.prompt = _recast(db, frame.prompt, swap)
         if same_look:
             continue
         frame.approved = False

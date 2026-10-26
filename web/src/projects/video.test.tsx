@@ -755,3 +755,37 @@ test("Approve all on Clips approves the clips with a picked take", async () => {
   expect(await screen.findByText("Approved 1.")).toBeInTheDocument();
   expect(await screen.findByText("Approved 1 clip.")).toBeInTheDocument(); // the toast, with Undo
 });
+
+const staleClips = [clip({ id: 3, clip_id: "c1", stale: true, takes: [{ id: 5 }], picked_take_id: 5 }), clip({ id: 4, clip_id: "c2", stale: true })];
+const staleRoutes = {
+  ...toClips,
+  "GET /projects/9/clips": [200, staleClips] as [number, unknown],
+  "GET /projects/9/clips/prompts/price": [200, { clip_ids: ["c1", "c2"], credits: 6 }] as [number, unknown],
+  "GET /projects/9/clips/prompts/price?clip_id=c1": [200, { clip_ids: ["c1"], credits: 3 }] as [number, unknown],
+  "POST /projects/9/clips/prompts": [201, { id: 7, kind: "write-claude", step: "clip_prompts", status: "queued", credits: 6, project_id: 9 }] as [number, unknown],
+};
+
+test("clips made for an older breakdown offer one priced rewrite for all, and Make the takes waits for it", async () => {
+  setViewport(1440);
+  // A third clip is fine but has no take yet, so Make the takes is on screen beside the rewrite.
+  const calls = fakeServer({ ...staleRoutes, "GET /projects/9/clips": [200, [...staleClips, clip({ id: 5, clip_id: "c3", prompt_ok: true })]] });
+  open("?step=clips");
+  expect(await screen.findByText("2 clips were made for an older breakdown. Rewrite their prompts so they match.")).toBeInTheDocument();
+  expect(screen.getByText("Rewrite the clips made for an older breakdown first (2).")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /credits/ }).filter((b) => b.className.includes("bg-accent"))).toHaveLength(1); // one amber: the rewrite
+  await userEvent.click(await screen.findByRole("button", { name: "Rewrite clip prompts · 6 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")).toBeDefined());
+  expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toBeUndefined(); // every stale clip
+  expect(await screen.findByText("Rewriting clip prompts…")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Rewrite/ })).toBeNull();
+});
+
+test("a stale clip has its own priced rewrite in place of Change this…", async () => {
+  setViewport(1440);
+  const calls = fakeServer(staleRoutes);
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).queryByLabelText("Change this…")).toBeNull();
+  await userEvent.click(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · 3 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
+});

@@ -47,6 +47,8 @@ At the top: "How many variations?" with a segmented control: **None · 1 · 2**.
 - **Approve** for the version shown takes the action bar. Once every version is approved, the action bar shows **Next: Cast**.
 
 ### Next
+**Approve all** (secondary, `Check`, README rule 11) sits in the step bar before the amber, and in the action bar's overflow on phone. It approves every kept version that's written and still a draft. Skipped ones are listed as "C: still writing", and the toast "Approved 2 versions." has **Undo** (8 s).
+
 **Next: Cast** is disabled until every kept variation is approved. Reason: "Approve or remove variation C first."
 
 ### States
