@@ -737,3 +737,19 @@ def misheard(transcript: list[dict]) -> list[str]:
                 break
         seen.append(x["text"])
     return problems
+
+
+READ_AGAIN = (
+    "Notes can fix who's speaking, the shots and the camera, but not the words said in the "
+    "reel. Change the words in the script instead."
+)
+
+
+def reel_note(note: str, said: list[str]) -> str:
+    """A Read it again note (reel-import.md §5) fixes the reading, never the reel's words: no
+    asking to add, cut or reword a line, and no quoting words nobody says. '' if it's fine."""
+    spoken = {_exact(x) for x in said}
+    quoted = [q for q in QUOTED.findall(note) if q.strip()]
+    if REWORD.search(note) or any(_exact(q) not in spoken for q in quoted):
+        return READ_AGAIN
+    return ""
