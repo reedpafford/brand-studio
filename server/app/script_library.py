@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.models.accounts import User
 from app.models.clips import ProjectClip
 from app.models.jobs import Job, JobStatus
+from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft, ScriptDraftText
 
@@ -125,6 +126,25 @@ def writing(db: Session, script_id: int, step: str | None = None) -> bool:
         j.input.get("script_id") == script_id and (step is None or j.input.get("step") == step)
         for j in jobs
     )
+
+
+def own_jobs(db: Session, script: Script) -> list[Job]:
+    """The script's own work still waiting or running, whoever started it: its words, reel
+    read, variations, Directions, plan, cast read and its own looks' sheets. Never its videos'
+    jobs, which are theirs."""
+    looks = set(db.scalars(select(LibraryItem.id).where(LibraryItem.owner_script_id == script.id)))
+    waiting = db.scalars(
+        select(Job).where(
+            Job.workspace_id == script.workspace_id,
+            Job.project_id.is_(None),
+            Job.status.in_(WAITING),
+        )
+    )
+    return [
+        j
+        for j in waiting
+        if j.input.get("script_id") == script.id or j.input.get("library_item_id") in looks
+    ]
 
 
 HISTORY = 20  # earlier texts kept per version (Producer, 2026-10-25)

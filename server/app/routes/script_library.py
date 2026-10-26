@@ -15,7 +15,6 @@ from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.jobs import Job
-from app.models.library import LibraryItem
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.models.scripts import Suggestion
 from app.purge import PURGE_AFTER
@@ -130,6 +129,7 @@ class ScriptRow(BaseModel):
     purge_on: datetime | None = None  # deleted only: when it goes for good (30 days on)
     reel_imported: bool = False  # adapts its own imported reel, not a catalogue one
     reel: ReelRow | None = None  # made from a reel link or upload: where its reel is
+    running: bool = False  # its own work is being made (not its videos'), whoever started it
 
 
 class ScriptOut(ScriptRow):
@@ -213,6 +213,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         created_at=script.created_at,
         versions=versions,
         versions_left=statuses.count("approved"),
+        running=bool(lib.own_jobs(db, script)),
     )
     if not full:
         return ScriptRow(**row)
@@ -425,20 +426,7 @@ def delete_script(
     sheets); Restore doesn't start it again. Its videos are their own and go on."""
     script = _removable(db, user, script_id)
     script.archived, script.deleted_at = True, utcnow()
-    looks = set(db.scalars(select(LibraryItem.id).where(LibraryItem.owner_script_id == script.id)))
-    waiting = db.scalars(
-        select(Job).where(
-            Job.workspace_id == script.workspace_id,
-            Job.project_id.is_(None),
-            Job.status.in_(lib.WAITING),
-        )
-    )
-    mine = [
-        j.id
-        for j in waiting
-        if j.input.get("script_id") == script.id or j.input.get("library_item_id") in looks
-    ]
-    stop_jobs(db, Job.id.in_(mine))
+    stop_jobs(db, Job.id.in_([j.id for j in lib.own_jobs(db, script)]))
     # app.purge removes it for good PURGE_AFTER on (never one with videos).
     db.commit()
 
