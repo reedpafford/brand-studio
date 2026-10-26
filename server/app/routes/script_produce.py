@@ -3,6 +3,8 @@ version's words as script v1, the script's brand, reel and locked cast, and eith
 breakdown preview (free) or a breakdown run now (paid, from the project's budget or, for an
 editor's own script, their weekly allowance). From there the usual steps run."""
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -12,6 +14,7 @@ from sqlalchemy.orm import Session
 from app import breakdown
 from app import script_library as lib
 from app.auth import current_user
+from app.credits import estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -31,6 +34,22 @@ router = APIRouter(prefix="/scripts/{script_id}/drafts/{slot}", tags=["script li
 class ProduceOut(BaseModel):
     project_id: int
     breakdown_job_id: int | None  # a breakdown being made; null when the saved one was used
+
+
+class ProduceEstimate(BaseModel):
+    credits: float  # what pressing Make this version costs: 0 with a saved plan, else its breakdown
+
+
+@router.get("/produce/estimate", response_model=ProduceEstimate)
+def produce_estimate(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """The price on "Make this version": nothing when the version has a saved plan,
+    otherwise the breakdown that starts with it (no paid work starts without a price)."""
+    draft = lib.get_draft(db, lib.get_script(db, user, script_id), slot)
+    if draft.breakdown:
+        return ProduceEstimate(credits=0)
+    return ProduceEstimate(credits=estimate(db, user.workspace_id, "write-claude", Decimal(1), {}))
 
 
 @router.post(
