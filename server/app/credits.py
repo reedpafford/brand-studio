@@ -198,7 +198,11 @@ def shown(total: Decimal, left: Decimal) -> tuple[int, int]:
 
 def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
     """Why `total` more credits on this video would go over, or "" when it fits: the
-    editor's week on their own script, else the video's budget."""
+    per-video limit (for everyone), then the editor's week on their own script, else the
+    video's budget (the owner's too: work made by itself stays within it)."""
+    cap = get_limits(db, project.workspace_id).per_video_max_credits
+    if credits_used(db, project) + total > cap:
+        return "would go over this video's limit."
     if own_script(db, project, user):
         left = credits_left(db, user)
         if left is None or total <= left:

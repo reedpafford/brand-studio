@@ -279,3 +279,35 @@ def test_not_now_on_the_missing_looks_sticks(owner, editor, db):
     assert db.query(Job).count() == jobs
     made = editor.post(f"{url}/slots/{nate}/make-look")  # the card's own button still works
     assert made.status_code == 200 and _row(editor, pid, nate)["declined"] is False
+
+
+def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, db):
+    """QA on #482: a limit that fits one sheet but not two makes neither."""
+    from decimal import Decimal
+
+    from app.credits import credits_used
+    from app.routes.sheets import sheet_price
+
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    roles = [owner.post(f"{base}/cast", json={"role": r, "description": "teen"}).json()[-1]["id"]
+             for r in ("Nate", "Mia")]  # fmt: skip
+    bd = copy.deepcopy(BREAKDOWN)
+    bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{r}" for r in roles]
+    owner.put(f"{base}/drafts/0/breakdown", json=bd)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    project = db.get(Project, pid)
+    one = sheet_price(db, project.workspace_id)
+    limits = owner.get("/credits/limits").json()
+    cap = int(credits_used(db, project) + one * Decimal("1.5"))  # room for one, not two
+    put = owner.put("/credits/limits", json={**limits, "per_video_max_credits": max(cap, 1)})
+    assert put.status_code == 200
+    url = f"/projects/{pid}/assets"
+    said = editor.get(f"{url}/missing-looks").json()
+    assert said["reason"] and "limit" in said["reason"] and len(said["slot_ids"]) == 2
+    jobs, looks = db.query(Job).count(), db.query(LibraryItem).count()
+    refused = editor.post(f"{url}/make-missing")
+    assert (refused.status_code, refused.json()["detail"]) == (409, said["reason"])
+    assert (db.query(Job).count(), db.query(LibraryItem).count()) == (jobs, looks)
