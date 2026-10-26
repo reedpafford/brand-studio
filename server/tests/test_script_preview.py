@@ -34,6 +34,7 @@ def test_preview_runs_on_the_version_with_its_cast_and_saves(app, db, owner):
         "running": False,
         "kept": [],
         "stale": False,
+        "changed_shots": [],
     }
     assert owner.get(f"{url}/estimate").json()["credits"] == 3
     job = owner.post(url)

@@ -246,6 +246,20 @@ class FakeWriter:
         lines = [ln.split("| ", 1) for ln in _tag(prompt, "script").splitlines() if "| " in ln]
         screen = next(iter(re.findall(r"- (screen:\d+)", self._system)), None)
         cast = re.findall(r"^(char:\d+) \|", _tag(prompt, "cast"), re.M)
+        # Who plays whom, as the cast lines now say ("char:5 | Leo | plays Nate, the groom")
+        plays = {
+            re.sub(r"^(the|a|an) ", "", m[1].split(",")[0].split("(")[0].strip().lower()): m[0]
+            for m in re.findall(
+                r"^(char:\d+) \|[^|\n]*\| plays ([^:|\n]+)", _tag(prompt, "cast"), re.M
+            )
+        }
+
+        def who(text):  # the speaker's own look, else the first cast member
+            label = DIALOGUE.match(text)
+            name = text.split(":", 1)[0].split("(")[0].strip().lower() if label else ""
+            hits = [c for key, c in plays.items() if re.search(rf"\b{re.escape(key)}\b", name)]
+            return hits[:1] or cast[:1]
+
         shots = [
             {
                 "id": f"1.{i}",
@@ -257,7 +271,7 @@ class FakeWriter:
                 "camera": "Medium shot, static",
                 "seconds": max(1.5, round(len(text.split()) / 4.8, 1)),  # spoken pace
                 # A speaker is the first cast member; a ★ line shows the brand's first screen.
-                "character_ids": cast[:1] if DIALOGUE.match(text) else [],
+                "character_ids": who(text) if DIALOGUE.match(text) else [],
                 "place_id": None,
                 "moment": None,
                 "screen_ids": [screen] if "★" in text and screen else [],

@@ -85,7 +85,29 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
     if "approved" in params:  # a video from the library is made from an approved version
         extra["approved"] = project.script_draft_id is not None
     found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
-    return found + unknown_ids(db, project, bd)
+    return found + unknown_ids(db, project, bd) + cast_problems(db, project, script, bd)
+
+
+def cast_problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
+    """Shots that show the wrong person for a role their lines name. They stop stills until
+    fixed ("Put the right cast in each shot", free) or kept anyway."""
+    from app.advice import CAST
+    from app.cast_roles import mismatches
+
+    def who(ref: str) -> str:
+        item = db.get(LibraryItem, int(ref[5:])) if ref.startswith("char:") else None
+        return item.name if item else "no look yet"
+
+    out = []
+    for shot, missing, wrong in mismatches(db, project, script, bd):
+        roles = " and ".join(role for role, _ in missing)
+        should = " and ".join(who(c) for _, c in missing if c.startswith("char:"))
+        shown = " and ".join(f"{who(c)} ({role})" for role, c in wrong)
+        out.append(
+            f"{CAST}shot {shot.id}: the script has {roles} here, but the shot shows {shown}"
+            + (f" instead of {should}" if should else "")
+        )
+    return out
 
 
 def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
@@ -108,17 +130,25 @@ def record_length(project: Project, bd: Breakdown) -> None:
     project.breakdown_seconds = sum(clip.seconds for clip in bd.clips) or None
 
 
+def as_roles(db: Session, project: Project, bd: Breakdown) -> Breakdown:
+    from app.cast_roles import as_roles as roles
+
+    return roles(db, project, bd)
+
+
 def save_breakdown(db: Session, job: Job) -> None:
     """Store Claude's breakdown (with its problems) as the project's newest breakdown, or on
     the library version it previews (workflow v2)."""
     if draft_id := job.input.get("script_draft_id"):
         from app import script_preview
-        from app.models.script_library import ScriptDraft
+        from app.models.script_library import Script, ScriptDraft
 
+        draft = db.get(ScriptDraft, draft_id)
+        stand_in = script_preview.stand_in_project(db, db.get(Script, draft.script_id), draft)
         script_preview.save(
             db,
-            db.get(ScriptDraft, draft_id),
-            Breakdown.model_validate(job.output),
+            draft,
+            as_roles(db, stand_in, Breakdown.model_validate(job.output)),
             job.created_by_id,
             job.input.get("script_text"),
         )
@@ -130,7 +160,7 @@ def save_breakdown(db: Session, job: Job) -> None:
             ScriptVersion.version == job.input["script_version"],
         )
     )
-    bd = Breakdown.model_validate(job.output)
+    bd = as_roles(db, project, Breakdown.model_validate(job.output))
     record_length(project, bd)
     db.add(
         BreakdownVersion(

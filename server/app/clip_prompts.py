@@ -47,7 +47,7 @@ def assets(db: Session, project: Project) -> Assets:
 
 def job_input(db: Session, project: Project, bd: BreakdownVersion) -> dict:
     system, _ = project_context(db, project, "clip_prompts")
-    lines = "\n".join(line for line, _, _ in assets(db, project).values())
+    lines = "\n".join(dict.fromkeys(line for line, _, _ in assets(db, project).values()))
     prompt = "\n".join(
         [
             video_model_block(video_model()),

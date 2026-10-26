@@ -30,6 +30,8 @@ class BreakdownOut(BaseModel):
     problems: list[str]
     kept: list[str]  # advice kept anyway (never blocks)
     stale: bool  # made for an older script version
+    changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
+    cast_redraw: dict | None = None  # fix-cast: redrawn_for_cast or redraw_refused
 
 
 def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
@@ -123,6 +125,7 @@ def save(
 ):
     """Save the editor's edited breakdown for the working script (a new row)."""
     project, version = _working(db, user, project_id)
+    body = breakdown.as_roles(db, project, body)  # speakers are roles, never looks
     if unknown := breakdown.unknown_ids(db, project, body):
         raise HTTPException(422, f"{unknown[0]}. Pick from the project's cast, places and screens.")
     breakdown.record_length(project, body)
@@ -137,3 +140,35 @@ def save(
     db.add(row)
     db.commit()
     return _out(row, version.version)
+
+
+@router.post("/fix-cast", response_model=BreakdownOut)
+def fix_cast(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Put the right cast in each shot (free, no model call): a shot whose lines name a role
+    but show another role's character gets that role's character instead. Saved as a new
+    breakdown version, so stills and clips from the old one are made again."""
+    from app.cast_roles import fix
+
+    project, version = _working(db, user, project_id)
+    row = _newest(db, project)
+    fixed = fix(db, project, version.text, Breakdown.model_validate(row.data))
+    if fixed is None:
+        raise HTTPException(409, "Every shot already has the right cast.")
+    new = BreakdownVersion(
+        project_id=project.id,
+        script_version=row.script_version,
+        source="edit",
+        data=fixed.model_dump(),
+        problems=breakdown.problems(db, project, version.text, fixed),
+        created_by_id=user.id,
+    )
+    db.add(new)
+    db.flush()
+    from app import cast_roles
+
+    redrawn = cast_roles.redraw(db, project, user, cast_roles.carry_frames(db, project, row, new))
+    db.commit()
+    out = _out(new, version.version)
+    old = Breakdown.model_validate(row.data)
+    out.changed_shots, out.cast_redraw = cast_roles.changed_shots(old, fixed), redrawn
+    return out

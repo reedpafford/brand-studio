@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.cast_roles import cast_roles, plays
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, project_context, project_screens, screen_name
 from app.images import image_job_input, image_model_block
@@ -41,10 +42,12 @@ def script_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
 
 def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     """Every picture a frame may use: asset id -> (its line for the prompt, its file ids).
-    The cast, the script's cast slots (slot:N, locked or not: an unlocked one has no picture
-    until Assets casts it, and is never a problem), the brand's places and props, and the
-    brand's screens."""
+    The cast (each look with the roles it plays), the script's cast slots (a filled slot:N is
+    the same line as the look that plays it, so one person never shows under two names or
+    outfits; an empty one has no picture until Assets casts it, and is never a problem), the
+    brand's places and props, and the brand's screens."""
     out: dict[str, tuple[str, list[int]]] = {}
+    roles = cast_roles(db, project)
     items = db.scalars(
         select(LibraryItem).where(
             LibraryItem.workspace_id == project.workspace_id, LibraryItem.archived.is_(False)
@@ -57,9 +60,13 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         if item.kind != Kind.character and not in_brand:
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
-        out[key] = (f"{key} | {item.kind} | {item.name} | {item.notes}", usable_files(item))
+        parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)
+        out[key] = (" | ".join(x for x in parts if x), usable_files(item))
     for slot in script_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
+        if f"char:{item_id}" in out:  # the look's own line: its notes win (Reed: used as is)
+            out[f"slot:{slot.id}"] = out[f"char:{item_id}"]
+            continue
         item = db.get(LibraryItem, item_id) if item_id else None
         look = "" if item else " (no look yet)"
         line = f"slot:{slot.id} | character | {slot.role} | {slot.description}{look}"
@@ -76,7 +83,7 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
 
 def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: bool) -> dict:
     system, _ = project_context(db, project, "storyboard")
-    lines = "\n".join(line for line, _ in assets(db, project).values())
+    lines = "\n".join(dict.fromkeys(line for line, _ in assets(db, project).values()))
     parts = [
         image_model_block(image_model(), project.aspect_ratio),
         f"<assets>\n{escape(lines)}\n</assets>",
@@ -154,4 +161,9 @@ def save_still(db: Session, job: Job) -> None:
     frame = db.get(StoryboardFrame, job.input["frame_id"])
     file_ids = (job.output or {}).get("file_ids") or []
     if frame and file_ids:
-        frame.file_id, frame.approved = file_ids[0], False
+        if frame.file_id and frame.file_id != file_ids[0]:  # the old still stays, to pick back
+            frame.earlier = [
+                *(frame.earlier or []),
+                {"file_id": frame.file_id, "prompt": frame.prompt},
+            ]
+        frame.file_id, frame.approved, frame.still_stale = file_ids[0], False, False

@@ -34,6 +34,7 @@ class PreviewOut(BaseModel):
     running: bool  # a breakdown is being made
     kept: list[str] = []  # advice kept anyway (never blocks)
     stale: bool = False  # the words changed since it was planned: plan again or keep it
+    changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
 
 
 class EstimateOut(BaseModel):
@@ -166,3 +167,27 @@ def unkeep_advice(
     draft.breakdown_kept = row.kept
     db.commit()
     return _out(db, draft)
+
+
+@router.post("/fix-cast", response_model=PreviewOut)
+def fix_plan_cast(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Put the right cast in each shot of the version's plan (free, no model call). Undo
+    saves the old plan back with PUT."""
+    from app import cast_roles
+
+    script, draft = _version(db, user, script_id, slot, edit=True)
+    if not draft.breakdown:
+        raise HTTPException(404, "This version has no plan yet.")
+    old = Breakdown.model_validate(draft.breakdown)
+    project = script_preview.stand_in_project(db, script, draft)
+    fixed = cast_roles.fix(db, project, draft.text, old)
+    if fixed is None:
+        raise HTTPException(409, "Every shot already has the right cast.")
+    kept_text = draft.breakdown_text
+    script_preview.save(db, draft, fixed, user.id, kept_text)  # still the words it was planned from
+    db.commit()
+    out = _out(db, draft)
+    out.changed_shots = cast_roles.changed_shots(old, fixed)
+    return out
