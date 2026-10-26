@@ -131,7 +131,8 @@ test("an unknown brand in the address does not pretend to be selected", async ()
 test("a failed remove tells you", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []], "DELETE /team/members/2": [500, {}] });
   renderAt("/team");
-  await userEvent.click(await screen.findByRole("button", { name: "Remove Eli" }));
+  await userEvent.click(await screen.findByRole("button", { name: "More for Eli" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
   const ask = await screen.findByRole("alertdialog", { name: "Remove Eli from the team?" });
   expect(within(ask).getByText("Their videos stay.")).toBeInTheDocument();
   await userEvent.click(within(ask).getByRole("button", { name: "Remove" }));

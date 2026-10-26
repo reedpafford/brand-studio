@@ -47,11 +47,14 @@ def purge_deleted(db: Session, storage: Storage) -> int:
         db.execute(delete(ScriptDraftText).where(ScriptDraftText.draft_id.in_(drafts)))
         db.execute(delete(ScriptDraft).where(ScriptDraft.script_id == script.id))
         db.execute(delete(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
-        for file in db.scalars(select(StoredFile).where(StoredFile.id.in_(reel_file_ids(script)))):
-            storage.delete(file.key)
+        files = db.scalars(select(StoredFile).where(StoredFile.id.in_(reel_file_ids(script)))).all()
+        keys = [f.key for f in files]
+        for file in files:
             db.delete(file)
         db.delete(script)
         db.commit()  # one script at a time, so a failure halfway never leaves a half-removed one
+        for key in keys:  # only once the rows are gone: a failed commit never loses a file
+            storage.delete(key)
         gone += 1
     if gone:
         log.info("Removed %d script(s) deleted over %d days ago.", gone, PURGE_AFTER.days)

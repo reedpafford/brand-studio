@@ -1,5 +1,6 @@
 """Credit rates per job kind, owner-set limits, and each person's quick-clip allowance."""
 
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated
 
@@ -9,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import get_limits, get_rate, quick_clip_used
+from app.credits import get_limits, get_rate, quick_clip_used, week_start
 from app.db import get_db
 from app.models.accounts import Role, User
 from app.models.credits import CreditLimits, CreditRate
@@ -42,6 +43,10 @@ class LimitsOut(BaseModel):
 class AllowanceOut(BaseModel):
     quick_clip_credits_used: float
     quick_clip_credits_allowed: float
+
+
+class MyAllowanceOut(AllowanceOut):
+    resets_on: date  # the Monday the week's allowance starts again (UTC)
 
 
 class EditorAllowanceOut(AllowanceOut):
@@ -91,12 +96,13 @@ def set_limits(body: LimitsIn, owner: User = Depends(owner_only), db: Session = 
     return limits
 
 
-@router.get("/me", response_model=AllowanceOut)
+@router.get("/me", response_model=MyAllowanceOut)
 def my_allowance(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """This week's quick-clip credits used and allowed for the caller."""
-    return AllowanceOut(
+    """This week's credits used and allowed for the caller, and when the week starts again."""
+    return MyAllowanceOut(
         quick_clip_credits_used=quick_clip_used(db, user),
         quick_clip_credits_allowed=get_limits(db, user.workspace_id).weekly_quick_clip_credits,
+        resets_on=(week_start() + timedelta(days=7)).date(),
     )
 
 

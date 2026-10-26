@@ -1,5 +1,6 @@
 import threading
 import time
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app import credits as credits_module
+from app.db import utcnow
 from app.models.accounts import Role, User
 from app.models.jobs import Job
 from app.models.projects import Project
@@ -120,13 +122,19 @@ def test_quick_clips_use_a_weekly_allowance_per_editor(editor, ed, db):
     with pytest.raises(HTTPException) as err:
         enqueue(db, ed, "video-480p", {}, units=60)
     assert err.value.status_code == 409
-    assert err.value.detail == "You've used this week's 145 credits. It resets Monday."
+    assert err.value.detail == (
+        "That's more than this week's 145 free credits (100 used). It resets on Monday."
+    )
     assert db.query(Job).count() == 1  # nothing queued or held
     assert enqueue(db, ed, "video-480p", {}, units=45).status == "queued"  # exactly 145
-    assert editor.get("/credits/me").json() == {
-        "quick_clip_credits_used": 145,
-        "quick_clip_credits_allowed": 145,
-    }
+    me = editor.get("/credits/me").json()
+    assert (me["quick_clip_credits_used"], me["quick_clip_credits_allowed"]) == (145, 145)
+    resets = date.fromisoformat(me["resets_on"])
+    assert resets.weekday() == 0 and resets > utcnow().date()  # next Monday: "It resets on…"
+    with pytest.raises(HTTPException) as spent:
+        enqueue(db, ed, "video-480p", {}, units=1)
+    assert spent.value.detail == "You've used this week's 145 credits. It resets on Monday."
+    assert not db.query(Job).filter_by(status="needs_owner_approval").count()  # never held
 
 
 def test_last_weeks_quick_clips_do_not_count(ed, db):
@@ -138,7 +146,8 @@ def test_last_weeks_quick_clips_do_not_count(ed, db):
 
 def test_owner_jobs_are_never_held(owner, db):
     me = db.query(User).filter_by(role=Role.owner).one()
-    assert enqueue(db, me, "video-480p", {}, units=300).status == "queued"
+    assert enqueue(db, me, "video-480p", {}, units=300).status == "queued"  # no allowance
+    assert owner.get("/credits/me").json()["resets_on"]
 
 
 def _race(app, monkeypatch, make_job):

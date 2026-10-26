@@ -10,6 +10,7 @@ from app.models.clips import ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
+from tests.conftest import upload
 from tests.test_breakdown import BREAKDOWN
 from tests.test_script_produce import _published
 
@@ -106,3 +107,26 @@ def test_a_job_that_ran_after_a_failure_clears_it(owner, editor, db):
     _job(db, pid, JobStatus.succeeded)
     assert _row(owner, pid)["flag"] is None
     assert _row(owner, pid)["credits_used"] == 4  # the failed job was refunded, as for the gate
+
+
+def test_the_videos_list_has_each_videos_step_and_still(owner, editor, db):
+    """The Videos view (#386): the same step as In production, "done" once finished."""
+    pid = _video(owner, editor, db)
+
+    def row():
+        return next(p for p in editor.get("/projects").json() if p["id"] == pid)
+
+    assert (row()["step"], row()["poster_file_id"]) == ("assets", None)  # Reed's breakdown came
+    bd = db.query(BreakdownVersion).filter_by(project_id=pid).one()
+    still = StoryboardFrame(
+        project_id=pid, breakdown_id=bd.id, clip_id="c1", shot_id="s1", prompt="p"
+    )
+    db.add(still)
+    db.commit()
+    assert row()["step"] == "storyboard" and row()["poster_file_id"] is None  # not drawn yet
+    still.file_id = upload(editor)
+    db.commit()
+    assert row()["poster_file_id"] == still.file_id
+    db.get(Project, pid).finished_at = utcnow()
+    db.commit()
+    assert row()["step"] == "done"

@@ -139,24 +139,7 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
         ),
         ids,
     )
-    frames = _grouped(
-        db,
-        select(
-            StoryboardFrame.project_id,
-            func.max(StoryboardFrame.created_at),
-            func.max(StoryboardFrame.file_id),  # the newest still (file ids only grow)
-        ).group_by(StoryboardFrame.project_id),
-        ids,
-    )
-    clips = _grouped(
-        db,
-        select(
-            ProjectClip.project_id,
-            func.count(ProjectClip.id),
-            func.sum(case((ProjectClip.approved, 1), else_=0)),
-        ).group_by(ProjectClip.project_id),
-        ids,
-    )
+    frames, steps = progress(db, ids)
     editors = {
         u.id: u.name for u in db.scalars(select(User).where(User.workspace_id == user.workspace_id))
     }
@@ -172,17 +155,7 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
             (frames.get(pid) or (None,))[0],
         ]
         last = max(t for t in times if t is not None)
-        count, approved = clips.get(pid, (0, 0))
-        if pid not in planned:
-            step = "breakdown"
-        elif pid not in frames:
-            step = "assets"
-        elif not count:
-            step = "storyboard"
-        elif (approved or 0) < count:
-            step = "clips"
-        else:
-            step = "downloads"
+        step = steps[pid]
         row = ProductionRow(
             project_id=pid,
             brand=Named(id=brand_id, name=brand_name),
@@ -210,6 +183,49 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
             row.flag, row.flag_since = "idle", last
         out.append(row)
     return out
+
+
+def progress(db: Session, ids: list[int]) -> tuple[dict[int, tuple], dict[int, str]]:
+    """Each video's storyboard (newest frame time, newest still) and its step, from what it
+    has, in a fixed handful of queries (the Videos list uses the step and still too)."""
+    planned = {
+        r[0]
+        for r in db.execute(
+            select(BreakdownVersion.project_id).where(BreakdownVersion.project_id.in_(ids))
+        )
+    }
+    frames = _grouped(
+        db,
+        select(
+            StoryboardFrame.project_id,
+            func.max(StoryboardFrame.created_at),
+            func.max(StoryboardFrame.file_id),  # the newest still (file ids only grow)
+        ).group_by(StoryboardFrame.project_id),
+        ids,
+    )
+    clips = _grouped(
+        db,
+        select(
+            ProjectClip.project_id,
+            func.count(ProjectClip.id),
+            func.sum(case((ProjectClip.approved, 1), else_=0)),
+        ).group_by(ProjectClip.project_id),
+        ids,
+    )
+    steps = {}
+    for pid in ids:
+        count, approved = clips.get(pid, (0, 0))
+        if pid not in planned:
+            steps[pid] = "breakdown"
+        elif pid not in frames:
+            steps[pid] = "assets"
+        elif not count:
+            steps[pid] = "storyboard"
+        elif (approved or 0) < count:
+            steps[pid] = "clips"
+        else:
+            steps[pid] = "downloads"
+    return frames, steps
 
 
 ORDER = {"failed": 0, "stuck": 1, "idle": 2, None: 3}

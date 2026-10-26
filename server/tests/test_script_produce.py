@@ -122,7 +122,7 @@ def test_a_declined_breakdown_leaves_the_version_free(editor, db):
     enqueue(db, ed, "video-480p", {}, units=145)
     declined = editor.post(f"{base}/drafts/0/produce")
     assert declined.status_code == 409
-    assert declined.json()["detail"] == "You've used this week's 145 credits. It resets Monday."
+    assert declined.json()["detail"] == "You've used this week's 145 credits. It resets on Monday."
     db.expire_all()
     assert db.query(Project).count() == 0 and db.query(ScriptDraft).one().reserved_by_id is None
     assert editor.get(base).json()["versions_left"] == 1

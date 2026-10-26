@@ -40,3 +40,22 @@ def test_only_scripts_deleted_over_30_days_ago_go_with_their_reel_files(app, own
     assert db.get(Script, recent) and db.get(Script, archived)  # kept
     assert owner.post(f"/scripts/{recent}/restore").status_code == 200  # still restorable
     assert purge_deleted(db, app.state.storage) == 0  # safe to run again
+
+
+def test_a_failed_commit_keeps_the_reel_files(app, owner, db, monkeypatch):
+    """QA #385: the bytes go only after the rows are gone."""
+    import pytest
+
+    old = _deleted(owner, db, 31)
+    file_id = upload(owner, "reel.mp4")
+    db.get(Script, old).reel = {"video_file_id": file_id}
+    db.commit()
+    key = db.get(StoredFile, file_id).key
+
+    def fail():
+        raise RuntimeError("database went away")
+
+    monkeypatch.setattr(db, "commit", fail)
+    with pytest.raises(RuntimeError):
+        purge_deleted(db, app.state.storage)
+    assert app.state.storage.exists(key)
