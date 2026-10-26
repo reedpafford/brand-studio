@@ -138,7 +138,14 @@ def test_the_owner_refunds_one_charge_once(owner, editor, db):
     again = owner.post(url, json={"reason": "again"}).json()
     assert (again["credits"], again["reason"]) == (4, "a still with the wrong person")  # once
     row = next(c for c in owner.get("/usage/charges").json()["items"] if c["id"] == charge.id)
-    assert row["refunded"] is True and row["cost_usd"] == 0.04  # the dollars stay spent
+    assert row["cost_usd"] == 0.04 and row["credits"] == 0  # the dollars stay spent
+    assert (row["refunded"]["credits"], row["refunded"]["reason"]) == (
+        4,
+        "a still with the wrong person",
+    )  # the struck credits and the reason, after a reload
+    assert row["refunded"]["at"] == first["at"]
+    others = [c for c in owner.get("/usage/charges").json()["items"] if c["id"] != charge.id]
+    assert all(c["refunded"] is None for c in others)
 
 
 def test_an_editors_change_holds_its_whole_price_on_their_week(app, db, owner, editor, setup):  # noqa: F811
