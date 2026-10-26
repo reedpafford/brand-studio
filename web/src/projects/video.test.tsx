@@ -383,3 +383,39 @@ test("Change this… on a clip has the clip's price, and an editor past the budg
   expect(button).toBeDisabled();
   expect(button).toHaveAccessibleDescription("That's more than this video's budget.");
 });
+
+test("Undo after a clip change goes back to the take that was picked when Change it was pressed, not just the second-newest", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, []],
+    "GET /projects/9/clips/3/change": [200, { credits: 27 }],
+    "POST /projects/9/clips/3/change": [201, { id: 8, kind: "clip_take", status: "queued", credits: 27 }],
+    "POST /projects/9/clips/3/takes/1/pick": [200, {}],
+  });
+  const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation()!;
+  let seenChanging = 0;
+  let phase = 0; // 0: takes 1 and 2, take 1 picked. 1: changing. 2: take 3 made and picked.
+  const t3 = take(3, 3);
+  const body = () =>
+    phase === 0
+      ? clip({ prompt_ok: true, takes: [take(1, 1), take(2, 2)], picked_take_id: 1, file_id: 51 })
+      : phase === 1
+        ? clip({ prompt_ok: true, takes: [take(1, 1), take(2, 2)], picked_take_id: 1, file_id: 51, change: { note: "Slower", status: "changing" } })
+        : clip({ prompt_ok: true, takes: [take(1, 1), take(2, 2), t3], picked_take_id: 3, file_id: 53, change: { note: "Slower", status: "done", before: "a b", after: "a c" } });
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    const path = new URL(req.url).pathname;
+    if (req.method === "GET" && path.endsWith("/projects/9/clips")) {
+      if (phase === 1 && ++seenChanging > 1) phase = 2; // the first read after the press shows it changing, the poll after that shows it done
+      return new Response(JSON.stringify([body()]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (req.method === "POST" && path.endsWith("/clips/3/change")) phase = 1;
+    return inner(req.clone(), init);
+  }));
+  open("?step=clips");
+  await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
+  await userEvent.click(await screen.findByRole("button", { name: "Change it · 27 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }, { timeout: 9000 }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/takes/1/pick")).toBe(true));
+}, 20000);

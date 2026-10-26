@@ -390,7 +390,8 @@ function ClipCard(props: {
           change={c.change as ChangeState}
           hold={props.busy ? "This one is still being made" : c.stale ? "Write the clip prompts again first" : null}
           stopFor={props.stopFor}
-          onUndo={c.takes.length > 1 ? () => props.onPick(c.takes[c.takes.length - 2].id) : undefined}
+          snapshot={c.picked_take_id}
+          onUndo={c.takes.length > 1 ? (was) => props.onPick(c.takes.some((t) => t.id === was) ? was! : c.takes[c.takes.length - 2].id) : undefined}
         />
       )}
       {c.inserts.map((i) => (

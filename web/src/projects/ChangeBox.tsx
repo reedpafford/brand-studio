@@ -76,8 +76,10 @@ export function ChangeBox(props: {
   hold: string | null;
   /** The allowance/budget stop for a price, or null. */
   stopFor: (cost: number | undefined) => string | null;
+  /** What was picked when the note was sent (a clip's take); handed back to onUndo so Undo returns to it. */
+  snapshot?: number | null;
   /** Puts the earlier still or take back (with its prompt). Free. */
-  onUndo?: () => void;
+  onUndo?: (was: number | null) => void;
   label: string;
 }) {
   const { kind, projectId, id, change } = props;
@@ -85,6 +87,7 @@ export function ChangeBox(props: {
   const toast = useToast();
   const [note, setNote] = useState("");
   const [whole, setWhole] = useState(false);
+  const was = useRef<number | null>(null); // what was picked when the note was sent
   const changing = change?.status === "changing";
   const price = useQuery({
     queryKey: ["change-price", kind, projectId, id],
@@ -110,13 +113,13 @@ export function ChangeBox(props: {
     },
   });
   // The change has just landed: say so, with the way back.
-  const was = useRef(change?.status);
+  const seen = useRef(change?.status);
   useEffect(() => {
-    if (was.current === "changing" && change?.status === "done") {
-      toast("Changed. The earlier one is kept.", props.onUndo);
+    if (seen.current === "changing" && change?.status === "done") {
+      toast("Changed. The earlier one is kept.", props.onUndo ? () => props.onUndo!(was.current) : undefined);
       void queryClient.invalidateQueries({ queryKey: ["change-price", kind, projectId, id] });
     }
-    was.current = change?.status;
+    seen.current = change?.status;
   }, [change?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reason = changing ? null : !note.trim() ? "Say what should change" : props.hold ?? props.stopFor(credits);
@@ -126,7 +129,7 @@ export function ChangeBox(props: {
   return (
     <div className="space-y-2">
       <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={changing ? change!.note : note} readOnly={changing} onChange={(e) => { setNote(e.target.value); press.reset(); }} aria-label={`Change this… ${props.label}`} />
-      <Button variant="secondary" icon={Wand2} busy={changing || press.isPending} price={changing ? undefined : credits} reason={reason} disabled={!changing && !!reason} onClick={() => press.mutate(note.trim())}>
+      <Button variant="secondary" icon={Wand2} busy={changing || press.isPending} price={changing ? undefined : credits} reason={reason} disabled={!changing && !!reason} onClick={() => { was.current = props.snapshot ?? null; press.mutate(note.trim()); }}>
         {changing ? "Changing…" : "Change it"}
       </Button>
       {press.isError && (
