@@ -371,14 +371,14 @@ def _exact(text: str) -> str:
     return " ".join(text.split())
 
 
-NEAR = 0.7  # share of the end line's words a last line needs to count as a near match
+NEAR = 0.5  # share of the end line's words a near match needs (Reed: never block a near one)
 
 
 def ends_on(end_line: str, last: str, brand: str = "", before: str = "") -> str:
     """Does the script's last spoken line say the brand's end line? "yes" ignoring case,
     punctuation, curly quotes, spacing and the speaker's label (FOMO or fomo, a dropped
     comma), also when it is split over the last two lines (`before`, then `last`). "near"
-    when most of its words are there (a word or two differ: advice) and it still names the
+    when at least half its words are there (advice, never a block) and it still names the
     brand, else "no" (another app's name, or "the app", blocks). With no end line, always
     "yes". Only the end line is matched this loosely; spoken lines elsewhere stay exact."""
     if not end_line.strip():

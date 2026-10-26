@@ -658,7 +658,10 @@ def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
     # The end line split over the last two lines, its last part with FOMO in caps
     split = ("NATE: Want to trade like me?", "NATE: Download FOMO through the link in my bio!")
     assert check.ends_on(end, split[1], "fomo", before=split[0]) == "yes"
-    assert check.ends_on(end, split[1], "fomo", before="NATE: Sorry.") == "no"  # half of it
+    # Reed: a near match never blocks. Half the end line's words and the brand: Advice
+    assert check.ends_on(end, split[1], "fomo") == "near"
+    assert check.ends_on(end, split[1], "fomo", before="NATE: Sorry.") == "near"
+    assert check.ends_on(end, "NATE: Get FOMO in my bio.", "fomo") == "no"  # under half
     assert check.ends_on(end, "BRIDE: Huh?!", "fomo", before=caps) == "no"  # not the last line
 
     ex, bd = example("breakdown")
@@ -679,6 +682,9 @@ def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
     assert "the script doesn't end on the brand's end line" in ending(other)  # still blocks
     assert "the script doesn't end on the brand's end line" in ending(rival)  # another app
     assert not [p for p in ending("\n".join(split)) if "end line" in p]  # split, caps
+    assert [p for p in ending(split[1]) if "end line" in p] == [  # Reed's exact line, alone
+        "Advice: the last line is close to the brand's end line but not word for word"
+    ]
 
 
 def test_sheet_prompts_are_house_style_with_no_names_or_text():
