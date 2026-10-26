@@ -25,6 +25,7 @@ from app.routes import references
 from app.routes.brands import get_brand
 from app.routes.files import get_file
 from app.routes.library import get_item
+from app.routes.production import progress
 from app.schemas import LongText, Name, ShortText
 
 NOT_STARTED = (JobStatus.queued, JobStatus.needs_owner_approval)
@@ -87,6 +88,10 @@ class ProjectOut(BaseModel):
     own_script: bool = False  # from a script the viewer wrote: it runs on their weekly allowance
     archived_at: datetime | None = None  # put away; POST .../unarchive brings it back
     finished_at: datetime | None = None  # "Video done": the whole video was downloaded
+    # On the Videos list: its newest still (null before any), and its step as In production
+    # names it, or "done" once finished.
+    poster_file_id: int | None = None
+    step: Literal["breakdown", "assets", "storyboard", "clips", "downloads", "done"] | None = None
 
 
 def archive(db: Session, project: Project) -> None:
@@ -218,7 +223,13 @@ def list_projects(
     if status is not None:
         done = Project.finished_at.is_not(None)
         query = query.where(done if status == "done" else ~done)
-    return [_out(db, p, user) for p in db.scalars(query.order_by(func.lower(Project.name)))]
+    found = db.scalars(query.order_by(func.lower(Project.name))).all()
+    frames, steps = progress(db, [p.id for p in found])
+    out = [_out(db, p, user) for p in found]
+    for row, project in zip(out, found, strict=True):
+        row.poster_file_id = (frames.get(project.id) or (None, None))[1]
+        row.step = "done" if project.finished_at else steps[project.id]
+    return out
 
 
 @router.post("", response_model=ProjectOut, status_code=201)
