@@ -6,7 +6,7 @@ import { Badge, Banner, Button, EmptyState, Field, MediaCard, Select, Skeleton }
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { BrandAction } from "./BrandPage";
-import { Panel, ScreenEditor, useAddScreen, useScreens, type Screen } from "./screens";
+import { NAME_TAKEN, Panel, ScreenEditor, useAddScreen, useDeletedScreens, useRestoreScreen, useScreens, type Screen } from "./screens";
 
 /** The brand's real screens as 9:16 tiles. Tags show in the editor, not on the tile. */
 export function ScreensTab() {
@@ -15,6 +15,9 @@ export function ScreensTab() {
   const [editing, setEditing] = useState<Screen | null>(null);
   const [adding, setAdding] = useState(false);
   const [tag, setTag] = useState("");
+  const [showDeleted, setShowDeleted] = useState(false);
+  const deleted = useDeletedScreens(brandId);
+  const restore = useRestoreScreen(brandId);
   const list = screens.data;
   const tags = [...new Set(list?.flatMap((s) => s.tags) ?? [])].sort();
   const shown = (list ?? []).filter((s) => !tag || s.tags.includes(tag));
@@ -72,6 +75,26 @@ export function ScreensTab() {
           </ul>
         </>
       )}
+      {(deleted.data?.length ?? 0) > 0 && (
+        <div className="space-y-3">
+          <Button variant="ghost" aria-expanded={showDeleted} onClick={() => setShowDeleted(!showDeleted)}>
+            {showDeleted ? "Hide deleted" : `Show deleted (${deleted.data?.length})`}
+          </Button>
+          {showDeleted && (
+            <ul className="grid grid-cols-3 gap-3 lg:grid-cols-6" aria-label="Deleted screens">
+              {deleted.data?.map((s) => (
+                <li key={s.id} className="space-y-2 opacity-60">
+                  <MediaCard title={s.name} aspect="9 / 16" image={fileUrl(s.file_id)} icon={Smartphone} />
+                  <p className="text-sm text-muted">Deleted</p>
+                  <Button variant="secondary" dense className="w-full" aria-label={`Restore ${s.name}`} onClick={() => void restore(s)}>
+                    Restore
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {editing && <ScreenEditor key={editing.id} brandId={brandId} screen={editing} onClose={() => setEditing(null)} />}
       {adding && <AddScreens brandId={brandId} onClose={() => setAdding(false)} />}
     </div>
@@ -84,6 +107,8 @@ type Pick = { file: File; name: string; error?: string };
 function AddScreens({ brandId, onClose }: { brandId: number; onClose: () => void }) {
   const toast = useToast();
   const add = useAddScreen(brandId);
+  const deleted = useDeletedScreens(brandId);
+  const restore = useRestoreScreen(brandId);
   const [picks, setPicks] = useState<Pick[]>([]);
   const [busy, setBusy] = useState(false);
   const take = (files: FileList | null) => {
@@ -121,6 +146,15 @@ function AddScreens({ brandId, onClose }: { brandId: number; onClose: () => void
             {picks.map((p, i) => (
               <li key={`${p.file.name}-${i}`} className="space-y-1">
                 <Field label={`Name for ${p.file.name}`} value={p.name} onChange={(e) => setPicks(picks.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} error={p.error} />
+                {p.error?.startsWith(NAME_TAKEN) &&
+                  (() => {
+                    const clash = deleted.data?.find((d) => d.name.trim().toLowerCase() === p.name.trim().toLowerCase());
+                    return clash ? (
+                      <Button variant="ghost" onClick={() => void restore(clash).then(() => setPicks(picks.filter((_, j) => j !== i)))}>
+                        Restore "{clash.name}"
+                      </Button>
+                    ) : null;
+                  })()}
               </li>
             ))}
           </ul>

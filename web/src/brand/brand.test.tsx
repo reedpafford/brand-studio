@@ -104,16 +104,47 @@ test("a screen tile opens its editor; tags, moments, product and flavour are sav
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1/screens/4")?.body).toMatchObject({ product: "bag", variant: "Peanut butter", tags: ["bag", "trading-chart"], default_for: ["buy-moment"] }));
 });
 
-test("Delete screen asks first and says videos already made keep it", async () => {
-  const calls = withScreens([bag], { "DELETE /brands/1/screens/4": [204, null] });
+test("Delete screen closes the panel at once and the toast says how to undo it", async () => {
+  const calls = withScreens([bag], { "DELETE /brands/1/screens/4": [204, null], "POST /brands/1/screens/4/restore": [200, {}], "GET /brands/1/screens?deleted=true": [200, []] });
   renderAt("/b/1/brand?tab=screens");
   await userEvent.click(await screen.findByRole("button", { name: "Chicken bag" }));
   await userEvent.click(within(await screen.findByRole("dialog", { name: "Edit Chicken bag" })).getByRole("button", { name: "Delete screen" }));
-  const ask = await screen.findByRole("alertdialog", { name: 'Delete the screen "Chicken bag"?' });
-  expect(within(ask).getByText("Videos already made keep it.")).toBeInTheDocument();
-  expect(calls.some((c) => c.key === "DELETE /brands/1/screens/4")).toBe(false);
-  await userEvent.click(within(ask).getByRole("button", { name: "Delete screen" }));
+  expect(await screen.findByText('Deleted "Chicken bag".')).toBeInTheDocument();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(screen.queryByRole("dialog", { name: "Edit Chicken bag" })).toBeNull();
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /brands/1/screens/4")).toBe(true));
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/screens/4/restore")).toBe(true));
+});
+
+test("Show deleted lists the deleted screens, each with Restore", async () => {
+  const gone = { ...bag, id: 7, name: "Old home" };
+  const calls = withScreens([bag], { "GET /brands/1/screens?deleted=true": [200, [gone]], "POST /brands/1/screens/7/restore": [200, {}] });
+  renderAt("/b/1/brand?tab=screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Show deleted (1)" }));
+  const list = screen.getByRole("list", { name: "Deleted screens" });
+  expect(within(list).getByText("Old home")).toBeInTheDocument();
+  await userEvent.click(within(list).getByRole("button", { name: "Restore Old home" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/screens/7/restore")).toBe(true));
+  expect(await screen.findByText('Restored "Old home".')).toBeInTheDocument();
+});
+
+test("renaming a screen to a deleted screen's name shows the server's words and a Restore button", async () => {
+  const gone = { ...bag, id: 7, name: "Old home" };
+  const calls = withScreens([bag], {
+    "GET /brands/1/screens?deleted=true": [200, [gone]],
+    "PATCH /brands/1/screens/4": [409, { detail: "A deleted screen has that name. Restore it, or pick another name." }],
+    "POST /brands/1/screens/7/restore": [200, {}],
+  });
+  renderAt("/b/1/brand?tab=screens");
+  await userEvent.click(await screen.findByRole("button", { name: "Chicken bag" }));
+  const panel = await screen.findByRole("dialog", { name: "Edit Chicken bag" });
+  await userEvent.clear(within(panel).getByLabelText("Name"));
+  await userEvent.type(within(panel).getByLabelText("Name"), "Old home");
+  await userEvent.click(within(panel).getByRole("button", { name: "Save screen" }));
+  expect(await within(panel).findByText("A deleted screen has that name. Restore it, or pick another name.")).toBeInTheDocument();
+  await userEvent.click(within(panel).getByRole("button", { name: 'Restore "Old home"' }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/screens/7/restore")).toBe(true));
 });
 
 test("a screen always used for a moment says so on its tile", async () => {
