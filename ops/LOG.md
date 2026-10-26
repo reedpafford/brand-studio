@@ -1,6 +1,24 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 04:06 · #391 Videos list: each video's step and newest still merged
+- 2026-10-26 04:06 · #390 Purge: remove the rows first, then the reel files merged
+- 2026-10-26 04:06 · #387 Quick clips past the allowance: refused with a plain reason, never "Ask Reed" merged
+- 2026-10-26 04:06 · #386 Videos view on the Scripts page (gap #13) merged
+- 2026-10-26 04:06 · #392 Quick clip: Remove from history, Removed filter, Search your clips merged
+- 2026-10-26 04:06 · #379 Team: change a role, Undo on Remove, and a Removed list with Restore merged
+- 2026-10-26 04:01 · #399 Spec: editors never see "Ask Reed" or "Waiting for Reed" past a limit merged
+- 2026-10-26 03:59 · #398 Spec: stills are redrawn automatically after a cast change, within the budget merged
+- 2026-10-26 03:57 · #365 In production: Release this version from a row's menu merged
+- 2026-10-26 03:57 · #394 e2e: wait for the layout to settle after a resize (fixes the red main) merged
+- 2026-10-26 03:57 · #388 Brand screens: Delete with Undo, Show deleted, Restore merged
+- 2026-10-26 03:57 · #376 Archive brand, with Undo and Restore on Usage merged
+- 2026-10-26 03:56 · #397 ops: log Reed's decisions of 2026-10-26 merged
+- 2026-10-26 03:50 · #395 Spec: change stills and clips in plain English; cast fix; frames after a cast change merged
+- 2026-10-26 03:19 · #377 Plan step: "Made for older words" banner, Keep anyway with Undo merged
+- 2026-10-26 03:19 · #380 Video page: Looks good on the server, take times, In N shots, products and app screens merged
+- 2026-10-26 03:12 · #389 ops: HANDOFF/LOG refresh 2026-10-26 03:15Z (by the Producer) merged
 - 2026-10-26 03:07 · #385 Housekeeping: remove scripts deleted over 30 days ago, with their reel files merged
 - 2026-10-26 02:53 · #381 Quick clips: search the history, remove one with Undo merged
 - 2026-10-26 02:53 · #372 Directions: test that Undo saves the earlier words back merged
