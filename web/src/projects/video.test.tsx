@@ -87,6 +87,34 @@ test("a role with no character picks one from the library", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
 });
 
+const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], kept: [], file_id: 40, approved: true, stale: false };
+const clip = (o: object) => ({ id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
+const toClips = { ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown] };
+
+test("a clip's prompt is read and marked Looks good before its take can be made", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({})]] });
+  open("?step=clips");
+  expect(await screen.findByText("Bo sniffs the salmon")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 looks good" }));
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
+  // The prompt stays, marked, and can be taken back.
+  expect(screen.getByText("Looks good")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 undo looks good" }));
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
+});
+
+test("a prompt shows pictures by name, never [Image1]", async () => {
+  setViewport(1440);
+  const references = [{ kind: "image", id: "frame:c1", role: "frame:c1" }, { kind: "image", id: "char:5", role: "Bo's look" }, { kind: "image", id: "screen:2", role: "screen:2" }];
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt: "[Image1] is the first frame. [Image2] eats. [Image3] shows.", references })]] });
+  open("?step=clips");
+  const prompt = await screen.findByLabelText("Prompt for clip c1");
+  expect(prompt).toHaveTextContent("First frame is the first frame. Bo's look eats. Picture 3 shows.");
+  expect(prompt).not.toHaveTextContent("[Image");
+});
+
 test("a role with no character can make one, so Assets is never a dead end", async () => {
   setViewport(1440);
   const calls = fakeServer({
@@ -110,4 +138,17 @@ test("an approved picked character shows no buttons: it is shared with every vid
   expect(within(card).getByText("Approved")).toBeInTheDocument();
   expect(within(card).queryByRole("button")).toBeNull();
   expect(within(card).queryByRole("link")).toBeNull();
+});
+
+test("one-press Make storyboard asks Reed when the writing plus the stills pass the budget, not only the writing", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 590, budget_credits: 600 }],
+    "GET /projects/9/assets": [200, []],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image", unit: "image", credits_per_unit: 4 }]],
+    "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
+  });
+  open("?step=storyboard");
+  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 15 credits" })).toBeInTheDocument();
 });
