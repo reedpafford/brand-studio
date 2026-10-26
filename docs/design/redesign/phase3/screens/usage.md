@@ -60,6 +60,15 @@ Not tied to one brand: $1.20 · character looks used by several brands (meta)
   - Open, it's the plain list of charges, newest first, 50 at a time: When · Who · Brand · What ("Clip 3 take 2 · Bo tries salmon · B", "Script variations · Bo tries salmon", "Quick clip") · Credits · $ · Status.
   - Filter: **Brand** (select, Any first).
   - This is the old "By job" table, kept for checking a single charge.
+  - **Give credits back** (Reed only; Reed, 2026-10-26, after the cast bug): each charge row's `Ellipsis` menu (44px on phone) has **Give credits back** (`Undo2`). It's not shown on a charge that was already given back, or one with 0 credits.
+    - **Confirm** (dialog on desktop, sheet on phone):
+      - Title: "Give back 27 credits?"
+      - Body: "For "Clip 3 take 2 · Bo tries salmon · B". The credits go back to {who}'s week or the video's budget. The $2.36 stays on the bill: the service was still paid."
+      - **Reason** (required, up to 200 characters), e.g. "Wrong cast in the shot". It's kept with the charge.
+      - **Give credits back** (amber in the dialog), disabled with "Say why" until there's a reason, and **Keep the charge** (ghost).
+    - **After:** the row's Credits read "0" with the old number struck through ("~~27~~ 0"), and a neutral badge "Credits given back" whose tooltip is the reason. The toast says "27 credits given back." There's no Undo: it's once per charge, and the confirm says so.
+    - It can be given back once per charge. A second try gets the server's words: "Those credits were already given back."
+    - Editors never see the menu, and never see this list.
 
 ## `/usage` (phone 390, tablet < 1024)
 - **Header:**
@@ -207,8 +216,9 @@ For Builder-Server. Every endpoint is owner-only; editors get 404. Generation do
 - Replaces the unpaged `GET /usage` (latest 500).
 - Each item:
   ```
-  { at, person {id, name} | null, brand {id, name} | null, what, credits, cost_usd, estimated, status }
+  { id, at, person {id, name} | null, brand {id, name} | null, what, credits, cost_usd, estimated, status, refunded: {credits, reason, at} | null }
   ```
+- `POST /usage/charges/{id}/refund {reason}` (owner only, once per job): the charge's credits go to 0 and come back to the week or the budget, the dollars stay, and 409 "Those credits were already given back." on a second try.
   `what` is the plain words: "Clip 3 take 2 · Bo tries salmon · B".
 
 **Tests to include:**
