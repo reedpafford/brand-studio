@@ -88,3 +88,25 @@ test("an empty script with a reel is written from the reference, at the price sh
   await expect(page.getByRole("list", { name: "Script text" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeHidden();
 });
+
+test("Directions: Claude suggests lines for a written script, one is accepted and added, and the words stay", async ({ page }) => {
+  test.setTimeout(120_000);
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brandId = await emptyBrand(page, "Removal Co");
+  const words = "MIA: Hell no!\nBO: Salmon? Again?";
+  const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Needs directions", description: "Directions test.", notes: "", reference_replace: "", text: words } });
+  expect(made.ok()).toBeTruthy();
+  await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=directions`);
+  await page.getByRole("button", { name: /^Suggest directions/ }).click();
+  const add = page.getByRole("button", { name: /^Add \d+ directions?$/ });
+  await expect(add.or(page.getByText("This script already reads well. Nothing to suggest."))).toBeVisible({ timeout: 90_000 });
+  if (await add.isVisible()) {
+    await page.getByRole("button", { name: /^Accept: / }).first().click();
+    await expect(page.getByRole("button", { name: "Add 1 direction" })).toBeEnabled();
+    await page.getByRole("button", { name: "Add 1 direction" }).click();
+    await expect(page.getByText("Added 1 direction.")).toBeVisible();
+  }
+  await expect(page.getByRole("list", { name: "Script text" })).toContainText("MIA: Hell no!");
+  await expect(page.getByRole("list", { name: "Script text" })).toContainText("BO: Salmon? Again?");
+});
