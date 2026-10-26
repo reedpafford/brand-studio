@@ -4,6 +4,16 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 07:13 · #426 Cast screens to main: fix the cast in one press, Keep anyway, redraw notes merged (lands #417's screens on main).
+- 2026-10-26 07:07 · #417 Cast screens: fix the cast in one press, Keep anyway, redraw notes merged into #413's branch by mistake, after #413 had landed on main (the Producer's note).
+- 2026-10-26 06:58 · #413 Right person in each shot: role-labelled cast, a check that stops stills, a free fix, redraw within budget merged
+- 2026-10-26 06:47 · #407 Failed runs show their failure with Try again; "Locked" names nobody; can't-reach-the-server retries and has Try again merged
+- 2026-10-26 06:47 · #422 Reel scripts: Title box on Description, and time elapsed while the reel is read merged
+- 2026-10-26 06:36 · #420 Echoes repeat what was said: a V.O. callback repeats the earlier line merged
+- 2026-10-26 06:22 · #416 Invites say "Join Reed's studio", not a slug; hint on the setup studio name merged
+- 2026-10-26 06:22 · #418 Payoff uses the balance the screen picture prints merged
+- 2026-10-26 06:22 · #419 Money: price on "Make this version", release stops running work, never charge above the price, every charge listed merged
+- 2026-10-26 06:20 · #421 ops: HANDOFF/LOG refresh 2026-10-26 06:30Z (by the Producer) merged
 - 2026-10-26 06:11 · #414 Clip prompts: the Keep line pins each character's outfit to its owner merged
 - 2026-10-26 06:02 · #402 Editors never see "Ask Reed" or "Waiting for Reed" merged
 - 2026-10-26 05:52 · #415 CI: repair a half-finished package install before the ffmpeg retry merged
