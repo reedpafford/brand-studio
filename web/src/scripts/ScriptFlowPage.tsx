@@ -4,7 +4,7 @@ import { ChevronLeft, Lock, Pencil } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Badge, Button, Card, Field, Skeleton, StepPicker, TextArea } from "../components";
+import { Badge, Banner, Button, Card, Field, Skeleton, StepPicker, TextArea } from "../components";
 import { useReferences } from "../projects/BriefPickers";
 import { useBrands } from "../shell/useBrands";
 import { ScriptText } from "../projects/ScriptTab";
@@ -166,7 +166,7 @@ export function ScriptFlowPage() {
         )}
       </div>
       {step === "description" && <DescriptionStep script={s} brandName={brandName} onEditing={setEditing} onDone={() => toast("Description saved.")} />}
-      {step === "script" && <ScriptStep scriptId={id} script={s} onEditing={setEditing} />}
+      {step === "script" && <ScriptStep scriptId={id} script={s} brandName={brandName} onEditing={setEditing} />}
       {step === "directions" && <DirectionsStep script={s} onEditing={setEditing} />}
       {step === "variations" && <VariationsStep script={s} own={mine} onPicked={setPicked} />}
       {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
@@ -252,8 +252,9 @@ function DescriptionStep({ script: s, brandName, onEditing, onDone }: { script: 
 }
 
 /** The original's words. Pasting, uploading and Claude's drafts come as the library API grows; for now you can write or paste them. */
-function ScriptStep({ scriptId, script: s, onEditing }: { scriptId: number; script: NonNullable<ReturnType<typeof useScript>["data"]>; onEditing: (v: boolean) => void }) {
+function ScriptStep({ scriptId, script: s, brandName, onEditing }: { scriptId: number; script: NonNullable<ReturnType<typeof useScript>["data"]>; brandName?: string; onEditing: (v: boolean) => void }) {
   const write = useWriteWords(scriptId);
+  const reelIn = useReelImport(scriptId);
   const text = s.versions.find((v) => v.slot === 0)?.text ?? "";
   const [editing, setEditingText] = useState<string | null>(null);
   const setEditing = (v: string | null) => {
@@ -284,8 +285,19 @@ function ScriptStep({ scriptId, script: s, onEditing }: { scriptId: number; scri
         </div>
       </Card>
     );
+  // A script made from a reel keeps the reel's lines word for word; the ones rewritten for the brand swap are marked, with the reel's original under each.
+  const original = s.versions.find((v) => v.slot === 0);
+  const marks = ((original?.rewritten ?? []) as { line_index: number; was: string }[]).filter((m) => typeof m.line_index === "number");
+  const fromReel = s.reel_imported && !!reelIn.data;
+  const kept = Math.max((reelIn.data?.transcript.length ?? 0) - marks.length, 0);
   return (
     <div className="space-y-3">
+      {fromReel && !s.new_lines && !original?.approved_at && marks.length > 0 && (
+        <Banner tone="info" title={`From the reel: ${kept} line${kept === 1 ? "" : "s"} kept, ${marks.length} rewritten${brandName ? ` for ${brandName}` : ""}. Check them, then approve.`} />
+      )}
+      {fromReel && (marks.length > 0 || s.new_lines) && (
+        <p className="text-sm text-muted">{s.new_lines ? "New lines, in the style of the reel." : `Marked lines were rewritten${brandName ? ` for ${brandName}` : ""}. Everything else is said as in the reel.`}</p>
+      )}
       {!s.published && (
         <div>
           <Button variant="secondary" icon={Pencil} onClick={() => setEditing(text)}>
@@ -293,7 +305,19 @@ function ScriptStep({ scriptId, script: s, onEditing }: { scriptId: number; scri
           </Button>
         </div>
       )}
-      <ScriptText text={text} />
+      <ScriptText
+        text={text}
+        rewritten={marks.map((m) => m.line_index + 1)}
+        around={(line, where) => {
+          const m = where === "after" ? marks.find((x) => x.line_index + 1 === line) : undefined;
+          return m ? (
+            <li key={`was${line}`} className="grid grid-cols-[2.5rem_1fr] gap-2 text-sm text-muted">
+              <span aria-hidden />
+              <span className="ml-4 sm:ml-8">Was: {m.was}</span>
+            </li>
+          ) : null;
+        }}
+      />
     </div>
   );
 }

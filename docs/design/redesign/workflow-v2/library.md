@@ -97,6 +97,7 @@ The server route is `DELETE /scripts/{id}`.
 - **Confirm first** (dialog on desktop, sheet on phone):
   - No video made from it: "Delete "Bo tries salmon"?" with "Its versions and cast go too." Buttons **Delete** (danger) / **Keep it** (ghost).
   - A video was made from any version: "Archive "Bo tries salmon"?" with "It leaves the library. The videos made from it stay, with their clips and downloads." Buttons **Archive** (danger) / **Keep it**.
+  - **Running work** (#467): when something is still being made for the script itself (its words, a reel read, variations, Directions, the plan), both bodies end with "Anything still being made for this script stops and isn't brought back." Undo and Restore don't restart it. Videos already started from it carry on, so the line doesn't mention them. The line is left out when nothing is running.
 - **After:**
   - The row leaves the list, and the script page goes back to Scripts.
   - Toast: "Deleted "Bo tries salmon"." (or "Archived …") with **Undo**, for 8 s. Undo brings it back exactly as it was and puts the row back in place.

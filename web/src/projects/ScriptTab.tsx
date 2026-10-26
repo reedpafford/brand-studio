@@ -215,7 +215,7 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0
  *  `around` can put other lines (Enhance direction notes) before or after a script line. */
 const DIRECTION = /^\s*\[(Camera|Movement|Reaction|Brand screen)\]\s*/;
 
-export function ScriptText({ text, around, highlight = [], onLineClick }: { text: string; around?: (line: number, where: "before" | "after") => ReactNode; highlight?: number[]; onLineClick?: (line: number) => void }) {
+export function ScriptText({ text, around, highlight = [], rewritten = [], onLineClick }: { text: string; around?: (line: number, where: "before" | "after") => ReactNode; highlight?: number[]; /** Lines (1-based) rewritten for the brand swap: marked like Directions. */ rewritten?: number[]; onLineClick?: (line: number) => void }) {
   // Bring the first highlighted line into view when the highlight changes.
   const marked = highlight.join(",");
   useEffect(() => {
@@ -249,7 +249,7 @@ export function ScriptText({ text, around, highlight = [], onLineClick }: { text
                     <span className="font-sans text-xs">{tag[1]}</span>
                   </span>
                 ) : (
-                  <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{line || "\u00a0"}</span>
+                  <span className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${rewritten.includes(i + 1) ? "bg-mark underline decoration-mark-line decoration-2 underline-offset-2" : ""}`}>{line || "\u00a0"}</span>
                 )}
               </li>
               {around?.(i + 1, "after")}
