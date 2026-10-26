@@ -154,7 +154,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     kind: "storyboard",
     noun: "frame",
     rows,
-    ready: rows.filter((f) => f.file_id !== null && !f.approved && !f.stale && blocking(f.problems).length === 0).length,
+    ready: rows.filter((f) => f.file_id !== null && !f.approved && !f.stale && !f.still_stale && blocking(f.problems).length === 0).length,
     waiting: rows.filter((f) => !f.approved).length,
   });
   if (frames.isPending) return <p className="text-muted">Loading…</p>;
