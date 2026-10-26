@@ -1,10 +1,18 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-26 21:49 · Decisions (#501, #503, Reed): archiving a brand only hides it (running work is not stopped); the QA Owner test account is removed; Clips never dead-ends (Rewrite clip prompts for stale clips, automatic after a storyboard or breakdown change, takes kept); Approve all on Storyboard and Clips, with Undo
+- 2026-10-26 21:45 · Spend (#502): two script-writer evals approved by Reed, about $0.25 in all, logged in ops/SPEND.md
 - 2026-10-26 15:06 · Decisions (#473, Reed, live testing): frames get every character's approved sheet as a reference automatically (done in code; existing frames repaired for free); no raw ids shown to people; main and recurring roles get their per-video look made automatically at Assets within budget, price shown, editor still approves; looks must fit the role (age, gender, job), with one automatic redo of a look that doesn't match
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 22:12 · #507 spec: stale clips say "older breakdown" only merged
+- 2026-10-26 21:51 · #505 spec: Clips never dead-ends; Approve all on Storyboard and Clips merged
+- 2026-10-26 21:49 · #503 ops: Reed's decisions on stale clips and Approve all merged (by the Producer)
+- 2026-10-26 21:45 · #502 ops: the two approved script-writer evals and their results logged merged (by the Producer)
+- 2026-10-26 21:41 · #501 ops: Reed's answers on archiving and the QA test owner merged (by the Producer)
+- 2026-10-26 20:11 · #500 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-26 19:17 · #499 ops: Builder-Screens-3 replaces Builder-Screens-2 in the session table merged (by the Producer)
 - 2026-10-26 19:11 · #498 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-26 19:06 · #496 Made looks say what they cost; the look check says what doesn't fit merged
