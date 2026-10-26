@@ -896,3 +896,5 @@ def test_the_keep_line_holds_every_attached_characters_look():
         check.clip_prompts(bd, cp, 30, 10)
     )
     assert "never the rival's black leather jacket" in prompts.system("clip_prompts")
+    for step in ("breakdown", "storyboard", "clip_prompts"):  # a locked look plays the role
+        assert "call them by the role's name everywhere" in prompts.system(step)
