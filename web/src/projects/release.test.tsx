@@ -44,7 +44,7 @@ test("Release this version asks first, says what stays used, goes back to Script
   await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon — B" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Release this version" }));
   const dialog = await screen.findByRole("alertdialog", { name: "Release this version?" });
-  expect(dialog).toHaveTextContent("It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted. The 84 credits already used stay used.");
+  expect(dialog).toHaveTextContent("It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted. The 84 credits already used stay used. Anything still being made stops and isn't brought back.");
   expect(calls.some((c) => c.key === "POST /projects/9/release")).toBe(false);
   await userEvent.click(within(dialog).getByRole("button", { name: "Release" }));
   expect(await screen.findByText("The version is ready to make again.")).toBeInTheDocument();
@@ -72,7 +72,7 @@ test("a video made before scripts offers Archive video, with its own wording, an
   expect(screen.queryByRole("menuitem", { name: "Release this version" })).toBeNull();
   await userEvent.click(screen.getByRole("menuitem", { name: "Archive video" }));
   const archive = await screen.findByRole("alertdialog", { name: 'Archive "Bo tries salmon — B"?' });
-  expect(archive).toHaveTextContent("It leaves the lists. Its clips and downloads are kept, and you can restore it.");
+  expect(archive).toHaveTextContent("It leaves the lists. Its clips and downloads are kept, and you can restore it. Anything still being made stops and isn't brought back.");
 });
 
 test("an editor sees no menu on a video they didn't make, and a refused release keeps the dialog with the reason", async () => {
