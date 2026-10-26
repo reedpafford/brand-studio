@@ -60,8 +60,8 @@ as of 20f4c61 · 2026-10-26 04:15 UTC
 - #393 End line: ignore case and punctuation; a near miss is advice, never a block | Builder-Server | QA pass at 919e59b (head since moved to 266d217)
 - #324 CI: time limits on every job and on the ffmpeg install (retries once) | Release | in review
 ## Next (order per the Producer, from Reed's audit order)
-- Builder-Server: land #393; then the cast check and automatic stills redraw after a cast change (Reed's decisions above).
-- Builder-Screens-2: land #396 and #400; then the "Change this…" plain-English edits (spec #395).
+- Builder-Server: land #393; the rest of Reed's 2026-10-26 decisions above (cast check, automatic redraw) as the Producer assigns them.
+- Builder-Screens-2: land #396 and #400; the plain-English "Change this…" edits (spec #395) as the Producer assigns them.
 - Builder-Screens: no open PR; next work from the Producer.
 - Director: Betty after the montage rule; the reel-import evals per #277.
 - Reed: his verdict on the altar reel-import video; tests the climbing-numbers montage rule on the live site; makes video B (Iron Paws Pitbull 1) himself on the live site.
