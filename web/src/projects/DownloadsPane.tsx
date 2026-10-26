@@ -16,6 +16,8 @@ import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { useProjectClips, useProjectVideo } from "./useProgress";
 
+/** When a take was made, as the person's clock reads it: "10:42". */
+const madeAt = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 const slug = (name: string) =>
   name
     .toLowerCase()
@@ -231,7 +233,7 @@ export function DownloadsPane({
                             key={t.id}
                             className="flex items-center justify-between gap-3"
                           >
-                            Take {t.number}
+                            Take {t.number} · made {madeAt(t.created_at)}
                             {save(
                               t.file_id,
                               `${base}-clip-${i + 1}-take-${t.number}.mp4`,

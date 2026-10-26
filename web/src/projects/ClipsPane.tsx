@@ -18,41 +18,6 @@ type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
 const ratio = (a: string) => a.replace(":", " / ");
 
-const hash = (t: string) => [...t].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7).toString(36);
-/** Prompts the editor has read and marked "Looks good" (per browser; editing a prompt asks again). */
-function useReviewed(projectId: number) {
-  const key = `bs-prompts-ok-${projectId}`;
-  const read = () => {
-    try {
-      return new Set<string>(JSON.parse(localStorage.getItem(key) ?? "[]"));
-    } catch {
-      return new Set<string>();
-    }
-  };
-  const [ok, setOk] = useState(read);
-  const id = (c: Clip) => `${c.id}:${hash(c.prompt)}`;
-  const mark = (c: Clip) => {
-    const next = new Set(ok).add(id(c));
-    setOk(next);
-    try {
-      localStorage.setItem(key, JSON.stringify([...next]));
-    } catch {
-      /* private window: it just asks again next time */
-    }
-  };
-  const unmark = (c: Clip) => {
-    const next = new Set(ok);
-    next.delete(id(c));
-    setOk(next);
-    try {
-      localStorage.setItem(key, JSON.stringify([...next]));
-    } catch {
-      /* private window */
-    }
-  };
-  return { has: (c: Clip) => ok.has(id(c)), mark, unmark };
-}
-
 /** The prompt as the editor reads it: script font, five lines with Show all, and each [ImageN] as the name of what it points at. */
 function PromptText({ clip }: { clip: Clip }) {
   const [all, setAll] = useState(false);
@@ -94,7 +59,15 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const jobs = useJobs();
   const frames = useFrames(projectId);
   const blocks = useSheetBlocks(projectId, props.brandId);
-  const reviewed = useReviewed(projectId);
+  // "Looks good" on a prompt is kept on the server (saving an edit counts as read; a rewritten prompt clears it).
+  const promptOk = useMutation({
+    mutationFn: async ({ clip, undo }: { clip: Clip; undo?: boolean }) => {
+      const args = { params: { path: { ...path, clip_id: clip.id } } };
+      const { response, error } = undo ? await api.DELETE("/projects/{project_id}/clips/{clip_id}/prompt-ok", args) : await api.POST("/projects/{project_id}/clips/{clip_id}/prompt-ok", args);
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
+  });
   const stopFor = useOwnScriptStop(props.ownScript);
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
@@ -188,11 +161,11 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   // On an editor's own script the weekly allowance decides, with the reason; nobody is asked to approve.
   const over = (cost: number | undefined) => !props.ownScript && cost !== undefined && props.used + cost > props.budget;
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${Math.round(n)} credits`);
-  const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error;
+  const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error ?? promptOk.error;
   const takeCost = (c: Clip) => c.take_credits;
   const busyFor = (c: Clip) => going(takeJob(c.id)?.id);
   // In the new flow every prompt is read and marked "Looks good" before takes are paid for.
-  const toRead = (c: Clip) => !!props.review && c.takes.length === 0 && !reviewed.has(c);
+  const toRead = (c: Clip) => !!props.review && c.takes.length === 0 && !c.prompt_ok;
   const unread = list.filter(toRead).length;
   const missing = list.filter((c) => c.takes.length === 0 && !toRead(c) && blocking(c.problems).length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
   const waitingForSheet = list.filter((c) => c.takes.length === 0 && blocks.forClip(c.clip_id).length > 0);
@@ -265,8 +238,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
               busy={busyFor(c)}
               blockers={blocks.forClip(c.clip_id)}
               toRead={toRead(c)}
-              onLooksGood={() => reviewed.mark(c)}
-              onUndoLooksGood={() => reviewed.unmark(c)}
+              onLooksGood={() => promptOk.mutate({ clip: c })}
+              onUndoLooksGood={() => promptOk.mutate({ clip: c, undo: true })}
               showPrompt={!!props.review && c.takes.length === 0}
               brandId={props.brandId}
               cost={takeCost(c)}
