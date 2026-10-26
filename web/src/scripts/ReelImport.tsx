@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleAlert, Film, Link as LinkIcon, LoaderCircle, Upload } from "lucide-react";
+import { Check, CircleAlert, Film, Link as LinkIcon, LoaderCircle, RotateCcw, Upload } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Button, Card, Field, buttonClass, wholeCredits } from "../components";
+import { Banner, Button, Card, Dialog, Field, Panel, TextArea, buttonClass, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
@@ -188,6 +188,74 @@ export function ReadReelButton({ scriptId, createdById, className }: { scriptId:
   );
 }
 
+/** Read it again (reel-import.md §5): what did it get wrong? The note can fix who speaks, the shots and the camera, never the words said. */
+function ReadAgain({ scriptId, createdById, credits, onClose }: { scriptId: number; createdById: number | null; credits?: number | null; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  // Past an editor's week it can't be pressed; the reason says so and when it resets.
+  const stop = useAllowanceStop({ created_by_id: createdById }, credits ?? undefined);
+  const [note, setNote] = useState("");
+  const again = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/scripts/{script_id}/import/read-again", { params: { path: { script_id: scriptId } }, body: { note: note.trim() } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (d) => {
+      queryClient.setQueryData(["script-import", scriptId], d);
+      onClose();
+    },
+  });
+  return (
+    <Panel title="Read it again" onClose={onClose}>
+      <div className="space-y-4">
+        <TextArea label="What did it get wrong? (optional)" rows={4} maxLength={500} placeholder="e.g. shot 3 is the groom, not the priest; the montage starts at 0:17" value={note} onChange={(e) => { setNote(e.target.value); again.reset(); }} />
+        <p className="text-sm text-muted">The download and the dialogue are kept. Only the breakdown and the script are made again.</p>
+        {again.isError && <p role="alert" className={errorClass}>{again.error.message}</p>}
+        <Button busy={again.isPending} price={credits ?? undefined} icon={RotateCcw} disabled={stop !== null} reason={stop} onClick={() => again.mutate()} className="w-full">
+          Read it again
+        </Button>
+      </div>
+    </Panel>
+  );
+}
+
+/** "New breakdown ready. Your script edits are kept.": the reel was read again after the script was edited. */
+function FillAgain({ scriptId }: { scriptId: number }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [asking, setAsking] = useState(false);
+  const bring = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] }), queryClient.invalidateQueries({ queryKey: ["script-cast", scriptId] })]);
+  const fill = useMutation({
+    mutationFn: async () => {
+      // What the script says now, so Undo can write it back (the old words also stay in the version's history).
+      const before = queryClient.getQueryData<{ versions: { slot: number; text: string }[] }>(["script-lib", scriptId])?.versions.find((v) => v.slot === 0)?.text;
+      const { data, error } = await api.POST("/scripts/{script_id}/fill-from-reel", { params: { path: { script_id: scriptId } } });
+      if (!data) throw new Error(errorText(error));
+      return { data, before };
+    },
+    onSuccess: async ({ data, before }) => {
+      queryClient.setQueryData(["script-import", scriptId], data);
+      setAsking(false);
+      toast("Script filled from the reel again.", before?.trim() ? async () => {
+        await api.PUT("/scripts/{script_id}/drafts/{slot}", { params: { path: { script_id: scriptId, slot: 0 } }, body: { text: before } });
+        await bring();
+      } : undefined);
+      await bring();
+    },
+  });
+  return (
+    <>
+      <Banner tone="info" title="New breakdown ready. Your script edits are kept." action={<Button variant="ghost" onClick={() => { fill.reset(); setAsking(true); }}>Fill the script again</Button>} />
+      {asking && (
+        <Dialog danger title="Replace your script with the reel's?" cancelLabel="Keep my script" actionLabel="Replace" busy={fill.isPending} onCancel={() => setAsking(false)} onConfirm={() => fill.mutate()}>
+          Your current words move to this version's history.
+          {fill.isError && <span role="alert" className={`${errorClass} mt-2 block`}>{fill.error.message}</span>}
+        </Dialog>
+      )}
+    </>
+  );
+}
+
 /** On the Description step: getting the reel, the price to read it, the read's progress, and what came of it. */
 export function ReelBlock({ scriptId, published, createdById }: { scriptId: number; published: boolean; createdById: number | null }) {
   const reel = useReelImport(scriptId);
@@ -212,6 +280,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
     onSuccess: (d) => queryClient.setQueryData(["script-import", scriptId], d),
   });
   const rail = useRail();
+  const [reading, setReading] = useState(false);
   const brandId = Number(useParams().brandId);
   const r = reel.data;
   // The read finished while this page was open: say so and bring the script in.
@@ -318,19 +387,30 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
     );
   }
   return (
-    <Card className="flex max-w-[680px] gap-4">
-      {thumb}
-      <div className="min-w-0 space-y-1">
-        <p className="flex items-center gap-1 font-medium">
-          <Check size={20} strokeWidth={1.75} aria-hidden className="text-success" />
-          Reel read
-        </p>
-        <p className="text-sm text-muted">Imported · {facts}</p>
-        <p className="text-sm text-muted">The script and the cast are filled in. Check them, then approve.</p>
-        <Link to={`/b/${brandId}/scripts/${scriptId}/reel`} className={buttonClass("secondary")}>
-          Review the breakdown
-        </Link>
-      </div>
-    </Card>
+    <div className="max-w-[680px] space-y-3">
+      {r.new_fill_ready && r.edited_since_fill && !published && <FillAgain scriptId={scriptId} />}
+      <Card className="flex gap-4">
+        {thumb}
+        <div className="min-w-0 space-y-1">
+          <p className="flex items-center gap-1 font-medium">
+            <Check size={20} strokeWidth={1.75} aria-hidden className="text-success" />
+            Reel read
+          </p>
+          <p className="text-sm text-muted">Imported · {facts}</p>
+          <p className="text-sm text-muted">The script and the cast are filled in. Check them, then approve.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to={`/b/${brandId}/scripts/${scriptId}/reel`} className={buttonClass("secondary")}>
+              Review the breakdown
+            </Link>
+            {!published && (
+              <Button variant="ghost" dense icon={RotateCcw} onClick={() => setReading(true)}>
+                Read it again
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+      {reading && <ReadAgain scriptId={scriptId} createdById={createdById} credits={r.read_again_credits} onClose={() => setReading(false)} />}
+    </div>
   );
 }
