@@ -55,7 +55,7 @@ test("a script is made in the library: describe it, write its words, and it is l
   const panel = page.getByRole("dialog", { name: "Bo tries salmon · Version A" });
   await expect(panel).toContainText("Salmon? Again?");
   await panel.getByRole("button", { name: "Make this version" }).click();
-  await expect(page).toHaveURL(/\/projects\/\d+\?step=breakdown/);
+  await expect(page).toHaveURL(/\/videos\/\d+/);
 });
 
 test("Reed deletes a script from its row, and Undo brings it back", async ({ page }) => {

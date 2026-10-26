@@ -152,3 +152,48 @@ test("one-press Make storyboard asks Reed when the writing plus the stills pass 
   open("?step=storyboard");
   expect(await screen.findByRole("button", { name: "Ask Reed to approve · 15 credits" })).toBeInTheDocument();
 });
+
+const take = (id: number, number: number) => ({ id, number, file_id: 50 + id });
+const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)], picked_take_id: 2 });
+
+test("Downloads: the zip, the picked take and the older take each download", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
+  expect(zip).toHaveAttribute("href", "/api/projects/9/clips.zip");
+  expect(screen.getByRole("link", { name: "Download clip 1 (bo-tries-salmon-b-clip-1.mp4)" })).toHaveAttribute("href", expect.stringContaining("/files/52"));
+  expect(screen.getByText("Older takes (1)")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Download clip 1 take 1/ })).toBeInTheDocument();
+});
+
+test("Downloads puts the clips together by itself the first time, for free", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/video": [201, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByText("Putting your clips together…")).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/video")).toHaveLength(1));
+});
+
+test("a video made from a library version opens on the new page", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9": [200, { ...project, script_draft_id: 4 }], "GET /projects/9/assets": [200, []] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/projects/9?step=breakdown"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByRole("heading", { name: "Breakdown", level: 2 })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Steps" })).toHaveTextContent("Downloads");
+});
+
+test("on a phone the zip button sits in the action bar", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
+  expect(zip.closest(".border-t.text-center")).not.toBeNull();
+  expect(screen.getByText("Made from: Clip 1 Take 2")).toBeInTheDocument();
+});
