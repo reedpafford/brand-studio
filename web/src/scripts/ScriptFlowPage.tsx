@@ -166,7 +166,7 @@ export function ScriptFlowPage() {
       {step === "description" && <DescriptionStep script={s} brandName={brandName} onEditing={setEditing} onDone={() => toast("Description saved.")} />}
       {step === "script" && <ScriptStep scriptId={id} script={s} onEditing={setEditing} />}
       {step === "variations" && <VariationsStep script={s} own={mine} onPicked={setPicked} />}
-      {step === "cast" && <CastStep scriptId={id} brandId={brandId} readOnly={s.published} />}
+      {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
       {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}
     </main>
   );

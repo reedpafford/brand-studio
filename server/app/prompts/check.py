@@ -43,7 +43,9 @@ FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"
     re.I,
 )
 MONEY = re.compile(r"[+\-−]?\$\d+(?:,\d{3})*(?:\.\d+)?(?:\s?[kKmM]\b)?")  # "+$42", "−$80", "$348k"
-SETTINGS_WORDS = re.compile(r"\b\d+:\d+\b|\b(480|720|1080)p\b")
+SETTINGS_WORDS = re.compile(  # aspect ratios and resolutions, not a clock reading "3:12"
+    r"\b(?:9:16|16:9|4:5|5:4|1:1|4:3|3:4|2:3|3:2|21:9)\b|\b(?:480|720|1080)p\b"
+)
 
 
 def enhance(script: str, result: EnhanceResult, screens: dict[str, list[str]]) -> list[str]:
