@@ -1020,7 +1020,7 @@ export interface paths {
         };
         /**
          * My Allowance
-         * @description This week's quick-clip credits used and allowed for the caller.
+         * @description This week's credits used and allowed for the caller, and when the week starts again.
          */
         get: operations["my_allowance_credits_me_get"];
         put?: never;
@@ -2665,13 +2665,6 @@ export interface components {
             /** Password */
             password: string;
         };
-        /** AllowanceOut */
-        AllowanceOut: {
-            /** Quick Clip Credits Used */
-            quick_clip_credits_used: number;
-            /** Quick Clip Credits Allowed */
-            quick_clip_credits_allowed: number;
-        };
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
@@ -3680,6 +3673,18 @@ export interface components {
             };
             /** Price Source */
             price_source: string;
+        };
+        /** MyAllowanceOut */
+        MyAllowanceOut: {
+            /** Quick Clip Credits Used */
+            quick_clip_credits_used: number;
+            /** Quick Clip Credits Allowed */
+            quick_clip_credits_allowed: number;
+            /**
+             * Resets On
+             * Format: date
+             */
+            resets_on: string;
         };
         /** Named */
         Named: {
@@ -7132,7 +7137,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AllowanceOut"];
+                    "application/json": components["schemas"]["MyAllowanceOut"];
                 };
             };
         };
