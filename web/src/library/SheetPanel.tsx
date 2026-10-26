@@ -5,7 +5,7 @@ import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { Elapsed, useJobs } from "../clip/History";
 import { useMe } from "../auth/useMe";
-import { wholeCredits } from "../components";
+import { creditsLabel, wholeCredits } from "../components";
 import { Sheet } from "../projects/Sheet";
 import { useMedia } from "../useMedia";
 import { useToast } from "../toast";
@@ -15,7 +15,13 @@ type Item = components["schemas"]["ItemOut"];
 const MODEL = "nano-banana-pro" as const;
 const RESOLUTION = "2K";
 /** Whole credits, rounded up, as everywhere else. */
-export const credits = (n: number) => `${wholeCredits(n)} credits`;
+export const credits = creditsLabel;
+
+/** The look check in words: what the look reads as and what doesn't fit ("…a man in his 50s, but Mia is a woman in her late 20s."). */
+export const lookFitNote = (fit: { seen: string; problem: string }) => {
+  const bare = (t: string) => t.trim().replace(/[.\s]+$/, "");
+  return `This look reads as ${bare(fit.seen)}${bare(fit.problem) ? `, but ${bare(fit.problem)}` : ""}.`;
+};
 
 /** What drawing one sheet costs, in credits (undefined until the prices load). */
 export function useSheetPrice() {
@@ -147,10 +153,10 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           {failed && <p className="text-danger">Didn't finish · credits returned</p>}
           {item.look_fit && !drawing && (
             <div className="space-y-1 rounded-md bg-warning-soft p-2" role="note" aria-label="Look check">
-              <p>This look reads as: {item.look_fit.seen}</p>
+              <p>{lookFitNote(item.look_fit)}</p>
               {(status === "needs_approval" || status === "approved") && redoing === null && (
                 <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={!!declined} onClick={() => setRedoing(item.look_fit!.problem)}>
-                  Redo it
+                  Fix it with a note
                 </button>
               )}
             </div>

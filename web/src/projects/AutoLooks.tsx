@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
-import { Banner, Button, wholeCredits } from "../components";
+import { Banner, Button, creditsLabel, wholeCredits } from "../components";
 
 const START_IN = 5;
 
@@ -14,11 +14,11 @@ export function AutoLooks({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
   const [no, setNo] = useState(false);
   const [left, setLeft] = useState(START_IN);
-  const [made, setMade] = useState<{ n: number; credits: number } | null>(null);
   const [began, setBegan] = useState(false); // it starts once per visit
   const missing = useQuery({
     queryKey: ["missing-looks", projectId],
     queryFn: async () => (await api.GET("/projects/{project_id}/assets/missing-looks", { params: { path: { project_id: projectId } } })).data ?? null,
+    refetchInterval: (q) => (q.state.data?.made?.drawing ? 4000 : false), // the figure can still grow while looks are drawn or checked
   });
   const m = missing.data;
   // The press holds the most it can cost (each sheet may get one automatic redo); the server says the usual price too.
@@ -30,7 +30,6 @@ export function AutoLooks({ projectId }: { projectId: number }) {
       return data;
     },
     onSuccess: async () => {
-      setMade({ n: m?.slot_ids.length ?? 0, credits: m?.credits ?? 0 });
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["assets", projectId] }), queryClient.invalidateQueries({ queryKey: ["missing-looks", projectId] })]);
     },
   });
@@ -62,8 +61,14 @@ export function AutoLooks({ projectId }: { projectId: number }) {
   };
   if (make.isError) return <Banner tone="warning" title={make.error.message} />;
   if (make.isPending) return <Banner tone="info" title={`Making looks for ${names(m?.roles ?? [])} · ${price(m?.credits ?? 0)}`} />;
-  if (made && made.n > 0) return <Banner tone="info" title={`Made ${made.n} look${made.n === 1 ? "" : "s"}. Check each one, then approve.`} />;
-  if (!m || m.slot_ids.length === 0) return null;
+  if (!m) return null;
+  // What was really made and spent comes from the server, and is only said once nothing is still being drawn or checked.
+  const done = m.made;
+  if (m.slot_ids.length === 0) {
+    if (!done || done.looks === 0) return null;
+    const n = `${done.looks} look${done.looks === 1 ? "" : "s"}`;
+    return done.drawing ? <Banner tone="info" title={`Making ${n}…`} /> : <Banner tone="info" title={`Made ${n} · ${creditsLabel(done.credits_used)}. Check each one, then approve.`} />;
+  }
   if (m.reason) return <Banner tone="warning" title={m.reason} />;
   if (no) return null;
   return (

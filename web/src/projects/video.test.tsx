@@ -595,11 +595,17 @@ test("missing looks: the price first with a countdown and Not now; Not now is re
 
 test("missing looks that fit are made after the countdown, and the note then says what was made", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing()], "POST /projects/9/assets/make-missing": [200, []] });
+  const routes: Record<string, [number, unknown]> = { ...base, "POST /projects/9/assets/make-missing": [200, []] };
+  // Before the press the server lists the missing roles; afterwards it says what was really made and spent.
+  Object.defineProperty(routes, "GET /projects/9/assets/missing-looks", {
+    enumerable: true,
+    get: () => [200, calls.some((c) => c.key === "POST /projects/9/assets/make-missing") ? missing({ slot_ids: [], roles: [], made: { looks: 3, credits_used: 7, drawing: false } }) : missing()],
+  });
+  const calls = fakeServer(routes);
   open();
   await screen.findByText(/Starting in \d s/);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(true), { timeout: 9000 });
-  expect(await screen.findByText("Made 2 looks. Check each one, then approve.")).toBeInTheDocument();
+  expect(await screen.findByText("Made 3 looks · 7 credits. Check each one, then approve.")).toBeInTheDocument();
   expect(calls.filter((c) => c.key === "POST /projects/9/assets/make-missing")).toHaveLength(1); // once
 }, 20000);
 
@@ -647,7 +653,7 @@ test("Change it on a look's sheet shows up to N credits with the usual price und
   expect(within(card).getByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
 });
 
-test("a look that reads wrong says what it reads as; Redo it puts the problem in the Change this… box, ready to send", async () => {
+test("a look that reads wrong says what it reads as; Fix it with a note puts the problem in the Change this… box, ready to send", async () => {
   setViewport(1440);
   const calls = fakeServer({
     ...base,
@@ -658,11 +664,19 @@ test("a look that reads wrong says what it reads as; Redo it puts the problem in
   });
   open();
   const card = await screen.findByLabelText("Coach");
-  expect(within(card).getByText("This look reads as: a teenage boy in a hoodie")).toBeInTheDocument();
-  await userEvent.click(within(card).getByRole("button", { name: "Redo it" }));
+  expect(within(card).getByText("This look reads as a teenage boy in a hoodie, but Coach should be a woman in her 40s.")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Fix it with a note" }));
   expect(within(card).getByLabelText("Change this…")).toHaveValue("Coach should be a woman in her 40s");
   await userEvent.click(await within(card).findByRole("button", { name: /^Change it · up to 4 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/12/sheet")?.body).toEqual({ model_id: "nano-banana-pro", change: "Coach should be a woman in her 40s" }));
+});
+
+test("while the made looks are still being drawn the note does not state a cost yet", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing({ slot_ids: [], roles: [], made: { looks: 1, credits_used: 2, drawing: true } })] });
+  open();
+  expect(await screen.findByText("Making 1 look…")).toBeInTheDocument();
+  expect(screen.queryByText(/Check each one/)).toBeNull();
 });
 
 test("a look with nothing wrong shows no look-check note", async () => {
