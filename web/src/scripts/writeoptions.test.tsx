@@ -109,3 +109,24 @@ test("the paste box on an empty script has a way back to the choices", async () 
   await userEvent.click(screen.getByRole("button", { name: "Back to the choices" }));
   expect(await screen.findByRole("heading", { name: "Write with Claude" })).toBeInTheDocument();
 });
+
+test("when the paid reel read finishes, the open Script step brings in the new words and stops offering to write", async () => {
+  setViewport(1440);
+  const reel = (status: string) => ({ script_id: 7, status, source: "link", url: "https://www.instagram.com/reel/Abc123/", seconds: 45, shots: 50, transcript: [], video_file_id: 3, contact_file_id: 4, problem: "", problem_code: null, estimate: { credits: 7, credits_left: null } });
+  fakeServer(base({ "GET /scripts/7": [200, script({ reel_imported: true })], "GET /scripts/7/import": [200, reel("reading")] }));
+  // The read finishes: the import now says "done", and the script now has the words the read wrote.
+  const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation()!;
+  let imports = 0;
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  const written = script({ reel_imported: true, versions: [{ ...script().versions[0], text: "BO: Salmon? Again?", words: 3, status: "approved" }] });
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    const path = new URL(req.url).pathname.replace(/^\/api/, "");
+    if (req.method === "GET" && path === "/scripts/7/import") return json(reel(++imports < 2 ? "reading" : "done"));
+    if (req.method === "GET" && path === "/scripts/7" && imports >= 2) return json(written);
+    return inner(req.clone(), init);
+  }));
+  open();
+  expect(await screen.findByText("BO: Salmon? Again?", {}, { timeout: 8000 })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Write with Claude/ })).toBeNull();
+});
