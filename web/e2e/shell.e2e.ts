@@ -63,16 +63,17 @@ test("an editor sees the team but not the owner's controls", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "Team" })).toBeVisible();
   await expect(page.getByText("reed@example.com")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Invite someone" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /^Remove / })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^More for / })).toHaveCount(0);
 });
 
 test("the owner removes a member, who can no longer sign in", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo"); // wait for the landing page, or the sign-in redirect can replace the Team click
   await page.getByRole("link", { name: "Team" }).click();
-  await page.getByRole("button", { name: "Remove Ed" }).click();
+  await page.getByRole("button", { name: "More for Ed" }).click();
+  await page.getByRole("menuitem", { name: "Remove" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Remove", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove Ed" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "More for Ed" })).toHaveCount(0);
 
   await openAccountMenu(page);
   await page.getByRole("menuitem", { name: "Sign out" }).click();

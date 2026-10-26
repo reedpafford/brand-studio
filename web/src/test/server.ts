@@ -11,7 +11,8 @@ export function fakeServer(routes: Record<string, [number, unknown]>) {
       const text = await req.text();
       const isJson = req.headers.get("content-type")?.includes("json");
       calls.push({ key, body: text && isJson ? JSON.parse(text) : undefined });
-      const [status, body] = routes[key] ?? [404, { detail: "not faked" }];
+      // A route can be faked with its query ("GET /team/members?removed=true") ahead of the plain path.
+      const [status, body] = routes[`${key}${new URL(req.url).search}`] ?? routes[key] ?? [404, { detail: "not faked" }];
       return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
     }),
   );
