@@ -34,7 +34,7 @@ const PREFIX = "Advice: ";
 export const isAdvice = (p: string) => p.startsWith(PREFIX);
 
 /** Advice under one closed line, "Advice (n)", in a neutral tone; the count leaves out advice already kept. Real problems are shown elsewhere. */
-export function AdviceList({ problems, kept = [], onKeep, busy, owner, extra, name = "Advice" }: { problems: string[]; kept?: string[]; onKeep: (problem: string, undo?: boolean) => void; busy?: boolean; owner?: boolean; extra?: (problem: string) => ReactNode; name?: string }) {
+export function AdviceList({ problems, kept = [], onKeep, busy, owner, extra, name = "Advice" }: { problems: string[]; kept?: string[]; onKeep?: (problem: string, undo?: boolean) => void; busy?: boolean; owner?: boolean; extra?: (problem: string) => ReactNode; name?: string }) {
   const advice = problems.filter(isAdvice);
   if (advice.length === 0) return null;
   const open = advice.filter((p) => !kept.includes(p));
@@ -46,7 +46,7 @@ export function AdviceList({ problems, kept = [], onKeep, busy, owner, extra, na
           <li key={p} className={`flex flex-wrap items-center gap-x-2 ${kept.includes(p) ? "text-muted" : ""}`}>
             <span className="flex-1 py-2">{p.slice(PREFIX.length)}</span>
             {extra?.(p)}
-            {kept.includes(p) ? (
+            {!onKeep ? null : kept.includes(p) ? (
               <>
                 <span className="text-xs">{owner ? "Kept" : "Kept · Reed will see it"}</span>
                 <Button variant="ghost" dense busy={busy} aria-label={`Undo keep: ${p.slice(PREFIX.length)}`} onClick={() => onKeep(p, true)}>

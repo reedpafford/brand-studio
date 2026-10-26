@@ -136,7 +136,7 @@ test("a draft script's page: title, a draft badge, seven steps with the unbuilt 
   const steps = screen.getByRole("list", { name: "Steps" });
   expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Description", "Script", "Directions", "Variations", "Cast", "Breakdown", "Publish"]);
   expect(within(steps).getByRole("button", { name: "Directions" })).toHaveAccessibleDescription("Write the script first");
-  expect(within(steps).getByRole("button", { name: "Breakdown" })).toHaveAccessibleDescription("Coming soon");
+  expect(within(steps).getByRole("button", { name: "Breakdown" })).toHaveAccessibleDescription("Write the script first");
   expect(screen.getByText("Keep it warm.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Edit description" }));
   await userEvent.clear(screen.getByLabelText("Title"));

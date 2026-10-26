@@ -44,6 +44,22 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("textbox", { name: "Role" }).fill("Zed");
   await page.getByRole("button", { name: "Add role" }).click();
   await expect(page.getByText("3 roles · 0 locked")).toBeVisible();
+  // Plan version A's shots first (stand-in provider, no cost), then publish.
+  await page.getByRole("button", { name: "Next: Breakdown" }).click();
+  await page.getByRole("button", { name: /^Make the breakdown/ }).click();
+  await expect(page.getByText(/^Planned · \d+ s/)).toBeVisible({ timeout: 60_000 });
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
+    expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
+  }
+  // Remove the plan, then Undo brings the same plan back.
+  await page.getByRole("button", { name: "More for this plan" }).click();
+  await page.getByRole("menuitem", { name: "Remove the plan" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("button", { name: /^Make the breakdown/ })).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByText(/^Planned · \d+ s/)).toBeVisible();
   await page.getByRole("button", { name: "Next: Publish" }).click();
   await page.getByRole("button", { name: "Publish 2 versions" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
