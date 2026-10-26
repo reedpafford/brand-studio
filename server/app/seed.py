@@ -212,6 +212,43 @@ def plain_stored(db: Session) -> int:
     return changed
 
 
+QA_OWNER = "QA Owner"  # the live test's owner account (Reed, 2026-10-26: remove it)
+
+
+def remove_qa_owner(db: Session) -> bool:
+    """Remove the QA test owner: only an owner named exactly "QA Owner". With nothing of its own
+    it's deleted; otherwise it's removed as Team's Remove does (it can't sign in, its sessions
+    and the invites it sent are gone) so the work it made keeps its history. True when there
+    was something to do; running it again changes nothing."""
+    from sqlalchemy import delete, func
+
+    from app.db import Base
+    from app.models.accounts import Invite, LoginSession, Role, User
+
+    found = False
+    for user in db.scalars(select(User).where(User.name == QA_OWNER, User.role == Role.owner)):
+        sessions = delete(LoginSession).where(LoginSession.user_id == user.id)
+        invites = delete(Invite).where(
+            Invite.invited_by_id == user.id, Invite.accepted_at.is_(None)
+        )
+        changed = bool(db.execute(sessions).rowcount + db.execute(invites).rowcount)
+        uses = [
+            db.scalar(select(func.count()).select_from(table).where(column == user.id))
+            for table in Base.metadata.sorted_tables
+            for column in table.columns
+            for fk in column.foreign_keys
+            if fk.column.table.name == "users" and table.name != "login_sessions"
+        ]
+        if not any(uses):
+            db.delete(user)
+            changed = True
+        elif user.active:
+            user.active, changed = False, True
+        found = found or changed
+    db.commit()
+    return found
+
+
 def main(folder: str, slug: str = "fomo") -> None:
     from app.credits import seed_rates
     from app.db import make_sessionmaker
@@ -231,6 +268,8 @@ def main(folder: str, slug: str = "fomo") -> None:
             print(f"Imported {made} new script drafts into the library.")
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Said {plain_stored(db)} saved checks in plain words.")
+            if remove_qa_owner(db):
+                print("Removed the QA test owner.")
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:
