@@ -34,7 +34,10 @@ def escape_block(block: str) -> str:
 
 
 def screens_of(db: Session, brand: Brand) -> list[BrandScreen]:
-    return list(db.scalars(select(BrandScreen).where(BrandScreen.brand_id == brand.id)))
+    live = select(BrandScreen).where(
+        BrandScreen.brand_id == brand.id, BrandScreen.deleted_at.is_(None)
+    )
+    return list(db.scalars(live))
 
 
 def project_screens(db: Session, project: Project) -> list[BrandScreen]:

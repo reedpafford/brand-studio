@@ -161,7 +161,11 @@ def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
 
 def _check_variants(db: Session, brand_id: int, chosen: dict[str, str]) -> dict[str, str]:
     """Each chosen variant must be one of the brand's versions of that product."""
-    screens = db.scalars(select(BrandScreen).where(BrandScreen.brand_id == brand_id))
+    screens = db.scalars(
+        select(BrandScreen).where(
+            BrandScreen.brand_id == brand_id, BrandScreen.deleted_at.is_(None)
+        )
+    )
     offered: dict[str, set[str]] = {}
     for s in screens:
         if s.product and s.variant:

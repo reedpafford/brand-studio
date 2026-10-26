@@ -345,12 +345,35 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Screen */
+        /**
+         * Delete Screen
+         * @description Delete it, undoably: it leaves every list and is never used again until restored.
+         */
         delete: operations["delete_screen_brands__brand_id__screens__screen_id__delete"];
         options?: never;
         head?: never;
         /** Update Screen */
         patch: operations["update_screen_brands__brand_id__screens__screen_id__patch"];
+        trace?: never;
+    };
+    "/brands/{brand_id}/screens/{screen_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Screen
+         * @description Undo a delete: the screen comes back as it was.
+         */
+        post: operations["restore_screen_brands__brand_id__screens__screen_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/library/{kind}": {
@@ -5535,6 +5558,7 @@ export interface operations {
             query?: {
                 tag?: string | null;
                 moment?: string | null;
+                deleted?: boolean;
             };
             header?: never;
             path: {
@@ -5644,6 +5668,38 @@ export interface operations {
                 "application/json": components["schemas"]["ScreenPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_screen_brands__brand_id__screens__screen_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                screen_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
