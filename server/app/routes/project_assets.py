@@ -301,6 +301,7 @@ def undo_save(db: Session, user: User, copy: LibraryItem) -> bool:
     for key, item_id in list(project.slot_cast.items()):
         if item_id == copy.id:
             slot = db.get(ScriptCastSlot, int(key))
+            look.archived = False  # removed after the save (nobody used it): it's back in use
             _cast(db, user, project, slot, look, same_look=True)
     used = db.scalars(select(Project.cast_ids).where(Project.workspace_id == copy.workspace_id))
     if any(copy.id in ids for ids in used):
