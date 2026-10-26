@@ -3,6 +3,7 @@ the item's notes, or from its source photo, with the Director's `prompts.sheet_p
 editor approves it; only an approved sheet is ever used in a video (`app/sheets.py`), and the
 source photo never is."""
 
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,6 +13,7 @@ from sqlalchemy.orm import Session
 from app import prompts
 from app.auth import current_user
 from app.catalogue import get_model
+from app.credits import estimate
 from app.db import get_db
 from app.images import image_job_input
 from app.models.accounts import User
@@ -30,6 +32,13 @@ RESOLUTION = "2K"
 class SheetIn(BaseModel):
     model_id: Literal["nano-banana-pro", "nano-banana-2.1"] = "nano-banana-pro"
     change: str = Field("", max_length=500)  # Redo: "What should change?" (optional)
+
+
+def sheet_price(db: Session, workspace_id: int) -> Decimal:
+    """What one sheet costs with the default model, as Make a look draws it."""
+    model = SheetIn().model_id
+    job = {"model": model, "input": {"resolution": RESOLUTION}}
+    return estimate(db, workspace_id, "image", Decimal(1), job)
 
 
 def _item(db: Session, user: User, kind: Kind, item_id: int) -> LibraryItem:
