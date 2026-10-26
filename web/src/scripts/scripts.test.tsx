@@ -1073,10 +1073,13 @@ test("Bulk create, Reel links: one link per line, bad lines are named and block 
   const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
   await userEvent.click(within(dialog).getByRole("radio", { name: "Reel links" }));
   expect(within(dialog).queryByLabelText(/^Title \d$/)).toBeNull();
+  expect(within(dialog).getByRole("button", { name: "Make 0 drafts" })).toHaveAccessibleDescription("Paste at least one reel link");
   await userEvent.type(within(dialog).getByLabelText("Paste reel links, one per line"), "https://www.instagram.com/reel/Abc123/{Enter}https://example.com/nope{Enter}https://www.instagram.com/reel/Def456/");
   expect(within(dialog).getByText("Line 2 isn't a reel link")).toBeInTheDocument();
-  await userEvent.click(within(dialog).getByRole("button", { name: "Make 3 drafts" }));
-  expect(calls.some((c) => c.key === "POST /scripts/bulk")).toBe(false); // a bad line blocks it
+  const make = within(dialog).getByRole("button", { name: "Make 3 drafts" });
+  expect(make).toBeDisabled(); // a bad line blocks it, and says why
+  expect(make).toHaveAccessibleDescription("Fix the lines that aren't reel links");
+  expect(calls.some((c) => c.key === "POST /scripts/bulk")).toBe(false);
   const box = within(dialog).getByLabelText("Paste reel links, one per line");
   await userEvent.clear(box);
   await userEvent.type(box, "https://www.instagram.com/reel/Abc123/{Enter}https://www.instagram.com/p/Def456/");
