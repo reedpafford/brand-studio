@@ -14,8 +14,9 @@ import { AdviceList, useKeep } from "./Keep";
 import { useMe } from "../auth/useMe";
 import { refName, useRoleNames } from "./names";
 import { useOwnScriptStop } from "./useOwnScriptStop";
+import { Badge, Banner, wholeCredits } from "../components";
+import { RotateCcw } from "lucide-react";
 import { usePressed } from "./usePressed";
-import { Banner } from "../components";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -31,7 +32,7 @@ export function useFrames(projectId: number) {
 }
 
 /** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. */
-export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
+export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -138,6 +139,19 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
   if (frames.isPending) return <p className="text-muted">Loading…</p>;
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const list = frames.data;
+  // After a cast change the stills that show the old cast are redrawn by themselves when the video can pay for it; otherwise they say "Out of date".
+  const outOfDate = list.filter((f) => f.still_stale);
+  const redrawn = list.filter((f) => f.redrawn && !f.approved);
+  const cast = props.castRedraw as { redrawn_for_cast?: { count: number; credits: number }; redraw_refused?: { count: number; credits: number; reason: string } } | null | undefined;
+  const redrawCost = imageCost === undefined ? undefined : imageCost * outOfDate.length;
+  const castNote =
+    cast?.redraw_refused && outOfDate.length > 0 ? (
+      <Banner tone="warning" title={cast.redraw_refused.reason} />
+    ) : cast?.redrawn_for_cast && redrawn.length > 0 ? (
+      <Banner tone="info" title={`Redrew ${cast.redrawn_for_cast.count} still${cast.redrawn_for_cast.count === 1 ? "" : "s"} for the new cast · ${wholeCredits(cast.redrawn_for_cast.credits)} credits`} />
+    ) : null;
+  // Past what the video can spend, an editor is declined with the reason; Reed decides for himself.
+  const redrawBlocked = outOfDate.length === 0 ? null : stopFor(redrawCost);
   const missing = list.filter((f) => f.file_id === null && !blocking(f.problems).length && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
@@ -205,7 +219,7 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
         <span className="flex gap-2">
           {missing.length > 0 && (
             <button
-              className={btnPrimary}
+              className={outOfDate.length > 0 ? btnSecondary : btnPrimary}
               disabled={render.isPending || !!stopFor(allCost)}
               onClick={async () => {
                 for (const f of missing) await render.mutateAsync({ frame: f }).catch(() => undefined);
@@ -215,9 +229,17 @@ export function StoryboardPane(props: { ownScript?: boolean; oneStep?: boolean; 
               {price(allCost)}
             </button>
           )}
+          {outOfDate.length > 0 && (
+            <button className={btnPrimary} disabled={render.isPending || redrawBlocked !== null} onClick={async () => { for (const f of outOfDate) await render.mutateAsync({ frame: f }).catch(() => undefined); }}>
+              Redraw {outOfDate.length} still{outOfDate.length === 1 ? "" : "s"}
+              {price(redrawCost)}
+            </button>
+          )}
           {makeButton}
         </span>
       </div>
+      {castNote}
+      {redrawBlocked && redrawBlocked !== declined && <p className="text-sm text-warning">{redrawBlocked}</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
         {declined && <p className="text-sm text-warning">{declined}</p>}
       {waitingForSheet.length > 0 && (
@@ -312,6 +334,16 @@ function FrameCard(props: {
     <li className="space-y-2 text-sm" aria-label={`Frame ${f.clip_id}`}>
       <div className={`relative grid place-items-center overflow-hidden rounded-md bg-surface-2 ${f.approved ? "border-2 border-accent" : "border border-border"}`} style={{ aspectRatio: ratio(props.aspect) }}>
         {f.approved && <span className="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-on-accent">✓ Approved</span>}
+        {!f.approved && f.still_stale && (
+          <span className="absolute left-2 top-2">
+            <Badge tone="warning">Out of date</Badge>
+          </span>
+        )}
+        {!f.approved && !f.still_stale && f.redrawn && (
+          <span className="absolute left-2 top-2">
+            <Badge icon={RotateCcw}>Redrawn</Badge>
+          </span>
+        )}
         {props.busy ? (
           <span className="text-muted">Drawing…</span>
         ) : f.file_id !== null ? (
