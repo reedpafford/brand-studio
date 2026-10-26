@@ -213,38 +213,45 @@ def plain_stored(db: Session) -> int:
 
 
 def rewrite_owner_clips(db: Session) -> int:
-    """Reed's own videos whose clips went stale before Clips could rewrite them (Reed,
-    2026-10-26, #503): their stale clip prompts are rewritten once, free to him (a real Claude
-    call, charged to no budget or week; its dollars are in Usage). Never twice for a video;
-    not while clip prompts or takes are being made. How many videos were queued."""
+    """Reed's current video, whose clips went stale before Clips could rewrite them (Reed,
+    2026-10-26, #503): of the videos an owner made, the one edited most recently (its newest
+    breakdown change) with stale clips gets its stale clip prompts rewritten once, free to
+    him (one real Claude call, at most 3 credits' worth, charged to no budget or week; its
+    dollars are in Usage). Only that one video, only once ever, and never while clip prompts
+    or a take are being made on it. Others get the button, or the rewrite on their next
+    change. How many videos were queued (0 or 1)."""
     from app import clip_prompts
     from app.job_brand import brand_for
     from app.models.accounts import Role, User
     from app.models.jobs import Job, JobStatus
     from app.models.projects import Project
 
-    queued = 0
+    jobs = db.scalars(select(Job).where(Job.input["step"].as_string() == "clip_prompts"))
+    if any(j.input.get("repair") for j in jobs):
+        return 0  # done once already
     owners = {u.id: u for u in db.scalars(select(User).where(User.role == Role.owner))}
+    candidates = []
     for project in db.scalars(select(Project).where(Project.created_by_id.in_(owners))):
-        if project.archived_at is not None:
-            continue
-        mine = db.scalars(select(Job).where(Job.project_id == project.id))
-        jobs = [j for j in mine if j.input.get("step") in ("clip_prompts", "clip_take")]
-        done_before = any(j.input.get("repair") for j in jobs)
-        busy = any(j.status in clip_prompts.WAITING for j in jobs)
-        ids = clip_prompts.to_rewrite(db, project)
-        if done_before or busy or not ids:
-            continue
         bd = clip_prompts.newest(db, project)
-        data = {**clip_prompts.job_input(db, project, bd), "clip_ids": ids, "repair": True}
-        owner = owners[project.created_by_id]
-        db.add(Job(workspace_id=project.workspace_id, created_by_id=owner.id,
-                   approved_by_id=owner.id, kind="write-claude", provider="claude", input=data,
-                   project_id=project.id, brand_id=brand_for(db, project, data),
-                   credits=0, status=JobStatus.queued))  # fmt: skip
-        queued += 1
+        if project.archived_at is None and bd and clip_prompts.to_rewrite(db, project):
+            candidates.append((bd.id, project))
+    if not candidates:
+        return 0
+    _, project = max(candidates, key=lambda c: c[0])  # the latest breakdown change
+    mine = db.scalars(select(Job).where(Job.project_id == project.id))
+    steps = {j.input.get("step") for j in mine if j.status in clip_prompts.WAITING}
+    if steps & {"clip_prompts", "clip_take"}:
+        return 0  # something is being made on it: the next deploy tries again
+    bd = clip_prompts.newest(db, project)
+    ids = clip_prompts.to_rewrite(db, project)
+    data = {**clip_prompts.job_input(db, project, bd), "clip_ids": ids, "repair": True}
+    owner = owners[project.created_by_id]
+    db.add(Job(workspace_id=project.workspace_id, created_by_id=owner.id,
+               approved_by_id=owner.id, kind="write-claude", provider="claude", input=data,
+               project_id=project.id, brand_id=brand_for(db, project, data),
+               credits=0, status=JobStatus.queued))  # fmt: skip
     db.commit()
-    return queued
+    return 1
 
 
 def main(folder: str, slug: str = "fomo") -> None:
@@ -266,7 +273,8 @@ def main(folder: str, slug: str = "fomo") -> None:
             print(f"Imported {made} new script drafts into the library.")
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Said {plain_stored(db)} saved checks in plain words.")
-            print(f"Rewrote clip prompts on {rewrite_owner_clips(db)} videos.")
+            if rewrite_owner_clips(db):
+                print("Rewrote clip prompts on 1 video.")
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:
