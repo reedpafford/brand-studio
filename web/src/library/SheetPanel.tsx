@@ -11,10 +11,16 @@ import { useToast } from "../toast";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 
 type Item = components["schemas"]["ItemOut"];
-const MODEL = "nano-banana-pro";
+const MODEL = "nano-banana-pro" as const;
 const RESOLUTION = "2K";
 /** 1.5 stays 1.5, 3 stays 3. */
 export const credits = (n: number) => `${+n.toFixed(1)} credits`;
+
+/** What drawing one sheet costs, in credits (undefined until the prices load). */
+export function useSheetPrice() {
+  const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
+  return { model: MODEL, price: models.data?.find((m) => m.id === MODEL)?.credits_per_unit?.[RESOLUTION] };
+}
 
 /** Photo → house-style sheet. Only an approved sheet is used in videos. */
 export function SheetPanel(props: { item: Item; kind: "character" | "place"; ensureSaved: () => Promise<unknown> }) {
