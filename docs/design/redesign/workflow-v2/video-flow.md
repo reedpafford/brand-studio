@@ -24,6 +24,7 @@ The #179 frame (the one-line phone header, step picker, one Next, Back) with **5
 - **Checks:** the montage check counts hand and screen inserts, and no problem is a dead end.
   - Every problem has **Go to**, plus either a fix in place or **Keep it anyway** (ghost). Keep it anyway marks the problem "Kept · Reed will see it" (meta) and stops it blocking Next.
   - Only the $75 cap blocks for good.
+  - **Cast mismatch** ("Shot 1.1: the script has Nate proposing, but the shot shows Mogging BF.") has a free **Put the right cast in each shot** (`change-notes.md` §2).
   - **Advice is shown apart from problems** (Reed, 2026-10-25). This applies to the breakdown, storyboard frames and clips alike.
     - Problems that need fixing stay as they are: danger rows with **Go to**.
     - Advice (lines the server marks "Advice: …") goes under one closed disclosure, **Advice (3)**. It's neutral in tone (`text-muted`, `ChevronRight`/`ChevronDown`, no danger colour), sits under the problems, and its count leaves out advice already kept.
@@ -64,14 +65,14 @@ Everything this version needs on screen, approved before anything is drawn.
   | Success | Toast "Every asset approved. Next: the storyboard." |
 
 ## 3. Storyboard
-As specced in `phase3/screens/video.md` §4. **Make storyboard** writes the frames and draws the stills in one press. Each frame uses the approved assets, so the "needs an approved sheet" block no longer happens here: Assets prevents it.
+As specced in `phase3/screens/video.md` §4, with the plain-English **Change this…** box under each still and the automatic frame rewrite after a cast change (`change-notes.md` §1, §3). **Make storyboard** writes the frames and draws the stills in one press. Each frame uses the approved assets, so the "needs an approved sheet" block no longer happens here: Assets prevents it.
 
 ## 4. Clips
-As specced in `phase3/screens/video.md` §5, with the prompt review kept (decision b):
+As specced in `phase3/screens/video.md` §5, with the prompt review kept (decision b). Each clip has the **Change this…** box, and Edit moves to **Advanced: edit the prompt** (`change-notes.md` §1):
 1. **Write clip prompts · N credits**
 2. Read each prompt: **Looks good** / **Edit**
 3. **Make the takes · N credits**, disabled until every prompt is marked Looks good
-4. Review each take: **Looks good**, or **Needs a change → Redo**
+4. Review each take: **Looks good**, or say what should change in **Change this…** (**Change it · N credits**)
 
 Every redo adds a take, and the takes stay listed (they're downloadable in step 5).
 - **Looks good is kept on the server** (`prompt_ok` per clip, #366), not in the browser. So it holds on every device and for everyone who opens the video. Saving your own edit to a prompt counts as Looks good (you read it to edit it). A prompt that is written again clears it. **Make the takes** stays disabled with "Mark every prompt as Looks good first (1 left)" until every clip is ok. **Undo** clears the flag.

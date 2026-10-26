@@ -105,6 +105,7 @@ Use `lucide-react` (one new web dependency). Icons are 20px, stroke 1.75, and `c
 | Storyboard, picture | `Image` | Clips, takes | `Film` |
 | Copy link | `Copy` | Dead link | `Link2Off` |
 | Archive, deleted and archived | `Archive` | Release a version | `Undo2` |
+| Change it (plain-English note) | `Wand2` | Put the right cast in each shot | `Users` |
 
 Emoji are never icons. Today's ✓, ★, ▸ and ✦ glyphs become `Check`, `Smartphone` (brand screen mark), `ChevronRight` and `Sparkles`.
 
