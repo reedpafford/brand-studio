@@ -461,7 +461,7 @@ class EarlierText(BaseModel):
     text: str
     title: str
     words: int
-    source: str  # edit | variations | write: what replaced it
+    source: str  # edit | variations | write | enhance: what replaced it
     created_at: datetime  # when it was replaced
     created_by_name: str
 
