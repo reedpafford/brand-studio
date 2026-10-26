@@ -37,6 +37,7 @@ Builder-Screens builds from this folder. Nothing ships until spacing, alignment,
     - **Loading:** a skeleton in the final layout, with a count-up after 1s ("Writing prompts… 12 s").
     - **Error:** what happened, what was charged (usually nothing), and what to do, with a button.
     - **Success:** a toast, plus the next step lighting up.
+11. **Approve all** (Reed, 2026-10-26): every list where items are approved one by one gets **Approve all**, with the same behaviour everywhere (`workflow-v2/video-flow.md`, Approve all). It's secondary, with `Check`, and placed before the step's amber button. It reads **Approve 8** when not every item is ready. It approves only ready items and lists the skipped ones as "{label}: {reason}", separated by " · ". The toast has **Undo** (8 s), which takes back exactly those. Lists: Storyboard frames, Clips, Assets looks, Variations, and any later list with a per-item Approve.
 
 ## 2. Tokens in use
 - **Colour:** only the token colours exist (`--color-*: initial` in the theme). Use the classes: `bg-surface`, `bg-surface-2`, `text-muted`, `border-border`, `bg-accent text-on-accent`, `bg-success-soft text-success`, and so on. No hex values in components.

@@ -52,6 +52,12 @@ Everything this version needs on screen, approved before anything is drawn.
   - the badge "Needs a look" (warning) until the role has an approved sheet, either a library character's or this video's own look
 - **Place:** the same as an unlocked role, with 16:9 sheets. A place made here is also for this video only.
 
+### Approve all on Assets (Reed, 2026-10-26)
+- **Where:** at the top of the Cast section, beside its heading: **Approve all** (secondary, `Check`), or **Approve 3** when not every look is ready. On phone, it's full width under the heading. The step's amber (Next: Storyboard) stays in the step bar.
+- **Ready** means a look made for this video (or script) whose sheet is drawn and not approved yet. Library characters, locked roles and roles with no look are never counted.
+- **Skipped**, in the result line: "Approved 3. 1 not approved: Nate: still drawing · Mia: no look yet". Each name scrolls to its card.
+- **Undo:** the toast "Approved 3 looks." has **Undo** (8 s), as on Storyboard.
+
 ### Missing looks are made on their own (Reed, 2026-10-26)
 When Assets opens and a **main or recurring** role has no character, its per-video look is made automatically. Background people never get looks.
 - **Price first:** before anything starts, a note (`Info`) at the top of Cast reads "Making looks for Nate, Mia and the Rival · up to 12 credits" (usually 6), with "Starting in 5 s" (meta, counting down) and **Not now** (ghost). Not now stops it, and the cards keep their own **Make a look · up to N credits**. With nothing pressed, it starts after 5 s.
@@ -59,6 +65,7 @@ When Assets opens and a **main or recurring** role has no character, its per-vid
 - **While drawing:** each card shows "Drawing… 14 s". When they land, the note becomes "Made 3 looks · 7 credits. Check each one, then approve." (what it really cost) (`Info`).
 - **Still reviewed:** each look lands as "Needs your approval", with **Approve**, **Change this…** (redo with a note), or **Use a Cast & places character** (swap). Next stays disabled until every role is approved, as before.
 - Once a role has a look (made, picked, or turned down with Not now), opening Assets again never makes it again.
+- **Clips block only for a real missing look:** a clip is held back only when one of its roles truly has no approved look. The line reads "Mia has no approved look yet.", followed by the inline link **Approve one in Assets**.
 - **Naming the role, never an id:** anything that says a look is missing names the role and points here. In a problem line, the sentence is followed by an inline link, **Approve a look in Assets** (as built in #476). Elsewhere, it's "Nate needs a look." with **Approve a look in Assets** (secondary). It's never "char:3" or "slot 2". This applies to Storyboard, Clips, the breakdown's problems and server messages shown as they are.
 
 ### Looks for this video only (gaps #19; Reed, 2026-10-26)

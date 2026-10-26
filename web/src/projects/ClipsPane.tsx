@@ -16,6 +16,7 @@ import { AdviceList, useKeep } from "./Keep";
 import { useProblemWords } from "./ProblemText";
 import { useMe } from "../auth/useMe";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
+import { RewriteNote, RewriteOne } from "./RewriteClips";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -111,8 +112,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   }, [finishedKey, projectId, queryClient]);
 
   const write = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/clips/prompts", { params: { path } });
+    mutationFn: async (clipId?: string) => {
+      const { data, error } = await api.POST("/projects/{project_id}/clips/prompts", { params: { path }, ...(clipId ? { body: { clip_id: clipId } } : {}) });
       if (!data) throw new Error(errorText(error));
       return data;
     },
@@ -120,6 +121,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
       setWriting(job.id);
       pressed.press();
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["rewrite-price", projectId] });
     },
   });
   const generate = useMutation({
@@ -177,10 +179,11 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const waitingForSheet = list.filter((c) => c.takes.length === 0 && blocks.forClip(c.clip_id).length > 0);
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
+  const stale = list.filter((c) => c.stale);
   const writeCost = rate("write-claude");
   const declined = stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
 
-  if (writingNow)
+  if (writingNow && list.length === 0)
     return (
       <section className={`${card} space-y-3`} aria-label="Clips">
         <p className="text-muted">Writing your clip prompts…</p>
@@ -202,7 +205,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         )}
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
-        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending || !!stopFor(writeCost)} onClick={() => write.mutate()}>
+        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending || !!stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
           Write clip prompts
           {price(writeCost)}
         </button>
@@ -219,8 +222,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         </h2>
         {missing.length > 0 && (
           <button
-            className={`${btnPrimary} min-h-11 sm:min-h-9`}
-            disabled={generate.isPending || unread > 0 || !!stopFor(allCost)}
+            className={`${stale.length > 0 ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`} // the rewrite is the step's amber while any clip is stale
+            disabled={generate.isPending || unread > 0 || stale.length > 0 || !!stopFor(allCost)}
             onClick={async () => {
               for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
             }}
@@ -231,6 +234,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         )}
       </div>
       {declined && <p className="text-sm text-warning">{declined}</p>}
+      {stale.length > 0 && <RewriteNote projectId={projectId} count={stale.length} writing={writingNow} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(undefined)} />}
+      {stale.length > 0 && <p className="text-sm text-muted">Rewrite the clips made for an older breakdown first ({stale.length}).</p>}
       {unread > 0 && <p className="text-sm text-muted">Read each prompt and press Looks good before the takes are made ({unread} left).</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       {waitingForSheet.length > 0 && (
@@ -269,6 +274,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
               onRealImage={(shot, on) => realImage.mutate({ clip: c, shot, on })}
               onUnapprove={() => review.mutate({ clip: c, undo: true })}
               onSave={(prompt) => edit.mutate({ clip: c, prompt })}
+              rewrite={c.stale && !writingNow ? <RewriteOne projectId={projectId} clipId={c.clip_id} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(c.clip_id)} /> : null}
             />
           );
         })}
@@ -303,6 +309,7 @@ function ClipCard(props: {
   onUnapprove: () => void;
   onRealImage: (shotId: string, on: boolean) => void;
   onSave: (prompt: string) => void;
+  rewrite: ReactNode;
 }) {
   const { clip: c } = props;
   const keep = useKeep(props.projectId, { of: "clip", id: c.id });
@@ -390,14 +397,15 @@ function ClipCard(props: {
           </div>
         </div>
       )}
-      {props.review && (
+      {props.review && props.rewrite}
+      {props.review && !c.stale && (
         <ChangeBox
           kind="clip"
           projectId={props.projectId}
           id={c.id}
           label={c.clip_id}
           change={c.change as ChangeState}
-          hold={props.busy ? "This one is still being made" : c.stale ? "Write the clip prompts again first" : null}
+          hold={props.busy ? "This one is still being made" : null}
           stopFor={props.stopFor}
           snapshot={c.picked_take_id}
           onUndo={c.takes.length > 1 ? (was) => props.onPick(c.takes.some((t) => t.id === was) ? was! : c.takes[c.takes.length - 2].id) : undefined}
