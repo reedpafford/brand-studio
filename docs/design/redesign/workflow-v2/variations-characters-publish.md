@@ -79,6 +79,7 @@ Reed, 2026-10-25 (#197): once the script and its variations are approved, the ap
   - **Make one:** a name (filled with the role), a photo (optional), and the description (filled). Then **Make a look · N credits**, which runs the house-style sheet and comes back for **Approve**. Approving locks the slot to it. The look belongs to this script only (gaps #19, `video-flow.md` §2, Looks for this video only): it isn't added to Cast & places, and it gets **Save to Cast & places** under the same rules.
 - **Editing the cast** (the owner, before publishing):
   - **＋ Add a role** (ghost): role name, kind and description.
+  - **Each role's facts:** "Late 20s · woman · nurse" (meta) before the description, with "(a guess)" after each inferred fact (`video-flow.md` §2).
   - Rename a slot: `Pencil` on the role.
   - Remove a slot: `Ellipsis` → **Remove role**, then the dialog "Remove Mia from the cast? She'll be made at Assets like a background person." with **Keep** and **Remove**.
   - **Find roles again · N credits** (ghost, `RotateCcw`) in the step bar, for after the script changes. It asks first: "Find the roles again? Locked roles stay locked; roles you added stay." A slot that the script no longer names is flagged "Not in the script any more" (warning), with **Remove**.
