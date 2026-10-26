@@ -465,6 +465,20 @@ def test_clip_prompt_checks_catch_music_aspect_and_cast_order():
     ]
 
 
+def test_the_keep_line_holds_every_attached_characters_look():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    assert check.clip_prompts(bd, cp, 30, 10) == []
+    clip = cp.clips[0]
+    clip.prompt = clip.prompt.replace("[Image2] is Malik.", "[Image2] is Malik. [Image7] is Tasha.")
+    assert "Advice: c2: the Keep line doesn't name Tasha; give their look and outfit" in (
+        check.clip_prompts(bd, cp, 30, 10)
+    )
+    assert "never the rival's black leather jacket" in prompts.system("clip_prompts")
+    for step in ("breakdown", "storyboard", "clip_prompts"):  # a locked look plays the role
+        assert "call them by the role's name everywhere" in prompts.system(step)
+
+
 def test_storyboard_check_keeps_character_sheets_within_the_model_limit():
     frame = {"clip_id": "c1", "shot_id": "1.1", "prompt": "x"}
     frames = schemas.StoryboardFrames(
