@@ -162,7 +162,7 @@ def check_fit(db: Session, user: User, item: LibraryItem, redo: bool, after=Deci
     _on_week(db, project, user, data, after if redo else Decimal(0))
     db.commit()  # a refusal rolls back: never take the landed sheet with it
     try:
-        enqueue(db, user, "write-claude", data, project=project, provider="claude",
+        enqueue(db, user, "check-claude", data, project=project, provider="claude",
                 prepaid=True, hold=after if redo else Decimal(0))  # fmt: skip
     except HTTPException:
         log.info("look %s: the fit check doesn't fit the budget; shown unchecked", item.id)

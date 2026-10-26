@@ -140,3 +140,45 @@ def test_the_check_and_redo_spend_what_the_press_held(owner, app, db, editor):
     spent = [j for j in db.query(Job).all() if j.input.get("library_item_id") == item.id]
     assert [j.input["step"] for j in spent] == ["sheet", "look_fit", "sheet", "look_fit"]
     assert sum(j.credits for j in spent) <= whole  # never above the price shown
+
+
+def test_a_look_that_fits_gives_back_what_the_redo_held(owner, app, db, editor):
+    """Spec #488: "Usually 2. Anything not used comes back." On the week and on a video's
+    budget, a look that fits first time costs its sheet and check; the rest is released."""
+    from app.credits import credits_left, credits_used
+    from app.models.projects import Project
+    from app.sheets import check_price, look_price, sheet_price
+    from tests.test_video_looks import _row, _video
+
+    fits = {"fits": True, "seen": "woman in her 40s", "problem": ""}
+    me = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
+    item = _look(editor, db, image_file_ids=[upload(editor)])
+    ws = item.workspace_id
+    used = sheet_price(db, ws) + check_price(db, ws)
+    before = credits_left(db, me)
+    shown = editor.get(f"/library/character/{item.id}").json()
+    assert (shown["sheet_credits"], shown["sheet_usual_credits"]) == (
+        math.ceil(look_price(db, ws)), math.ceil(used)
+    )  # fmt: skip
+    _landed(db, item, db.get(Job, editor.post(f"/library/character/{item.id}/sheet",
+                                              json={}).json()["id"]))  # fmt: skip
+    assert before - credits_left(db, me) == look_price(db, ws)  # held while it's checked
+    _run(app, db, FakeClaude(fits))
+    db.expire_all()
+    assert before - credits_left(db, me) == used  # the redo's share came back
+
+    _, pid, nate = _video(owner, editor, db)
+    project = db.get(Project, pid)
+    row = _row(editor, pid, nate)
+    assert (row["look_credits"], row["look_usual_credits"]) == (
+        math.ceil(look_price(db, ws)), math.ceil(used)
+    )  # fmt: skip
+    editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
+    look = db.get(LibraryItem, _row(editor, pid, nate)["own_look_id"])
+    (sheet,) = _waiting(db, look, "sheet")
+    sheet.output, sheet.status = {"file_ids": [upload(editor)]}, "succeeded"
+    save_sheet(db, sheet)
+    db.commit()
+    _run(app, db, FakeClaude(fits))
+    db.expire_all()
+    assert credits_used(db, project) == used  # the video's budget pays only what was made

@@ -238,7 +238,7 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     with the price shown; over the budget nothing is made and the reason is plain. Roles
     not in the video's shots wait; each sheet still needs Approve before Storyboard."""
     from app.credits import price
-    from app.sheets import look_price
+    from app.sheets import look_price, look_usual
 
     made = _make(owner, text=SCRIPT)
     base = f"/scripts/{made['id']}"
@@ -254,9 +254,10 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     url = f"/projects/{pid}/assets/missing-looks"
     project = db.get(Project, pid)
     one = price(look_price(db, project.workspace_id))
-    assert editor.get(url).json() == {
-        "slot_ids": [nate], "roles": ["Nate"], "credits": one, "reason": None
-    }  # fmt: skip
+    usual = price(look_usual(db, project.workspace_id))  # "Usually 2", "up to 4"
+    assert editor.get(url).json() == {"slot_ids": [nate], "roles": ["Nate"], "credits": one,
+                                      "usual_credits": usual, "reason": None}  # fmt: skip
+    assert (one, usual) == (4, 2)
 
     spent = Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
                 project_id=pid, credits=project.budget_credits, status="succeeded")  # fmt: skip
@@ -265,7 +266,7 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     jobs, looks = db.query(Job).count(), db.query(LibraryItem).count()
     make = f"/projects/{pid}/assets/make-missing"
     refused = editor.post(make)
-    reason = f"Making a look ({one} credits) would go over this video's budget."
+    reason = f"Making a look (up to {one} credits) would go over this video's budget."
     assert (refused.status_code, refused.json()["detail"]) == (409, reason)
     assert editor.get(url).json()["reason"] == reason  # said before the press too
     assert (db.query(Job).count(), db.query(LibraryItem).count()) == (jobs, looks)

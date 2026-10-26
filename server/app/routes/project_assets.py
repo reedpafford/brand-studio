@@ -30,7 +30,7 @@ from app.routes.script_cast import RoleFacts, role_facts
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, make_sheet
 from app.schemas import Name
-from app.sheets import look_price
+from app.sheets import look_price, look_usual
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
 
@@ -53,7 +53,8 @@ class AssetOut(BaseModel):
     facts: RoleFacts | None = None  # the role's age range, gender and job (a slot's row only)
     look_fit: LookFitOut | None = None  # its sheet doesn't read as the role: advice, Redo it
     declined: bool = False  # Not now on the missing-looks note: never made by itself again
-    look_credits: int | None = None  # Make a look on a role: the whole press, rounded up
+    look_credits: int | None = None  # Make a look on a role: "up to" (held at the press)
+    look_usual_credits: int | None = None  # "Usually N": its sheet and check, no redo
 
 
 class SaveLookIn(BaseModel):
@@ -124,6 +125,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     places = list(dict.fromkeys(s["place_id"] for s in shots if s.get("place_id")))
     out, seen = [], set()
     look = price(look_price(db, project.workspace_id))
+    usual_look = price(look_usual(db, project.workspace_id))
     for slot in _slots(db, project):
         item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
         item = db.get(LibraryItem, item_id) if item_id else None
@@ -132,7 +134,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         own = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
         out[-1].own_look_id = own.id if own and not own.archived else None  # removed: gone
         out[-1].declined = project.slot_looks.get(str(slot.id), 0) is None
-        out[-1].look_credits = look
+        out[-1].look_credits, out[-1].look_usual_credits = look, usual_look
         seen.add(f"char:{item_id}")
     for ref in used:
         if ref in seen or not ref.startswith("char:"):
@@ -255,7 +257,8 @@ def _make_look(db: Session, user: User, project: Project, slot: ScriptCastSlot) 
 class MissingLooksOut(BaseModel):
     slot_ids: list[int]  # roles in this video's shots with no character and no look made yet
     roles: list[str]
-    credits: int  # each look's whole price (its sheet, check and one redo), rounded up
+    credits: int  # "up to": each look's sheet, check and one redo, held at the press
+    usual_credits: int = 0  # "Usually N": the sheets and checks, no redo
     reason: str | None = None  # why they can't all be made (plain), or null when they fit
 
 
@@ -283,11 +286,12 @@ def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
     total = look_price(db, project.workspace_id) * len(slots)
     why = fits(db, project, user, total) if slots else ""
     n = len(slots)
-    said = f"Making {'a look' if n == 1 else f'{n} looks'} ({price(total)} credits) {why}"
+    said = f"Making {'a look' if n == 1 else f'{n} looks'} (up to {price(total)} credits) {why}"
     return MissingLooksOut(
         slot_ids=[s.id for s in slots],
         roles=[cast_roles.short(s.role) or s.role for s in slots],
         credits=price(total) if slots else 0,
+        usual_credits=price(look_usual(db, project.workspace_id) * n) if slots else 0,
         reason=said if why else None,
     )
 
