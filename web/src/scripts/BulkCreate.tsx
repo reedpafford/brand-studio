@@ -2,14 +2,16 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardPaste, Plus, X } from "lucide-react";
 import { api, errorText } from "../api/client";
+import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
 import { Badge, Banner, Button, Field, Panel, Select, TextArea, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { weekStop } from "./useScript";
-import { LINK } from "./ReelImport";
+import { LINK, ReelChip } from "./ReelImport";
 import { errorText as errorClass } from "../ui";
 
+type ReelRow = components["schemas"]["ReelRow"];
 type Row = { title: string; description: string; reference: string };
 const MAX = 20;
 const empty = (): Row => ({ title: "", description: "", reference: "" });
@@ -32,7 +34,7 @@ export function parseList(text: string): Row[] {
 export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () => void }) {
   const [rows, setRows] = useState<Row[]>([empty(), empty(), empty()]);
   const [pasting, setPasting] = useState<string | null>(null);
-  const [made, setMade] = useState<{ id: number; title: string }[] | null>(null);
+  const [made, setMade] = useState<{ id: number; title: string; reel?: ReelRow | null }[] | null>(null);
   // Rows, or one Instagram reel link per line (each becomes a draft that adapts its reel).
   const [mode, setMode] = useState<"rows" | "links">("rows");
   const [links, setLinks] = useState("");
@@ -66,7 +68,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
       return data;
     },
     onSuccess: async (data) => {
-      setMade(data.map((d) => ({ id: d.id, title: d.title })));
+      setMade(data.map((d) => ({ id: d.id, title: d.title, reel: d.reel })));
       await queryClient.invalidateQueries({ queryKey: ["scripts"] });
     },
   });
@@ -102,7 +104,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
             {made.map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-2">
                 <span className="min-w-0 break-words">{m.title}</span>
-                {(estimate.data?.failed ?? []).includes(m.id) ? <Badge tone="danger">Couldn't get the reel</Badge> : reels ? <Badge>Reel</Badge> : <Badge>Writing</Badge>}
+                {reels ? <ReelChip reel={(estimate.data?.failed ?? []).includes(m.id) ? { status: "failed", seconds: null, fetch_error: m.reel?.fetch_error } : m.reel} /> : <Badge>Writing</Badge>}
               </li>
             ))}
           </ul>
@@ -113,7 +115,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
             {estimate.data && (
               <p className="text-sm text-muted">
                 {reels && estimate.data.reading > 0
-                  ? `About ${wholeCredits(estimate.data.credits)} credits: reading ${estimate.data.reading} reel${estimate.data.reading === 1 ? "" : "s"} and writing ${estimate.data.writing} script${estimate.data.writing === 1 ? "" : "s"} and cast${estimate.data.writing === 1 ? "" : "s"}`
+                  ? `About ${wholeCredits(estimate.data.credits)} credits: reading ${estimate.data.reading} reel${estimate.data.reading === 1 ? "" : "s"} (${wholeCredits(estimate.data.read_credits)}) and writing ${estimate.data.writing} script${estimate.data.writing === 1 ? "" : "s"} and cast${estimate.data.writing === 1 ? "" : "s"} (${wholeCredits(estimate.data.write_credits)})`
                   : `About ${wholeCredits(estimate.data.credits)} credits (${estimate.data.count} script${estimate.data.count === 1 ? "" : "s"} × ${wholeCredits(estimate.data.credits / Math.max(estimate.data.count, 1))})`}
               </p>
             )}
