@@ -1,14 +1,15 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Ellipsis, UserCog, UserMinus } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Card, Dialog, Field, Panel, Select, Skeleton } from "../components";
+import { Badge, Banner, Button, Card, Dialog, Field, Menu, MenuItem, Panel, Select, Skeleton } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { CreditLimits } from "./CreditLimits";
+import { restoreMember, setRole, useRemovedMembers } from "./memberActions";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 const ROLE = { owner: "Owner", editor: "Editor" } as const;
@@ -22,6 +23,32 @@ export function TeamPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["team"] });
   const [inviting, setInviting] = useState(false);
   const [removing, setRemoving] = useState<{ id: number; name: string } | null>(null);
+  const [changing, setChanging] = useState<{ id: number; name: string; to: "owner" | "editor" } | null>(null);
+  const [showRemoved, setShowRemoved] = useState(false);
+  const removed = useRemovedMembers(isOwner);
+  const back = async (m: { id: number; name: string }, message: string) => {
+    try {
+      await restoreMember(m.id);
+      await refresh();
+      toast(message);
+    } catch (e) {
+      toast((e as Error).message, undefined, "error");
+    }
+  };
+  const change = useMutation({
+    mutationFn: async (c: { id: number; name: string; to: "owner" | "editor" }) => {
+      await setRole(c.id, c.to);
+      return c;
+    },
+    onSuccess: async (c) => {
+      setChanging(null);
+      await refresh();
+      toast(`${c.name} is now ${c.to === "owner" ? "an owner" : "an editor"}.`, async () => {
+        await setRole(c.id, c.to === "owner" ? "editor" : "owner");
+        await refresh();
+      });
+    },
+  });
 
   const members = useQuery({
     queryKey: ["team", "members"],
@@ -40,12 +67,12 @@ export function TeamPage() {
     mutationFn: async (m: { id: number; name: string }) => {
       const { response } = await api.DELETE("/team/members/{member_id}", { params: { path: { member_id: m.id } } });
       if (!response.ok) throw new Error("remove");
-      return m.name;
+      return m;
     },
-    onSuccess: async (name) => {
+    onSuccess: async (m) => {
       setRemoving(null);
       await refresh();
-      toast(`${name} removed.`);
+      toast(`${m.name} removed.`, () => void back(m, `${m.name} is back on the team.`));
     },
     onError: () => setRemoving(null),
   });
@@ -101,9 +128,39 @@ export function TeamPage() {
                     <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>
                   </span>
                   {isOwner && m.id !== me?.id && (
-                    <Button variant="ghost" dense aria-label={`Remove ${m.name}`} onClick={() => setRemoving({ id: m.id, name: m.name })}>
-                      Remove
-                    </Button>
+                    <Menu
+                      title={`More for ${m.name}`}
+                      align="right"
+                      trigger={(t) => (
+                        <button type="button" {...t} aria-label={`More for ${m.name}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2">
+                          <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
+                        </button>
+                      )}
+                    >
+                      {(close) => (
+                        <>
+                          <MenuItem
+                            onClick={() => {
+                              close();
+                              setChanging({ id: m.id, name: m.name, to: m.role === "owner" ? "editor" : "owner" });
+                            }}
+                          >
+                            <UserCog size={20} strokeWidth={1.75} aria-hidden />
+                            {m.role === "owner" ? "Make editor" : "Make owner"}
+                          </MenuItem>
+                          <MenuItem
+                            danger
+                            onClick={() => {
+                              close();
+                              setRemoving({ id: m.id, name: m.name });
+                            }}
+                          >
+                            <UserMinus size={20} strokeWidth={1.75} aria-hidden />
+                            Remove
+                          </MenuItem>
+                        </>
+                      )}
+                    </Menu>
                   )}
                 </li>
               ))}
@@ -111,6 +168,30 @@ export function TeamPage() {
           </Card>
         )}
         {isOwner && onlyMe && <p className="text-sm text-muted">Invite your editors so they can make videos.</p>}
+        {isOwner && (removed.data?.length ?? 0) > 0 && (
+          <div className="space-y-2">
+            <Button variant="ghost" aria-expanded={showRemoved} onClick={() => setShowRemoved(!showRemoved)}>
+              {showRemoved ? "Hide removed" : `Show removed (${removed.data?.length})`}
+            </Button>
+            {showRemoved && (
+              <Card className="p-0 sm:p-0">
+                <ul className="divide-y divide-border text-muted">
+                  {removed.data?.map((m) => (
+                    <li key={m.id} className="flex items-center gap-3 p-3 sm:px-5">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">{m.name}</span>
+                        <span className="block truncate text-sm">{m.email} · Removed</span>
+                      </span>
+                      <Button variant="secondary" dense aria-label={`Restore ${m.name}`} onClick={() => void back(m, `${m.name} is back on the team.`)}>
+                        Restore
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </div>
+        )}
       </section>
       {isOwner && invites.data && invites.data.length > 0 && (
         <section className="space-y-3" aria-label="Waiting invites">
@@ -135,6 +216,19 @@ export function TeamPage() {
         </section>
       )}
       {inviting && <InvitePanel onClose={() => setInviting(false)} onDone={refresh} />}
+      {changing && (
+        <Dialog
+          title={changing.to === "owner" ? `Make ${changing.name} an owner?` : `Make ${changing.name} an editor?`}
+          cancelLabel={changing.to === "owner" ? "Keep as editor" : "Keep as owner"}
+          actionLabel={changing.to === "owner" ? "Make owner" : "Make editor"}
+          busy={change.isPending}
+          onCancel={() => setChanging(null)}
+          onConfirm={() => change.mutate(changing)}
+        >
+          {changing.to === "owner" ? "Owners see dollars, approve spending, and manage the team." : `${changing.name} stops seeing dollars and can't manage the team.`}
+          {change.isError && <p role="alert" className={`mt-2 ${errorClass}`}>{change.error.message}</p>}
+        </Dialog>
+      )}
       {removing && (
         <Dialog title={`Remove ${removing.name} from the team?`} cancelLabel="Keep them" actionLabel="Remove" danger busy={remove.isPending} onCancel={() => setRemoving(null)} onConfirm={() => remove.mutate(removing)}>
           Their videos stay.
