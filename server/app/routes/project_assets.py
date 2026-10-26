@@ -26,6 +26,7 @@ from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.library import pick_item, sheet_status
 from app.routes.projects import get_project
+from app.routes.script_cast import RoleFacts, role_facts
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, make_sheet, sheet_price
 from app.schemas import Name
@@ -48,6 +49,7 @@ class AssetOut(BaseModel):
     file_id: int | None = None  # a product's or screen's picture (the brand's; nothing to make)
     only_here: Literal["video", "script"] | None = None  # "This video only" / "This script only"
     own_look_id: int | None = None  # the look made for this role here; "Not used" if swapped out
+    facts: RoleFacts | None = None  # the role's age range, gender and job (a slot's row only)
     declined: bool = False  # Not now on the missing-looks note: never made by itself again
 
 
@@ -102,6 +104,7 @@ def _row(
         ready=status == "approved",
         slot_id=slot.id if slot else None,
         description=slot.description if slot else "",
+        facts=role_facts(slot.description, slot.guessed or []) if slot else None,
     )
 
 
@@ -237,8 +240,8 @@ def _make_look(db: Session, user: User, project: Project, slot: ScriptCastSlot) 
     )
     db.add(look)
     db.flush()
+    project.slot_looks = {**project.slot_looks, str(slot.id): look.id}  # the sheet knows its role
     make_sheet(Kind.character, look.id, SheetIn(), user, db)  # commits; a refusal adds nothing
-    project.slot_looks = {**project.slot_looks, str(slot.id): look.id}
     _cast(db, user, project, slot, look)
     db.commit()
 

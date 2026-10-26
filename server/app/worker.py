@@ -253,7 +253,7 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
             if max_side and key == "reference_images":
                 data, content_type = fit_image(data, content_type, max_side, file_id in exact)
             urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
-        payload["input"] = {**payload["input"], key: urls}
+        payload["input"] = {**payload.get("input", {}), key: urls}
     return payload
 
 
@@ -311,8 +311,8 @@ def start_next(
 
 
 def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None) -> bool:
-    try:
-        result = provider.run(job.kind, job.input)
+    try:  # a Claude check that looks at a picture gets it as data, like other providers
+        result = provider.run(job.kind, _files_as_data(db, storage, job))
     except NotStarted as exc:
         db.refresh(job)
         if job.attempts < MAX_SUBMIT_TRIES:

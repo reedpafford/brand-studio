@@ -191,3 +191,26 @@ def test_claude_answers_lose_stray_control_characters():
 
     answer = {"clips": [{"prompt": "Shot\x1b 1 | 0–1 s.\tA\r\nKeep: x\x00", "seconds": 5}]}
     assert clean(answer) == {"clips": [{"prompt": "Shot 1 | 0–1 s.\tA\r\nKeep: x", "seconds": 5}]}
+
+
+def test_a_claude_check_sees_its_picture(app, db, editor):
+    """A Claude job with files gets them as image blocks before its prompt, scaled down."""
+    from app.models.accounts import User
+    from app.models.jobs import Job
+    from tests.conftest import upload
+    from tests.test_enhance import FakeClaude, _run
+
+    me = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
+    job = Job(workspace_id=me.workspace_id, created_by_id=me.id, kind="write-claude",
+              provider="claude", input={"step": "change", "system": ["Check it."],
+              "prompt": "Does it fit?", "files": {"reference_images": [upload(editor)]},
+              "fit_images_to": 64})  # fmt: skip
+    db.add(job)
+    db.commit()
+    fake = FakeClaude({"prompt": "fits"})
+    _run(app, db, fake)
+    content = fake.requests[0]["messages"][0]["content"]
+    assert [b["type"] for b in content] == ["image", "text"]
+    assert content[1]["text"] == "Does it fit?"
+    assert content[0]["source"]["type"] == "base64"
+    assert db.get(Job, job.id).status == "succeeded"
