@@ -146,7 +146,7 @@ test("an approved picked character shows no buttons: it is shared with every vid
   expect(within(card).queryByRole("link")).toBeNull();
 });
 
-test("one-press Make storyboard asks Reed when the writing plus the stills pass the budget, not only the writing", async () => {
+test("one-press Make storyboard is off for an editor when the writing plus the stills pass the budget, not only the writing", async () => {
   setViewport(1440);
   fakeServer({
     ...base,
@@ -156,7 +156,9 @@ test("one-press Make storyboard asks Reed when the writing plus the stills pass 
     "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
   });
   open("?step=storyboard");
-  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 15 credits" })).toBeInTheDocument();
+  const make = await screen.findByRole("button", { name: "Make storyboard · 15 credits" });
+  expect(make).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
 });
 
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, created_at: `2026-10-26T10:4${number}:00` });

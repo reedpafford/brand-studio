@@ -97,7 +97,7 @@ function Studio({ models }: { models: Model[] }) {
     file_ids: [],
     improved,
   };
-  // Ask the server what this would cost and whether Reed must approve it. Nothing is queued.
+  // Ask the server what this would cost, and whether this person may spend it. Nothing is queued.
   const settledBody = useDebounced(body);
   const estimate = useQuery({
     queryKey: ["estimate", settledBody],
@@ -118,7 +118,7 @@ function Studio({ models }: { models: Model[] }) {
     },
     onSuccess: () => {
       setSent(JSON.stringify(body));
-      toast(estimate.data?.needs_owner_approval ? "Sent to Reed for approval. It will show in History." : "Clip queued. It will show in History.");
+      toast("Clip queued. It will show in History.");
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["allowance"] });
     },
@@ -154,14 +154,13 @@ function Studio({ models }: { models: Model[] }) {
   const seg = (on: boolean) => `min-h-control min-w-16 flex-1 rounded-md border px-3 font-medium ${on ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong bg-surface-2 hover:bg-surface-3"}`;
   const allowanceLine = allowance.data && (
     <p className="text-sm tabular-nums text-muted">
-      Your own work this week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits
+      This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits
     </p>
   );
   const footer = (
     <div className="space-y-1">
       <Button
         price={credits}
-        ask={!!estimate.data?.needs_owner_approval}
         busy={generate.isPending}
         disabled={reason !== null}
         reason={reason}
@@ -170,7 +169,6 @@ function Studio({ models }: { models: Model[] }) {
       >
         Generate
       </Button>
-      {!reason && estimate.data?.needs_owner_approval && <p className="text-center text-sm text-warning">{estimate.data.reason}</p>}
       {generate.isError && <p role="alert" className="text-center text-sm text-danger">{generate.error.message}</p>}
     </div>
   );

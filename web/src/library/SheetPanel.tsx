@@ -41,7 +41,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const { data: me } = useMe();
   const a = allowance.data;
   const over = me?.role === "editor" && price !== undefined && !!a && a.quick_clip_credits_used + price > a.quick_clip_credits_allowed;
-  const declined = over && a ? `You've used this week's ${Math.round(a.quick_clip_credits_allowed)} credits. It resets Monday.` : null;
+  const declined = over && a ? `You've used this week's ${Math.round(a.quick_clip_credits_allowed)} credits. It resets on Monday.` : null;
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -113,8 +113,8 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
         </div>
         <div className="space-y-2 text-sm">
           {held ? (
-            <div className="grid min-h-40 place-items-center rounded-md bg-warning-soft font-medium text-warning" aria-label="Waiting for Reed">
-              Waiting for Reed to approve
+            <div className="grid min-h-40 place-items-center rounded-md bg-surface-2 text-muted" aria-label="Not started">
+              Not started
             </div>
           ) : drawing ? (
             <div className="grid min-h-40 place-items-center rounded-md bg-surface-2 text-muted" aria-label="Drawing the sheet">
@@ -132,7 +132,6 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
           {status === "none" && !failed && !held && <p className="text-warning">Needs a sheet</p>}
           {failed && <p className="text-danger">Didn't finish · credits returned</p>}
           {drawing && <p className="text-muted">A sheet is being made.</p>}
-          {held && <p className="text-warning">The sheet starts when Reed says yes. You can't ask for another meanwhile.</p>}
           {declined && !drawing && !held && <p className="text-warning">{declined}</p>}
         </div>
       </div>

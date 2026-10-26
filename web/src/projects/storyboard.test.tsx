@@ -102,10 +102,19 @@ test("a still opens full size with the prompt Claude wrote", async () => {
   expect(within(box).getByText("Mia in a cold blue kitchen")).toBeInTheDocument();
 });
 
-test("paid buttons ask Reed when the project is close to its budget", async () => {
+test("close to the budget an editor's paid button is off with the reason, and Reed's is the plain label", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }], "GET /projects/9/storyboard": [200, []] });
   open();
-  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 6 credits" })).toBeInTheDocument();
+  const make = await screen.findByRole("button", { name: "Make storyboard · 6 credits" });
+  expect(make).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(screen.queryByText(/Ask Reed/)).toBeNull();
+});
+
+test("Reed near the budget can press the plain Make storyboard", async () => {
+  fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }], "GET /projects/9/storyboard": [200, []] });
+  open();
+  expect(await screen.findByRole("button", { name: "Make storyboard · 6 credits" })).toBeEnabled();
 });
 
 test("Storyboard stays locked until there are shots", async () => {
@@ -208,6 +217,19 @@ test("Redo asks what should change and sends it as the note for that render only
   const redoButtons = screen.getAllByRole("button", { name: "Redo · 3 credits" }); // the opener, then the form's button
   await userEvent.click(redoButtons[1]);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/render")?.body).toEqual({ note: "Warmer light" }));
+});
+
+test("an editor with room for one still but not all of them gets Make all stills off, with the reason shown", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 597, budget_credits: 600 }],
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2" }), frame({ id: 3, clip_id: "c3" })]],
+  });
+  open();
+  const all = await screen.findByRole("button", { name: "Make all stills · 6 credits" });
+  expect(all).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /^Make still · 3 credits/ })[0]).toBeEnabled();
 });
 
 test("a frame whose character has no approved sheet says so, links to the character, and is skipped by Make all stills", async () => {

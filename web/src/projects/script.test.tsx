@@ -161,10 +161,12 @@ test("a failed draft run says credits came back and offers another go", async ()
   expect(screen.getByRole("button", { name: /^Write drafts/ })).toBeEnabled();
 });
 
-test("over the project's budget the drafts button asks Reed", async () => {
+test("over the video's budget an editor's drafts button is off, with the reason", async () => {
   fakeServer({ ...none, "GET /projects/9": [200, { ...project, credits_used: 59, budget_credits: 60 }], "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
   open();
-  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 3 credits" })).toBeInTheDocument();
+  const write = await screen.findByRole("button", { name: /^Write drafts · 3 credits/ });
+  expect(write).toBeDisabled();
+  expect(write).toHaveAccessibleDescription("That's more than this video's budget.");
 });
 
 test("with no script there are two ways to start, side by side: write it with Claude, or upload your own", async () => {
