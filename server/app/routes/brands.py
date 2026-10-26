@@ -81,7 +81,8 @@ def list_brands(user: User = Depends(current_user), db: Session = Depends(get_db
 
 
 @router.post("", response_model=BrandOut, status_code=201)
-def create_brand(body: BrandIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def create_brand(body: BrandIn, user: User = Depends(owner_only), db: Session = Depends(get_db)):
+    """Add a brand (owner only, like archiving one)."""
     brand = Brand(workspace_id=user.workspace_id)
     _apply(db, user, brand, body.model_dump())
     db.add(brand)
@@ -113,3 +114,14 @@ def archive_brand(
 ) -> None:
     get_brand(db, owner, brand_id).archived = True
     db.commit()
+
+
+@router.post("/{brand_id}/restore", response_model=BrandOut)
+def restore_brand(brand_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)):
+    """Undo an archive: the brand and everything in it come back."""
+    brand = db.get(Brand, brand_id)
+    if not brand or brand.workspace_id != owner.workspace_id or not brand.archived:
+        raise HTTPException(404, "No such archived brand.")
+    brand.archived = False
+    db.commit()
+    return brand

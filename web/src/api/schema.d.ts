@@ -264,7 +264,10 @@ export interface paths {
         /** List Brands */
         get: operations["list_brands_brands_get"];
         put?: never;
-        /** Create Brand */
+        /**
+         * Create Brand
+         * @description Add a brand (owner only, like archiving one).
+         */
         post: operations["create_brand_brands_post"];
         delete?: never;
         options?: never;
@@ -289,6 +292,26 @@ export interface paths {
         head?: never;
         /** Update Brand */
         patch: operations["update_brand_brands__brand_id__patch"];
+        trace?: never;
+    };
+    "/brands/{brand_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Brand
+         * @description Undo an archive: the brand and everything in it come back.
+         */
+        post: operations["restore_brand_brands__brand_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/brands/{brand_id}/screens": {
@@ -5421,6 +5444,37 @@ export interface operations {
                 "application/json": components["schemas"]["BrandPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_brand_brands__brand_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
