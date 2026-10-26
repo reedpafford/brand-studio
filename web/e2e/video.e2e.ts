@@ -129,3 +129,27 @@ for (const width of [1440, 390]) {
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
   });
 }
+
+for (const width of [1440, 390]) {
+  test(`at ${width}: the Videos view lists a video, filters it, and nothing scrolls sideways`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await signIn(page, "reed@example.com");
+    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+    const brandId = await emptyBrand(page, `Videos View Co ${width}`);
+    const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Listed video", planned_seconds: 20 } });
+    expect(made.ok()).toBeTruthy();
+
+    await page.goto(`/b/${brandId}/scripts`);
+    await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Videos" }).click();
+    await expect(page).toHaveURL(/view=videos/);
+    await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible();
+    await expect(page.getByText("1 video", { exact: true })).toBeVisible();
+    await expect(page.getByText(/\(earlier way\)/)).toBeVisible();
+    await page.getByRole("searchbox", { name: "Search videos" }).fill("nothing like this");
+    await expect(page.getByText("Nothing matches these filters.")).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible();
+    const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
+    expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
+  });
+}

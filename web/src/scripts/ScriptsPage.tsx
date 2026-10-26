@@ -16,6 +16,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
+import { ViewSwitch } from "../videos/ViewSwitch";
 
 type Row = components["schemas"]["ScriptRow"];
 type Version = Row["versions"][number];
@@ -335,6 +336,7 @@ export function ScriptsPage() {
           {rail && newScript}
         </div>
       </div>
+      <ViewSwitch />
       {bulk && <BulkCreate brandId={brandId} onClose={() => setBulk(false)} />}
       {!rail && <ActionBar phone>{newScript}</ActionBar>}
       {filters}

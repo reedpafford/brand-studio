@@ -9,7 +9,7 @@ import { VideoPage } from "./projects/VideoPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
 import { NewScriptPage } from "./scripts/NewScriptPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
-import { ScriptsPage } from "./scripts/ScriptsPage";
+import { ScriptsRoute } from "./videos/ScriptsRoute";
 import { ClipPage } from "./clip/ClipPage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
@@ -31,7 +31,7 @@ export function App() {
         <Route element={<Shell />}>
           <Route index element={<GoToBrand />} />
           <Route path="b/:brandId" element={<BrandHome />} />
-          <Route path="b/:brandId/scripts" element={<ScriptsPage />} />
+          <Route path="b/:brandId/scripts" element={<ScriptsRoute />} />
           <Route path="b/:brandId/scripts/new" element={<NewScriptPage />} />
           <Route path="b/:brandId/scripts/:scriptId" element={<ScriptFlowPage />} />
           <Route path="b/:brandId/projects" element={<ProjectsPage />} />
