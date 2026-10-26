@@ -3932,6 +3932,10 @@ export interface components {
             archived_at?: string | null;
             /** Finished At */
             finished_at?: string | null;
+            /** Poster File Id */
+            poster_file_id?: number | null;
+            /** Step */
+            step?: ("breakdown" | "assets" | "storyboard" | "clips" | "downloads" | "done") | null;
         };
         /** ProjectPatch */
         ProjectPatch: {
