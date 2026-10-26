@@ -265,3 +265,24 @@ def test_references_have_a_total_size_cap(editor, fomo, monkeypatch):
     monkeypatch.setattr("app.routes.clips.MAX_REFERENCE_BYTES", 10)
     r = editor.post("/clips/estimate", json=_clip(fomo))
     assert r.status_code == 422 and "too big together" in r.json()["detail"]
+
+
+def test_a_quick_clip_is_removed_from_the_history_and_brought_back(owner, editor, fomo, db):
+    """Gaps #14: search the history; remove a finished clip with Undo. Its credits still count."""
+    from app.credits import quick_clip_used
+
+    cat = editor.post("/clips", json=_clip(fomo)).json()["id"]
+    dog = editor.post("/clips", json=_clip(fomo, prompt="A dog naps by the pool")).json()["id"]
+    assert [j["id"] for j in editor.get("/jobs", params={"q": "DOG naps"}).json()] == [dog]
+    assert editor.delete(f"/jobs/{cat}").status_code == 409  # still going
+    db.query(Job).update({"status": "succeeded"})
+    db.commit()
+    me = db.query(User).filter_by(role="editor").one()
+    spent = quick_clip_used(db, me)
+    assert owner.delete(f"/jobs/{cat}").status_code == 204  # the owner may too
+    assert [j["id"] for j in editor.get("/jobs").json()] == [dog]
+    assert [j["id"] for j in editor.get("/jobs", params={"removed": True}).json()] == [cat]
+    assert quick_clip_used(db, me) == spent  # removing never gives credits back
+    assert editor.post(f"/jobs/{cat}/restore").json()["id"] == cat  # Undo
+    assert editor.post(f"/jobs/{cat}/restore").status_code == 404  # not removed
+    assert {j["id"] for j in editor.get("/jobs").json()} == {cat, dog}
