@@ -1,6 +1,6 @@
 # Change it in plain English: stills and clips
 
-Reed, 2026-10-26: plain-English changes become the main way to fix a still or a clip on the video page. The person says what should change; the app rewrites that prompt and makes it again, shows what the note changed, and keeps the old one. Editing the prompt by hand moves to **Advanced**. This updates `video-flow.md` §3 Storyboard and §4 Clips, and replaces the Redo note in `phase3/screens/video.md` §4 and §5 on new videos.
+Reed, 2026-10-26: plain-English changes become the main way to fix a still or a clip on the video page. The person says what should change; the app rewrites that prompt and makes it again, shows what the note changed, and keeps the old one. Editing the prompt by hand moves to **Advanced**. After a cast change, stills are redrawn on their own within the budget (§3). This updates `video-flow.md` §3 Storyboard and §4 Clips, and replaces the Redo note in `phase3/screens/video.md` §4 and §5 on new videos.
 
 ## 1. Change this… (each still and each clip)
 A box under every still (Storyboard) and every clip take (Clips), always visible. It's not hidden behind a Redo button.
@@ -55,13 +55,22 @@ The breakdown check spots a shot whose cast doesn't match who the script has in 
 - It blocks Next like any other problem, and it can be kept anyway like any other problem.
 
 ## 3. Stills after a cast or breakdown change
-When the cast changes on Assets (a look is picked, swapped or made) or a breakdown change touches a shot's cast or action, the affected frames are rewritten on their own, for free. A paid redraw never happens without a press.
-- **Frames** (the words for each still) are rewritten straight away, with no charge and no question.
-- **Stills** already drawn from the old frames get the badge "Out of date" (warning) and keep their old picture.
-- **On Storyboard:** a note (`Info`) at the top says "Frames rewritten for the new cast. 2 stills still show the old cast." The step's amber button becomes **Redraw 2 stills · 6 credits**. Each out-of-date still also has its own **Change it** box, as usual.
-  - "Stills updated" isn't used, because the pictures haven't changed until they're redrawn.
-- On the step the person was on (Assets or Breakdown), the toast after the change says "Frames rewritten for the new cast. Redraw the stills on Storyboard." with **Go to Storyboard** (ghost dense).
-- Takes already made aren't touched. Their clips get "Out of date" as today.
+When the cast changes on Assets (a look is picked, swapped or made), or a breakdown change touches a shot's cast or action, the affected frames are rewritten, and their stills are redrawn on their own (Reed, 2026-10-26). The redraw is paid, but only within what the video can spend.
+- **Frames** (the words for each still) are rewritten straight away, free.
+- **Stills** drawn from the old frames are redrawn automatically, when the money allows:
+  - On Reed's library versions, the redraw has to fit inside the video's budget.
+  - On an editor's own script, it has to fit inside the editor's week. Editors never see dollars, and there's no Ask Reed.
+- **While it runs:** those stills show "Redrawing for the new cast…" over the old picture.
+- **After it lands:**
+  - A note (`Info`) at the top of Storyboard says "Redrew 2 stills for the new cast · 6 credits". The step's credit line counts the 6 credits.
+  - Each redrawn still gets the badge "Redrawn" (neutral, `RotateCcw`) and loses its approval, so it needs **Approve** again. The badge goes once it's approved.
+  - The old picture stays as an earlier version ("Earlier: 1"), and picking it back is free.
+  - On the step the person was on (Assets or Breakdown), the toast says "Redrew 2 stills for the new cast · 6 credits." with **Go to Storyboard** (ghost dense).
+- **When the budget or week can't cover it:**
+  - Nothing is redrawn, and nothing is charged. The stills keep their old picture with the badge "Out of date" (warning).
+  - The note at the top says why, in plain words. On a library version: "Frames rewritten for the new cast. 2 stills still show the old cast: redrawing them (6 credits) would go over this video's budget." On an editor's own script: "…would go over this week's 145 free credits. It resets on Monday."
+  - The step's amber button becomes **Redraw 2 stills · 6 credits**. It's disabled with that reason while it still can't be covered. For Reed past the budget, it reads **Ask Reed to approve · 6 credits** as elsewhere, which on his own versions is his own approval.
+- **Takes already made aren't touched.** Their clips get "Out of date" as today.
 
 ## Data the screens need (server)
 - **Change a still:** `POST /projects/{id}/storyboard/frames/{frame_id}/change` `{note}` rewrites the frame's prompt from the note (Claude), then draws it. It returns the job plus `{before, after}` prompt text. It refuses with 422 (nothing charged) when the note touches dialogue, and the estimate gives the price.
@@ -69,4 +78,4 @@ When the cast changes on Assets (a look is picked, swapped or made) or a breakdo
 - **Undo:** picking an earlier still or take also restores its prompt (`POST …/pick` with the take or render id).
 - **Unchanged prompt:** when the rewrite returns the same prompt, nothing is made and nothing is charged; the reply says `unchanged: true`.
 - **Cast fix:** `POST /projects/{id}/breakdown/fix-cast` (free) and the same on `/scripts/{id}/drafts/{slot}/breakdown/fix-cast`. It returns the shots it changed, so Undo can put them back.
-- **Frames after a cast change:** rewritten on the server for free when `PUT /projects/{id}/assets` or a breakdown save changes a shot's cast. Frames get `stale: true` on their still; the storyboard reply carries `rewritten_for_cast: n` for the note.
+- **Frames after a cast change:** when `PUT /projects/{id}/assets` or a breakdown save changes a shot's cast, the server rewrites the frames (free) and queues a redraw of their stills, if the budget (or the editor's week) covers it. The storyboard reply carries `redrawn_for_cast: {count, credits}`, or, when it couldn't be covered, `stale: true` on each still plus `redraw_refused: {count, credits, reason}` in plain words.
