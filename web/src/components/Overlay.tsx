@@ -83,6 +83,7 @@ export function Dialog({
   actionLabel,
   danger,
   busy,
+  holdReason,
   onCancel,
   onConfirm,
 }: {
@@ -92,6 +93,8 @@ export function Dialog({
   actionLabel: string;
   danger?: boolean;
   busy?: boolean;
+  /** Why the action can't be pressed yet ("Say why"); it disables the button and shows under it. */
+  holdReason?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -109,7 +112,7 @@ export function Dialog({
           <Button variant="ghost" onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button variant={danger ? "danger" : "primary"} busy={busy} onClick={onConfirm}>
+          <Button variant={danger ? "danger" : "primary"} busy={busy} disabled={!!holdReason} reason={holdReason} onClick={onConfirm}>
             {actionLabel}
           </Button>
         </div>
