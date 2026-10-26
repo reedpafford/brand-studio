@@ -195,7 +195,7 @@ def test_a_started_version_can_be_released_and_made_again(app, owner, editor, db
     again = two.post(f"{base}/drafts/0/produce")
     assert again.status_code == 201 and again.json()["project_id"] != pid
     late = editor.post(f"/projects/{pid}/restore")  # Undo, too late: the version is taken
-    assert late.status_code == 409 and "made again" in late.json()["detail"]
+    assert late.json()["detail"] == "Two started version A again, so this video can't come back."
     assert editor.post(f"/projects/{again.json()['project_id']}/release").status_code == 403
     assert owner.post(f"/projects/{again.json()['project_id']}/release").status_code == 200
 
