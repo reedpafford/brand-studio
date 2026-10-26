@@ -42,7 +42,13 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const failed = last?.status === "failed" && !drawing;
   const photo = item.source_photo_file_id;
   const notes = (item.notes ?? "").trim(); // a sheet can be drawn from notes alone
-  const cost = price === undefined ? "" : ` · ${credits(price)}`;
+  // A sheet may get one automatic redo after its fit check, so when the server gives the whole press that is the price (the most it can cost); the usual price is the sheet alone.
+  const upTo = item.sheet_credits > 0 ? item.sheet_credits : undefined;
+  const upToNote = item.change_credits > 0 ? item.change_credits : upTo;
+  const costOf = (n: number | undefined, most: boolean) => (n === undefined ? "" : ` · ${most ? "up to " : ""}${credits(n)}`);
+  const cost = costOf(upTo ?? price, upTo !== undefined);
+  const redoCost = costOf(upToNote ?? price, upToNote !== undefined);
+  const usual = (upTo !== undefined || upToNote !== undefined) && price !== undefined ? <p className="text-sm text-muted">{`Usually ${credits(price)}. Anything not used comes back.`}</p> : null;
   // Past an editor's weekly allowance the server declines a new sheet, so don't offer one.
   const { data: me } = useMe();
   const a = allowance.data;
@@ -95,12 +101,13 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
       <div className="flex flex-wrap gap-2">
         <button className={`${btnPrimary} ${btn}`} disabled={make.isPending || !!declined} onClick={() => make.mutate((redoing ?? "").trim())}>
           Redo
-          {cost}
+          {(redoing ?? "").trim() ? redoCost : cost}
         </button>
         <button className={`${btnSecondary} ${btn}`} onClick={() => setRedoing(null)}>
           Cancel
         </button>
       </div>
+      {usual}
     </div>
   );
 
@@ -148,6 +155,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
             {failed ? "Try again" : "Make house-style sheet"}
             {cost}
           </button>
+          {usual}
         </div>
       )}
       {!drawing && !held && status === "none" && !photo && !notes && kind === "character" && <p className="text-muted">Upload a photo, or add notes, to make a sheet.</p>}

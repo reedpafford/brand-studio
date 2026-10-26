@@ -1,6 +1,6 @@
 import { useId, type ButtonHTMLAttributes, type ComponentType, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
-import { creditsLabel } from "./credits";
+import { creditsLabel, wholeCredits } from "./credits";
 
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string; "aria-hidden"?: boolean }>;
 export type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -25,6 +25,9 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   busy?: boolean;
   /** A paid action says its price inside the button: "Make the takes · 8 credits". */
   price?: number;
+  /** The price can vary: the button shows the most it can cost ("up to 4 credits"), and `usually` says the usual price under it. */
+  upTo?: boolean;
+  usually?: number;
   /** An icon after the label, pushed to the far edge (a picker's chevron). */
   trailing?: Icon;
   /** Label left, trailing icon right, filling the width. */
@@ -36,7 +39,7 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   children?: ReactNode;
 };
 
-export function Button({ variant = "primary", dense, busy, price, reason, icon: Icon, trailing: Trailing, spread, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
+export function Button({ variant = "primary", dense, busy, price, upTo, usually, reason, icon: Icon, trailing: Trailing, spread, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
   const why = useId();
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
   const label = children;
@@ -58,20 +61,24 @@ export function Button({ variant = "primary", dense, busy, price, reason, icon: 
         {price !== undefined && (
           <>
             {" "}
-            <span className="tabular-nums">· {creditsLabel(price)}</span>
+            <span className="tabular-nums">· {upTo ? "up to " : ""}{creditsLabel(price)}</span>
           </>
         )}
       </span>
       {Trailing && <Trailing size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />}
     </button>
   );
-  if (!reason) return button;
+  const usual = upTo && usually !== undefined && price !== undefined && !busy ? `Usually ${wholeCredits(usually)}. Anything not used comes back.` : null;
+  if (!reason && !usual) return button;
   return (
     <span className="flex flex-col items-stretch gap-1">
       {button}
-      <span id={why} className="text-sm text-muted">
-        {reason}
-      </span>
+      {usual && <span className="text-sm text-muted">{usual}</span>}
+      {reason && (
+        <span id={why} className="text-sm text-muted">
+          {reason}
+        </span>
+      )}
     </span>
   );
 }

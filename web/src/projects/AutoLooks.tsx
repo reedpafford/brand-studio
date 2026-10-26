@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { Banner, Button, wholeCredits } from "../components";
+import { useSheetPrice } from "../library/SheetPanel";
 
 const START_IN = 5;
 
@@ -21,6 +22,9 @@ export function AutoLooks({ projectId }: { projectId: number }) {
     queryFn: async () => (await api.GET("/projects/{project_id}/assets/missing-looks", { params: { path: { project_id: projectId } } })).data ?? null,
   });
   const m = missing.data;
+  // The press holds the most it can cost (each sheet may get one automatic redo); the usual price is the sheets alone.
+  const { price: sheet } = useSheetPrice();
+  const price = (n: number) => `up to ${wholeCredits(n)} credits${sheet !== undefined && m ? ` (usually ${wholeCredits(sheet * m.slot_ids.length)})` : ""}`;
   const make = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/assets/make-missing", { params: { path: { project_id: projectId } } });
@@ -59,15 +63,15 @@ export function AutoLooks({ projectId }: { projectId: number }) {
     decline.mutate();
   };
   if (make.isError) return <Banner tone="warning" title={make.error.message} />;
-  if (make.isPending) return <Banner tone="info" title={`Making looks for ${names(m?.roles ?? [])} · ${wholeCredits(m?.credits ?? 0)} credits`} />;
-  if (made && made.n > 0) return <Banner tone="info" title={`Made ${made.n} look${made.n === 1 ? "" : "s"} · ${wholeCredits(made.credits)} credits. Check each one, then approve.`} />;
+  if (make.isPending) return <Banner tone="info" title={`Making looks for ${names(m?.roles ?? [])} · ${price(m?.credits ?? 0)}`} />;
+  if (made && made.n > 0) return <Banner tone="info" title={`Made ${made.n} look${made.n === 1 ? "" : "s"}. Check each one, then approve.`} />;
   if (!m || m.slot_ids.length === 0) return null;
   if (m.reason) return <Banner tone="warning" title={m.reason} />;
   if (no) return null;
   return (
     <Banner
       tone="info"
-      title={`Making looks for ${names(m.roles)} · ${wholeCredits(m.credits)} credits`}
+      title={`Making looks for ${names(m.roles)} · ${price(m.credits)}`}
       action={
         <Button variant="ghost" busy={decline.isPending} onClick={notNow}>
           Not now

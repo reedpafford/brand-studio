@@ -223,9 +223,13 @@ function AssetCard({
       });
     },
   });
-  const decline = stopFor(price);
+  // A look's sheet may get one automatic redo, so the press holds the most it can cost; the usual price is the sheet alone.
+  const makeUpTo = asset.look_credits ?? undefined;
+  const changeUpTo = item.data?.change_credits || undefined;
+  const decline = stopFor(makeUpTo ?? price);
   const drawingNow = asset.sheet_status === "drawing";
-  const changeReason = !change.trim() ? "Say what should change" : drawingNow ? "This one is still being made" : decline;
+  const changeDecline = stopFor(changeUpTo ?? price);
+  const changeReason = !change.trim() ? "Say what should change" : drawingNow ? "This one is still being made" : changeDecline;
   const status = STATUS[asset.sheet_status] ?? STATUS.none;
   const sheet = item.data?.sheet_file_id;
   const ratio = kind === "place" ? "16 / 9" : "9 / 16";
@@ -313,7 +317,9 @@ function AssetCard({
                 <Button
                   variant="secondary"
                   busy={makeLook.isPending}
-                  price={price}
+                  price={makeUpTo ?? price}
+                  upTo={makeUpTo !== undefined}
+                  usually={price}
                   reason={decline}
                   disabled={!!decline}
                   onClick={() => makeLook.mutate()}
@@ -367,7 +373,7 @@ function AssetCard({
                 </Button>
               )}
               <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={change} onChange={(e) => setChange(e.target.value)} />
-              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
+              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={changeUpTo ?? price} upTo={changeUpTo !== undefined} usually={price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
                 Change it
               </Button>
               {asset.only_here === "video" && canSave && (

@@ -333,3 +333,10 @@ test("a card shows the sheet, else the source photo", async () => {
   expect(srcs).toContain("/api/files/21");
   expect(srcs).toContain("/api/files/22");
 });
+
+test("when the server gives the whole press, the sheet button shows the most it can cost and the usual price under it", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_credits: 4, change_credits: 5 }] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByRole("button", { name: "Make house-style sheet · up to 4 credits" })).toBeInTheDocument();
+  expect(await screen.findByText("Usually 1.5. Anything not used comes back.")).toBeInTheDocument();
+});

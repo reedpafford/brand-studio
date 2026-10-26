@@ -574,7 +574,7 @@ test("missing looks: the price first with a countdown and Not now; Not now is re
     "POST /projects/9/assets/make-missing": [200, []],
   });
   open();
-  expect(await screen.findByText("Making looks for Nate and Mia · 9 credits")).toBeInTheDocument();
+  expect(await screen.findByText("Making looks for Nate and Mia · up to 9 credits (usually 3)")).toBeInTheDocument();
   expect(screen.getByText(/Starting in \d s/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Not now" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/missing-looks/decline")).toBe(true));
@@ -589,7 +589,7 @@ test("missing looks that fit are made after the countdown, and the note then say
   open();
   await screen.findByText(/Starting in \d s/);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(true), { timeout: 9000 });
-  expect(await screen.findByText("Made 2 looks · 9 credits. Check each one, then approve.")).toBeInTheDocument();
+  expect(await screen.findByText("Made 2 looks. Check each one, then approve.")).toBeInTheDocument();
   expect(calls.filter((c) => c.key === "POST /projects/9/assets/make-missing")).toHaveLength(1); // once
 }, 20000);
 
@@ -609,3 +609,30 @@ test("a refused start shows the server's reason", async () => {
   open();
   expect(await screen.findByText("Making a look (8 credits) would go over this video's budget.", {}, { timeout: 9000 })).toBeInTheDocument();
 }, 20000);
+
+test("Make a look shows the most it can cost, with the usual price under it, and the limit is checked against the most", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", sheet_status: "missing", look_credits: 3.6 })]],
+    "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, reason: null }],
+  });
+  open();
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "Make a look · up to 4 credits" })).toBeInTheDocument());
+  expect(screen.getByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
+});
+
+test("Change it on a look's sheet shows up to N credits with the usual price under it", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own()]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Coach", change_credits: 5, sheet_credits: 4 })],
+    "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, reason: null }],
+  });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  await userEvent.type(within(card).getByLabelText("Change this…"), "Warmer");
+  expect(await within(card).findByRole("button", { name: "Change it · up to 5 credits" })).toBeEnabled();
+  expect(within(card).getByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
+});
