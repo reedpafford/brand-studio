@@ -7,6 +7,11 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 22:48 · #506 Clips never dead-ends: stale clip prompts are rewritten, takes kept (server) merged
+- 2026-10-26 22:43 · #508 Approve all on Storyboard and Clips, with Undo (server) merged
+- 2026-10-26 22:29 · #504 The QA test owner is removed on the next deploy merged
+- 2026-10-26 22:21 · #510 spec: Approve all lists skipped ones as "Clip 3: no still yet" merged
+- 2026-10-26 22:14 · #509 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-26 22:12 · #507 spec: stale clips say "older breakdown" only merged
 - 2026-10-26 21:51 · #505 spec: Clips never dead-ends; Approve all on Storyboard and Clips merged
 - 2026-10-26 21:49 · #503 ops: Reed's decisions on stale clips and Approve all merged (by the Producer)
