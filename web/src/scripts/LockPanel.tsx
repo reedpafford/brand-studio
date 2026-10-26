@@ -72,7 +72,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
                   </div>
                 )}
                 {status === "drawing" && <p className="text-sm text-muted">Drawing the sheet…</p>}
-                {status === "waiting_for_owner" && <p className="text-sm text-warning">Waiting for Reed to approve</p>}
+                {status === "waiting_for_owner" && <p className="text-sm text-muted">Not started</p>}
                 {status === "needs_approval" && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted">Check the sheet, then approve it to lock {slot.role}.</p>

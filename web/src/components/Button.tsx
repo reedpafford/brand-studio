@@ -25,8 +25,6 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   busy?: boolean;
   /** A paid action says its price inside the button: "Make the takes · 8 credits". */
   price?: number;
-  /** The spend needs Reed: the label becomes "Ask Reed to approve · N credits". */
-  ask?: boolean;
   /** An icon after the label, pushed to the far edge (a picker's chevron). */
   trailing?: Icon;
   /** Label left, trailing icon right, filling the width. */
@@ -38,10 +36,10 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   children?: ReactNode;
 };
 
-export function Button({ variant = "primary", dense, busy, price, ask, reason, icon: Icon, trailing: Trailing, spread, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
+export function Button({ variant = "primary", dense, busy, price, reason, icon: Icon, trailing: Trailing, spread, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
   const why = useId();
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
-  const label = ask ? "Ask Reed to approve" : children;
+  const label = children;
   const size = dense && variant !== "primary" ? "min-h-control px-4 lg:min-h-control-dense lg:px-3" : "min-h-control px-4";
   const button = (
     <button

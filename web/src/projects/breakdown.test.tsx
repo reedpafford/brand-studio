@@ -251,11 +251,19 @@ test("Redo is a secondary button; Next is the only primary one", async () => {
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveClass("bg-accent");
 });
 
-test("a paid button asks Reed when the call would take the project past its budget", async () => {
+test("an editor's paid button is off, with the reason, when the call would take the video past its budget; nothing asks Reed", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();
-  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 6 credits" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Redo · 6 credits" })).not.toBeInTheDocument();
+  const redo = await screen.findByRole("button", { name: "Redo · 6 credits" });
+  expect(redo).toBeDisabled();
+  expect(redo).toHaveAccessibleDescription("That's more than this video's budget.");
+  expect(screen.queryByText(/Ask Reed/)).not.toBeInTheDocument();
+});
+
+test("Reed past the budget gets the plain button: pressing it is his approval", async () => {
+  fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
+  open();
+  expect(await screen.findByRole("button", { name: "Redo · 6 credits" })).toBeEnabled();
 });
 
 test("'lines 2 ◂' lights those lines in the script, and a script line lights its shot", async () => {

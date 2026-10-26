@@ -13,6 +13,7 @@ import {
   useToast,
   Select,
   Skeleton,
+  wholeCredits,
 } from "../components";
 import { errorText as errorClass } from "../ui";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
@@ -38,7 +39,7 @@ const STATUS: Record<
   approved: { tone: "success", text: "Approved" },
   needs_approval: { tone: "warning", text: "Needs your approval" },
   drawing: { tone: "neutral", text: "Drawing…" },
-  waiting_for_owner: { tone: "warning", text: "Waiting for Reed" },
+  waiting_for_owner: { tone: "neutral", text: "Not started" },
   none: { tone: "warning", text: "Needs a look" },
   missing: { tone: "warning", text: "Needs a look" },
 };
@@ -135,7 +136,7 @@ function AssetCard({
       // The frames are rewritten for the new cast, and their stills redrawn when the video can pay for it.
       const video = await queryClient.fetchQuery({ queryKey: ["project", projectId], staleTime: 0, queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: projectId } } })).data ?? null });
       const done = (video?.cast_redraw as { redrawn_for_cast?: { count: number; credits: number } } | null | undefined)?.redrawn_for_cast;
-      if (done) toast(`Redrew ${done.count} still${done.count === 1 ? "" : "s"} for the new cast · ${Math.ceil(done.credits - 1e-9)} credits.`);
+      if (done) toast(`Redrew ${done.count} still${done.count === 1 ? "" : "s"} for the new cast · ${wholeCredits(done.credits)} credits.`);
     },
   });
   // No character for this role yet: make one from the role and give it to the slot. It joins the brand's Cast & places, where its look is made and approved.
