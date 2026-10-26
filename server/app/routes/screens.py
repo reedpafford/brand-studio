@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import current_user
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
 from app.routes.brands import get_brand
@@ -43,10 +43,12 @@ class ScreenOut(ScreenIn):
     brand_id: int
 
 
-def _get_screen(db: Session, user: User, brand_id: int, screen_id: int) -> BrandScreen:
+def _get_screen(
+    db: Session, user: User, brand_id: int, screen_id: int, deleted: bool = False
+) -> BrandScreen:
     get_brand(db, user, brand_id)
     screen = db.get(BrandScreen, screen_id)
-    if not screen or screen.brand_id != brand_id:
+    if not screen or screen.brand_id != brand_id or (screen.deleted_at is not None) != deleted:
         raise HTTPException(404, "No such screen.")
     return screen
 
@@ -62,6 +64,10 @@ def _apply(db: Session, user: User, screen: BrandScreen, values: dict) -> None:
             )
         )
         if clash and clash is not screen:
+            if clash.deleted_at is not None:  # names stay unique, deleted screens included
+                raise HTTPException(
+                    409, "A deleted screen has that name. Restore it, or pick another name."
+                )
             raise HTTPException(409, "This brand already has a screen with that name.")
     for field, value in values.items():
         setattr(screen, field, sorted(set(value)) if isinstance(value, list) else value)
@@ -72,13 +78,17 @@ def list_screens(
     brand_id: int,
     tag: str | None = None,
     moment: str | None = None,
+    deleted: bool = False,  # true: the deleted screens instead, to bring back
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     """Filter by `tag`, or by `moment` to get the screens attached to it by default."""
     get_brand(db, user, brand_id)
+    gone = BrandScreen.deleted_at.is_not(None)
     screens = db.scalars(
-        select(BrandScreen).where(BrandScreen.brand_id == brand_id).order_by(BrandScreen.name)
+        select(BrandScreen)
+        .where(BrandScreen.brand_id == brand_id, gone if deleted else ~gone)
+        .order_by(BrandScreen.name)
     ).all()
     return [
         s
@@ -117,5 +127,17 @@ def update_screen(
 def delete_screen(
     brand_id: int, screen_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> None:
-    db.delete(_get_screen(db, user, brand_id, screen_id))
+    """Delete it, undoably: it leaves every list and is never used again until restored."""
+    _get_screen(db, user, brand_id, screen_id).deleted_at = utcnow()
     db.commit()
+
+
+@router.post("/{screen_id}/restore", response_model=ScreenOut)
+def restore_screen(
+    brand_id: int, screen_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo a delete: the screen comes back as it was."""
+    screen = _get_screen(db, user, brand_id, screen_id, deleted=True)
+    screen.deleted_at = None
+    db.commit()
+    return screen

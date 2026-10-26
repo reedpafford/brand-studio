@@ -1,5 +1,7 @@
 """Brands, their kit, and their screens (real app UI images that must appear exactly)."""
 
+from datetime import datetime
+
 from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -41,3 +43,4 @@ class BrandScreen(Entity, Base):
     # each project picks one variant per product, and only that one is used.
     product: Mapped[str] = mapped_column(String(60), default="")
     variant: Mapped[str] = mapped_column(String(60), default="")
+    deleted_at: Mapped[datetime | None]  # deleted, kept for Undo; never used while set

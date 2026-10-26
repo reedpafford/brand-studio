@@ -36,6 +36,20 @@ test("Reed opens In production from the rail and sees the version being made, wi
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("Reed changes the editors' weekly allowance on Team, and Undo puts it back", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.goto("/team");
+  const weekly = page.getByLabel("Editors' weekly allowance");
+  const before = await weekly.inputValue();
+  await weekly.fill(String(Number(before) + 5));
+  await page.getByRole("button", { name: "Save limits" }).click();
+  await expect(page.getByText("Limits saved.")).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.reload();
+  await expect(page.getByLabel("Editors' weekly allowance")).toHaveValue(before);
+});
+
 test("Reed releases a version he started by mistake, and it leaves In production", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
@@ -50,4 +64,16 @@ test("Reed releases a version he started by mistake, and it leaves In production
   await expect(page).toHaveURL(/\/scripts$/);
   await page.goto("/production");
   await expect(page.getByRole("link", { name: /^Bo tries salmon, version A, / })).toBeHidden();
+});
+
+test("Reed adds a brand from the brand menu and lands on its Look page", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.getByRole("button", { name: /^Brand: / }).click();
+  await page.getByRole("menuitem", { name: "New brand" }).click();
+  await page.getByLabel("Brand name").fill("Zephyr Studio");
+  await page.getByRole("button", { name: "Create brand" }).click();
+  await expect(page.getByText("Zephyr Studio is ready. Add its logo and colours.")).toBeVisible();
+  await expect(page).toHaveURL(/\/b\/\d+\/brand$/);
+  await expect(page.getByRole("button", { name: "Brand: Zephyr Studio" })).toBeVisible();
 });

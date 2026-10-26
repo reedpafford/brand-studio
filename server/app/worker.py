@@ -26,6 +26,7 @@ from app.filetypes import ALLOWED_TYPES, matches
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
+from app.purge import purge_deleted
 from app.references import fit_image
 from app.steps import save_step_result, step_failed
 from app.storage import LocalStorage, Storage
@@ -40,6 +41,7 @@ EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "i
 # Provider output links expire (Replicate: 1 hour); stop retrying downloads after that.
 DOWNLOAD_GIVE_UP = timedelta(hours=1)
 UNKNOWN = "This job names a service we don't have."
+DAY = 24 * 60 * 60
 
 
 def _move(db: Session, job: Job, old: JobStatus, new: JobStatus, **values) -> bool:
@@ -334,7 +336,15 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
         log.warning("Using stand-in providers (BS_FAKE_PROVIDERS): nothing real is generated.")
     elif not settings.generation_enabled:
         log.warning("Generation is switched off (BS_GENERATION_ENABLED): paid jobs stay queued.")
+    tidied = None  # the reel worker removes long-deleted scripts at start and once a day
     while True:
+        if (only is None or "local" in only) and (tidied is None or time.time() - tidied > DAY):
+            tidied = time.time()
+            try:
+                with sessions() as db:
+                    purge_deleted(db, storage)
+            except Exception:  # housekeeping never stops the worker
+                log.exception("removing long-deleted scripts failed; trying again tomorrow")
         try:
             with sessions() as db:
                 run_once(db, providers, storage, settings.generation_enabled, only)

@@ -44,7 +44,8 @@ test("the first brand opens on its Scripts, and the switcher menu changes brand 
   expect(screen.getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Brand: fomo" }));
   expect(screen.getByRole("menuitemradio", { name: "fomo" })).toHaveAttribute("aria-checked", "true");
-  expect(screen.getByText("Brands are set up by Reed.")).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "New brand" })).toBeInTheDocument();
+  expect(screen.queryByText("Brands are set up by Reed.")).toBeNull();
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Iron Paws" }));
   expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
@@ -275,4 +276,48 @@ test("if the clipboard says no, the fresh link is shown in a read-only field to 
   const field = await screen.findByLabelText("Invite link for jo@b.co");
   expect(field).toHaveValue(`${location.origin}/invite/fresh9`);
   expect(field).toHaveAttribute("readonly");
+});
+
+test("an editor's brand menu says brands are set up by Reed and has no New brand", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/");
+  await userEvent.click(await screen.findByRole("button", { name: /^Brand: / }));
+  expect(screen.getByText("Brands are set up by Reed.")).toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "New brand" })).toBeNull();
+});
+
+test("Reed's New brand asks for a name, creates the brand and opens its Look page", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    "GET /auth/me": [200, owner],
+    "GET /brands": [200, brands],
+    "GET /scripts": [200, []],
+    "GET /projects": [200, []],
+    "POST /brands": [201, { id: 9, name: "Night Owl", colours: [] }],
+    "GET /brands/9": [200, { id: 9, name: "Night Owl", colours: [], fonts: [], tone_notes: "", never_say: [], legal_line: "", end_line: "" }],
+    "GET /brands/9/screens": [200, []],
+  });
+  renderAt("/");
+  await userEvent.click(await screen.findByRole("button", { name: /^Brand: / }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "New brand" }));
+  const dialog = await screen.findByRole("dialog", { name: "New brand" });
+  expect(within(dialog).getByRole("button", { name: "Create brand" })).toBeDisabled();
+  expect(within(dialog).getByRole("button", { name: "Create brand" })).toHaveAccessibleDescription("Give it a name first");
+  await userEvent.type(within(dialog).getByLabelText("Brand name"), "Night Owl");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Create brand" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands")?.body).toMatchObject({ name: "Night Owl" }));
+  expect(await screen.findByText("Night Owl is ready. Add its logo and colours.")).toBeInTheDocument();
+});
+
+test("a brand name that is taken shows the server's words under the field", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "POST /brands": [409, { detail: "A brand with that name already exists." }] });
+  renderAt("/");
+  await userEvent.click(await screen.findByRole("button", { name: /^Brand: / }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "New brand" }));
+  const dialog = await screen.findByRole("dialog", { name: "New brand" });
+  await userEvent.type(within(dialog).getByLabelText("Brand name"), "fomo");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Create brand" }));
+  expect(await within(dialog).findByText("A brand with that name already exists.")).toBeInTheDocument();
 });
