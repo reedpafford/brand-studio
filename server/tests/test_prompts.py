@@ -72,6 +72,15 @@ def test_brand_block_lists_required_screens_and_their_moments():
     assert block.index("Other screens") < block.index("screen:9")
 
 
+def test_a_screen_that_prints_a_balance_gives_the_payoff_its_number():
+    rich = {"id": 5, "name": "Home (rich)", "tags": ["home"], "default_for": ["win"],
+            "balance": "$348,920.15"}  # fmt: skip
+    block = prompts.brand_block({"name": "fomo"}, [rich])
+    assert 'screen:5 "Home (rich)" (home), shows a balance of $348,920.15' in block
+    for step in ("breakdown", "script_draft", "clip_prompts"):
+        assert "shows a balance" in prompts.system(step)
+
+
 def test_number_lines():
     assert prompts.number_lines("a\nb") == "1| a\n2| b"
 
