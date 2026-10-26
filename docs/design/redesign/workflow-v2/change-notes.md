@@ -69,7 +69,7 @@ When the cast changes on Assets (a look is picked, swapped or made), or a breakd
 - **When the budget or week can't cover it:**
   - Nothing is redrawn, and nothing is charged. The stills keep their old picture with the badge "Out of date" (warning).
   - The note at the top says why, in plain words. On a library version: "Frames rewritten for the new cast. 2 stills still show the old cast: redrawing them (6 credits) would go over this video's budget." On an editor's own script: "…would go over this week's 145 free credits. It resets on Monday."
-  - The step's amber button becomes **Redraw 2 stills · 6 credits**. It's disabled with that reason while it still can't be covered. For Reed past the budget, it reads **Ask Reed to approve · 6 credits** as elsewhere, which on his own versions is his own approval.
+  - The step's amber button becomes **Redraw 2 stills · 6 credits**. On a library version past the budget it reads **Ask Reed to approve · 6 credits**, as elsewhere on the video page. On an editor's own script it stays disabled with the week's reason.
 - **Takes already made aren't touched.** Their clips get "Out of date" as today.
 
 ## Data the screens need (server)
