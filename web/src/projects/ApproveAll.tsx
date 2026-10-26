@@ -44,18 +44,14 @@ export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "c
     },
   });
 
-  // The line stays until the next action on the page (a press anywhere but on the line itself).
+  // The line stays until the next action on the page: a click or a key that presses a control (Enter, Space), anywhere but on the line itself. Tab and other navigation never clear it, so a keyboard user can reach the links.
   useEffect(() => {
     if (!result) return;
     const away = (e: Event) => {
       if (!(e.target as Element | null)?.closest?.("[data-approve-line]")) setResult(null);
     };
-    document.addEventListener("pointerdown", away);
-    document.addEventListener("keydown", away);
-    return () => {
-      document.removeEventListener("pointerdown", away);
-      document.removeEventListener("keydown", away);
-    };
+    document.addEventListener("click", away);
+    return () => document.removeEventListener("click", away);
   }, [result]);
 
   const button =
@@ -65,6 +61,7 @@ export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "c
       </Button>
     ) : null;
 
+  const name = noun === "frame" ? "Frame" : "Clip"; // the card's own label
   const label = (id: number) => rows.find((r) => r.id === id)?.clip_id;
   const left = result?.skipped ?? [];
   const line =
@@ -79,8 +76,8 @@ export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "c
           return (
             <span key={s.id}>
               {i > 0 && " · "}
-              <button type="button" className="underline" onClick={() => show(`${noun === "frame" ? "Frame" : "Clip"} ${clip}`)}>
-                Clip {clip}
+              <button type="button" className="inline-flex min-h-11 items-center underline sm:min-h-0" onClick={() => show(`${name} ${clip}`)}>
+                {name} {clip}
               </button>
               : {s.reason}
             </span>
