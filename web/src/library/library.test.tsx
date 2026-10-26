@@ -340,3 +340,11 @@ test("when the server gives the whole press, the sheet button shows the most it 
   expect(await screen.findByRole("button", { name: "Make house-style sheet · up to 4 credits" })).toBeInTheDocument();
   expect(await screen.findByText("Usually 1.5. Anything not used comes back.")).toBeInTheDocument();
 });
+
+test("a sheet that reads wrong on the character's page says so, and Redo it opens the redo with the problem as its note", async () => {
+  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_file_id: 70, sheet_status: "needs_approval", look_fit: { seen: "a teenage boy", problem: "Mia is a woman in her 30s" } }] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByText("This look reads as: a teenage boy")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Redo it" }));
+  expect(await screen.findByLabelText("What should change? (optional)")).toHaveValue("Mia is a woman in her 30s");
+});

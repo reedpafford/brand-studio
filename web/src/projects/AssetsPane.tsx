@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ellipsis, Lock, Trash2, Users, Wand2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -168,6 +168,7 @@ function AssetCard({
   const using = own && asset.own_look_id === asset.library_item_id;
   const notUsed = own && !using;
   const [change, setChange] = useState("");
+  const changeBox = useRef<HTMLTextAreaElement>(null);
   const approve = useMutation({
     mutationFn: async () => {
       const { response, error } = await api.POST("/library/{kind}/{item_id}/sheet/approve", { params: { path: { kind, item_id: id! } } });
@@ -366,6 +367,16 @@ function AssetCard({
               )}
             </div>
           )}
+          {asset.look_fit && !asset.locked && (
+            <div className="space-y-1 rounded-md bg-warning-soft p-2 text-sm" role="note" aria-label={`Look check for ${title}`}>
+              <p>This look reads as: {asset.look_fit.seen}</p>
+              {using && (
+                <Button variant="secondary" dense icon={Wand2} onClick={() => { setChange(asset.look_fit!.problem); changeBox.current?.focus(); }}>
+                  Redo it
+                </Button>
+              )}
+            </div>
+          )}
           {using && !asset.locked && (
             <div className="space-y-2">
               {asset.sheet_status === "needs_approval" && (
@@ -373,7 +384,7 @@ function AssetCard({
                   Approve
                 </Button>
               )}
-              <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={change} onChange={(e) => setChange(e.target.value)} />
+              <TextArea ref={changeBox} label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={change} onChange={(e) => setChange(e.target.value)} />
               <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={changeUpTo ?? price} upTo={changeUpTo !== undefined} usually={item.data?.sheet_usual_credits || price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
                 Change it
               </Button>
