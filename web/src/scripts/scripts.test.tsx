@@ -1058,3 +1058,74 @@ test("while a paid reel read runs, the Script step shows Reading the reel with t
   open("/b/1/scripts/7?step=script");
   expect(await screen.findByText(/Reading the reel… 1m \d+s/)).toBeInTheDocument();
 });
+
+const doneReel = (o: object = {}) => reelOut({ status: "done", steps_done: ["watch", "write", "cast"], read_again_credits: 6.2, edited_since_fill: false, new_fill_ready: false, ...o });
+
+test("Read it again opens a panel with the note box and the price first, sends the note, and the reading shows", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, full()],
+    "GET /scripts/7/import": [200, doneReel()],
+    "POST /scripts/7/import/read-again": [201, doneReel({ status: "reading", steps_done: [] })],
+  });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Read it again" }));
+  const panel = await screen.findByRole("dialog", { name: "Read it again" });
+  await userEvent.type(within(panel).getByLabelText("What did it get wrong? (optional)"), "shot 3 is the groom");
+  await userEvent.click(within(panel).getByRole("button", { name: "Read it again · 7 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/import/read-again")?.body).toEqual({ note: "shot 3 is the groom" }));
+  expect(await screen.findByRole("list", { name: "Reading the reel" })).toBeInTheDocument();
+});
+
+test("a note that changes the words is refused in the server's words and stays in the box", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /scripts/7": [200, full()],
+    "GET /scripts/7/import": [200, doneReel()],
+    "POST /scripts/7/import/read-again": [422, { detail: "Notes can fix who's speaking, the shots and the camera, but not the words said in the reel. Change the words in the script instead." }],
+  });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Read it again" }));
+  const panel = await screen.findByRole("dialog", { name: "Read it again" });
+  const box = within(panel).getByLabelText("What did it get wrong? (optional)");
+  await userEvent.type(box, "make him say hello");
+  await userEvent.click(within(panel).getByRole("button", { name: /Read it again · / }));
+  expect(await within(panel).findByText(/Notes can fix who's speaking/)).toBeInTheDocument();
+  expect(box).toHaveValue("make him say hello");
+});
+
+test("past the week, Read it again shows the server's reason and nothing is held", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /scripts/7": [200, full()],
+    "GET /scripts/7/import": [200, doneReel()],
+    "POST /scripts/7/import/read-again": [409, { detail: "Reading it again needs 7 credits; you have 2 left this week. It resets on Monday." }],
+  });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Read it again" }));
+  await userEvent.click(await within(await screen.findByRole("dialog", { name: "Read it again" })).findByRole("button", { name: /Read it again · / }));
+  expect(await screen.findByText(/you have 2 left this week\. It resets on Monday\./)).toBeInTheDocument();
+});
+
+test("when a new breakdown is ready but the script was edited, the edits are kept and Fill the script again asks first", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, full()],
+    "GET /scripts/7/import": [200, doneReel({ edited_since_fill: true, new_fill_ready: true })],
+    "POST /scripts/7/fill-from-reel": [200, doneReel()],
+  });
+  open("/b/1/scripts/7");
+  expect(await screen.findByText("New breakdown ready. Your script edits are kept.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Fill the script again" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Replace your script with the reel's?" });
+  expect(within(ask).getByText("Your edits will be lost.")).toBeInTheDocument();
+  await userEvent.click(within(ask).getByRole("button", { name: "Keep my script" }));
+  expect(calls.some((c) => c.key === "POST /scripts/7/fill-from-reel")).toBe(false);
+  await userEvent.click(screen.getByRole("button", { name: "Fill the script again" }));
+  await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Replace" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/fill-from-reel")).toBe(true));
+});
