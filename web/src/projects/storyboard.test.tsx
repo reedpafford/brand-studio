@@ -250,6 +250,21 @@ test("a frame whose character has no approved sheet says so, links to the charac
   expect(screen.getByRole("button", { name: "Make all stills · 3 credits" })).toBeInTheDocument(); // only the frame that can be made
 });
 
+test("a failed frames run says so, nothing was charged, and the one Make button below asks again", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, []],
+    "GET /jobs": [200, [{ id: 31, kind: "write-claude", step: "storyboard", status: "failed", credits: 6, project_id: 9, created_at: new Date().toISOString() }]],
+    "POST /projects/9/storyboard": [201, { id: 32, kind: "write-claude", step: "storyboard", status: "queued", credits: 6, project_id: 9 }],
+  });
+  open();
+  expect(await screen.findByText("The frames didn't finish.")).toBeInTheDocument();
+  expect(screen.queryByText("Writing your frames…")).toBeNull();
+  expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "Make storyboard · 6 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard")).toBe(true));
+});
+
 test("after Redo storyboard the old frames are not shown while the new ones load, so none of them can be pressed", async () => {
   vi.spyOn(window, "confirm").mockReturnValue(true);
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ id: 1, file_id: 40 })]], "POST /projects/9/storyboard": [201, { id: 7, kind: "write-claude", step: "storyboard", status: "queued", credits: 6, project_id: 9 }] });

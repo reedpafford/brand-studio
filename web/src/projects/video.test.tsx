@@ -69,7 +69,7 @@ test("a locked role is already approved and has no buttons", async () => {
   fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ locked: true, sheet_status: "approved", ready: true })]] });
   open();
   const card = await screen.findByLabelText("Bo");
-  expect(within(card).getByText("Locked by Reed")).toBeInTheDocument();
+  expect(within(card).getByText("Locked")).toBeInTheDocument();
   expect(within(card).queryByRole("button")).toBeNull();
 });
 

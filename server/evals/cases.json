@@ -882,6 +882,61 @@
      "betty"
     ]
    }
+  },
+  {
+   "id": "fomo-echo-variations",
+   "brand": "fomo",
+   "steps": [
+    "variations"
+   ],
+   "brief": "Reed's live-test reel (De3QNNgu_9S, 'QA live reel'): Halloween party rejection, a year of trading, the Lamborghini payoff.",
+   "cast": [
+    "char:3 Omar, the boyfriend"
+   ],
+   "places": [],
+   "count": 2,
+   "script": [
+    "SCENE 1 — INT. COUPLE'S APARTMENT — NIGHT",
+    "The girlfriend, in a Halloween costume, clasps her hands and begs.",
+    "GIRLFRIEND: Please, please, please, let me go to the Halloween party.",
+    "The boyfriend smiles warmly.",
+    "OMAR: Okay, we can both go together.",
+    "She shakes her head, stern.",
+    "GIRLFRIEND: No, I'm going with my friends. You can't come.",
+    "SCENE 2 — EXT. HALLOWEEN PARTY HOUSE — NIGHT",
+    "Omar steps out of his car onto the driveway and scans the crowd.",
+    "OMAR: Where did she go?",
+    "He finds her kissing the rival, who wears devil horns. She pulls back, panicked.",
+    "GIRLFRIEND: Omar, it's not what it looks like.",
+    "OMAR: You begged me for this?",
+    "The rival smirks.",
+    "RIVAL: She begged to come with me.",
+    "GIRLFRIEND: You're just a loser who doesn't get invited to anything.",
+    "GIRLFRIEND: You're just a loser.",
+    "SCENE 3 — INT. OMAR'S CAR / BEDROOM — NIGHT",
+    "Tears run down Omar's face behind the wheel.",
+    "GIRLFRIEND (V.O.): You're just a loser who doesn't get invited to anything.",
+    "He wipes his eyes and his hands hit the keyboard. Wordless montage, fast cuts: his first trade, a red day he shakes off, another late night, a bigger win, then the payoff.",
+    "★ fomo screen: Token chart down — a red day on his phone, the position reads -$310; he keeps going",
+    "★ fomo screen: Token chart up — another late night, the balance reads $1,240",
+    "★ fomo screen: Home (rich) — the portfolio balance reads $348,920.15, on his phone, fills the frame",
+    "SCENE 4 — EXT. HALLOWEEN PARTY HOUSE — NIGHT, ONE YEAR LATER",
+    "A green Lamborghini revs and stops in front of the party crowd. Low angle.",
+    "RIVAL: Whose car is that?",
+    "GIRLFRIEND: No way. Is that Omar?",
+    "GIRLFRIEND: Omar, please take me back.",
+    "OMAR: Take you back?",
+    "GIRLFRIEND: I made a mistake, please.",
+    "He scoffs.",
+    "OMAR: Sorry, I don't get invited to anything.",
+    "★ fomo screen: Home (rich) — on Omar's phone in the Lamborghini, fills the frame",
+    "OMAR: Want to trade like me? Download fomo through the link in my bio."
+   ],
+   "good": [
+    "Each variation's V.O. echo in the low point repeats a line the girlfriend said to his face earlier in that variation (Reed, live test), so the callback lands.",
+    "The payoff callback ('Sorry, I don't get invited to anything.' or its new version) answers that same line."
+   ],
+   "expect": {}
   }
  ]
 }
