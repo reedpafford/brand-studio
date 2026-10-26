@@ -36,6 +36,20 @@ test("Reed opens In production from the rail and sees the version being made, wi
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("Reed changes the editors' weekly allowance on Team, and Undo puts it back", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.goto("/team");
+  const weekly = page.getByLabel("Editors' weekly allowance");
+  const before = await weekly.inputValue();
+  await weekly.fill(String(Number(before) + 5));
+  await page.getByRole("button", { name: "Save limits" }).click();
+  await expect(page.getByText("Limits saved.")).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.reload();
+  await expect(page.getByLabel("Editors' weekly allowance")).toHaveValue(before);
+});
+
 test("Reed releases a version he started by mistake, and it leaves In production", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");

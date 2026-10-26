@@ -8,6 +8,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
+import { CreditLimits } from "./CreditLimits";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 const ROLE = { owner: "Owner", editor: "Editor" } as const;
@@ -72,6 +73,7 @@ export function TeamPage() {
           {remove.isError ? "Try again." : "Check your connection."}
         </Banner>
       )}
+      {isOwner && <CreditLimits />}
       <section className="space-y-3" aria-label="People">
         <h2 className="type-section">People</h2>
         {members.isPending && (
