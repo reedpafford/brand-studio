@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { useMe } from "../auth/useMe";
 import { Dialog, Tabs } from "../components";
+import { ArchiveBrand } from "./ArchiveBrand";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
@@ -22,6 +24,7 @@ export function BrandPage() {
   const { data: brands } = useBrands();
   const brand = brands?.find((b) => b.id === Number(brandId));
   const rail = useRail();
+  const owner = useMe().data?.role === "owner";
   const asked = params.get("tab");
   const tab = IDS.find((t) => t === asked) ?? "look";
   const screens = useScreens(Number(brandId));
@@ -40,9 +43,12 @@ export function BrandPage() {
     <FrameContext.Provider value={{ slot, setDirty }}>
       <div className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
         <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="type-eyebrow text-muted">{brand?.name}</p>
-            <h1 className="type-page">Brand</h1>
+          <div className="flex items-end gap-2">
+            <div>
+              <p className="type-eyebrow text-muted">{brand?.name}</p>
+              <h1 className="type-page">Brand</h1>
+            </div>
+            {owner && brand && <ArchiveBrand brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />}
           </div>
           {rail && <div ref={setSlot} className="flex flex-col items-end" />}
         </div>
