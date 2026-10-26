@@ -4,6 +4,7 @@ picked takes into the finished video (free)."""
 
 import hashlib
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -41,6 +42,7 @@ class TakeOut(BaseModel):
     id: int
     number: int
     file_id: int
+    created_at: datetime  # "made 10:42"
 
 
 class VideoOut(BaseModel):
@@ -105,7 +107,10 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
     return ProjectClipOut(
         inserts=inserts,
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
-        takes=[TakeOut(id=t.id, number=t.number, file_id=t.file_id) for t in _takes(db, row)],
+        takes=[
+            TakeOut(id=t.id, number=t.number, file_id=t.file_id, created_at=t.created_at)
+            for t in _takes(db, row)
+        ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
     )

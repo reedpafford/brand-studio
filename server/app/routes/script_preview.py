@@ -109,3 +109,15 @@ def save_preview(
     script_preview.save(db, draft, body, user.id)
     db.commit()
     return _out(db, draft)
+
+
+@router.delete("", response_model=PreviewOut)
+def remove_preview(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Remove the version's saved plan (the screen's Undo saves it back with PUT). Its video
+    then plans its own shots when it is made."""
+    _, draft = _version(db, user, script_id, slot, edit=True)
+    draft.breakdown, draft.breakdown_problems, draft.breakdown_by_id = None, [], None
+    db.commit()
+    return _out(db, draft)

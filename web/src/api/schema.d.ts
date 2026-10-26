@@ -1608,7 +1608,12 @@ export interface paths {
          *     comes from their weekly allowance). It replaces any saved breakdown when it finishes.
          */
         post: operations["run_preview_scripts__script_id__drafts__slot__breakdown_post"];
-        delete?: never;
+        /**
+         * Remove Preview
+         * @description Remove the version's saved plan (the screen's Undo saves it back with PUT). Its video
+         *     then plans its own shots when it is made.
+         */
+        delete: operations["remove_preview_scripts__script_id__drafts__slot__breakdown_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2376,8 +2381,8 @@ export interface paths {
         };
         /**
          * List Assets
-         * @description Cast slots first (locked, then unlocked), then the breakdown's other characters and
-         *     its places, each once.
+         * @description Cast slots first (locked, then unlocked), then the breakdown's other characters, its
+         *     places, then the products and screens its shots show, each once.
          */
         get: operations["list_assets_projects__project_id__assets_get"];
         put?: never;
@@ -2555,6 +2560,13 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Shots
+             * @default 0
+             */
+            shots: number;
+            /** File Id */
+            file_id?: number | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -4241,6 +4253,11 @@ export interface components {
             number: number;
             /** File Id */
             file_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** UsageBrandOut */
         UsageBrandOut: {
@@ -8203,6 +8220,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_preview_scripts__script_id__drafts__slot__breakdown_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
                 };
             };
             /** @description Validation Error */
