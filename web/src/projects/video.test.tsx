@@ -495,3 +495,37 @@ test("when the role has gone back to a Cast & places character, the video's own 
   await userEvent.click(within(card).getByRole("button", { name: "Use its own look again" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/assets/slots/3")?.body).toEqual({ library_item_id: 12 }));
 });
+
+test("Delete this look removes a kept own look from its menu, and Undo brings it back", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: 5, own_look_id: 12, only_here: "video", role: "Coach", name: "Bo" })]],
+    "DELETE /library/character/12": [204, null],
+    "POST /library/character/12/unarchive": [200, {}],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for Coach" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Delete this look" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/12")).toBe(true));
+  expect(await screen.findByText("Deleted Coach's look.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/12/unarchive")).toBe(true));
+});
+
+test("a look a role still uses has no Delete this look: it is offered only once the role is swapped (Not used)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own()]], "GET /library/character/12": [200, item({ id: 12, name: "Coach" })] });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).getByText("This video only")).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: /^More for/ })).toBeNull();
+});
+
+test("a Cast & places character has no Delete this look", async () => {
+  setViewport(1440);
+  fakeServer(base);
+  open();
+  await screen.findByLabelText("Bo");
+  expect(screen.queryByRole("button", { name: /^More for/ })).toBeNull();
+});
