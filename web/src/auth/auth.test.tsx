@@ -56,7 +56,7 @@ test("a wrong password shows the server's message", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Wrong email or password.");
 });
 
-const lookup = { workspace_name: "Studio", invited_by_name: "Reed", email: "ada@x.co", role: "editor" };
+const lookup = { workspace_name: "Studio", invited_by_name: "Reed", owner_name: "Reed", email: "ada@x.co", role: "editor" };
 
 test("accepting an invite sends the link's token", async () => {
   const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, lookup], "POST /auth/accept-invite": [201, me] });
@@ -174,10 +174,10 @@ test("when the server can't be reached, it is retried quietly first, then shows 
 });
 
 test("an invite to a studio stored as a slug says Join {owner}'s studio, in the title, the line and the welcome", async () => {
-  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Reed" }], "POST /auth/accept-invite": [201, me] });
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Ada", owner_name: "Reed" }], "POST /auth/accept-invite": [201, me] });
   renderAt("/invite/abc123");
   expect(await screen.findByRole("heading", { name: "Join Reed's studio" })).toBeInTheDocument();
-  expect(screen.getByText(/Reed invited you to Reed's studio as an editor/)).toBeInTheDocument();
+  expect(screen.getByText(/Ada invited you to Reed's studio as an editor/)).toBeInTheDocument();
   expect(screen.queryByText(/owner-reed/)).toBeNull();
 });
 
