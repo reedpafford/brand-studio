@@ -21,6 +21,8 @@ def test_clip_advice_never_blocks_and_can_be_kept(db, editor, setup, clip):  # n
     assert kept["kept"] == [ADVICE] and kept["problems"] == [ADVICE]
     assert editor.post(f"{url}/keep", json={"problem": "Advice: gone"}).status_code == 404
     assert editor.post(f"{url}/generate").status_code == 201  # advice alone never blocks
+    undone = editor.delete(f"{url}/keep", params={"problem": ADVICE}).json()
+    assert undone["kept"] == [] and undone["problems"] == [ADVICE]
 
 
 def test_breakdown_advice_can_be_kept(db, editor, setup, clip):  # noqa: F811
@@ -30,3 +32,4 @@ def test_breakdown_advice_can_be_kept(db, editor, setup, clip):  # noqa: F811
     db.commit()
     assert editor.get(url).json()["kept"] == []
     assert editor.post(f"{url}/keep", json={"problem": ADVICE}).json()["kept"] == [ADVICE]
+    assert editor.delete(f"{url}/keep", params={"problem": ADVICE}).json()["kept"] == []
