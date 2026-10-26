@@ -256,7 +256,8 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     one = price(look_price(db, project.workspace_id))
     usual = price(look_usual(db, project.workspace_id))  # "Usually 2", "up to 4"
     assert editor.get(url).json() == {"slot_ids": [nate], "roles": ["Nate"], "credits": one,
-                                      "usual_credits": usual, "reason": None}  # fmt: skip
+                                      "usual_credits": usual, "reason": None,
+                                      "made": None}  # fmt: skip
     assert (one, usual) == (4, 2)
 
     spent = Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},

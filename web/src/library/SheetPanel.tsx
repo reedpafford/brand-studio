@@ -5,6 +5,7 @@ import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { Elapsed, useJobs } from "../clip/History";
 import { useMe } from "../auth/useMe";
+import { wholeCredits } from "../components";
 import { Sheet } from "../projects/Sheet";
 import { useMedia } from "../useMedia";
 import { useToast } from "../toast";
@@ -13,8 +14,8 @@ import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkTex
 type Item = components["schemas"]["ItemOut"];
 const MODEL = "nano-banana-pro" as const;
 const RESOLUTION = "2K";
-/** 1.5 stays 1.5, 3 stays 3. */
-export const credits = (n: number) => `${+n.toFixed(1)} credits`;
+/** Whole credits, rounded up, as everywhere else. */
+export const credits = (n: number) => `${wholeCredits(n)} credits`;
 
 /** What drawing one sheet costs, in credits (undefined until the prices load). */
 export function useSheetPrice() {
@@ -48,7 +49,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const costOf = (n: number | undefined, most: boolean) => (n === undefined ? "" : ` · ${most ? "up to " : ""}${credits(n)}`);
   const cost = costOf(upTo ?? price, upTo !== undefined);
   const redoCost = costOf(upToNote ?? price, upToNote !== undefined);
-  const usual = (upTo !== undefined || upToNote !== undefined) && price !== undefined ? <p className="text-sm text-muted">{`Usually ${+(item.sheet_usual_credits > 0 ? item.sheet_usual_credits : price).toFixed(1)}. Anything not used comes back.`}</p> : null;
+  const usual = (upTo !== undefined || upToNote !== undefined) && price !== undefined ? <p className="text-sm text-muted">{`Usually ${wholeCredits(item.sheet_usual_credits > 0 ? item.sheet_usual_credits : price)}. Anything not used comes back.`}</p> : null;
   // Past an editor's weekly allowance the server declines a new sheet, so don't offer one.
   const { data: me } = useMe();
   const a = allowance.data;

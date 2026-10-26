@@ -64,7 +64,9 @@ def make_sheet(
     return queue_sheet(db, user, item, body)
 
 
-def queue_sheet(db: Session, user: User, item: LibraryItem, body: SheetIn, fit_redo=False) -> Job:
+def queue_sheet(
+    db: Session, user: User, item: LibraryItem, body: SheetIn, fit_redo=False, auto=False
+) -> Job:
     """The sheet's paid image job. The press holds what it can still spend (`worst`): the
     check after it and, unless it's the person's own change, the one automatic redo with its
     check, so the price shown is never passed; past the budget or the week, the whole press
@@ -87,8 +89,9 @@ def queue_sheet(db: Session, user: User, item: LibraryItem, body: SheetIn, fit_r
     check = check_price(db, item.workspace_id) if is_checked(item) else Decimal(0)
     changed = redo or fit_redo
     after = worst(sheet, check, is_checked(item), changed) - sheet - check  # redo + its check
+    # auto_made: Assets made it by itself; its check and redo say so too ("Made 3 looks · 7")
     data = {**job, "step": "sheet", "library_item_id": item.id, "changed": changed,
-            "after_check": str(after)}  # fmt: skip
+            "after_check": str(after), "auto_made": auto}  # fmt: skip
     _on_week(db, project, user, data, check + after)
     return enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db, user, "image", data, project=project, provider="replicate",
@@ -137,10 +140,13 @@ def save_sheet(db: Session, job: Job) -> None:
     item.sheet_file_id, item.sheet_approved, item.look_fit = file_ids[0], False, None
     if is_checked(item):
         after = Decimal(job.input.get("after_check", "0"))
-        check_fit(db, user, item, redo=not job.input.get("changed"), after=after)
+        auto = bool(job.input.get("auto_made"))
+        check_fit(db, user, item, redo=not job.input.get("changed"), after=after, auto=auto)
 
 
-def check_fit(db: Session, user: User, item: LibraryItem, redo: bool, after=Decimal(0)) -> None:
+def check_fit(
+    db: Session, user: User, item: LibraryItem, redo: bool, after=Decimal(0), auto=False
+) -> None:
     """Does the new sheet read as its description (age, gender, job)? One cheap Claude look
     (prompts/look_fit.md, effort low), paid like the sheet; the sheet shows as still being
     drawn until it answers. A sheet from an uploaded photo is never checked: the photo is the
@@ -157,6 +163,7 @@ def check_fit(db: Session, user: User, item: LibraryItem, redo: bool, after=Deci
         "max_tokens": 2000,
         "files": {"reference_images": [item.sheet_file_id]},
         "fit_images_to": 1024,
+        "auto_made": auto,
     }
     project = db.get(Project, item.owner_project_id) if item.owner_project_id else None
     _on_week(db, project, user, data, after if redo else Decimal(0))
@@ -184,7 +191,8 @@ def save_fit(db: Session, job: Job) -> None:
         note = prompts.look_fit_redo(item.notes, fit)[:500]
         db.commit()  # the check's answer stays even if the redo is refused (that rolls back)
         try:
-            queue_sheet(db, db.get(User, job.created_by_id), item, SheetIn(change=note), True)
+            maker, auto = db.get(User, job.created_by_id), bool(job.input.get("auto_made"))
+            queue_sheet(db, maker, item, SheetIn(change=note), True, auto=auto)
             return
         except HTTPException:
             pass  # past the budget: the look shows as it is, with the advice

@@ -4071,6 +4071,15 @@ export interface components {
             /** Problem */
             problem: string;
         };
+        /** MadeOut */
+        MadeOut: {
+            /** Looks */
+            looks: number;
+            /** Credits Used */
+            credits_used: number;
+            /** Drawing */
+            drawing: boolean;
+        };
         /** Me */
         Me: {
             /** Id */
@@ -4106,6 +4115,7 @@ export interface components {
              * @default 0
              */
             usual_credits: number;
+            made?: components["schemas"]["MadeOut"] | null;
             /** Reason */
             reason?: string | null;
         };

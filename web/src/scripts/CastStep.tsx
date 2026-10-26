@@ -8,6 +8,7 @@ import type { Script } from "./useScript";
 import { FindRoles } from "./FindRoles";
 import { LockPanel } from "./LockPanel";
 import { useBrandCharacters, useCast, useCastActions, type Slot } from "./useCast";
+import { RoleFacts } from "../projects/RoleFacts";
 
 /** Step 5: the roles of the script, each with one locked look or none (made at Assets). Every role is optional. */
 export function CastStep({ script, brandId, readOnly }: { script: Script; brandId: number; readOnly: boolean }) {
@@ -58,6 +59,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
                         </button>
                       )}
                     </div>
+                    <RoleFacts facts={s.facts} />
                     {s.description && <p className="line-clamp-2 text-sm text-muted">{s.description}</p>}
                     {appearsText(s.appears_in) && <p className="text-sm text-muted">{appearsText(s.appears_in)}</p>}
                   </div>

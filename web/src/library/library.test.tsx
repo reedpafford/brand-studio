@@ -203,7 +203,7 @@ test("a character without a sheet offers to make one, with the server's price, a
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByText("Source photo, not used in videos")).toBeInTheDocument();
   expect(screen.getByText("Needs a sheet")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Make house-style sheet · 1.5 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Make house-style sheet · 2 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ model_id: "nano-banana-pro", change: "" }));
 });
 
@@ -247,9 +247,9 @@ test("an approved sheet has the approved mark and Redo takes a note", async () =
   });
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByText("✓ Approved sheet")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Redo · 1.5 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Redo · 2 credits" }));
   await userEvent.type(screen.getByLabelText(/What should change/), "Shorter hair");
-  await userEvent.click(screen.getAllByRole("button", { name: "Redo · 1.5 credits" }).at(-1)!);
+  await userEvent.click(screen.getAllByRole("button", { name: "Redo · 2 credits" }).at(-1)!);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ change: "Shorter hair" }));
 });
 
@@ -295,7 +295,7 @@ test("past an editor's weekly allowance the sheet button is off and says why", a
   fakeServer({ ...sheetBase, "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }], "GET /library/character/5": [200, sheetItem] });
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByText("You've used this week's 145 credits. It resets on Monday.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make house-style sheet · 1.5 credits" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Make house-style sheet · 2 credits" })).toBeDisabled();
 });
 
 test("a character's photo at creation is the source photo for its sheet, not a loose image", async () => {
@@ -338,7 +338,7 @@ test("when the server gives the whole press, the sheet button shows the most it 
   fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_credits: 4, change_credits: 5 }] });
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByRole("button", { name: "Make house-style sheet · up to 4 credits" })).toBeInTheDocument();
-  expect(await screen.findByText("Usually 1.5. Anything not used comes back.")).toBeInTheDocument();
+  expect(await screen.findByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
 });
 
 test("a sheet that reads wrong on the character's page says so, and Redo it opens the redo with the problem as its note", async () => {
