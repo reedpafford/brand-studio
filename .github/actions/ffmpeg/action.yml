@@ -23,6 +23,8 @@ runs:
         # half-finished try and switches to Ubuntu's main archive.
         install 240 || {
           sudo dpkg --configure -a
+          # GitHub's runners list mirrors in apt-mirrors.txt (Azure first); others in sources.
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt 2>/dev/null || true
           sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#g' \
             /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
           sudo apt-get update -qq && install 420
