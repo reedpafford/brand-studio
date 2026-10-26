@@ -188,10 +188,19 @@ def test_variations_end_line_ignores_case_and_a_near_miss_is_advice():
     v = result.variations[0]
     body = v.script.rsplit("\n", 1)[0]
     v.script = body + "\nMALIK: WANT TO TRADE LIKE ME? DOWNLOAD FOMO THROUGH THE LINK IN MY BIO"
-    assert not [p for p in check.variations(original, result, {}, end, [], 1) if "end line" in p]
-    v.script = body + "\nMALIK: Want to trade like me? Get fomo through the link in my bio."
-    assert [p for p in check.variations(original, result, {}, end, [], 1) if "end line" in p] == [
+
+    def ends(script):
+        v.script = script
+        found = check.variations(original, result, {}, end, [], 1, brand="fomo")
+        return [p for p in found if "end line" in p]
+
+    assert ends(v.script) == []
+    assert ends(body + "\nMALIK: Want to trade like me? Get FOMO through the link in my bio.") == [
         "Advice: variation 1's last line is close to the brand's end line, not word for word"
+    ]
+    rival = "\nMALIK: Want to trade like me? Download Robinhood through the link in my bio."
+    assert ends(body + rival) == [
+        "variation 1 doesn't end on the brand's end line; add it as the last line"
     ]
 
 
@@ -636,11 +645,21 @@ def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
     curly = "NATE: “Want to trade like me… download fomo, through the link in my bio!”"
     near = "NATE: Want to trade like me? Get fomo through the link in my bio."
     other = "NATE: Sorry, I'm fully booked."
-    assert [check.ends_on(end, x) for x in (caps, curly, near, other)] == [
+    assert [check.ends_on(end, x, "fomo") for x in (caps, curly, near, other)] == [
         "yes", "yes", "near", "no"
     ]  # fmt: skip
-    assert check.ends_on(end, "NATE: ... in my biology") != "yes"  # whole words only
+    assert check.ends_on(end, "NATE: ... in my biology", "fomo") != "yes"  # whole words only
     assert check.ends_on("", other) == "yes"  # a brand with no end line
+    # QA #393: a near miss must still name the brand, or it blocks as before
+    rival = "NATE: Want to trade like me? Download Robinhood through the link in my bio."
+    vague = "NATE: Want to trade like me? Download the app through the link in my bio."
+    assert check.ends_on(end, rival, "fomo") == check.ends_on(end, vague, "fomo") == "no"
+    assert check.ends_on(end, near, "") == "no"  # no brand name to check: blocks
+    # The end line split over the last two lines, its last part with FOMO in caps
+    split = ("NATE: Want to trade like me?", "NATE: Download FOMO through the link in my bio!")
+    assert check.ends_on(end, split[1], "fomo", before=split[0]) == "yes"
+    assert check.ends_on(end, split[1], "fomo", before="NATE: Sorry.") == "no"  # half of it
+    assert check.ends_on(end, "BRIDE: Huh?!", "fomo", before=caps) == "no"  # not the last line
 
     ex, bd = example("breakdown")
     script = script_of(ex)
@@ -648,7 +667,8 @@ def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
     tag = "★ fomo screen: Home — closing tag"
 
     def ending(last):
-        return check.breakdown(script.replace(tag, f"{last}\n{tag}"), bd, FOMO, 4, 30, end_line=end)
+        found = script.replace(tag, f"{last}\n{tag}")
+        return check.breakdown(found, bd, FOMO, 4, 30, end_line=end, brand="fomo")
 
     assert not [p for p in ending(caps) if "end line" in p]  # passes cleanly
     assert not [p for p in ending(curly) if "end line" in p]
@@ -657,6 +677,8 @@ def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
         "Advice: the last line is close to the brand's end line but not word for word"
     ]
     assert "the script doesn't end on the brand's end line" in ending(other)  # still blocks
+    assert "the script doesn't end on the brand's end line" in ending(rival)  # another app
+    assert not [p for p in ending("\n".join(split)) if "end line" in p]  # split, caps
 
 
 def test_sheet_prompts_are_house_style_with_no_names_or_text():

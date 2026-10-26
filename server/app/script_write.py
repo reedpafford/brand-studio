@@ -62,7 +62,9 @@ def save_written(db: Session, job: Job) -> None:
     draft.text, draft.job_id = drafts[0].script, job.id
     draft.changed_lines = drafts[0].changed_lines
     if "reel_lines" in job.input:  # advice only: the reel's words kept, no invented speakers
-        end_line = db.get(Brand, script.brand_id).end_line
+        brand = db.get(Brand, script.brand_id)
         draft.problems = check.reference_lines(
             draft.text, job.input["reel_lines"], script.new_lines
-        ) + check.reel_speakers(draft.text, job.input["reel_speakers"], end_line=end_line)
+        ) + check.reel_speakers(
+            draft.text, job.input["reel_speakers"], end_line=brand.end_line, brand=brand.name
+        )
