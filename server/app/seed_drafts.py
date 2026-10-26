@@ -75,8 +75,15 @@ def import_drafts(db: Session, references_dir: str) -> int:
             done = select(SeededScript.id).where(
                 SeededScript.workspace_id == brand.workspace_id, SeededScript.key == key
             )
-            owner = db.scalar(
-                select(User).where(User.workspace_id == brand.workspace_id, User.role == Role.owner)
+            owner = db.scalar(  # the first active owner: a removed one never authors drafts
+                select(User)
+                .where(
+                    User.workspace_id == brand.workspace_id,
+                    User.role == Role.owner,
+                    User.active.is_(True),
+                )
+                .order_by(User.id)
+                .limit(1)
             )
             if db.scalar(done) or owner is None:
                 continue
