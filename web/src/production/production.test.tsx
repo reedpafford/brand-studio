@@ -123,3 +123,16 @@ test("In production: a video whose editor is gone still lists, as Someone's", as
   open();
   expect(await screen.findByRole("link", { name: "Bo tries salmon, version B, Someone, at Clips" })).toBeInTheDocument();
 });
+
+test("In production: a row's menu releases the version, with the letter and the credits that stay used", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base([failed]), "POST /projects/11/release": [200, {}] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon · B" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Release this version" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "Release version B?" });
+  expect(dialog).toHaveTextContent("The 380 credits already used stay used.");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Release" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/11/release")).toBe(true));
+  expect(await screen.findByText("Version B is ready to make again.")).toBeInTheDocument();
+});
