@@ -1122,7 +1122,7 @@ test("when a new breakdown is ready but the script was edited, the edits are kep
   expect(await screen.findByText("New breakdown ready. Your script edits are kept.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Fill the script again" }));
   const ask = await screen.findByRole("alertdialog", { name: "Replace your script with the reel's?" });
-  expect(within(ask).getByText("Your edits will be lost.")).toBeInTheDocument();
+  expect(within(ask).getByText("Your current words move to this version's history.")).toBeInTheDocument();
   await userEvent.click(within(ask).getByRole("button", { name: "Keep my script" }));
   expect(calls.some((c) => c.key === "POST /scripts/7/fill-from-reel")).toBe(false);
   await userEvent.click(screen.getByRole("button", { name: "Fill the script again" }));
@@ -1181,4 +1181,21 @@ test("Bulk create, Reel links: one link per line, bad lines are named and block 
   expect(within(done).getByText("Couldn't get the reel")).toBeInTheDocument();
   await userEvent.click(await within(done).findByRole("button", { name: /Write all scripts.*35 credits/ }));
   expect(await screen.findByText("Reading 2 reels and writing their scripts. They'll show as drafts when they're ready.")).toBeInTheDocument();
+});
+
+test("Read it again is disabled past an editor's week, with the plain reason, and sends nothing", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /auth/me": [200, { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 }],
+    "GET /credits/me": [200, { quick_clip_credits_used: 140, quick_clip_credits_allowed: 145 }],
+    "GET /scripts/7": [200, full({ created_by_id: 2 })],
+    "GET /scripts/7/import": [200, doneReel()],
+  });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Read it again" }));
+  const go = await within(await screen.findByRole("dialog", { name: "Read it again" })).findByRole("button", { name: /Read it again · / });
+  await vi.waitFor(() => expect(go).toBeDisabled());
+  expect(go).toHaveAccessibleDescription(/145 free credits.*resets on Monday/);
+  expect(calls.some((c) => c.key === "POST /scripts/7/import/read-again")).toBe(false);
 });

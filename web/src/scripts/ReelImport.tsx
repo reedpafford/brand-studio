@@ -189,8 +189,10 @@ export function ReadReelButton({ scriptId, createdById, className }: { scriptId:
 }
 
 /** Read it again (reel-import.md §5): what did it get wrong? The note can fix who speaks, the shots and the camera, never the words said. */
-function ReadAgain({ scriptId, credits, onClose }: { scriptId: number; credits?: number | null; onClose: () => void }) {
+function ReadAgain({ scriptId, createdById, credits, onClose }: { scriptId: number; createdById: number | null; credits?: number | null; onClose: () => void }) {
   const queryClient = useQueryClient();
+  // Past an editor's week it can't be pressed; the reason says so and when it resets.
+  const stop = useAllowanceStop({ created_by_id: createdById }, credits ?? undefined);
   const [note, setNote] = useState("");
   const again = useMutation({
     mutationFn: async () => {
@@ -209,7 +211,7 @@ function ReadAgain({ scriptId, credits, onClose }: { scriptId: number; credits?:
         <TextArea label="What did it get wrong? (optional)" rows={4} maxLength={500} placeholder="e.g. shot 3 is the groom, not the priest; the montage starts at 0:17" value={note} onChange={(e) => { setNote(e.target.value); again.reset(); }} />
         <p className="text-sm text-muted">The download and the dialogue are kept. Only the breakdown and the script are made again.</p>
         {again.isError && <p role="alert" className={errorClass}>{again.error.message}</p>}
-        <Button busy={again.isPending} price={credits ?? undefined} icon={RotateCcw} onClick={() => again.mutate()} className="w-full">
+        <Button busy={again.isPending} price={credits ?? undefined} icon={RotateCcw} disabled={stop !== null} reason={stop} onClick={() => again.mutate()} className="w-full">
           Read it again
         </Button>
       </div>
@@ -239,8 +241,8 @@ function FillAgain({ scriptId }: { scriptId: number }) {
     <>
       <Banner tone="info" title="New breakdown ready. Your script edits are kept." action={<Button variant="ghost" onClick={() => { fill.reset(); setAsking(true); }}>Fill the script again</Button>} />
       {asking && (
-        <Dialog title="Replace your script with the reel's?" cancelLabel="Keep my script" actionLabel="Replace" busy={fill.isPending} onCancel={() => setAsking(false)} onConfirm={() => fill.mutate()}>
-          Your edits will be lost.
+        <Dialog danger title="Replace your script with the reel's?" cancelLabel="Keep my script" actionLabel="Replace" busy={fill.isPending} onCancel={() => setAsking(false)} onConfirm={() => fill.mutate()}>
+          Your current words move to this version's history.
           {fill.isError && <span role="alert" className={`${errorClass} mt-2 block`}>{fill.error.message}</span>}
         </Dialog>
       )}
@@ -396,7 +398,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
           )}
         </div>
       </Card>
-      {reading && <ReadAgain scriptId={scriptId} credits={r.read_again_credits} onClose={() => setReading(false)} />}
+      {reading && <ReadAgain scriptId={scriptId} createdById={createdById} credits={r.read_again_credits} onClose={() => setReading(false)} />}
     </div>
   );
 }
