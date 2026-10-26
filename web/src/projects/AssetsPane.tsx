@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock, Users, Wand2 } from "lucide-react";
+import { Ellipsis, Lock, Trash2, Users, Wand2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -12,6 +12,8 @@ import {
   Dialog,
   EmptyState,
   Field,
+  Menu,
+  MenuItem,
   TextArea,
   useToast,
   Select,
@@ -189,6 +191,21 @@ function AssetCard({
       await refresh();
     },
   });
+  // Delete this look (it is archived, so Undo brings it back with its sheets). The server refuses while a role still uses it.
+  const lookId = using ? id : asset.own_look_id;
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { response, error } = await api.DELETE("/library/{kind}/{item_id}", { params: { path: { kind: "character", item_id: lookId! } } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: async () => {
+      await refresh();
+      toast(`Deleted ${asset.role}'s look.`, async () => {
+        await api.POST("/library/{kind}/{item_id}/unarchive", { params: { path: { kind: "character", item_id: lookId! } } });
+        await refresh();
+      });
+    },
+  });
   const [saving, setSaving] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: async (name: string) => {
@@ -263,6 +280,16 @@ function AssetCard({
             )}
             {using && <Badge>{asset.only_here === "script" ? "This script only" : "This video only"}</Badge>}
           </div>
+          {own && lookId != null && !asset.locked && (
+            <Menu title="Look actions" trigger={(t) => <Button variant="ghost" dense icon={Ellipsis} aria-label={`More for ${title}`} {...t} />}>
+              {(close) => (
+                <MenuItem danger onClick={() => { close(); remove.mutate(); }}>
+                  <Trash2 size={20} strokeWidth={1.75} aria-hidden />
+                  Delete this look
+                </MenuItem>
+              )}
+            </Menu>
+          )}
           {notUsed && (
             <div className="space-y-2">
               <p className="text-sm text-muted">Not used: this {asset.only_here === "script" ? "script" : "video"}'s own look is kept.</p>
@@ -360,9 +387,9 @@ function AssetCard({
                 Make its look in Cast &amp; places
               </Link>
             )}
-          {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error) && (
+          {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error) && (
             <p role="alert" className={errorClass}>
-              {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error)!.message}
+              {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error)!.message}
             </p>
           )}
           {saving !== null && (
