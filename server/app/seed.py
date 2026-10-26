@@ -168,6 +168,50 @@ def repair_frames(db: Session) -> int:
     return changed
 
 
+def plain_stored(db: Session) -> int:
+    """Problems saved before they were said in plain words ("c3: char:3 …"): the clip id
+    dropped and every id named, kept advice too, so a kept one stays kept. Free; running it
+    again changes nothing."""
+    from app import clip_prompts, storyboard
+    from app.advice import names, plain
+    from app.cast_roles import short
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+    from app.models.projects import Project
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+    from app.models.storyboards import StoryboardFrame
+
+    changed, called = 0, {}
+
+    def fix(row, problems: str, kept: str, n: dict) -> int:
+        old = (getattr(row, problems) or [], getattr(row, kept) or [])
+        new = (plain(old[0], n), plain(old[1], n))
+        if new == old:
+            return 0
+        setattr(row, problems, new[0])
+        setattr(row, kept, new[1])
+        return 1
+
+    for model, assets in ((BreakdownVersion, storyboard.assets),
+                          (StoryboardFrame, storyboard.assets),
+                          (ProjectClip, clip_prompts.assets)):  # fmt: skip
+        for row in db.scalars(select(model)):
+            if row.problems or row.kept:
+                key = (assets, row.project_id)
+                if key not in called:
+                    called[key] = names(assets(db, db.get(Project, row.project_id)))
+                changed += fix(row, "problems", "kept", called[key])
+    for draft in db.scalars(select(ScriptDraft)):
+        if draft.breakdown_problems or draft.breakdown_kept:
+            slots = db.scalars(
+                select(ScriptCastSlot).where(ScriptCastSlot.script_id == draft.script_id)
+            )
+            n = {f"slot:{s.id}": short(s.role) or s.role for s in slots}
+            changed += fix(draft, "breakdown_problems", "breakdown_kept", n)
+    db.commit()
+    return changed
+
+
 def main(folder: str, slug: str = "fomo") -> None:
     from app.db import make_sessionmaker
     from app.seed_drafts import import_drafts
@@ -184,6 +228,7 @@ def main(folder: str, slug: str = "fomo") -> None:
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
+            print(f"Said {plain_stored(db)} saved checks in plain words.")
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:

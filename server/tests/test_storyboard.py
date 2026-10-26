@@ -63,10 +63,10 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     edit = {"prompt": "Close on the wallet.", "reference_ids": [char, "char:999"]}
     edited = editor.put(f"{url}/frames/{frames[0]['id']}", json=edit).json()
     assert edited["prompt"] == "Close on the wallet."
-    assert edited["problems"] == ["c1: unknown reference char:999"]
+    assert edited["problems"] == ["A character that isn't part of this video"]
     too_many = {"prompt": "x", "reference_ids": [char] * 5}
     over = editor.put(f"{url}/frames/{frames[0]['id']}", json=too_many).json()
-    assert over["problems"] == ["c1: more references than the image model keeps"]
+    assert over["problems"] == ["More references than the image model keeps"]
     bd = db.get(BreakdownVersion, db.get(StoryboardFrame, frames[0]["id"]).breakdown_id)
     shot = bd.data["scenes"][0]["shots"][0]
     bd.data = {
@@ -85,9 +85,7 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     no_look = editor.put(
         f"{url}/frames/{frames[0]['id']}", json={"prompt": "x", "reference_ids": []}
     )
-    assert no_look.json()["problems"] == [
-        "c1: Mom has no approved look yet. Approve one in Assets."
-    ]
+    assert no_look.json()["problems"] == ["Mom has no approved look yet. Approve one in Assets."]
 
     editor.put(f"/projects/{setup['project']}/breakdown", json=BREAKDOWN)  # a newer breakdown
     assert editor.get(url).json()[0]["stale"] is True
@@ -114,7 +112,10 @@ def test_breakdown_ids_must_be_the_projects(app, db, editor, setup):  # noqa: F8
     bad = copy.deepcopy(BREAKDOWN)
     bad["scenes"][0]["shots"][0]["character_ids"] = ["char:999"]
     r = editor.put(url, json=bad)
-    assert r.status_code == 422 and r.json()["detail"].startswith("shot 1.1: unknown char:999.")
+    assert r.status_code == 422 and r.json()["detail"] == (
+        "shot 1.1: a character that isn't part of this video. "
+        "Pick from the video's cast, places and screens."
+    )
     good = copy.deepcopy(BREAKDOWN)
     good["scenes"][0]["shots"][0]["screen_ids"] = [f"screen:{setup['screen']}"]
     assert editor.put(url, json=good).status_code == 200
@@ -122,7 +123,7 @@ def test_breakdown_ids_must_be_the_projects(app, db, editor, setup):  # noqa: F8
     bad["scenes"][0]["shots"][0]["character_ids"] = []
     bad["scenes"][0]["shots"][0]["place_id"] = "place:7"
     _run(app, db, FakeClaude(bad))
-    assert "shot 1.1: unknown place:7" in editor.get(url).json()["problems"]
+    assert "shot 1.1: a place that isn't part of this video" in editor.get(url).json()["problems"]
 
 
 class FakeNanoBanana:

@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown
+from app import advice, breakdown, storyboard
+from app.advice import names, plain
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -127,7 +128,8 @@ def save(
     project, version = _working(db, user, project_id)
     body = breakdown.as_roles(db, project, body)  # speakers are roles, never looks
     if unknown := breakdown.unknown_ids(db, project, body):
-        raise HTTPException(422, f"{unknown[0]}. Pick from the project's cast, places and screens.")
+        said = plain(unknown, names(storyboard.assets(db, project)))[0]
+        raise HTTPException(422, f"{said}. Pick from the video's cast, places and screens.")
     breakdown.record_length(project, body)
     row = BreakdownVersion(
         project_id=project.id,

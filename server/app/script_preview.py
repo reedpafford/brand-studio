@@ -22,7 +22,7 @@ def stand_in_project(
 ) -> Project:
     """A project that is never saved, so the project-based context and checks work as-is.
     `reference` is the script's reel breakdown (`references.load`), if it has one."""
-    slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
+    slots = list(db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id)))
     return Project(
         workspace_id=script.workspace_id,
         brand_id=script.brand_id,
@@ -92,7 +92,13 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
         for p in breakdown.unknown_ids(db, project, bd)
         if p.split("unknown ")[-1] not in known_slots
     ]
-    return found + unknown + breakdown.cast_problems(db, project, draft.text, bd)
+    from app.advice import names, plain
+    from app.cast_roles import short
+    from app.storyboard import assets
+
+    found += unknown + breakdown.cast_problems(db, project, draft.text, bd)
+    called = {f"slot:{s.id}": short(s.role) or s.role for s in slots}
+    return plain(found, {**called, **names(assets(db, project))})
 
 
 def save(
