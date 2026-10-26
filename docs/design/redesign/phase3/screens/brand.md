@@ -56,8 +56,18 @@ App screens (section) · 12                  [All tags ⌄]
 └────┘ └────┘ └────┘ └────┘ └────┘ └────┘
 ```
 - **Tile:** media-first, 9:16, name over the shade. A neutral badge top left with `Smartphone` "Buy moment" when the screen is always used for a moment. Tags show in the editor, not on the tile.
-- **Editor:** side panel 380 on desktop, full-height sheet on phone: large preview, **Name**, **Tags** (chips), **Product** and **Flavour** (optional, "e.g. Bag / Chicken"; this fills Products and the brief's flavour picker), **Always use this screen for** (moment chips), **Save screen** (amber in the panel), **Delete screen** (danger, ghost-styled at the bottom, with the dialog "Delete the screen "Buy"? Videos already made keep it.").
+- **Editor:** side panel 380 on desktop, full-height sheet on phone: large preview, **Name**, **Tags** (chips), **Product** and **Flavour** (optional, "e.g. Bag / Chicken"; this fills Products and the brief's flavour picker), **Always use this screen for** (moment chips), **Save screen** (amber in the panel), **Delete screen** (danger, ghost-styled at the bottom). Delete can be undone, so there is no dialog (see Deleted screens).
 - **Add screens:** a drop zone dialog (sheet on phone) taking several files; each upload becomes a tile with a name field filled from the file name.
+
+## Deleted screens (gaps #12)
+A deleted screen is kept, so it can come back. While it's deleted, no new video, storyboard or Quick clip uses it, and it isn't added for its moment. Videos already made keep it.
+- **Delete screen** (in the editor) closes the panel at once.
+  - The toast says "Deleted "Buy"." with **Undo** (8 s). Undo is `POST /brands/{id}/screens/{sid}/restore`, and the tile comes back where it was.
+  - When it was a flavour's picture, the flavour leaves Products. When it was the product's last screen, the product goes too. Restoring the screen brings both back.
+- **Finding it later:** a ghost **Show deleted (2)** under the App screens grid, only when there are any (`GET /brands/{id}/screens?deleted=true`).
+  - Open, it lists the deleted tiles in the same grid, muted, with "Deleted {date}" (meta) under each and **Restore** (secondary dense, 44px on phone).
+  - Restore gives the toast "Restored "Buy"." Deleted tiles don't open the editor.
+- **Name still taken:** adding or renaming a screen to a deleted screen's name shows the server's words under **Name** in `text-danger`: "A deleted screen has that name. Restore it, or pick another name." Beside it is a ghost **Restore "Buy"**, which restores that screen and closes the dialog.
 
 ## States
 | State | What shows |
@@ -66,4 +76,4 @@ App screens (section) · 12                  [All tags ⌄]
 | Empty App screens | `Smartphone` icon. **No app screens yet.** "Add real app screens so videos show them exactly." Amber **Add screens**. |
 | Loading | Look: field skeletons. Products and screens: tile skeletons in their shapes. |
 | Error | Danger banner "Couldn't load the brand. Check your connection." **Try again**. Upload errors sit under the tile: "This file isn't a picture (PNG, JPG or WebP)." / "Too big. The most is {N} MB." |
-| Success | Toast "Saved. Undo" (Look), "Screen added." (App screens), "Bag added." (Products). |
+| Success | Toast "Saved. Undo" (Look), "Screen added." (App screens), "Bag added." (Products). "Deleted "Buy"." with **Undo** (App screens). |
