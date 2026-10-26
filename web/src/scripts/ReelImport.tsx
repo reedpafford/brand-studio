@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleAlert, Film, Link as LinkIcon, LoaderCircle, Upload } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Badge, Button, Card, Field, wholeCredits } from "../components";
+import { Badge, Button, Card, Field, buttonClass, wholeCredits } from "../components";
 import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
@@ -222,6 +222,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
     onSuccess: (d) => queryClient.setQueryData(["script-import", scriptId], d),
   });
   const rail = useRail();
+  const brandId = Number(useParams().brandId);
   const r = reel.data;
   // The read finished while this page was open: say so and bring the script in.
   const was = useRef(r?.status);
@@ -336,6 +337,9 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
         </p>
         <p className="text-sm text-muted">Imported · {facts}</p>
         <p className="text-sm text-muted">The script and the cast are filled in. Check them, then approve.</p>
+        <Link to={`/b/${brandId}/scripts/${scriptId}/reel`} className={buttonClass("secondary")}>
+          Review the breakdown
+        </Link>
       </div>
     </Card>
   );

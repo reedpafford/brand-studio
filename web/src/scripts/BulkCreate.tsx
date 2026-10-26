@@ -43,6 +43,9 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
   const linkList = links.split("\n").map((l) => l.trim()).filter(Boolean);
   const badLinks = linkList.map((l, i) => (LINK.test(l) ? 0 : i + 1)).filter(Boolean);
   const tooMany = linkList.length > MAX;
+  const goodLinks = linkList.length - badLinks.length; // the button counts only real reel links
+  // Reel links: why Make N drafts can't be pressed yet.
+  const holdReason = mode !== "links" ? null : linkList.length === 0 ? "Paste at least one reel link" : badLinks.length > 0 ? "Fix the lines that aren't reel links" : tooMany ? `Up to ${MAX} links` : null;
   const refs = useReferences();
   const { data: me } = useMe();
   const editor = me?.role !== undefined && me.role !== "owner";
@@ -138,14 +141,14 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
           if (mode === "links" ? linkList.length > 0 && badLinks.length === 0 && !tooMany : missing === 0) create.mutate();
         }}
       >
-        <div role="radiogroup" aria-label="How to add them" className="inline-flex w-full rounded-lg border border-border bg-surface p-1 sm:w-auto">
+        <div role="radiogroup" aria-label="How to add them" className="flex w-full overflow-hidden rounded-md border border-border-strong sm:w-fit">
           {(
             [
               ["rows", "Rows"],
               ["links", "Reel links"],
             ] as const
           ).map(([id, label]) => (
-            <button key={id} type="button" role="radio" aria-checked={mode === id} onClick={() => setMode(id)} className={`min-h-control flex-1 whitespace-nowrap rounded-md px-4 font-medium sm:flex-none ${mode === id ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`}>
+            <button key={id} type="button" role="radio" aria-checked={mode === id} onClick={() => setMode(id)} className={`min-h-control flex-1 whitespace-nowrap px-4 font-medium sm:flex-none ${mode === id ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface-2"}`}>
               {label}
             </button>
           ))}
@@ -230,8 +233,8 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
         )}
         {create.isError && <Banner title="The drafts weren't made. Nothing was charged." action={<Button variant="secondary" onClick={() => create.mutate()}>Try again</Button>}>{create.error.message}</Banner>}
         {mode === "rows" && tried && missing > 0 && <p role="alert" className={errorClass}>Give every row a title and what it's for ({missing} row{missing === 1 ? "" : "s"} need{missing === 1 ? "s" : ""} it).</p>}
-        <Button type="submit" busy={create.isPending} className="w-full">
-          {`Make ${mode === "links" ? linkList.length : rows.length} draft${(mode === "links" ? linkList.length : rows.length) === 1 ? "" : "s"}`}
+        <Button type="submit" busy={create.isPending} disabled={!!holdReason} reason={holdReason} className="w-full">
+          {`Make ${mode === "links" ? goodLinks : rows.length} draft${(mode === "links" ? goodLinks : rows.length) === 1 ? "" : "s"}`}
         </Button>
       </form>
     </Panel>
