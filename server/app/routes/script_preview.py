@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import advice, script_preview
 from app import script_library as lib
+from app.advice import Said
 from app.auth import current_user
 from app.credits import estimate
 from app.db import get_db
@@ -29,10 +30,10 @@ WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 class PreviewOut(BaseModel):
     breakdown: Breakdown | None
-    problems: list[str]
+    problems: Said
     seconds: int  # the clips added up (0 before any breakdown)
     running: bool  # a breakdown is being made
-    kept: list[str] = []  # advice kept anyway (never blocks)
+    kept: Said = []  # advice kept anyway (never blocks)
     stale: bool = False  # the words changed since it was planned: plan again or keep it
     changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
 

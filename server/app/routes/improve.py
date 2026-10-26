@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import prompts
+from app.advice import Said, SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.enhance import escape, screens_of
@@ -33,8 +34,8 @@ class ImproveIn(ClipIn):
 class ImproveOut(BaseModel):
     status: str
     prompt: str | None  # the improved prompt, when ready; editable before Generate
-    problems: list[str]  # what the checks found, in plain words
-    error: str
+    problems: Said  # what the checks found, in plain words
+    error: SaidText
 
 
 def job_input(db: Session, brand: Brand, body: ImproveIn, references: str) -> dict:

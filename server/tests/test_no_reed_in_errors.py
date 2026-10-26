@@ -118,3 +118,61 @@ def test_stored_checks_show_no_ids(app, db, editor, setup):  # noqa: F811
     db.refresh(row)
     for text in [refused, *shown, *row.problems, *row.kept]:
         assert not IDS.search(text), text
+
+
+def test_a_left_over_id_is_said_for_what_it_is():
+    """Reed saw "slot:28": whatever made a message, an id in it never reaches a person."""
+    from app.advice import said
+
+    assert said("c2: slot:28 has no look yet") == "A character has no look yet"
+    assert said("Advice: screen:4 is shown twice") == "Advice: a screen is shown twice"
+    assert said("Mia has no look yet") == "Mia has no look yet"  # plain stays the same
+    assert said("") == ""
+
+
+def _shown_fields():
+    """Every response field a person reads a check, kept advice or note in."""
+    import importlib
+    import pkgutil
+
+    from pydantic import BaseModel
+
+    import app.routes
+
+    out = []
+    for mod in pkgutil.iter_modules(app.routes.__path__):
+        module = importlib.import_module(f"app.routes.{mod.name}")
+        for model in vars(module).values():
+            if isinstance(model, type) and issubclass(model, BaseModel):
+                out += [(model.__name__, name, f) for name, f in model.model_fields.items()
+                        if name in ("problems", "kept", "error", "seen", "problem")
+                        and model.__name__.endswith("Out")]  # fmt: skip
+    return out
+
+
+def test_every_shown_check_goes_through_said():
+    fields = _shown_fields()
+    assert len(fields) >= 12  # the scan really finds them
+    assert [(m, n) for m, n, f in fields if not f.metadata] == []
+
+
+def test_a_stored_id_is_never_shown_and_can_still_be_kept(app, db, editor, setup):  # noqa: F811
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+    from tests.test_storyboard import _with_breakdown
+
+    _with_breakdown(app, db, editor, setup)
+    bd = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    clip = ProjectClip(project_id=setup["project"], breakdown_id=bd.id, clip_id="c1",
+                       seconds=5, prompt="x", references=[],
+                       problems=["Advice: c1: slot:28 looks older than the role"])  # fmt: skip
+    db.add(clip)
+    db.commit()
+    url = f"/projects/{setup['project']}/clips"
+    shown = editor.get(url).json()[0]["problems"]
+    assert shown == ["Advice: A character looks older than the role"]
+    kept = editor.post(f"{url}/{clip.id}/keep", json={"problem": shown[0]})
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["kept"] == shown
+    undone = editor.delete(f"{url}/{clip.id}/keep", params={"problem": shown[0]})
+    assert undone.json()["kept"] == []

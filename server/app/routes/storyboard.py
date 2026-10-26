@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import advice, change, credits, storyboard
+from app.advice import Said
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -44,8 +45,8 @@ class FrameOut(BaseModel):
     shot_id: str
     prompt: str
     reference_ids: list[str]
-    problems: list[str]
-    kept: list[str]  # advice kept anyway (never blocks)
+    problems: Said
+    kept: Said  # advice kept anyway (never blocks)
     file_id: int | None  # the newest still; the old one stays until a new one is ready
     approved: bool  # cleared when the frame is edited, re-rendered or goes stale
     stale: bool  # made from an older breakdown, or the breakdown is for an older script

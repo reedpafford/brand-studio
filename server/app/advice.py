@@ -2,9 +2,10 @@
 blocks a step; the editor can keep it ("Keep anyway") and it isn't shown as open again."""
 
 import re
+from typing import Annotated
 
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import AfterValidator, BaseModel
 
 PREFIX = "Advice: "
 # The cast in a shot looks wrong (cast_roles.mismatches): stills wait until it's fixed or kept.
@@ -54,6 +55,18 @@ def plain(problems: list[str], called: dict[str, str]) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def said(text: str) -> str:
+    """One message as people read it: an id still in it (an AI's note, an older saved check)
+    said for what it is ("a character")."""
+    return plain([text], {})[0] if text else text
+
+
+# What a response shows people (Reed saw "slot:28"): every problem, kept advice and note
+# goes through `said` on the way out, whatever made it.
+Said = Annotated[list[str], AfterValidator(lambda ps: [said(p) for p in ps])]
+SaidText = Annotated[str, AfterValidator(said)]
+
+
 class KeepIn(BaseModel):
     problem: str  # the advice text, exactly as shown
 
@@ -88,7 +101,8 @@ def open_cast(row) -> list[str]:
 
 def keep(row, problem: str) -> None:
     """Record "Keep anyway" for one piece of advice on a breakdown, frame or clip row."""
-    if problem not in (row.problems or []):
+    problem = next((p for p in row.problems or [] if problem in (p, said(p))), None)
+    if problem is None:
         raise HTTPException(404, "That advice isn't on this one any more.")
     if not problem.startswith((PREFIX, CAST)):
         raise HTTPException(409, "Only advice can be kept; this one needs fixing.")
@@ -98,4 +112,4 @@ def keep(row, problem: str) -> None:
 
 def unkeep(row, problem: str) -> None:
     """Undo "Keep anyway": the advice shows as new again (nothing to do if it wasn't kept)."""
-    row.kept = [p for p in (row.kept or []) if p != problem]
+    row.kept = [p for p in (row.kept or []) if problem not in (p, said(p))]

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import script_cast_read as cast_read
 from app import script_library as lib
+from app.advice import Said
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/scripts/{script_id}/cast/read", tags=["script librar
 
 class ReadOut(BaseModel):
     running: bool  # the cast is being read
-    problems: list[str]  # the newest read's checks ("Advice: " never blocks)
+    problems: Said  # the newest read's checks ("Advice: " never blocks)
 
 
 def _jobs(db: Session, script_id: int, statuses) -> list[Job]:
