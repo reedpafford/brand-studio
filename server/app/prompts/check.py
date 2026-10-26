@@ -522,6 +522,12 @@ def _close(a: str, b: str) -> bool:
     return bool(mine) and len(mine & pairs(b)) / len(mine) > 0.7
 
 
+AGE = re.compile(  # "17", "30s", "mid-40s", "teen", "elderly", "toddler", "puppy"
+    r"\b(\d{1,2}s?|teen\w*|child|kid|toddler|baby|young|old|elderly|middle-aged|adult|senior|"
+    r"puppy|kitten)\b",
+    re.I,
+)
+GENDER = re.compile(r"\b(man|woman|men|women|boy|girl|male|female|guy|lady|non-binary)\b", re.I)
 BACKGROUND = re.compile(
     r"\b(guests?|crowd|admirers?|extras?|bystanders?|passers?-by|onlookers?)\b", re.I
 )
@@ -549,6 +555,9 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
         role = slot.role
         if missing := sorted(set(slot.appears_in) - set(versions)):
             problems.append(f"{role}: version {missing[0]} doesn't exist; edit or regenerate")
+        who = [w for w, rx in (("age", AGE), ("gender", GENDER)) if not rx.search(slot.description)]
+        if who:  # a teacher drawn as a child (Reed: looks must fit the role)
+            problems.append(f"{ADVICE}{role}: the description doesn't say their {' or '.join(who)}")
         if BACKGROUND.search(role):
             problems.append(f"{ADVICE}{role}: sounds like background people, who are never cast")
         name = re.split(r"[ ,(]", role.strip(), maxsplit=1)[0]
