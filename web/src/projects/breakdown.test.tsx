@@ -352,3 +352,34 @@ test("every tap target on a shot is at least 44px tall below the sm width", asyn
   const mia = screen.getByLabelText("Mia");
   expect(mia.closest("label")?.className).toContain("min-h-11");
 });
+
+const castProblem = "Check the cast: shot 1.1: the script has Nate here, but the shot shows Mogging BF instead of Carl";
+
+test("a cast problem blocks Next, offers Keep anyway and the free fix; the fix says how many shots and Undo puts the old cast back", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, breakdown({ problems: [castProblem], kept: [] })],
+    "POST /projects/9/breakdown/fix-cast": [200, { ...breakdown(), changed_shots: [{ shot_id: "1.1", before: ["char:9"], after: ["char:4"] }], kept: [] }],
+    "PUT /projects/9/breakdown": [200, { ...breakdown(), problems: [castProblem] }],
+  });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  expect(within(box).getByText(castProblem)).toBeInTheDocument();
+  expect(screen.getByText("Free. Uses who the script names in each line.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeDisabled();
+  expect(within(box).getByRole("button", { name: /Keep anyway/ })).toBeInTheDocument();
+  await userEvent.click(within(box).getByRole("button", { name: "Put the right cast in each shot" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown/fix-cast")).toBe(true));
+  expect(await screen.findByText("Cast fixed in 1 shot.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
+});
+
+test("a cast problem kept anyway stops blocking and moves under the closed list, where the keep can be undone", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [castProblem], kept: [castProblem] })] });
+  open();
+  expect(await screen.findByText("Advice (0)")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Problems")).toBeNull();
+  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /Undo keep/, hidden: true })).toBeInTheDocument();
+});
