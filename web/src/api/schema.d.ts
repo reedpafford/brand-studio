@@ -4727,6 +4727,11 @@ export interface components {
              */
             reel_imported: boolean;
             reel?: components["schemas"]["ReelRow"] | null;
+            /**
+             * Running
+             * @default false
+             */
+            running: boolean;
         };
         /** SetupIn */
         SetupIn: {
@@ -5150,6 +5155,11 @@ export interface components {
              */
             reel_imported: boolean;
             reel?: components["schemas"]["ReelRow"] | null;
+            /**
+             * Running
+             * @default false
+             */
+            running: boolean;
             /** Spend Usd */
             spend_usd: number;
             /** Spend Estimated */
@@ -5470,6 +5480,11 @@ export interface components {
              */
             reel_imported: boolean;
             reel?: components["schemas"]["ReelRow"] | null;
+            /**
+             * Running
+             * @default false
+             */
+            running: boolean;
             /** Notes */
             notes: string;
             /** Reference Replace */
