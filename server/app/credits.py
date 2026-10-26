@@ -196,6 +196,19 @@ def shown(total: Decimal, left: Decimal) -> tuple[int, int]:
     return price(total), max(math.floor(left), 0)
 
 
+def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
+    """Why `total` more credits on this video would go over, or "" when it fits: the
+    editor's week on their own script, else the video's budget."""
+    if own_script(db, project, user):
+        left = credits_left(db, user)
+        if left is None or total <= left:
+            return ""
+        return "would go over this week's free credits. It resets on Monday."
+    if credits_used(db, project) + total <= project.budget_credits:
+        return ""
+    return "would go over this video's budget."
+
+
 def afford(db: Session, user: User, total: Decimal, what: str) -> None:
     """All or none: an editor's allowance must cover the whole press (e.g. writing and the cast
     read after it) before any of it is queued."""

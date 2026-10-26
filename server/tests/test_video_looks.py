@@ -216,3 +216,52 @@ def test_undoing_a_save_after_the_original_was_removed_brings_the_original_back(
     row = _row(editor, pid, nate)
     assert (row["library_item_id"], row["own_look_id"]) == (look, look)
     assert db.get(LibraryItem, look).archived is False
+
+
+def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
+    """Reed, 2026-10-26: every role with no character gets its look made when Assets opens,
+    with the price shown; over the budget nothing is made and the reason is plain. Roles
+    not in the video's shots wait; each sheet still needs Approve before Storyboard."""
+    from app.credits import price
+    from app.routes.sheets import sheet_price
+
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    nate = owner.post(f"{base}/cast", json={"role": "Nate, the son", "description": "teen, shy"})
+    nate = nate.json()[0]["id"]
+    owner.post(f"{base}/cast", json={"role": "Grandma", "description": "not in this cut"})
+    bd = copy.deepcopy(BREAKDOWN)
+    bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{nate}"]
+    owner.put(f"{base}/drafts/0/breakdown", json=bd)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    url = f"/projects/{pid}/assets/missing-looks"
+    project = db.get(Project, pid)
+    one = price(sheet_price(db, project.workspace_id))
+    assert editor.get(url).json() == {
+        "slot_ids": [nate], "roles": ["Nate"], "credits": one, "reason": None
+    }  # fmt: skip
+
+    spent = Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
+                project_id=pid, credits=project.budget_credits, status="succeeded")  # fmt: skip
+    db.add(spent)  # the video's budget is all used
+    db.commit()
+    jobs, looks = db.query(Job).count(), db.query(LibraryItem).count()
+    refused = editor.post(url)
+    reason = f"Making a look ({one} credits) would go over this video's budget."
+    assert (refused.status_code, refused.json()["detail"]) == (409, reason)
+    assert editor.get(url).json()["reason"] == reason  # said before the press too
+    assert (db.query(Job).count(), db.query(LibraryItem).count()) == (jobs, looks)
+
+    db.delete(spent)
+    db.commit()
+    jobs -= 1
+    rows = editor.post(url)
+    assert rows.status_code == 200, rows.text
+    row = _row(editor, pid, nate)
+    assert (row["only_here"], row["sheet_status"], row["ready"]) == ("video", "drawing", False)
+    assert editor.get(url).json()["slot_ids"] == []  # made once
+    assert editor.post(url).status_code == 200 and db.query(Job).count() == jobs + 1
+    _drawn(db, editor, row["own_look_id"])
+    assert _row(editor, pid, nate)["sheet_status"] == "needs_approval"  # the editor's review

@@ -2830,6 +2830,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/assets/missing-looks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Missing Looks
+         * @description What opening Assets will make by itself, with its price and, if it doesn't fit, why.
+         */
+        get: operations["missing_looks_projects__project_id__assets_missing_looks_get"];
+        put?: never;
+        /**
+         * Make Missing Looks
+         * @description Make a look for every role that has none (`_missing`), each for this video only, paid
+         *     from its budget or the editor's week. All or none: if they don't all fit, nothing is made
+         *     and the plain reason comes back (409). Each sheet still needs the editor's Approve (or a
+         *     Redo, or a swap) before Storyboard; Storyboard refuses until then.
+         */
+        post: operations["make_missing_looks_projects__project_id__assets_missing_looks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/assets/slots/{slot_id}/save-to-library": {
         parameters: {
             query?: never;
@@ -3987,6 +4014,17 @@ export interface components {
             /** Name */
             name: string;
             role: components["schemas"]["Role"];
+        };
+        /** MissingLooksOut */
+        MissingLooksOut: {
+            /** Slot Ids */
+            slot_ids: number[];
+            /** Roles */
+            roles: string[];
+            /** Credits */
+            credits: number;
+            /** Reason */
+            reason?: string | null;
         };
         /**
          * ModelOut
@@ -11462,6 +11500,68 @@ export interface operations {
             path: {
                 project_id: number;
                 slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    missing_looks_projects__project_id__assets_missing_looks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingLooksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_missing_looks_projects__project_id__assets_missing_looks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
             };
             cookie?: never;
         };

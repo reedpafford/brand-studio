@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app import breakdown, cast_roles
 from app.auth import current_user
-from app.credits import get_limits
+from app.credits import fits, get_limits, price
 from app.db import get_db
 from app.enhance import project_screens, screen_name
 from app.models.accounts import User
@@ -27,7 +27,7 @@ from app.routes.clips import generation_on
 from app.routes.library import pick_item, sheet_status
 from app.routes.projects import get_project
 from app.routes.scripts import latest
-from app.routes.sheets import SheetIn, make_sheet
+from app.routes.sheets import SheetIn, make_sheet, sheet_price
 from app.schemas import Name
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
@@ -221,6 +221,11 @@ def make_look(
     mine = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
     if mine and not mine.archived:  # a removed one can be made again
         raise HTTPException(409, f"{slot.role} already has a look for this video.")
+    _make_look(db, user, project, slot)
+    return list_assets(project_id, user, db)
+
+
+def _make_look(db: Session, user: User, project: Project, slot: ScriptCastSlot) -> None:
     look = LibraryItem(
         workspace_id=project.workspace_id,
         kind=Kind.character,
@@ -234,6 +239,74 @@ def make_look(
     project.slot_looks = {**project.slot_looks, str(slot.id): look.id}
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+class MissingLooksOut(BaseModel):
+    slot_ids: list[int]  # roles in this video's shots with no character and no look made yet
+    roles: list[str]
+    credits: int  # one sheet each, rounded up, as the button shows it
+    reason: str | None = None  # why they can't all be made (plain), or null when they fit
+
+
+def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
+    """The roles Assets makes looks for by itself (Reed, 2026-10-26): every cast slot (a main
+    or recurring role; background people are never slots) that the newest breakdown's shots
+    show, with no character picked and no look made for it here. A look the editor removed
+    is never made again by itself."""
+    bd = _newest(db, project)
+    shown = {
+        c for s in (bd.data["scenes"] if bd else []) for x in s["shots"] for c in x["character_ids"]
+    }
+    return [
+        s
+        for s in _slots(db, project)
+        if s.library_item_id is None
+        and str(s.id) not in project.slot_cast
+        and str(s.id) not in project.slot_looks
+        and f"slot:{s.id}" in shown
+    ]
+
+
+def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
+    slots = _missing(db, project)
+    total = sheet_price(db, project.workspace_id) * len(slots)
+    why = fits(db, project, user, total) if slots else ""
+    n = len(slots)
+    said = f"Making {'a look' if n == 1 else f'{n} looks'} ({price(total)} credits) {why}"
+    return MissingLooksOut(
+        slot_ids=[s.id for s in slots],
+        roles=[cast_roles.short(s.role) or s.role for s in slots],
+        credits=price(total) if slots else 0,
+        reason=said if why else None,
+    )
+
+
+@router.get("/missing-looks", response_model=MissingLooksOut)
+def missing_looks(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """What opening Assets will make by itself, with its price and, if it doesn't fit, why."""
+    return _missing_out(db, user, get_project(db, user, project_id))
+
+
+@router.post(
+    "/missing-looks",
+    response_model=list[AssetOut],
+    dependencies=[Depends(generation_on)],
+)
+def make_missing_looks(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Make a look for every role that has none (`_missing`), each for this video only, paid
+    from its budget or the editor's week. All or none: if they don't all fit, nothing is made
+    and the plain reason comes back (409). Each sheet still needs the editor's Approve (or a
+    Redo, or a swap) before Storyboard; Storyboard refuses until then."""
+    project = get_project(db, user, project_id)
+    out = _missing_out(db, user, project)
+    if out.reason:
+        raise HTTPException(409, out.reason)
+    for slot in _missing(db, project):
+        _make_look(db, user, project, slot)
     return list_assets(project_id, user, db)
 
 

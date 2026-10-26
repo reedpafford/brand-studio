@@ -198,7 +198,7 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
     from fastapi import HTTPException
 
     from app import storyboard
-    from app.credits import credits_left, credits_used, estimate, own_script, price
+    from app.credits import estimate, fits, price
     from app.routes.jobs import enqueue
 
     if not frames:
@@ -215,14 +215,7 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
     )
     n = len(frames)
     stills = "1 still shows" if n == 1 else f"{n} stills show"
-    if own_script(db, project, user):
-        left = credits_left(db, user)
-        fits = left is None or total <= left
-        why = "would go over this week's free credits. It resets on Monday."
-    else:
-        fits = credits_used(db, project) + total <= project.budget_credits
-        why = "would go over this video's budget."
-    if not fits:
+    if why := fits(db, project, user, total):
         shown = price(total)  # as the button shows it
         said = "1 credit" if shown == 1 else f"{shown} credits"
         reason = (
