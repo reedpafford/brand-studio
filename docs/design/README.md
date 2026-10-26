@@ -108,3 +108,4 @@ Each spec has: purpose, desktop wireframe (1440), phone wireframe (390), states,
 5. Editors see no `$` anywhere.
 6. Empty, loading and error states exist and match the spec copy.
 7. Can the user undo or delete what they just made? Every object a person creates has a way to remove it (delete or archive) and, after a delete or a big change, an Undo in the toast.
+8. No dead ends (Reed, 2026-10-26): every blocking problem has a one-click fix on the same screen, unless the server repairs it for free or it's shown as Advice. Editing the raw prompt is never the only way out.
