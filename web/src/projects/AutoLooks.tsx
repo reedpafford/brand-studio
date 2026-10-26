@@ -64,7 +64,7 @@ export function AutoLooks({ projectId }: { projectId: number }) {
   if (make.isPending) return <Banner tone="info" title={`Making looks for ${names(m?.roles ?? [])} · ${wholeCredits(m?.credits ?? 0)} credits`} />;
   if (made && made.n > 0) return <Banner tone="info" title={`Made ${made.n} look${made.n === 1 ? "" : "s"} · ${wholeCredits(made.credits)} credits. Check each one, then approve.`} />;
   if (!m || m.slot_ids.length === 0) return null;
-  if (m.reason) return <Banner tone="info" title={m.reason} />;
+  if (m.reason) return <Banner tone="warning" title={m.reason} />;
   if (no) return null;
   return (
     <Banner
