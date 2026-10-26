@@ -44,6 +44,12 @@ export function useVideoActions(onGone?: () => void) {
     toast(kind === "release" ? `${t.letter ? `Version ${t.letter}` : "The version"} is ready to make again.` : `Archived "${t.name}".`, undo(t));
     onGone?.();
   };
+  const restore = async (t: VideoTarget) => {
+    const { error, response } = await api.POST("/projects/{project_id}/restore", { params: { path: { project_id: t.id } } });
+    if (!response.ok) return toast(errorText(error), undefined, "error");
+    await refresh();
+    toast(`Brought back "${t.name}".`);
+  };
   const dialog = ask && (
     <Dialog
       title={ask.kind === "release" ? (ask.target.letter ? `Release version ${ask.target.letter}?` : "Release this version?") : `Archive "${ask.target.name}"?`}
@@ -60,7 +66,7 @@ export function useVideoActions(onGone?: () => void) {
       {problem && <p role="alert" className={`mt-2 ${errorClass}`}>Couldn't do that. Nothing changed. {problem}</p>}
     </Dialog>
   );
-  return { release: (t: VideoTarget) => setAsk({ kind: "release", target: t }), archive: (t: VideoTarget) => setAsk({ kind: "archive", target: t }), dialog };
+  return { restore, release: (t: VideoTarget) => setAsk({ kind: "release", target: t }), archive: (t: VideoTarget) => setAsk({ kind: "archive", target: t }), dialog };
 }
 
 /** The "..." menu of a video: Release this version and/or Archive video. */

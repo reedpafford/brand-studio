@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, FileText } from "lucide-react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import { Button, Skeleton, StepPicker } from "../components";
+import { Banner, Button, Skeleton, StepPicker } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { AssetsPane, useAssets } from "./AssetsPane";
@@ -13,9 +13,11 @@ import { ClipsPane } from "./ClipsPane";
 import { DownloadsPane } from "./DownloadsPane";
 
 import { Meter, WaitingBadge } from "./Meter";
+import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
 import { StoryboardPane } from "./StoryboardPane";
+import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
 
@@ -30,6 +32,9 @@ export function VideoPage() {
   const [highlight, setHighlight] = useState<number[]>([]);
   const [line, setLine] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false); // unsaved edits in Breakdown
+  const navigate = useNavigate();
+  const mayManage = useMayManageVideo();
+  const video = useVideoActions(() => navigate(`/b/${brandId}/scripts`));
   const project = useQuery({
     queryKey: ["project", id],
     queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
@@ -70,6 +75,10 @@ export function VideoPage() {
       Next: {next.label}
     </Button>
   );
+  // Release while it is being made; Archive once it is done. An archived video is read-only until it is restored.
+  const finished = isDone("final", progress);
+  const target = { id, name: p.name, creditsUsed: p.credits_used };
+  const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
   const meta = step === "assets" ? `${all.assets.total} asset${all.assets.total === 1 ? "" : "s"} · ${all.assets.ready} approved` : null;
 
   return (
@@ -81,11 +90,20 @@ export function VideoPage() {
         </Link>
       </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="min-w-0 break-words type-page">{p.name}</h1>
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="min-w-0 break-words type-page">{p.name}</h1>
+          {menu}
+        </div>
         <div className="w-full min-w-0 sm:w-72">
           <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
         </div>
       </div>
+      {video.dialog}
+      {p.archived_at && (
+        <Banner tone="info" title="Archived" action={mayManage(p) ? <Button variant="secondary" onClick={() => void video.restore(target)}>Restore</Button> : undefined}>
+          It's out of the lists. Its clips and downloads are kept. Restore it to keep working.
+        </Banner>
+      )}
       {p.status === "needs_owner_approval" && <WaitingBadge />}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
