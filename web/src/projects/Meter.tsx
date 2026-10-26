@@ -16,5 +16,5 @@ export function Meter({ used, budget, pct }: { used: number; budget: number; pct
 }
 
 export function WaitingBadge() {
-  return <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">Waiting for Reed to approve</span>;
+  return <span className="inline-block rounded-sm bg-surface-3 px-2 py-0.5 text-xs font-medium text-muted">Not started</span>;
 }

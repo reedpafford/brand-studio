@@ -6,6 +6,7 @@ import { useJobs } from "../clip/History";
 import { Clapperboard, RotateCcw } from "lucide-react";
 import { Badge, Banner, Button, EmptyState, Skeleton } from "../components";
 import { Elapsed } from "../clip/History";
+import { useOwnScriptStop } from "./useOwnScriptStop";
 import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 import { refName, useRoleNames } from "./names";
@@ -26,13 +27,14 @@ export function useBreakdown(projectId: number, scriptVersion: number) {
   });
 }
 
-export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onDirty?: (dirty: boolean) => void }) {
+export function BreakdownPane(props: { ownScript?: boolean; projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onDirty?: (dirty: boolean) => void }) {
   const { projectId, brandId, scriptVersion } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
   const { pieces } = useBrandPieces(brandId);
   const [startedJob, setStartedJob] = useState<number | null>(null);
   const [asked, setAsked] = useState(false);
+  const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget });
 
   const current = useBreakdown(projectId, scriptVersion);
   const jobs = useJobs();
@@ -72,16 +74,16 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   if (current.isError) return <p role="alert" className={errorClass}>Could not load the breakdown. Try again.</p>;
   const row = current.data;
 
-  // Paid buttons say so when this call would take the project past its budget; the server then holds it for approval.
-  const overBudget = cost !== undefined && props.used + cost > props.budget;
+  // Past a limit an editor's paid button is disabled with the reason; nobody is asked to approve.
+  const stop = stopFor(cost);
   const makeButton = (label: string, opts: { ask?: string; primary?: boolean } = {}) => (
     <Button
       variant={opts.primary ? "primary" : "secondary"}
       icon={label === "Redo" ? RotateCcw : undefined}
       price={cost}
-      ask={overBudget}
       busy={make.isPending}
-      disabled={running || asked}
+      disabled={running || asked || !!stop}
+      reason={stop}
       onClick={() => {
         if (opts.ask && !window.confirm(opts.ask)) return;
         setAsked(false);
@@ -97,7 +99,7 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
     return (
       <section className="space-y-3" aria-label="Shots">
         {mine?.status === "needs_owner_approval" ? (
-          <Badge tone="warning">Waiting for Reed to approve</Badge>
+          <Badge>Not started</Badge>
         ) : (
           <p className="text-sm text-muted" role="status">
             Planning shots…{" "}

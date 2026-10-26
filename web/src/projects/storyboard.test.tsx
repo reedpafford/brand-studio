@@ -102,10 +102,19 @@ test("a still opens full size with the prompt Claude wrote", async () => {
   expect(within(box).getByText("Mia in a cold blue kitchen")).toBeInTheDocument();
 });
 
-test("paid buttons ask Reed when the project is close to its budget", async () => {
+test("close to the budget an editor's paid button is off with the reason, and Reed's is the plain label", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }], "GET /projects/9/storyboard": [200, []] });
   open();
-  expect(await screen.findByRole("button", { name: "Ask Reed to approve · 6 credits" })).toBeInTheDocument();
+  const make = await screen.findByRole("button", { name: "Make storyboard · 6 credits" });
+  expect(make).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(screen.queryByText(/Ask Reed/)).toBeNull();
+});
+
+test("Reed near the budget can press the plain Make storyboard", async () => {
+  fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }], "GET /projects/9/storyboard": [200, []] });
+  open();
+  expect(await screen.findByRole("button", { name: "Make storyboard · 6 credits" })).toBeEnabled();
 });
 
 test("Storyboard stays locked until there are shots", async () => {
@@ -210,6 +219,19 @@ test("Redo asks what should change and sends it as the note for that render only
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/render")?.body).toEqual({ note: "Warmer light" }));
 });
 
+test("an editor with room for one still but not all of them gets Make all stills off, with the reason shown", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 597, budget_credits: 600 }],
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2" }), frame({ id: 3, clip_id: "c3" })]],
+  });
+  open();
+  const all = await screen.findByRole("button", { name: "Make all stills · 6 credits" });
+  expect(all).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /^Make still · 3 credits/ })[0]).toBeEnabled();
+});
+
 test("a frame whose character has no approved sheet says so, links to the character, and is skipped by Make all stills", async () => {
   const withMia = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [{ id: "1.1", character_ids: ["char:4"], place_id: null }, { id: "2.1", character_ids: [], place_id: null }] }] } };
   fakeServer({
@@ -256,4 +278,30 @@ test("after Redo storyboard the old frames are not shown while the new ones load
   release();
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Redo · / })).toBeInTheDocument();
+});
+
+test("stills that show the old cast say Out of date and Redraw N stills shows the price; a redrawn one says Redrawn", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [withStill({ still_stale: true }), withStill({ id: 2, clip_id: "c2", still_stale: true }), withStill({ id: 3, clip_id: "c3", redrawn: true })]],
+    "POST /projects/9/storyboard/frames/1/render": [201, { id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9 }],
+    "POST /projects/9/storyboard/frames/2/render": [201, { id: 12, kind: "image", step: "frame", frame_id: 2, status: "queued", credits: 3, project_id: 9 }],
+  });
+  open();
+  expect(within(await screen.findByLabelText("Frame c1")).getByText("Out of date")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Frame c3")).getByText("Redrawn")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Redraw 2 stills · 6 credits" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/render")).length).toBe(2));
+});
+
+test("an editor past the video's budget is told why and can't redraw; the price shows first", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }],
+    "GET /projects/9/storyboard": [200, [withStill({ still_stale: true }), withStill({ id: 2, clip_id: "c2", still_stale: true })]],
+  });
+  open();
+  const redraw = await screen.findByRole("button", { name: "Redraw 2 stills · 6 credits" });
+  expect(redraw).toBeDisabled();
+  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
 });

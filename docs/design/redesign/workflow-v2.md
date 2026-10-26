@@ -85,7 +85,7 @@ A video is made **from one version**. It opens from a library chip ("Make this v
 | # | Step | What happens | Done when |
 |---|---|---|---|
 | 1 | **Breakdown** | Reed's saved breakdown if there is one ("Planned by Reed"); otherwise it runs automatically on open. It shows length and credits. The editor can adjust it (the #186 editor). The montage check now counts hand and screen inserts, and **no check is a dead end**: every problem has **Go to** and a way past it. | No problems left |
-| 2 | **Assets** (new) | One card per character, place and screen used. **Locked** characters show their sheet with "Locked by Reed", already approved. **Unlocked** ones get **Make look · N credits** (or "Pick a sheet"), then **Approve**. App screens are listed from the brand. | Every asset approved |
+| 2 | **Assets** (new) | One card per character, place and screen used. **Locked** characters show their sheet with "Locked", already approved. **Unlocked** ones get **Make look · N credits** (or "Pick a sheet"), then **Approve**. App screens are listed from the brand. | Every asset approved |
 | 3 | **Storyboard** | As specced (frames plus stills in one press). | Every frame approved |
 | 4 | **Clips** | **Write clip prompts**, then read each one (**Looks good** / **Edit**), then **Make the takes · N credits**. Review the takes: **Looks good**, or **Needs a change → Redo**. | Every clip approved |
 | 5 | **Downloads** | Everything to take away. There's no upload (Reed, 2026-10-25). See the layout under the table. | Downloaded or made, then "Video done" |

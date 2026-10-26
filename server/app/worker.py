@@ -20,7 +20,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.credits import usd_to_credits
+from app.credits import USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
 from app.models.files import StoredFile
@@ -67,10 +67,31 @@ def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
 
 
 def _actual_credits(job: Job, result: Result) -> Decimal:
-    """Real cost converted to credits; the queue-time estimate if the provider didn't say."""
+    """Real cost converted to credits, but never more than the price shown before the press
+    (the queue-time estimate): a shown price is at least what's charged (live test: 3 shown,
+    3.35 charged). The dollars are recorded as they were."""
     if not result.usage:
         return job.credits
-    return usd_to_credits(sum((i.cost_usd for i in result.usage), Decimal(0)))
+    return min(job.credits, usd_to_credits(sum((i.cost_usd for i in result.usage), Decimal(0))))
+
+
+def _usage(job: Job, provider: Provider, result: Result) -> list[Usage]:
+    """What the job cost, for Usage. A paid job whose provider didn't say (image and video
+    models, the reel watch) is recorded from its credits, marked estimated, so every charge
+    is listed."""
+    items = [
+        Usage(workspace_id=job.workspace_id, job_id=job.id, provider=job.provider, kind=job.kind,
+              units=i.units, unit=i.unit, cost_usd=i.cost_usd, estimated=i.estimated)
+        for i in result.usage
+    ]  # fmt: skip
+    if not items and provider.paid and job.credits and result.state == "succeeded":
+        items.append(
+            Usage(workspace_id=job.workspace_id, job_id=job.id, provider=job.provider,
+                  kind=job.kind, units=Decimal(1), unit="job",
+                  cost_usd=(job.credits * USD_PER_CREDIT).quantize(Decimal("0.0001")),
+                  estimated=True)
+        )  # fmt: skip
+    return items
 
 
 def _mine(query, only: set[str] | None):
@@ -129,6 +150,12 @@ def _finish(
         except Exception as exc:  # noqa: BLE001 - paid work is done: keep its usage
             result.state, result.error = "failed", f"Saving the output failed: {exc!r}"
     new = JobStatus.succeeded if result.state == "succeeded" else JobStatus.failed
+    if job.input.get("discard"):  # its video was released or archived while it ran
+        moved = _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
+        if moved and result.usage:
+            db.add_all(_usage(job, provider, result))  # the dollars, for the owner; no credits
+        db.commit()
+        return True
     moved = _move(
         db,
         job,
@@ -148,19 +175,7 @@ def _finish(
             db.flush()
             output = {**(result.output or {}), "file_ids": [f.id for f in files]}
             db.execute(update(Job).where(Job.id == job.id).values(output=output))
-        db.add_all(
-            Usage(
-                workspace_id=job.workspace_id,
-                job_id=job.id,
-                provider=job.provider,
-                kind=job.kind,
-                units=item.units,
-                unit=item.unit,
-                cost_usd=item.cost_usd,
-                estimated=item.estimated,
-            )
-            for item in result.usage
-        )
+        db.add_all(_usage(job, provider, result))
         if new == JobStatus.succeeded and job.input.get("step"):
             db.refresh(job)
             save_step_result(db, job)
