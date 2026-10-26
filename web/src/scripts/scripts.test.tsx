@@ -1058,3 +1058,14 @@ test("while a paid reel read runs, the Script step shows Reading the reel with t
   open("/b/1/scripts/7?step=script");
   expect(await screen.findByText(/Reading the reel… 1m \d+s/)).toBeInTheDocument();
 });
+
+test("a script made from an imported reel carries a Reel chip in the library; one that isn't doesn't", async () => {
+  setViewport(1440);
+  const reel = script({ id: 31, title: "Altar swap", reel_imported: true, versions: [v(0, "draft")] });
+  const plain = script({ id: 32, title: "Plain script", reel_imported: false, versions: [v(0, "draft")] });
+  fakeServer({ ...base, "GET /scripts": [200, [reel, plain]] });
+  open();
+  const row = (await screen.findByRole("heading", { name: "Altar swap" })).closest("li")!;
+  expect(within(row).getByText("Reel")).toBeInTheDocument();
+  expect(within(screen.getByRole("heading", { name: "Plain script" }).closest("li")!).queryByText("Reel")).toBeNull();
+});
