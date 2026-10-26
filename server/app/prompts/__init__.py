@@ -57,8 +57,9 @@ def required(screens: list[dict], product: dict | None = None) -> dict[str, list
 
 def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -> str:
     """`brand`: name, tone_notes, never_say, legal_line, end_line. `screens`: id, name, tags,
-    default_for (the moments a screen is required at). `product`: the one product this project
-    picked (id, name), e.g. the Iron Paws peanut butter bag."""
+    default_for (the moments a screen is required at) and, when its picture prints one,
+    balance (e.g. "$348,920.15": the got-rich payoff uses it). `product`: the one product
+    this project picked (id, name), e.g. the Iron Paws peanut butter bag."""
     lines = [f"<brand>\nBrand: {brand['name']}"]
     if brand.get("tone_notes"):
         lines.append(f"Tone: {brand['tone_notes']}")
@@ -95,7 +96,8 @@ def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -
 
 
 def _screen(s: dict) -> str:
-    return f'- screen:{s["id"]} "{s["name"]}" ({", ".join(s.get("tags", []))})'
+    shows = f", shows a balance of {s['balance']}" if s.get("balance") else ""  # printed on it
+    return f'- screen:{s["id"]} "{s["name"]}" ({", ".join(s.get("tags", []))}){shows}'
 
 
 def reference_block(ref: dict, replace: str = "") -> str:
