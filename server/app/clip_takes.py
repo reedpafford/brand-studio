@@ -50,6 +50,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         "step": "clip_take",
         "project_id": project.id,
         "project_clip_id": clip.id,
+        "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
         "model": model.id,
         "brand_id": project.brand_id,
         "fit_images_to": LONG_SIDE[RESOLUTION],
@@ -88,14 +89,18 @@ def save_take(db: Session, job: Job) -> None:
     if not clip or not file_ids:
         return
     count = db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == clip.id))
-    take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0])
+    take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0],
+                    prompt=job.input.get("clip_prompt"))  # fmt: skip
     db.add(take)
     db.flush()
     pick(clip, take)
 
 
 def pick(clip: ProjectClip, take: ClipTake) -> None:
+    """Use this take; its prompt comes back with it (Undo of a change note)."""
     clip.picked_take_id, clip.file_id, clip.approved = take.id, take.file_id, False
+    if take.prompt is not None:
+        clip.prompt = take.prompt
 
 
 def stitch(videos: list[bytes], reencode: bool = False) -> bytes:

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, storyboard
+from app import advice, change, storyboard
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -52,6 +52,21 @@ class FrameOut(BaseModel):
     still_stale: bool  # the still shows the old cast (its redraw wasn't covered): "Out of date"
     redrawn: bool  # redrawn for a new cast and not approved yet: "Redrawn"
     earlier: list[dict]  # older stills, newest last: [{file_id, prompt}]
+    # The last Change it note: {note, status: changing | done | unchanged | failed, before,
+    # after, unchanged, error}; cleared on Approve or the next note ("What your note changed").
+    change: dict | None
+
+
+class ChangeIn(BaseModel):
+    note: str = Field(max_length=500)
+
+
+class PriceOut(BaseModel):
+    credits: int  # Change it · N (rounded up)
+
+
+class PickIn(BaseModel):
+    file_id: int  # one of the frame's earlier stills
 
 
 def _newest_breakdown(db: Session, project: Project) -> BreakdownVersion | None:
@@ -187,6 +202,66 @@ def render(
     )
 
 
+@router.get("/frames/{frame_id}/change", response_model=PriceOut)
+def change_price(
+    project_id: int,
+    frame_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    project, frame = _frame(db, user, project_id, frame_id)
+    return PriceOut(credits=change.shown(change.credits(db, project, frame)))
+
+
+@router.post(
+    "/frames/{frame_id}/change",
+    response_model=JobOut,
+    status_code=201,
+    dependencies=[Depends(generation_on)],
+)
+def change_frame(
+    project_id: int,
+    frame_id: int,
+    body: ChangeIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Change it: the note rewrites this frame's prompt, then the still is drawn again (one
+    price). A note that changes what's said is refused before anything is charged."""
+    project, frame = _frame(db, user, project_id, frame_id)
+    if wrong := advice.open_cast(_newest_breakdown(db, project)):
+        detail = wrong[0].removeprefix(advice.CAST)
+        raise HTTPException(409, f"Put the right cast in each shot first: {detail}.")
+    if _stale(db, project, frame):
+        raise HTTPException(
+            409, "This frame was made for an older breakdown. Make the storyboard again first."
+        )
+    return change.start(db, user, project, frame, body.note)
+
+
+@router.post("/frames/{frame_id}/pick", response_model=FrameOut)
+def pick_still(
+    project_id: int,
+    frame_id: int,
+    body: PickIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Use an earlier still again, with the prompt it was made from (free; the Undo of a
+    change). The one it replaces becomes an earlier still."""
+    project, frame = _frame(db, user, project_id, frame_id)
+    old = next((e for e in frame.earlier or [] if e["file_id"] == body.file_id), None)
+    if old is None:
+        raise HTTPException(404, "No such earlier still.")
+    rest = [e for e in frame.earlier if e is not old]
+    if frame.file_id:
+        rest.append({"file_id": frame.file_id, "prompt": frame.prompt})
+    frame.earlier, frame.file_id, frame.prompt = rest, old["file_id"], old["prompt"]
+    frame.approved = frame.still_stale = False
+    db.commit()
+    return _out(db, project, frame)
+
+
 @router.post("/frames/{frame_id}/approve", response_model=FrameOut)
 def approve(
     project_id: int,
@@ -201,6 +276,7 @@ def approve(
     if _stale(db, project, frame):
         raise HTTPException(409, "This frame was made for an older breakdown.")
     frame.approved, frame.redrawn = True, False  # the "Redrawn" badge goes once approved
+    frame.change = None  # "What your note changed" stays until it's approved
     db.commit()
     return _out(db, project, frame)
 

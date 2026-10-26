@@ -810,6 +810,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/charges/{charge_id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refund Charge
+         * @description Give one charge's credits back (owner only; editors never see it). The job's credits
+         *     go to 0, so the editor's week and the video's budget get them back; the dollars the
+         *     service charged stay on the bill. Asking again changes nothing.
+         */
+        post: operations["refund_charge_usage_charges__charge_id__refund_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/production": {
         parameters: {
             query?: never;
@@ -2309,6 +2331,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/storyboard/frames/{frame_id}/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Change Price */
+        get: operations["change_price_projects__project_id__storyboard_frames__frame_id__change_get"];
+        put?: never;
+        /**
+         * Change Frame
+         * @description Change it: the note rewrites this frame's prompt, then the still is drawn again (one
+         *     price). A note that changes what's said is refused before anything is charged.
+         */
+        post: operations["change_frame_projects__project_id__storyboard_frames__frame_id__change_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/frames/{frame_id}/pick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick Still
+         * @description Use an earlier still again, with the prompt it was made from (free; the Undo of a
+         *     change). The one it replaces becomes an earlier still.
+         */
+        post: operations["pick_still_projects__project_id__storyboard_frames__frame_id__pick_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/storyboard/frames/{frame_id}/approve": {
         parameters: {
             query?: never;
@@ -2433,6 +2498,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Change Price */
+        get: operations["change_price_projects__project_id__clips__clip_id__change_get"];
+        put?: never;
+        /**
+         * Change Clip
+         * @description Change it: the note rewrites this clip's prompt; once there's a take, a new take is
+         *     made from it (one price). A note that changes what's said is refused before any charge.
+         */
+        post: operations["change_clip_projects__project_id__clips__clip_id__change_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/clips/{clip_id}/takes/{take_id}/pick": {
         parameters: {
             query?: never;
@@ -2506,7 +2593,7 @@ export interface paths {
         put?: never;
         /**
          * Prompt Looks Good
-         * @description Looks good: the editor read this clip's prompt.
+         * @description Looks good: the editor read this clip's prompt (and what a note changed in it).
          */
         post: operations["prompt_looks_good_projects__project_id__clips__clip_id__prompt_ok_post"];
         /** Undo Prompt Looks Good */
@@ -3050,6 +3137,11 @@ export interface components {
             /** Reel Url */
             reel_url?: string | null;
         };
+        /** ChangeIn */
+        ChangeIn: {
+            /** Note */
+            note: string;
+        };
         /** Clip */
         Clip: {
             /**
@@ -3267,6 +3359,10 @@ export interface components {
             earlier: {
                 [key: string]: unknown;
             }[];
+            /** Change */
+            change: {
+                [key: string]: unknown;
+            } | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3903,6 +3999,11 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** PickIn */
+        PickIn: {
+            /** File Id */
+            file_id: number;
+        };
         /** PreviewOut */
         PreviewOut: {
             breakdown: components["schemas"]["Breakdown"] | null;
@@ -3929,6 +4030,11 @@ export interface components {
             changed_shots: {
                 [key: string]: unknown;
             }[];
+        };
+        /** PriceOut */
+        PriceOut: {
+            /** Credits */
+            credits: number;
         };
         /** ProduceEstimate */
         ProduceEstimate: {
@@ -4017,6 +4123,10 @@ export interface components {
             stale: boolean;
             /** Inserts */
             inserts: components["schemas"]["InsertOut"][];
+            /** Change */
+            change: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ProjectEstimateOut */
         ProjectEstimateOut: {
@@ -4222,6 +4332,26 @@ export interface components {
             brand: string;
             /** Has Thumbnail */
             has_thumbnail: boolean;
+        };
+        /** RefundIn */
+        RefundIn: {
+            /** Reason */
+            reason: string;
+        };
+        /** RefundOut */
+        RefundOut: {
+            /** Job Id */
+            job_id: number;
+            /** Credits */
+            credits: number;
+            /** Reason */
+            reason: string;
+            by: components["schemas"]["Who"] | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
         };
         /** RenderIn */
         RenderIn: {
@@ -4701,6 +4831,8 @@ export interface components {
         };
         /** UsageCharge */
         UsageCharge: {
+            /** Id */
+            id: number;
             /**
              * At
              * Format: date-time
@@ -4718,6 +4850,11 @@ export interface components {
             estimated: boolean;
             /** Status */
             status: string;
+            /**
+             * Refunded
+             * @default false
+             */
+            refunded: boolean;
         };
         /** UsageChargesOut */
         UsageChargesOut: {
@@ -6889,6 +7026,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageChargesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refund_charge_usage_charges__charge_id__refund_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                charge_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundOut"];
                 };
             };
             /** @description Validation Error */
@@ -9977,6 +10149,110 @@ export interface operations {
             };
         };
     };
+    change_price_projects__project_id__storyboard_frames__frame_id__change_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_frame_projects__project_id__storyboard_frames__frame_id__change_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pick_still_projects__project_id__storyboard_frames__frame_id__pick_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PickIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     approve_projects__project_id__storyboard_frames__frame_id__approve_post: {
         parameters: {
             query?: never;
@@ -10222,6 +10498,74 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["TakeIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_price_projects__project_id__clips__clip_id__change_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_clip_projects__project_id__clips__clip_id__change_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeIn"];
             };
         };
         responses: {

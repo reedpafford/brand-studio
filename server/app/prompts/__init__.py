@@ -20,6 +20,7 @@ SCHEMAS = {
     "storyboard": schemas.StoryboardFrames,
     "clip_prompts": schemas.ClipPrompts,
     "improve": schemas.ImprovedPrompt,
+    "change": schemas.ChangedPrompt,
     "variations": schemas.Variations,
     "cast_slots": schemas.CastSlots,
 }

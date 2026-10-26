@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,7 +16,7 @@ from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.models.brands import Brand
-from app.models.jobs import Job, Usage
+from app.models.jobs import ChargeRefund, Job, Usage
 from app.models.projects import Project
 from app.models.script_library import Script
 from app.routes.script_library import ScriptRow
@@ -395,6 +395,7 @@ class UsageBrandRef(BaseModel):
 
 
 class UsageCharge(BaseModel):
+    id: int  # for POST /usage/charges/{id}/refund
     at: datetime
     person: Who | None
     brand: UsageBrandRef | None  # null: not tied to one brand
@@ -403,6 +404,7 @@ class UsageCharge(BaseModel):
     cost_usd: float
     estimated: bool
     status: str
+    refunded: bool = False  # its credits were given back (the dollars stay spent)
 
 
 class UsageChargesOut(BaseModel):
@@ -435,8 +437,15 @@ def charges(
         b.id: b.name
         for b in db.scalars(select(Brand).where(Brand.workspace_id == owner.workspace_id))
     }
+    refunded = set(
+        db.scalars(
+            select(ChargeRefund.job_id).where(ChargeRefund.job_id.in_([j.id for _, j in rows]))
+        )
+    )
     items = [
         UsageCharge(
+            id=row.id,
+            refunded=job.id in refunded,
             at=row.created_at,
             person=_who(db, job.created_by_id),
             brand=UsageBrandRef(id=job.brand_id, name=names[job.brand_id])
@@ -452,3 +461,41 @@ def charges(
     ]
     more = str(rows[limit - 1][0].id) if len(rows) > limit else None
     return UsageChargesOut(next_cursor=more, items=items)
+
+
+class RefundIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)  # e.g. "a still with the wrong person"
+
+
+class RefundOut(BaseModel):
+    job_id: int
+    credits: float  # given back
+    reason: str
+    by: Who | None
+    at: datetime
+
+
+@router.post("/charges/{charge_id}/refund", response_model=RefundOut)
+def refund_charge(
+    charge_id: int,
+    body: RefundIn,
+    owner: User = Depends(owner_or_404),
+    db: Session = Depends(get_db),
+):
+    """Give one charge's credits back (owner only; editors never see it). The job's credits
+    go to 0, so the editor's week and the video's budget get them back; the dollars the
+    service charged stay on the bill. Asking again changes nothing."""
+    charge = db.get(Usage, charge_id)
+    if not charge or charge.workspace_id != owner.workspace_id:
+        raise HTTPException(404, "No such charge.")
+    done = db.scalar(select(ChargeRefund).where(ChargeRefund.job_id == charge.job_id))
+    if done is None:
+        job = db.get(Job, charge.job_id)
+        done = ChargeRefund(job_id=job.id, credits=job.credits, by_id=owner.id, reason=body.reason)
+        job.credits = Decimal(0)
+        db.add(done)
+        db.commit()
+    return RefundOut(
+        job_id=done.job_id, credits=float(done.credits), reason=done.reason,
+        by=_who(db, done.by_id), at=done.created_at,
+    )  # fmt: skip

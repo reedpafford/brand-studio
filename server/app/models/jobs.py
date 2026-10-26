@@ -55,3 +55,15 @@ class Usage(Entity, Base):
     unit: Mapped[str] = mapped_column(String(20))  # e.g. second, image, token
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 4))
     estimated: Mapped[bool] = mapped_column(default=False)  # amount not reported by provider
+
+
+class ChargeRefund(Entity, Base):
+    """The owner gave one job's credits back (e.g. a still with the wrong person). The
+    job's credits are set to 0, so every count follows; this keeps who, why and how many.
+    The provider's dollars were spent and still show. At most one per job."""
+
+    __tablename__ = "charge_refunds"
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), unique=True)
+    credits: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+    by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reason: Mapped[str] = mapped_column(Text)
