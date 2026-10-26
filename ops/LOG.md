@@ -4,6 +4,25 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-26 11:12 · #458 Reel links button counts only real links merged
+- 2026-10-26 11:07 · #454 reel watch rule 8 merged
+- 2026-10-26 11:01 · #452 Read it again with a note; refills keep edits merged
+- 2026-10-26 10:53 · #457 reel fields and read/write price split merged
+- 2026-10-26 10:42 · #449 Library Reel chip merged
+- 2026-10-26 10:26 · #447 Bulk create Reel links mode merged
+- 2026-10-26 10:23 · #456 spec merged
+- 2026-10-26 10:19 · #448 Review an imported reel's breakdown (server) merged
+- 2026-10-26 10:14 · #451 spec merged
+- 2026-10-26 10:14 · #450 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-26 10:08 · #446 No refusal names Reed; a test scans every server refusal merged
+- 2026-10-26 09:55 · #445 Nothing an editor starts ever waits for Reed; paid routes walked past the limit merged
+- 2026-10-26 09:53 · #444 Work a release stopped shows as stopped; Restore never leaves it running merged
+- 2026-10-26 09:39 · #437 Usage: Give credits back from a charge's menu merged
+- 2026-10-26 09:33 · #443 A second refund of the same charge is refused merged
+- 2026-10-26 09:28 · #438 Delete this look: a look made for one video or script, with Undo merged
+- 2026-10-26 09:15 · #441 Undo of Save to Cast & places brings back an own look removed since merged
+- 2026-10-26 09:15 · #439 Usage charges carry the refund's credits, reason and time merged
+- 2026-10-26 09:13 · #442 ops: HANDOFF/LOG refresh 2026-10-26 09:30Z (by the Producer) merged
 - 2026-10-26 09:01 · #436 Team: Studio name field; invite page uses the owner's name merged
 - 2026-10-26 08:56 · #440 Spec: a look made for one video can be deleted only while no role uses it merged
 - 2026-10-26 08:55 · #435 Remove a video's or script's own look, with Undo merged

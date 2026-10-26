@@ -7,6 +7,7 @@ import { useReferences } from "../projects/BriefPickers";
 import { Badge, Banner, Button, Field, Panel, Select, TextArea, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { weekStop } from "./useScript";
+import { LINK } from "./ReelImport";
 import { errorText as errorClass } from "../ui";
 
 type Row = { title: string; description: string; reference: string };
@@ -32,6 +33,17 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
   const [rows, setRows] = useState<Row[]>([empty(), empty(), empty()]);
   const [pasting, setPasting] = useState<string | null>(null);
   const [made, setMade] = useState<{ id: number; title: string }[] | null>(null);
+  // Rows, or one Instagram reel link per line (each becomes a draft that adapts its reel).
+  const [mode, setMode] = useState<"rows" | "links">("rows");
+  const [links, setLinks] = useState("");
+  const [newLines, setNewLines] = useState(false);
+  const [change, setChange] = useState("");
+  const linkList = links.split("\n").map((l) => l.trim()).filter(Boolean);
+  const badLinks = linkList.map((l, i) => (LINK.test(l) ? 0 : i + 1)).filter(Boolean);
+  const tooMany = linkList.length > MAX;
+  const goodLinks = linkList.length - badLinks.length; // the button counts only real reel links
+  // Reel links: why Make N drafts can't be pressed yet.
+  const holdReason = mode !== "links" ? null : linkList.length === 0 ? "Paste at least one reel link" : badLinks.length > 0 ? "Fix the lines that aren't reel links" : tooMany ? `Up to ${MAX} links` : null;
   const refs = useReferences();
   const { data: me } = useMe();
   const editor = me?.role !== undefined && me.role !== "owner";
@@ -46,7 +58,9 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
   const create = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/scripts/bulk", {
-        body: { scripts: rows.map((r) => ({ brand_id: brandId, title: r.title.trim(), description: r.description.trim(), notes: "", reference_replace: "", text: "", ...(r.reference ? { reference_id: r.reference } : {}) })) },
+        body: mode === "links"
+          ? { scripts: linkList.map((url) => ({ brand_id: brandId, reel_url: url, description: "", notes: "", reference_replace: change.trim(), new_lines: newLines, text: "" })) }
+          : { scripts: rows.map((r) => ({ brand_id: brandId, title: r.title.trim(), description: r.description.trim(), notes: "", reference_replace: "", text: "", ...(r.reference ? { reference_id: r.reference } : {}) })) },
       });
       if (!data) throw new Error(errorText(error));
       return data;
@@ -58,6 +72,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
   });
 
   const ids = made?.map((m) => m.id) ?? [];
+  const reels = mode === "links";
   const estimate = useQuery({
     enabled: ids.length > 0,
     queryKey: ["write-estimate", ids],
@@ -74,7 +89,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
     onSuccess: async (jobs) => {
       await queryClient.invalidateQueries({ queryKey: ["scripts"] });
       await queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      toast(`Writing ${jobs.length} script${jobs.length === 1 ? "" : "s"}. They'll show as drafts when they're ready.`);
+      toast(reels ? `Reading ${jobs.length} reel${jobs.length === 1 ? "" : "s"} and writing their scripts. They'll show as drafts when they're ready.` : `Writing ${jobs.length} script${jobs.length === 1 ? "" : "s"}. They'll show as drafts when they're ready.`);
       onClose();
     },
   });
@@ -87,7 +102,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
             {made.map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-2">
                 <span className="min-w-0 break-words">{m.title}</span>
-                <Badge>Writing</Badge>
+                {(estimate.data?.failed ?? []).includes(m.id) ? <Badge tone="danger">Couldn't get the reel</Badge> : reels ? <Badge>Reel</Badge> : <Badge>Writing</Badge>}
               </li>
             ))}
           </ul>
@@ -97,7 +112,9 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
             </p>
             {estimate.data && (
               <p className="text-sm text-muted">
-                About {wholeCredits(estimate.data.credits)} credits ({estimate.data.count} script{estimate.data.count === 1 ? "" : "s"} × {wholeCredits(estimate.data.credits / Math.max(estimate.data.count, 1))})
+                {reels && estimate.data.reading > 0
+                  ? `About ${wholeCredits(estimate.data.credits)} credits: reading ${estimate.data.reading} reel${estimate.data.reading === 1 ? "" : "s"} and writing ${estimate.data.writing} script${estimate.data.writing === 1 ? "" : "s"} and cast${estimate.data.writing === 1 ? "" : "s"}`
+                  : `About ${wholeCredits(estimate.data.credits)} credits (${estimate.data.count} script${estimate.data.count === 1 ? "" : "s"} × ${wholeCredits(estimate.data.credits / Math.max(estimate.data.count, 1))})`}
               </p>
             )}
           </div>
@@ -119,11 +136,45 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
         onSubmit={(e) => {
           e.preventDefault();
           setTried(true);
-          if (missing === 0) create.mutate();
+          if (mode === "links" ? linkList.length > 0 && badLinks.length === 0 && !tooMany : missing === 0) create.mutate();
         }}
       >
+        <div role="radiogroup" aria-label="How to add them" className="flex w-full overflow-hidden rounded-md border border-border-strong sm:w-fit">
+          {(
+            [
+              ["rows", "Rows"],
+              ["links", "Reel links"],
+            ] as const
+          ).map(([id, label]) => (
+            <button key={id} type="button" role="radio" aria-checked={mode === id} onClick={() => setMode(id)} className={`min-h-control flex-1 whitespace-nowrap px-4 font-medium sm:flex-none ${mode === id ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface-2"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
         <p className="text-sm text-muted">Nothing is written until you press Write all.</p>
-        <ul className="space-y-4">
+        {mode === "links" && (
+          <div className="space-y-4">
+            <TextArea label="Paste reel links, one per line" rows={6} placeholder="https://www.instagram.com/reel/…" value={links} onChange={(e) => setLinks(e.target.value)} hint={`Up to ${MAX} links.`} />
+            {tried && linkList.length === 0 && <p role="alert" className={errorClass}>Paste at least one reel link.</p>}
+            {badLinks.length > 0 && (
+              <ul role="alert" className={`${errorClass} space-y-0.5`}>
+                {badLinks.map((n) => (
+                  <li key={n}>Line {n} isn't a reel link</li>
+                ))}
+              </ul>
+            )}
+            {tooMany && <p role="alert" className={errorClass}>That's {linkList.length} links. Up to {MAX} at a time.</p>}
+            <div className="space-y-1">
+              <label className="flex min-h-control items-center gap-3">
+                <input type="checkbox" role="switch" className="size-5" checked={newLines} onChange={(e) => setNewLines(e.target.checked)} />
+                Write new lines in the same style
+              </label>
+              <p className="text-sm text-muted">Off: keep the reel's lines and rewrite only what the brand swap needs.</p>
+            </div>
+            <TextArea label="What to change (optional)" rows={2} maxLength={2000} placeholder="For example: reselling becomes trading." value={change} onChange={(e) => setChange(e.target.value)} />
+          </div>
+        )}
+        {mode === "rows" && <ul className="space-y-4">
           {rows.map((r, i) => (
             <li key={i} className={`space-y-2 rounded-lg border p-3 ${tried && bad[i] ? "border-danger" : "border-border"}`}>
               <div className="flex items-start gap-2">
@@ -147,16 +198,16 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
               )}
             </li>
           ))}
-        </ul>
-        <div className="flex flex-wrap gap-2">
+        </ul>}
+        {mode === "rows" && <div className="flex flex-wrap gap-2">
           <Button type="button" variant="ghost" icon={Plus} disabled={rows.length >= MAX} onClick={() => setRows((r) => [...r, empty()])}>
             Add a row
           </Button>
           <Button type="button" variant="ghost" icon={ClipboardPaste} onClick={() => setPasting("")}>
             Paste a list
           </Button>
-        </div>
-        {pasting !== null && (
+        </div>}
+        {mode === "rows" && pasting !== null && (
           <div className="space-y-2">
             <TextArea label="One script per line: Title — what it's for" rows={5} value={pasting} onChange={(e) => setPasting(e.target.value)} />
             <div className="flex gap-2">
@@ -179,9 +230,9 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
           </div>
         )}
         {create.isError && <Banner title="The drafts weren't made. Nothing was charged." action={<Button variant="secondary" onClick={() => create.mutate()}>Try again</Button>}>{create.error.message}</Banner>}
-        {tried && missing > 0 && <p role="alert" className={errorClass}>Give every row a title and what it's for ({missing} row{missing === 1 ? "" : "s"} need{missing === 1 ? "s" : ""} it).</p>}
-        <Button type="submit" busy={create.isPending} className="w-full">
-          Make {rows.length} draft{rows.length === 1 ? "" : "s"}
+        {mode === "rows" && tried && missing > 0 && <p role="alert" className={errorClass}>Give every row a title and what it's for ({missing} row{missing === 1 ? "" : "s"} need{missing === 1 ? "s" : ""} it).</p>}
+        <Button type="submit" busy={create.isPending} disabled={!!holdReason} reason={holdReason} className="w-full">
+          {`Make ${mode === "links" ? goodLinks : rows.length} draft${(mode === "links" ? goodLinks : rows.length) === 1 ? "" : "s"}`}
         </Button>
       </form>
     </Panel>

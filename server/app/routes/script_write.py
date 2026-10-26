@@ -32,6 +32,8 @@ class WriteManyEstimate(BaseModel):
     credits: float  # all of them together
     credits_left: float | None  # an editor's weekly allowance left; null for the owner
     reading: int = 0  # scripts whose imported reel is read first (watch, write, cast read)
+    read_credits: float = 0  # of `credits`: reading those reels (their write and cast included)
+    write_credits: float = 0  # of `credits`: the scripts that are simply written
     writing: int = 0  # scripts that are simply written
     waiting: list[int] = []  # reels still being prepared: Write all waits for them
     failed: list[int] = []  # reels that need the video uploaded (fetch failed, or too old)
@@ -121,9 +123,12 @@ def write_many_estimate(
     scripts = [lib.get_script(db, user, script_id) for script_id in ids]
     plans = [_plan(db, s) for s in scripts]
     left = credits_left(db, user)
+    costs = [(p, _cost(db, user, s, p)) for s, p in zip(scripts, plans, strict=True)]
     return WriteManyEstimate(
         count=len(ids),
-        credits=sum((_cost(db, user, s, p) for s, p in zip(scripts, plans, strict=True)), 0),
+        credits=sum((c for _, c in costs), 0),
+        read_credits=sum((c for p, c in costs if p == "read"), 0),
+        write_credits=sum((c for p, c in costs if p == "write"), 0),
         credits_left=None if left is None else max(left, Decimal(0)),
         reading=plans.count("read"),
         writing=plans.count("write"),

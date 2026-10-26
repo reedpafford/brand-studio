@@ -1160,6 +1160,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/import/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review */
+        get: operations["review_scripts__script_id__import_breakdown_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/references": {
         parameters: {
             query?: never;
@@ -3156,6 +3173,27 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** BreakdownReview */
+        BreakdownReview: {
+            /** Logline */
+            logline: string;
+            /** Hook Seconds */
+            hook_seconds: number;
+            /** Hook */
+            hook: string;
+            /** Seconds */
+            seconds: number;
+            /** Shots */
+            shots: components["schemas"]["ShotRow"][];
+            /** Dropped */
+            dropped: number;
+            /** Lines */
+            lines: number;
+            /** Montages */
+            montages: components["schemas"]["Montage"][];
+            /** Video File Id */
+            video_file_id: number | null;
+        };
         /**
          * BulkIn
          * @description Bulk create (Reed): titles, descriptions and an optional reel only; nothing is written
@@ -3981,6 +4019,15 @@ export interface components {
             /** Price Source */
             price_source: string;
         };
+        /** Montage */
+        Montage: {
+            /** First */
+            first: number;
+            /** Last */
+            last: number;
+            /** Seconds */
+            seconds: number;
+        };
         /** MyAllowanceOut */
         MyAllowanceOut: {
             /** Quick Clip Credits Used */
@@ -4379,6 +4426,18 @@ export interface components {
             /** Problems */
             problems: string[];
         };
+        /** ReelRow */
+        ReelRow: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "ready" | "reading" | "done" | "failed";
+            /** Seconds */
+            seconds: number | null;
+            /** Fetch Error */
+            fetch_error?: string | null;
+        };
         /** Reference */
         Reference: {
             /**
@@ -4638,6 +4697,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
         };
         /** SetupIn */
         SetupIn: {
@@ -4728,6 +4788,33 @@ export interface components {
              * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
+        };
+        /** ShotRow */
+        ShotRow: {
+            /** N */
+            n: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Framing */
+            framing: string;
+            /** Camera */
+            camera: string;
+            /** Action */
+            action: string;
+            /**
+             * Speaker
+             * @default
+             */
+            speaker: string;
+            /**
+             * Line
+             * @default
+             */
+            line: string;
+            /** Dropped */
+            dropped: boolean;
         };
         /** SlotCastIn */
         SlotCastIn: {
@@ -5033,6 +5120,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
             /** Spend Usd */
             spend_usd: number;
             /** Spend Estimated */
@@ -5205,6 +5293,16 @@ export interface components {
              */
             reading: number;
             /**
+             * Read Credits
+             * @default 0
+             */
+            read_credits: number;
+            /**
+             * Write Credits
+             * @default 0
+             */
+            write_credits: number;
+            /**
              * Writing
              * @default 0
              */
@@ -5342,6 +5440,7 @@ export interface components {
              * @default false
              */
             reel_imported: boolean;
+            reel?: components["schemas"]["ReelRow"] | null;
             /** Notes */
             notes: string;
             /** Reference Replace */
@@ -7797,6 +7896,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_scripts__script_id__import_breakdown_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownReview"];
                 };
             };
             /** @description Validation Error */
