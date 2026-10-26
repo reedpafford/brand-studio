@@ -66,3 +66,29 @@ def test_owner_gets_a_fresh_link_for_a_waiting_invite(app, owner, editor):
         joined = c.post("/auth/accept-invite", json={**body, "token": fresh.json()["token"]})
         assert joined.status_code == 201
     assert owner.post(f"/team/invites/{old['id']}/link").status_code == 404  # accepted
+
+
+def test_owner_changes_a_role_but_never_their_own(owner, editor, outsider):
+    ed_id = editor.get("/auth/me").json()["id"]
+    me = owner.get("/auth/me").json()["id"]
+    assert editor.patch(f"/team/members/{ed_id}", json={"role": "owner"}).status_code == 403
+    made = owner.patch(f"/team/members/{ed_id}", json={"role": "owner"})
+    assert made.json()["role"] == "owner" and editor.get("/auth/me").json()["role"] == "owner"
+    assert owner.patch(f"/team/members/{ed_id}", json={"role": "editor"}).json()["role"] == "editor"
+    mine = owner.patch(f"/team/members/{me}", json={"role": "editor"})  # always one owner
+    assert mine.status_code == 400 and mine.json()["detail"] == "You can't change your own role."
+    assert outsider.patch(f"/team/members/{ed_id}", json={"role": "owner"}).status_code == 404
+
+
+def test_a_removed_member_is_listed_and_brought_back(owner, editor):
+    ed_id = editor.get("/auth/me").json()["id"]
+    owner.delete(f"/team/members/{ed_id}")
+    assert editor.get("/team/members?removed=true").status_code == 401  # signed out
+    assert [m["name"] for m in owner.get("/team/members?removed=true").json()] == ["Ed"]
+    back = owner.post(f"/team/members/{ed_id}/restore")
+    assert (back.status_code, back.json()["role"]) == (200, "editor")  # Undo, same role
+    r = editor.post("/auth/login", json={"email": "ed@example.com", "password": PASSWORD})
+    assert r.status_code == 200
+    assert [m["name"] for m in owner.get("/team/members").json()] == ["Reed", "Ed"]
+    assert owner.post(f"/team/members/{ed_id}/restore").status_code == 404  # not removed
+    assert editor.get("/team/members?removed=true").status_code == 403
