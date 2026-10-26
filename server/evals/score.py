@@ -110,6 +110,7 @@ def score(out: Path, case: dict) -> list[str]:
             words = len(" ".join(spoken).split())
             if not lo <= words <= hi:
                 problems.append(f"draft {i}: {words} spoken words, expected {lo}–{hi}")
+            problems += [f"draft {i}: {p}" for p in check.echo_lines(draft.script)]
             problems += [f"draft {i}: {p}" for p in check.reference_lines(
                 draft.script, ref_lines, case.get("new_lines", False))]  # fmt: skip
             if speakers is not None:
@@ -154,6 +155,8 @@ def score(out: Path, case: dict) -> list[str]:
         names = [c.split(" ", 1)[1].split(",")[0].split(" (")[0] for c in case["cast"]]
         end = brand["brand"].get("end_line", "")
         problems += check.variations(script, v, screens, end, never, case["count"], names)
+        for i, x in enumerate(v.variations, 1):
+            problems += [f"variation {i}: {p}" for p in check.echo_lines(x.script)]
     if cs := answers.get("cast_slots"):
         made = answers.get("variations")
         script = answers["script_draft"].drafts[0].script if "script_draft" in answers else script
