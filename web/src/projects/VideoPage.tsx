@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, FileText } from "lucide-react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useMe } from "../auth/useMe";
 import { Button, Skeleton, StepPicker } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
@@ -37,6 +38,10 @@ export function VideoPage() {
   const { progress, loading, script, media } = useProgress(id);
   const assets = useAssets(id);
   const p = project.data;
+  const { data: me } = useMe();
+  const allowance = useQuery({ enabled: !!p?.own_script && me?.role === "editor", queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
+  // An editor on their own script is billed to the week, not to a budget.
+  const week = p?.own_script && allowance.data ? { used: allowance.data.quick_clip_credits_used, allowed: allowance.data.quick_clip_credits_allowed } : null;
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
 
   if (project.isPending || loading || assets.isPending)
@@ -83,7 +88,13 @@ export function VideoPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="min-w-0 break-words type-page">{p.name}</h1>
         <div className="w-full min-w-0 sm:w-72">
-          <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+          {week ? (
+            <p className="text-sm tabular-nums text-muted">
+              This week: {Math.round(week.used)} of {Math.round(week.allowed)} credits
+            </p>
+          ) : (
+            <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
+          )}
         </div>
       </div>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
@@ -109,8 +120,8 @@ export function VideoPage() {
         </div>
       )}
       {step === "assets" && <AssetsPane projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} />}
-      {step === "storyboard" && <StoryboardPane oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "clips" && <ClipsPane review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "storyboard" && <StoryboardPane ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "clips" && <ClipsPane ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       {panel && (
         <ScriptPanel

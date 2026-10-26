@@ -111,8 +111,10 @@ class ScriptRow(BaseModel):
     versions_left: int  # approved versions not produced yet
     poster_file_id: int | None = None  # the first still of its newest finished video
     reference_name: str | None = None  # the reel it adapts, by name
-    removed_at: datetime | None = None  # in the removed list: when it was deleted
-    purge_on: datetime | None = None  # and when it goes for good (30 days on)
+    removed: Literal["deleted", "archived"] | None = None  # in the removed list; archived: it
+    # has videos, which are kept, so it never goes for good
+    removed_at: datetime | None = None  # in the removed list: when it was removed
+    purge_on: datetime | None = None  # deleted only: when it goes for good (30 days on)
     reel_imported: bool = False  # adapts its own imported reel, not a catalogue one
 
 
@@ -270,8 +272,11 @@ def list_scripts(
         row.reference_name = names.get(row.reference_id) if row.reference_id else None
         if script.reference_breakdown:
             row.reference_name = lib.reel_name(script.reference_breakdown)
-        if script.archived and script.deleted_at:
-            row.removed_at, row.purge_on = script.deleted_at, script.deleted_at + PURGE_AFTER
+        if script.archived:
+            row.removed_at = script.deleted_at
+            row.removed = "archived" if lib.has_videos(db, script) else "deleted"
+            if row.removed == "deleted" and script.deleted_at:
+                row.purge_on = script.deleted_at + PURGE_AFTER
     return rows
 
 
@@ -383,7 +388,7 @@ def delete_script(
     history, cast, reel files and videos, so Restore brings it back exactly as it was."""
     script = _removable(db, user, script_id)
     script.archived, script.deleted_at = True, utcnow()
-    # Purging long-deleted scripts (rows and reel files) would go here; not done yet.
+    # Purging long-deleted scripts would go here (never one with videos: lib.has_videos).
     db.commit()
 
 
