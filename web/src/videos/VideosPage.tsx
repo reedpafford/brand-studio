@@ -24,7 +24,7 @@ function Row({ p, mineView }: { p: Project; mineView: boolean }) {
   const done = !!p.finished_at;
   const meta = [
     p.created_by_name || "Someone",
-    done ? `Video done · ${date(p.finished_at!)}` : p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
+    done ? `Video done · ${date(p.finished_at!)}` : p.script_draft_id && p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
     p.own_script && mineView ? "On your week" : null,
     p.script_draft_id ? null : "(earlier way)",
   ]
