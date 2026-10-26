@@ -8,7 +8,6 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import script_library as lib
@@ -473,9 +472,6 @@ def charges(
     return UsageChargesOut(next_cursor=more, items=items)
 
 
-ALREADY = "Those credits were already given back."
-
-
 class RefundIn(BaseModel):
     reason: str = Field(min_length=1, max_length=500)  # e.g. "a still with the wrong person"
 
@@ -497,21 +493,17 @@ def refund_charge(
 ):
     """Give one charge's credits back (owner only; editors never see it). The job's credits
     go to 0, so the editor's week and the video's budget get them back; the dollars the
-    service charged stay on the bill. Once per charge: asking again is refused (409)."""
+    service charged stay on the bill. Asking again changes nothing."""
     charge = db.get(Usage, charge_id)
     if not charge or charge.workspace_id != owner.workspace_id:
         raise HTTPException(404, "No such charge.")
-    if db.scalar(select(ChargeRefund.id).where(ChargeRefund.job_id == charge.job_id)):
-        raise HTTPException(409, ALREADY)
-    job = db.get(Job, charge.job_id)
-    done = ChargeRefund(job_id=job.id, credits=job.credits, by_id=owner.id, reason=body.reason)
-    job.credits = Decimal(0)
-    db.add(done)
-    try:
+    done = db.scalar(select(ChargeRefund).where(ChargeRefund.job_id == charge.job_id))
+    if done is None:
+        job = db.get(Job, charge.job_id)
+        done = ChargeRefund(job_id=job.id, credits=job.credits, by_id=owner.id, reason=body.reason)
+        job.credits = Decimal(0)
+        db.add(done)
         db.commit()
-    except IntegrityError:  # two presses at once: the unique job_id lets only one through
-        db.rollback()
-        raise HTTPException(409, ALREADY) from None
     return RefundOut(
         job_id=done.job_id, credits=float(done.credits), reason=done.reason,
         by=_who(db, done.by_id), at=done.created_at,
