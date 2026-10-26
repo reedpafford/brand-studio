@@ -311,3 +311,18 @@ test("a take that finishes between two polls still shows up (the clips are fetch
   await client.invalidateQueries({ queryKey: ["jobs"] });
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/9/clips").length).toBeGreaterThanOrEqual(1));
 });
+
+test("a failed prompt run says so, nothing was charged, and Try again writes them again", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, []],
+    "GET /jobs": [200, [{ id: 31, kind: "write-claude", step: "clip_prompts", status: "failed", credits: 6, project_id: 9, created_at: new Date().toISOString() }]],
+    "POST /projects/9/clips/prompts": [201, { id: 32, kind: "write-claude", step: "clip_prompts", status: "queued", credits: 6, project_id: 9 }],
+  });
+  open();
+  expect(await screen.findByText("The clip prompts didn't finish.")).toBeInTheDocument();
+  expect(screen.getByText("Nothing was charged.")).toBeInTheDocument();
+  expect(screen.queryByText("Writing your clip prompts…")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Try again · 6 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
+});

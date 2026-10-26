@@ -150,3 +150,25 @@ test("the setup password counter turns green at 10 characters", async () => {
   await userEvent.type(box, "0");
   expect(screen.getByText("10 / 10")).toHaveClass("text-success");
 });
+
+test("when the server can't be reached, it is retried quietly first, then shows Try again, and that works once it is back", async () => {
+  let up = false;
+  const inner = (fakeServer({ "GET /auth/me": [200, { id: 1, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 }], "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]] }), (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation()!);
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    if (!up && new URL(req.url).pathname.endsWith("/auth/me")) throw new TypeError("Failed to fetch");
+    return inner(req.clone(), init);
+  }));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/scripts"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(screen.getByText("Loading…")).toBeInTheDocument(); // retrying quietly, not an error yet
+  expect(await screen.findByText("Can't reach the server.", {}, { timeout: 8000 })).toBeInTheDocument();
+  up = true;
+  await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await vi.waitFor(() => expect(screen.queryByText("Can't reach the server.")).toBeNull());
+});

@@ -195,7 +195,7 @@ function AssetCard({
           {asset.shots > 0 && <InShots n={asset.shots} />}
           <div className="flex flex-wrap gap-2">
             {asset.locked ? (
-              <Badge icon={Lock}>Locked by Reed</Badge>
+              <Badge icon={Lock}>Locked</Badge>
             ) : slotLeft ? (
               <Badge tone="warning">Needs a look</Badge>
             ) : (

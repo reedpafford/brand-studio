@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
-import { Badge, Button } from "../components";
+import { Badge, Banner, Button } from "../components";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
@@ -11,6 +11,7 @@ import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./shee
 import { useFrames } from "./StoryboardPane";
 import { blocking } from "./problems";
 import { useOwnScriptStop } from "./useOwnScriptStop";
+import { usePressed } from "./usePressed";
 import { AdviceList, useKeep } from "./Keep";
 import { useMe } from "../auth/useMe";
 
@@ -71,7 +72,9 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const stopFor = useOwnScriptStop(props.ownScript);
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
-  const going = (id: number | undefined) => id !== undefined && (!jobOf(id) || GOING.includes(jobOf(id)!.status));
+  const pressed = usePressed();
+  // A job the list never shows is waited on only briefly (a run that was lost must not read "Writing…" for ever).
+  const going = (id: number | undefined) => id !== undefined && (jobOf(id) ? GOING.includes(jobOf(id)!.status) : !(id === writing && pressed.unseen));
   // The newest take job for a clip row (it survives a reload, since the job says which clip it is for).
   const takeJob = (clipRowId: number) =>
     (jobs.data ?? []).filter((j) => j.project_clip_id === clipRowId && j.step === "clip_take").sort((a, b) => b.id - a.id)[0];
@@ -112,6 +115,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     },
     onSuccess: (job) => {
       setWriting(job.id);
+      pressed.press();
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
   });
@@ -182,9 +186,18 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
       </section>
     );
 
+  // The newest run that wrote the prompts, if it failed: say so, with a way to try again.
+  const promptRun = (jobs.data ?? []).filter((j) => j.project_id === projectId && j.step === "clip_prompts").sort((a, b) => b.id - a.id)[0];
+  const promptsFailed = promptRun?.status === "failed" || (writing !== null && pressed.unseen && !jobOf(writing));
+
   if (list.length === 0)
     return (
       <section className={`${card} space-y-3`} aria-label="Clips">
+        {promptsFailed && (
+          <Banner title="The clip prompts didn't finish." action={<Button variant="secondary" disabled={write.isPending || !!stopFor(writeCost)} onClick={() => write.mutate()}>Try again{price(writeCost)}</Button>}>
+            Nothing was charged.
+          </Banner>
+        )}
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
         <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending || !!stopFor(writeCost)} onClick={() => write.mutate()}>
