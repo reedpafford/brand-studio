@@ -44,6 +44,8 @@ class Project(Entity, Base):
     # Assets step: unlocked cast slot id (as text) -> the library character the editor gave it.
     slot_cast: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
     slot_looks: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)  # slot -> own look
+    # Roles merged into another on this video's Assets only: slot -> the role kept
+    slot_merged: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
     # The last still redraw after a cast change: {"redrawn_for_cast": {count, credits}} or
     # {"redraw_refused": {count, credits, reason}} (for the Storyboard note).
     cast_redraw: Mapped[dict | None] = mapped_column(JSON)

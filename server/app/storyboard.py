@@ -20,7 +20,7 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
-from app.models.script_library import ScriptCastSlot, ScriptDraft
+from app.models.script_library import ScriptCastSlot
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
@@ -34,13 +34,10 @@ def image_model() -> CatalogueModel:
 
 
 def script_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
-    """The cast slots of the library script this video is made from (none for older videos)."""
-    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    if draft is None:
-        return []
-    return list(
-        db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == draft.script_id))
-    )
+    """The video's cast slots (none for older videos): cast_roles.video_slots."""
+    from app.cast_roles import video_slots
+
+    return video_slots(db, project)
 
 
 def cast_looks(db: Session, project: Project) -> list[LibraryItem]:

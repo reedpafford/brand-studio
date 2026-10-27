@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, cast_roles, clip_prompts
+from app import advice, breakdown, cast_roles, clip_prompts, merge_roles
 from app.auth import current_user
 from app.credits import COUNTED, fits, get_limits, price
 from app.db import get_db
@@ -23,12 +23,12 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind, LibraryItem, LibraryItemVersion
 from app.models.projects import Project
-from app.models.script_library import ScriptCastSlot, ScriptDraft
+from app.models.script_library import CastMerge, Script, ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.library import LookFitOut, _save_version, pick_item, sheet_status
 from app.routes.projects import get_project
-from app.routes.script_cast import RoleFacts, role_facts
+from app.routes.script_cast import MergePreview, RoleFacts, SamePair, UndoIn, role_facts
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, queue_sheet
 from app.schemas import Name
@@ -83,11 +83,7 @@ def _newest(db: Session, project: Project) -> BreakdownVersion | None:
 
 
 def _slots(db: Session, project: Project) -> list[ScriptCastSlot]:
-    if not project.script_draft_id:
-        return []
-    draft = db.get(ScriptDraft, project.script_draft_id)
-    query = select(ScriptCastSlot).where(ScriptCastSlot.script_id == draft.script_id)
-    return list(db.scalars(query.order_by(ScriptCastSlot.position)))
+    return cast_roles.video_slots(db, project)
 
 
 def _row(
@@ -208,23 +204,30 @@ def _cast(
         for before in (f'"slot:{slot.id}"', f'"char:{old}"' if old else None):
             if before:
                 text = text.replace(before, f'"char:{item.id}"')
-        new, removed = breakdown.land(db, project, Breakdown.model_validate(json.loads(text)))
-        script = latest(db, project)
-        row = BreakdownVersion(
-            project_id=project.id,
-            script_version=bd.script_version,
-            source="edit",
-            data=new.model_dump(),
-            problems=breakdown.problems(db, project, script.text if script else "", new) + removed,
-            created_by_id=user.id,
-        )
-        db.add(row)
-        db.flush()
         # Frames follow the new look for free; stills of the old one are redrawn if covered.
-        outdated = cast_roles.carry_frames(db, project, bd, row, same_look)
+        outdated = _resave(db, user, project, bd, json.loads(text), same_look)
         cast_roles.redraw(db, project, user, outdated)
-        cast_roles.carry_clips(db, project, bd, row)
         clip_prompts.follow(db, project, user)
+
+
+def _resave(db: Session, user: User, project: Project, bd, data: dict, same_look=False) -> list:
+    """`data` as the newest breakdown, landed and checked; frames and clips that only changed
+    who plays a role move to it (free). Returns the stills that now show the old look."""
+    new, removed = breakdown.land(db, project, Breakdown.model_validate(data))
+    script = latest(db, project)
+    row = BreakdownVersion(
+        project_id=project.id,
+        script_version=bd.script_version,
+        source="edit",
+        data=new.model_dump(),
+        problems=breakdown.problems(db, project, script.text if script else "", new) + removed,
+        created_by_id=user.id,
+    )
+    db.add(row)
+    db.flush()
+    outdated = cast_roles.carry_frames(db, project, bd, row, same_look)
+    cast_roles.carry_clips(db, project, bd, row)
+    return outdated
 
 
 @router.post(
@@ -504,3 +507,117 @@ def undo_approve_all(
             item.sheet_approved = False
     db.commit()
     return list_assets(project_id, user, db)
+
+
+class MergeIn(BaseModel):
+    into_slot_id: int
+
+
+class VideoMerged(MergePreview):
+    token: int  # for Undo
+    assets: list[AssetOut]
+
+
+def _pair(db: Session, project: Project, slot_id: int, into_id: int):
+    slots = {s.id: s for s in _slots(db, project)}
+    if slot_id not in slots or into_id not in slots:
+        raise HTTPException(404, "That role isn't in this video.")
+    if slot_id == into_id:
+        raise HTTPException(422, "A role can't be merged into itself.")
+    return slots[slot_id], slots[into_id]
+
+
+def _preview(db: Session, project: Project, slot, into) -> tuple[dict, Breakdown | None]:
+    """What a merge on this video moves (its shots, and the script lines they speak), and the
+    newest breakdown with them moved."""
+    bd = _newest(db, project)
+    plan = Breakdown.model_validate(bd.data) if bd else None
+    shots = [s for sc in plan.scenes for s in sc.shots] if plan else []
+    spoken = [n for s in shots if s.speaker and cast_roles.same(s.speaker, slot.role)
+              for n in s.script_lines]  # fmt: skip
+    moved = cast_roles.merge_shots(db, project, plan, slot, into) if plan else []
+    letter = merge_roles.LETTERS[db.get(ScriptDraft, project.script_draft_id).slot]
+    look = db.get(LibraryItem, cast_roles.picked(project, slot) or 0)
+    unused = look is not None and look.id != cast_roles.picked(project, into)
+    out = {"moved": {"shots": moved, "lines": [{"version": letter, "line": n} for n in spoken]},
+           "look_unused": {"name": look.name} if unused else None}  # fmt: skip
+    return out, plan
+
+
+@router.get("/slots/{slot_id}/merge/preview", response_model=MergePreview)
+def merge_preview(
+    project_id: int,
+    slot_id: int,
+    into: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """What merging this role into `into` would move on this video, before it's done."""
+    project = get_project(db, user, project_id)
+    return _preview(db, project, *_pair(db, project, slot_id, into))[0]
+
+
+@router.post("/slots/{slot_id}/merge", response_model=VideoMerged)
+def merge(
+    project_id: int,
+    slot_id: int,
+    body: MergeIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Merge this role into another on this video only (merge-roles.md §1): its shots and their
+    lines go to the other, and its look is left unused. The script's cast stays as it is.
+    Free: stills that showed its look are marked out of date, never redrawn by themselves."""
+    project = get_project(db, user, project_id)
+    slot, into = _pair(db, project, slot_id, body.into_slot_id)
+    out, plan = _preview(db, project, slot, into)
+    bd = _newest(db, project)
+    saved = {"slot_merged": project.slot_merged or {}, "slot_cast": project.slot_cast or {},
+             "cast_ids": project.cast_ids or [], "breakdown": bd.data if bd else None}  # fmt: skip
+    old = (project.slot_cast or {}).get(str(slot.id))
+    project.slot_cast = {k: v for k, v in (project.slot_cast or {}).items() if k != str(slot.id)}
+    project.slot_merged = {**(project.slot_merged or {}), str(slot.id): into.id}
+    still = {cast_roles.picked(project, s) for s in _slots(db, project)}
+    project.cast_ids = [c for c in project.cast_ids or [] if c != old or c in still]
+    if bd:  # the shots move first, while the role's look still names them
+        _resave(db, user, project, bd, plan.model_dump())
+        clip_prompts.follow(db, project, user)
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    record = CastMerge(workspace_id=project.workspace_id, script_id=draft.script_id,
+                       project_id=project.id, data=saved)  # fmt: skip
+    db.add(record)
+    db.commit()
+    return {**out, "token": record.id, "assets": list_assets(project_id, user, db)}
+
+
+@router.post("/merge/undo", response_model=list[AssetOut])
+def undo_merge(
+    project_id: int, body: UndoIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Put a role merged on this video back, with its shots, lines and look as they were."""
+    project = get_project(db, user, project_id)
+    record = db.get(CastMerge, body.token)
+    if record is None or record.project_id != project.id:
+        raise HTTPException(404, "There's nothing to undo here any more.")
+    data = record.data
+    project.slot_merged, project.slot_cast = data["slot_merged"], data["slot_cast"]
+    project.cast_ids = data["cast_ids"]
+    bd = _newest(db, project)
+    if bd and data["breakdown"]:
+        _resave(db, user, project, bd, data["breakdown"])
+        clip_prompts.follow(db, project, user)
+    db.delete(record)
+    db.commit()
+    return list_assets(project_id, user, db)
+
+
+@router.get("/maybe-same", response_model=list[SamePair])
+def maybe_same(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The script's roles that may be one person, less those merged on this video."""
+    project = get_project(db, user, project_id)
+    if not project.script_draft_id:
+        return []
+    script = db.get(Script, db.get(ScriptDraft, project.script_draft_id).script_id)
+    here = {s.id for s in _slots(db, project)}
+    return [p for p in merge_roles.maybe_same(db, script)
+            if {p["a_slot_id"], p["b_slot_id"]} <= here]  # fmt: skip
