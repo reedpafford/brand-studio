@@ -9,6 +9,7 @@ import { Badge, Banner, Button, EmptyState, MediaCard, Menu, MenuItem, Sheet, Sk
 import { useDebounced } from "../scripts/ScriptsPage";
 import { useToast } from "../toast";
 import { useMedia } from "../useMedia";
+import { serverTime } from "../time";
 
 const WORDS = {
   queued: "Queued",
@@ -50,7 +51,7 @@ export function Elapsed({ since }: { since: string }) {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  return <span>{elapsed(now - new Date(since).getTime())}</span>;
+  return <span>{elapsed(now - serverTime(since).getTime())}</span>;
 }
 
 /** The clips list, with what was typed in Search and, for Removed, the clips taken off the history. */

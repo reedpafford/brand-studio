@@ -97,3 +97,20 @@ def test_inserts_start_off_and_can_be_switched_on(db, editor, setup, approved): 
     assert _frame_at(data, 0.5)[1] > 100  # the 1 s take is all insert (held 1.2 s): orange
     bad = editor.put(f"{base}/clips/{clip['id']}/inserts/1.1", json={"use_real_image": True})
     assert bad.status_code == 404
+
+
+def test_a_shot_with_a_character_holding_the_screen_can_use_the_real_image(db, editor, approved):
+    # Reed, 2026-10-27: screens are in the character's hand now (Director #546); still off.
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+
+    base, clip = approved
+    row = db.get(BreakdownVersion, db.get(ProjectClip, clip["id"]).breakdown_id)
+    data = json.loads(json.dumps(row.data))
+    held = data["scenes"][0]["shots"][1]
+    held["character_ids"] = data["scenes"][0]["shots"][0]["character_ids"]
+    held["screen_ids"] = ["product:99", *held["screen_ids"]]  # its first project screen counts
+    row.data = data
+    db.commit()
+    (insert,) = editor.get(f"{base}/clips").json()[0]["inserts"]
+    assert (insert["shot_id"], insert["name"], insert["use_real_image"]) == ("1.2", "Buy", False)

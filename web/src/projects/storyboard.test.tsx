@@ -374,3 +374,76 @@ test("Save prompt and Cancel are 44px tall on a phone", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Edit the prompt for clip c1" }));
   for (const name of ["Save prompt", "Cancel"]) expect(screen.getByRole("button", { name }).className).toContain("min-h-11");
 });
+
+const flagged = "c1: the image model may refuse “knife”; say it gently";
+
+test("a frame the image model may refuse offers a free Soften it, shows what changed, and Undo puts the earlier prompt back", async () => {
+  const routes: Record<string, [number, unknown]> = {
+    ...base,
+    "POST /projects/9/storyboard/frames/1/soften": [200, { before: "Mia holds a knife", after: "Mia holds a kitchen tool", frame: frame({ prompt: "Mia holds a kitchen tool" }) }],
+    "PUT /projects/9/storyboard/frames/1": [200, frame({ prompt: "Mia holds a knife" })],
+  };
+  // The frame as the server has it: flagged until it is softened, then softened, then flagged again after Undo.
+  Object.defineProperty(routes, "GET /projects/9/storyboard", {
+    enumerable: true,
+    get: () => {
+      const softened = calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/soften");
+      const undone = calls.some((c) => c.key === "PUT /projects/9/storyboard/frames/1");
+      return [200, [softened && !undone ? frame({ prompt: "Mia holds a kitchen tool" }) : frame({ prompt: "Mia holds a knife", problems: [flagged] })]];
+    },
+  });
+  const calls = fakeServer(routes);
+  open();
+  const list = await screen.findByLabelText("Problems for c1");
+  expect(within(list).getByText("Free")).toBeInTheDocument();
+  await userEvent.click(within(list).getByRole("button", { name: "Soften it" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/soften")).toBe(true));
+  const note = await screen.findByRole("note", { name: "Softened" });
+  expect(note).toHaveTextContent("Before: Mia holds a knife");
+  expect(note).toHaveTextContent("After: Mia holds a kitchen tool");
+  expect(await screen.findByText("Softened. The earlier prompt is kept.")).toBeInTheDocument(); // the toast
+  await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toMatchObject({ prompt: "Mia holds a knife" }));
+});
+
+test("a frame the server softened by itself says so with Before and After; Undo puts the earlier prompt back, the note goes and Soften it returns", async () => {
+  const done = { before: "Mia holds a knife", after: "Mia holds a kitchen tool" };
+  const routes: Record<string, [number, unknown]> = { ...base, "PUT /projects/9/storyboard/frames/1": [200, frame({})] };
+  // After the PUT the server still reports `softened` (it keeps the record), but the prompt is the earlier one and flagged again.
+  Object.defineProperty(routes, "GET /projects/9/storyboard", {
+    enumerable: true,
+    get: () => [200, [calls.some((c) => c.key === "PUT /projects/9/storyboard/frames/1") ? frame({ prompt: done.before, problems: [flagged], softened: done }) : frame({ prompt: done.after, softened: done })]],
+  });
+  const calls = fakeServer(routes);
+  open();
+  const note = await screen.findByRole("note", { name: "Softened" });
+  expect(note).toHaveTextContent("We softened this frame so it can be drawn.");
+  expect(note).toHaveTextContent("Before: Mia holds a knife");
+  await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toMatchObject({ prompt: "Mia holds a knife" }));
+  await vi.waitFor(() => expect(screen.queryByRole("note", { name: "Softened" })).toBeNull());
+  expect(await screen.findByRole("button", { name: "Soften it" })).toBeInTheDocument();
+});
+
+test("a frame problem that is not about a refused word has no Soften it", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ problems: ["c1: more references than the image model keeps"] })]] });
+  open();
+  const list = await screen.findByLabelText("Problems for c1");
+  expect(within(list).queryByRole("button", { name: "Soften it" })).toBeNull();
+});
+
+test("a fractional rate is shown in whole credits, rounded up, and one credit is never '1 credits'", async () => {
+  // 1/3 of a credit per still: two stills come to 0.67, which reads "1 credit"; the real server's rate has many decimals.
+  fakeServer({
+    ...base,
+    "GET /models": [200, [{ id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 0.3333 } }]],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 0.3333 }]],
+    "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2", shot_id: "2.1" }), frame({ id: 3, clip_id: "c3", shot_id: "3.1", file_id: 40 })]],
+  });
+  open();
+  expect(await screen.findByRole("button", { name: "Make all stills · 1 credit" })).toBeInTheDocument(); // two stills, 0.6666, rounded up
+  expect(screen.getByRole("button", { name: "Redo · 1 credit" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Edit the prompt for clip c3" }));
+  expect(screen.getByRole("button", { name: "Save and redraw · 1 credit" })).toBeInTheDocument();
+  expect(screen.queryByText(/0\.\d|1 credits/)).toBeNull();
+});

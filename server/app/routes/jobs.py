@@ -1,6 +1,5 @@
 """Jobs as the team sees them (status, output, no money) and usage with dollars (owner only)."""
 
-from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,6 +24,7 @@ from app.job_brand import brand_for
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project, ProjectStatus
+from app.schemas import UtcTime
 
 router = APIRouter(tags=["jobs"])
 
@@ -37,8 +37,8 @@ class JobOut(BaseModel):
     status: JobStatus
     output: dict | None
     error: SaidText
-    created_at: datetime
-    finished_at: datetime | None
+    created_at: UtcTime
+    finished_at: UtcTime | None
     # Safe summary of what was asked, for history lists (from the job's input).
     prompt_summary: str = ""
     step: str | None = None  # script-flow step: enhance, script_draft, breakdown, …
@@ -126,7 +126,7 @@ class UsageOut(BaseModel):
     unit: str
     cost_usd: Decimal
     estimated: bool
-    created_at: datetime
+    created_at: UtcTime
 
 
 OVER_BUDGET = "That's more than this video's budget."

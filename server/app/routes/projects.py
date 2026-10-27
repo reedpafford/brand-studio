@@ -2,7 +2,6 @@
 estimate of it. Above the owner's length limit a project waits for the owner.
 Editors see credits and % of budget, never dollars."""
 
-from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -27,7 +26,7 @@ from app.routes.files import get_file
 from app.routes.jobs import stop_jobs
 from app.routes.library import pick_item
 from app.routes.production import progress
-from app.schemas import LongText, Name, ShortText
+from app.schemas import LongText, Name, ShortText, UtcTime
 
 router = APIRouter(prefix="/projects", tags=["credits"])
 
@@ -86,8 +85,8 @@ class ProjectOut(BaseModel):
     created_by_name: str
     script_draft_id: int | None = None  # made from a library version; null: an earlier-style video
     own_script: bool = False  # from a script the viewer wrote: it runs on their weekly allowance
-    archived_at: datetime | None = None  # put away; POST .../unarchive brings it back
-    finished_at: datetime | None = None  # "Video done": the whole video was downloaded
+    archived_at: UtcTime | None = None  # put away; POST .../unarchive brings it back
+    finished_at: UtcTime | None = None  # "Video done": the whole video was downloaded
     # The last still redraw after a cast change, for the Storyboard note: {"redrawn_for_cast":
     # {count, credits}} or {"redraw_refused": {count, credits, reason}}.
     cast_redraw: dict | None = None

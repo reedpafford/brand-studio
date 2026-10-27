@@ -156,7 +156,11 @@
     },
     "notes_mention": {
      "14": "wallet"
-    }
+    },
+    "clip_absent": [
+     "fills the frame",
+     "flat-on"
+    ]
    }
   },
   {
@@ -177,7 +181,7 @@
     "SCENE 1 — INT. SCHOOL BUS — MORNING",
     "MAYA: Did you see STONK? It's flying.",
     "Leo already has fomo open.",
-    "★ fomo screen: Token chart up — on Leo's phone, fills the frame",
+    "★ fomo screen: Token chart up — on Leo's phone in his hand",
     "LEO: I bought it at six.",
     "Maya's jaw drops.",
     "MAYA: Six AM?",
@@ -212,7 +216,8 @@
     "2–3 drafts whose hooks are clearly different (e.g. the salesman's insult, Kai already holding the keys, a shocking number).",
     "Each draft is about 50–75 spoken words (house pace: 4.8 words/s in short lines, talking under half the runtime), opens on conflict in the first line at 0 s, and ends on a callback plus a one-line call to action.",
     "The trade is shown with real screens on ★ lines (chart up for the win; chart down only if there's a dip).",
-    "Uses only Kai and the salesman; no narrator; no captions or music."
+    "Uses only Kai and the salesman; no narrator; no captions or music.",
+    "The end line's shot: the hero holds his phone up to the camera in the scene, the fomo logo and the real app screen legible (Home (rich) when listed)."
    ],
    "expect": {
     "drafts": [
@@ -405,7 +410,8 @@
     "Same pacing as the reference: hook shots under 0.5 s, montage around 0.3–0.5 s; no captions, no '2 YEARS LATER' card text.",
     "Opens on the proposal and the no: “I do.” and “HELL NO!” on screen in the first shots, no establishing or guest cutaways before them.",
     "The montage grinds before the payoff: a red day, a small win, another late night, a bigger win, then the fast got-rich run.",
-    "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance."
+    "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance.",
+    "The end line's shot: the hero holds his phone up to the camera in the scene, the fomo logo and the real app screen legible (Home (rich) when listed)."
    ],
    "expect": {
     "drafts": [
@@ -430,7 +436,11 @@
      "I do.",
      "HELL NO!"
     ],
-    "min_money_figures": 3
+    "min_money_figures": 3,
+    "clip_absent": [
+     "fills the frame",
+     "flat-on"
+    ]
    }
   },
   {
@@ -489,7 +499,7 @@
    "script": null,
    "good": [
     "Wordless, about 12 s, shots around 0.3–0.5 s; nobody speaks and the audio line says so.",
-    "Nate in every shot, no empty rooms: trading at night, the win, escalating payoffs he's part of (keys, the car, the penthouse door, the balcony), cut with the real fomo screens.",
+    "Nate in every shot, no empty rooms: trading at night, the win, escalating payoffs he's part of, invented for this story (never the reference's penthouse and skyline), cut with the real fomo screens on the phone in his hand.",
     "The got-rich beat shows a big portfolio balance (hundreds of thousands) on the fomo Home screen, not a coin price.",
     "Ends on the skyline arrival in the black suit.",
     "At least three grind beats (late nights, a red day, a small then a bigger win) before the fast got-rich run.",
@@ -512,7 +522,9 @@
     "clip_absent": [
      "empty room",
      "does not",
-     "says"
+     "says",
+     "fills the frame",
+     "flat-on"
     ],
     "min_money_figures": 3
    }
@@ -581,7 +593,7 @@
     "SCENE 2 — INT. NATE'S BEDROOM — NIGHT",
     "★ fomo screen: Token chart down — on Nate's phone",
     "Wordless montage, Nate in every shot, trading his way up: Nate trading on his phone at night, the win, keys dropped into his palm, Nate behind the wheel, Nate pushing open a penthouse door in a black suit.",
-    "★ fomo screen: Token chart up — fills the frame, a phone ding",
+    "★ fomo screen: Token chart up — on Nate's phone in his hand, a phone ding",
     "SCENE 3 — INT. PENTHOUSE — NIGHT, TWO YEARS LATER",
     "★ fomo screen: Home (rich) — the portfolio balance, on Nate's phone",
     "Mia and the rich man spot Nate across the party.",
@@ -589,6 +601,7 @@
     "MIA: Huh?!",
     "Women gather around Nate by the glass. He smiles.",
     "NATE: Sorry, I'm fully booked.",
+    "★ fomo screen: Home (rich) — Nate holds his phone up to the camera, the fomo logo clear",
     "NATE: Want to trade like me? Download fomo through the link in my bio."
    ],
    "count": 2,
@@ -919,7 +932,7 @@
     "He wipes his eyes and his hands hit the keyboard. Wordless montage, fast cuts: his first trade, a red day he shakes off, another late night, a bigger win, then the payoff.",
     "★ fomo screen: Token chart down — a red day on his phone, the position reads -$310; he keeps going",
     "★ fomo screen: Token chart up — another late night, the balance reads $1,240",
-    "★ fomo screen: Home (rich) — the portfolio balance reads $348,920.15, on his phone, fills the frame",
+    "★ fomo screen: Home (rich) — the portfolio balance reads $348,920.15, on the phone in his hand",
     "SCENE 4 — EXT. HALLOWEEN PARTY HOUSE — NIGHT, ONE YEAR LATER",
     "A green Lamborghini revs and stops in front of the party crowd. Low angle.",
     "RIVAL: Whose car is that?",
@@ -929,7 +942,7 @@
     "GIRLFRIEND: I made a mistake, please.",
     "He scoffs.",
     "OMAR: Sorry, I don't get invited to anything.",
-    "★ fomo screen: Home (rich) — on Omar's phone in the Lamborghini, fills the frame",
+    "★ fomo screen: Home (rich) — Omar holds his phone up to the camera in the Lamborghini, the fomo logo clear",
     "OMAR: Want to trade like me? Download fomo through the link in my bio."
    ],
    "good": [
@@ -937,6 +950,51 @@
     "The payoff callback ('Sorry, I don't get invited to anything.' or its new version) answers that same line."
    ],
    "expect": {}
+  },
+  {
+   "id": "fomo-empty-chair-cast",
+   "brand": "fomo",
+   "steps": [
+    "cast_slots"
+   ],
+   "brief": "The empty chair: Omar is stood up on his birthday, his friend calls it, a year of trading, the friend toasts him at the payoff.",
+   "cast": [
+    "char:3 Omar, the hero"
+   ],
+   "places": [],
+   "script": [
+    "SCENE 1 — INT. DINER — NIGHT",
+    "Omar sits alone in a booth across from an empty chair, a birthday candle in a cupcake. Other diners chat and laugh around him.",
+    "FRIEND: She's not coming, man.",
+    "Omar stares at the door.",
+    "WAITER: Still waiting on the second order?",
+    "OMAR: Just the check.",
+    "SCENE 2 — INT. OMAR'S ROOM — NIGHT",
+    "★ fomo screen: Token chart down — on Omar's phone in his hand",
+    "FRIEND (V.O.): She's not coming, man.",
+    "Wordless montage, Omar in every shot: a red day he shakes off, a small first win, another late night, a bigger win, then his own food truck with a line round the block.",
+    "★ fomo screen: Token chart up — on Omar's phone in his hand, a phone ding",
+    "SCENE 3 — INT. ROOFTOP RESTAURANT — NIGHT, ONE YEAR LATER",
+    "Omar's table is full; the friend raises a glass to him.",
+    "FRIEND: Told you she'd regret it.",
+    "★ fomo screen: Home (rich) — Omar holds his phone up to the camera, the fomo logo clear",
+    "OMAR: Want to trade like me? Download fomo through the link in my bio."
+   ],
+   "good": [
+    "Every character who speaks or appears in more than one shot is a slot under the script's name (Reed, 2026-10-27): Omar, the friend and the waiter; the diners and the full table are background."
+   ],
+   "expect": {
+    "slots_named": [
+     "Omar",
+     "Friend",
+     "Waiter"
+    ],
+    "slots_absent": [
+     "crowd",
+     "guest",
+     "diners"
+    ]
+   }
   }
  ]
 }

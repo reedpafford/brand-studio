@@ -51,7 +51,7 @@ export function changedSnippets(before: string, after: string, around = 5, most 
   return groups.slice(0, most).map((g) => ({ before: g.filter((p) => p.kind !== "new"), after: g.filter((p) => p.kind !== "gone") }));
 }
 
-const Words = ({ parts }: { parts: Part[] }) => (
+export const Words = ({ parts }: { parts: Part[] }) => (
   <>
     {parts.map((p, i) =>
       p.kind === "gone" ? (

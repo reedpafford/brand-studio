@@ -1,6 +1,10 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-27 04:04 · Decision (#554, Reed): replaces the logo end card of #540: no end card and no logo overlay; the CTA shot shows the character holding the phone up to camera, with clear fomo branding on the screen
+- 2026-10-27 03:29 · Decision (#550, Reed): Bulk create also takes several video files dropped at once, each its own draft, in the same queue as reel links
+- 2026-10-27 03:01 · Agents (#544): Builder-Server-2 replaces Builder-Server in the session table (ops/AGENTS.md)
+- 2026-10-27 02:58 · Decisions (#540, Reed): a video whose end line is the CTA ends on the brand's real logo (done at the stitch step, no AI, per-brand setting, on for fomo first); app screens are shown in the character's hand, never a flat full-frame screenshot; montage payoffs are invented per video, never a fixed sequence
 - 2026-10-26 23:55 · Decisions (#514, #520, Reed): clip pictures are attached in code, never by the AI (a clip or frame blocks only when a look truly isn't approved); Approve all on every per-item approval list; no problem may block without a one-click fix on the same screen (also in ops/AGENTS.md and the QA and Designer checklists)
 - 2026-10-26 21:49 · Decisions (#501, #503, Reed): archiving a brand only hides it (running work is not stopped); the QA Owner test account is removed; Clips never dead-ends (Rewrite clip prompts for stale clips, automatic after a storyboard or breakdown change, takes kept); Approve all on Storyboard and Clips, with Undo
 - 2026-10-26 21:45 · Spend (#502): two script-writer evals approved by Reed, about $0.25 in all, logged in ops/SPEND.md
@@ -8,6 +12,23 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-27 04:04 · #554 ops: Reed replaces the logo end card with branded phone-to-camera on the CTA shot merged (by the Producer)
+- 2026-10-27 04:03 · #541 Clips: a free Fix this clip's prompt for a clip with a blocking problem merged
+- 2026-10-27 03:44 · #536 Assets: a role whose Cast & places character was deleted offers Make a look or Pick another merged
+- 2026-10-27 03:38 · #546 Prompts: screens on the phone in hand, and new montage payoffs for each video merged
+- 2026-10-27 03:30 · #551 spec: Bulk create takes several video files too merged
+- 2026-10-27 03:29 · #550 ops: Reed's decision on dropping several video files into Bulk create merged (by the Producer)
+- 2026-10-27 03:26 · #538 Storyboard: Soften it for a frame the image model may refuse merged
+- 2026-10-27 03:15 · #548 docs: as built, saving a drawn still's prompt redraws it merged
+- 2026-10-27 03:11 · #545 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-27 03:01 · #543 spec: Clips' blocking problem can be kept anyway once the free fix is used merged
+- 2026-10-27 03:01 · #544 ops: Builder-Server-2 replaces Builder-Server in the session table merged (by the Producer)
+- 2026-10-27 03:00 · #542 docs: as built, "Remove X from this shot" has no Undo merged
+- 2026-10-27 02:58 · #540 ops: Reed's decisions on ending on the logo, screens in hand, and montage variety merged (by the Producer)
+- 2026-10-27 02:58 · #539 Timers count up again: every server time says it is UTC merged
+- 2026-10-27 02:33 · #535 A shot with no script lines no longer breaks the Breakdown page merged
+- 2026-10-27 02:14 · #537 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-27 02:14 · #531 Breakdown problems: a free one-click fix beside each, Fix N problems for all, with Undo merged
 - 2026-10-27 01:45 · #534 Edit shot can name what the video doesn't have (server) merged
 - 2026-10-27 01:27 · #529 No dead ends (part 2): Soften it for frames, and a free Fix this clip's prompt (server) merged
 - 2026-10-27 01:21 · #526 Approve all on Variations: the written drafts, with Undo merged
