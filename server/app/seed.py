@@ -196,7 +196,7 @@ def moment_problems(db: Session) -> int:
     from app.prompts.schemas import Breakdown
     from app.script_preview import stand_in_project
 
-    said = re.compile(r"^shot (\S+): '.+' moment without its screen$")
+    said = re.compile(r"(?i)^(?:c\d+: )?shot (\S+): '.+' moment without its screen$")  # as saved
 
     def again(project: Project, data: dict, problems: list[str]) -> list[str] | None:
         if not any(said.match(p) for p in problems or []):
@@ -229,6 +229,50 @@ def moment_problems(db: Session) -> int:
             draft.breakdown_problems, changed = new, changed + 1
     db.commit()
     return changed
+
+
+def why(db: Session) -> list[str]:
+    """What the two deploy repairs see, for someone to read on the live server (read-only,
+    changes nothing): every saved brand-moment check as it's stored, and each video's
+    end-line shot, whether it already shows a screen. `python -m app.seed why`"""
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.projects import Project
+    from app.models.script_library import ScriptDraft
+    from app.prompts.check import ends_on
+    from app.prompts.schemas import Breakdown
+
+    out = []
+    for draft in db.scalars(select(ScriptDraft)).all():
+        for p in draft.breakdown_problems or []:
+            if "moment without" in p.lower():
+                out.append(f"Script {draft.script_id} version {draft.slot}: saved check {p!r}")
+    for project in db.scalars(select(Project)).all():
+        row = db.scalar(
+            select(BreakdownVersion)
+            .where(BreakdownVersion.project_id == project.id)
+            .order_by(BreakdownVersion.id.desc())
+            .limit(1)
+        )
+        if row is None or not row.data:
+            continue
+        name = f"Video {project.id} (plan {row.id})"
+        out += [f"{name}: saved check {p!r}" for p in row.problems or []
+                if "moment without" in p.lower()]  # fmt: skip
+        brand = db.get(Brand, project.brand_id)
+        if not brand.end_line.strip():
+            continue
+        shots = [s for sc in Breakdown.model_validate(row.data).scenes for s in sc.shots]
+        said = [s for s in shots if s.line and ends_on(brand.end_line, s.line, brand.name) != "no"]
+        if not said:
+            last = next((s for s in reversed(shots) if s.line), None)
+            out.append(f"{name}: no shot says the end line on its own; the last line is "
+                       f"{last.line if last else None!r}")  # fmt: skip
+        elif said[-1].screen_ids:
+            out.append(f"{name}: end-line shot {said[-1].id} already shows {said[-1].screen_ids}")
+        else:
+            out.append(f"{name}: end-line shot {said[-1].id} shows no screen (would be fixed)")
+    db.rollback()
+    return out
 
 
 def repair_frames(db: Session) -> int:
@@ -410,6 +454,9 @@ def main(folder: str, slug: str = "fomo") -> None:
     settings = get_settings()
     storage = LocalStorage(settings.storage_dir)
     with make_sessionmaker(settings.database_url)() as db:
+        if folder == "why":  # read-only
+            print("\n".join(why(db)) or "Nothing to show.")
+            return
         if folder == "refresh":
             for workspace_id in db.scalars(select(Workspace.id)).all():
                 seed_brands(db, workspace_id, storage, settings.brand_assets_dir)

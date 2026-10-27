@@ -94,3 +94,24 @@ def test_a_deleted_plan_is_skipped_on_deploy(db, owner):
     db.execute(text("UPDATE script_drafts SET breakdown = 'null' WHERE id = :id"), {"id": draft.id})
     db.commit()
     assert moment_problems(db) == 0
+
+
+def test_the_repair_finds_the_check_in_its_said_form_and_why_shows_it(app, db, editor, setup):  # noqa: F811
+    """As people read it, a check can start "Shot 6.11" (a clip id dropped, then capitalised):
+    the repair still finds it. `why` shows what's saved, read-only, for the live server."""
+    from app.seed import why
+
+    editor.post(f"/projects/{setup['project']}/breakdown")
+    _run(app, db, FakeClaude(BREAKDOWN))
+    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    data = json.loads(json.dumps(BREAKDOWN))
+    data["scenes"][0]["shots"][0]["moment"] = "trading"
+    row.data, row.problems = data, ["Shot 1.1: 'trading' moment without its screen"]
+    db.commit()
+    seen = why(db)
+    assert f"Video {setup['project']} (plan {row.id}): saved check " in "\n".join(seen)
+    assert db.get(BreakdownVersion, row.id).problems == row.problems  # why changes nothing
+    assert moment_problems(db) == 1
+    assert db.get(BreakdownVersion, row.id).problems == [
+        "Advice: shot 1.1: 'trading' moment without its screen"
+    ]
