@@ -53,6 +53,7 @@ The server flags two roles that look like one person (similar descriptions, the 
 - **Merge** opens the dialog from §1 for the less specific role, with the named one already picked (the server suggests which way: `into`). The person can still pick another role in the list.
 - **They're different** dismisses the pair for good: the note and badges go, and the server never flags that pair again. Toast: "Kept as two roles." with **Undo** (8 s).
   - **On Assets** (Producer, 2026-10-27; follow-up to #590), **They're different** dismisses the pair for this video only: the note and badges go on this video, and the script's Cast still shows the pair. Same toast and Undo. Until its route lands, Assets shows the note with **Merge** only (as built in #590).
+  - **On Assets the note is one closed line** (as built in #590; Producer, 2026-10-27): `warning-soft`, `Users`, "These may be the same person: A and B.", 44px on phone, with `ChevronRight` turning to `ChevronDown`. Opening it shows the reason and the buttons. The badge on a role card opens it and scrolls to it. Cast keeps the full note.
 - **Several pairs:** one note per pair, at most three. More than three gather under "{n} more pairs may be the same person" (a disclosure, closed).
 - **It never blocks** Next or anything else. It's advice, so it's neutral in wording, and it never names Reed.
 
