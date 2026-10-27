@@ -181,12 +181,20 @@ def test_a_stored_id_is_never_shown_and_can_still_be_kept(app, db, editor, setup
     assert undone.json()["kept"] == []
 
 
-def test_a_left_over_id_is_named(app, db, editor, setup):  # noqa: F811
+def test_a_left_over_id_is_named_from_the_askers_workspace_only(
+    app,
+    db,
+    editor,
+    outsider,
+    setup,  # noqa: F811
+):
     """Reed: the character's name, not "a character": a role by its name, a look and a
-    screen by theirs."""
-    from app.advice import said
+    screen by theirs. QA on #517: never a name from another workspace."""
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
     from app.models.script_library import ScriptCastSlot
     from tests.conftest import upload
+    from tests.test_storyboard import _with_breakdown
 
     fomo = editor.get("/brands").json()[0]["id"]
     script = editor.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"})
@@ -196,8 +204,18 @@ def test_a_left_over_id_is_named(app, db, editor, setup):  # noqa: F811
     mia = editor.post(
         "/library/character", json={"name": "Mia", "image_file_ids": [upload(editor)]}
     ).json()["id"]
-    text = f"c1: slot:{slot.id} and char:{mia} share screen:{setup['screen']}; char:99999 left"
-    shown = said(text)
-    assert shown.startswith("Nate and Mia share ") and shown.endswith("; a character left")
+    rival = outsider.post(
+        "/library/character", json={"name": "Secret Rival", "image_file_ids": [upload(outsider)]}
+    ).json()["id"]
+    _with_breakdown(app, db, editor, setup)
+    bd = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    text = (f"Advice: c1: slot:{slot.id} and char:{mia} share screen:{setup['screen']}; "
+            f"char:{rival} and char:99999 left")  # fmt: skip
+    db.add(ProjectClip(project_id=setup["project"], breakdown_id=bd.id, clip_id="c1",
+                       seconds=5, prompt="x", references=[], problems=[text]))  # fmt: skip
+    db.commit()
+    (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()[0]["problems"]
+    assert shown.startswith("Advice: Nate and Mia share ")
     assert "a screen" not in shown  # the brand screen by its own name
-    assert not IDS.search(shown)
+    assert shown.endswith("; a character and a character left")  # another workspace's: gone
+    assert "Secret Rival" not in shown and not IDS.search(shown)
