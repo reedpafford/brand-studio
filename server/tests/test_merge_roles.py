@@ -26,13 +26,14 @@ def _script(owner):
     bd = copy.deepcopy(BREAKDOWN)
     bd["scenes"][0]["shots"][0]["character_ids"] = [f"slot:{ids['Mom']}"]
     bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{ids['His mother']}"]
+    bd["scenes"][0]["shots"][1].update(speaker="His mother", line="Dinner's ready, Nate.")
     assert owner.put(f"{base}/drafts/0/breakdown", json=bd).status_code == 200
     return base, ids["Mom"], ids["His mother"]
 
 
 def _shots(owner, base):
     plan = owner.get(f"{base}/drafts/0/breakdown").json()["breakdown"]
-    return [s["character_ids"] for s in plan["scenes"][0]["shots"]]
+    return [(s["speaker"], s["character_ids"]) for s in plan["scenes"][0]["shots"]]
 
 
 def _text(owner, base) -> str:
@@ -49,7 +50,7 @@ def test_merge_moves_shots_and_lines_and_undo_puts_them_back(owner, db):
 
     done = owner.post(f"{base}/cast/{mother}/merge", json={"into_slot_id": mom}).json()
     assert [s["role"] for s in done["cast"]] == ["Mom"]
-    assert _shots(owner, base) == [[f"slot:{mom}"], [f"slot:{mom}"]]
+    assert _shots(owner, base) == [("Mom", [f"slot:{mom}"]), ("Mom", [f"slot:{mom}"])]
     assert _text(owner, base).splitlines()[3] == "MOM (O.S.): Dinner's ready, Nate."
 
     assert owner.post(f"{base}/cast/merge/undo", json={"token": done["token"]}).status_code == 200
