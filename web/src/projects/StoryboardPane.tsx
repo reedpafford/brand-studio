@@ -75,10 +75,10 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
   const writeCost = rate("write-claude");
-  // A still is made with the default image model; its rate is kept under "image-<model>".
+  // A still costs what the server says on its frames (the same for every frame); before there are frames, the default image model's rate stands in.
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const stillModel = models.data?.find((m) => m.kind === "image" && m.default)?.id;
-  const imageCost = stillModel ? rate(`image-${stillModel}`) : undefined;
+  const imageCost = frames.data?.[0]?.still_credits ?? (stillModel ? rate(`image-${stillModel}`) : undefined);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
 
   const roles = useRoleNames(projectId);
