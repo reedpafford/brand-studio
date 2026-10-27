@@ -209,13 +209,21 @@ def _look(db: Session, ref: str):
 
 
 def _recast(db: Session, text: str, swap: dict[str, str]) -> str:
-    """The old look's name and description swapped for the new one's (free)."""
+    """The old look's name and description swapped for the new one's (free). The words in
+    brackets after the person's name describe the old look ("Kimchi (cap, tee, chain)"), so
+    they go: the new look's sheet sets the face and outfit (QA-Live 6, rule 10)."""
     for was, now in swap.items():
         a, b = _look(db, was), _look(db, now)
-        if a and b:
+        slot = db.get(ScriptCastSlot, int(was[5:])) if was.startswith("slot:") else None
+        if b is None:
+            continue
+        if a:  # a look's name, never a role's: a role's name is in the dialogue too
             text = re.sub(rf"(?<!\w){re.escape(a.name)}(?!\w)", b.name, text)
-            if a.notes and b.notes:
-                text = text.replace(a.notes, b.notes)
+        for notes in (a.notes if a else "", slot.description if slot else ""):
+            if notes and b.notes:
+                text = text.replace(notes, b.notes)
+        for name in {b.name, *([short(slot.role)] if slot else [])} - {""}:
+            text = re.sub(rf"(?<!\w)({re.escape(name)})\s*\([^)]*\)(?!\s*:)", r"\1", text)
     return text
 
 
