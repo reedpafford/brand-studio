@@ -264,7 +264,9 @@ export function BreakdownView(props: {
       // The id goes to the server (two unknown people in one shot stay apart); the sentence is made here, in words.
       const { data, error } = await api.POST("/projects/{project_id}/shots/{shot_id}/remove-ref", { params: { path: { project_id: projectId, shot_id: shotId } }, body: { kind, name: ref } });
       if (!data) throw new Error(errorText(error));
-      return { fixed: [`Removed ${name} from shot ${shotId}.`] };
+      // There is no Undo (the video doesn't have them), so the toast says how to use them again.
+      const again = { character: "add them in Cast & places, then pick them in this shot", place: "add it in Cast & places, then pick it in this shot", screen: "add it to the brand's screens, then pick it in this shot" }[kind];
+      return { fixed: [`Removed ${name} from shot ${shotId}. To use ${kind === "character" ? "them" : "it"} again, ${again}.`] };
     },
     refresh: refreshAll,
   });

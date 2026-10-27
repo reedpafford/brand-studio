@@ -451,7 +451,7 @@ test("a shot that names someone the video doesn't have offers a free Remove by n
   await userEvent.click(screen.getByRole("button", { name: "Remove Nate from this shot" }));
   // The id goes to the server so two unknown people stay apart; the toast uses the name, never the id.
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/shots/1.1/remove-ref")?.body).toEqual({ kind: "character", name: "char:99" }));
-  expect(await screen.findByText("Removed Nate from shot 1.1.")).toBeInTheDocument();
+  expect(await screen.findByText("Removed Nate from shot 1.1. To use them again, add them in Cast & places, then pick them in this shot.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Undo" })).toBeNull(); // the server can't put back a name the video doesn't have
 });
 
@@ -512,4 +512,17 @@ test("when the server refuses an Undo, the person is told why in its words", asy
   await userEvent.click(within(box).getByRole("button", { name: `Add it to a shot: ${lost}` }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   expect(await screen.findByText("The breakdown changed since. Fix it by hand.")).toBeInTheDocument();
+});
+
+test("removing a place or a screen the video doesn't have says how to use it again, in its own words", async () => {
+  const gone = breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({ place_id: "place:99", screen_ids: ["screen:98"] }), shot({ id: "1.2" })] }] } });
+  fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, { ...gone, unknown_names: { "place:99": "Bin Lot", "screen:98": "Chart up" } }],
+    "POST /projects/9/shots/1.1/remove-ref": [200, { ...breakdown(), fixed: [] }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Remove Bin Lot from this shot" }));
+  expect(await screen.findByText("Removed Bin Lot from shot 1.1. To use it again, add it in Cast & places, then pick it in this shot.")).toBeInTheDocument();
 });
