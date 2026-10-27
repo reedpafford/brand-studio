@@ -1,4 +1,12 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-27 17:21 · #621 Tests: duplicates the route guard and sibling tests already cover removed (Steward clean-up) merged
+- 2026-10-27 17:16 · #620 A never-written clip points to the priced rewrite once its free fix is used merged
+- 2026-10-27 16:51 · #618 Server: two unused endpoints and four finished deploy repair steps removed merged
+- 2026-10-27 16:45 · #617 Clip shape repaired free on save and on open; free fix capped once merged
+- 2026-10-27 16:41 · #612, #613 Docs: stale v1 screen specs, built plans, duplicate tokens, unpicked redesign directions and the tezu scrape removed merged
+- 2026-10-27 16:39 · #616 Prompts follow the Current rules: leftover old rules removed merged
+- 2026-10-27 16:30 · Decision (#615, Reed): no "Save to Cast & places" for looks made for a video or script; Reed remakes a look in Cast & places himself (Current rules 12) merged
+- 2026-10-27 16:24 · #611 ops: HANDOFF/LOG refresh, who-is-on-what corrected merged (by the Producer)
 - 2026-10-27 16:35 · #610 ops: HANDOFF/LOG refresh (35-line HANDOFF) merged (by the Producer)
 - 2026-10-27 16:30 · #606 "Use the real image" is cleared when its shot is replaced merged
 - 2026-10-27 16:25 · HANDOFF rewritten to 60 lines: the long Built history and decision notes are now a short summary pointing here and to DECISIONS Current rules; spend detail stays in ops/SPEND.md
