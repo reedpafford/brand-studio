@@ -319,8 +319,10 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
               onRender={(note) => render.mutate({ frame: f, note })}
               onApprove={(yes) => approve.mutate({ frame: f, yes })}
               onSave={(prompt) => edit.mutate({ frame: f, prompt })}
-              softening={soften.isPending}
-              softened={softenedNow[f.id] ?? ((f.softened as Softened | null | undefined) ?? null)}
+              softening={soften.isPending && soften.variables?.id === f.id}
+              undoing={edit.isPending && edit.variables?.frame.id === f.id}
+              // The note is for the softened prompt: once Undo puts the earlier one back it goes (the server keeps the record).
+              softened={[softenedNow[f.id] ?? (f.softened as Softened | null | undefined) ?? null].find((w) => w && w.after === f.prompt) ?? null}
               softenedBySelf={!softenedNow[f.id]}
               onSoften={() => soften.mutate(f)}
               onUndoSoften={(before) => undoSoften(f, before)}
@@ -362,6 +364,7 @@ function FrameCard(props: {
   onApprove: (yes: boolean) => void;
   onSave: (prompt: string) => void;
   softening: boolean;
+  undoing: boolean;
   softened: Softened | null;
   softenedBySelf: boolean;
   onSoften: () => void;
@@ -449,7 +452,7 @@ function FrameCard(props: {
           ))}
         </ul>
       )}
-      {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.softening} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
+      {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.undoing} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
       <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${f.clip_id}`} />
       {editing !== null ? (
         <div className="space-y-2">
