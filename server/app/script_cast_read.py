@@ -172,6 +172,7 @@ def save_cast_slots(db: Session, job: Job) -> None:
         if not slot.description:
             slot.description, slot.guessed = made.description, list(made.guessed)
         slot.appears_in = sorted(set(made.appears_in))
+        slot.may_be_same_as = made.may_be_same_as.strip()[:120]  # the editor decides
         order.append(slot)
         done[key] = slot
     for slot in have.values():
