@@ -1,4 +1,4 @@
-"""Contrast check for docs/design/redesign/phase3/tokens.css (WCAG 2.2 AA). Run: python3 contrast.py"""
+"""Contrast check for web/src/styles/tokens.css (WCAG 2.2 AA). Run: python3 contrast.py"""
 def lum(h):
     h=h.lstrip('#'); r,g,b=[int(h[i:i+2],16)/255 for i in (0,2,4)]
     f=lambda c: c/12.92 if c<=0.03928 else ((c+0.055)/1.055)**2.4
