@@ -11,6 +11,7 @@ from pathlib import Path
 
 from app.catalogue import get_model
 from app.prompts import SCHEMAS, check, required, schemas
+from evals import checks
 
 CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
 
@@ -140,10 +141,10 @@ def score(out: Path, case: dict) -> list[str]:
             words = len(" ".join(spoken).split())
             if not lo <= words <= hi:
                 problems.append(f"draft {i}: {words} spoken words, expected {lo}–{hi}")
-            problems += [f"draft {i}: {p}" for p in check.echo_lines(draft.script)]
+            problems += [f"draft {i}: {p}" for p in checks.echo_lines(draft.script)]
             for earlier, whose in ((ref_montage, "the reference's"), (landed, "a recent video's")):
-                problems += [f"draft {i}: {p}" for p in check.repeated_payoffs(
-                    check.montage_text(draft.script), earlier, whose)]  # fmt: skip
+                problems += [f"draft {i}: {p}" for p in checks.repeated_payoffs(
+                    checks.montage_text(draft.script), earlier, whose)]  # fmt: skip
             problems += [f"draft {i}: {p}" for p in check.reference_lines(
                 draft.script, ref_lines, case.get("new_lines", False))]  # fmt: skip
             if speakers is not None:
@@ -168,8 +169,8 @@ def score(out: Path, case: dict) -> list[str]:
         in_montage = {n for n, x in enumerate(lines, 1) if "montage" in x.lower()}
         montage = " ".join(s.action for s in shots if in_montage & set(s.script_lines))
         if "script_draft" in answers:  # an editor's own script may keep its payoffs
-            problems += check.repeated_payoffs(montage, ref_montage, "the reference's")
-        problems += check.repeated_payoffs(montage, landed, "a recent video's")
+            problems += checks.repeated_payoffs(montage, ref_montage, "the reference's")
+        problems += checks.repeated_payoffs(montage, landed, "a recent video's")
         for n, sid in exp.get("screen_lines", {}).items():
             if not any(int(n) in s.script_lines and sid in s.screen_ids for s in shots):
                 problems.append(f"expected {sid} in the shot for line {n}")
@@ -188,7 +189,7 @@ def score(out: Path, case: dict) -> list[str]:
         if cp := answers.get("clip_prompts"):
             limits = video.max_reference_images, video.max_reference_audios
             problems += check.clip_prompts(one_logo(bd, brand["screens"]), cp, *limits)
-            problems += [f"{c.clip_id}: {p}" for c in cp.clips for p in check.unlabelled(c.prompt)]
+            problems += [f"{c.clip_id}: {p}" for c in cp.clips for p in checks.unlabelled(c.prompt)]
             shown = " ".join(check.QUOTED.sub("", c.prompt) for c in cp.clips).lower()
             problems += [f"clip prompts say '{w}' outside the dialogue"
                          for w in exp.get("clip_absent", []) if w in shown]  # fmt: skip
@@ -200,12 +201,12 @@ def score(out: Path, case: dict) -> list[str]:
         end = brand["brand"].get("end_line", "")
         problems += check.variations(script, v, screens, end, never, case["count"], names)
         for i, x in enumerate(v.variations, 1):
-            problems += [f"variation {i}: {p}" for p in check.echo_lines(x.script)]
-            again = check.repeated_payoffs(
-                check.montage_text(x.script), check.montage_text(script), "the original's"
+            problems += [f"variation {i}: {p}" for p in checks.echo_lines(x.script)]
+            again = checks.repeated_payoffs(
+                checks.montage_text(x.script), checks.montage_text(script), "the original's"
             )
-            again += check.repeated_payoffs(
-                check.montage_text(x.script), landed, "a recent video's"
+            again += checks.repeated_payoffs(
+                checks.montage_text(x.script), landed, "a recent video's"
             )
             problems += [f"variation {i}: {p}" for p in again]
     if cs := answers.get("cast_slots"):
