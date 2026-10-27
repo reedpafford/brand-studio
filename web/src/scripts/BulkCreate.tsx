@@ -33,6 +33,14 @@ export function parseList(text: string): Row[] {
     });
 }
 
+/** What is being read: "7 reels", or "4 reel links and 3 videos" when both kinds are in the queue. */
+function reading(kinds: { [key: string]: number }, total: number) {
+  const links = kinds.links ?? 0;
+  const videos = kinds.videos ?? 0;
+  if (links > 0 && videos > 0) return `${links} reel link${links === 1 ? "" : "s"} and ${videos} video${videos === 1 ? "" : "s"}`;
+  return `${total} reel${total === 1 ? "" : "s"}`;
+}
+
 /** Reed's many-at-once: rows become drafts first (nothing is written), then Write all asks Claude for every script at one price. */
 export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; onClose: () => void; uploader?: Uploader }) {
   const [rows, setRows] = useState<Row[]>([empty(), empty(), empty()]);
@@ -70,7 +78,13 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
     mutationFn: async () => {
       const { data, error } = await api.POST("/scripts/bulk", {
         body: mode === "links"
-          ? { scripts: linkList.map((url) => ({ brand_id: brandId, reel_url: url, description: "", notes: "", reference_replace: change.trim(), new_lines: newLines, text: "" })) }
+          ? {
+              // One ordered list: the links, then the uploaded videos in the order they were added. A refused upload has no id and is never sent.
+              scripts: [
+                ...linkList.map((url) => ({ brand_id: brandId, reel_url: url })),
+                ...files.ready.flatMap((f) => (f.id === null ? [] : [{ brand_id: brandId, upload_id: f.id }])),
+              ].map((row) => ({ ...row, description: "", notes: "", reference_replace: change.trim(), new_lines: newLines, text: "" })),
+            }
           : { scripts: rows.map((r) => ({ brand_id: brandId, title: r.title.trim(), description: r.description.trim(), notes: "", reference_replace: "", text: "", ...(r.reference ? { reference_id: r.reference } : {}) })) },
       });
       if (!data) throw new Error(errorText(error));
@@ -112,7 +126,10 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
           <ul className="space-y-2">
             {made.map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-2">
-                <span className="min-w-0 break-words">{m.title}</span>
+                <span className="min-w-0 break-words">
+                  {m.title}
+                  {m.reel?.file_name && <span className="block text-sm text-muted">{m.reel.file_name}</span>}
+                </span>
                 {reels ? <ReelChip reel={(estimate.data?.failed ?? []).includes(m.id) ? { source: "link", ...m.reel, status: "failed", seconds: null, fetch_error: m.reel?.fetch_error } : m.reel} /> : <Badge>Writing</Badge>}
               </li>
             ))}
@@ -124,7 +141,7 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
             {estimate.data && (
               <p className="text-sm text-muted">
                 {reels && estimate.data.reading > 0
-                  ? `About ${wholeCredits(estimate.data.credits)} credits: reading ${estimate.data.reading} reel${estimate.data.reading === 1 ? "" : "s"} (${wholeCredits(estimate.data.read_credits)}) and writing ${estimate.data.writing} script${estimate.data.writing === 1 ? "" : "s"} and cast${estimate.data.writing === 1 ? "" : "s"} (${wholeCredits(estimate.data.write_credits)})`
+                  ? `About ${wholeCredits(estimate.data.credits)} credits: reading ${reading(estimate.data.reels, estimate.data.reading)} (${wholeCredits(estimate.data.read_credits)}) and writing ${estimate.data.writing} script${estimate.data.writing === 1 ? "" : "s"} and cast${estimate.data.writing === 1 ? "" : "s"} (${wholeCredits(estimate.data.write_credits)})`
                   : `About ${wholeCredits(estimate.data.credits)} credits (${estimate.data.count} script${estimate.data.count === 1 ? "" : "s"} × ${wholeCredits(estimate.data.credits / Math.max(estimate.data.count, 1))})`}
               </p>
             )}

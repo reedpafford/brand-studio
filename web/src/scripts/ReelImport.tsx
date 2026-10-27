@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleAlert, Film, Link as LinkIcon, LoaderCircle, RotateCcw, Upload } from "lucide-react";
+import { Check, CircleAlert, FileVideoCamera, Film, Link as LinkIcon, LoaderCircle, RotateCcw, Upload } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -196,7 +196,10 @@ const SpinIcon = (p: { size?: number; strokeWidth?: number; className?: string; 
 export function ReelChip({ reel }: { reel?: ReelRow | null }) {
   if (!reel) return <Badge icon={Film}>Reel</Badge>;
   if (reel.status === "failed") return <span title={reel.fetch_error ?? undefined}><Badge tone="danger" icon={CircleAlert}>Couldn't get the reel</Badge></span>;
+  // An uploaded video is already here: it shows its length at once, and never "Getting the reel…".
+  if (reel.source === "file" && reel.status !== "reading") return <Badge icon={FileVideoCamera}>{reel.seconds ? `Video · ${Math.round(reel.seconds)} s` : "Video"}</Badge>;
   if (reel.status === "preparing" || reel.status === "reading") return <Badge icon={SpinIcon}>{reel.status === "reading" ? "Reading the reel…" : "Getting the reel…"}</Badge>;
+  if (reel.source === "file") return <Badge icon={FileVideoCamera}>{reel.seconds ? `Video · ${Math.round(reel.seconds)} s` : "Video"}</Badge>;
   return <Badge icon={Film}>{reel.seconds ? `Reel · ${Math.round(reel.seconds)} s` : "Reel"}</Badge>;
 }
 

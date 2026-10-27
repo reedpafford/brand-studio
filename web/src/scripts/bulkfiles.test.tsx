@@ -139,3 +139,49 @@ test("closing while files are still uploading asks first; Keep uploading is the 
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Stop and close" }));
   expect(onClose).toHaveBeenCalled();
 });
+
+test("links and videos go to the server as one ordered list, a refused video is never sent, and the drafts say Link or Video with the price for both", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    "GET /auth/me": [200, owner],
+    "GET /references": [200, []],
+    "GET /credits/me": [200, null],
+    "POST /scripts/bulk": [201, [
+      { id: 11, title: "Untitled reel", reel: { status: "preparing", seconds: null, source: "link", url: "https://www.instagram.com/reel/Abc123/", file_name: null } },
+      { id: 12, title: "Untitled reel", reel: { status: "preparing", seconds: 38, source: "file", url: null, file_name: "bo-tries-salmon.mp4" } },
+    ]],
+    "POST /scripts/write/estimate": [200, { count: 2, credits: 49, credits_left: null, reading: 2, read_credits: 7, writing: 2, write_credits: 42, waiting: [], failed: [], reels: { links: 1, videos: 1 } }],
+  });
+  const up = stand();
+  open(up.uploader);
+  await toReels();
+  await userEvent.type(screen.getByLabelText("Paste reel links, one per line"), "https://www.instagram.com/reel/Abc123/");
+  await drop(video("bo-tries-salmon.mp4"), video("refused.mp4"));
+  up.pending[0].done({ id: 7, seconds: 38 });
+  up.pending[1].done({ id: null, seconds: 120, problem: "This video is 2 minutes long; reels up to 90 seconds can be read." });
+  expect(await screen.findByText("This video is 2 minutes long; reels up to 90 seconds can be read.")).toBeInTheDocument();
+  expect(screen.getByText("1 file won't be added.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Make 2 drafts" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/bulk")?.body).toMatchObject({
+    scripts: [{ brand_id: 1, reel_url: "https://www.instagram.com/reel/Abc123/" }, { brand_id: 1, upload_id: 7 }],
+  }));
+  expect((calls.find((c) => c.key === "POST /scripts/bulk")?.body as { scripts: unknown[] }).scripts).toHaveLength(2); // the refused one was left out
+  expect(await screen.findByText("Video · 38 s")).toBeInTheDocument();
+  expect(screen.getByText("bo-tries-salmon.mp4")).toBeInTheDocument();
+  expect(screen.getByText(/About 49 credits: reading 1 reel link and 1 video \(7\) and writing 2 scripts and casts \(42\)/)).toBeInTheDocument();
+});
+
+test("the server's plain sentence for a batch that is still being prepared is shown as it comes", async () => {
+  setViewport(1440);
+  fakeServer({
+    "GET /auth/me": [200, owner],
+    "GET /references": [200, []],
+    "GET /credits/me": [200, null],
+    "POST /scripts/bulk": [409, { detail: "Your last reels are still being prepared. Try again when they're done." }],
+  });
+  open(stand().uploader);
+  await toReels();
+  await userEvent.type(screen.getByLabelText("Paste reel links, one per line"), "https://www.instagram.com/reel/Abc123/");
+  await userEvent.click(screen.getByRole("button", { name: "Make 1 draft" }));
+  expect(await screen.findByText("Your last reels are still being prepared. Try again when they're done.")).toBeInTheDocument();
+});

@@ -1270,7 +1270,7 @@ test("Bulk create, Reel links: one link per line, bad lines are named and block 
     ...base,
     "GET /scripts": [200, []],
     "POST /scripts/bulk": [201, [{ id: 11, title: "Untitled reel", reel: { status: "ready", seconds: 45 } }, { id: 12, title: "Untitled reel", reel: { status: "failed", seconds: null, fetch_error: "Instagram didn't let us download it." } }]],
-    "POST /scripts/write/estimate": [200, { count: 2, credits: 35, credits_left: null, reading: 1, read_credits: 5, writing: 2, write_credits: 30, waiting: [], failed: [12] }],
+    "POST /scripts/write/estimate": [200, { count: 2, credits: 35, credits_left: null, reading: 1, read_credits: 5, writing: 2, write_credits: 30, waiting: [], failed: [12], reels: { links: 1, videos: 0 } }],
     "POST /scripts/write": [201, [{ id: 1, status: "queued" }, { id: 2, status: "queued" }]],
   });
   open();

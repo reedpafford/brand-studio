@@ -17,7 +17,7 @@ export const videoUploader =
       req.onload = () => {
         try {
           const body = JSON.parse(req.responseText) as Reply;
-          if (req.status === 201) return resolve({ id: body.upload_id ?? null, seconds: body.seconds ?? null, problem: body.problem ?? null });
+          if (req.status === 201) return resolve({ id: body.upload_id ?? null, seconds: body.seconds ?? null, problem: body.problem || null }); // "" when the file is fine
           if (typeof body.detail === "string") return resolve({ id: null, seconds: null, problem: body.detail }); // 413 / 415: the server's own sentence
         } catch {
           /* not JSON: the upload didn't finish */

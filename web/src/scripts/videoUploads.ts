@@ -49,7 +49,8 @@ export function useFileQueue(uploader: Uploader, room: number, forget?: (id: num
       uploader(file, (percent) => patch(key, { percent }), stop.signal)
         .then((r) => {
           stops.current.delete(key);
-          if (r.problem) return patch(key, { status: "problem", problem: r.problem, id: r.id, canRetry: false });
+          if (r.problem) return patch(key, { status: "problem", problem: r.problem, id: null, canRetry: false }); // a refused upload has no id and is never sent
+          if (r.id === null) return patch(key, { status: "problem", problem: "The upload didn't finish.", canRetry: true });
           if (r.seconds !== null && r.seconds > MAX_SECONDS) return patch(key, { status: "problem", problem: "This one is longer than 90 seconds.", seconds: r.seconds, id: r.id, canRetry: false });
           patch(key, { status: "ready", percent: 100, seconds: r.seconds, id: r.id });
         })
