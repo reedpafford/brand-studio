@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import evals
 from app import prompts
 from app.prompts import check, schemas
 
@@ -206,6 +207,8 @@ def test_no_prompt_or_example_keeps_a_rule_reed_replaced():
         assert not [w for w in old if w in text], name
     for name in ("storyboard.md", "clip_prompts.md", "improve.md"):  # no figure asked of a screen
         assert "reads $" not in texts[name], name
+    cases = (Path(evals.__file__).parent / "cases.json").read_text()
+    assert "skyline arrival" not in cases and "ending on the skyline" not in cases  # rule 17
 
 
 def test_breakdown_check_keeps_a_clip_to_three_screens():
