@@ -863,3 +863,68 @@ test("on the video page too, a shot with no script lines shows no Show line butt
   const silent = await screen.findByLabelText("Shot 1.1");
   expect(within(silent).queryByRole("button", { name: /in the script$/ })).toBeNull();
 });
+
+const clipProblem = "c1: the prompt has no [Image1] for the first frame";
+const fixRoutes = {
+  ...toClips,
+  "GET /projects/9/clips/prompts/price?clip_id=c1": [200, { clip_ids: ["c1"], credits: 3 }] as [number, unknown],
+};
+
+test("a clip with a blocking problem has a free Fix this clip's prompt; it shows what changed, with Undo, and never makes a take", async () => {
+  setViewport(1440);
+  const routes: Record<string, [number, unknown]> = {
+    ...fixRoutes,
+    "POST /projects/9/clips/3/fix": [200, { fixed: true, before: "Bo sniffs", after: "[Image1] Bo sniffs", reason: "", clip: clip({}) }],
+    "PUT /projects/9/clips/3": [200, clip({})],
+  };
+  Object.defineProperty(routes, "GET /projects/9/clips", {
+    enumerable: true,
+    get: () => [200, [calls.some((c) => c.key === "POST /projects/9/clips/3/fix") && !calls.some((c) => c.key === "PUT /projects/9/clips/3")
+      ? clip({ prompt: "[Image1] Bo sniffs", prompt_ok: false, change: { note: "Fix this clip's prompt", status: "done", before: "Bo sniffs", after: "[Image1] Bo sniffs", unchanged: false } })
+      : clip({ prompt: "Bo sniffs", prompt_ok: true, problems: [clipProblem] })]],
+  });
+  const calls = fakeServer(routes);
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).getByText("Free")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Fix this clip's prompt" }));
+  expect(await screen.findByText("Fixed clip c1's prompt.")).toBeInTheDocument(); // the toast, with Undo
+  const note = await within(card).findByRole("note", { name: "Prompt fixed" });
+  expect(note).toHaveTextContent("After: [Image1] Bo sniffs");
+  expect(calls.some((c) => c.key.includes("/takes") || c.key.endsWith("/generate"))).toBe(false); // nothing was made
+  await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/clips/3")?.body).toMatchObject({ prompt: "Bo sniffs" }));
+});
+
+test("once the free rewrite is used, the clip says so and offers the priced Rewrite and Change this…, not the Fix again", async () => {
+  setViewport(1440);
+  fakeServer({ ...fixRoutes, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, problems: [clipProblem], free_fix_used: true })]] });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).queryByRole("button", { name: "Fix this clip's prompt" })).toBeNull();
+  expect(within(card).getByRole("alert")).toHaveTextContent("We couldn't fix this one. Try saying what should change in Change this…");
+  expect(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · 3 credits" })).toBeInTheDocument();
+  expect(within(card).getByLabelText("Change this…")).toBeInTheDocument();
+});
+
+test("when the server can't fix it, the card says why in the server's words", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...fixRoutes,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, problems: [clipProblem] })]],
+    "POST /projects/9/clips/3/fix": [409, { detail: "We couldn't fix this one automatically." }],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  await userEvent.click(within(card).getByRole("button", { name: "Fix this clip's prompt" }));
+  expect(await within(card).findByRole("alert")).toHaveTextContent("We couldn't fix this one automatically.");
+});
+
+test("a clip that is out of date keeps its own Rewrite and has no Fix this clip's prompt", async () => {
+  setViewport(1440);
+  fakeServer({ ...fixRoutes, "GET /projects/9/clips": [200, [clip({ stale: true, problems: [clipProblem] })]] });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(await within(card).findByRole("button", { name: /^Rewrite this clip's prompt/ })).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: "Fix this clip's prompt" })).toBeNull();
+});
