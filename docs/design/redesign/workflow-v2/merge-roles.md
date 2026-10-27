@@ -52,6 +52,7 @@ The server flags two roles that look like one person (similar descriptions, the 
   - Each of the two rows also gets the badge "May be the same as {other}" (warning). Tapping it scrolls to the note and outlines it for 1.5 s.
 - **Merge** opens the dialog from §1 for the less specific role, with the named one already picked (the server suggests which way: `into`). The person can still pick another role in the list.
 - **They're different** dismisses the pair for good: the note and badges go, and the server never flags that pair again. Toast: "Kept as two roles." with **Undo** (8 s).
+  - **On Assets** (Producer, 2026-10-27; follow-up to #590), **They're different** dismisses the pair for this video only: the note and badges go on this video, and the script's Cast still shows the pair. Same toast and Undo. Until its route lands, Assets shows the note with **Merge** only (as built in #590).
 - **Several pairs:** one note per pair, at most three. More than three gather under "{n} more pairs may be the same person" (a disclosure, closed).
 - **It never blocks** Next or anything else. It's advice, so it's neutral in wording, and it never names Reed.
 
@@ -63,5 +64,6 @@ The server flags two roles that look like one person (similar descriptions, the 
   - It refuses a role merged into itself, and roles from another script, in plain words.
 - **Flags:** the cast and assets replies carry `maybe_same: [{a_slot_id, b_slot_id, into_slot_id, why}]`, where `why` is the plain reason and `into_slot_id` is the role to keep.
   - `POST …/cast/maybe-same/dismiss {a_slot_id, b_slot_id}` dismisses a pair for good.
+  - On a video: `POST /projects/{id}/assets/maybe-same/dismiss {a_slot_id, b_slot_id}` dismisses the pair for that video only, with `DELETE` as its Undo (Builder-Server-3).
   - `DELETE` on it is the Undo.
 - A merged slot keeps its look record unchanged (not deleted, not archived). It's only unlinked from the role.
