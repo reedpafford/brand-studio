@@ -889,6 +889,19 @@ test("Pick another opens the Cast & places picker for the deleted role", async (
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
 });
 
+test("when the server clears the deleted character's id (library_item_id null), Pick another still opens the picker only when pressed", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...deletedRoutes, "GET /projects/9/assets": [200, [{ ...gone, library_item_id: null }]], "PUT /projects/9/assets/slots/3": [200, []] });
+  open();
+  const card = await screen.findByLabelText("Nate");
+  expect(within(card).getByText("Character deleted")).toBeInTheDocument();
+  expect(within(card).queryByLabelText("Use a Cast & places character")).toBeNull(); // closed until Pick another is pressed
+  await userEvent.click(within(card).getByRole("button", { name: "Pick another" }));
+  await userEvent.selectOptions(within(card).getByLabelText("Use a Cast & places character"), "5");
+  await userEvent.click(within(card).getByRole("button", { name: "Use this character" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
+});
+
 test("a role that is not deleted has no Character deleted badge or Pick another", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/assets": [200, [own({})]], "GET /projects/9/assets/missing-looks": noMissing });

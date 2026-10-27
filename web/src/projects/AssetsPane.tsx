@@ -241,8 +241,9 @@ function AssetCard({
   // Its Cast & places character was deleted: the slot is stuck until a look is made or another character is picked.
   const deleted = asset.library_deleted && !asset.locked;
   const others = (characters.data ?? []).filter((c) => c.id !== id).length; // Cast & places characters to pick instead
+  // A deleted character also has no id any more, but that role has its own two fixes (Make a look, Pick another).
   const slotLeft =
-    asset.ref.startsWith("slot:") && asset.library_item_id === null;
+    asset.ref.startsWith("slot:") && asset.library_item_id === null && !deleted;
 
   return (
     <section aria-label={title}>
