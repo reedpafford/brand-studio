@@ -1,4 +1,10 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-27 22:18 · #654 Montage trading screens get the brand's logo, not the chart screenshot (Current rules 14, 17) merged
+- 2026-10-27 22:12 · #656 Director: invented trading screens, the montage arc, and reactions that name the feeling (rules 14, 17) merged
+- 2026-10-27 22:08 · #653 Web: nextTheme, which only its own test used, removed merged
+- 2026-10-27 21:31 · Agents (#652): Builder-Server-5 replaces Builder-Server-3 and -4 in the session table (ops/AGENTS.md)
+- 2026-10-27 21:31 · #651 ops: HANDOFF/LOG refresh as of 6070b40 merged (by the Producer)
+- 2026-10-27 21:35 · Reed refunded Kel's 95 credits; Reed keeps the QA Editor account; Reed approved the Goth GF redraw (very similar, original character, very curvy), which QA-Live 6 is doing
 - 2026-10-27 21:25 · #648 A copyright-refused take says what to do, and warns after two refusals merged
 - 2026-10-27 21:23 · Decision (#650, Reed): montage and trading beats get the brand logo and an invented chart that follows the story; real screenshots only for the payoff/CTA moment; a montage is one climb with one dip (Current rules 14, 17) merged
 - 2026-10-27 21:23 · #649 Server: DELETE .../apply, which no screen calls, removed merged
