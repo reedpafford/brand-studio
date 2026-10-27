@@ -174,6 +174,23 @@ def test_app_screens_are_on_a_phone_in_hand_never_a_flat_on_screenshot():
             assert not re.search("fills the frame|flat-on", path.read_text()), path.name
 
 
+def test_the_sheet_owns_the_face_in_every_prompt():
+    """Reed (faces, #602), after docs/prompting/seedance-2.5.md §1-2 and nano-banana.md §2."""
+    clip = prompts.system("clip_prompts")
+    assert "the main character's sheet first" in clip
+    assert "set each face and outfit and override the first frame where they differ" in clip
+    assert "big glossy eyes" not in clip.split("Style: ", 1)[1].split("\n", 1)[0]
+    assert "Keep: Aiden's identity and clothing stable in every shot" in clip
+    for step in ("breakdown", "script_draft", "variations"):
+        assert "never a new costume" in prompts.system(step)
+    board = prompts.system("storyboard")
+    assert "the main character's first: the sheet is the main reference for the face" in board
+    _, cp = example("clip_prompts")
+    refs = next(x for x in cp.clips[0].prompt.splitlines() if x.startswith("References: "))
+    assert refs.index("override the first frame") < refs.index("[Image2] is Malik.")
+    assert "[Image1] is the first frame." in refs  # the server's fix-up keeps this sentence
+
+
 def test_breakdown_check_keeps_a_clip_to_three_screens():
     ex, bd = example("breakdown")
     script = script_of(ex)
