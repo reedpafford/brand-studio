@@ -50,7 +50,7 @@ def test_the_end_lines_shot_shows_the_balance_screen_on_the_heros_phone(app, db,
     row = db.query(BreakdownVersion).filter_by(project_id=project.id).one()
     row.data = _bd(mom)  # saved before this rule
     db.commit()
-    assert repair_cta_screens(db) == 1 and repair_cta_screens(db) == 0  # once, then nothing
+    assert repair_cta_screens(db)[0] == 1 and repair_cta_screens(db) == (0, 1, 0)  # then shown
     assert db.get(BreakdownVersion, row.id).data["scenes"][0]["shots"][1]["screen_ids"]
 
 

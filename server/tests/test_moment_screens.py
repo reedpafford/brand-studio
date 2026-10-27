@@ -73,7 +73,7 @@ def test_a_saved_false_blocker_is_said_again_on_deploy(app, db, editor, setup): 
     data["scenes"][0]["shots"][0]["moment"] = "trading"  # the Buy screen's moment, not shown
     row.data, row.problems = data, ["shot 1.1: 'trading' moment without its screen"]
     db.commit()
-    assert moment_problems(db) == 1 and moment_problems(db) == 0  # once, then nothing to do
+    assert moment_problems(db) == (1, 0) and moment_problems(db) == (0, 0)  # once, then nothing
     assert db.get(BreakdownVersion, row.id).problems == [
         "Advice: shot 1.1: 'trading' moment without its screen"
     ]
@@ -93,4 +93,23 @@ def test_a_deleted_plan_is_skipped_on_deploy(db, owner):
     db.commit()
     db.execute(text("UPDATE script_drafts SET breakdown = 'null' WHERE id = :id"), {"id": draft.id})
     db.commit()
-    assert moment_problems(db) == 0
+    assert moment_problems(db) == (0, 0)
+
+
+def test_the_repair_finds_the_check_in_its_said_form(app, db, editor, setup):  # noqa: F811
+    """As people read it, a check can start "Shot 6.11" (a clip id dropped, then capitalised):
+    the repair still finds it. One it can't read is counted as still blocking, for the log."""
+    editor.post(f"/projects/{setup['project']}/breakdown")
+    _run(app, db, FakeClaude(BREAKDOWN))
+    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    data = json.loads(json.dumps(BREAKDOWN))
+    data["scenes"][0]["shots"][0]["moment"] = "trading"
+    row.data, row.problems = data, ["Shot 1.1: 'trading' moment without its screen"]
+    db.commit()
+    assert moment_problems(db) == (1, 0)
+    assert db.get(BreakdownVersion, row.id).problems == [
+        "Advice: shot 1.1: 'trading' moment without its screen"
+    ]
+    row.problems = ["shot 9.9 (deleted): 'win' moment without its screen"]  # unreadable
+    db.commit()
+    assert moment_problems(db) == (0, 1)

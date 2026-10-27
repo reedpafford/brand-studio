@@ -92,3 +92,39 @@ export function useFindRoles(scriptId: number) {
   });
   return { price: rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit, running: running || start.isPending, problems: status.data?.problems ?? [], start };
 }
+
+export type Merged = components["schemas"]["Merged"];
+
+/** Merge a role into another (free), see what it would move first, undo it, and answer "These may be the same person". */
+export function useMergeRoles(scriptId: number) {
+  const queryClient = useQueryClient();
+  const path = { script_id: scriptId };
+  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-cast", scriptId] }), queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] })]);
+  const preview = async (slot: number, into: number) => {
+    const { data, error } = await api.GET("/scripts/{script_id}/cast/{slot_id}/merge/preview", { params: { path: { ...path, slot_id: slot }, query: { into } } });
+    if (!data) throw new Error(errorText(error));
+    return { ...data.moved, look_unused: data.look_unused };
+  };
+  const merge = async (slot: number, into: number) => {
+    const { data, error } = await api.POST("/scripts/{script_id}/cast/{slot_id}/merge", { params: { path: { ...path, slot_id: slot } }, body: { into_slot_id: into } });
+    if (!data) throw new Error(errorText(error));
+    await refresh();
+    return { moved: { ...data.moved, look_unused: data.look_unused }, token: data.token };
+  };
+  const undoMerge = async (token: number) => {
+    const { error, response } = await api.POST("/scripts/{script_id}/cast/merge/undo", { params: { path }, body: { token } });
+    if (!response.ok) throw new Error(errorText(error));
+    await refresh();
+  };
+  const dismiss = async (a: number, b: number) => {
+    const { error, response } = await api.POST("/scripts/{script_id}/cast/maybe-same/dismiss", { params: { path }, body: { a_slot_id: a, b_slot_id: b } });
+    if (!response.ok) throw new Error(errorText(error));
+    await refresh();
+  };
+  const undoDismiss = async (a: number, b: number) => {
+    const { error, response } = await api.DELETE("/scripts/{script_id}/cast/maybe-same/dismiss", { params: { path }, body: { a_slot_id: a, b_slot_id: b } });
+    if (!response.ok) throw new Error(errorText(error));
+    await refresh();
+  };
+  return { preview, merge, undoMerge, dismiss, undoDismiss };
+}
