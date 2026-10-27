@@ -310,6 +310,8 @@ def repair_unknown_cast(db: Session) -> tuple[int, list[str]]:
         if breakdown.unknown_ids(db, project, bd):
             still.append(f"Still names someone it doesn't have: {project.name}")
     for draft in db.scalars(select(ScriptDraft).where(ScriptDraft.breakdown.is_not(None))).all():
+        if not draft.breakdown:  # a deleted plan is stored as JSON null, which passes the filter
+            continue
         script = db.get(Script, draft.script_id)
         stand_in = script_preview.stand_in_project(db, script, draft)
         also = script_preview.live_looks(db, script)
