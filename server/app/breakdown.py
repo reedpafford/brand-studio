@@ -328,6 +328,8 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     sheets. A screen shot that gains a person has "Use the real image" turned off (it was only
     offered as a shot with nobody in it). Free and idempotent: when Assets opens, and on
     deploy. One plain line per change."""
+    from app import merge_roles
+    from app.cast_roles import merge_shots, short
     from app.models.clips import ProjectClip
     from app.models.script_library import Script, ScriptDraft
     from app.routes.scripts import latest
@@ -336,24 +338,31 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     script = db.get(Script, draft.script_id) if draft else None
     if script is None:
         return []
-    out = [f"{script.title}: added {name} to the cast" for name in add_speakers(db, script)]
     row = db.scalar(
         select(BreakdownVersion)
         .where(BreakdownVersion.project_id == project.id)
         .order_by(BreakdownVersion.id.desc())
         .limit(1)
     )
+    bd = Breakdown.model_validate(row.data) if row else None
+    same = (lambda name: merge_roles.same_person(db, project, name, bd)[1]) if bd else None
+    out = [f"{script.title}: added {n} to the cast" for n in add_speakers(db, script, same)]
     words = latest(db, project)
     if row is None or words is None:
         return out
-    bd = Breakdown.model_validate(row.data)
-    if not (added := show_roles(db, project, bd, words.text)):
+    merged = []  # a role that is a locked or cast one by another name, when that's certain
+    for slot, into in merge_roles.video_pairs(db, project, bd)[0].items():
+        merge_shots(db, project, bd, slot, into)
+        project.slot_merged = {**(project.slot_merged or {}), str(slot.id): into.id}
+        merged.append(f"Advice: {short(slot.role) or slot.role} is {short(into.role) or into.role}"
+                      ", one role in this video.")  # fmt: skip
+    if not (added := show_roles(db, project, bd, words.text)) and not merged:
         return out
     counts: dict[str, int] = {}
     for name in (n for names in added.values() for n in names):
         counts[name] = counts.get(name, 0) + 1
-    notes = [f"Advice: {name} now appears in {'1 shot' if n == 1 else f'{n} shots'}."
-             for name, n in counts.items()]  # fmt: skip
+    notes = merged + [f"Advice: {name} now appears in {'1 shot' if n == 1 else f'{n} shots'}."
+                      for name, n in counts.items()]  # fmt: skip
     row.data = bd.model_dump()
     row.problems = problems(db, project, words.text, bd) + notes
     off = 0
@@ -378,7 +387,7 @@ def would_show(db: Session, project: Project, data: dict, shot_ids=None) -> list
     from app.models.script_library import Script, ScriptDraft
     from app.routes.scripts import latest
 
-    bd, words = Breakdown.model_validate(data), latest(db, project)
+    bd, words = as_roles(db, project, Breakdown.model_validate(data)), latest(db, project)
     if words is not None:
         show_roles(db, project, bd, words.text)
     shots = [s for scene in bd.scenes for s in scene.shots if shot_ids is None or s.id in shot_ids]
@@ -391,13 +400,14 @@ def would_show(db: Session, project: Project, data: dict, shot_ids=None) -> list
     return out
 
 
-def add_speakers(db: Session, script) -> list[str]:
+def add_speakers(db: Session, script, same=None) -> list[str]:
     """The script's speakers the cast read missed (or that it never had: a script from
-    before the cast read), added to its cast as roles. Their names."""
+    before the cast read), added to its cast as roles (not one `same(name)` says is a role
+    already). Their names."""
     from app import script_cast_read
 
     slots = script_cast_read._slots(db, script)
-    new = script_cast_read.speaker_slots(db, script, slots)
+    new = script_cast_read.speaker_slots(db, script, slots, same)
     for position, slot in enumerate(new, len(slots) + 1):
         slot.position = position
     db.flush()

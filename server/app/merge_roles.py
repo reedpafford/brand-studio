@@ -149,6 +149,17 @@ def undo(db: Session, script: Script, token: int) -> None:
     db.flush()
 
 
+def _said(db: Session, script: Script) -> dict[str, set[tuple[int, str]]]:
+    """Every spoken line of the script's versions and who says it: {words: {(version, label)}}."""
+    out: dict[str, set] = {}
+    for draft in _drafts(db, script):
+        for line in draft.text.splitlines():
+            if check.SPEAKER.match(line) and (m := LABEL.match(line)):
+                words = " ".join(re.sub(r"[^a-z0-9 ]", "", line[m.end() :].lower()).split())
+                out.setdefault(words, set()).add((draft.slot, m[2].strip()))
+    return out
+
+
 def _across_versions(db: Session, script: Script, slots: list[ScriptCastSlot]) -> list[tuple]:
     """Roles (the earlier one first) that are likely one person named differently in different
     versions (QA-Live, Marriage Rejection: GROOM in A, NOAH in C), with the reason: the same
@@ -161,13 +172,12 @@ def _across_versions(db: Session, script: Script, slots: list[ScriptCastSlot]) -
 
     said: dict[str, set] = {}
     speakers: dict[int, set] = {}
-    for draft in _drafts(db, script):
-        for line in draft.text.splitlines():
-            if check.SPEAKER.match(line) and (m := LABEL.match(line)) and (who := role(m[2])):
-                speakers.setdefault(draft.slot, set()).add(who)
-                words = re.sub(r"[^a-z0-9 ]", "", line[m.end() :].lower()).split()
-                if len(words) >= 3:
-                    said.setdefault(" ".join(words), set()).add((draft.slot, who))
+    for words, heard in _said(db, script).items():
+        for version, label in heard:
+            if who := role(label):
+                speakers.setdefault(version, set()).add(who)
+                if len(words.split()) >= 3:
+                    said.setdefault(words, set()).add((version, who))
     out = []
     for heard in said.values():
         out += [(a, b, "They say the same line in different versions of the script.")
@@ -183,6 +193,86 @@ def _across_versions(db: Session, script: Script, slots: list[ScriptCastSlot]) -
                 out.append((a, b, f"Both are the one {lead} speaks to in different versions."))
     first = sorted(out, key=lambda p: 0 if p[2].startswith("They say") else 1)
     return [(*sorted((a, b), key=lambda s: (s.position, s.id)), why) for a, b, why in first]
+
+
+def said_as(db: Session, script: Script, name: str, slots: list) -> ScriptCastSlot | None:
+    """The one role of `slots` that says, in another version, a line of 3+ words the label
+    `name` says ("GIRL:" in C, "GIRLFRIEND:" in A); None when no role or more than one does."""
+    from app.cast_roles import labels
+
+    found = set()
+    for words, heard in _said(db, script).items():
+        mine = {v for v, label in heard if _key(label) == _key(name)}
+        if mine and len(words.split()) >= 3:
+            found |= {s for v, label in heard if v not in mine for s in slots
+                      if labels(label, s.role)}  # fmt: skip
+    return found.pop() if len(found) == 1 else None
+
+
+def same_person(db: Session, project, name: str, bd=None, own=None) -> tuple:
+    """The video's locked or cast role a label is, however the script or breakdown calls them
+    (Kel's empty chair: "Girl" was the locked girlfriend, "Brad" the locked Mogging BF), and
+    whether that's certain: (role or None, certain). Certain: the role's or its look's name,
+    or a short form ("GF"); a line of 3+ words that role says in another version; or 2+ shots
+    the label speaks in (or `own`, its role, is in) all showing that role and no one else
+    who doesn't speak as themselves (the hero). Unsure: one such shot, or the label starts the
+    role's word ("Girl", girlfriend); both naming one role is certain. Free."""
+    from app.cast_roles import ALIASES, labels, pick, ref, same, video_slots
+    from app.routes.scripts import latest
+
+    slots = [s for s in video_slots(db, project) if s is not own and pick(db, project, s)]
+    names = {s: [s.role, db.get(LibraryItem, pick(db, project, s)).name] for s in slots}
+    if hit := next((s for s in slots if any(labels(name, n) for n in names[s])), None):
+        return hit, True
+    script = db.get(Script, db.get(ScriptDraft, project.script_draft_id).script_id)
+    if hit := said_as(db, script, name, slots):
+        return hit, True
+    weak = []
+    shots = [s for sc in bd.scenes for s in sc.shots] if bd is not None else []
+    own_ref = f"slot:{own.id}" if own else None
+    text = latest(db, project).text if shots and latest(db, project) else ""
+    lines = {n for n, line in enumerate(text.splitlines(), 1) if check.SPEAKER.match(line)
+             and (m := LABEL.match(line)) and _key(m[2]) == _key(name)}  # fmt: skip
+    mine = [s for s in shots if (s.speaker and same(s.speaker, name))
+            or own_ref in s.character_ids or lines & set(s.script_lines)]  # fmt: skip
+    if mine:  # less anyone who speaks as themselves (the hero, mostly)
+        said = {m[2] for line in text.splitlines() if check.SPEAKER.match(line)
+                and (m := LABEL.match(line)) and _key(m[2]) != _key(name)}  # fmt: skip
+        refs = {ref(db, project, s): s for s in slots if not any(labels(n, s.role) for n in said)}
+        common = set.intersection(*({refs[r] for r in s.character_ids if r in refs} for s in mine))
+        if len(common) == 1:
+            if len(mine) > 1:
+                return common.pop(), True
+            weak.append(common.pop())
+    words = [w for w in re.findall(r"[a-z]+", name.lower()) if len(w) >= 3]
+    for s in slots:
+        heads = {ALIASES.get(h, h) for n in names[s] for h in re.findall(r"[a-z]+", n.lower())}
+        if any(h.startswith(w) and h != w for w in words for h in heads):
+            weak.append(s)
+    if weak:
+        return weak[0], len(weak) > 1 and all(s is weak[0] for s in weak)
+    return None, False
+
+
+def video_pairs(db: Session, project, bd) -> tuple[dict, list[dict]]:
+    """The video's roles without a look that are one of its locked or cast roles by another
+    name (`same_person`): ({role: role it is}, when certain), and the unsure ones as
+    "These may be the same person" pairs, never kept apart on this video."""
+    from app.cast_roles import pick, short, video_slots
+
+    apart = {frozenset(p) for p in project.cast_apart or []}
+    certain, unsure = {}, []
+    for slot in [s for s in video_slots(db, project) if not pick(db, project, s)]:
+        into, sure = same_person(db, project, short(slot.role) or slot.role, bd, slot)
+        if into is None or frozenset((slot.id, into.id)) in apart:
+            continue
+        if sure:
+            certain[slot] = into
+        else:
+            why = "They may be one person: the shots or the name suggest it."
+            unsure.append({"a_slot_id": into.id, "b_slot_id": slot.id, "into_slot_id": into.id,
+                           "why": why})  # fmt: skip
+    return certain, unsure
 
 
 def maybe_same(db: Session, script: Script) -> list[dict]:

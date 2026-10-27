@@ -587,7 +587,9 @@ def maybe_same(project_id: int, user: User = Depends(current_user), db: Session 
     script = db.get(Script, db.get(ScriptDraft, project.script_draft_id).script_id)
     here = {s.id for s in _slots(db, project)}
     apart = {frozenset(p) for p in project.cast_apart or []}
-    return [p for p in merge_roles.maybe_same(db, script)
+    bd = _newest(db, project)  # a role that may be a locked one by another name ("Girl")
+    unsure = merge_roles.video_pairs(db, project, Breakdown.model_validate(bd.data) if bd else None)
+    return [p for p in [*merge_roles.maybe_same(db, script), *unsure[1]]
             if {p["a_slot_id"], p["b_slot_id"]} <= here
             and frozenset((p["a_slot_id"], p["b_slot_id"])) not in apart]  # fmt: skip
 
