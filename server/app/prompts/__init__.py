@@ -107,6 +107,7 @@ def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -
 
 def _screen(s: dict) -> str:
     shows = f", shows a balance of {s['balance']}" if s.get("balance") else ""  # printed on it
+    shows += ", logo-only: the logo is attached, the screen invented" * bool(s.get("logo_only"))
     return f'- screen:{s["id"]} "{s["name"]}" ({", ".join(s.get("tags", []))}){shows}'
 
 

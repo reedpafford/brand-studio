@@ -33,8 +33,10 @@ from app.storyboard import (
     _renumber,
     _same,
     hero,
+    is_logo,
     left_out,
     nearest_first,
+    one_logo,
 )
 from app.storyboard import assets as picture_assets
 
@@ -199,7 +201,10 @@ def with_cast(
     dropped."""
     known = known if known is not None else assets(db, project)
     pics = _pictures(known)
-    images = [r for r in clip.references if r.kind == "image"]
+    images: list[Reference] = []  # every logo-only screen as the one logo, once
+    for r in (r for r in clip.references if r.kind == "image"):
+        r = r.model_copy(update={"id": one_logo(pics, r.id)})
+        images += [] if any(o.id == r.id for o in images) else [r]
     others = [r for r in clip.references if r.kind != "image"]
     first = [r for r in images if r.id.startswith("frame:")]
     people = [r for r in images if r.id.startswith(CHAR)]
@@ -221,20 +226,25 @@ def with_cast(
         added = added[: max(room - len(people), 0)]
         people = sorted(people + added, key=rank)
     new = first + people + objects
-    want = [s for s in _screens(bd, clip.clip_id) if s not in {r.id for r in new} and s in pics]
+    want = [one_logo(pics, s) for s in _screens(bd, clip.clip_id)]
+    want = [s for s in dict.fromkeys(want) if s not in {r.id for r in new} and s in pics]
     if limit := video_model().max_reference_images:  # people first; the payoff screen kept
         room = max(limit - len(new), 0)
         want = want[-room:] if room else []
-    new += [Reference(kind="image", id=s, role=f"{_name(pics, s)} screen") for s in want]
-    if new == images:
+    new += [Reference(kind="image", id=s, role=_name(pics, s) + " screen" * (not is_logo(pics, s)))
+            for s in want]  # fmt: skip
+    was = [r for r in clip.references if r.kind == "image"]
+    if new == was:
         return clip
-    moved = {i + 1: new.index(r) + 1 for i, r in enumerate(images) if r in new}
-    dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(images) if r not in new}
+    ids, before = [r.id for r in new], [one_logo(pics, r.id) for r in was]
+    moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
+    dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(was) if before[i] not in ids}
     prompt = _renumber(clip.prompt, moved, dropped, TAGS)
-    for r in (r for r in new if r not in images):
+    for r in (r for r in new if r.id not in before):
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
-        if r.id in want:
-            prompt = _add(prompt, "References: ", f"{tag} is the {who} screen, exactly as it is.")
+        if r.id in want:  # rule 14: a logo is only the logo, the trading screen is invented
+            said = "." if is_logo(pics, r.id) else " screen, exactly as it is."
+            prompt = _add(prompt, "References: ", f"{tag} is the {who}{said}")
             continue
         prompt = _add(prompt, "References: ", f"{tag} is {who}.")
         prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
@@ -244,12 +254,14 @@ def with_cast(
 def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt) -> list[str]:
     """A character in the clip without an approved look is flagged by name, a role not cast
     yet included (Reed, 2026-10-27); sheets are attached by `with_cast`."""
-    m = video_model()
-    problems = check.clip_prompts(
-        bd, ClipPrompts(clips=[clip]), m.max_reference_images, m.max_reference_audios
-    )
-    known = assets(db, project)
+    m, known = video_model(), assets(db, project)
     pics = _pictures(known)
+    seen = bd.model_copy(deep=True)  # every logo-only screen is the one logo `with_cast` attached
+    for shot in (s for scene in seen.scenes for s in scene.shots):
+        shot.screen_ids = list(dict.fromkeys(one_logo(pics, s) for s in shot.screen_ids))
+    problems = check.clip_prompts(
+        seen, ClipPrompts(clips=[clip]), m.max_reference_images, m.max_reference_audios
+    )
     for c in _cast(bd, clip.clip_id, pics):
         if c in pics and pics[c][1]:
             continue

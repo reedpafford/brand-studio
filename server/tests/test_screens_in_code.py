@@ -70,3 +70,53 @@ def test_a_clip_and_a_frame_attach_every_screen_their_shots_show(app, db, editor
     assert drawn.reference_ids == [f"char:{mom}", screen]
     assert "Show the Buy screen from image 2 as it is." in drawn.prompt
     assert storyboard.with_cast(db, project, drawn, bd) == drawn  # again changes nothing
+
+
+def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
+    app,
+    db,
+    editor,
+    owner,
+    setup,  # noqa: F811
+):
+    """Current rules 14 (QA-Live, video #16: every montage phone copied one STONK chart)."""
+    project, mom = _cast(editor, db, setup)
+    brand = db.get(Brand, project.brand_id)
+    brand.logo_file_id = logo = upload(owner)
+    db.commit()
+
+    def screen(name: str, tags: list[str]) -> str:
+        body = {"name": name, "file_id": upload(editor), "tags": tags}
+        made = editor.post(f"/brands/{brand.id}/screens", json=body)
+        return f"screen:{made.json()['id']}"
+
+    up, down = screen("Token chart up", ["trading"]), screen("Token chart down", ["trading"])
+    home = screen("Home", ["mobile", "home"])
+    data = _bd(mom)
+    data["scenes"][0]["shots"][0]["screen_ids"] = [up, down]  # a montage win and dip
+    data["scenes"][0]["shots"][1]["screen_ids"] = [home]  # the CTA
+    bd = Breakdown.model_validate(data)
+    known = clip_prompts.assets(db, project)
+    assert known[up][2] == known[down][2] == [logo]  # never the chart screenshot
+    mine = [Reference(kind="image", id=f"char:{mom}", role="Mom")]
+    clip = ClipPrompt(clip_id="c1", seconds=5, prompt=_prompt(), references=mine)
+    fixed = clip_prompts.with_cast(db, project, clip, bd)
+    assert [r.id for r in fixed.references] == [f"char:{mom}", up, home]  # the logo once
+    assert "[Image2] is the fomo logo. [Image3] is the Home screen, exactly as it is." in (
+        fixed.prompt
+    )
+    assert "layout" not in fixed.prompt
+    assert not [p for p in clip_prompts.clip_problems(db, project, bd, fixed) if "attached" in p]
+    assert clip_prompts.with_cast(db, project, fixed, bd) == fixed
+    # Stills follow the same rule: the logo for the trading beat, the real Home for the CTA.
+    frame = Frame(clip_id="c1", shot_id="1.1", prompt="Mom checks her phone.",
+                  reference_ids=[f"char:{mom}"])  # fmt: skip
+    drawn = storyboard.with_cast(db, project, frame, bd)
+    assert drawn.reference_ids == [f"char:{mom}", up]
+    assert "Image 2 is the fomo logo: sharp in the top corner" in drawn.prompt
+    picked = frame.model_copy(update={"reference_ids": [f"char:{mom}", down, up]})
+    assert storyboard.with_cast(db, project, picked, bd).reference_ids == [f"char:{mom}", up]
+    cta = storyboard.with_cast(db, project, frame.model_copy(update={"shot_id": "1.2",
+                               "reference_ids": [f"char:{mom}"]}), bd)  # fmt: skip
+    assert cta.reference_ids == [f"char:{mom}", home]
+    assert "Show the Home screen from image 2 as it is." in cta.prompt
