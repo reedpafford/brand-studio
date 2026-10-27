@@ -855,6 +855,60 @@ test("a locked step says Breakdown, the name this page uses, when problems in it
   expect(within(steps).getByRole("button", { name: "Assets" })).toHaveAccessibleDescription("Fix the 2 problems in Breakdown first");
 });
 
+const gone = asset({ ref: "slot:3", slot_id: 3, library_item_id: 77, name: "", role: "Nate", sheet_status: "none", library_deleted: true, look_credits: 4, look_usual_credits: 2 });
+const deletedRoutes = {
+  ...base,
+  "GET /projects/9/assets": [200, [gone]] as [number, unknown],
+  "GET /library/character/77": [404, { detail: "none" }] as [number, unknown],
+  "GET /library/character": [200, [{ id: 5, name: "Bo", sheet_status: "approved", image_file_ids: [], brand_ids: [1] }]] as [number, unknown],
+  "GET /projects/9/assets/missing-looks": noMissing,
+};
+
+test("a role whose Cast & places character was deleted says so and offers two fixes: Make a look, or Pick another for free", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...deletedRoutes, "POST /projects/9/assets/slots/3/make-look": [200, []] });
+  open();
+  const card = await screen.findByLabelText("Nate");
+  expect(within(card).getByText("Character deleted")).toBeInTheDocument();
+  expect(within(card).getByText("The character this role used was deleted from Cast & places.")).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: "Use a different character" })).toBeNull();
+  expect(within(card).getByText("Free")).toBeInTheDocument(); // Pick another costs nothing
+  await userEvent.click(within(card).getByRole("button", { name: /^Make a look · up to 4 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/make-look")).toBe(true));
+});
+
+test("Pick another opens the Cast & places picker for the deleted role", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...deletedRoutes, "PUT /projects/9/assets/slots/3": [200, []] });
+  open();
+  const card = await screen.findByLabelText("Nate");
+  expect(within(card).queryByLabelText("Use a Cast & places character")).toBeNull(); // closed until Pick another is pressed
+  await userEvent.click(within(card).getByRole("button", { name: "Pick another" }));
+  await userEvent.selectOptions(within(card).getByLabelText("Use a Cast & places character"), "5");
+  await userEvent.click(within(card).getByRole("button", { name: "Use this character" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
+});
+
+test("a role that is not deleted has no Character deleted badge or Pick another", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({})]], "GET /projects/9/assets/missing-looks": noMissing });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).queryByText("Character deleted")).toBeNull();
+  expect(within(card).queryByRole("button", { name: "Pick another" })).toBeNull();
+});
+
+test("Pick another is disabled, with the reason, when Cast & places has no other characters", async () => {
+  setViewport(1440);
+  fakeServer({ ...deletedRoutes, "GET /library/character": [200, []] });
+  open();
+  const card = await screen.findByLabelText("Nate");
+  const pick = within(card).getByRole("button", { name: "Pick another" });
+  expect(pick).toBeDisabled();
+  expect(pick).toHaveAccessibleDescription("Cast & places has no other characters yet.");
+  expect(within(card).queryByText("Free")).toBeNull();
+});
+
 test("on the video page too, a shot with no script lines shows no Show line button and does not break Breakdown", async () => {
   setViewport(1440);
   const wordless = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [{ id: "1.1", script_lines: [], speaker: null, line: null, action: "Bo looks up.", reaction: null, camera: "Wide", seconds: 2, character_ids: [], place_id: null, moment: null, screen_ids: [] }] }], clips: [{ id: "c1", shot_ids: ["1.1"], seconds: 2, seam: "end" }] } };

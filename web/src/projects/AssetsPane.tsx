@@ -238,6 +238,9 @@ function AssetCard({
   const sheet = item.data?.sheet_file_id;
   const ratio = kind === "place" ? "16 / 9" : "9 / 16";
   const title = asset.role || asset.name;
+  // Its Cast & places character was deleted: the slot is stuck until a look is made or another character is picked.
+  const deleted = asset.library_deleted && !asset.locked;
+  const others = (characters.data ?? []).filter((c) => c.id !== id).length; // Cast & places characters to pick instead
   const slotLeft =
     asset.ref.startsWith("slot:") && asset.library_item_id === null;
 
@@ -283,6 +286,8 @@ function AssetCard({
           <div className="flex flex-wrap gap-2">
             {asset.locked ? (
               <Badge icon={Lock}>Locked</Badge>
+            ) : deleted ? (
+              <Badge tone="danger">Character deleted</Badge>
             ) : slotLeft ? (
               <Badge tone="warning">Needs a look</Badge>
             ) : (
@@ -290,6 +295,7 @@ function AssetCard({
             )}
             {using && <Badge>{asset.only_here === "script" ? "This script only" : "This video only"}</Badge>}
           </div>
+          {deleted && <p className="text-sm text-muted">The character this role used was deleted from Cast &amp; places.</p>}
           {notUsed && lookId != null && !asset.locked && (
             <Menu title="Look actions" trigger={(t) => <Button variant="ghost" dense icon={Ellipsis} aria-label={`More for ${title}`} {...t} />}>
               {(close) => (
@@ -311,29 +317,39 @@ function AssetCard({
           {!asset.locked &&
             id !== null &&
             asset.slot_id != null &&
+            !deleted &&
             !swapping && (
               <Button variant="ghost" onClick={() => setSwapping(true)}>
                 Use a different character
               </Button>
             )}
-          {!asset.locked && (slotLeft || swapping) && (
+          {!asset.locked && (slotLeft || swapping || deleted) && (
             <div className="space-y-2">
-              {slotLeft && kind === "character" && (
-                <Button
-                  variant="secondary"
-                  busy={makeLook.isPending}
-                  price={makeUpTo ?? price}
-                  upTo={makeUpTo !== undefined}
-                  usually={makeUsual}
-                  reason={decline}
-                  disabled={!!decline}
-                  onClick={() => makeLook.mutate()}
-                >
-                  Make a look
-                </Button>
+              {(slotLeft || deleted) && kind === "character" && (
+                <div className="flex flex-wrap items-start gap-2">
+                  <Button
+                    variant="secondary"
+                    busy={makeLook.isPending}
+                    price={makeUpTo ?? price}
+                    upTo={makeUpTo !== undefined}
+                    usually={makeUsual}
+                    reason={decline}
+                    disabled={!!decline}
+                    onClick={() => makeLook.mutate()}
+                  >
+                    Make a look
+                  </Button>
+                  {deleted && !swapping && (
+                    <span className="flex flex-wrap items-center gap-2">
+                      <Button variant="secondary" icon={Users} disabled={others === 0} reason={others === 0 ? "Cast & places has no other characters yet." : undefined} onClick={() => setSwapping(true)}>
+                        Pick another
+                      </Button>
+                      {others > 0 && <span className="text-sm text-muted">Free</span>}
+                    </span>
+                  )}
+                </div>
               )}
-              {(characters.data ?? []).filter((c) => c.id !== id).length >
-                0 && (
+              {(slotLeft || swapping) && others > 0 && (
                 <>
                   <Select
                     label="Use a Cast & places character"
