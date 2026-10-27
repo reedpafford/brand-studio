@@ -11,8 +11,9 @@ import { useRail } from "../useMedia";
 import { CreditLimits } from "./CreditLimits";
 import { StudioName } from "./StudioName";
 import { restoreMember, setRole, useRemovedMembers } from "./memberActions";
+import { serverTime } from "../time";
 
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+const day = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 const ROLE = { owner: "Owner", editor: "Editor" } as const;
 
 export function TeamPage() {

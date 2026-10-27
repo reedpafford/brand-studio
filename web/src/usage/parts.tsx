@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Skeleton } from "../components";
 import type { Period } from "./useUsage";
+import { serverTime } from "../time";
 
 /** "$1,204.50": always two decimals. */
 export const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -29,7 +30,7 @@ export function PeriodControl({ value, onChange }: { value: Period; onChange: (p
 /** "Week of 20 Oct", "October 2026", "Everything so far". */
 export function periodLine(period: Period, startsAt: string | null) {
   if (period === "all" || !startsAt) return "Everything so far";
-  const d = new Date(startsAt);
+  const d = serverTime(startsAt);
   return period === "week" ? `Week of ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
@@ -86,11 +87,11 @@ export function Stats({ figures: f, period }: { figures?: Figures; period: Perio
 /** "2 h", "yesterday", "12 Oct", or "—". */
 export function lastText(iso: string | null, now = Date.now()) {
   if (!iso) return "—";
-  const mins = Math.floor((now - new Date(iso).getTime()) / 60000);
+  const mins = Math.floor((now - serverTime(iso).getTime()) / 60000);
   if (mins < 60) return `${Math.max(mins, 1)} min`;
   if (mins < 24 * 60) return `${Math.floor(mins / 60)} h`;
   const days = Math.floor(mins / (24 * 60));
   if (days < 2) return "yesterday";
   if (days < 7) return `${days} days`;
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return serverTime(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }

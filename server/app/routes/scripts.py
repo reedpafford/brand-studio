@@ -1,6 +1,5 @@
 """A project's script: paste or upload (txt/docx/pdf), with every change kept as a version."""
 
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -16,6 +15,7 @@ from app.models.accounts import User
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
 from app.routes.projects import get_project
+from app.schemas import UtcTime
 
 router = APIRouter(prefix="/projects/{project_id}/script", tags=["scripts"])
 MAX_DOC_BYTES = 10 * 1024 * 1024
@@ -34,7 +34,7 @@ class VersionOut(BaseModel):
     source: str
     words: int
     created_by_id: int | None
-    created_at: datetime
+    created_at: UtcTime
 
 
 class ScriptOut(VersionOut):

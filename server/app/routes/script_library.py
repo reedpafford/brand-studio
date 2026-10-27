@@ -1,7 +1,6 @@
 """The Script Library (workflow v2): scripts owned by a brand, each with up to three versions
 (the original in slot 0 and up to two variations). Rules: `app/script_library.py`."""
 
-from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -27,7 +26,7 @@ from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
 from app.routes.script_import import UNTITLED, one_at_a_time, prepare
 from app.routes.scripts import ScriptText
-from app.schemas import LongText
+from app.schemas import LongText, UtcTime
 
 router = APIRouter(prefix="/scripts", tags=["script library"])
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -96,7 +95,7 @@ class VersionOut(VersionSummary):
     # "Was:" marks until approval: [{line_index (0-based line of text), text, was}]
     rewritten: list[dict] = []
     has_breakdown: bool
-    approved_at: datetime | None
+    approved_at: UtcTime | None
     variation_of: str | None = None  # "A": a variation of the original; null for the original
     estimate_credits: float = 0  # to make it: 1 credit a second (480p), from its length
     clips: int = 0  # in the saved breakdown
@@ -119,15 +118,15 @@ class ScriptRow(BaseModel):
     status: str  # draft | published | in_production | done
     created_by_id: int | None
     created_by_name: str
-    created_at: datetime
+    created_at: UtcTime
     versions: list[VersionSummary]
     versions_left: int  # approved versions not produced yet
     poster_file_id: int | None = None  # the first still of its newest finished video
     reference_name: str | None = None  # the reel it adapts, by name
     removed: Literal["deleted", "archived"] | None = None  # in the removed list; archived: it
     # has videos, which are kept, so it never goes for good
-    removed_at: datetime | None = None  # in the removed list: when it was removed
-    purge_on: datetime | None = None  # deleted only: when it goes for good (30 days on)
+    removed_at: UtcTime | None = None  # in the removed list: when it was removed
+    purge_on: UtcTime | None = None  # deleted only: when it goes for good (30 days on)
     reel_imported: bool = False  # adapts its own imported reel, not a catalogue one
     reel: ReelRow | None = None  # made from a reel link or upload: where its reel is
     running: bool = False  # its own work is being made (not its videos'), whoever started it
@@ -557,7 +556,7 @@ class EarlierText(BaseModel):
     title: str
     words: int
     source: str  # edit | variations | write | enhance: what replaced it
-    created_at: datetime  # when it was replaced
+    created_at: UtcTime  # when it was replaced
     created_by_name: str
 
 

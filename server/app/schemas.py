@@ -1,9 +1,10 @@
 """Shared request/response field types."""
 
 import re
+from datetime import UTC, datetime
 from typing import Annotated
 
-from pydantic import AfterValidator, StringConstraints
+from pydantic import AfterValidator, PlainSerializer, StringConstraints
 
 
 def _email(value: str) -> str:
@@ -34,3 +35,12 @@ LongText = Annotated[str, StringConstraints(max_length=5000)]
 
 def slugify(text: str) -> str:
     return "-".join("".join(c if c.isalnum() else " " for c in text.lower()).split())[:120]
+
+
+def _as_utc(value: datetime) -> datetime:
+    # Times are stored as naive UTC (db.utcnow); say so, or browsers read them as local time.
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+# Every datetime in a response: written with a "Z" so it means the same moment everywhere.
+UtcTime = Annotated[datetime, PlainSerializer(_as_utc, return_type=datetime, when_used="json")]

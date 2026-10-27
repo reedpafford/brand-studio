@@ -10,6 +10,7 @@ import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { useApproveAllWith, type ApproveAllResult } from "../projects/ApproveAll";
 import { useAllowanceStop, type Script } from "./useScript";
+import { serverTime } from "../time";
 
 const LETTER = ["A", "B", "C"];
 const NAME = ["Original", "Variation", "Variation"];
@@ -382,7 +383,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
                       }}
                     >
                       <span className="block">
-                        {new Date(e.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {e.source === "variations" ? "written" : "edited"} · {e.words} words
+                        {serverTime(e.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {e.source === "variations" ? "written" : "edited"} · {e.words} words
                       </span>
                       <span className="block max-w-64 truncate text-xs text-muted">{firstDifference(v.text, e.text)}</span>
                     </MenuItem>
