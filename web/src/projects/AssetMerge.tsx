@@ -27,7 +27,9 @@ export function useAssetMerge(projectId: number, cast: Asset[]) {
   const pairsOf = (a: Asset) => pairs.filter((p) => p.a === slotOf(a) || p.b === slotOf(a));
   const nameBySlot = (id: number) => (bySlot(id) ? nameOf(bySlot(id)!) : "");
   const showPair = (p: Pair) => {
-    document.getElementById(pairId(p))?.scrollIntoView?.({ block: "center" });
+    const el = document.getElementById(pairId(p));
+    if (el instanceof HTMLDetailsElement) el.open = true; // the note is one closed line until opened
+    el?.scrollIntoView?.({ block: "center" });
     setOutlined(pairId(p));
     setTimeout(() => setOutlined(null), 1500);
   };
@@ -68,7 +70,7 @@ export function useAssetMerge(projectId: number, cast: Asset[]) {
     /** Merge into… is offered on a role card when there is another role. */
     canMerge: (a: Asset) => slotOf(a) !== null && roles.length > 1,
     start: (a: Asset) => setMerging({ asset: a }),
-    note: <MaybeSame pairs={pairs} name={nameBySlot} outlined={outlined} onMerge={(p) => { const a = bySlot(p.into === p.a ? p.b : p.a); if (a) setMerging({ asset: a, suggested: p.into }); }} />,
+    note: <MaybeSame compact pairs={pairs} name={nameBySlot} outlined={outlined} onMerge={(p) => { const a = bySlot(p.into === p.a ? p.b : p.a); if (a) setMerging({ asset: a, suggested: p.into }); }} />,
     badge: (a: Asset): ReactNode => pairsOf(a).slice(0, 1).map((p) => <MaybeSameBadge key={pairId(p)} other={nameBySlot(p.a === slotOf(a) ? p.b : p.a)} onClick={() => showPair(p)} />),
     dialog,
   };

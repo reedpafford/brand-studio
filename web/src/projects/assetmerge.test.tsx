@@ -109,7 +109,11 @@ test("a flagged pair shows the note and badges on Assets; Merge opens the dialog
   open();
   expect(await screen.findByText("These may be the same person: Kimchi and His friend with the supercar.")).toBeInTheDocument();
   expect(screen.getByText("May be the same as Kimchi")).toBeInTheDocument();
+  const note = screen.getByText("These may be the same person: Kimchi and His friend with the supercar.").closest("details")!;
+  expect(note.open).toBe(false); // one quiet line until opened
   expect(screen.queryByRole("button", { name: /are different/ })).toBeNull(); // no video-only dismiss route
+  await userEvent.click(screen.getByText("May be the same as Kimchi")); // the badge opens the note
+  expect(note.open).toBe(true);
   await userEvent.click(screen.getByRole("button", { name: "Merge Kimchi and His friend with the supercar" }));
   expect(await screen.findByRole("radio", { name: /Kimchi/ })).toBeChecked();
 });
