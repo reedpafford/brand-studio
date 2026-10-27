@@ -194,3 +194,32 @@ def test_a_role_this_video_never_shows_needs_no_look_here(owner, editor, db):
     assert (rows["Rival"]["shots"], rows["Rival"]["ready"]) == (0, True)
     missing = editor.get(f"/projects/{pid}/assets/missing-looks").json()["roles"]
     assert "Rival" not in missing and set(missing) == {"Bride", "Nate"}
+
+
+def test_script_twos_versions_flag_both_pairs_and_a_one_version_echo_flags_none(owner, db):
+    """QA on #628, script 2's shape: A says GROOM/BRIDE, B NOAH/GIRLFRIEND, C BRIDE/NOAH, and
+    no line is said word for word twice. BRIDE in A and C talks to GROOM and to NOAH; NOAH in
+    B and C talks to GIRLFRIEND and to BRIDE. Flagged, never merged."""
+    versions = [
+        "INT. CHURCH — DAY\nGROOM: Will you marry me?\nBRIDE: I can't do this. I don't love you.",
+        "INT. PARK — DAY\nNOAH: Babe, marry me?\nGIRLFRIEND: Never. We're done.",
+        "INT. CHURCH — DAY\nNOAH: Marry me?\nBRIDE: No. I don't love you anymore.",
+    ]
+    base = f"/scripts/{_make(owner, title='Marriage Rejection', text=versions[0])['id']}"
+    for slot in (1, 2):
+        owner.put(f"{base}/drafts/{slot}", json={"text": versions[slot]})
+    repair_missing_roles(db)
+    script = owner.get(base).json()
+    cast = {s["role"]: s["id"] for s in script["cast"]}
+    assert set(cast) == {"Groom", "Bride", "Noah", "Girlfriend"}  # nothing merged
+    why = "Both are the one {} speaks to in different versions."
+    assert {(p["a_slot_id"], p["b_slot_id"], p["why"]) for p in script["maybe_same"]} == {
+        (cast["Groom"], cast["Noah"], why.format("Bride")),
+        (cast["Bride"], cast["Girlfriend"], why.format("Noah")),
+    }
+
+    echo = _make(
+        owner, title="Echo", text="INT. KITCHEN — DAY\nMOM: Are you sure?\nNATE: Are you sure?"
+    )
+    repair_missing_roles(db)
+    assert owner.get(f"/scripts/{echo['id']}").json()["maybe_same"] == []
