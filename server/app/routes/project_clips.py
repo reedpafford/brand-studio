@@ -4,7 +4,6 @@ picked takes into the finished video (free)."""
 
 import hashlib
 import uuid
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -27,7 +26,7 @@ from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
-from app.schemas import LongText
+from app.schemas import LongText, UtcTime
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["project clips"])
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
@@ -42,7 +41,7 @@ class TakeOut(BaseModel):
     id: int
     number: int
     file_id: int
-    created_at: datetime  # "made 10:42"
+    created_at: UtcTime  # "made 10:42"
 
 
 class VideoOut(BaseModel):

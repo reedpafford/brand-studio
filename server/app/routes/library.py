@@ -1,6 +1,5 @@
 """Characters, places and props, filtered by brand. Edits keep a version history."""
 
-from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,7 +16,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.library import Kind, LibraryItem, LibraryItemVersion
 from app.routes.brands import get_brand
 from app.routes.files import get_file
-from app.schemas import LongText, Name
+from app.schemas import LongText, Name, UtcTime
 
 router = APIRouter(prefix="/library/{kind}", tags=["library"])
 
@@ -80,7 +79,7 @@ class VersionOut(BaseModel):
     version: int
     snapshot: ItemIn
     saved_by_id: int | None
-    created_at: datetime
+    created_at: UtcTime
 
 
 def _snapshot(item: LibraryItem) -> dict:

@@ -11,6 +11,7 @@ import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { useJobs } from "../clip/History";
 import { useAllowanceStop } from "./useScript";
+import { serverTime } from "../time";
 
 export const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
 const MAX_MB = 100;
@@ -150,7 +151,7 @@ export function ReelProgress({ scriptId }: { scriptId: number }) {
     return () => clearInterval(t);
   }, []);
   const running = (jobs.data ?? []).filter((j) => j.script_id === scriptId && (j.status === "queued" || j.status === "running"));
-  const from = running.length ? Math.min(...running.map((j) => Date.parse(j.created_at))) : seen;
+  const from = running.length ? Math.min(...running.map((j) => serverTime(j.created_at).getTime())) : seen;
   const secs = Math.max(0, Math.floor((now - (Number.isFinite(from) ? from : seen)) / 1000));
   return (
     <p role="status" className="flex items-center gap-2">

@@ -36,6 +36,14 @@ def kept_lines(watch, transcript: list[dict]) -> tuple[list[str], list[str]]:
     return list(dict.fromkeys(t for t, _ in kept)), [w for _, w in kept]
 
 
+def reference_montage(ref: dict) -> str:
+    """What a reference's montage shows (a BREAKDOWN.json or a reel reading, as a dict)."""
+    if not (m := ref.get("montage")):
+        return ""
+    shots = [s for s in ref["shots"] if m["start"] <= s["start"] < m["end"]]
+    return " ".join([m["description"]] + [f"{s['on_screen']} {s['action']}" for s in shots])
+
+
 def score(out: Path, case: dict) -> list[str]:
     brand = CASES["brands"][case["brand"]]
     screens = required(brand["screens"], brand.get("product"))
@@ -69,7 +77,9 @@ def score(out: Path, case: dict) -> list[str]:
             if any(word in note.text.lower() for note in e.notes):
                 problems.append(f"a note mentions '{word}', which this case shouldn't need")
 
-    ref_lines, speakers = [], None
+    ref_lines, speakers, ref_montage = [], None, ""
+    if ref := case.get("reference"):
+        ref_montage = reference_montage(json.loads((ROOT / ref["path"]).read_text()))
     if w := answers.get("reel_watch"):
         transcript, cuts = reel_inputs(case)
         cuts = cuts or [{"n": s.n, "start": s.start, "end": s.end} for s in w.shots]
@@ -94,6 +104,7 @@ def score(out: Path, case: dict) -> list[str]:
         problems += [f"the hook doesn't mention '{x}'" for x in ex.get("hook_mentions", [])
                      if x not in w.hook.mechanic.lower()]  # fmt: skip
         ref_lines, speakers = kept_lines(w, transcript)
+        ref_montage = reference_montage(w.model_dump())
 
     if d := answers.get("script_draft"):
         lo, hi = exp["drafts"]
@@ -111,6 +122,8 @@ def score(out: Path, case: dict) -> list[str]:
             if not lo <= words <= hi:
                 problems.append(f"draft {i}: {words} spoken words, expected {lo}–{hi}")
             problems += [f"draft {i}: {p}" for p in check.echo_lines(draft.script)]
+            problems += [f"draft {i}: {p}" for p in check.repeated_payoffs(
+                check.montage_text(draft.script), ref_montage, "the reference's")]  # fmt: skip
             problems += [f"draft {i}: {p}" for p in check.reference_lines(
                 draft.script, ref_lines, case.get("new_lines", False))]  # fmt: skip
             if speakers is not None:
@@ -127,6 +140,13 @@ def score(out: Path, case: dict) -> list[str]:
         if "clips" in exp and not exp["clips"][0] <= len(bd.clips) <= exp["clips"][1]:
             problems.append(f"{len(bd.clips)} clips, expected {exp['clips']}")
         shots = [shot for scene in bd.scenes for shot in scene.shots]
+        end = brand["brand"].get("end_line", "")
+        problems += check.cta_screen(shots, end, brand["brand"]["name"])
+        lines = script.splitlines()
+        in_montage = {n for n, x in enumerate(lines, 1) if "montage" in x.lower()}
+        montage = " ".join(s.action for s in shots if in_montage & set(s.script_lines))
+        if "script_draft" in answers:  # an editor's own script may keep its payoffs
+            problems += check.repeated_payoffs(montage, ref_montage, "the reference's")
         for n, sid in exp.get("screen_lines", {}).items():
             if not any(int(n) in s.script_lines and sid in s.screen_ids for s in shots):
                 problems.append(f"expected {sid} in the shot for line {n}")
@@ -157,6 +177,10 @@ def score(out: Path, case: dict) -> list[str]:
         problems += check.variations(script, v, screens, end, never, case["count"], names)
         for i, x in enumerate(v.variations, 1):
             problems += [f"variation {i}: {p}" for p in check.echo_lines(x.script)]
+            again = check.repeated_payoffs(
+                check.montage_text(x.script), check.montage_text(script), "the original's"
+            )
+            problems += [f"variation {i}: {p}" for p in again]
     if cs := answers.get("cast_slots"):
         made = answers.get("variations")
         script = answers["script_draft"].drafts[0].script if "script_draft" in answers else script

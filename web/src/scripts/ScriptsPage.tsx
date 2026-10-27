@@ -18,6 +18,7 @@ import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScr
 import { ReelChip } from "./ReelImport";
 import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
 import { ViewSwitch } from "../videos/ViewSwitch";
+import { serverTime } from "../time";
 
 type Row = components["schemas"]["ScriptRow"];
 type Version = Row["versions"][number];
@@ -60,7 +61,7 @@ const SORTS = [
 
 /** "just now", "5 min ago", "3 h ago", "yesterday", "2 days ago", then the date. */
 export function age(iso: string, now = Date.now()) {
-  const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
+  const mins = Math.max(0, Math.floor((now - serverTime(iso).getTime()) / 60_000));
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins} min ago`;
   const hours = Math.floor(mins / 60);
@@ -68,7 +69,7 @@ export function age(iso: string, now = Date.now()) {
   const days = Math.floor(hours / 24);
   if (days === 1) return "yesterday";
   if (days < 7) return `${days} days ago`;
-  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
 const lengthText = (versions: Version[]) => {
@@ -438,7 +439,7 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
         {removed && (
           <p className="flex flex-wrap items-center gap-2">
             <Badge>{kept || !r.removed_at ? "Archived" : `Deleted · ${age(r.removed_at)}`}</Badge>
-            <span className="text-sm text-muted">{kept || !r.purge_on ? "Its videos are kept" : `Removed for good on ${new Date(r.purge_on).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}</span>
+            <span className="text-sm text-muted">{kept || !r.purge_on ? "Its videos are kept" : `Removed for good on ${serverTime(r.purge_on).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}</span>
           </p>
         )}
         {r.description && <p className="truncate text-sm text-muted">{r.description}</p>}

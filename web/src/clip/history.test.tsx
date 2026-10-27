@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
+import { Elapsed } from "./History";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 
@@ -114,4 +115,17 @@ test("the allowance line reads This week: used of allowed credits", async () => 
   fakeServer(base());
   open();
   expect(await screen.findByText("This week: 10 of 150 credits")).toBeInTheDocument();
+});
+
+test("a run started a few seconds ago counts up in New York, even for a server time without a zone", () => {
+  const tz = process.env.TZ;
+  process.env.TZ = "America/New_York";
+  try {
+    expect(new Date(2026, 0, 1).getTimezoneOffset()).toBe(300);
+    const started = new Date(Date.now() - 5000).toISOString().replace("Z", ""); // how the server used to write it
+    render(<Elapsed since={started} />);
+    expect(Number(screen.getByText(/^\d+s$/).textContent!.replace("s", ""))).toBeGreaterThan(0);
+  } finally {
+    process.env.TZ = tz;
+  }
 });

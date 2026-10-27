@@ -384,6 +384,15 @@ test("a cast problem kept anyway stops blocking and moves under the closed list,
   expect(screen.getByRole("button", { name: /Undo keep/, hidden: true })).toBeInTheDocument();
 });
 
+test("a shot with no script lines (a reaction or an insert) shows no line label and does not break the page", async () => {
+  const wordless = breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({}), shot({ id: "1.2", script_lines: [], line: null, speaker: null })] }] } });
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, wordless] });
+  open();
+  const silent = await screen.findByLabelText("Shot 1.2");
+  expect(within(silent).queryByText(/^Lines? \d/)).toBeNull();
+  expect(within(screen.getByLabelText("Shot 1.1")).getByText("Line 1")).toBeInTheDocument();
+});
+
 const lost = "Line 4 isn't in any shot.";
 const changed = "Shot 1.1 says 'see you later', but the script says 'see you soon'.";
 
@@ -423,6 +432,54 @@ test("a problem with no free fix shows no fix button", async () => {
   expect(within(box).queryByText("Free")).toBeNull();
 });
 
+const withUnknown = (ids: string[], names: object = {}) => ({
+  ...breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({ character_ids: ["char:4", ...ids] }), shot({ id: "1.2" })] }] } }),
+  unknown_names: names,
+});
+
+test("a shot that names someone the video doesn't have offers a free Remove by name; the toast says what was done", async () => {
+  const before = withUnknown(["char:99"], { "char:99": "Nate" });
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, before],
+    "POST /projects/9/shots/1.1/remove-ref": [200, { ...breakdown(), fixed: ["Removed char:99 from shot 1.1."] }],
+    "PUT /projects/9/breakdown": [200, before],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  expect(await screen.findByText("Nate isn't in this video.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Remove Nate from this shot" }));
+  // The id goes to the server so two unknown people stay apart; the toast uses the name, never the id.
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/shots/1.1/remove-ref")?.body).toEqual({ kind: "character", name: "char:99" }));
+  expect(await screen.findByText("Removed Nate from shot 1.1. To use them again, add them in Cast & places, then pick them in this shot.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull(); // the server can't put back a name the video doesn't have
+});
+
+test("an unknown name the server can't give reads \"a character\"; two of them stay apart; an error shows right under the button", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, withUnknown(["char:98", "char:99"])],
+    "POST /projects/9/shots/1.1/remove-ref": [409, { detail: "Shot 1.1 doesn't have that any more." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  expect(await screen.findAllByText("This character isn't in this video.")).toHaveLength(2);
+  const buttons = screen.getAllByRole("button", { name: "Remove a character from this shot" });
+  expect(buttons).toHaveLength(2);
+  await userEvent.click(buttons[1]);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/shots/1.1/remove-ref")?.body).toEqual({ kind: "character", name: "char:99" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("Shot 1.1 doesn't have that any more.");
+  expect(alert.previousElementSibling).toContainElement(buttons[1]); // under the button, inside the editor
+});
+
+test("a shot that only names people the video has shows no Remove", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  expect(screen.queryByRole("button", { name: /from this shot$/ })).toBeNull();
+});
+
 test("a problem's words get the whole row on a phone, with its buttons wrapping under them", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [lost], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }] })] });
   open();
@@ -441,4 +498,31 @@ test("when a fix is refused, the server's reason is shown, in its words", async 
   const box = await screen.findByLabelText("Problems");
   await userEvent.click(within(box).getByRole("button", { name: "Fix 2 problems" }));
   expect(await within(box).findByRole("alert")).toHaveTextContent("Nothing here can be fixed for you. Edit the shot instead.");
+});
+
+test("when the server refuses an Undo, the person is told why in its words", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, breakdown({ problems: [lost], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }] })],
+    "POST /projects/9/breakdown/fix": [200, { ...breakdown(), fixed: ["Put line 4 in shot 1.2."] }],
+    "PUT /projects/9/breakdown": [422, { detail: "The breakdown changed since. Fix it by hand." }],
+  });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  await userEvent.click(within(box).getByRole("button", { name: `Add it to a shot: ${lost}` }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  expect(await screen.findByText("The breakdown changed since. Fix it by hand.")).toBeInTheDocument();
+});
+
+test("removing a place or a screen the video doesn't have says how to use it again, in its own words", async () => {
+  const gone = breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({ place_id: "place:99", screen_ids: ["screen:98"] }), shot({ id: "1.2" })] }] } });
+  fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, { ...gone, unknown_names: { "place:99": "Bin Lot", "screen:98": "Chart up" } }],
+    "POST /projects/9/shots/1.1/remove-ref": [200, { ...breakdown(), fixed: [] }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Remove Bin Lot from this shot" }));
+  expect(await screen.findByText("Removed Bin Lot from shot 1.1. To use it again, add it in Cast & places, then pick it in this shot.")).toBeInTheDocument();
 });
