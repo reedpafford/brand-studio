@@ -10,7 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.advice import names, plain
-from app.cast_roles import cast_roles, plays
+from app.cast_roles import cast_roles, pick, plays
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, project_context, project_screens, screen_name
 from app.images import image_job_input, image_model_block
@@ -80,10 +80,14 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)
         out[key] = (" | ".join(x for x in parts if x), usable_files(item))
     for slot in script_slots(db, project):  # a role a breakdown may name before it's cast
-        item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
+        item_id = pick(db, project, slot)  # a deleted look: the role has none yet
         # A locked role uses the sheet it was locked with, even if its look has a newer sheet
         # waiting for approval (Reed's live test: "Mogging BF" read as not approved).
-        locked = [slot.sheet_file_id] if slot.library_item_id and slot.sheet_file_id else None
+        locked = (
+            [slot.sheet_file_id]
+            if item_id and slot.library_item_id and slot.sheet_file_id
+            else None
+        )
         if f"char:{item_id}" in out:  # the look's own line: its notes win (Reed: used as is)
             line, files = out[f"char:{item_id}"]
             out[f"char:{item_id}"] = out[f"slot:{slot.id}"] = (line, locked or files)

@@ -130,10 +130,11 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     look = price(look_price(db, project.workspace_id))
     usual_look = price(look_usual(db, project.workspace_id))
     for slot in _slots(db, project):
-        item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
-        item = db.get(LibraryItem, item_id) if item_id else None
-        out.append(_row("character", f"slot:{slot.id}" if not item_id else f"char:{item_id}",
-                        slot.role, item, slot.library_item_id is not None, slot))  # fmt: skip
+        item_id = cast_roles.picked(project, slot)
+        live = cast_roles.pick(db, project, slot)  # a deleted look: the role is uncast
+        item = db.get(LibraryItem, live) if live else None
+        out.append(_row("character", f"char:{live}" if live else f"slot:{slot.id}",
+                        slot.role, item, bool(live and slot.library_item_id), slot))  # fmt: skip
         own = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
         out[-1].own_look_id = own.id if own and not own.archived else None  # removed: gone
         out[-1].declined = project.slot_looks.get(str(slot.id), 0) is None
@@ -290,10 +291,9 @@ def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
     return [
         s
         for s in _slots(db, project)
-        if s.library_item_id is None
-        and str(s.id) not in project.slot_cast
+        if cast_roles.pick(db, project, s) is None  # a deleted look counts as none
         and str(s.id) not in project.slot_looks
-        and f"slot:{s.id}" in shown
+        and {f"slot:{s.id}", f"char:{cast_roles.picked(project, s)}"} & shown
     ]
 
 

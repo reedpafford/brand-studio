@@ -111,10 +111,14 @@ def test_breakdown_ids_must_be_the_projects(app, db, editor, setup):  # noqa: F8
     url = f"/projects/{setup['project']}/breakdown"
     bad = copy.deepcopy(BREAKDOWN)
     bad["scenes"][0]["shots"][0]["character_ids"] = ["char:999"]
-    r = editor.put(url, json=bad)
-    assert r.status_code == 422 and r.json()["detail"] == (
-        "shot 1.1: an unnamed character that isn't part of this video. "
-        "Pick from the video's cast, places and screens."
+    r = editor.put(url, json=bad)  # never refused (Reed, 2026-10-27): taken out, as advice
+    assert (
+        r.status_code == 200
+        and r.json()["breakdown"]["scenes"][0]["shots"][0]["character_ids"] == []
+    )
+    assert (
+        "Advice: Removed an unnamed character from shot 1.1. Nobody by that name is in this video."
+        in r.json()["problems"]
     )
     good = copy.deepcopy(BREAKDOWN)
     good["scenes"][0]["shots"][0]["screen_ids"] = [f"screen:{setup['screen']}"]

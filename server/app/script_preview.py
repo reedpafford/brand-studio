@@ -40,18 +40,21 @@ def stand_in_project(
     )
 
 
-def with_slots(db: Session, script_id: int, context: str, cast: dict | None = None) -> str:
-    """The context with the script's unlocked slots added to <cast> as slot:N lines, leaving
-    out any the video already cast (`cast`: the project's slot_cast)."""
-    unlocked = db.scalars(
+def with_slots(db: Session, script_id: int, context: str, project: Project | None = None) -> str:
+    """The context with the script's roles that have no usable look added to <cast> as slot:N
+    lines: not locked and not cast in the video (`project`), or their look was deleted (Kel's
+    empty chair: "Her friend" was left out of the prompt altogether)."""
+    from app.cast_roles import pick
+
+    slots = db.scalars(
         select(ScriptCastSlot)
-        .where(ScriptCastSlot.script_id == script_id, ScriptCastSlot.library_item_id.is_(None))
+        .where(ScriptCastSlot.script_id == script_id)
         .order_by(ScriptCastSlot.position)
     )
     lines = "\n".join(
         f"slot:{s.id} | {s.role} | {s.description} (no look yet)"
-        for s in unlocked
-        if str(s.id) not in (cast or {})
+        for s in slots
+        if (pick(db, project, s) if project else s.library_item_id) is None
     )
     return context.replace("\n</cast>", f"\n{escape(lines)}\n</cast>") if lines else context
 
@@ -59,7 +62,7 @@ def with_slots(db: Session, script_id: int, context: str, cast: dict | None = No
 def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict | None) -> dict:
     project = stand_in_project(db, script, draft, reference)
     system, context = project_context(db, project, "breakdown")
-    context = with_slots(db, script.id, context)
+    context = with_slots(db, script.id, context, project)
     parts = [context, f"<places>\n{escape(breakdown._places(db, project))}\n</places>"]
     parts.append(breakdown.video_model_block(breakdown.video_model()))
     if project.reference_breakdown:

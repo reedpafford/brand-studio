@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
 from app import advice, breakdown, breakdown_fix, clip_prompts, storyboard
-from app.advice import Said, names, plain
+from app.advice import Said, names
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -137,21 +137,14 @@ def save(
 ):
     """Save the editor's edited breakdown for the working script (a new row)."""
     project, version = _working(db, user, project_id)
-    body = breakdown.as_roles(db, project, body)  # speakers are roles, never looks
-    if unknown := breakdown.unknown_ids(db, project, body):
-        called = {
-            **breakdown.unknown_names(db, project, body),
-            **names(storyboard.assets(db, project)),
-        }
-        said = plain(unknown, called)[0]
-        raise HTTPException(422, f"{said}. Pick from the video's cast, places and screens.")
+    body, landed = breakdown.land(db, project, body)  # never blocks on who's in a shot
     breakdown.record_length(project, body)
     row = BreakdownVersion(
         project_id=project.id,
         script_version=version.version,
         source="edit",
         data=body.model_dump(),
-        problems=breakdown.problems(db, project, version.text, body),
+        problems=breakdown.problems(db, project, version.text, body) + landed,
         created_by_id=user.id,
     )
     db.add(row)
@@ -172,12 +165,13 @@ def fix_cast(project_id: int, user: User = Depends(current_user), db: Session = 
     fixed = fix(db, project, version.text, Breakdown.model_validate(row.data))
     if fixed is None:
         raise HTTPException(409, "Every shot already has the right cast.")
+    fixed, landed = breakdown.land(db, project, fixed)
     new = BreakdownVersion(
         project_id=project.id,
         script_version=row.script_version,
         source="edit",
         data=fixed.model_dump(),
-        problems=breakdown.problems(db, project, version.text, fixed),
+        problems=breakdown.problems(db, project, version.text, fixed) + landed,
         created_by_id=user.id,
     )
     db.add(new)
@@ -203,12 +197,13 @@ def new_version(db: Session, user: User, project, row: BreakdownVersion, text: s
     fix-cast); free, no model call."""
     from app import cast_roles
 
+    bd, landed = breakdown.land(db, project, bd)
     new = BreakdownVersion(
         project_id=project.id,
         script_version=row.script_version,
         source="edit",
         data=bd.model_dump(),
-        problems=breakdown.problems(db, project, text, bd),
+        problems=breakdown.problems(db, project, text, bd) + landed,
         created_by_id=user.id,
     )
     db.add(new)

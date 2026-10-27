@@ -3,6 +3,8 @@ that need a look. A role the script already has keeps its slot (a locked one sta
 locked); new roles join as unlocked slots. The list's order sets the slots' order. Each slot
 records the versions it's in; one the read no longer finds is kept with none."""
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -89,6 +91,24 @@ def problems(db: Session, script: Script, job: Job) -> list[str]:
     return check.cast_slots(_versions(db, script), result, cast=names)
 
 
+NOT_A_ROLE = {"vo", "v.o", "narrator", "voiceover", "voice over", "text", "caption", "super"}
+
+
+def _speakers(db: Session, script: Script) -> dict[str, list[int]]:
+    """Everyone who speaks in the script's versions, as the script labels them ("FRIEND:" is
+    Friend), with the versions they speak in."""
+    out: dict[str, list[int]] = {}
+    for draft in db.scalars(select(ScriptDraft).where(ScriptDraft.script_id == script.id)):
+        for line in draft.text.splitlines():
+            if m := check.SPEAKER.match(line):
+                name = re.sub(r"\(.*?\)", "", m[0]).strip(" :").strip()
+                if name and name.lower() not in NOT_A_ROLE:
+                    out.setdefault(name.title(), [])
+                    if draft.slot not in out[name.title()]:
+                        out[name.title()].append(draft.slot)
+    return out
+
+
 def _key(role: str) -> str:
     """One role however it's written: "Nate, the teen groom" and "NATE" are both Nate."""
     from app.cast_roles import short
@@ -119,5 +139,11 @@ def save_cast_slots(db: Session, job: Job) -> None:
         done[key] = slot
     for slot in have.values():
         slot.appears_in = []  # the script doesn't name it any more
+    for name, slots in _speakers(db, script).items():  # a speaker the read missed (Reed: FRIEND)
+        if _key(name) not in done and _key(name) not in have:
+            done[_key(name)] = slot = ScriptCastSlot(script_id=script.id, role=name, kind="Helper",
+                                                     appears_in=slots)  # fmt: skip
+            db.add(slot)
+            order.append(slot)
     for position, slot in enumerate([*order, *have.values()], 1):  # others keep their order
         slot.position = position

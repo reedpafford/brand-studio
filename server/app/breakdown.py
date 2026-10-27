@@ -56,7 +56,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         from app.models.script_library import ScriptDraft
 
         draft = db.get(ScriptDraft, project.script_draft_id)
-        context = script_preview.with_slots(db, draft.script_id, context, project.slot_cast)
+        context = script_preview.with_slots(db, draft.script_id, context, project)
     parts = [context, f"<places>\n{escape(_places(db, project))}\n</places>"]
     parts.append(video_model_block(video_model()))
     if project.reference_breakdown:
@@ -141,15 +141,55 @@ def _called(db: Session, ref: str, workspace_id: int) -> str:
 def land(
     db: Session, project: Project, bd: Breakdown, also: set[str] = frozenset()
 ) -> tuple[Breakdown, list[str]]:
-    """A breakdown as it is saved, however it came (the AI, a library plan, an edit, a cast
-    swap): each speaker is the role, and a name the video doesn't have (or `also` allows) is
-    taken out, said as advice. So "a character that isn't part of this video" never sticks."""
+    """A breakdown as it is saved, however it came (the AI, a library plan, an edit, a fix, a
+    cast swap), so "a character that isn't part of this video" never sticks (Kel's empty
+    chair, Reed 2026-10-27): each speaker is the role; someone the video doesn't have (or
+    `also` allows) becomes the role that picked them (a deleted look) or the script's role
+    for the shot's speaker, made if it's missing (a per-video role, like FRIEND, whose look
+    Assets makes); anyone else is taken out. Each change is said as advice."""
     from app.breakdown_fix import drop_unknown
-    from app.storyboard import assets
+    from app.cast_roles import picked, short
+    from app.storyboard import assets, script_slots
 
     bd = as_roles(db, project, bd)
     known = {**assets(db, project), **dict.fromkeys(also)}
-    return drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
+    slots = script_slots(db, project)
+    looks = {f"char:{picked(project, s)}": s for s in slots if picked(project, s)}
+    notes = []
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        for ref in [r for r in shot.character_ids if r not in known]:
+            slot = looks.get(ref) or _role(db, project, slots, shot.speaker)
+            if slot is None:
+                continue
+            new = f"slot:{slot.id}"
+            shot.character_ids = list(
+                dict.fromkeys(new if r == ref else r for r in shot.character_ids)
+            )
+            known[new] = ("", [])
+            notes.append(f"Advice: Shot {shot.id} now shows {short(slot.role) or slot.role}, "
+                         "a role in this video.")  # fmt: skip
+    bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
+    return bd, notes + removed
+
+
+def _role(db: Session, project: Project, slots: list, speaker: str | None):
+    """The script's role for a shot's speaker, added to the script when it has none yet (the
+    cast read missed them); None without a speaker or a library script."""
+    from app.cast_roles import short
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if not speaker or draft is None:
+        return None
+    want = speaker.strip().lower()
+    found = next((s for s in slots if want in (s.role.lower(), short(s.role).lower())), None)
+    if found is None:
+        found = ScriptCastSlot(script_id=draft.script_id, role=speaker.strip().title()[:120],
+                               position=len(slots) + 1, kind="Helper")  # fmt: skip
+        db.add(found)
+        db.flush()
+        slots.append(found)
+    return found
 
 
 def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:
