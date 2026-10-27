@@ -84,7 +84,7 @@ def test_checks_are_said_with_names():
     )
     assert said == [
         "Mia in the shot without a sheet",
-        "A character that isn't part of this video",
+        "An unnamed character that isn't part of this video",
         "shot 1.2: a place that isn't part of this video",
         "Advice: The Keep line doesn't name Mia",
         "Shot 1.1's screen Buy isn't attached",
@@ -107,11 +107,17 @@ def test_stored_checks_show_no_ids(app, db, editor, setup):  # noqa: F811
     bad = copy.deepcopy(BREAKDOWN)
     bad["scenes"][0]["shots"][0]["character_ids"] = ["char:999"]
     bad["scenes"][0]["shots"][0]["place_id"] = "place:7"
-    refused = editor.put(f"{url}/breakdown", json=bad).json()["detail"]
+    saved = editor.put(f"{url}/breakdown", json=bad)  # never refused: taken out, as advice
+    refused = " ".join(saved.json()["problems"])
     editor.post(f"{url}/breakdown")
     _run(app, db, FakeClaude(bad))
     shown = editor.get(f"{url}/breakdown").json()["problems"]
-    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    row = (
+        db.query(BreakdownVersion)
+        .filter_by(project_id=setup["project"])
+        .order_by(BreakdownVersion.id.desc())
+        .first()
+    )
     row.problems, row.kept = [*row.problems, "c1: unknown char:999"], ["Advice: c1: char:999"]
     db.commit()
     assert plain_stored(db) >= 1 and plain_stored(db) == 0  # once, then nothing to do

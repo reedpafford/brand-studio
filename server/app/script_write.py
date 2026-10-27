@@ -34,9 +34,9 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     project = stand_in_project(db, script, draft, reference)
     system, context = project_context(db, project, "script_draft")
     context = context.replace("<brief>\n", f"<brief>\nTitle: {escape(script.title)}\n", 1)
-    context = with_slots(db, script.id, context)
-    if block := payoffs_block(recent_payoffs(db, script.brand_id)):  # montage variety
-        context += f"\n{block}"
+    context = with_slots(db, script.id, context, project)
+    if block := payoffs_block(recent_payoffs(db, script.brand_id, viewer=script.created_by_id)):
+        context += f"\n{block}"  # montage variety
     if reference:
         context += f"\n{escape_block(prompts.reference_block(reference, script.reference_replace))}"
         if script.new_lines:

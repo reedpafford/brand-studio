@@ -13,6 +13,22 @@ from app.models.projects import Project
 from app.models.script_library import ScriptCastSlot, ScriptDraft
 
 
+def picked(project: Project, slot: ScriptCastSlot) -> int | None:
+    """The look chosen for a role (locked on the script, or cast at Assets), live or not."""
+    return slot.library_item_id or (project.slot_cast or {}).get(str(slot.id))
+
+
+def pick(db: Session, project: Project, slot: ScriptCastSlot) -> int | None:
+    """The role's look, if it can still be used: a deleted (archived) one, or another
+    workspace's, counts as no look, so the role is uncast everywhere (Kel's empty chair: the
+    girlfriend was deleted from Cast & places while still cast as "Her friend")."""
+    from app.models.library import LibraryItem
+
+    item = db.get(LibraryItem, picked(project, slot) or 0)
+    live = item is not None and not item.archived and item.workspace_id == project.workspace_id
+    return item.id if live else None
+
+
 def cast_roles(db: Session, project: Project) -> dict[int, list[ScriptCastSlot]]:
     """character id -> the roles they play (in slot order); empty for older videos."""
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
@@ -23,10 +39,9 @@ def cast_roles(db: Session, project: Project) -> dict[int, list[ScriptCastSlot]]
         .where(ScriptCastSlot.script_id == draft.script_id)
         .order_by(ScriptCastSlot.position, ScriptCastSlot.id)
     )
-    picked = project.slot_cast or {}
     out: dict[int, list[ScriptCastSlot]] = {}
     for slot in slots:
-        if who := slot.library_item_id or picked.get(str(slot.id)):
+        if who := pick(db, project, slot):
             out.setdefault(who, []).append(slot)
     return out
 
@@ -72,11 +87,10 @@ def role_refs(db: Session, project: Project) -> dict[str, list[ScriptCastSlot]]:
     out = {f"char:{c}": slots for c, slots in cast_roles(db, project).items()}
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     if draft is not None:
-        picked = project.slot_cast or {}
         for slot in db.scalars(
             select(ScriptCastSlot).where(ScriptCastSlot.script_id == draft.script_id)
         ):
-            if not (slot.library_item_id or picked.get(str(slot.id))):
+            if not pick(db, project, slot):
                 out[f"slot:{slot.id}"] = [slot]
     return out
 

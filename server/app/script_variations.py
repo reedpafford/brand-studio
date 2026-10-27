@@ -51,7 +51,7 @@ def job_input(
         keep_apart=escape("\n\n".join(keep_apart)),
         note=escape(note),
     )
-    if block := payoffs_block(recent_payoffs(db, script.brand_id)):  # montage variety
+    if block := payoffs_block(recent_payoffs(db, script.brand_id, viewer=script.created_by_id)):
         message += f"\n{block}"
     return {
         "step": "variations",

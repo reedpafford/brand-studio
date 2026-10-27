@@ -61,3 +61,24 @@ def test_recent_payoffs_are_told_and_a_repeat_is_advice(app, db, editor, setup):
     assert len(repeats) == 3 and all(p.startswith("Advice: ") for p in repeats)
     first_job = db.query(Job).filter(Job.input["project_id"].as_integer() == first).one()
     assert "<recent_payoffs>" not in first_job.input["prompt"]  # nothing before it
+
+
+def test_a_video_whose_script_is_private_to_someone_else_is_left_out(app, db, owner, editor, setup):  # noqa: F811
+    # QA: the model never sees another person's private work.
+    from app.breakdown import recent_payoffs
+    from app.models.script_library import Script, ScriptDraft
+
+    first = setup["project"]
+    editor.post(f"/projects/{first}/breakdown")
+    _run(app, db, FakeClaude(_montage()))
+    made = owner.post(
+        "/scripts", json={"brand_id": db.get(Project, first).brand_id, "title": "Mine"}
+    )
+    script = db.get(Script, made.json()["id"])  # owner's, never published
+    project = db.get(Project, first)
+    project.script_draft_id = db.query(ScriptDraft).filter_by(script_id=script.id).one().id
+    db.commit()
+    brand = project.brand_id
+    assert recent_payoffs(db, brand, viewer=script.created_by_id)  # its author sees it
+    editor_id = db.get(Project, _video(editor, "Theirs")).created_by_id
+    assert recent_payoffs(db, brand, viewer=editor_id) == []  # someone else doesn't

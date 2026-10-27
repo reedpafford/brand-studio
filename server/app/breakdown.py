@@ -50,13 +50,16 @@ def _places(db: Session, project: Project) -> str:
 
 
 def recent_payoffs(
-    db: Session, brand_id: int, exclude: int | None = None, n: int = 5
+    db: Session, brand_id: int, exclude: int | None = None, n: int = 5, viewer: int | None = None
 ) -> list[tuple[str, list[str]]]:
     """Where the brand's latest videos' montages landed (Reed, 2026-10-27: a video's payoffs
     never repeat one of the same brand's): up to `n` other videos with a montage in their
     newest breakdown, newest first, as (video name, its last 3 montage actions in plain
-    words). Library drafts don't count. Free."""
+    words). Library drafts don't count, nor a video whose script is still private to another
+    person (`viewer`: whose prompt this is), so the model never sees someone's private work.
+    Free."""
     from app.advice import names, plain
+    from app.models.script_library import Script, ScriptDraft
     from app.storyboard import assets
 
     newest = (
@@ -73,7 +76,12 @@ def recent_payoffs(
     )
     out = []
     for project, row in rows:
-        if project.id == exclude or len(out) == n:
+        if len(out) == n:
+            break
+        draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+        script = db.get(Script, draft.script_id) if draft else None
+        private = script is not None and not script.published and script.created_by_id != viewer
+        if project.id == exclude or private:
             continue
         shots = [s for scene in Breakdown.model_validate(row.data).scenes for s in scene.shots]
         if landed := check.payoff(shots):
@@ -95,9 +103,10 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         from app.models.script_library import ScriptDraft
 
         draft = db.get(ScriptDraft, project.script_draft_id)
-        context = script_preview.with_slots(db, draft.script_id, context, project.slot_cast)
+        context = script_preview.with_slots(db, draft.script_id, context, project)
     parts = [context, f"<places>\n{escape(_places(db, project))}\n</places>"]
-    if block := payoffs_block(recent_payoffs(db, project.brand_id, project.id)):
+    viewer = project.created_by_id
+    if block := payoffs_block(recent_payoffs(db, project.brand_id, project.id, viewer=viewer)):
         parts.append(block)
     parts.append(video_model_block(video_model()))
     if project.reference_breakdown:
@@ -126,14 +135,14 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
     if "approved" in params:  # a video from the library is made from an approved version
         extra["approved"] = project.script_draft_id is not None
     if "recent" in params:  # montage variety: the brand's other videos' payoffs
-        recent = recent_payoffs(db, project.brand_id, project.id)
+        recent = recent_payoffs(db, project.brand_id, project.id, viewer=project.created_by_id)
         extra["recent"] = [a for _, actions in recent for a in actions]
     found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     from app.advice import names, plain
     from app.storyboard import assets
 
     found += unknown_ids(db, project, bd) + cast_problems(db, project, script, bd)
-    return plain(found, names(assets(db, project)))
+    return plain(found, {**unknown_names(db, project, bd), **names(assets(db, project))})
 
 
 def cast_problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
@@ -174,22 +183,66 @@ def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
 
 
 def _called(db: Session, ref: str, workspace_id: int) -> str:
-    """A name the video doesn't have, as people call it ("Mia"), or what it is; only ever a
-    name from this workspace."""
-    from app.advice import KIND
-    from app.enhance import screen_name
-    from app.models.brands import Brand, BrandScreen
+    """A name the video doesn't have, as people call it ("Mia"), even a deleted look's or
+    another video's, or what it is ("an unnamed character"); only ever a name from this
+    workspace."""
+    from app.advice import UNNAMED, called
 
-    kind, _, n = ref.partition(":")
-    if n.isdigit() and kind in ("char", "place", "prop"):
-        item = db.get(LibraryItem, int(n))
-        if item and item.workspace_id == workspace_id:
-            return item.name
-    elif n.isdigit() and kind == "screen" and (screen := db.get(BrandScreen, int(n))):
-        brand = db.get(Brand, screen.brand_id)
-        if brand and brand.workspace_id == workspace_id:
-            return screen_name(screen)
-    return KIND.get(kind, "a name")
+    return called(db, {ref}, workspace_id).get(ref) or UNNAMED.get(ref.partition(":")[0], "a name")
+
+
+def land(
+    db: Session, project: Project, bd: Breakdown, also: set[str] = frozenset()
+) -> tuple[Breakdown, list[str]]:
+    """A breakdown as it is saved, however it came (the AI, a library plan, an edit, a fix, a
+    cast swap), so "a character that isn't part of this video" never sticks (Kel's empty
+    chair, Reed 2026-10-27): each speaker is the role; someone the video doesn't have (or
+    `also` allows) becomes the role that picked them (a deleted look) or the script's role
+    for the shot's speaker, made if it's missing (a per-video role, like FRIEND, whose look
+    Assets makes); anyone else is taken out. Each change is said as advice."""
+    from app.breakdown_fix import drop_unknown
+    from app.cast_roles import picked, short
+    from app.storyboard import assets, script_slots
+
+    bd = as_roles(db, project, bd)
+    known = {**assets(db, project), **dict.fromkeys(also)}
+    slots = script_slots(db, project)
+    looks = {f"char:{picked(project, s)}": s for s in slots if picked(project, s)}
+    notes = []
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        for ref in [r for r in shot.character_ids if r not in known]:
+            slot = looks.get(ref) or _role(db, project, slots, shot.speaker)
+            if slot is None:
+                continue
+            new = f"slot:{slot.id}"
+            shot.character_ids = list(
+                dict.fromkeys(new if r == ref else r for r in shot.character_ids)
+            )
+            known[new] = ("", [])
+            notes.append(f"Advice: Shot {shot.id} now shows {short(slot.role) or slot.role}, "
+                         "a role in this video.")  # fmt: skip
+    bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
+    return bd, notes + removed
+
+
+def _role(db: Session, project: Project, slots: list, speaker: str | None):
+    """The script's role for a shot's speaker, added to the script when it has none yet (the
+    cast read missed them); None without a speaker or a library script."""
+    from app.cast_roles import short
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if not speaker or draft is None:
+        return None
+    want = speaker.strip().lower()
+    found = next((s for s in slots if want in (s.role.lower(), short(s.role).lower())), None)
+    if found is None:
+        found = ScriptCastSlot(script_id=draft.script_id, role=speaker.strip().title()[:120],
+                               position=len(slots) + 1, kind="Helper")  # fmt: skip
+        db.add(found)
+        db.flush()
+        slots.append(found)
+    return found
 
 
 def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:
@@ -220,17 +273,13 @@ def save_breakdown(db: Session, job: Job) -> None:
     the library version it previews (workflow v2)."""
     if draft_id := job.input.get("script_draft_id"):
         from app import script_preview
-        from app.models.script_library import Script, ScriptDraft
+        from app.models.script_library import ScriptDraft
 
         draft = db.get(ScriptDraft, draft_id)
-        stand_in = script_preview.stand_in_project(db, db.get(Script, draft.script_id), draft)
-        script_preview.save(
-            db,
-            draft,
-            as_roles(db, stand_in, Breakdown.model_validate(job.output)),
-            job.created_by_id,
+        script_preview.save(  # it lands the plan (roles, names it doesn't have)
+            db, draft, Breakdown.model_validate(job.output), job.created_by_id,
             job.input.get("script_text"),
-        )
+        )  # fmt: skip
         return
     project = db.get(Project, job.input["project_id"])
     version = db.scalar(
@@ -239,12 +288,7 @@ def save_breakdown(db: Session, job: Job) -> None:
             ScriptVersion.version == job.input["script_version"],
         )
     )
-    bd = as_roles(db, project, Breakdown.model_validate(job.output))
-    from app.breakdown_fix import drop_unknown
-    from app.storyboard import assets
-
-    known = assets(db, project)  # a name the video doesn't have never blocks: it's taken out
-    bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
+    bd, removed = land(db, project, Breakdown.model_validate(job.output))
     record_length(project, bd)
     db.add(
         BreakdownVersion(

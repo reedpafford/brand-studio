@@ -130,3 +130,21 @@ def test_the_free_claude_fix_runs_once_per_prompt(app, db, editor, setup):  # no
     assert editor.put(url, json={**body, "prompt": edited}).json()["free_fix_used"] is False
     assert editor.post(f"{url}/fix").json()["job"]["id"] != first["job"]["id"]
     assert len(fixes()) == 2
+
+
+def test_a_deleted_first_frame_tag_comes_back_whole():
+    # QA-2: only "[Image1]" was deleted; the fix put the sentence in front and left the half.
+    from app.clip_prompts import repair_shape
+    from app.prompts.schemas import Breakdown, ClipPrompt, Reference
+    from tests.test_breakdown import BREAKDOWN
+
+    prompt = _prompt().replace(
+        'References: [Image1] is Mom. [Image2] is the fomo "Buy" screen.',
+        "References: is the first frame. [Image2] is Mom.",
+    )
+    refs = [Reference(kind="image", id="frame:c1", role="first frame"),
+            Reference(kind="image", id="char:1", role="Mom")]  # fmt: skip
+    fixed = repair_shape(ClipPrompt(clip_id="c1", seconds=5, prompt=prompt, references=refs),
+                         Breakdown.model_validate(BREAKDOWN))  # fmt: skip
+    line = next(x for x in fixed.prompt.splitlines() if x.startswith("References: "))
+    assert line == "References: [Image1] is the first frame. [Image2] is Mom."
