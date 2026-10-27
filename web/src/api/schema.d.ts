@@ -1526,6 +1526,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/uploads/video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Video */
+        post: operations["upload_video_uploads_video_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Upload
+         * @description Remove: the file goes at once (nothing was charged, so no Undo).
+         */
+        delete: operations["remove_upload_uploads__upload_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts": {
         parameters: {
             query?: never;
@@ -1558,7 +1595,9 @@ export interface paths {
         put?: never;
         /**
          * Create Many
-         * @description Up to 50 scripts at once, all or none: a plain error names the first bad row.
+         * @description Up to 50 scripts at once, all or none: a plain error names the first bad row. Rows
+         *     with a reel link or an uploaded video (up to 20 together) are prepared one after another,
+         *     in this order.
          */
         post: operations["create_many_scripts_bulk_post"];
         delete?: never;
@@ -3415,6 +3454,13 @@ export interface components {
             /** Upload */
             upload: string;
         };
+        /** Body_upload_video_uploads_video_post */
+        Body_upload_video_uploads_video_post: {
+            /** File */
+            file: string;
+            /** Brand Id */
+            brand_id: number;
+        };
         /** BrandIn */
         BrandIn: {
             /** Logo File Id */
@@ -3665,6 +3711,8 @@ export interface components {
             text: string;
             /** Reel Url */
             reel_url?: string | null;
+            /** Upload Id */
+            upload_id?: number | null;
         };
         /** ChangeIn */
         ChangeIn: {
@@ -4989,6 +5037,16 @@ export interface components {
             status: "preparing" | "ready" | "reading" | "done" | "failed";
             /** Seconds */
             seconds: number | null;
+            /**
+             * Source
+             * @default link
+             * @enum {string}
+             */
+            source: "link" | "file";
+            /** Url */
+            url?: string | null;
+            /** File Name */
+            file_name?: string | null;
             /** Fetch Error */
             fetch_error?: string | null;
         };
@@ -5545,6 +5603,24 @@ export interface components {
             /** Ids */
             ids: number[];
         };
+        /** UploadOut */
+        UploadOut: {
+            /** Upload Id */
+            upload_id: number | null;
+            /** File Name */
+            file_name: string;
+            /** Seconds */
+            seconds: number | null;
+            /** Size */
+            size: number;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /** Problem Code */
+            problem_code?: string | null;
+        };
         /** UsageBrandOut */
         UsageBrandOut: {
             /** Brand Id */
@@ -5927,6 +6003,16 @@ export interface components {
              * @default []
              */
             failed: number[];
+            /**
+             * Reels
+             * @default {
+             *       "links": 0,
+             *       "videos": 0
+             *     }
+             */
+            reels: {
+                [key: string]: number;
+            };
         };
         /** WriteManyIn */
         WriteManyIn: {
@@ -9151,6 +9237,68 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ImportOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_video_uploads_video_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_video_uploads_video_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_upload_uploads__upload_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
