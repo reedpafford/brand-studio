@@ -141,13 +141,14 @@ def save(
     if unknown := breakdown.unknown_ids(db, project, body):
         said = plain(unknown, names(storyboard.assets(db, project)))[0]
         raise HTTPException(422, f"{said}. Pick from the video's cast, places and screens.")
+    body, shown = breakdown.cta_screen(db, project, body)
     breakdown.record_length(project, body)
     row = BreakdownVersion(
         project_id=project.id,
         script_version=version.version,
         source="edit",
         data=body.model_dump(),
-        problems=breakdown.problems(db, project, version.text, body),
+        problems=breakdown.problems(db, project, version.text, body) + shown,
         created_by_id=user.id,
     )
     db.add(row)

@@ -155,6 +155,33 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
         screen.balance = meta.get("balance", "")
 
 
+def repair_cta_screens(db: Session) -> int:
+    """Each video's newest breakdown whose end line's shot shows no screen gets the brand's
+    balance (else home) screen and the hero, in place (breakdown.cta_screen); its frames
+    and clips then attach it (repair_frames, repair_clips). Free; again changes nothing."""
+    from app.breakdown import cta_screen
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.projects import Project
+    from app.prompts.schemas import Breakdown
+
+    changed = 0
+    for project in db.scalars(select(Project)).all():
+        row = db.scalar(
+            select(BreakdownVersion)
+            .where(BreakdownVersion.project_id == project.id)
+            .order_by(BreakdownVersion.id.desc())
+            .limit(1)
+        )
+        if row is None:
+            continue
+        bd, notes = cta_screen(db, project, Breakdown.model_validate(row.data))
+        if notes:
+            row.data, row.problems = bd.model_dump(), [*(row.problems or []), *notes]
+            changed += 1
+    db.commit()
+    return changed
+
+
 def repair_frames(db: Session) -> int:
     """Frames saved before every shot's people got their sheets (Reed's live test): fixed
     for free, with no model call; running it again changes nothing."""
@@ -293,6 +320,7 @@ def main(folder: str, slug: str = "fomo") -> None:
             print("Launch brands brought up to date from the manifests.")
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
+            print(f"Gave {repair_cta_screens(db)} end-line shots the brand's screen.")
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Gave {repair_clips(db)} clips their characters' sheets.")
             print(f"Said {plain_stored(db)} saved checks in plain words.")

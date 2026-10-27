@@ -114,6 +114,37 @@ def cast_problems(db: Session, project: Project, script: str, bd: Breakdown) -> 
     return out
 
 
+def cta_screen(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdown, list[str]]:
+    """The end line's shot (the call to action) shows the brand's real screen, on the phone the
+    hero holds up (Reed, 2026-10-27; the Director, #556): with no screen, it gets the brand's
+    balance screen (else its home screen) and the hero, the person in the most shots. Free,
+    in code; said as advice. Doing it again changes nothing."""
+    from app.advice import names
+    from app.enhance import screen_name
+    from app.storyboard import assets
+
+    brand = db.get(Brand, project.brand_id)
+    shots = [s for scene in bd.scenes for s in scene.shots]
+    if check.cta_screen(shots, brand.end_line, brand.name) == []:
+        return bd, []
+    shot = [
+        s for s in shots if s.line and check.ends_on(brand.end_line, s.line, brand.name) != "no"
+    ][-1]
+    screens = project_screens(db, project)
+    home = [s for s in screens if "home" in s.tags or "home" in screen_name(s).lower()]
+    screen = next((s for s in screens if s.balance), None) or next(iter(home), None)
+    if screen is None:
+        return bd, []
+    people = [c for s in shots for c in s.character_ids]
+    hero = max(dict.fromkeys(people), key=people.count) if people else None
+    shot.screen_ids = [f"screen:{screen.id}"]
+    if hero and hero not in shot.character_ids:
+        shot.character_ids = [*shot.character_ids, hero]
+    who = names(assets(db, project)).get(hero or "", "the hero")
+    note = f"Advice: Shot {shot.id} now shows the {screen_name(screen)} screen on {who}'s phone."
+    return bd, [note]
+
+
 def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
     """Characters, places and screens a shot names that aren't this project's (cast, the
     brand's places, the brand's screens). Clips use these ids to attach pictures."""
@@ -201,6 +232,8 @@ def save_breakdown(db: Session, job: Job) -> None:
 
     known = assets(db, project)  # a name the video doesn't have never blocks: it's taken out
     bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
+    bd, shown = cta_screen(db, project, bd)
+    removed += shown
     record_length(project, bd)
     db.add(
         BreakdownVersion(

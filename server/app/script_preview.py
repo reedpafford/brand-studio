@@ -107,6 +107,7 @@ def save(
     """A new plan for the version, from `text` (the words it was made from; the version's
     own by default). Advice kept on the old plan doesn't carry over."""
     script = db.get(Script, draft.script_id)
+    bd, shown = breakdown.cta_screen(db, stand_in_project(db, script, draft), bd)
     draft.breakdown, draft.breakdown_by_id = bd.model_dump(), by_id
     draft.breakdown_text, draft.breakdown_kept = draft.text if text is None else text, []
-    draft.breakdown_problems = problems(db, script, draft, bd)
+    draft.breakdown_problems = problems(db, script, draft, bd) + shown
