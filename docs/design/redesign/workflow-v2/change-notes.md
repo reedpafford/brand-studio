@@ -42,7 +42,7 @@ A box under every still (Storyboard) and every clip take (Clips), always visible
 - The note stays in the box so it can be edited. Nothing was charged, and the toast stays quiet.
 - To change the words, the person goes to the script. The hint under the box reads "To change the words, edit the script." with **Open script** (ghost dense).
 
-**Advanced: edit the prompt** (ghost dense link, `Pencil`): it opens the prompt as a textarea with **Save** / **Cancel**, as **Edit** does today. On a clip before takes, saving counts as Looks good. Saving doesn't make anything; the still or take is made with **Change it** or the step's button.
+**Advanced: edit the prompt** (ghost dense link, `Pencil`): it opens the prompt as a textarea with **Save** / **Cancel**, as **Edit** does today. On a clip before takes, saving counts as Looks good. On a clip, saving doesn't make anything; the take is made with **Change it** or the step's button. On a still that's already drawn, Save reads **Save and redraw · N credits** and draws it again from the new prompt (as built in #547; Producer, 2026-10-27). While it draws, the card shows "Drawing…". If the new prompt has a blocking problem, it's saved but not drawn, and the problem shows with its fix. Past a limit it's a plain **Save prompt**, with "Saving keeps the current still." and the usual reason under it.
 
 **Make another (same prompt):** for a plain retry, the card's `Ellipsis` menu has **Make another · N credits**. It's the old Redo, with no note.
 
