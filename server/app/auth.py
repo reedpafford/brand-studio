@@ -82,6 +82,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
         if user:
             if (asker := REQUEST.get()) is not None:
                 asker["workspace_id"] = user.workspace_id  # names in messages: theirs only
+                asker["owner"] = user.is_owner  # editors never see the owner's name (rule 4)
             return user
     raise HTTPException(401, "Please log in.")
 
@@ -94,5 +95,12 @@ def owner_only(user: User = Depends(current_user)) -> User:
 
 def user_name(db: Session, user_id: int | None) -> str:
     """A teammate's name for lists ("asked by"), or "" if unknown."""
-    user = db.get(User, user_id) if user_id else None
-    return user.name if user else ""
+    return shown_name(db.get(User, user_id) if user_id else None)
+
+
+def shown_name(user: User | None) -> str:
+    """A person's name as this viewer may see it: to anyone but the owner, the owner is
+    "the owner" (Current rules 4: editors never see Reed's name)."""
+    if user is None:
+        return ""
+    return "the owner" if user.is_owner and not (REQUEST.get() or {}).get("owner") else user.name
