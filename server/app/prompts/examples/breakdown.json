@@ -1,7 +1,7 @@
 {
  "source": "house-style template A \"They said I'd fail\" (docs/house-style, after nateassets DcP_aC_AoQz); new characters and lines for fomo",
- "note": "Conflict line with a number at 0 s and the dare by 5 s (8 shots in 7 s), a cold low point held 2 s, the screens at the low point, the turn (with a ding) and the scale-up, a wordless six-beat montage at 0.4 s with day/night flips and a flash frame, a white flash into the time jump, a mirrored payoff under 8 words, a scream button, and 2 s of the real fomo screen to close.",
- "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image: logo, colours and layout exact, numbers free:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, red beanie, grey hoodie, headphones round his neck\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<places>\nplace:1 Tasha's kitchen\nplace:2 Malik's small bedroom\n</places>\n<video_model>Seedance 2.5: 4–30 s per clip, up to 30 reference images (prefer 8 or fewer)</video_model>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Aunt Tasha slams Malik's empty piggy bank on the counter.\n3| TASHA: Your college fund is EMPTY?! Five hundred dollars!\n4| MALIK: I put it in fomo.\n5| TASHA: A phone app? That's your college money!\n6| MALIK: Thirty days. Watch me.\n7| TASHA: Thirty days. Then you're bagging groceries.\n8| SCENE 2 — INT. MALIK'S BEDROOM — NIGHT\n9| ★ fomo screen: Token chart down — on Malik's phone\n10| Malik drops his head onto his arms in the blue phone glow.\n11| MALIK: Come on. One more.\n12| ★ fomo screen: Token chart up — fills the frame, a phone ding\n13| Wordless montage, Malik in every shot: the grind first, then getting rich. Another late night with the energy cans, a red day he shakes off, a bigger win on his new desktop; then car keys dropped into his palm, Malik behind the wheel of a new red coupe, pushing open a penthouse door, out on the balcony over the city.\n14| ★ fomo screen: Desktop trading — on his monitor\n15| SCENE 3 — INT. KITCHEN — DAY, ONE MONTH LATER\n16| White flash. The red piggy bank sits on the counter.\n17| Malik slides his phone across the counter.\n18| TASHA: That's… real?\n19| MALIK: Still want me bagging groceries?\n20| Tasha grabs his phone with both hands and screams.\n21| ★ fomo screen: Home — closing tag, fills the frame\n</script>",
+ "note": "Conflict line with a number at 0 s and the dare by 5 s (8 shots in 7 s), a cold low point held 2 s, the screens at the low point, the turn (with a ding) and the scale-up, a wordless six-beat montage at 0.4 s with day/night flips and a flash frame, a white flash into the time jump, a mirrored payoff under 8 words, a scream button, and 2 s of the real fomo screen in Tasha's hands to close.",
+ "input": "<brand>\nBrand: fomo\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image: logo, colours and layout exact, numbers free:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, red beanie, grey hoodie, headphones round his neck\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<places>\nplace:1 Tasha's kitchen\nplace:2 Malik's small bedroom\n</places>\n<video_model>Seedance 2.5: 4–30 s per clip, up to 30 reference images (prefer 8 or fewer)</video_model>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Aunt Tasha slams Malik's empty piggy bank on the counter.\n3| TASHA: Your college fund is EMPTY?! Five hundred dollars!\n4| MALIK: I put it in fomo.\n5| TASHA: A phone app? That's your college money!\n6| MALIK: Thirty days. Watch me.\n7| TASHA: Thirty days. Then you're bagging groceries.\n8| SCENE 2 — INT. MALIK'S BEDROOM — NIGHT\n9| ★ fomo screen: Token chart down — on Malik's phone\n10| Malik drops his head onto his arms in the blue phone glow.\n11| MALIK: Come on. One more.\n12| ★ fomo screen: Token chart up — on Malik's phone in his hand, a phone ding\n13| Wordless montage, Malik in every shot: the grind first, then getting rich. Another late night with the energy cans, a red day he shakes off, a bigger win on his new desktop; then a delivery box of studio gear he rips open, Malik behind the mixing desk of his own studio, courtside at a packed game, front row at a sold-out arena show as confetti falls.\n14| ★ fomo screen: Desktop trading — on his monitor\n15| SCENE 3 — INT. KITCHEN — DAY, ONE MONTH LATER\n16| White flash. The red piggy bank sits on the counter.\n17| Malik slides his phone across the counter.\n18| TASHA: That's… real?\n19| MALIK: Still want me bagging groceries?\n20| Tasha grabs his phone with both hands and screams.\n21| ★ fomo screen: Home — closing tag, on Malik's phone in Tasha's hands\n</script>",
  "output": {
   "hook": "Tasha bursts in and slams Malik's empty piggy bank down at 0 s, and the money ($500) is in her first line; his dare lands by second 5.",
   "scenes": [
@@ -160,8 +160,8 @@
    },
    {
     "id": 2,
-    "heading": "INT. MALIK'S BEDROOM — NIGHT, THEN MONTAGE: CAR, PENTHOUSE",
-    "look": "Near black, cold blue phone light from below, until the win turns it green and warm; the grind stays at night in his room (blue light, energy cans, the clock); the payoff climbs into warm gold: the red coupe, a glass penthouse and its balcony over the city lights.",
+    "heading": "INT. MALIK'S BEDROOM — NIGHT, THEN MONTAGE: STUDIO, ARENA",
+    "look": "Near black, cold blue phone light from below, until the win turns it green and warm; the grind stays at night in his room (blue light, energy cans, the clock); the payoff climbs into warm gold: the amber desk lights of his own studio, a bright courtside glow, gold confetti over a sold-out arena.",
     "shots": [
      {
       "id": "2.1",
@@ -171,11 +171,13 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "The token falls on Malik's phone.",
+      "action": "Over Malik's shoulder: the token falls on the phone in his hand.",
       "reaction": null,
-      "camera": "Extreme close-up on the phone, static",
+      "camera": "Over-the-shoulder close-up on the phone in his hand, static",
       "seconds": 1.0,
-      "character_ids": [],
+      "character_ids": [
+       "char:1"
+      ],
       "place_id": "place:2",
       "moment": "loss",
       "screen_ids": [
@@ -225,11 +227,13 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "The token rockets up with a phone ding: the position reads +$420 (+38%).",
+      "action": "Malik's hand grips his phone as the token rockets up with a phone ding: the position reads +$420 (+38%).",
       "reaction": null,
-      "camera": "Extreme close-up on the phone, static",
+      "camera": "Close-up on Malik's hand holding the phone, static",
       "seconds": 1.0,
-      "character_ids": [],
+      "character_ids": [
+       "char:1"
+      ],
       "place_id": "place:2",
       "moment": "win",
       "screen_ids": [
@@ -300,7 +304,7 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "A dealer drops car keys into Malik's open palm; his fist closes on them.",
+      "action": "Malik rips open a delivery box of studio gear in his room, grinning.",
       "reaction": null,
       "camera": "Close-up, static",
       "seconds": 0.4,
@@ -318,9 +322,9 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Malik behind the wheel of a new red coupe, both hands on the wheel, grinning.",
+      "action": "Malik leans back behind the mixing desk of his own studio, nodding to the beat.",
       "reaction": null,
-      "camera": "Medium shot through the windshield, static",
+      "camera": "Medium shot, static",
       "seconds": 0.4,
       "character_ids": [
        "char:1"
@@ -336,7 +340,7 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Malik pushes open the glass door of a penthouse, keys spinning on his finger.",
+      "action": "Malik walks courtside at a packed game, the crowd on its feet behind him.",
       "reaction": null,
       "camera": "Wide, track in behind him",
       "seconds": 0.4,
@@ -354,7 +358,7 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Malik walks out onto the penthouse balcony over the city lights, arms wide.",
+      "action": "Malik in the front row of a sold-out arena show, arms wide as gold confetti falls.",
       "reaction": null,
       "camera": "Wide, low angle, slow pull out",
       "seconds": 0.4,
@@ -396,11 +400,13 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "Malik's phone slides across the counter and stops in front of Tasha; the fomo home screen's portfolio balance reads $512,400.",
+      "action": "Malik's hand slides his phone across the counter and leaves it in front of Tasha; the fomo home screen's portfolio balance reads $512,400.",
       "reaction": null,
-      "camera": "Overhead close-up on the phone, static",
+      "camera": "Overhead close-up on his hand and the phone, static",
       "seconds": 1.0,
-      "character_ids": [],
+      "character_ids": [
+       "char:1"
+      ],
       "place_id": "place:1",
       "moment": "app-open",
       "screen_ids": [
@@ -468,11 +474,13 @@
       ],
       "speaker": null,
       "line": null,
-      "action": "The real fomo home screen fills the frame.",
+      "action": "Tasha holds Malik's phone up in both shaking hands; the fomo home screen's portfolio balance reads $512,400, its logo and balance clear.",
       "reaction": null,
-      "camera": "Close-up on the phone, static",
+      "camera": "Over-the-shoulder close-up on the phone in Tasha's hands, slow push in",
       "seconds": 2.0,
-      "character_ids": [],
+      "character_ids": [
+       "char:2"
+      ],
       "place_id": "place:1",
       "moment": "fomo-mention",
       "screen_ids": [

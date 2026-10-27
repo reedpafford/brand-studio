@@ -741,6 +741,41 @@ def misheard(transcript: list[dict]) -> list[str]:
     return problems
 
 
+PAYOFFS = {  # the got-rich run copied too often (Reed, 2026-10-27): one example among many
+    "keys": r"\bkeys\b",
+    "a car": r"\b(?:car|coupe|supercar|sports car|suv|lamborghini|lambo|ferrari|porsche)\b"
+    r"|behind the wheel",
+    "a penthouse": r"\bpenthouse\b",
+    "a balcony": r"\b(?:balcony|terrace)\b",
+    "a skyline": r"\bskyline\b",
+    "a mansion": r"\b(?:mansion|villa)\b",
+    "a yacht": r"\byacht\b",
+    "a private jet": r"\bprivate jet\b",
+}
+
+
+def payoffs(text: str) -> list[str]:
+    """The stock payoffs a montage shows, in the order it first shows them."""
+    found = [(m.start(), name) for name, pat in PAYOFFS.items()
+             if (m := re.search(pat, text, re.I))]  # fmt: skip
+    return [name for _, name in sorted(found)]
+
+
+def montage_text(script: str) -> str:
+    """A script's montage action lines (the house format names them "Wordless montage, …")."""
+    return " ".join(x for x in script.splitlines() if "montage" in x.lower())
+
+
+def repeated_payoffs(mine: str, earlier: str, whose: str) -> list[str]:
+    """Advice when a montage shows two or more of the stock payoffs an earlier one showed (the
+    reference's or the original's): each video invents its own."""
+    same = [x for x in payoffs(mine) if x in payoffs(earlier)]
+    if len(same) < 2:
+        return []
+    return [f"{ADVICE}the montage repeats {whose} payoffs ({', '.join(same)}); invent ones "
+            "that fit this story and its people"]  # fmt: skip
+
+
 READ_AGAIN = (
     "Notes can fix who's speaking, the shots and the camera, but not the words said in the "
     "reel. Change the words in the script instead."

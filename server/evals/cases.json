@@ -156,7 +156,11 @@
     },
     "notes_mention": {
      "14": "wallet"
-    }
+    },
+    "clip_absent": [
+     "fills the frame",
+     "flat-on"
+    ]
    }
   },
   {
@@ -177,7 +181,7 @@
     "SCENE 1 — INT. SCHOOL BUS — MORNING",
     "MAYA: Did you see STONK? It's flying.",
     "Leo already has fomo open.",
-    "★ fomo screen: Token chart up — on Leo's phone, fills the frame",
+    "★ fomo screen: Token chart up — on Leo's phone in his hand",
     "LEO: I bought it at six.",
     "Maya's jaw drops.",
     "MAYA: Six AM?",
@@ -430,7 +434,11 @@
      "I do.",
      "HELL NO!"
     ],
-    "min_money_figures": 3
+    "min_money_figures": 3,
+    "clip_absent": [
+     "fills the frame",
+     "flat-on"
+    ]
    }
   },
   {
@@ -489,7 +497,7 @@
    "script": null,
    "good": [
     "Wordless, about 12 s, shots around 0.3–0.5 s; nobody speaks and the audio line says so.",
-    "Nate in every shot, no empty rooms: trading at night, the win, escalating payoffs he's part of (keys, the car, the penthouse door, the balcony), cut with the real fomo screens.",
+    "Nate in every shot, no empty rooms: trading at night, the win, escalating payoffs he's part of, invented for this story (never the reference's penthouse and skyline), cut with the real fomo screens on the phone in his hand.",
     "The got-rich beat shows a big portfolio balance (hundreds of thousands) on the fomo Home screen, not a coin price.",
     "Ends on the skyline arrival in the black suit.",
     "At least three grind beats (late nights, a red day, a small then a bigger win) before the fast got-rich run.",
@@ -512,7 +520,9 @@
     "clip_absent": [
      "empty room",
      "does not",
-     "says"
+     "says",
+     "fills the frame",
+     "flat-on"
     ],
     "min_money_figures": 3
    }
@@ -581,7 +591,7 @@
     "SCENE 2 — INT. NATE'S BEDROOM — NIGHT",
     "★ fomo screen: Token chart down — on Nate's phone",
     "Wordless montage, Nate in every shot, trading his way up: Nate trading on his phone at night, the win, keys dropped into his palm, Nate behind the wheel, Nate pushing open a penthouse door in a black suit.",
-    "★ fomo screen: Token chart up — fills the frame, a phone ding",
+    "★ fomo screen: Token chart up — on Nate's phone in his hand, a phone ding",
     "SCENE 3 — INT. PENTHOUSE — NIGHT, TWO YEARS LATER",
     "★ fomo screen: Home (rich) — the portfolio balance, on Nate's phone",
     "Mia and the rich man spot Nate across the party.",
@@ -919,7 +929,7 @@
     "He wipes his eyes and his hands hit the keyboard. Wordless montage, fast cuts: his first trade, a red day he shakes off, another late night, a bigger win, then the payoff.",
     "★ fomo screen: Token chart down — a red day on his phone, the position reads -$310; he keeps going",
     "★ fomo screen: Token chart up — another late night, the balance reads $1,240",
-    "★ fomo screen: Home (rich) — the portfolio balance reads $348,920.15, on his phone, fills the frame",
+    "★ fomo screen: Home (rich) — the portfolio balance reads $348,920.15, on the phone in his hand",
     "SCENE 4 — EXT. HALLOWEEN PARTY HOUSE — NIGHT, ONE YEAR LATER",
     "A green Lamborghini revs and stops in front of the party crowd. Low angle.",
     "RIVAL: Whose car is that?",
@@ -929,7 +939,7 @@
     "GIRLFRIEND: I made a mistake, please.",
     "He scoffs.",
     "OMAR: Sorry, I don't get invited to anything.",
-    "★ fomo screen: Home (rich) — on Omar's phone in the Lamborghini, fills the frame",
+    "★ fomo screen: Home (rich) — on Omar's phone in his hand, in the Lamborghini",
     "OMAR: Want to trade like me? Download fomo through the link in my bio."
    ],
    "good": [
