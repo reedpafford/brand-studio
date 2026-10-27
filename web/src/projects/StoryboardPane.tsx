@@ -271,7 +271,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
           {approveAll.button}
           {missing.length > 0 && (
             <button
-              className={outOfDate.length > 0 ? btnSecondary : btnPrimary}
+              className={`${outOfDate.length > 0 ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`}
               disabled={render.isPending || !!stopFor(allCost)}
               onClick={() => void drawAll(missing)}
             >
@@ -280,7 +280,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
             </button>
           )}
           {outOfDate.length > 0 && (
-            <button className={btnPrimary} disabled={render.isPending || redrawBlocked !== null} onClick={() => void drawAll(outOfDate)}>
+            <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={render.isPending || redrawBlocked !== null} onClick={() => void drawAll(outOfDate)}>
               Redraw {outOfDate.length} still{outOfDate.length === 1 ? "" : "s"}
               {price(redrawCost)}
             </button>

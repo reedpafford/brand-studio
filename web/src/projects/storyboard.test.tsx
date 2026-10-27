@@ -501,3 +501,12 @@ test("a chip for a look made for this video says the role's name, not just Chara
   expect(await within(card).findByText(/Kel/)).toBeInTheDocument();
   expect(within(card).queryByText(/● Character/)).toBeNull();
 });
+
+test("Make all stills, Redraw N stills and Make storyboard are 44px tall on a phone", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40, still_stale: true }), frame({ id: 2, clip_id: "c2" })]],
+  });
+  open();
+  for (const name of [/^Make all stills/, /^Redraw 1 still/, /^Redo storyboard/]) expect((await screen.findByRole("button", { name })).className).toContain("min-h-11");
+});
