@@ -422,3 +422,29 @@ test("a problem with no free fix shows no fix button", async () => {
   const box = await screen.findByLabelText("Problems");
   expect(within(box).queryByText("Free")).toBeNull();
 });
+
+test("a shot that names someone the video doesn't have offers a free Remove; it says what it did and Undo puts the breakdown back", async () => {
+  const withNate = breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({ character_ids: ["char:4", "char:99"] }), shot({ id: "1.2" })] }] } });
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, withNate],
+    "POST /projects/9/shots/1.1/remove-ref": [200, { ...breakdown(), fixed: ["Removed Nate from shot 1.1."] }],
+    "PUT /projects/9/breakdown": [200, withNate],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  const remove = await screen.findByRole("button", { name: /^Remove .* from this shot$/ });
+  expect(remove).toHaveTextContent("Remove Character from this shot"); // never the raw id
+  await userEvent.click(remove);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/shots/1.1/remove-ref")?.body).toMatchObject({ kind: "character" }));
+  expect(await screen.findByText("Removed Nate from shot 1.1.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
+});
+
+test("a shot that only names people the video has shows no Remove", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  expect(screen.queryByRole("button", { name: /from this shot$/ })).toBeNull();
+});

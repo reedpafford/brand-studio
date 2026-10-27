@@ -14,7 +14,7 @@ import { useMe } from "../auth/useMe";
 import { blocking, CAST } from "./problems";
 import { plainWords } from "./names";
 import { AdviceList, useKeep } from "./Keep";
-import { useBreakdownFixes } from "./BreakdownFixes";
+import { useBreakdownFixes, useRemoveRef, type RefKind } from "./BreakdownFixes";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
 const lines = (n: number[]) => (n.length === 0 ? "" : n.length === 1 ? `line ${n[0]}` : `lines ${Math.min(...n)}–${Math.max(...n)}`);
@@ -39,7 +39,13 @@ function EditableText({ value, label, onChange, children }: { value: string; lab
 
 type Picks = { characters: { key: string; name: string }[]; places: { key: string; name: string }[]; screens: { key: string; name: string; moments: string[] }[] };
 
-function ShotEditor({ shot, picks, onChange }: { shot: Shot; picks: Picks; onChange: (patch: Partial<Shot>) => void }) {
+/** A character, place or screen a shot names that the video doesn't have: it can only be taken out, and the server does that for free. */
+function ShotEditor({ shot, picks, called, remove, onChange }: { shot: Shot; picks: Picks; called: (id: string) => string; remove?: (shotId: string, kind: RefKind, name: string) => ReactNode; onChange: (patch: Partial<Shot>) => void }) {
+  const gone = [
+    ...shot.character_ids.filter((id) => !picks.characters.some((c) => c.key === id)).map((id) => ({ kind: "character" as const, id })),
+    ...(shot.place_id && !picks.places.some((p) => p.key === shot.place_id) ? [{ kind: "place" as const, id: shot.place_id }] : []),
+    ...shot.screen_ids.filter((id) => !picks.screens.some((s) => s.key === id)).map((id) => ({ kind: "screen" as const, id })),
+  ];
   const moments = [...new Set([...picks.screens.flatMap((s) => s.moments), ...(shot.moment ? [shot.moment] : [])])];
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const label = (t: string) => `Shot ${shot.id} ${t}`;
@@ -95,6 +101,13 @@ function ShotEditor({ shot, picks, onChange }: { shot: Shot; picks: Picks; onCha
           </label>
         ))}
       </fieldset>
+      {remove &&
+        gone.map((g) => (
+          <div key={g.id} className="space-y-1 text-xs">
+            <p>{called(g.id)} isn't in this video.</p>
+            {remove(shot.id, g.kind, called(g.id))}
+          </div>
+        ))}
       {shot.line && <p className="text-xs text-muted">To change the words, edit the script.</p>}
     </div>
   );
@@ -190,6 +203,12 @@ export function BreakdownView(props: {
       });
     },
   });
+  // After a fix or its Undo: the new breakdown, and what was made from the old one.
+  const putBack = (body: Breakdown) => (preview ? preview.save(body) : api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body }));
+  const refreshAll = async () => {
+    await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
+    if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
+  };
   // Free one-click fixes for lines that are missing or changed, and for shots with nothing in them.
   const fixes = useBreakdownFixes({
     offered: (row as { fixes?: unknown[] }).fixes,
@@ -201,11 +220,8 @@ export function BreakdownView(props: {
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    put: (body) => (preview ? preview.save(body) : api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body })),
-    refresh: async () => {
-      await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
-      if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
-    },
+    put: putBack,
+    refresh: refreshAll,
   });
   const castOpen = real.filter((p) => p.startsWith(CAST));
   const castFix = castOpen.length > 0 && (
@@ -228,6 +244,18 @@ export function BreakdownView(props: {
   const shots = bd.scenes.flatMap((s) => s.shots);
   const total = Math.round(bd.clips.reduce((sum, c) => sum + c.seconds, 0));
   const dirty = draft !== null;
+  // A shot that names someone the video doesn't have: take the name out (free). It saves at once, so it waits for unsaved edits.
+  const removal = useRemoveRef({
+    run: async (shotId, kind, name) => {
+      const { data, error } = await api.POST("/projects/{project_id}/shots/{shot_id}/remove-ref", { params: { path: { project_id: projectId, shot_id: shotId } }, body: { kind, name } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    was: row.breakdown,
+    put: putBack,
+    refresh: refreshAll,
+  });
+  const removeRef = preview ? undefined : (shotId: string, kind: RefKind, name: string) => removal.button(shotId, kind, name, dirty ? "Save your changes first." : undefined);
   // The frame's Next button waits while edits are unsaved.
   const { onDirty } = props;
   useEffect(() => {
@@ -304,6 +332,7 @@ export function BreakdownView(props: {
       </div>
       {props.failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
       {props.problem}
+      {removal.error}
       {real.length > 0 && phone && (
         <>
           <button className="flex min-h-control w-full items-center gap-2 rounded-lg border border-danger bg-danger-soft px-3 text-left text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
@@ -450,10 +479,10 @@ export function BreakdownView(props: {
                               <Badge key={id} tone="accent" icon={Smartphone}>{name(id)}</Badge>
                             ))}
                           </p>
-                          {editing && !phone && <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
+                          {editing && !phone && <ShotEditor shot={s} picks={picks} called={name} remove={removeRef} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
                           {phone && sheetShot === s.id && (
                             <Sheet title={`Shot ${s.id}`} onClose={() => setSheetShot(null)}>
-                              <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />
+                              <ShotEditor shot={s} picks={picks} called={name} remove={removeRef} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />
                             </Sheet>
                           )}
                         </li>
