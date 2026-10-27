@@ -114,3 +114,23 @@ def test_a_shot_with_a_character_holding_the_screen_can_use_the_real_image(db, e
     db.commit()
     (insert,) = editor.get(f"{base}/clips").json()[0]["inserts"]
     assert (insert["shot_id"], insert["name"], insert["use_real_image"]) == ("1.2", "Buy", False)
+
+
+def test_a_replaced_shot_loses_its_real_image(app, db, editor, setup, approved):  # noqa: F811
+    """Reed, 2026-10-27: "Use the real image" is cleared when its shot is replaced; a new
+    breakdown that keeps the shot as it was keeps the switch."""
+    base, clip = approved
+    mom = editor.get(f"{base}").json()["cast_ids"][0]
+    editor.put(f"{base}/clips/{clip['id']}/inserts/1.2", json={"use_real_image": True})
+    bd = editor.get(f"{base}/breakdown").json()["breakdown"]
+
+    def again(plan: dict) -> bool:
+        editor.post(f"{base}/breakdown")
+        _run(app, db, FakeClaude(plan))
+        editor.post(f"{base}/clips/prompts")
+        _run(app, db, FakeClaude(_answer(mom, setup["screen"], _prompt())))
+        return editor.get(f"{base}/clips").json()[0]["inserts"][0]["use_real_image"]
+
+    assert again(bd) is True  # the same shot, the same screen
+    bd["scenes"][0]["shots"][1]["action"] = "A new shot of the phone on the counter."
+    assert again(bd) is False
