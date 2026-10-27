@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapPinOff, MonitorOff, Plus, RotateCcw, Trash2, UserMinus, Wand2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { api, errorText } from "../api/client";
 import { Button } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
@@ -98,4 +99,31 @@ export function useRemoveRef(opts: {
     );
   };
   return { button };
+}
+
+type Changed = { shot_id: string; before: string[]; after: string[] };
+
+/** "Put the right cast in each shot": free, no model call. Undo puts each changed shot's earlier cast back. */
+export function useFixCast(opts: { projectId: number; preview?: () => Promise<{ changed_shots: Changed[] }>; was: Breakdown; putBack: (b: Breakdown) => Promise<unknown>; refresh: () => Promise<unknown> }) {
+  const toast = useToast();
+  return useMutation({
+    mutationFn: async () => {
+      if (opts.preview) return (await opts.preview()).changed_shots;
+      const { data, error } = await api.POST("/projects/{project_id}/breakdown/fix-cast", { params: { path: { project_id: opts.projectId } } });
+      if (!data) throw new Error(errorText(error));
+      return data.changed_shots as Changed[];
+    },
+    onSuccess: async (changed) => {
+      await opts.refresh();
+      toast(`Cast fixed in ${changed.length} shot${changed.length === 1 ? "" : "s"}.`, async () => {
+        const back = clone(opts.was); // the breakdown as it was before the fix (the view still holds it)
+        for (const scene of back.scenes) for (const shot of scene.shots) {
+          const was = changed.find((c) => c.shot_id === shot.id);
+          if (was) shot.character_ids = was.before;
+        }
+        await opts.putBack(back);
+        await opts.refresh();
+      });
+    },
+  });
 }

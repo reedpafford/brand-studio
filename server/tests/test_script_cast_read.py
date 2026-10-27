@@ -126,6 +126,7 @@ def test_only_people_who_speak_get_a_role_never_script_cues(db, owner):
         "SCENE 1 — INT. KITCHEN — DAY", "INT. KITCHEN — DAY:", "CUT TO:", "SMASH CUT TO:",
         "MUSIC: soft piano", "SFX: a door slams", "FADE OUT:", "SUPER: Two years later",
         "TITLE: The empty chair", "TEXT ON SCREEN: $348,920", "INSERT: the phone",
+        "FLASHBACK:", "ANGLE ON PHONE:",
         "MOM: Nate, where is all your money?", "NATE (V.O.): I bought the dip.", "FRIEND:",
     ])  # fmt: skip
     made = _make(owner, text=cues)

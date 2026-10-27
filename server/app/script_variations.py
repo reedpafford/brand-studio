@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app import prompts
 from app import script_library as lib
+from app.breakdown import payoffs_block, recent_payoffs
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
 from app.models.jobs import Job
@@ -50,6 +51,8 @@ def job_input(
         keep_apart=escape("\n\n".join(keep_apart)),
         note=escape(note),
     )
+    if block := payoffs_block(recent_payoffs(db, script.brand_id, viewer=script.created_by_id)):
+        message += f"\n{block}"
     return {
         "step": "variations",
         "script_id": script.id,

@@ -130,3 +130,18 @@ def test_another_workspaces_look_is_never_named(db, editor, outsider, setup):  #
     assert "Advice: Removed an unnamed character from shot 1.2." in " ".join(
         saved.json()["problems"]
     )
+
+
+def test_the_repair_skips_a_deleted_plan(app, db, owner):
+    """Live deploy, 2026-10-27: a version whose plan was deleted holds JSON null, which passes
+    `breakdown IS NOT NULL`, and the repair crashed the seed."""
+    from sqlalchemy import JSON, update
+
+    from app.models.script_library import ScriptDraft
+
+    made = _make(owner, text=SCRIPT)
+    db.execute(
+        update(ScriptDraft).where(ScriptDraft.script_id == made["id"]).values(breakdown=JSON.NULL)
+    )
+    db.commit()
+    assert repair_unknown_cast(db) == (0, [])

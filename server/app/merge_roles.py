@@ -50,6 +50,12 @@ def _key(text: str) -> str:
     return (short(text) or text).strip().lower()
 
 
+def _in(shot, slot: ScriptCastSlot, refs: set[str]) -> bool:
+    """The role is in the shot, or speaks in it."""
+    spoken = bool(shot.speaker) and _key(shot.speaker) == _key(slot.role)
+    return spoken or bool(refs & set(shot.character_ids))
+
+
 def pair(db: Session, script: Script, slot_id: int, into_id: int):
     """The role to merge and the one it goes into, both this script's, never the same."""
     slots = {s.id: s for s in _slots(db, script)}
@@ -80,7 +86,7 @@ def preview(db: Session, script: Script, slot: ScriptCastSlot, into: ScriptCastS
     for draft in _drafts(db, script):
         if draft.breakdown:
             bd = Breakdown.model_validate(draft.breakdown)
-            shots += [s.id for sc in bd.scenes for s in sc.shots if refs & set(s.character_ids)]
+            shots += [s.id for sc in bd.scenes for s in sc.shots if _in(s, slot, refs)]
         lines += [{"version": LETTERS[draft.slot], "line": n} for n in _labels(draft.text, slot)]
     look = db.get(LibraryItem, slot.library_item_id or 0)
     unused = look is not None and look.id != into.library_item_id
@@ -112,6 +118,8 @@ def merge(db: Session, script: Script, slot: ScriptCastSlot, into: ScriptCastSlo
             for shot in (s for sc in bd.scenes for s in sc.shots):
                 moved = [target if r in refs else r for r in shot.character_ids]
                 shot.character_ids = list(dict.fromkeys(moved))
+                if shot.speaker and _key(shot.speaker) == _key(slot.role):
+                    shot.speaker = into.role
             script_preview.save(db, draft, bd, draft.breakdown_by_id, draft.text)
     into.appears_in = sorted({*(into.appears_in or []), *(slot.appears_in or [])})
     script.cast_apart = [p for p in script.cast_apart or [] if slot.id not in p]

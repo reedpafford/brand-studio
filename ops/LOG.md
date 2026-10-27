@@ -16,6 +16,14 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-27 07:05 · #578 A brand moment takes any screen of its kind, and never blocks merged
+- 2026-10-27 06:53 · #580 Split the three big screens (no behaviour change) merged
+- 2026-10-27 06:47 · #581 Seed: the cast repair skips a version whose plan was deleted (hotfix) merged
+- 2026-10-27 06:46 · #577 docs: as built, Bulk create queues links first, then files merged
+- 2026-10-27 06:46 · #574 Bulk create: drop video files next to reel links (screens) merged
+- 2026-10-27 06:33 · #576 Frames say what one still costs; storyboard prices read it merged
+- 2026-10-27 06:15 · #579 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-27 06:14 · #565 Kel's empty chair: a deleted look counts as no look; shots show the role instead merged
 - 2026-10-27 06:00 · #573 Fix this clip's prompt brings back a deleted [Image1] tag whole merged
 - 2026-10-27 05:51 · #571 Prompts: the cast read makes one slot per person across versions merged
 - 2026-10-27 05:37 · #569 ops: Reed's decision that moment-screen checks are advice and accept home screens merged (by the Producer)
