@@ -101,7 +101,7 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
     brand = db.get(Brand, script.brand_id)
     found = check.breakdown(
         draft.text, bd, screens, m.duration.min, m.duration.max, brand.end_line, brand.name,
-        approved=draft.status == "approved", kinds={f"screen:{s.id}": set(s.tags) for s in shown},
+        approved=draft.status == "approved", kinds=check.kinds_of(shown),
     )  # fmt: skip
     slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
     known_slots = {f"slot:{s.id}" for s in slots} | live_looks(db, script)

@@ -165,7 +165,7 @@ def moment_problems(db: Session) -> int:
     from app.models.breakdowns import BreakdownVersion
     from app.models.projects import Project
     from app.models.script_library import Script, ScriptDraft
-    from app.prompts.check import moment_screen
+    from app.prompts.check import kinds_of, moment_screen
     from app.prompts.schemas import Breakdown
     from app.script_preview import stand_in_project
 
@@ -176,7 +176,7 @@ def moment_problems(db: Session) -> int:
             return None
         shown = project_screens(db, project)
         screens = {f"screen:{s.id}": s.default_for for s in shown}
-        kinds = {f"screen:{s.id}": set(s.tags) for s in shown}
+        kinds = kinds_of(shown)
         shots = {s.id: s for scene in Breakdown.model_validate(data).scenes for s in scene.shots}
         out = []
         for p in problems:

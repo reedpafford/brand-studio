@@ -64,17 +64,29 @@ def enhance(script: str, result: EnhanceResult, screens: dict[str, list[str]]) -
 
 
 DEVICE = {"mobile", "desktop"}  # what a screen is shown on, not what kind of screen it is
+BALANCE = "$balance"  # a screen that prints a balance (the win needs one: Home (rich))
+
+
+def kinds_of(screens) -> dict[str, set[str]]:
+    """Each brand screen's kind tags, with BALANCE when its picture prints one."""
+    return {f"screen:{s.id}": {*s.tags, *([BALANCE] if s.balance else [])} for s in screens}
 
 
 def moment_screen(shot, screens: dict[str, list[str]], kinds: dict[str, set[str]]) -> str:
     """A brand moment's shot shows one of its screens, or a screen of the same kind (any
-    "home" screen for fomo-mention: Home or Home (rich), Reed 2026-10-27). Advice, never a
-    block; "" when it does."""
+    "home" screen for fomo-mention: Home or Home (rich), Reed 2026-10-27). A screen that
+    prints a balance (the win's) is only stood in for by one that prints one too. Advice,
+    never a block; "" when it does."""
     needed = {sid for sid, moments in screens.items() if shot.moment in moments}
     if not needed or needed & set(shot.screen_ids):
         return ""
-    wanted = {t for sid in needed for t in kinds.get(sid, set())} - DEVICE
-    if any(wanted & (kinds.get(s, set()) - DEVICE) for s in shot.screen_ids):
+
+    def stands_in(shown: str, want: str) -> bool:
+        a, b = kinds.get(shown, set()), kinds.get(want, set())
+        same = (a & b) - DEVICE - {BALANCE}
+        return bool(same) and (BALANCE not in b or BALANCE in a)
+
+    if any(stands_in(s, n) for s in shot.screen_ids for n in needed):
         return ""
     return f"{ADVICE}shot {shot.id}: '{shot.moment}' moment without its screen"
 

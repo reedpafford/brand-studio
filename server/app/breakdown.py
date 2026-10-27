@@ -84,7 +84,7 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
     if "brand" in params:
         extra["brand"] = brand.name
     if "kinds" in params:  # a moment takes any screen of the same kind (home)
-        extra["kinds"] = {f"screen:{s.id}": set(s.tags) for s in shown}
+        extra["kinds"] = check.kinds_of(shown)
     if "approved" in params:  # a video from the library is made from an approved version
         extra["approved"] = project.script_draft_id is not None
     found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
