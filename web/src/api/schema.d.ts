@@ -2261,11 +2261,7 @@ export interface paths {
          *     lines are added, never a spoken word changed. The words before are kept for Undo.
          */
         post: operations["apply_accepted_scripts__script_id__drafts__slot__apply_post"];
-        /**
-         * Undo Apply
-         * @description Undo the newest Add directions: the words go back to how they were before it.
-         */
-        delete: operations["undo_apply_scripts__script_id__drafts__slot__apply_delete"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -11021,38 +11017,6 @@ export interface operations {
         };
     };
     apply_accepted_scripts__script_id__drafts__slot__apply_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                script_id: number;
-                slot: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    undo_apply_scripts__script_id__drafts__slot__apply_delete: {
         parameters: {
             query?: never;
             header?: never;
