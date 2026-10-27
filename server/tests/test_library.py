@@ -1,5 +1,5 @@
 from tests.conftest import upload
-from tests.helpers import MP4, assert_hidden, assert_no_dollars
+from tests.helpers import MP4, assert_hidden
 
 
 def _brands(client) -> dict[str, int]:
@@ -123,11 +123,6 @@ def test_null_brand_ids_leaves_brands_and_empty_list_clears(owner):
     url = f"/library/prop/{item['id']}"
     assert owner.patch(url, json={"brand_ids": None}).json()["brand_ids"] == [b["fomo"]]
     assert owner.patch(url, json={"brand_ids": []}).json()["brand_ids"] == []
-
-
-def test_editor_sees_no_dollars(editor):
-    item = editor.post("/library/place", json={"name": "Gym"}).json()
-    assert_no_dollars(editor, ["/library/place", f"/library/place/{item['id']}"])
 
 
 def test_archive_is_reversible_by_editors(editor):

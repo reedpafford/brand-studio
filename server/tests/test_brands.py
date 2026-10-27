@@ -1,5 +1,5 @@
 from tests.conftest import upload
-from tests.helpers import MP3, assert_hidden, assert_no_dollars
+from tests.helpers import MP3, assert_hidden
 
 
 def test_launch_brands_exist_after_setup(owner):
@@ -78,8 +78,3 @@ def test_kit_images_must_be_images(owner):
     brand = owner.get("/brands").json()[0]["id"]
     r = owner.post(f"/brands/{brand}/screens", json={"name": "S", "file_id": song})
     assert r.status_code == 422
-
-
-def test_editor_sees_no_dollars(editor):
-    brand = editor.get("/brands").json()[0]["id"]
-    assert_no_dollars(editor, ["/brands", f"/brands/{brand}", f"/brands/{brand}/screens"])

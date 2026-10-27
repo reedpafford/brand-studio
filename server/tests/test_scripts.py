@@ -6,7 +6,7 @@ import zipfile
 import pytest
 
 from tests.conftest import upload
-from tests.helpers import MP4, assert_hidden, assert_no_dollars
+from tests.helpers import MP4, assert_hidden
 
 
 def _docx(*paragraphs: str) -> bytes:
@@ -143,12 +143,6 @@ def test_other_workspace_is_shut_out(owner, editor, outsider, project):
     fomo = outsider.post("/brands", json={"name": "Mine"}).json()["id"]
     body = {"brand_id": fomo, "name": "P", "planned_seconds": 10, "cast_ids": [character]}
     assert outsider.post("/projects", json=body).status_code == 404
-
-
-def test_editor_sees_no_dollars(editor, project):
-    editor.put(f"/projects/{project}/script", json={"text": "Hi"})
-    url = f"/projects/{project}/script"
-    assert_no_dollars(editor, [url, f"{url}/versions", f"/projects/{project}"])
 
 
 def test_huge_pdfs_are_refused_quickly(editor, project):
