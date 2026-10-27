@@ -131,6 +131,18 @@ def test_undo_still_works_after_a_role_gets_a_new_look(owner, editor, db):
                                    ("His mother", [f"char:{looks[mother]}"])]  # fmt: skip
 
 
+def test_undo_refuses_after_another_person_was_put_in_a_shot(owner, editor, db):
+    """QA on #614: a swap to someone else isn't a role getting its look; Undo would undo it."""
+    _, pid, mom, mother, looks = _video(owner, editor, db)
+    url = f"/projects/{pid}/assets"
+    done = editor.post(f"{url}/slots/{mother}/merge", json={"into_slot_id": mom}).json()
+    nate = next(r["slot_id"] for r in editor.get(url).json() if r["role"] == "Nate")
+    plan = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]
+    plan["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{nate}"]  # Nate, not Mom
+    assert editor.put(f"/projects/{pid}/breakdown", json=plan).status_code == 200
+    assert editor.post(f"{url}/merge/undo", json={"token": done["token"]}).status_code == 409
+
+
 def test_theyre_different_on_a_video_keeps_the_pair_apart_here_only(owner, editor, db):
     base, pid, mom, mother, _ = _video(owner, editor, db)
     url = f"/projects/{pid}/assets/maybe-same"
