@@ -129,6 +129,21 @@ def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
     ]
 
 
+def _called(db: Session, ref: str) -> str:
+    """A name the video doesn't have, as people call it ("Mia"), or what it is."""
+    from app.advice import KIND
+    from app.enhance import screen_name
+    from app.models.brands import BrandScreen
+
+    kind, _, n = ref.partition(":")
+    found = None
+    if n.isdigit() and kind in ("char", "place", "prop"):
+        found = db.get(LibraryItem, int(n))
+    elif n.isdigit() and kind == "screen" and (screen := db.get(BrandScreen, int(n))):
+        return screen_name(screen)
+    return found.name if found else KIND.get(kind, "a name")
+
+
 def record_length(project: Project, bd: Breakdown) -> None:
     """The newest breakdown sets the length when none was set (its clips added up)."""
     project.breakdown_seconds = sum(clip.seconds for clip in bd.clips) or None
@@ -165,6 +180,11 @@ def save_breakdown(db: Session, job: Job) -> None:
         )
     )
     bd = as_roles(db, project, Breakdown.model_validate(job.output))
+    from app.breakdown_fix import drop_unknown
+    from app.storyboard import assets
+
+    known = assets(db, project)  # a name the video doesn't have never blocks: it's taken out
+    bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref))
     record_length(project, bd)
     db.add(
         BreakdownVersion(
@@ -173,7 +193,7 @@ def save_breakdown(db: Session, job: Job) -> None:
             source="claude",
             job_id=job.id,
             data=bd.model_dump(),
-            problems=problems(db, project, version.text, bd),
+            problems=problems(db, project, version.text, bd) + removed,
             created_by_id=job.created_by_id,
         )
     )

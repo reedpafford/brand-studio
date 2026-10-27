@@ -1946,6 +1946,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/breakdown/fix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fix Plan
+         * @description Fix the version's plan for free (spec one-click-fixes.md §1), as for a video's
+         *     breakdown. Undo saves the old plan back with PUT.
+         */
+        post: operations["fix_plan_scripts__script_id__drafts__slot__breakdown_fix_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/drafts/{slot}/produce/estimate": {
         parameters: {
             query?: never;
@@ -2406,6 +2427,28 @@ export interface paths {
          *     breakdown version, so stills and clips from the old one are made again.
          */
         post: operations["fix_cast_projects__project_id__breakdown_fix_cast_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/breakdown/fix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fix
+         * @description Fix the breakdown's problems for free (spec one-click-fixes.md §1): a missing line goes
+         *     into the shot around it, a changed line gets the script's words back, the clips are
+         *     fitted to the shots. Undo saves the old breakdown back with PUT.
+         */
+        post: operations["fix_projects__project_id__breakdown_fix_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3245,6 +3288,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/shots/{shot_id}/remove-ref": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Ref
+         * @description Take a character, place or screen out of one shot (free; the action stays as written).
+         *     Undo saves the old breakdown back with PUT.
+         */
+        post: operations["remove_ref_projects__project_id__shots__shot_id__remove_ref_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3314,6 +3378,11 @@ export interface components {
              * @default false
              */
             declined: boolean;
+            /**
+             * Library Deleted
+             * @default false
+             */
+            library_deleted: boolean;
             /** Look Credits */
             look_credits?: number | null;
             /** Look Usual Credits */
@@ -3513,6 +3582,18 @@ export interface components {
             cast_redraw?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Fixes
+             * @default []
+             */
+            fixes: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Fixed
+             * @default []
+             */
+            fixed: string[];
         };
         /** BreakdownReview */
         BreakdownReview: {
@@ -3768,6 +3849,14 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** FixIn */
+        FixIn: {
+            /**
+             * Problems
+             * @default []
+             */
+            problems: string[];
         };
         /** FixOut */
         FixOut: {
@@ -4578,6 +4667,18 @@ export interface components {
             changed_shots: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Fixes
+             * @default []
+             */
+            fixes: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Fixed
+             * @default []
+             */
+            fixed: string[];
         };
         /** PriceOut */
         PriceOut: {
@@ -4932,6 +5033,16 @@ export interface components {
              * Format: date-time
              */
             at: string;
+        };
+        /** RemoveRefIn */
+        RemoveRefIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "character" | "place" | "screen";
+            /** Name */
+            name: string;
         };
         /** RenderIn */
         RenderIn: {
@@ -10083,6 +10194,42 @@ export interface operations {
             };
         };
     };
+    fix_plan_scripts__script_id__drafts__slot__breakdown_fix_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FixIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     produce_estimate_scripts__script_id__drafts__slot__produce_estimate_get: {
         parameters: {
             query?: never;
@@ -10929,6 +11076,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fix_projects__project_id__breakdown_fix_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FixIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -12564,6 +12746,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClipIn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_ref_projects__project_id__shots__shot_id__remove_ref_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                shot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoveRefIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
                 };
             };
             /** @description Validation Error */

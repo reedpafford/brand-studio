@@ -1,12 +1,14 @@
 """The project's breakdown: ask Claude for one from the working script, read the newest, or
 save the editor's edited version. Each comes with the checks' problems in plain words."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, clip_prompts, storyboard
+from app import advice, breakdown, breakdown_fix, clip_prompts, storyboard
 from app.advice import names, plain
 from app.auth import current_user
 from app.db import get_db
@@ -20,6 +22,7 @@ from app.routes.projects import get_project
 from app.routes.scripts import latest
 
 router = APIRouter(prefix="/projects/{project_id}/breakdown", tags=["breakdown"])
+shots = APIRouter(prefix="/projects/{project_id}/shots", tags=["breakdown"])
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
@@ -33,6 +36,8 @@ class BreakdownOut(BaseModel):
     stale: bool  # made for an older script version
     changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
     cast_redraw: dict | None = None  # fix-cast: redrawn_for_cast or redraw_refused
+    fixes: list[dict] = []  # [{problem, kind, label}]: a free one-click fix for that problem
+    fixed: list[str] = []  # what a fix just did, in plain words (the toast); Undo is PUT
 
 
 def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
@@ -44,6 +49,7 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         problems=row.problems,
         kept=row.kept or [],
         stale=row.script_version != working,
+        fixes=breakdown_fix.fixes(row.problems or []),
     )
 
 
@@ -176,4 +182,98 @@ def fix_cast(project_id: int, user: User = Depends(current_user), db: Session = 
     out = _out(new, version.version)
     old = Breakdown.model_validate(row.data)
     out.changed_shots, out.cast_redraw = cast_roles.changed_shots(old, fixed), redrawn
+    return out
+
+
+class FixIn(BaseModel):
+    problems: list[str] = []  # the problems as shown; empty: every one with a fix
+
+
+def new_version(db: Session, user: User, project, row: BreakdownVersion, text: str, bd):
+    """A fixed breakdown, saved as a new version (stills and clips are carried, as for
+    fix-cast); free, no model call."""
+    from app import cast_roles
+
+    new = BreakdownVersion(
+        project_id=project.id,
+        script_version=row.script_version,
+        source="edit",
+        data=bd.model_dump(),
+        problems=breakdown.problems(db, project, text, bd),
+        created_by_id=user.id,
+    )
+    db.add(new)
+    db.flush()
+    cast_roles.carry_frames(db, project, row, new)
+    cast_roles.carry_clips(db, project, row, new)
+    db.commit()
+    clip_prompts.follow(db, project, user)
+    return new
+
+
+@router.post("/fix", response_model=BreakdownOut)
+def fix(
+    project_id: int,
+    body: FixIn | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Fix the breakdown's problems for free (spec one-click-fixes.md §1): a missing line goes
+    into the shot around it, a changed line gets the script's words back, the clips are
+    fitted to the shots. Undo saves the old breakdown back with PUT."""
+    project, version = _working(db, user, project_id)
+    row = _newest(db, project)
+    every = [f["problem"] for f in breakdown_fix.fixes(row.problems)]
+    asked = (body.problems if body else []) or every
+    m = breakdown.video_model()
+    fixed, done = breakdown_fix.repair(
+        version.text, Breakdown.model_validate(row.data), asked, m.duration.min, m.duration.max
+    )
+    if not done:
+        raise HTTPException(409, "Nothing here can be fixed for you. Edit the shot instead.")
+    out = _out(new_version(db, user, project, row, version.text, fixed), version.version)
+    out.fixed = done
+    return out
+
+
+class RemoveRefIn(BaseModel):
+    kind: Literal["character", "place", "screen"]
+    name: str  # as the problem or the shot shows it ("Nate")
+
+
+PREFIXES = {"character": ("char:", "slot:"), "place": ("place:",), "screen": ("screen:",)}
+
+
+@shots.post("/{shot_id}/remove-ref", response_model=BreakdownOut)
+def remove_ref(
+    project_id: int,
+    shot_id: str,
+    body: RemoveRefIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Take a character, place or screen out of one shot (free; the action stays as written).
+    Undo saves the old breakdown back with PUT."""
+    project, version = _working(db, user, project_id)
+    row = _newest(db, project)
+    bd = Breakdown.model_validate(row.data)
+    shot = next((s for scene in bd.scenes for s in scene.shots if s.id == shot_id), None)
+    if shot is None:
+        raise HTTPException(404, "That shot isn't in this breakdown any more.")
+    called = names(storyboard.assets(db, project))
+    refs = [r for r in [*shot.character_ids, shot.place_id, *shot.screen_ids]
+            if r and r.startswith(PREFIXES[body.kind])]  # fmt: skip
+    ref = next(
+        (
+            r
+            for r in refs
+            if body.name.lower() in (r, called.get(r, advice.KIND[r[: r.index(":")]]).lower())
+        ),
+        None,
+    )
+    if ref is None:
+        raise HTTPException(409, f"Shot {shot_id} doesn't have {body.name} any more.")
+    fixed = breakdown_fix.remove_ref(bd, shot_id, ref)
+    out = _out(new_version(db, user, project, row, version.text, fixed), version.version)
+    out.fixed = [f"Removed {body.name} from shot {shot_id}."]
     return out
