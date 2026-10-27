@@ -21,13 +21,13 @@ def test_the_qa_owner_is_removed_once_and_nobody_else(owner, db):
     near = _person(db, "QA Owner 2", Role.owner, "near@example.com")  # not the exact name
     db.add(LoginSession(token_hash="t" * 64, user_id=qa.id, expires_at=qa.created_at))
     db.commit()
-    assert remove_qa_owner(db) is True
+    assert remove_qa_owner(db) == "Removed the QA test owner."
     db.expire_all()
     assert db.get(User, qa.id) is None  # nothing of its own: deleted, sessions too
     assert not db.query(LoginSession).filter_by(user_id=qa.id).count()
     assert all(db.get(User, u.id).active for u in (editor, near))
     assert db.query(User).filter_by(email="reed@example.com").one().active
-    assert remove_qa_owner(db) is False  # nothing left to do: says nothing
+    assert remove_qa_owner(db) == "QA test owner: none found."  # nothing left to do
 
 
 def test_a_qa_owner_with_work_is_removed_but_its_work_stays(owner, db):
@@ -36,11 +36,11 @@ def test_a_qa_owner_with_work_is_removed_but_its_work_stays(owner, db):
               provider="fake", input={}, status="succeeded")  # fmt: skip
     db.add(job)
     db.commit()
-    assert remove_qa_owner(db) is True
+    assert remove_qa_owner(db) == "Removed the QA test owner."
     db.expire_all()
     assert db.get(User, qa.id).active is False  # can't sign in; its history keeps its name
     assert db.get(Job, job.id).created_by_id == qa.id
-    assert remove_qa_owner(db) is False
+    assert remove_qa_owner(db) == "QA test owner: already removed."
 
 
 def test_a_qa_owner_who_is_the_last_owner_is_left(owner, db):
@@ -48,6 +48,6 @@ def test_a_qa_owner_who_is_the_last_owner_is_left(owner, db):
     reed = db.query(User).filter_by(email="reed@example.com").one()
     reed.name = "QA Owner"  # the only owner, under that name
     db.commit()
-    assert remove_qa_owner(db) is False
+    assert remove_qa_owner(db) == "QA test owner: kept, it's the workspace's only owner."
     db.expire_all()
     assert db.get(User, reed.id).active is True
