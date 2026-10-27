@@ -19,7 +19,7 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 Producer opens issue → (Designer sketches screens) → Builder opens PR from `agent/<name>/<topic>` → QA (+ Steward, Designer) review → merge → Scribe logs → Explorer checks live.
 
 ## Size budgets (Steward enforces)
-- Whole app: aim under 8,000 lines of code at launch. Any file over 400 lines needs a reason.
+- Whole app: at most 36,000 lines of app code (server/app Python plus web/src without tests or the generated schema.d.ts), the honest size after workflow v2 (Reed, 2026-10-27, replaces the 8,000 aim). New work adds no net lines: each change deletes about as much as it adds, and the Steward reports the count on every PR. Any file over 400 lines needs a reason.
 - One test per behaviour; no snapshot dumps. Delete tests with the code they cover.
 - ops/ files: HANDOFF under 60 lines, LOG trimmed monthly, DECISIONS one line each.
 
