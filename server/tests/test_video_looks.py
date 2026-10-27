@@ -12,10 +12,12 @@ from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_script_library import SCRIPT, _make
 
+NATE_ONLY = "SCENE 1 — INT. KITCHEN — DAY\nNATE: I bought the dip."  # no other speaker
+
 
 def _video(owner, editor, db):
     """A published script with Nate unlocked, and an editor's video made from it."""
-    made = _make(owner, text=SCRIPT)
+    made = _make(owner, text=NATE_ONLY)
     base = f"/scripts/{made['id']}"
     nate = owner.post(f"{base}/cast", json={"role": "Nate, the son", "description": "teen, shy"})
     nate = nate.json()[0]["id"]
@@ -240,7 +242,7 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     from app.credits import price
     from app.sheets import look_price, look_usual
 
-    made = _make(owner, text=SCRIPT)
+    made = _make(owner, text=NATE_ONLY)
     base = f"/scripts/{made['id']}"
     nate = owner.post(f"{base}/cast", json={"role": "Nate, the son", "description": "teen, shy"})
     nate = nate.json()[0]["id"]
@@ -305,7 +307,7 @@ def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, 
     from app.credits import credits_used
     from app.sheets import look_price
 
-    made = _make(owner, text=SCRIPT)
+    made = _make(owner, text=NATE_ONLY)
     base = f"/scripts/{made['id']}"
     roles = [owner.post(f"{base}/cast", json={"role": r, "description": "teen"}).json()[-1]["id"]
              for r in ("Nate", "Mia")]  # fmt: skip

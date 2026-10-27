@@ -153,16 +153,17 @@ def _key(role: str) -> str:
     return (short(role) or role).strip().lower()
 
 
-def speaker_slots(db: Session, script: Script, taken: set[str]) -> list[ScriptCastSlot]:
-    """A role for each speaker the cast read missed (Reed: FRIEND), added to the script; one
-    whose name is `taken` (as `_key` reads it) already has one."""
+def speaker_slots(db: Session, script: Script, slots: list[ScriptCastSlot]) -> list[ScriptCastSlot]:
+    """A role for each speaker the cast read missed (Reed: FRIEND), added to the script. A
+    speaker whose label is a role already there (`cast_roles.labels`) is that role, never a
+    second one (Reed: one person is never two roles)."""
+    from app.cast_roles import labels
+
     out = []
-    for name, slots in _speakers(db, script).items():
-        if _key(name) not in taken:
-            taken.add(_key(name))
-            out.append(
-                ScriptCastSlot(script_id=script.id, role=name, kind="Helper", appears_in=slots)
-            )
+    for name, versions in _speakers(db, script).items():
+        if not any(labels(name, s.role) for s in [*slots, *out]):
+            out.append(ScriptCastSlot(script_id=script.id, role=name, kind="Helper",
+                                      appears_in=versions))  # fmt: skip
             db.add(out[-1])
     return out
 
@@ -191,6 +192,6 @@ def save_cast_slots(db: Session, job: Job) -> None:
         done[key] = slot
     for slot in have.values():
         slot.appears_in = []  # the script doesn't name it any more
-    order += speaker_slots(db, script, {*done, *have})
+    order += speaker_slots(db, script, [*order, *have.values()])
     for position, slot in enumerate([*order, *have.values()], 1):  # others keep their order
         slot.position = position

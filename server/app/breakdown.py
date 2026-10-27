@@ -265,29 +265,83 @@ def land(
 OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
 
 
-def show_speakers(db: Session, project: Project, bd: Breakdown, text: str) -> list[str]:
-    """A shot whose speaker is one of the video's roles, speaking on screen (the script's
-    label has no V.O. or O.S.), shows that role (Reed, 2026-10-27: the bride's groom wasn't
-    in his own shots, so the video model invented him). In place; each change said as
-    advice. Free."""
-    from app.cast_roles import ref, short, video_slots
+def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[str, list[str]]:
+    """Each of the video's roles is in the shots that show them (Reed, 2026-10-27, "Marriage
+    Rejection": the groom was never in his own shots, so no sheet was attached and the video
+    model invented him): the shots they speak in on screen (the script's label has no V.O. or
+    O.S.), and the shots whose action names them. In place; {shot id: names added}. Free."""
+    from app.cast_roles import labels, named, ref, short, video_slots
 
-    slots = {short(s.role).lower(): s for s in video_slots(db, project) if short(s.role)}
-    lines, notes = text.splitlines(), []
+    slots = [s for s in video_slots(db, project) if short(s.role)]
+    lines, added = text.splitlines(), {}
     for shot in (s for scene in bd.scenes for s in scene.shots):
-        slot = slots.get(short(shot.speaker or "").lower())
-        if slot is None:
-            continue
-        who = ref(db, project, slot)
-        if {who, f"slot:{slot.id}"} & set(shot.character_ids):
-            continue
-        labels = [check.SPEAKER.match(lines[n - 1]) for n in shot.script_lines
-                  if 0 < n <= len(lines)]  # fmt: skip
-        if any(m and OFF_SCREEN.search(m[0]) for m in labels):
-            continue
-        shot.character_ids = [*shot.character_ids, who]
-        notes.append(f"Advice: Shot {shot.id} now shows {short(slot.role)}, who speaks in it.")
-    return notes
+        said = [check.SPEAKER.match(lines[n - 1]) for n in shot.script_lines
+                if 0 < n <= len(lines)]  # fmt: skip
+        off = any(m and OFF_SCREEN.search(m[0]) for m in said)
+        for slot in slots:
+            who = ref(db, project, slot)
+            if {who, f"slot:{slot.id}"} & set(shot.character_ids):
+                continue
+            speaks = bool(shot.speaker) and labels(shot.speaker, slot.role) and not off
+            if speaks or named(slot.role, shot.action):
+                shot.character_ids = [*shot.character_ids, who]
+                added.setdefault(shot.id, []).append(short(slot.role))
+    return added
+
+
+def complete_cast(db: Session, project: Project) -> list[str]:
+    """Every speaker in the video's script is a role, and every role is in its shots
+    (`show_roles`), so Assets makes and asks for their looks and frames and clips get their
+    sheets. A screen shot that gains a person has "Use the real image" turned off (it was only
+    offered as a shot with nobody in it). Free and idempotent: when Assets opens, and on
+    deploy. One plain line per change."""
+    from app.models.clips import ProjectClip
+    from app.models.script_library import Script, ScriptDraft
+    from app.routes.scripts import latest
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    script = db.get(Script, draft.script_id) if draft else None
+    if script is None:
+        return []
+    out = [f"{script.title}: added {name} to the cast" for name in add_speakers(db, script)]
+    row = db.scalar(
+        select(BreakdownVersion)
+        .where(BreakdownVersion.project_id == project.id)
+        .order_by(BreakdownVersion.id.desc())
+        .limit(1)
+    )
+    words = latest(db, project)
+    if row is None or words is None:
+        return out
+    bd = Breakdown.model_validate(row.data)
+    if not (added := show_roles(db, project, bd, words.text)):
+        return out
+    notes = [f"Advice: Shot {sid} now shows {' and '.join(names)}." for sid, names in added.items()]
+    row.data = bd.model_dump()
+    row.problems = problems(db, project, words.text, bd) + notes
+    off = 0
+    for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == row.id)):
+        if gone := [k for k, on in (clip.real_images or {}).items() if on and k in added]:
+            clip.real_images = {k: v for k, v in clip.real_images.items() if k not in gone}
+            off += len(gone)
+    out.append(f"{project.name}: " + " ".join(n.removeprefix("Advice: ") for n in notes))
+    if off:
+        shots = "1 shot" if off == 1 else f"{off} shots"
+        out.append(f"{project.name}: turned off Use the real image on {shots} with a person")
+    return out
+
+
+def add_speakers(db: Session, script) -> list[str]:
+    """The script's speakers the cast read missed (or that it never had: a script from
+    before the cast read), added to its cast as roles. Their names."""
+    from app import script_cast_read
+
+    slots = script_cast_read._slots(db, script)
+    new = script_cast_read.speaker_slots(db, script, slots)
+    for position, slot in enumerate(new, len(slots) + 1):
+        slot.position = position
+    db.flush()
+    return [s.role for s in new]
 
 
 def _role(db: Session, project: Project, slots: list, speaker: str | None):

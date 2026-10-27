@@ -265,8 +265,9 @@ def test_an_unlocked_slot_in_the_breakdown_is_known_and_waits_only_for_its_look(
     """Reed: "shot X: unknown slot:28" on every shot blocked the storyboard. The role is
     known; only its missing look stops the storyboard (Reed, 2026-10-27), pointing to Assets."""
     from tests.test_unknown_cast import _look
+    from tests.test_video_looks import NATE_ONLY
 
-    made = _make(owner, text=SCRIPT)
+    made = _make(owner, text=NATE_ONLY)
     base = f"/scripts/{made['id']}"
     nate = owner.post(f"{base}/cast", json={"role": "Nate"}).json()[0]["id"]  # unlocked
     other = _make(owner, title="Other", text=SCRIPT)

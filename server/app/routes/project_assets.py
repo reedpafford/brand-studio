@@ -124,6 +124,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     """Cast slots first (locked, then unlocked), then the breakdown's other characters, its
     places, then the products and screens its shots show, each once."""
     project = get_project(db, user, project_id)
+    if breakdown.complete_cast(db, project):  # free: a speaker or a role missing from its shots
+        db.commit()
     bd = _newest(db, project)
     data = bd.data if bd else {"scenes": []}
     shots = [s for scene in data["scenes"] for s in scene["shots"]]
@@ -308,6 +310,8 @@ def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
 
 
 def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
+    if breakdown.complete_cast(db, project):  # as when Assets opens: every role in its shots
+        db.commit()
     slots = _missing(db, project)
     total = look_price(db, project.workspace_id) * len(slots)
     why = fits(db, project, user, total) if slots else ""

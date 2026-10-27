@@ -63,15 +63,17 @@ def test_merge_on_a_video_moves_its_shots_and_leaves_the_script_alone(owner, edi
                        "look_unused": {"name": "Mother look"}}  # fmt: skip
     done = editor.post(f"{url}/slots/{mother}/merge", json={"into_slot_id": mom}).json()
     assert done["moved"] == preview["moved"]
-    assert [r["slot_id"] for r in done["assets"] if r["slot_id"]] == [mom]
+    cast = owner.get(base).json()["cast"]  # Nate speaks in the script, so he's a role too
+    assert [s["role"] for s in cast] == ["Mom", "His mother", "Nate"]
+    nate = cast[2]["id"]
+    assert [r["slot_id"] for r in done["assets"] if r["slot_id"]] == [mom, nate]
     assert _shots(editor, pid) == [("Mom", [f"char:{looks[mom]}"])] * 2
-    assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Mom", "His mother"]
     assert looks[mother] not in db.get(Project, pid).cast_ids  # unused, never deleted
     assert db.query(Job).count() == jobs  # free: nothing drawn or written
 
     editor.post(f"{url}/merge/undo", json={"token": done["token"]})
     assert _shots(editor, pid) == before
-    assert [r["slot_id"] for r in editor.get(url).json() if r["slot_id"]] == [mom, mother]
+    assert [r["slot_id"] for r in editor.get(url).json() if r["slot_id"]] == [mom, mother, nate]
     gone = editor.post(f"{url}/merge/undo", json={"token": done["token"]})
     assert gone.status_code == 404
 

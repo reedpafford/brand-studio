@@ -107,7 +107,7 @@ def test_assets_list_the_products_and_screens_the_shots_show(owner, editor, db):
         f"/brands/{fomo}/screens",
         json={"name": "Bag", "file_id": upload(owner), "tags": ["product"]},
     )
-    made = _make(owner, text=SCRIPT)
+    made = _make(owner, text="SCENE 1 — INT. KITCHEN — DAY\nThe phone buzzes.")  # no one
     base = f"/scripts/{made['id']}"
     bd = copy.deepcopy(BREAKDOWN)
     ids = [f"screen:{screen.json()['id']}", f"screen:{bag.json()['id']}"]

@@ -69,6 +69,13 @@ def same(a: str, b: str) -> bool:
     return (short(a) or a).strip().lower() == (short(b) or b).strip().lower()
 
 
+def labels(label: str, role: str) -> bool:
+    """A script's speaker label is this role: the same name, or the label's last word is a
+    word of the role ("GROOM" is "Nate, the teen groom", "EX-BRIDE" is "The bride")."""
+    last = re.findall(r"[a-z]+", label.lower())[-1:]
+    return same(label, role) or bool(set(last) & set(re.findall(r"[a-z]+", role.lower())))
+
+
 def cast_roles(db: Session, project: Project) -> dict[int, list[ScriptCastSlot]]:
     """character id -> the roles they play (in slot order); empty for older videos."""
     out: dict[int, list[ScriptCastSlot]] = {}
