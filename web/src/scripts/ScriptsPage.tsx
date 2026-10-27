@@ -385,7 +385,7 @@ export function ScriptsPage() {
           )}
           {rows.length === 0 && !filtered && (
             <EmptyState icon={FileText} title={owner ? `No scripts for ${brand?.name ?? "this brand"} yet.` : "No scripts ready to make yet."}>
-              {owner ? "Write a script once and make up to three videos from it." : "Reed publishes scripts here. You can also write your own."}
+              {owner ? "Write a script once and make up to three videos from it." : "The owner publishes scripts here. You can also write your own."}
             </EmptyState>
           )}
           {rows.length === 0 && filtered && !removed && (

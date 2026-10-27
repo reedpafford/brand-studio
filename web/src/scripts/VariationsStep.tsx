@@ -25,7 +25,7 @@ export function changedLines(original: string, text: string): boolean[] {
 }
 
 /** The first line of an earlier text that the text on screen doesn't have, so earlier entries can be told apart. */
-export const firstDifference = (now: string, earlier: string) => {
+const firstDifference = (now: string, earlier: string) => {
   const had = new Set(now.split("\n").map((l) => l.trim()));
   return earlier.split("\n").map((l) => l.trim()).find((l) => l !== "" && !had.has(l)) ?? "";
 };

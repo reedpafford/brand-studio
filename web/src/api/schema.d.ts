@@ -453,8 +453,7 @@ export interface paths {
         post?: never;
         /**
          * Archive Item
-         * @description Archive (reversible: see unarchive). Anyone on the team can do this. On a look just
-         *     saved to Cast & places, it's the Undo: the video goes back on its own look.
+         * @description Archive (reversible: see unarchive). Anyone on the team can do this.
          */
         delete: operations["archive_item_library__kind___item_id__delete"];
         options?: never;
@@ -688,23 +687,6 @@ export interface paths {
          * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled.
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/usage": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Usage */
-        get: operations["list_usage_usage_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1826,26 +1808,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/scripts/{script_id}/cast/maybe-same": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Maybe Same
-         * @description Roles that may be one person, never two kept apart or seen in one shot.
-         */
-        get: operations["maybe_same_scripts__script_id__cast_maybe_same_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/scripts/{script_id}/cast/maybe-same/dismiss": {
         parameters: {
             query?: never;
@@ -2104,27 +2066,6 @@ export interface paths {
          *     breakdown. Undo saves the old plan back with PUT.
          */
         post: operations["fix_plan_scripts__script_id__drafts__slot__breakdown_fix_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/scripts/{script_id}/drafts/{slot}/produce/estimate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Produce Estimate
-         * @description The price on "Make this version": nothing when the version has a saved plan,
-         *     otherwise the breakdown that starts with it (no paid work starts without a price).
-         */
-        get: operations["produce_estimate_scripts__script_id__drafts__slot__produce_estimate_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3266,27 +3207,6 @@ export interface paths {
          *     opening Assets never makes them by itself again.
          */
         post: operations["decline_missing_looks_projects__project_id__assets_missing_looks_decline_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/assets/slots/{slot_id}/save-to-library": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Save To Library
-         * @description Copy this video's look into Cast & places as a normal character (free: same sheet) and
-         *     use the copy here. Reed always; editors only with the Team setting on.
-         */
-        post: operations["save_to_library_projects__project_id__assets_slots__slot_id__save_to_library_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4664,8 +4584,6 @@ export interface components {
             weekly_quick_clip_credits: number | string;
             /** Per Video Max Credits */
             per_video_max_credits: number;
-            /** Editors Can Save Looks */
-            editors_can_save_looks?: boolean | null;
         };
         /** LimitsOut */
         LimitsOut: {
@@ -4673,8 +4591,6 @@ export interface components {
             weekly_quick_clip_credits: number;
             /** Per Video Max Credits */
             per_video_max_credits: number;
-            /** Editors Can Save Looks */
-            editors_can_save_looks: boolean;
         };
         /** Line */
         Line: {
@@ -5015,11 +4931,6 @@ export interface components {
         };
         /** PriceOut */
         PriceOut: {
-            /** Credits */
-            credits: number;
-        };
-        /** ProduceEstimate */
-        ProduceEstimate: {
             /** Credits */
             credits: number;
         };
@@ -5441,18 +5352,6 @@ export interface components {
             /** Why */
             why: string;
         };
-        /** SaveLookIn */
-        SaveLookIn: {
-            /** Name */
-            name: string;
-        };
-        /** SavedOut */
-        SavedOut: {
-            /** Library Item Id */
-            library_item_id: number;
-            /** Assets */
-            assets: components["schemas"]["AssetOut"][];
-        };
         /** Scene */
         Scene: {
             /**
@@ -5684,7 +5583,7 @@ export interface components {
             reaction: string | null;
             /**
              * Camera
-             * @description Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or 'Macro insert of the phone screen, static'.
+             * @description Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or 'Over-the-shoulder close-up on the phone in his hand, static'.
              */
             camera: string;
             /**
@@ -5994,30 +5893,6 @@ export interface components {
             next_cursor: string | null;
             /** Items */
             items: components["schemas"]["UsageCharge"][];
-        };
-        /** UsageOut */
-        UsageOut: {
-            /** Id */
-            id: number;
-            /** Job Id */
-            job_id: number;
-            /** Provider */
-            provider: string;
-            /** Kind */
-            kind: string;
-            /** Units */
-            units: string;
-            /** Unit */
-            unit: string;
-            /** Cost Usd */
-            cost_usd: string;
-            /** Estimated */
-            estimated: boolean;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
         };
         /** UsagePrevious */
         UsagePrevious: {
@@ -8067,26 +7942,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_usage_usage_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UsageOut"][];
                 };
             };
         };
@@ -10194,37 +10049,6 @@ export interface operations {
             };
         };
     };
-    maybe_same_scripts__script_id__cast_maybe_same_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                script_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SamePair"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     dismiss_scripts__script_id__cast_maybe_same_dismiss_post: {
         parameters: {
             query?: never;
@@ -10891,38 +10715,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreviewOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    produce_estimate_scripts__script_id__drafts__slot__produce_estimate_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                script_id: number;
-                slot: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProduceEstimate"];
                 };
             };
             /** @description Validation Error */
@@ -13157,42 +12949,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MissingLooksOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    save_to_library_projects__project_id__assets_slots__slot_id__save_to_library_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-                slot_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SaveLookIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedOut"];
                 };
             };
             /** @description Validation Error */

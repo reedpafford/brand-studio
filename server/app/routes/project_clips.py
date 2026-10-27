@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, change, clip_prompts, clip_takes, credits, cut_in
+from app import advice, breakdown, change, clip_prompts, clip_takes, credits, cut_in
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db, utcnow
@@ -27,6 +27,8 @@ from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
 from app.schemas import LongText, UtcTime
+from app.sheets import require_looks
+from app.storyboard import assets as picture_assets
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["project clips"])
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
@@ -171,8 +173,9 @@ def write_prompts(
     clip, or one clip (Reed, 2026-10-26: Clips never dead-ends). Existing takes are kept as
     earlier takes (clip_prompts.save_clip_prompts)."""
     project = get_project(db, user, project_id)
-    if not _newest_breakdown(db, project):
+    if not (bd := _newest_breakdown(db, project)):
         raise HTTPException(409, "Make a breakdown first.")
+    require_looks(breakdown.would_show(db, project, bd.data), picture_assets(db, project), 409)
     ids = _rewrite_ids(db, project, body.clip_id if body else None)
     if ids == []:
         raise HTTPException(409, "No clip needs new prompts.")
@@ -205,7 +208,7 @@ def fix_clip(
         raise HTTPException(409, "This clip has nothing to fix.")
     if running := clip_prompts.fixing(db, row):  # one in flight per clip: never a second call
         return FixOut(fixed=None, before=was.prompt, job=running, clip=_out(db, row, newest))
-    now = clip_prompts.repair_shape(was, bd)
+    now = clip_prompts.repair_shape(was, bd) if row.prompt else was  # unwritten: Claude
     problems = clip_prompts.clip_problems(db, project, bd, now)
     if now != was:
         row.same_fix = True  # the free fix's own change: its free rewrite stays counted
@@ -472,7 +475,7 @@ def keep_clip_advice(
     """Keep anyway: this clip's advice stays as it is. A blocking problem can be kept too once
     the free fix was tried (one-click-fixes.md §5); it then stops blocking the takes."""
     project, row = _clip(db, user, project_id, clip_id)
-    tried = row.free_fix_used
+    tried = row.free_fix_used and bool(row.prompt)  # an unwritten clip has nothing to keep
     advice.keep(
         row, body.problem, None if tried else "Try Fix this clip's prompt first. It's free."
     )

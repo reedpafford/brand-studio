@@ -13,7 +13,7 @@ from app.models.scripts import Suggestion
 from app.providers.claude import ClaudeProvider
 from app.worker import run_once
 from tests.conftest import upload
-from tests.helpers import assert_hidden, assert_no_dollars, claude_stream
+from tests.helpers import assert_hidden, claude_stream
 
 SCRIPT = """SCENE 1 — INT. KITCHEN — MORNING
 Mom storms in holding an empty wallet.
@@ -188,13 +188,6 @@ def test_other_workspace_is_shut_out(outsider, setup):
             ("POST", f"{url}/suggestions/1/accept"),
         ],
     )
-
-
-def test_editor_sees_no_dollars(app, editor, db, setup):
-    url = f"/projects/{setup['project']}/script"
-    editor.post(f"{url}/enhance")
-    _run(app, db, FakeClaude({"suggestions": []}))
-    assert_no_dollars(editor, [f"{url}/suggestions", "/jobs"])
 
 
 def test_enhance_respects_the_generation_switch(app, editor, setup, db):

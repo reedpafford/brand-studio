@@ -37,21 +37,47 @@ class ClaudeProvider:
     def run(self, kind: str, input: dict) -> Result:
         """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}, and for a
         check that looks at pictures, "files": {"reference_images": [file ids]}, sent as data
-        URLs."""
+        URLs. With "parts" (e.g. clip prompts, a few clips each), each part is asked on its
+        own after the shared prompt, so no answer runs out of room, and their lists are
+        joined; a part that fails is listed in "failed_parts" ({part, error}) and the rest
+        are kept. All of them failing fails the job."""
+        parts = input.get("parts") or [""]
+        output: dict = {}
+        failed, cost = [], Decimal(0)
+        for i, part in enumerate(parts):
+            try:
+                answer = self._ask(input, f"{input['prompt']}\n{part}" if part else input["prompt"])
+            except ClaudeError as exc:  # refused or cut off: still billed, so record the cost
+                failed.append({"part": i, "error": str(exc)})
+                cost += exc.cost_usd or 0
+                continue
+            except (NotStarted, NetworkError) as exc:
+                if not output and not failed:  # nothing asked yet: the worker's usual rules
+                    raise
+                failed.append({"part": i, "error": str(exc)})
+                continue
+            cost += answer.cost_usd
+            for key, value in clean(answer.parsed.model_dump()).items():
+                output[key] = output.get(key, []) + value if isinstance(value, list) else value
+        usage = [UsageItem(Decimal(1), "call", cost)] if cost else []
+        if len(failed) == len(parts):
+            return Result("failed", error="; ".join(f["error"] for f in failed), usage=usage)
+        if failed:
+            output["failed_parts"] = failed
+        return Result("succeeded", output=output, usage=usage)
+
+    def _ask(self, input: dict, prompt: str):
         client = self._client or make_client(self._key)
         try:
-            answer = ask(
+            return ask(
                 client,
                 system=input["system"],
-                prompt=input["prompt"],
+                prompt=prompt,
                 schema=SCHEMAS[input["step"]],
                 effort=input.get("effort", "high"),
                 images=(input.get("input") or {}).get("reference_images", []),
                 **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
-        except ClaudeError as exc:  # refused or cut off: still billed, so record the cost
-            usage = [UsageItem(Decimal(1), "call", exc.cost_usd)] if exc.cost_usd else []
-            return Result("failed", error=str(exc), usage=usage)
         except (
             anthropic.RateLimitError,
             anthropic.InternalServerError,
@@ -60,11 +86,6 @@ class ClaudeProvider:
             raise NotStarted(repr(exc)) from exc
         except anthropic.APIConnectionError as exc:
             raise NetworkError(repr(exc)) from exc
-        return Result(
-            "succeeded",
-            output=clean(answer.parsed.model_dump()),
-            usage=[UsageItem(Decimal(1), "call", answer.cost_usd)],
-        )
 
     def submit(self, kind: str, input: dict) -> str:  # pragma: no cover - sync provider
         raise NotImplementedError

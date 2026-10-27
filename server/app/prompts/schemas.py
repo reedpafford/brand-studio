@@ -31,8 +31,8 @@ class Suggestion(BaseModel):
     )
     text: str = Field(
         description="What we see, in script style, present tense, one line; never spoken words. "
-        "brand_screen: the screen line ('★ fomo screen: Token chart up — on Leo's phone, fills "
-        "the frame')."
+        "brand_screen: the screen line ('★ fomo screen: Token chart up — on Leo's phone in his "
+        "hand')."
     )
     screen_id: str | None = Field(
         description="brand_screen only: the screen's or product's id from the brand block "
@@ -161,8 +161,8 @@ class Shot(BaseModel):
         "or null."
     )
     camera: str = Field(
-        description="Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or 'Macro "
-        "insert of the phone screen, static'."
+        description="Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or "
+        "'Over-the-shoulder close-up on the phone in his hand, static'."
     )
     seconds: float = Field(
         description="Estimated length. Dialogue: words / 4.8 plus any held reaction. Silent "

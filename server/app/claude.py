@@ -27,7 +27,8 @@ PRICE_PER_MTOK = {
 }
 
 
-CUT_OFF = "Claude's answer was cut off or unreadable."
+RAN_OUT = "Claude's answer ran out of room (the output limit) before it was finished."
+UNREADABLE = "Claude's answer came back unreadable (not the shape asked for)."
 
 
 class ClaudeError(Exception):
@@ -87,13 +88,16 @@ def ask[T: BaseModel](
         try:
             response = stream.get_final_message()
         except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
-            raise ClaudeError(CUT_OFF, _cost_so_far(stream)) from exc
+            cut = any("EOF" in e["msg"] for e in exc.errors())  # the JSON stops mid-way
+            raise ClaudeError(RAN_OUT if cut else UNREADABLE, _cost_so_far(stream)) from exc
     cost = _cost(response.usage)
     if response.stop_reason == "refusal":
         category = response.stop_details.category if response.stop_details else None
         raise ClaudeError(f"Claude declined this request ({category or 'no category'}).", cost)
-    if response.stop_reason == "max_tokens" or response.parsed_output is None:
-        raise ClaudeError(CUT_OFF, cost)
+    if response.stop_reason == "max_tokens":
+        raise ClaudeError(RAN_OUT, cost)
+    if response.parsed_output is None:
+        raise ClaudeError(UNREADABLE, cost)
     return Answer(response.parsed_output, response.model, cost)
 
 

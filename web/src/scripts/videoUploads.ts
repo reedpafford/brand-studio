@@ -27,7 +27,7 @@ export const megabytes = (bytes: number) => `${Math.max(1, Math.round(bytes / 10
 export const cutMiddle = (name: string, most = 24) => (name.length <= most ? name : `${name.slice(0, Math.ceil((most - 1) / 2))}…${name.slice(name.length - Math.floor((most - 1) / 2))}`);
 
 /** Why a file can't be sent at all, checked before anything is uploaded. */
-export function checkBeforeUpload(file: File): string | null {
+function checkBeforeUpload(file: File): string | null {
   if (!isVideo(file)) return "Only MP4 or MOV videos can be read.";
   if (file.size > MAX_BYTES) return "This one is over 100 MB.";
   return null;

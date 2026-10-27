@@ -69,6 +69,18 @@ def same(a: str, b: str) -> bool:
     return (short(a) or a).strip().lower() == (short(b) or b).strip().lower()
 
 
+def labels(label: str, role: str) -> bool:
+    """A script's speaker label is this role: the same name, or the label's last word is the
+    last word of the role's name or the head noun of its description ("GROOM" is "Nate, the
+    teen groom", "EX-BRIDE" is "The bride"). Never a word inside the description: "NATE" is
+    not "Kimchi, Nate's rich friend"."""
+    last = re.findall(r"[a-z]+", label.lower())[-1:]
+    name, _, about = role.partition(",")
+    words = [re.findall(r"[a-z']+", part.lower()) for part in (short(name) or name, about)]
+    heads = {w[-1] for w in words if w and not w[-1].endswith("'s")}  # a possessive never is
+    return same(label, role) or bool(set(last) & heads)
+
+
 def cast_roles(db: Session, project: Project) -> dict[int, list[ScriptCastSlot]]:
     """character id -> the roles they play (in slot order); empty for older videos."""
     out: dict[int, list[ScriptCastSlot]] = {}

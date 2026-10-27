@@ -261,9 +261,13 @@ def test_deleting_a_produced_script_keeps_its_video(owner, editor, db):
     assert owner.post(f"{base}/restore").json()["versions"][0]["project_id"] == pid
 
 
-def test_an_unlocked_slot_in_the_breakdown_is_known_and_blocks_nothing(owner, editor, db):
-    """Reed: "shot X: unknown slot:28" on every shot blocked the storyboard."""
-    made = _make(owner, text=SCRIPT)
+def test_an_unlocked_slot_in_the_breakdown_is_known_and_waits_only_for_its_look(owner, editor, db):
+    """Reed: "shot X: unknown slot:28" on every shot blocked the storyboard. The role is
+    known; only its missing look stops the storyboard (Reed, 2026-10-27), pointing to Assets."""
+    from tests.test_unknown_cast import _look
+    from tests.test_video_looks import NATE_ONLY
+
+    made = _make(owner, text=NATE_ONLY)
     base = f"/scripts/{made['id']}"
     nate = owner.post(f"{base}/cast", json={"role": "Nate"}).json()[0]["id"]  # unlocked
     other = _make(owner, title="Other", text=SCRIPT)
@@ -277,7 +281,13 @@ def test_an_unlocked_slot_in_the_breakdown_is_known_and_blocks_nothing(owner, ed
     url = f"/projects/{pid}/breakdown"
     assert not [p for p in editor.get(url).json()["problems"] if "isn't part of this" in p]
     assert editor.put(url, json=bd).status_code == 200  # an edit naming it is fine too
-    assert editor.post(f"/projects/{pid}/storyboard", json={"per_shot": False}).status_code == 201
+    board = f"/projects/{pid}/storyboard"
+    refused = editor.post(board, json={"per_shot": False})
+    assert refused.status_code == 409
+    assert refused.json()["detail"] == "Nate has no approved look yet. Approve one in Assets."
+    look = {"library_item_id": _look(owner, db, "Nate look")}
+    assert editor.put(f"/projects/{pid}/assets/slots/{nate}", json=look).status_code == 200
+    assert editor.post(board, json={"per_shot": False}).status_code == 201
     bd["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{stranger}"]
     landed = editor.put(url, json=bd).json()  # another script's role: the shot's speaker's
     assert landed["breakdown"]["scenes"][0]["shots"][1]["character_ids"] == [f"slot:{nate}"]

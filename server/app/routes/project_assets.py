@@ -9,19 +9,18 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import advice, breakdown, cast_roles, clip_prompts, merge_roles
 from app.auth import current_user
-from app.credits import COUNTED, fits, get_limits, price
+from app.credits import COUNTED, fits, price
 from app.db import get_db
 from app.enhance import project_screens, screen_name
 from app.models.accounts import User
-from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
-from app.models.library import Kind, LibraryItem, LibraryItemVersion
+from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.script_library import CastMerge, Script, ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
@@ -38,7 +37,6 @@ from app.routes.script_cast import (
 )
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, queue_sheet
-from app.schemas import Name
 from app.sheets import look_price, look_usual
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
@@ -65,15 +63,6 @@ class AssetOut(BaseModel):
     library_deleted: bool = False  # its Cast & places character was deleted: Make or Pick
     look_credits: int | None = None  # Make a look on a role: "up to" (held at the press)
     look_usual_credits: int | None = None  # "Usually N": its sheet and check, no redo
-
-
-class SaveLookIn(BaseModel):
-    name: Name
-
-
-class SavedOut(BaseModel):
-    library_item_id: int  # the new Cast & places character; Undo is DELETE on it
-    assets: list[AssetOut]
 
 
 class SlotCastIn(BaseModel):
@@ -124,6 +113,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     """Cast slots first (locked, then unlocked), then the breakdown's other characters, its
     places, then the products and screens its shots show, each once."""
     project = get_project(db, user, project_id)
+    if breakdown.complete_cast(db, project):  # free: a speaker or a role missing from its shots
+        db.commit()
     bd = _newest(db, project)
     data = bd.data if bd else {"scenes": []}
     shots = [s for scene in data["scenes"] for s in scene["shots"]]
@@ -308,6 +299,8 @@ def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
 
 
 def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
+    if breakdown.complete_cast(db, project):  # as when Assets opens: every role in its shots
+        db.commit()
     slots = _missing(db, project)
     total = look_price(db, project.workspace_id) * len(slots)
     why = fits(db, project, user, total) if slots else ""
@@ -383,81 +376,6 @@ def decline_missing_looks(
     project.slot_looks = {**project.slot_looks, **waiting}
     db.commit()
     return _missing_out(db, user, project)
-
-
-@router.post("/slots/{slot_id}/save-to-library", response_model=SavedOut, status_code=201)
-def save_to_library(
-    project_id: int,
-    slot_id: int,
-    body: SaveLookIn,
-    user: User = Depends(current_user),
-    db: Session = Depends(get_db),
-):
-    """Copy this video's look into Cast & places as a normal character (free: same sheet) and
-    use the copy here. Reed always; editors only with the Team setting on."""
-    project = get_project(db, user, project_id)
-    if not user.is_owner and not get_limits(db, user.workspace_id).editors_can_save_looks:
-        raise HTTPException(403, "Only the owner can save looks to Cast & places.")
-    slot = _open_slot(db, project, slot_id)
-    look = db.get(LibraryItem, project.slot_cast.get(str(slot.id)) or 0)
-    if look is None or look.owner_project_id != project.id:
-        raise HTTPException(409, f"{slot.role} doesn't have a look made for this video.")
-    if sheet_status(look) != "approved":
-        raise HTTPException(409, "Approve the sheet first.")
-    name = body.name.strip()
-    taken = db.scalar(
-        select(LibraryItem.id).where(
-            LibraryItem.workspace_id == project.workspace_id,
-            LibraryItem.kind == Kind.character,
-            LibraryItem.archived.is_(False),
-            LibraryItem.owner_project_id.is_(None),
-            LibraryItem.owner_script_id.is_(None),
-            func.lower(LibraryItem.name) == name.lower(),
-        )
-    )
-    if taken:
-        raise HTTPException(409, f"{name} is already in Cast & places. Pick another name.")
-    copy = LibraryItem(
-        workspace_id=look.workspace_id,
-        kind=Kind.character,
-        name=name,
-        notes=look.notes,
-        image_file_ids=look.image_file_ids,
-        outfits=look.outfits,
-        voice_file_id=look.voice_file_id,
-        source_photo_file_id=look.source_photo_file_id,
-        sheet_file_id=look.sheet_file_id,
-        sheet_approved=True,
-        copied_from_id=look.id,
-        brands=[db.get(Brand, project.brand_id)],
-    )
-    db.add(copy)
-    db.flush()
-    _cast(db, user, project, slot, copy, same_look=True)
-    db.commit()
-    return SavedOut(library_item_id=copy.id, assets=list_assets(project_id, user, db))
-
-
-def undo_save(db: Session, user: User, copy: LibraryItem) -> bool:
-    """Undo of Save to Cast & places (DELETE on the copy): the video goes back on its own look
-    and the copy goes for good, unless another video has picked it since (then it's only
-    archived, as any DELETE)."""
-    look = db.get(LibraryItem, copy.copied_from_id)
-    project = db.get(Project, look.owner_project_id) if look and look.owner_project_id else None
-    if project is None:
-        return False
-    for key, item_id in list(project.slot_cast.items()):
-        if item_id == copy.id:
-            slot = db.get(ScriptCastSlot, int(key))
-            look.archived = False  # removed after the save (nobody used it): it's back in use
-            _cast(db, user, project, slot, look, same_look=True)
-    used = db.scalars(select(Project.cast_ids).where(Project.workspace_id == copy.workspace_id))
-    if any(copy.id in ids for ids in used):
-        return False
-    db.execute(delete(LibraryItemVersion).where(LibraryItemVersion.item_id == copy.id))
-    copy.brands = []
-    db.delete(copy)
-    return True
 
 
 def _own_look(db: Session, project: Project, item_id: int) -> LibraryItem | None:
@@ -599,6 +517,26 @@ def merge(
     return {**out, "token": record.id, "assets": list_assets(project_id, user, db)}
 
 
+def _recast_only(db: Session, project: Project, made: dict, now: dict, data: dict):
+    """Who now plays whom ({"slot:3": "char:9"}) when the shots changed since the merge only
+    by roles getting their looks (Assets making the missing ones): each swap puts a role's
+    own look where the role (slot:N) or its look at the merge was. None for any other change,
+    such as another person in a shot (QA on #614)."""
+    a, b = Breakdown.model_validate(made), Breakdown.model_validate(now)
+    blank = {"scenes": {"__all__": {"shots": {"__all__": {"character_ids"}}}}}
+    if a.model_dump(exclude=blank) != b.model_dump(exclude=blank):
+        return None
+    was = {f"slot:{k}": f"char:{v}" for k, v in data["slot_cast"].items()}
+    own = {cast_roles.ref(db, project, s): {f"slot:{s.id}", was.get(f"slot:{s.id}")}
+           for s in _slots(db, project)}  # fmt: skip
+    swaps = cast_roles._swaps(a, b).values()
+    if None in swaps or any(
+        old not in own.get(new, ()) for one in swaps for old, new in one.items()
+    ):
+        return None
+    return {old: new for one in swaps for old, new in one.items()}
+
+
 @router.post("/merge/undo", response_model=list[AssetOut])
 def undo_merge(
     project_id: int, body: UndoIn, user: User = Depends(current_user), db: Session = Depends(get_db)
@@ -608,16 +546,25 @@ def undo_merge(
     record = db.get(CastMerge, body.token)
     if record is None or record.project_id != project.id:
         raise HTTPException(404, "There's nothing to undo here any more.")
-    data = record.data
+    data, swap = record.data, {}
     if (now := _newest(db, project)) and now.id != data.get("made"):
-        raise HTTPException(
-            409, "This can't be undone any more: the shots were changed after the merge."
-        )
-    project.slot_merged, project.slot_cast = data["slot_merged"], data["slot_cast"]
-    project.cast_ids = data["cast_ids"]
+        made = db.get(BreakdownVersion, data.get("made") or 0)
+        if made is None or (swap := _recast_only(db, project, made.data, now.data, data)) is None:
+            raise HTTPException(
+                409, "This can't be undone any more: the shots were changed after the merge."
+            )
+    # Looks given to other roles since (Assets making the missing ones) stay.
+    merged = {k for k in project.slot_merged or {} if k not in data["slot_merged"]}
+    project.slot_merged = {k: v for k, v in project.slot_merged.items() if k not in merged}
+    project.slot_cast = {**{k: v for k, v in project.slot_cast.items() if k not in merged},
+                         **{k: v for k, v in data["slot_cast"].items() if k in merged}}  # fmt: skip
+    project.cast_ids = sorted({*project.cast_ids, *data["cast_ids"]})
     bd = _newest(db, project)
     if bd and data["breakdown"]:
-        _resave(db, user, project, bd, data["breakdown"])
+        text = json.dumps(data["breakdown"])
+        for was, now_ref in swap.items():
+            text = text.replace(f'"{was}"', f'"{now_ref}"')
+        _resave(db, user, project, bd, json.loads(text))
         clip_prompts.follow(db, project, user)
     db.delete(record)
     db.commit()

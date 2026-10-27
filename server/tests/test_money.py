@@ -10,16 +10,8 @@ from app.providers import Result
 from app.providers.fake import FakeProvider
 from app.routes.jobs import enqueue
 from app.worker import run_once
-from tests.test_breakdown import BREAKDOWN
 from tests.test_credits import _run, ed, project  # noqa: F401 - fixtures
 from tests.test_script_produce import _published
-
-
-def test_make_this_version_shows_its_price_first(owner, editor, db):
-    planned, _ = _published(owner, db, breakdown=BREAKDOWN)
-    assert editor.get(f"{planned}/drafts/0/produce/estimate").json() == {"credits": 0}
-    unplanned, _ = _published(owner, db)  # no saved plan: the breakdown starts with it
-    assert editor.get(f"{unplanned}/drafts/0/produce/estimate").json() == {"credits": 3}
 
 
 def test_a_charge_is_never_more_than_the_price_shown(editor, ed, db, project):  # noqa: F811

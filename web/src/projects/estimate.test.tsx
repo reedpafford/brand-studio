@@ -47,7 +47,7 @@ test("the project shows what is left to spend per stage, and warns when it is mo
   fakeServer({ ...base, "GET /projects/9/estimate": [200, estimate] });
   open();
   expect(await screen.findByText(/To finish: about 46 credits · 30 credits left in the budget/)).toBeInTheDocument();
-  expect(screen.getByText("That is more than is left. Reed has to approve the extra.")).toBeInTheDocument();
+  expect(screen.getByText("That is more than is left. The owner has to approve the extra.")).toBeInTheDocument();
   const list = screen.getByRole("list", { name: "Credits left per stage" });
   expect(within(list).getByText("done")).toBeInTheDocument();
   expect(within(list).getByText("40 credits")).toBeInTheDocument();

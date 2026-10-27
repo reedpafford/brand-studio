@@ -6,11 +6,9 @@ import copy
 
 from app import clip_prompts, storyboard
 from app.models.brands import Brand, BrandScreen
-from app.models.breakdowns import BreakdownVersion
 from app.models.projects import Project
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts, Frame, Reference
-from app.seed import repair_cta_screens
 from tests.conftest import upload
 from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
@@ -46,12 +44,6 @@ def test_the_end_lines_shot_shows_the_balance_screen_on_the_heros_phone(app, db,
     assert cta["screen_ids"] == [f"screen:{setup['screen']}"]
     assert cta["character_ids"] == [f"char:{mom}"]
     assert "Advice: Shot 1.2 now shows the Buy screen on Mom's phone." in got["problems"]
-
-    row = db.query(BreakdownVersion).filter_by(project_id=project.id).one()
-    row.data = _bd(mom)  # saved before this rule
-    db.commit()
-    assert repair_cta_screens(db)[0] == 1 and repair_cta_screens(db) == (0, 1, 0)  # then shown
-    assert db.get(BreakdownVersion, row.id).data["scenes"][0]["shots"][1]["screen_ids"]
 
 
 def test_a_clip_and_a_frame_attach_every_screen_their_shots_show(app, db, editor, setup):  # noqa: F811

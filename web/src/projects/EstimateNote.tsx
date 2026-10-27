@@ -47,7 +47,7 @@ export function EstimateNote({
       <div className="mt-1 space-y-1 sm:absolute sm:inset-x-0 sm:z-10 sm:rounded-md sm:border sm:border-border sm:bg-surface sm:p-3 sm:shadow-md">
         {short && (
           <p className="text-warning">
-            That is more than is left. Reed has to approve the extra.
+            That is more than is left. The owner has to approve the extra.
           </p>
         )}
         <ul className="space-y-1" aria-label="Credits left per stage">

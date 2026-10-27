@@ -122,6 +122,14 @@ test("after its free fix a clip's problem can be kept anyway: it then shows as K
   expect(within(box).getByRole("button", { name: `Undo keep: ${problem}`, hidden: true })).toBeInTheDocument();
 });
 
+test("a clip never written, its free fix used, points to the priced rewrite and can't be kept anyway", async () => {
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ prompt: "", problems: ["This clip's prompt wasn't written: the answer left it out."], free_fix_used: true })]] });
+  open();
+  expect(await screen.findByText("Rewrite this clip's prompt below writes it, at its price.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Rewrite this clip's prompt/ })).toBeInTheDocument(); // the way out, on this page too
+  expect(screen.queryByRole("button", { name: /Keep it anyway/ })).toBeNull();
+});
+
 test("before its free fix a clip's problem has no Keep it anyway", async () => {
   fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ problems: ["Shot 1.1's line isn't there once, word for word"] })]] });
   open();
@@ -338,12 +346,12 @@ test("a failed prompt run says so, nothing was charged, and the one Write button
   const calls = fakeServer({
     ...base,
     "GET /projects/9/clips": [200, []],
-    "GET /jobs": [200, [{ id: 31, kind: "write-claude", step: "clip_prompts", status: "failed", credits: 6, project_id: 9, created_at: new Date().toISOString() }]],
+    "GET /jobs": [200, [{ id: 31, kind: "write-claude", step: "clip_prompts", status: "failed", credits: 6, project_id: 9, created_at: new Date().toISOString(), error: "The answer ran out of room before it was finished. Nothing was charged; try again." }]],
     "POST /projects/9/clips/prompts": [201, { id: 32, kind: "write-claude", step: "clip_prompts", status: "queued", credits: 6, project_id: 9 }],
   });
   open();
   expect(await screen.findByText("The clip prompts didn't finish.")).toBeInTheDocument();
-  expect(screen.getByText(/Nothing was charged\./)).toBeInTheDocument();
+  expect(screen.getByText(/ran out of room before it was finished\. Nothing was charged/)).toBeInTheDocument(); // the cause
   expect(screen.queryByText("Writing your clip prompts…")).toBeNull();
   // One paid button, not two: the banner only says what happened.
   expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);

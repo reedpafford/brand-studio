@@ -19,14 +19,15 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 Producer opens issue → (Designer sketches screens) → Builder opens PR from `agent/<name>/<topic>` → QA (+ Steward, Designer) review → merge → Scribe logs → Explorer checks live.
 
 ## Size budgets (Steward enforces)
-- Whole app: aim under 8,000 lines of code at launch. Any file over 400 lines needs a reason.
+- Whole app: at most 36,000 lines of app code (server/app Python plus web/src without tests or the generated schema.d.ts), the honest size after workflow v2 (Reed, 2026-10-27, replaces the 8,000 aim). New work adds no net lines: each change deletes about as much as it adds, and the Steward reports the count on every PR. Any file over 400 lines needs a reason.
 - One test per behaviour; no snapshot dumps. Delete tests with the code they cover.
 - ops/ files: HANDOFF under 60 lines, LOG trimmed monthly, DECISIONS one line each.
 
 ## Context hygiene (Reed, 2026-10-25)
 - **When to restart:** when a worker finishes a batch of PRs and is above about 60% of its context (or has auto-compacted repeatedly), the Producer restarts it fresh instead of letting it compact mid-task.
 - **How:** the old worker pushes everything and lists its open PRs and unopened branches, with a short handoff. The new session starts from HANDOFF, DECISIONS, this file and those PRs, and takes over watching them. The Producer sends everyone (Status Desk included) the new session ID and updates the table below, then archives the old session.
-- **After any compaction:** re-read ops/HANDOFF.md and ops/DECISIONS.md before acting.
+- **After any compaction, and before every new task:** re-read ops/HANDOFF.md and the Current rules at the top of ops/DECISIONS.md before acting. Newer decisions override older ones; if unclear, ask the Producer.
+- **QA-Live sessions** are listed in the table below while they run, and removed when they finish.
 
 ## Sessions (current)
 | Agent | Session |
@@ -38,6 +39,9 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | QA-2 (web) | session_0151NB9uZupi8GLzzTbeAtEv |
 | Designer | session_01USbuJ9znkRnKbNV4cnJUNW |
 | Director | session_01HeFuWAEdxcgfha4QYoAC3Z |
+| Steward | session_01FRDAYFCGf1CkVUYdddfvi7 |
+| Builder-Server-4 (clip prompt failures) | session_01FRDAYETacn1PURt9KVsAjD |
+| QA-Live 6 (live checks, while it runs) | session_01FRDAYFjPARnHGEy8SXNuo8 |
 | Scribe | session_01KaFbhckt39bp16rrK4Ncoa |
 | Release | session_01BGZgB9afnDnbYURA7D11gk |
 | Status Desk | session_01GYxBJctxeeNdzejMuRiCW6 |

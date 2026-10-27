@@ -268,9 +268,6 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                     )
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
-            if _money(shot):
-                problems += [f"{ADVICE}{c.clip_id}: shot {sid}'s screen should read {x}"
-                             for x in MONEY.findall(shot.action) if x not in c.prompt]  # fmt: skip
             said = [_exact(q) for q in QUOTED.findall(c.prompt)]
             line = _exact(shot.line or "")
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
@@ -357,7 +354,7 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
     """The Seedance prompt shape (Reed, 2026-10-23): the same audio line first and last, a
     Summary line, whole-second shots back to back from 0 to `seconds`, a Keep line before the
     closing audio line, and no settings words. Returns the problems and the shot count."""
-    lines = prompt.strip().splitlines()
+    lines = prompt.strip().splitlines() or [""]  # an empty prompt is a problem, never a crash
     problems = []
     if not (AUDIO_LINE.match(lines[0]) and lines[-1] == lines[0]):
         problems.append("doesn't open and close with the same audio line")

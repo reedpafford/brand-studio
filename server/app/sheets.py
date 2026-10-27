@@ -38,6 +38,32 @@ def require_cast_sheets(db, breakdown_data: dict, shot_ids: list[str], known=Non
         item = db.get(LibraryItem, int(ref.split(":")[1]))
         if item:
             require_sheet(item)
+    if known is not None:  # a role with no look yet (Reed, 2026-10-27: never drawn without one)
+        require_looks([[i for i in ids if i]], known)
+
+
+def lookless(shots: list[list[str]], known: dict) -> list[str]:
+    """The names of the roles in these shots (each a list of character ids) that have no
+    approved look yet, each once."""
+    out = [r.partition(":")[2] for ids in shots for r in ids if r.startswith("unroled:")]
+    for ref in (r for ids in shots for r in ids if r.startswith("slot:")):
+        if ref in known and not known[ref][-1]:
+            parts = known[ref][0].split(" | ")
+            out.append(parts[2].split(",")[0].strip() if len(parts) > 2 else "A character")
+    return list(dict.fromkeys(out))
+
+
+def require_looks(shots: list[list[str]], known: dict, status: int = 422) -> None:
+    """Refuse while a role in the shots has no approved look (Reed, 2026-10-27: nothing
+    reaches Storyboard or Clips without a sheet for every character in it), naming them and
+    pointing to Assets, where their looks are made."""
+    if names := lookless(shots, known):
+        if len(names) == 1:
+            raise HTTPException(
+                status, f"{names[0]} has no approved look yet. Approve one in Assets."
+            )
+        who = f"{', '.join(names[:-1])} and {names[-1]}"
+        raise HTTPException(status, f"{who} have no approved look yet. Approve them in Assets.")
 
 
 SHEET_MODEL, RESOLUTION = "nano-banana-pro", "2K"  # what Make a look and Make sheet draw with

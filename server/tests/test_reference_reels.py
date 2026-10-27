@@ -40,3 +40,24 @@ def test_a_picked_reel_still_drops_its_live_action_shots(editor):
     listed = {int(line.split(".")[0]) for line in block.splitlines() if line[:1].isdigit()}
     assert max(listed) == 43  # 44 morphs into photoreal, 45–50 are live action: all dropped
     assert "Shots 44–50" in block and "always removed" in block
+
+
+def test_a_reel_name_is_not_cut_inside_a_number():
+    from app.routes.references import reference_name
+
+    assert (
+        reference_name("Mom finds her son's $2,000 bag, and calls him")
+        == "Mom finds her son's $2,000 bag"
+    )
+    assert reference_name("A groom is dumped, then wins") == "A groom is dumped"
+    assert reference_name("") == ""
+    long = reference_name(
+        "Mom finds her son's $2,000 savings gone on clothes to resell"
+        " with only three sales and no plan at all"
+    )
+    assert long == "Mom finds her son's $2,000 savings gone on clothes to resell with only three…"
+
+
+def test_no_reel_in_the_catalogue_is_named_with_a_dangling_dollar(editor):
+    names = [r["name"] for r in editor.get("/references").json()]
+    assert names and not [n for n in names if n.endswith("$") or n[-2:-1] == "$"]

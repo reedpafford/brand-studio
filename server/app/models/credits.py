@@ -39,4 +39,4 @@ class CreditLimits(Entity, Base):
     )
     # Hard ceiling for one video's credits, for everyone including the owner.
     per_video_max_credits: Mapped[int] = mapped_column(default=DEFAULT_PER_VIDEO_MAX_CREDITS)
-    editors_can_save_looks: Mapped[bool] = mapped_column(default=False)  # Team setting (#19)
+    editors_can_save_looks: Mapped[bool] = mapped_column(default=False)  # unused

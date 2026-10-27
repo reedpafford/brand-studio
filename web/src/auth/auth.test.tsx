@@ -56,7 +56,7 @@ test("a wrong password shows the server's message", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Wrong email or password.");
 });
 
-const lookup = { workspace_name: "Studio", invited_by_name: "Reed", owner_name: "Reed", email: "ada@x.co", role: "editor" };
+const lookup = { workspace_name: "Studio", invited_by_name: "Ada", owner_name: "Reed", email: "ada@x.co", role: "editor" };
 
 test("accepting an invite sends the link's token", async () => {
   const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, lookup], "POST /auth/accept-invite": [201, me] });
@@ -72,7 +72,7 @@ test("the invite page says who invited you, to which studio, and as what; the to
   const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, lookup] });
   renderAt("/invite/abc123");
   expect(await screen.findByRole("heading", { name: "Join Studio" })).toBeInTheDocument();
-  expect(screen.getByText("Reed invited you to Studio as an editor. Your email is ada@x.co.")).toBeInTheDocument();
+  expect(screen.getByText("Ada invited you to Studio as an editor. Your email is ada@x.co.")).toBeInTheDocument();
   expect(calls.find((c) => c.key === "POST /auth/invite")?.body).toEqual({ token: "abc123" });
 });
 
@@ -138,7 +138,7 @@ test("a bad sign-in puts the focus back on Email, and the setup password counter
   await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
   await screen.findByRole("alert");
   expect(screen.getByLabelText("Email")).toHaveFocus();
-  expect(screen.getByText("Forgot your password? Ask Reed.")).toBeInTheDocument();
+  expect(screen.getByText("Forgot your password? Ask the owner.")).toBeInTheDocument();
 });
 
 test("the setup password counter turns green at 10 characters", async () => {
@@ -173,16 +173,23 @@ test("when the server can't be reached, it is retried quietly first, then shows 
   await vi.waitFor(() => expect(screen.queryByText("Can't reach the server.")).toBeNull());
 });
 
-test("an invite to a studio stored as a slug says Join {owner}'s studio, in the title, the line and the welcome", async () => {
+test("an invite to a studio stored as a slug says Join your team's studio (never the owner's name), in the title, the line and the welcome", async () => {
   fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Ada", owner_name: "Reed" }], "POST /auth/accept-invite": [201, me] });
   renderAt("/invite/abc123");
-  expect(await screen.findByRole("heading", { name: "Join Reed's studio" })).toBeInTheDocument();
-  expect(screen.getByText(/Ada invited you to Reed's studio as an editor/)).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Join your team's studio" })).toBeInTheDocument();
+  expect(screen.getByText(/Ada invited you to your team's studio as an editor/)).toBeInTheDocument();
   expect(screen.queryByText(/owner-reed/)).toBeNull();
+});
+
+test("when the owner sent the invite in person, the page says only that you were invited, never the owner's name", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Reed", owner_name: "Reed" }] });
+  renderAt("/invite/abc123");
+  expect(await screen.findByText(/You were invited to your team's studio as an editor/)).toBeInTheDocument();
+  expect(screen.queryByText(/Reed/)).toBeNull();
 });
 
 test("the setup page says what the studio name is for", async () => {
   fakeServer({ "GET /auth/me": [401, {}] });
   renderAt("/setup");
-  expect(await screen.findByText("What your team sees when they're invited, e.g. Reed's studio.")).toBeInTheDocument();
+  expect(await screen.findByText("What your team sees when they're invited, e.g. Northside Studio.")).toBeInTheDocument();
 });

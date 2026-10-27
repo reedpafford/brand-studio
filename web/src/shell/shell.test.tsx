@@ -45,7 +45,7 @@ test("the first brand opens on its Scripts, and the switcher menu changes brand 
   await userEvent.click(screen.getByRole("button", { name: "Brand: fomo" }));
   expect(screen.getByRole("menuitemradio", { name: "fomo" })).toHaveAttribute("aria-checked", "true");
   expect(screen.getByRole("menuitem", { name: "New brand" })).toBeInTheDocument();
-  expect(screen.queryByText("Brands are set up by Reed.")).toBeNull();
+  expect(screen.queryByText("Brands are set up by the owner.")).toBeNull();
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Iron Paws" }));
   expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
@@ -234,7 +234,7 @@ test("with no brands there is an empty state, not a blank page", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, []] });
   renderAt("/b/1");
   expect(await screen.findByRole("heading", { name: "No brands yet" })).toBeInTheDocument();
-  expect(screen.getByText(/Reed adds brands/)).toBeInTheDocument();
+  expect(screen.getByText(/The owner adds brands/)).toBeInTheDocument();
 });
 
 test("offline, a banner says nothing was lost", async () => {
@@ -278,12 +278,12 @@ test("if the clipboard says no, the fresh link is shown in a read-only field to 
   expect(field).toHaveAttribute("readonly");
 });
 
-test("an editor's brand menu says brands are set up by Reed and has no New brand", async () => {
+test("an editor's brand menu says brands are set up by the owner and has no New brand", async () => {
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/");
   await userEvent.click(await screen.findByRole("button", { name: /^Brand: / }));
-  expect(screen.getByText("Brands are set up by Reed.")).toBeInTheDocument();
+  expect(screen.getByText("Brands are set up by the owner.")).toBeInTheDocument();
   expect(screen.queryByRole("menuitem", { name: "New brand" })).toBeNull();
 });
 
