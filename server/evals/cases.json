@@ -400,12 +400,12 @@
    ],
    "reference": {
     "path": "docs/references/fomo-DehudnaAmce/BREAKDOWN.json",
-    "replace": "the montage, 17.4–29.2 s (shots 17–40): make it a wordless fomo trading montage with the real fomo screens, shown exactly; keep its length, its match cuts (same pose, bigger world) and its end on the skyline arrival before the time jump."
+    "replace": "the montage, 17.4–29.2 s (shots 17–40): make it a wordless fomo trading montage with the real fomo screens, shown exactly; keep its length and its match cuts (same pose, bigger world); the payoffs are new."
    },
    "script": null,
    "good": [
     "Definition of done: same story and every line of the reference word for word (I do. / HELL NO! / I'm marrying him! / What?! / the 'forever with you' echo / Nate? Nate? / Huh?! / Sorry, I'm fully booked.).",
-    "The montage is about 12 s of wordless trading in the same match-cut device: real fomo screens (chart down then up, desktop) exactly, ending on the skyline.",
+    "The montage is about 12 s of wordless trading in the same match-cut device: real fomo screens (chart down then up, desktop) exactly, ending on a payoff invented for this story.",
     "The live-action tag is gone; the video ends on fomo's call to action over the real fomo screen.",
     "Same pacing as the reference: hook shots under 0.5 s, montage around 0.3–0.5 s; no captions, no '2 YEARS LATER' card text.",
     "Opens on the proposal and the no: “I do.” and “HELL NO!” on screen in the first shots, no establishing or guest cutaways before them.",
@@ -484,7 +484,7 @@
     "breakdown",
     "clip_prompts"
    ],
-   "brief": "Only the montage of Reed's reference reel (17.4–29.2 s), about 12 s, rebuilt as a wordless fomo montage of Nate trading his way to wealth: he is in every shot, the real fomo screens keep their logo and layout. Keep its match cuts (same pose, bigger world) and its end on the skyline arrival.",
+   "brief": "Only the montage of Reed's reference reel (17.4–29.2 s), about 12 s, rebuilt as a wordless fomo montage of Nate trading his way to wealth: he is in every shot, the real fomo screens keep their logo and layout. Keep its match cuts (same pose, bigger world); the payoffs are new.",
    "cast": [
     "char:1 Nate, the teen groom"
    ],
@@ -501,7 +501,6 @@
     "Wordless, about 12 s, shots around 0.3–0.5 s; nobody speaks and the audio line says so.",
     "Nate in every shot, no empty rooms: trading at night, the win, escalating payoffs he's part of, invented for this story (never the reference's penthouse and skyline), cut with the real fomo screens on the phone in his hand.",
     "The got-rich beat shows a big portfolio balance (hundreds of thousands) on the fomo Home screen, not a coin price.",
-    "Ends on the skyline arrival in the black suit.",
     "At least three grind beats (late nights, a red day, a small then a bigger win) before the fast got-rich run.",
     "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance.",
     "The montage payoffs are new against <recent_payoffs> too: no Lamborghini keys, coast drive or yacht."
