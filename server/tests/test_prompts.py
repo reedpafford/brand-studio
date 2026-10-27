@@ -1150,7 +1150,18 @@ def test_a_montages_invented_trading_screens_climb():
     assert check.clip_prompts(bd, cp, 30, 10) == []
     for step in ("clip_prompts", "storyboard", "improve"):
         assert "invented trading screen" in prompts.system(step), step
-    assert "the fomo logo from [ImageN] sharp in the top corner" in prompts.system("change")
+    assert "the fomo logo from [ImageN], the word fomo in lowercase" in prompts.system("change")
+
+
+def test_invented_screens_spell_the_logo_and_scenes_stay_original():
+    _, cp = example("clip_prompts")  # QA-Live, video #17: "JOMO", or the icon alone
+    word = "the fomo logo from [Image4], the word fomo in lowercase, sharp and legible"
+    assert cp.clips[0].prompt.count(word) == 3
+    assert "with the word “fomo” in lowercase letters" in prompts.system("storyboard")  # quoted
+    for step in ("clip_prompts", "improve"):  # Seedance: quotes are speech, so no quotes
+        assert "the word fomo in lowercase" in prompts.system(step), step
+    for step in ("breakdown", "storyboard", "clip_prompts", "improve"):  # clip 7's Up-like scene
+        assert "never recreate a famous film, TV, comic or game scene" in prompts.system(step)
 
 
 def test_a_frames_only_watch_says_so_and_keeps_the_cuts_and_words():
