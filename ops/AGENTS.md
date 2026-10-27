@@ -1,5 +1,5 @@
 # Agent team
-Each agent is its own Claude Code session on this repo. Work is tracked as GitHub issues (labels: `agent:<name>`). Reed talks only to the Producer.
+Each agent is its own Claude Code session on this repo. Work is tracked as GitHub issues (labels: `agent:<name>`). Reed talks to the Producer, and directly to the Writer for scripts.
 
 | Agent | Model | Job | Runs |
 |---|---|---|---|
@@ -13,13 +13,14 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 | Steward | Sonnet 5.5 | Size budgets, no dead code/duplicate tests; can block bloat | every PR + weekly (later) |
 | Designer | Opus 5.5 | Screen designs before build; screenshot review at phone/desktop | on demand (later) |
 | Director | Opus 5.5 | Prompts and video quality; only rules: engaging + required brand elements featured | on demand (later) |
+| Writer | Opus 5.5 | Turns Reed's ideas into ready-to-paste Script Library scripts (asks what it needs, pitches 2–3 hooks, writes, revises). Reads the Current rules, house style, docs/references, brand kits and the script_draft prompt. Never touches the app, repo or live site; no paid calls | on demand (Reed) |
 | Treasurer | Haiku 5.5 | Bills vs usage, credit rates, spikes; weekly note | weekly (later) |
 
 ## Flow
 Producer opens issue → (Designer sketches screens) → Builder opens PR from `agent/<name>/<topic>` → QA (+ Steward, Designer) review → merge → Scribe logs → Explorer checks live.
 
 ## Size budgets (Steward enforces)
-- Whole app: at most 36,000 lines of app code (server/app Python plus web/src without tests or the generated schema.d.ts), the honest size after workflow v2 (Reed, 2026-10-27, replaces the 8,000 aim). New work adds no net lines: each change deletes about as much as it adds, and the Steward reports the count on every PR. Any file over 400 lines needs a reason.
+- Whole app: about 36,000 lines of app code (server/app Python plus web/src without tests or the generated schema.d.ts) is a guide, not a hard cap (Current rules 26). The app can grow when needed, but no redundant or duplicate code, and each change deletes what it replaces. The Steward reports the count on every PR. Any file over 400 lines needs a reason.
 - One test per behaviour; no snapshot dumps. Delete tests with the code they cover.
 - ops/ files: HANDOFF under 60 lines, LOG trimmed monthly, DECISIONS one line each.
 
@@ -33,6 +34,8 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Agent | Session |
 |---|---|
 | Builder-Server-5 (replaced Builder-Server-3 and -4 on 2026-10-27, context hygiene; montage trading screens) | session_01FRDAYJJv6AhprHx2GkXuCr |
+| Builder-Server-6 (role matching, duplicate roles) | session_01FRDAYJUwbJh3yTNjVjfofU |
+| Writer (Reed talks to it directly) | session_01FRDAYF8xUEnyc2USaQdPNF |
 | Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
 | Builder-Screens-3 (editor video flow; replaced Builder-Screens-2 on 2026-10-26) | session_01RY7gQZ2FyTVwVAYrbX5MXu |
 | QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
@@ -41,7 +44,7 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Director | session_01HeFuWAEdxcgfha4QYoAC3Z |
 | Steward | session_01FRDAYFCGf1CkVUYdddfvi7 |
 | QA-Live 6 (live checks, while it runs) | session_01FRDAYFjPARnHGEy8SXNuo8 |
-| Scribe | session_01KaFbhckt39bp16rrK4Ncoa |
+| Scribe-2 | session_01FRDAYHZyBA1pmnXw7MYEdi |
 | Release | session_01BGZgB9afnDnbYURA7D11gk |
 | Status Desk | session_01GYxBJctxeeNdzejMuRiCW6 |
 
