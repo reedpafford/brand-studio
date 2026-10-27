@@ -216,7 +216,8 @@
     "2–3 drafts whose hooks are clearly different (e.g. the salesman's insult, Kai already holding the keys, a shocking number).",
     "Each draft is about 50–75 spoken words (house pace: 4.8 words/s in short lines, talking under half the runtime), opens on conflict in the first line at 0 s, and ends on a callback plus a one-line call to action.",
     "The trade is shown with real screens on ★ lines (chart up for the win; chart down only if there's a dip).",
-    "Uses only Kai and the salesman; no narrator; no captions or music."
+    "Uses only Kai and the salesman; no narrator; no captions or music.",
+    "The end line's shot: the hero holds his phone up to the camera in the scene, the fomo logo and the real app screen legible (Home (rich) when listed)."
    ],
    "expect": {
     "drafts": [
@@ -409,7 +410,8 @@
     "Same pacing as the reference: hook shots under 0.5 s, montage around 0.3–0.5 s; no captions, no '2 YEARS LATER' card text.",
     "Opens on the proposal and the no: “I do.” and “HELL NO!” on screen in the first shots, no establishing or guest cutaways before them.",
     "The montage grinds before the payoff: a red day, a small win, another late night, a bigger win, then the fast got-rich run.",
-    "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance."
+    "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance.",
+    "The end line's shot: the hero holds his phone up to the camera in the scene, the fomo logo and the real app screen legible (Home (rich) when listed)."
    ],
    "expect": {
     "drafts": [
@@ -599,6 +601,7 @@
     "MIA: Huh?!",
     "Women gather around Nate by the glass. He smiles.",
     "NATE: Sorry, I'm fully booked.",
+    "★ fomo screen: Home (rich) — Nate holds his phone up to the camera, the fomo logo clear",
     "NATE: Want to trade like me? Download fomo through the link in my bio."
    ],
    "count": 2,
@@ -939,7 +942,7 @@
     "GIRLFRIEND: I made a mistake, please.",
     "He scoffs.",
     "OMAR: Sorry, I don't get invited to anything.",
-    "★ fomo screen: Home (rich) — on Omar's phone in his hand, in the Lamborghini",
+    "★ fomo screen: Home (rich) — Omar holds his phone up to the camera in the Lamborghini, the fomo logo clear",
     "OMAR: Want to trade like me? Download fomo through the link in my bio."
    ],
    "good": [
@@ -947,6 +950,51 @@
     "The payoff callback ('Sorry, I don't get invited to anything.' or its new version) answers that same line."
    ],
    "expect": {}
+  },
+  {
+   "id": "fomo-empty-chair-cast",
+   "brand": "fomo",
+   "steps": [
+    "cast_slots"
+   ],
+   "brief": "The empty chair: Omar is stood up on his birthday, his friend calls it, a year of trading, the friend toasts him at the payoff.",
+   "cast": [
+    "char:3 Omar, the hero"
+   ],
+   "places": [],
+   "script": [
+    "SCENE 1 — INT. DINER — NIGHT",
+    "Omar sits alone in a booth across from an empty chair, a birthday candle in a cupcake. Other diners chat and laugh around him.",
+    "FRIEND: She's not coming, man.",
+    "Omar stares at the door.",
+    "WAITER: Still waiting on the second order?",
+    "OMAR: Just the check.",
+    "SCENE 2 — INT. OMAR'S ROOM — NIGHT",
+    "★ fomo screen: Token chart down — on Omar's phone in his hand",
+    "FRIEND (V.O.): She's not coming, man.",
+    "Wordless montage, Omar in every shot: a red day he shakes off, a small first win, another late night, a bigger win, then his own food truck with a line round the block.",
+    "★ fomo screen: Token chart up — on Omar's phone in his hand, a phone ding",
+    "SCENE 3 — INT. ROOFTOP RESTAURANT — NIGHT, ONE YEAR LATER",
+    "Omar's table is full; the friend raises a glass to him.",
+    "FRIEND: Told you she'd regret it.",
+    "★ fomo screen: Home (rich) — Omar holds his phone up to the camera, the fomo logo clear",
+    "OMAR: Want to trade like me? Download fomo through the link in my bio."
+   ],
+   "good": [
+    "Every character who speaks or appears in more than one shot is a slot under the script's name (Reed, 2026-10-27): Omar, the friend and the waiter; the diners and the full table are background."
+   ],
+   "expect": {
+    "slots_named": [
+     "Omar",
+     "Friend",
+     "Waiter"
+    ],
+    "slots_absent": [
+     "crowd",
+     "guest",
+     "diners"
+    ]
+   }
   }
  ]
 }

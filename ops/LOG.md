@@ -1,6 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-27 04:28 · Decision (#559, Reed): a character who speaks or appears in more than one shot gets a per-video role and look (auto-made, the editor approves), never saved to Cast & places; a character is never shown unnamed
+- 2026-10-27 04:19 · Decision (#557, Reed): keep a QA account for live testing (reverses the removal); its invite is stored as BS_QA_OWNER_INVITE, never in chat or code
 - 2026-10-27 04:04 · Decision (#554, Reed): replaces the logo end card of #540: no end card and no logo overlay; the CTA shot shows the character holding the phone up to camera, with clear fomo branding on the screen
 - 2026-10-27 03:29 · Decision (#550, Reed): Bulk create also takes several video files dropped at once, each its own draft, in the same queue as reel links
 - 2026-10-27 03:01 · Agents (#544): Builder-Server-2 replaces Builder-Server in the session table (ops/AGENTS.md)
@@ -12,6 +14,16 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-27 04:55 · #563 Keep the QA account: the seed no longer removes an owner named QA Owner merged
+- 2026-10-27 04:48 · #560 Prompts: the cast read lists every speaker and every recurring character as a role merged
+- 2026-10-27 04:37 · #558 Toast: a message without Undo can stay as long as one with Undo merged
+- 2026-10-27 04:35 · #552 Use the real image is offered on any shot that shows a brand screen merged
+- 2026-10-27 04:28 · #559 ops: Reed's decision on one-off characters merged (by the Producer)
+- 2026-10-27 04:28 · #556 Prompts: the call-to-action shot shows the hero holding his phone up to the camera merged
+- 2026-10-27 04:19 · #557 ops: Reed keeps a QA account for live testing merged (by the Producer)
+- 2026-10-27 04:16 · #555 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-27 04:15 · #533 Edit shot: a name the video doesn't have can be removed from the shot, free merged
+- 2026-10-27 · #553 End on the logo: a per-brand logo card or overlay at the stitch closed without merging
 - 2026-10-27 04:04 · #554 ops: Reed replaces the logo end card with branded phone-to-camera on the CTA shot merged (by the Producer)
 - 2026-10-27 04:03 · #541 Clips: a free Fix this clip's prompt for a clip with a blocking problem merged
 - 2026-10-27 03:44 · #536 Assets: a role whose Cast & places character was deleted offers Make a look or Pick another merged

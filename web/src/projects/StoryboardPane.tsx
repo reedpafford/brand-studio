@@ -11,11 +11,10 @@ import { Sheet } from "./Sheet";
 import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
-import { useMe } from "../auth/useMe";
 import { refName, useRoleNames } from "./names";
 import { useProblemWords } from "./ProblemText";
 import { useOwnScriptStop } from "./useOwnScriptStop";
-import { Badge, Banner, useToast, wholeCredits } from "../components";
+import { Badge, Banner, creditsLabel, useToast, wholeCredits } from "../components";
 import { RotateCcw } from "lucide-react";
 import { usePressed } from "./usePressed";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
@@ -68,14 +67,17 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const frames = useQuery({
     queryKey: ["storyboard", projectId],
     queryFn: async () => (await api.GET("/projects/{project_id}/storyboard", { params: { path } })).data ?? [],
-    refetchInterval: (q) => (anyGoing || q.state.data?.some((f) => (f.change as ChangeState)?.status === "changing") ? 3000 : false),
+    refetchInterval: (q) => (anyGoing || q.state.data?.some((f) => f.drawing || (f.change as ChangeState)?.status === "changing") ? 3000 : false),
   });
   // The run is done but the list on screen is still the old one: wait for the new frames.
   const stillOld = writing !== null && jobOf(writing)?.status === "succeeded" && (frames.data ?? []).some((f) => replaced.includes(f.id));
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
   const writeCost = rate("write-claude");
-  const imageCost = rate("image");
+  // A still is made with the default image model; its rate is kept under "image-<model>".
+  const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
+  const stillModel = models.data?.find((m) => m.kind === "image" && m.default)?.id;
+  const imageCost = stillModel ? rate(`image-${stillModel}`) : undefined;
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
 
   const roles = useRoleNames(projectId);
@@ -107,12 +109,18 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
   });
+  // Save prompt: a frame that has a still is drawn again from the new prompt (the button says so, with the price).
   const edit = useMutation({
     mutationFn: async ({ frame, prompt }: { frame: Frame; prompt: string }) => {
       const { data, error } = await api.PUT("/projects/{project_id}/storyboard/frames/{frame_id}", { params: { path: { ...path, frame_id: frame.id } }, body: { prompt, reference_ids: frame.reference_ids } });
       if (!data) throw new Error(errorText(error));
+      return data;
     },
-    onSuccess: refresh,
+    onSuccess: async (saved, { frame }) => {
+      await refresh();
+      // A prompt with problems shows them, with their fixes, instead of being drawn.
+      if (frame.file_id !== null && !stopFor(imageCost) && !blocking(saved.problems).length && !blocks.forShot(saved.shot_id).length) render.mutate({ frame: saved });
+    },
   });
 
   // "Soften it": only the words the image model refuses, said gently, for free. Undo puts the earlier prompt back.
@@ -198,13 +206,15 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const missing = list.filter((f) => f.file_id === null && !blocking(f.problems).length && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
-  const price = (n: number | undefined) => (n === undefined ? "" : ` · ${n} credits`);
+  const price = (n: number | undefined) => (n === undefined ? "" : ` · ${creditsLabel(n)}`);
   // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
   const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
   const makeLabel = list.length ? "Redo storyboard" : "Make storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
   const declined = stopFor(makeTotal) ?? stopFor(allCost) ?? stopFor(imageCost);
-  const err = make.error ?? render.error ?? edit.error ?? approve.error;
+  const err = make.error ?? approve.error;
+  // A still or a saved prompt that was refused says why on its own frame, where it was pressed.
+  const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || null;
   const approvedCount = list.filter((f) => f.approved).length;
 
   const makeButton = (
@@ -304,7 +314,8 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
               frame={f}
               projectId={projectId}
               aspect={props.aspect}
-              busy={busy}
+              busy={busy || f.drawing}
+              error={errorFor(f.id)}
               failed={job?.status === "failed"}
               blockers={blocks.forShot(f.shot_id)}
               brandId={brandId}
@@ -349,6 +360,7 @@ function FrameCard(props: {
   projectId: number;
   aspect: string;
   busy: boolean;
+  error: string | null;
   failed: boolean;
   blockers: Blocker[];
   brandId: number;
@@ -373,12 +385,12 @@ function FrameCard(props: {
 }) {
   const { frame: f } = props;
   const keep = useKeep(props.projectId, { of: "frame", id: f.id });
-  const owner = useMe().data?.role === "owner";
   const [editing, setEditing] = useState<string | null>(null);
   const [redo, setRedo] = useState<string | null>(null);
   const phone = useMedia("(max-width: 639px)");
   const verb = f.file_id === null ? "Make still" : "Redo";
-  const price = props.cost !== undefined ? ` · ${props.cost} credits` : "";
+  const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
+  const price = props.cost !== undefined ? ` · ${creditsLabel(props.cost)}` : "";
   const redoForm = (
     <div className="space-y-2">
       <label className="block text-sm">
@@ -431,6 +443,7 @@ function FrameCard(props: {
         {f.clip_id} · shot {f.shot_id}
       </div>
       {f.stale && <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">Breakdown changed: redo this frame</span>}
+      {props.error && <p role="alert" className={errorClass}>{props.error}</p>}
       {props.failed && <span className="inline-block rounded-sm bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Didn't finish · credits returned</span>}
       <p className="flex flex-wrap gap-1 text-xs">
         {f.reference_ids.map((id) => (
@@ -453,18 +466,19 @@ function FrameCard(props: {
         </ul>
       )}
       {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.undoing} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
-      <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${f.clip_id}`} />
+      <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${f.clip_id}`} />
       {editing !== null ? (
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for clip ${f.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
           <div className="flex gap-2">
-            <button className={btnPrimary} onClick={() => { props.onSave(editing); setEditing(null); }}>
-              Save prompt
+            <button className={`${redraws ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`} onClick={() => { props.onSave(editing); setEditing(null); }}>
+              {redraws ? `Save and redraw · ${props.cost === undefined ? "…" : creditsLabel(props.cost)}` : "Save prompt"}
             </button>
-            <button className={btnSecondary} onClick={() => setEditing(null)}>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={() => setEditing(null)}>
               Cancel
             </button>
           </div>
+          {f.file_id !== null && props.stopped && <p className="text-sm text-warning">Saving keeps the current still. {props.stopFor(props.cost)}</p>}
         </div>
       ) : (
         <div className="space-y-2">

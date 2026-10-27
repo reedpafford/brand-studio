@@ -26,7 +26,7 @@ from app.filetypes import ALLOWED_TYPES, matches
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
-from app.purge import purge_deleted
+from app.purge import purge_deleted, purge_uploads
 from app.references import fit_image
 from app.steps import save_step_result, step_failed
 from app.storage import LocalStorage, Storage
@@ -376,6 +376,7 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
             try:
                 with sessions() as db:
                     purge_deleted(db, storage)
+                    purge_uploads(db, storage)  # Bulk create videos never used
             except Exception:  # housekeeping never stops the worker
                 log.exception("removing long-deleted scripts failed; trying again tomorrow")
         try:

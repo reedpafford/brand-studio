@@ -229,8 +229,7 @@ def test_on_approved_words_the_end_line_never_blocks():
     """Reed: once he approved the script, the end line is advice at most, any wording."""
     ex, bd = example("breakdown")
     end = "Want to trade like me? Download fomo through the link in my bio."
-    tag = "★ fomo screen: Home — closing tag"
-    script = script_of(ex).replace(tag, f"MALIK: Get the app, link in bio.\n{tag}")
+    script = script_of(ex).replace(f"MALIK: {end}", "MALIK: Get the app, link in bio.")
     approved = check.breakdown(script, bd, FOMO, 4, 30, end_line=end, brand="fomo", approved=True)
     draft = check.breakdown(script, bd, FOMO, 4, 30, end_line=end, brand="fomo")
     assert "Advice: the script doesn't end on the brand's end line" in approved
@@ -364,6 +363,22 @@ def test_cast_slots_keep_the_names_the_cast_and_scripts_use(tmp_path):
     assert "no slot for Bruno" in problems
 
 
+def test_every_speaker_is_a_slot_in_the_eval(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-empty-chair-cast")
+    slot = {"kind": "Main", "appears_in": [0], "recurring": True}
+    slots = [
+        slot | {"role": "Omar, the hero", "description": "Late-20s man, a line cook"},
+        slot | {"role": "Friend, Omar's best friend", "description": "Late-20s man, a barber"},
+    ]
+    (tmp_path / f"{case['id']}.cast_slots.json").write_text(json.dumps({"slots": slots}))
+    assert score(tmp_path, case) == [
+        "Advice: no slot carries the name Waiter; use it in that role",
+        "no slot for Waiter",
+    ]
+
+
 def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     ex, result = example("cast_slots")
     versions = {
@@ -372,6 +387,10 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     }
     assert check.cast_slots(versions, result) == []
     assert check.cast_slots(versions, schemas.CastSlots(slots=[])) == ["no cast slots; regenerate"]
+    no_friend = schemas.CastSlots(slots=result.slots[:2])  # a one-off who speaks is a role
+    assert check.cast_slots(versions, no_friend) == [
+        "Advice: no slot carries the name Friend; use it in that role"
+    ]
     extra = {"description": "30s man, a cook", "kind": "Helper", "recurring": False}
     result.slots += [
         schemas.CastSlot(role="Wedding guests", appears_in=[0], **extra),
@@ -734,15 +753,17 @@ def test_breakdown_check_wants_the_script_to_end_on_the_brands_end_line():
     ex, bd = example("breakdown")
     script = script_of(ex)
     end = "Want to trade like me? Download fomo through the link in my bio."
-    assert check.breakdown(script, bd, FOMO, 4, 30, end_line=end) == [
-        "the script doesn't end on the brand's end line"
-    ]
-    ended = script.replace(
-        "★ fomo screen: Home — closing tag", f"MALIK: {end}\n★ fomo screen: Home — closing tag"
+    assert check.breakdown(script, bd, FOMO, 4, 30, end_line=end) == []
+    other = script.replace(f"MALIK: {end}", "MALIK: Get the app, link in bio.")
+    assert "the script doesn't end on the brand's end line" in check.breakdown(
+        other, bd, FOMO, 4, 30, end_line=end
     )
-    assert "the script doesn't end on the brand's end line" not in check.breakdown(
-        ended, bd, FOMO, 4, 30, end_line=end
-    )
+    cta = next(s for s in bd.scenes[2].shots if s.line == end)  # Reed, 2026-10-27
+    cta.screen_ids = []
+    assert (
+        "Advice: shot 3.6: the end line's shot shows no screen; show the brand's real screen "
+        "on the phone he holds up to the camera"
+    ) in check.breakdown(script, bd, FOMO, 4, 30, end_line=end)
 
 
 def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
@@ -774,10 +795,8 @@ def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
     ex, bd = example("breakdown")
     script = script_of(ex)
 
-    tag = "★ fomo screen: Home — closing tag"
-
     def ending(last):
-        found = script.replace(tag, f"{last}\n{tag}")
+        found = script.replace(f"MALIK: {end}", last)
         return check.breakdown(found, bd, FOMO, 4, 30, end_line=end, brand="fomo")
 
     assert not [p for p in ending(caps) if "end line" in p]  # passes cleanly

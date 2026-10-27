@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app import script_library as lib
 from app.db import utcnow
-from app.models.files import StoredFile
+from app.models.files import StoredFile, VideoUpload
 from app.models.library import LibraryItem, LibraryItemVersion
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.models.scripts import Suggestion
@@ -21,6 +21,7 @@ from app.storage import Storage
 
 log = logging.getLogger("purge")
 PURGE_AFTER = timedelta(days=30)  # the "Removed for good on" date the list shows
+UPLOADS_AFTER = timedelta(days=1)  # Bulk create videos never put in a draft
 REEL_FILES = ("video_file_id", "contact_file_id", "watch_file_id")
 
 
@@ -66,6 +67,24 @@ def purge_deleted(db: Session, storage: Storage) -> int:
     return gone
 
 
+def purge_uploads(db: Session, storage: Storage) -> int:
+    """Remove videos uploaded for Bulk create but never put in a draft within a day."""
+    due = db.scalars(
+        select(VideoUpload).where(
+            VideoUpload.used.is_(False), VideoUpload.created_at < utcnow() - UPLOADS_AFTER
+        )
+    ).all()
+    for upload in due:
+        stored = db.get(StoredFile, upload.file_id)
+        db.delete(upload)
+        db.delete(stored)
+        db.commit()
+        storage.delete(stored.key)
+    if due:
+        log.info("Removed %d unused upload(s).", len(due))
+    return len(due)
+
+
 def main() -> None:  # pragma: no cover - wiring only
     from app.db import make_sessionmaker
     from app.settings import get_settings
@@ -74,7 +93,8 @@ def main() -> None:  # pragma: no cover - wiring only
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
     with make_sessionmaker(settings.database_url)() as db:
-        print(purge_deleted(db, LocalStorage(settings.storage_dir)), "removed")
+        storage = LocalStorage(settings.storage_dir)
+        print(purge_deleted(db, storage) + purge_uploads(db, storage), "removed")
 
 
 if __name__ == "__main__":

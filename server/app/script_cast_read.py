@@ -91,7 +91,42 @@ def problems(db: Session, script: Script, job: Job) -> list[str]:
     return check.cast_slots(_versions(db, script), result, cast=names)
 
 
-NOT_A_ROLE = {"vo", "v.o", "narrator", "voiceover", "voice over", "text", "caption", "super"}
+# Script cues that look like "NAME:" but are nobody (QA on #565): each would auto-make a look.
+NOT_A_ROLE = {
+    "vo",
+    "v.o",
+    "v.o.",
+    "narrator",
+    "voiceover",
+    "voice over",
+    "text",
+    "caption",
+    "super",
+    "cut",
+    "cut to",
+    "smash cut",
+    "match cut",
+    "fade in",
+    "fade out",
+    "fade to black",
+    "dissolve to",
+    "music",
+    "sfx",
+    "sound",
+    "montage",
+    "title",
+    "note",
+    "on screen",
+    "text on screen",
+    "insert",
+    "beat",
+    "b-roll",
+    "int",
+    "ext",
+    "int.",
+    "ext.",
+    "scene",
+}
 
 
 def _speakers(db: Session, script: Script) -> dict[str, list[int]]:
@@ -101,8 +136,10 @@ def _speakers(db: Session, script: Script) -> dict[str, list[int]]:
     for draft in db.scalars(select(ScriptDraft).where(ScriptDraft.script_id == script.id)):
         for line in draft.text.splitlines():
             if m := check.SPEAKER.match(line):
-                name = re.sub(r"\(.*?\)", "", m[0]).strip(" :").strip()
-                if name and name.lower() not in NOT_A_ROLE:
+                name = re.sub(r"\(.*?\)", "", m[0]).strip(" :").strip()  # "NATE (V.O.)"
+                said = re.search(r"[A-Za-z]", line[m.end() :])  # only someone who speaks
+                cue = name.lower() in NOT_A_ROLE or name.lower().endswith(" to")  # "CUT TO:"
+                if name and said and not cue and not name.lower().startswith(("int.", "ext.")):
                     out.setdefault(name.title(), [])
                     if draft.slot not in out[name.title()]:
                         out[name.title()].append(draft.slot)

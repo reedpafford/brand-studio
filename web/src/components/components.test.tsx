@@ -185,10 +185,28 @@ test("a dialog asks first, and says what is lost; Keep it cancels", async () => 
   expect(yes).toHaveBeenCalledTimes(1);
 });
 
-function Shout({ undo, kind }: { undo?: () => void; kind?: "success" | "error" }) {
+function Shout({ undo, kind, long }: { undo?: () => void; kind?: "success" | "error"; long?: boolean }) {
   const toast = useToast();
-  return <button onClick={() => toast("Approved. Sam's clip is rendering.", undo, kind)}>Say it</button>;
+  return <button onClick={() => toast("Approved. Sam's clip is rendering.", undo, kind, long)}>Say it</button>;
 }
+
+test("a toast without Undo that asks for more time stays 8 seconds, like one with Undo", () => {
+  vi.useFakeTimers();
+  render(
+    <ToastProvider>
+      <Shout long />
+    </ToastProvider>,
+  );
+  act(() => screen.getByRole("button", { name: "Say it" }).click());
+  act(() => {
+    vi.advanceTimersByTime(7900);
+  });
+  expect(screen.getByRole("status")).toHaveTextContent("Approved");
+  act(() => {
+    vi.advanceTimersByTime(200);
+  });
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
+});
 
 test("a toast is announced, goes after 4 seconds, and waits while you hover it", () => {
   vi.useFakeTimers();

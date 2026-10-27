@@ -83,6 +83,7 @@ Reed, 2026-10-25 (#197): once the script and its variations are approved, the ap
   - **＋ Add a role** (ghost): role name, kind and description.
   - **Each role's facts:** "Late 20s · woman · nurse" (meta) before the description, with "(a guess)" after each inferred fact (`video-flow.md` §2).
   - Rename a slot: `Pencil` on the role.
+  - **Merge into…** (`Ellipsis`), and the "These may be the same person" note: `merge-roles.md` (Reed, 2026-10-27).
   - Remove a slot: `Ellipsis` → **Remove role**, then the dialog "Remove Mia from the cast? She'll be made at Assets like a background person." with **Keep** and **Remove**.
   - **Find roles again · N credits** (ghost, `RotateCcw`) in the step bar, for after the script changes. It asks first: "Find the roles again? Locked roles stay locked; roles you added stay." A slot that the script no longer names is flagged "Not in the script any more" (warning), with **Remove**.
 - **Every slot is optional.** Next is never blocked by unlocked slots. It's only blocked while a lock panel is open without a pick.
