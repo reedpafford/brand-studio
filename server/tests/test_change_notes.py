@@ -5,7 +5,7 @@ the earlier still or take puts its prompt back. And the owner's refund of one ch
 
 from decimal import Decimal
 
-from app.clip_takes import save_take
+from app.clip_takes import ENGLISH, save_take
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
@@ -17,6 +17,11 @@ from tests.test_cast_roles import _video
 from tests.test_clip_takes import clip  # noqa: F401 - fixture
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_storyboard import _frames, _with_breakdown
+
+
+def _noted(prompt: str, note: str) -> str:
+    """A rewrite that keeps the prompt's shape (the closing Audio line stays last)."""
+    return prompt.replace("Setting: cold morning light.", f"Setting: cold morning light. {note}")
 
 
 def _frame(app, db, editor, setup):  # noqa: F811
@@ -89,7 +94,7 @@ def test_a_clip_note_rewrites_the_prompt_then_makes_a_new_take(app, db, editor, 
     db.commit()
     prompt_only = editor.get(f"{url}/change").json()["credits"]
     editor.post(f"{url}/change", json={"note": "Mom slams the wallet down harder."})
-    first = f"{clip['prompt']}\nMom slams the wallet down harder."
+    first = _noted(clip["prompt"], "Mom slams the wallet down harder.")
     _run(app, db, FakeClaude({"prompt": first}))
     db.expire_all()
     row = db.get(ProjectClip, clip["id"])
@@ -103,10 +108,11 @@ def test_a_clip_note_rewrites_the_prompt_then_makes_a_new_take(app, db, editor, 
     db.commit()
     assert editor.get(f"{url}/change").json()["credits"] > prompt_only  # now with a take
     editor.post(f"{url}/change", json={"note": "Slower push in."})
-    _run(app, db, FakeClaude({"prompt": f"{first}\nSlower push in."}))
+    _run(app, db, FakeClaude({"prompt": _noted(first, "Slower push in.")}))
     db.expire_all()
     made = db.get(Job, db.get(ProjectClip, clip["id"]).change["made_job_id"])
-    assert made.input["step"] == "clip_take" and made.input["clip_prompt"].endswith("push in.")
+    assert made.input["step"] == "clip_take" and "Slower push in." in made.input["clip_prompt"]
+    assert ENGLISH in made.input["input"]["prompt"].splitlines()  # every take: in English
     assert db.get(ClipTake, take.id).prompt == first  # an older take keeps its prompt
     made.output = {"file_ids": [upload(editor)]}  # the new take lands, and is picked
     save_take(db, made)
@@ -195,7 +201,7 @@ def test_undo_goes_back_to_the_take_picked_before_the_change(app, db, editor, se
     row.picked_take_id, row.file_id = takes[0].id, takes[0].file_id
     db.commit()
     editor.post(f"{url}/change", json={"note": "Slower push in."})
-    _run(app, db, FakeClaude({"prompt": f"{clip['prompt']}\nSlower push in."}))
+    _run(app, db, FakeClaude({"prompt": _noted(clip["prompt"], "Slower push in.")}))
     db.expire_all()
     made = db.get(Job, db.get(ProjectClip, clip["id"]).change["made_job_id"])
     made.output = {"file_ids": [files[0]]}
@@ -260,3 +266,26 @@ def test_a_frame_says_drawing_until_its_new_still_lands_and_a_failed_rewrite_say
     db.get(Job, job["id"]).status = JobStatus.failed  # the rewrite never came back
     db.commit()
     assert shown()["change"]["status"] == "failed" and shown()["change"]["error"]
+
+
+def test_a_rewrite_with_a_problem_makes_no_take(app, db, editor, setup, clip):  # noqa: F811
+    """Reed, 2026-10-27 (takes in another language after "Change this…"): a rewritten prompt
+    with a blocking problem never pays for a take; it says why and offers the free fix."""
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    row = db.get(ProjectClip, clip["id"])
+    take = ClipTake(clip_id=row.id, number=1, job_id=row.job_id, file_id=upload(editor))
+    db.add(take)
+    db.flush()
+    row.picked_take_id, row.file_id = take.id, take.file_id
+    db.commit()
+    editor.post(f"{url}/change", json={"note": "Slower push in."})
+    broken = _noted(clip["prompt"], "Slower push in.").replace("all your money", "your money")
+    _run(app, db, FakeClaude({"prompt": broken}))
+    db.expire_all()
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
+    assert shown["change"]["status"] == "failed" and "made_job_id" not in shown["change"]
+    assert shown["change"]["error"].startswith("The new prompt has a problem to fix first (")
+    assert "Nothing was charged for a take" in shown["change"]["error"]
+    assert not db.query(Job).filter_by(kind="video").count()  # no take queued, none charged
+    assert shown["free_fix_used"] is False and shown["prompt"] == broken  # Fix it, free
+    assert "word for word" in shown["change"]["error"]  # the spoken line, which code can't fix

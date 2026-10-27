@@ -63,7 +63,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         "fit_images_to": LONG_SIDE[RESOLUTION],
         "exact_file_ids": exact,
         "input": {
-            "prompt": _with_note(clip.prompt, note),
+            "prompt": _with_note(in_english(clip.prompt), note),
             "duration": clip.seconds,
             "resolution": RESOLUTION,
             "aspect_ratio": project.aspect_ratio,
@@ -71,6 +71,20 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         },
         "files": {k: v for k, v in files.items() if v},
     }
+
+
+ENGLISH = "Use English: every spoken line is in English, and any text on screen is in English."
+
+
+def in_english(prompt: str) -> str:
+    """Every take is asked for in English (Reed, 2026-10-27: takes came out in another language
+    after "Change this…"): one fixed line right after the References line, so the prompt still
+    opens and closes on the same audio line. Free; the saved prompt is unchanged."""
+    lines = prompt.splitlines()
+    if ENGLISH in lines:
+        return prompt
+    at = next((i for i, x in enumerate(lines) if x.startswith("References: ")), 0)
+    return "\n".join([*lines[: at + 1], ENGLISH, *lines[at + 1 :]])
 
 
 def _with_note(prompt: str, note: str) -> str:
