@@ -5578,7 +5578,7 @@ export interface components {
             action: string;
             /**
              * Reaction
-             * @description Who reacts and how, readable at phone size (eyes snap wide, jaw drops), or null.
+             * @description Who reacts, the feeling and its reason, then how it shows at phone size, e.g. 'Tasha, touched he remembered her: eyes well, a shaky smile'; or null.
              */
             reaction: string | null;
             /**

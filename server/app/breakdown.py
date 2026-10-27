@@ -237,12 +237,12 @@ def land(
     Assets makes); anyone else is taken out; and the end line's shot shows the brand's screen
     (cta_screen). Each change is said as advice."""
     from app.breakdown_fix import drop_unknown
-    from app.cast_roles import picked, short
-    from app.storyboard import assets, script_slots
+    from app.cast_roles import picked, short, video_slots
+    from app.storyboard import assets
 
     bd = as_roles(db, project, bd)
     known = {**assets(db, project), **dict.fromkeys(also)}
-    slots = script_slots(db, project)
+    slots = video_slots(db, project)
     looks = {f"char:{picked(project, s)}": s for s in slots if picked(project, s)}
     notes = []
     for shot in (s for scene in bd.scenes for s in scene.shots):

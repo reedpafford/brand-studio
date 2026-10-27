@@ -30,7 +30,7 @@ from app.prompts import (
     watch_breakdown,
     watch_system,
 )
-from evals.score import CASES, reel_inputs
+from evals.score import CASES, logo_only, reel_inputs
 
 # Room for long scripts (claude.ask streams, so this can exceed the unstreamed limit).
 LONG_MAX_TOKENS = 32000
@@ -76,6 +76,7 @@ def run_case(
     client, case: dict, out: Path, spent: list[Decimal], cap: Decimal, dry: bool = False
 ) -> None:
     brand = CASES["brands"][case["brand"]]
+    brand["screens"] = [s | {"logo_only": logo_only(s)} for s in brand["screens"]]
     brand_text = brand_block(brand["brand"], brand["screens"], brand.get("product"))
     cast = "<cast>\n" + "\n".join(case["cast"]) + "\n</cast>"
     places = "<places>\n" + "\n".join(case["places"]) + "\n</places>"
@@ -136,9 +137,14 @@ def run_case(
             if dry:  # needs the breakdown's answer
                 return
             bd = answers["breakdown"]
-            screens = [
-                f'screen:{s["id"]} {brand["brand"]["name"]} "{s["name"]}"' for s in brand["screens"]
-            ]  # noqa: E501
+            name = brand["brand"]["name"]
+            screens = [  # as the server's storyboard.assets lists them
+                f"screen:{s['id']} | logo | {name} logo | for the {s['name']} screen "
+                f"({', '.join(s['tags'])}): invent it, this logo sharp in its top corner"
+                if s["logo_only"]
+                else f'screen:{s["id"]} {name} "{s["name"]}"'
+                for s in brand["screens"]
+            ]
             if p := brand.get("product"):
                 screens.append(f'product:{p["id"]} {brand["brand"]["name"]} product "{p["name"]}"')
             frames = [f"frame:{c.id} storyboard frame for clip {c.id}" for c in bd.clips]

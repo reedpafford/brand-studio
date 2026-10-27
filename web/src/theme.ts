@@ -1,6 +1,5 @@
 export type Theme = "dark" | "light" | "system";
 const KEY = "bs.theme";
-const ORDER: Theme[] = ["dark", "light", "system"];
 
 /** Dark is the default; "system" follows the computer only when the person picks it. */
 export function getTheme(): Theme {
@@ -21,5 +20,3 @@ export function applyTheme(theme: Theme) {
     /* not remembering is fine */
   }
 }
-
-export const nextTheme = (t: Theme): Theme => ORDER[(ORDER.indexOf(t) + 1) % ORDER.length];

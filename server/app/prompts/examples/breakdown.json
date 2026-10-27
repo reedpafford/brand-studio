@@ -1,7 +1,7 @@
 {
  "source": "house-style template A \"They said I'd fail\" (docs/house-style, after nateassets DcP_aC_AoQz); new characters and lines for fomo",
  "note": "Conflict line with a number at 0 s and the dare by 5 s (8 shots in 7 s), a cold low point held 2 s, the screens at the low point, the turn (with a ding) and the scale-up, a wordless six-beat montage at 0.4 s with day/night flips and a flash frame, a white flash into the time jump, a mirrored payoff under 8 words, a scream button, and the end line with Malik holding his phone up to the camera, the fomo logo clear, to close.",
- "input": "<brand>\nBrand: fomo\nEnd line (every video ends on it, word for word): Want to trade like me? Download fomo through the link in my bio.\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image: logo, colours and layout exact, numbers free:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up) — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down) — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading) — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, red beanie, grey hoodie, headphones round his neck\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<places>\nplace:1 Tasha's kitchen\nplace:2 Malik's small bedroom\n</places>\n<video_model>Seedance 2.5: 4–30 s per clip, up to 30 reference images (prefer 8 or fewer)</video_model>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Aunt Tasha slams Malik's empty piggy bank on the counter.\n3| TASHA: Your college fund is EMPTY?! Five hundred dollars!\n4| MALIK: I put it in fomo.\n5| TASHA: A phone app? That's your college money!\n6| MALIK: Thirty days. Watch me.\n7| TASHA: Thirty days. Then you're bagging groceries.\n8| SCENE 2 — INT. MALIK'S BEDROOM — NIGHT\n9| ★ fomo screen: Token chart down — on Malik's phone\n10| Malik drops his head onto his arms in the blue phone glow.\n11| MALIK: Come on. One more.\n12| ★ fomo screen: Token chart up — on Malik's phone in his hand, a phone ding\n13| Wordless montage, Malik in every shot: the grind first, then getting rich. Another late night with the energy cans, a red day he shakes off, a bigger win on his new desktop; then a delivery box of studio gear he rips open, Malik behind the mixing desk of his own studio, courtside at a packed game, front row at a sold-out arena show as confetti falls.\n14| ★ fomo screen: Desktop trading — on his monitor\n15| SCENE 3 — INT. KITCHEN — DAY, ONE MONTH LATER\n16| White flash. The red piggy bank sits on the counter.\n17| Malik slides his phone across the counter.\n18| TASHA: That's… real?\n19| MALIK: Still want me bagging groceries?\n20| Tasha grabs his phone with both hands and screams.\n21| MALIK: Want to trade like me? Download fomo through the link in my bio.\n22| ★ fomo screen: Home — Malik holds his phone up to the camera, the fomo logo clear\n</script>",
+ "input": "<brand>\nBrand: fomo\nEnd line (every video ends on it, word for word): Want to trade like me? Download fomo through the link in my bio.\nRequired screens. Every shot at one of these moments shows the matching screen, attached as a reference image: logo, colours and layout exact, numbers free; a logo-only screen comes as the logo alone, and the screen is invented around it:\n- screen:1 \"Home\" (mobile, home) — required at: fomo-mention, app-open\n- screen:2 \"Token chart up\" (mobile, trading, chart-up), logo-only: the logo is attached, the screen invented — required at: trading, win\n- screen:3 \"Token chart down\" (mobile, trading, chart-down), logo-only: the logo is attached, the screen invented — required at: trading, loss\n- screen:4 \"Desktop trading\" (desktop, trading), logo-only: the logo is attached, the screen invented — required at: trading-desktop\nMoments: app-open, fomo-mention, loss, trading, trading-desktop, win\n</brand>\n<cast>\nchar:1 Malik, 17, red beanie, grey hoodie, headphones round his neck\nchar:2 Aunt Tasha, his aunt, neat bob, cardigan\n</cast>\n<places>\nplace:1 Tasha's kitchen\nplace:2 Malik's small bedroom\n</places>\n<video_model>Seedance 2.5: 4–30 s per clip, up to 30 reference images (prefer 8 or fewer)</video_model>\n<script>\n1| SCENE 1 — INT. KITCHEN — DAY\n2| Aunt Tasha slams Malik's empty piggy bank on the counter.\n3| TASHA: Your college fund is EMPTY?! Five hundred dollars!\n4| MALIK: I put it in fomo.\n5| TASHA: A phone app? That's your college money!\n6| MALIK: Thirty days. Watch me.\n7| TASHA: Thirty days. Then you're bagging groceries.\n8| SCENE 2 — INT. MALIK'S BEDROOM — NIGHT\n9| ★ fomo screen: Token chart down — on Malik's phone\n10| Malik drops his head onto his arms in the blue phone glow.\n11| MALIK: Come on. One more.\n12| ★ fomo screen: Token chart up — on Malik's phone in his hand, a phone ding\n13| Wordless montage, Malik in every shot: the grind first, then getting rich. Another late night with the energy cans, a red day he shakes off, a bigger win on his new desktop; then a delivery box of studio gear he rips open, Malik behind the mixing desk of his own studio, courtside at a packed game, front row at a sold-out arena show as confetti falls.\n14| ★ fomo screen: Desktop trading — on his monitor\n15| SCENE 3 — INT. KITCHEN — DAY, ONE MONTH LATER\n16| White flash. The red piggy bank sits on the counter.\n17| Malik slides his phone across the counter.\n18| TASHA: That's… real?\n19| MALIK: Still want me bagging groceries?\n20| Tasha grabs his phone with both hands and screams.\n21| MALIK: Want to trade like me? Download fomo through the link in my bio.\n22| ★ fomo screen: Home — Malik holds his phone up to the camera, the fomo logo clear\n</script>",
  "output": {
   "hook": "Tasha bursts in and slams Malik's empty piggy bank down at 0 s, and the money ($500) is in her first line; his dare lands by second 5.",
   "scenes": [
@@ -73,7 +73,7 @@
       "speaker": "Tasha",
       "line": "A phone app? That's your college money!",
       "action": "Tasha jabs a finger at the phone.",
-      "reaction": "Brows crash into a hard V.",
+      "reaction": "Furious he gambled the college money: brows crash into a hard V.",
       "camera": "Close-up on Tasha, static",
       "seconds": 1.2,
       "character_ids": [
@@ -91,7 +91,7 @@
       "speaker": null,
       "line": null,
       "action": "Malik takes the hit.",
-      "reaction": "His eyes flick down, then back up.",
+      "reaction": "Stung, but sure he's right: his eyes flick down, then back up.",
       "camera": "Extreme close-up on Malik's eyes, static",
       "seconds": 0.4,
       "character_ids": [
@@ -146,7 +146,7 @@
       "speaker": null,
       "line": null,
       "action": "Malik hears the threat.",
-      "reaction": "Malik swallows, jaw set.",
+      "reaction": "Scared she might be right, too proud to show it: Malik swallows, jaw set.",
       "camera": "Extreme close-up on Malik, static",
       "seconds": 0.5,
       "character_ids": [
@@ -192,7 +192,7 @@
       "speaker": null,
       "line": null,
       "action": "Malik drops his head onto his arms.",
-      "reaction": "Shoulders sag, eyes shut.",
+      "reaction": "Crushed, the bet looks lost: shoulders sag, eyes shut.",
       "camera": "High-angle close-up, slow push in",
       "seconds": 2.0,
       "character_ids": [
@@ -421,7 +421,7 @@
       "speaker": "Tasha",
       "line": "That's… real?",
       "action": "Tasha leans over the phone.",
-      "reaction": "Her jaw drops, slowly.",
+      "reaction": "Stunned it's real, the doubt draining away: her jaw drops, slowly.",
       "camera": "Close-up on Tasha, push in",
       "seconds": 1.2,
       "character_ids": [
@@ -439,7 +439,7 @@
       "speaker": "Malik",
       "line": "Still want me bagging groceries?",
       "action": "Malik leans on the counter, calm.",
-      "reaction": "A small smirk.",
+      "reaction": "Quietly proud he proved her wrong: a small smirk.",
       "camera": "Low-angle close-up on Malik, static",
       "seconds": 1.4,
       "character_ids": [
@@ -457,7 +457,7 @@
       "speaker": null,
       "line": null,
       "action": "Tasha grabs the phone with both hands and screams.",
-      "reaction": "Mouth wide, eyes white all round.",
+      "reaction": "Overjoyed for him, disbelief turning to a scream: mouth wide, eyes white all round.",
       "camera": "Whip to an extreme close-up on Tasha's scream",
       "seconds": 1.0,
       "character_ids": [

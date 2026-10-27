@@ -17,7 +17,8 @@ from pathlib import Path
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from app.enhance import project_screens, screen_name
+from app.enhance import logo_only, project_screens, screen_name
+from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.projects import Project
@@ -43,7 +44,8 @@ def inserts(db: Session, project: Project, clip: ProjectClip) -> list[Insert]:
     bd = db.get(BreakdownVersion, clip.breakdown_id).data
     shots = {s["id"]: s for scene in bd["scenes"] for s in scene["shots"]}
     ids = next((c["shot_ids"] for c in bd["clips"] if c["id"] == clip.clip_id), [])
-    screens = {f"screen:{s.id}": s for s in project_screens(db, project)}
+    brand = db.get(Brand, project.brand_id)  # a logo-only screen is invented: no real picture
+    screens = {f"screen:{s.id}": s for s in project_screens(db, project) if not logo_only(s, brand)}
     total = sum(shots[i]["seconds"] for i in ids if i in shots) or 1
     scale, at, out = clip.seconds / total, 0.0, []
     for shot_id in ids:
