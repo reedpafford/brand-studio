@@ -18,7 +18,8 @@ export type VideoProgress = Progress & { assets: { total: number; ready: number 
 /** Why a step can't be opened right now, or null when it can. Assets come before anything is drawn. */
 export function videoLock(step: VideoStepId, p: VideoProgress): string | null {
   if (step === "breakdown") return null;
-  const shots = lockReason("storyboard", p); // the shots are made, current and clear of problems
+  // The shots are made, current and clear of problems. This page calls that step Breakdown.
+  const shots = lockReason("storyboard", p)?.replace("in Shots first", "in Breakdown first").replace("Make the shots first", "Make the breakdown first").replace("Make new shots first", "Make a new breakdown first") ?? null;
   if (shots || step === "assets") return shots;
   const left = p.assets.total - p.assets.ready;
   if (left > 0) return `Approve every asset first (${left} left)`;

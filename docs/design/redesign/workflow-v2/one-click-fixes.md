@@ -21,7 +21,7 @@ Each problem row gets a fix next to **Go to**:
 
 - **Several of the same kind:** one fix for all of them under the problem list, e.g. **Fix 3 problems** (secondary, `Wand2`) with "Free" beside it. The cast fix (`change-notes.md` §2) stays as it is.
 - **Repaired on its own:** when the breakdown is made or saved, the server may put missing or changed lines back itself. The note at the top reads "Put back 2 lines that were missing from the shots." with **Undo**.
-- **The other steps' disabled reason** names the Breakdown step and links there. "Fix the 2 problems in Shots first" becomes **"Fix 2 problems in Breakdown first"**, where "Breakdown" is a link (ghost dense) that opens the step with the first problem outlined for 1.5 s. One problem reads "Fix 1 problem in Breakdown first". It's used on Next, the step picker and Make storyboard alike (`web/src/projects/steps.ts`).
+- **The other steps' disabled reason** names the Breakdown step (as built in #523): "Fix the 2 problems in Shots first" becomes **"Fix the 2 problems in Breakdown first"** on the video page (and "Make the breakdown first" / "Make a new breakdown first"). There's no link: problems in the shots lock every other step, so the reason only shows while you're already on Breakdown. The old six-step page keeps "Shots", its own name for that step.
 
 ## 2. Edit shot
 When a shot names a character, place or screen the video doesn't have ("Shot 1.3 names Nate, who isn't in this video's cast."):
@@ -45,9 +45,15 @@ When a frame's prompt is refused or flagged as too strong ("This frame may be re
 
 ## 5. Clips
 Any clip card with a blocking problem (refused, flagged or failed check) has **Fix this clip's prompt** (secondary dense, `Wand2`), with "Free" beside it:
-- It's always shown while the problem blocks, including for an editor past their week or budget, since it costs nothing.
+- **Free once per clip, per prompt version** (Producer, 2026-10-27). While it's unused, it's always shown when the problem blocks, including for an editor past their week or budget, since it costs nothing.
 - It rewrites the clip prompt to clear the problem (it never touches the spoken lines), and shows the Before/After. **Looks good** is cleared, so the new prompt is read again. It doesn't make a take.
-- **After:** toast "Fixed clip 2's prompt." with **Undo**. If the rewrite can't clear it: "We couldn't fix this one. Try saying what should change in Change this…", and the problem stays with **Keep it anyway**.
+- **After:** toast "Fixed clip 2's prompt." with **Undo**. Undo puts the old prompt back but doesn't give the free fix back for that prompt.
+- **Still blocked after the free fix** (the rewrite didn't clear it, or a new problem came up on the same prompt): the button goes, and the card says "We couldn't fix this one automatically." (meta, `TriangleAlert` in `text-warning`), with:
+  - **Rewrite this clip's prompt · N credits** (secondary dense, `Wand2`, the price inside)
+  - **Change this…**, which stays under the card as always (`change-notes.md` §1)
+  - **Keep it anyway** (ghost), as for any problem
+  - An editor past their week or the video's budget sees the priced rewrite disabled, with the usual reason under it. **Keep it anyway** is still there, so the card is never a dead end.
+- **A new prompt version** (written again, the paid rewrite, a **Change it**, or saved from Advanced; not the free fix itself, and not its Undo) makes the free fix available again for that clip.
 - A stale clip keeps its own **Rewrite this clip's prompt · N credits** (`video-flow.md` §4); this button is for problems, not for staleness.
 
 ## Data the screens need (server)
@@ -55,5 +61,5 @@ Any clip card with a blocking problem (refused, flagged or failed check) has **F
 - **Edit shot:** `POST /projects/{id}/shots/{shot_id}/remove-ref {kind, name}` (free), with its Undo; an automatic removal comes back as an advice line.
 - **Assets:** each slot carries `library_deleted: bool`.
 - **Frames:** `POST /projects/{id}/storyboard/frames/{frame_id}/soften` (free) returns `{before, after}`; a frame softened on its own carries `softened: {before, after}`.
-- **Clips:** `POST /projects/{id}/clips/{clip_id}/fix` (free, never charged, never refused for money) returns `{before, after}` or `{fixed: false, reason}`.
+- **Clips:** `POST /projects/{id}/clips/{clip_id}/fix` (free, never charged, never refused for money; once per clip per prompt version) returns `{before, after}` or `{fixed: false, reason}`. Each clip carries `free_fix_used: bool` for its current prompt, so the card knows which buttons to show; a second call refuses with 409 in plain words.
 - Every fix route refuses with the reason in plain words, never a raw id.
