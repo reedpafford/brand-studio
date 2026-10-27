@@ -409,6 +409,24 @@ test("Variations side by side: changed lines are marked, a draft can be approved
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/1/approve")).toBe(true));
 });
 
+test("Variations: Approve all approves the written drafts, says which version was left, and Undo sends back exactly those", async () => {
+  setViewport(1440);
+  const drafts = approvedOriginal([ver(1, { text: "SCENE 1\nMIA: Hell no." }), ver(2, { text: "SCENE 1\nMIA: Never." })]);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, drafts],
+    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
+    "POST /scripts/7/drafts/approve-all": [200, { approved: [1], skipped: [{ id: 2, label: "C", reason: "still writing" }] }],
+    "POST /scripts/7/drafts/approve-all/undo": [200, drafts],
+  });
+  open("/b/1/scripts/7?step=variations");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
+  expect(await screen.findByText(/Approved 1\./)).toHaveTextContent("Approved 1. 1 not approved: C: still writing");
+  expect(await screen.findByText("Approved 1 version.")).toBeInTheDocument(); // the toast, with Undo
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/approve-all/undo")?.body).toEqual({ ids: [1] }));
+});
+
 test("Variations: the lines that differ from the original are found by their words, ignoring blanks", async () => {
   const { changedLines } = await import("./VariationsStep");
   expect(changedLines("A\nB\nC", "A\nX\n\nC")).toEqual([false, true, false, false]);

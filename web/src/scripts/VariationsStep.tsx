@@ -8,6 +8,7 @@ import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
+import { useApproveAllWith, type ApproveAllResult } from "../projects/ApproveAll";
 import { useAllowanceStop, type Script } from "./useScript";
 
 const LETTER = ["A", "B", "C"];
@@ -159,6 +160,25 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
   const [shown, setShown] = useState(1);
   const [changesOnly, setChangesOnly] = useState(false);
   const error = act.write.error ?? act.edit.error ?? act.approve.error ?? act.unapprove.error ?? act.remove.error;
+  const queryClient = useQueryClient();
+  const drafts = written.filter((v) => v.status === "draft").length;
+  const approveAll = useApproveAllWith({
+    noun: "version",
+    ready: drafts,
+    waiting: drafts,
+    press: async () => {
+      const { data, error } = await api.POST("/scripts/{script_id}/drafts/approve-all", { params: { path: { script_id: s.id } } });
+      if (!data) throw new Error(errorText(error));
+      return data as ApproveAllResult;
+    },
+    undo: async (ids) => {
+      const { data } = await api.POST("/scripts/{script_id}/drafts/approve-all/undo", { params: { path: { script_id: s.id } }, body: { ids } });
+      if (data) queryClient.setQueryData(["script-lib", s.id], data);
+    },
+    refresh: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] }), queryClient.invalidateQueries({ queryKey: ["scripts"] })]),
+    name: (k) => k.label ?? "",
+    target: (k) => `Version ${k.label}`,
+  });
 
   if (act.writing && written.length === 0)
     return (
@@ -215,7 +235,9 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
           <input type="checkbox" role="switch" checked={changesOnly} onChange={(e) => setChangesOnly(e.target.checked)} className="size-5" />
           Changes only
         </label>
+        <span className="ml-auto flex w-full sm:w-auto">{approveAll.button}</span>
       </div>
+      {approveAll.line}
       {!rail && <Tabs label="Version" value={String(shown)} onChange={(id) => setShown(Number(id))} tabs={all.map((v) => ({ id: String(v.slot), label: `${LETTER[v.slot]}${v.status !== "draft" && v.slot > 0 ? " ✓" : ""}` }))} />}
       {error && <p role="alert" className={errorClass}>{error.message}</p>}
       <ul className={`grid gap-4 ${rail ? (all.length === 3 ? "grid-cols-3" : "grid-cols-2") : ""}`}>
