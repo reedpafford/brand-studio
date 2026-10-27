@@ -112,3 +112,29 @@ def test_a_label_naming_a_role_already_there_never_makes_a_second_one(owner, edi
     assert repair_missing_roles(db) == [shown]
     assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Nate, the teen groom"]
     assert _who(editor, pid)[0] == [f"slot:{nate}"]
+
+
+def test_a_name_inside_a_roles_description_is_never_that_role(owner, editor, db):
+    """QA on #614: NATE is not "Kimchi, Nate's rich friend" (nor MALIK "Dre, Malik's best
+    friend"), so Nate becomes his own role and Kimchi stays out of Nate's shot."""
+    from app.cast_roles import labels
+
+    assert not labels("NATE", "Kimchi, Nate's rich friend")
+    assert not labels("MALIK", "Dre, Malik's best friend")
+    assert labels("GROOM", "Nate, the teen groom") and labels(
+        "KIMCHI", "Kimchi, Nate's rich friend"
+    )
+    made = _make(owner, title="Rich", text="INT. CAR — DAY\nNATE: Nice car.\nKIMCHI: I know.")
+    base = f"/scripts/{made['id']}"
+    kimchi = owner.post(f"{base}/cast", json={"role": "Kimchi, Nate's rich friend"}).json()
+    bd = copy.deepcopy(BREAKDOWN)
+    bd["scenes"][0]["shots"][0].update(script_lines=[2], speaker="Nate", character_ids=[])
+    bd["scenes"][0]["shots"][1].update(script_lines=[3], speaker="Kimchi", character_ids=[])
+    owner.put(f"{base}/drafts/0/breakdown", json=bd)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    repair_missing_roles(db)
+    cast = owner.get(base).json()["cast"]
+    assert [s["role"] for s in cast] == ["Kimchi, Nate's rich friend", "Nate"]
+    assert _who(editor, pid) == [[f"slot:{cast[1]['id']}"], [f"slot:{kimchi[0]['id']}"]]
