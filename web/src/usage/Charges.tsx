@@ -8,8 +8,9 @@ import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { Money } from "./parts";
 import { useCharges } from "./useUsage";
+import { serverTime } from "../time";
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const when = (iso: string) => serverTime(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const STATUS: Record<string, string> = { succeeded: "Done", failed: "Didn't finish", running: "Making", queued: "Waiting" };
 
 type Charge = NonNullable<ReturnType<typeof useCharges>["data"]>["pages"][number]["items"][number];

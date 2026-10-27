@@ -12,6 +12,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { useHeld, type Job, type Project } from "./useHeld";
+import { serverTime } from "../time";
 
 const STEPS: Record<string, string> = {
   enhance: "Enhance",
@@ -27,7 +28,7 @@ const STEPS: Record<string, string> = {
 
 /** How long ago, in words: "just now", "2m", "3h", "4d". */
 function ago(iso: string) {
-  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  const s = Math.max(0, (Date.now() - serverTime(iso).getTime()) / 1000);
   return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`;
 }
 

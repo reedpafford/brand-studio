@@ -15,9 +15,10 @@ import {
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { useProjectClips, useProjectVideo } from "./useProgress";
+import { serverTime } from "../time";
 
 /** When a take was made, as the person's clock reads it: "10:42". */
-const madeAt = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const madeAt = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 const slug = (name: string) =>
   name
     .toLowerCase()

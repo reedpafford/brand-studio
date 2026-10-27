@@ -83,3 +83,46 @@ def test_owner_sees_who_asked_and_what_it_costs(owner, editor, db):
     made = editor.post("/projects", json={"brand_id": fomo, "name": "Dip", "planned_seconds": 30})
     assert made.json()["created_by_name"] == "Ed"
     assert owner.get("/projects").json()[0]["created_by_id"] == ed.id
+
+
+def test_times_in_responses_say_utc(owner, db):
+    # Stored as naive UTC; without a "Z" a browser in New York reads them as 5 hours ahead.
+    enqueue(db, db.query(User).first(), "video-480p", {})
+    created = owner.get("/jobs").json()[0]["created_at"]
+    assert created.endswith("Z") or created[-6] in "+-"
+
+
+def test_every_response_time_uses_utc_time(app):
+    from datetime import datetime
+    from typing import Annotated, get_args, get_origin
+
+    from fastapi.routing import APIRoute
+    from pydantic import BaseModel
+
+    from app.schemas import UtcTime
+
+    bare, seen = [], set()
+
+    def walk(tp, where):
+        if tp in seen:
+            return
+        if get_origin(tp) is Annotated:
+            if not set(tp.__metadata__) & set(UtcTime.__metadata__):
+                walk(get_args(tp)[0], where)
+        elif tp is datetime:
+            bare.append(where)
+        elif isinstance(tp, type) and issubclass(tp, BaseModel):
+            seen.add(tp)
+            for name, f in tp.model_fields.items():
+                walk(
+                    Annotated[(f.annotation, *f.metadata)] if f.metadata else f.annotation,
+                    f"{tp.__name__}.{name}",
+                )
+        else:
+            for arg in get_args(tp):
+                walk(arg, where)
+
+    for route in app.routes:
+        if isinstance(route, APIRoute) and route.response_model is not None:
+            walk(route.response_model, route.path)
+    assert bare == []
