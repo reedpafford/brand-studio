@@ -383,3 +383,12 @@ test("a cast problem kept anyway stops blocking and moves under the closed list,
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeEnabled();
   expect(screen.getByRole("button", { name: /Undo keep/, hidden: true })).toBeInTheDocument();
 });
+
+test("a shot with no script lines (a reaction or an insert) shows no line label and does not break the page", async () => {
+  const wordless = breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({}), shot({ id: "1.2", script_lines: [], line: null, speaker: null })] }] } });
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, wordless] });
+  open();
+  const silent = await screen.findByLabelText("Shot 1.2");
+  expect(within(silent).queryByText(/^Lines? \d/)).toBeNull();
+  expect(within(screen.getByLabelText("Shot 1.1")).getByText("Line 1")).toBeInTheDocument();
+});

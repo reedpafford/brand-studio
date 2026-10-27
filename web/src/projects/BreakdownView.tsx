@@ -16,6 +16,11 @@ import { plainWords } from "./names";
 import { AdviceList, useKeep } from "./Keep";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
+/** "Line 3" / "Lines 3–5"; empty for a shot with no script lines (a reaction, an insert, a montage shot). */
+const lineLabel = (n: number[]) => {
+  const t = lines(n);
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
 const lines = (n: number[]) => (n.length === 0 ? "" : n.length === 1 ? `line ${n[0]}` : `lines ${Math.min(...n)}–${Math.max(...n)}`);
 const small = `${input} min-h-11 sm:min-h-9`;
 // Below sm every tap target is at least 44px tall.
@@ -357,13 +362,14 @@ export function BreakdownView(props: {
                             <span className="tabular-nums">{s.seconds} s</span>
                             <span className="text-muted">{s.camera}</span>
                             <span className="ml-auto flex items-center gap-1">
-                              {props.onShowLines ? (
-                                <Button type="button" variant="ghost" dense aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines!(s.script_lines)}>
-                                  {lines(s.script_lines)[0].toUpperCase() + lines(s.script_lines).slice(1)}
-                                </Button>
-                              ) : (
-                                <span className="text-muted">{lines(s.script_lines)[0].toUpperCase() + lines(s.script_lines).slice(1)}</span>
-                              )}
+                              {s.script_lines.length > 0 &&
+                                (props.onShowLines ? (
+                                  <Button type="button" variant="ghost" dense aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines!(s.script_lines)}>
+                                    {lineLabel(s.script_lines)}
+                                  </Button>
+                                ) : (
+                                  <span className="text-muted">{lineLabel(s.script_lines)}</span>
+                                ))}
                               <Button
                                 type="button"
                                 variant="ghost"
