@@ -149,6 +149,42 @@ def undo(db: Session, script: Script, token: int) -> None:
     db.flush()
 
 
+def _across_versions(db: Session, script: Script, slots: list[ScriptCastSlot]) -> list[tuple]:
+    """Roles (the earlier one first) that are likely one person named differently in different
+    versions (QA-Live, Marriage Rejection: GROOM in A, NOAH in C), with the reason: the same
+    line of 3+ words said in two versions, or, when two versions share a speaker, each one's
+    only other speaker (the one that speaker talks to). Never within one version."""
+    from app.cast_roles import labels
+
+    def role(name: str):
+        return next((s for s in slots if labels(name, s.role)), None)
+
+    said: dict[str, set] = {}
+    speakers: dict[int, set] = {}
+    for draft in _drafts(db, script):
+        for line in draft.text.splitlines():
+            if check.SPEAKER.match(line) and (m := LABEL.match(line)) and (who := role(m[2])):
+                speakers.setdefault(draft.slot, set()).add(who)
+                words = re.sub(r"[^a-z0-9 ]", "", line[m.end() :].lower()).split()
+                if len(words) >= 3:
+                    said.setdefault(" ".join(words), set()).add((draft.slot, who))
+    out = []
+    for heard in said.values():
+        out += [(a, b, "They say the same line in different versions of the script.")
+                for va, a in heard for vb, b in heard if va < vb and a is not b]  # fmt: skip
+    versions = sorted(speakers)
+    for i, va in enumerate(versions):
+        for vb in versions[i + 1 :]:
+            both = speakers[va] & speakers[vb]
+            only_a, only_b = speakers[va] - both, speakers[vb] - both
+            if both and len(only_a) == len(only_b) == 1:
+                (a,), (b,) = only_a, only_b
+                lead = min(both, key=lambda s: (s.position, s.id)).role
+                out.append((a, b, f"Both are the one {lead} speaks to in different versions."))
+    first = sorted(out, key=lambda p: 0 if p[2].startswith("They say") else 1)
+    return [(*sorted((a, b), key=lambda s: (s.position, s.id)), why) for a, b, why in first]
+
+
 def maybe_same(db: Session, script: Script) -> list[dict]:
     """Pairs that may be one person: [{a_slot_id, b_slot_id, into_slot_id, why}], never a pair
     kept apart, nor two roles that share a shot."""
@@ -174,6 +210,8 @@ def maybe_same(db: Session, script: Script) -> list[dict]:
     for s in slots:  # the cast read wasn't sure
         if (other := by_role.get(s.may_be_same_as)) is not None:
             add(s, other, other, "The cast read wasn't sure if they're one person.")
+    for a, b, why in _across_versions(db, script, slots):  # versions naming one person apart
+        add(a, b, a, why)
     for i, a in enumerate(slots):  # the same relationship, never in one shot
         for b in slots[i + 1 :]:
             words_a = set(re.findall(r"[a-z]+", f"{a.role} {a.description}".lower()))

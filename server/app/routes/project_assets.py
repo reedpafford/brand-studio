@@ -149,6 +149,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
             out.append(AssetOut(kind=kind, ref=ref, role="", library_item_id=None,
                                 name=screen_name(screen), locked=False, sheet_status="approved",
                                 ready=True, file_id=screen.file_id))  # fmt: skip
+    roles = {s.id: s for s in _slots(db, project)}
     for row in out:
         refs = {row.ref, f"slot:{row.slot_id}"}
         row.shots = sum(
@@ -156,6 +157,10 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
             for s in shots
             if refs & {*s["character_ids"], s.get("place_id"), *s.get("screen_ids", [])}
         )
+        slot = roles.get(row.slot_id)
+        seen = {f"char:{cast_roles.picked(project, slot)}"} if slot else set()
+        if slot and not row.shots and not any(seen & set(s["character_ids"]) for s in shots):
+            row.ready = True  # a role this video never shows needs no look here
     return out
 
 
@@ -221,6 +226,7 @@ def _resave(db: Session, user: User, project: Project, bd, data: dict, same_look
         problems=breakdown.problems(db, project, script.text if script else "", new) + removed,
         created_by_id=user.id,
     )
+    row.kept = breakdown.carry_kept(bd.kept, row.problems)
     db.add(row)
     db.flush()
     outdated = cast_roles.carry_frames(db, project, bd, row, same_look)

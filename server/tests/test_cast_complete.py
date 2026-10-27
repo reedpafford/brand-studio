@@ -11,6 +11,7 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
+from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
 from app.seed import repair_missing_roles
 from tests.test_breakdown import BREAKDOWN
@@ -56,13 +57,19 @@ def test_the_repair_adds_missed_speakers_and_shows_them_where_they_speak(owner, 
     nate = next(s["id"] for s in owner.get(base).json()["cast"] if s["role"] == "Nate")
     name = db.get(Project, pid).name
     assert said == ["Marriage Rejection: added Nate to the cast",
-                    f"{name}: Shot 1.1 now shows Nate.",
-                    f"{name}: turned off Use the real image on 1 shot with a person"]  # fmt: skip
+                    f"{name}: Nate now appears in 1 shot.",
+                    f"{name}: turned off Use the real image on 1 shot with a person",
+                    "Missing roles: gave 1 of 1 scripts their speakers and 1 of 1 videos the "
+                    "roles in their shots (0 older videos have no library script, so they have "
+                    "no roles to add)."]  # fmt: skip
     assert db.get(ProjectClip, clip).real_images == {"1.2": True}  # its shot didn't change
     assert _who(editor, pid) == [[f"slot:{nate}"], [f"slot:{bride}"]]  # not over his V.O.
     roles = [r["role"] for r in editor.get(f"/projects/{pid}/assets").json() if r["slot_id"]]
     assert roles == ["Bride", "Nate"]
-    assert repair_missing_roles(db) == []  # once only
+    assert repair_missing_roles(db) == [  # once only, and it always says it ran
+        "Missing roles: gave 0 of 1 scripts their speakers and 0 of 1 videos the roles in "
+        "their shots (0 older videos have no library script, so they have no roles to add)."
+    ]
     assert db.query(Job).count() == jobs  # free: no model call
 
 
@@ -108,8 +115,8 @@ def test_a_label_naming_a_role_already_there_never_makes_a_second_one(owner, edi
     owner.post(f"{base}/publish")
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     name = db.get(Project, pid).name  # shot 1.2's speaker is Nate too
-    shown = f"{name}: Shot 1.1 now shows Nate. Shot 1.2 now shows Nate."
-    assert repair_missing_roles(db) == [shown]
+    shown = f"{name}: Nate now appears in 2 shots."
+    assert repair_missing_roles(db)[:-1] == [shown]
     assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Nate, the teen groom"]
     assert _who(editor, pid)[0] == [f"slot:{nate}"]
 
@@ -145,3 +152,74 @@ def test_storyboard_right_after_produce_waits_without_assets_being_opened(owner,
     _, pid, _ = _video(owner, editor)
     refused = editor.post(f"/projects/{pid}/storyboard", json={})
     assert refused.status_code == 409 and "Nate and Bride" in refused.json()["detail"]
+
+
+def test_the_deploy_step_runs_the_repair_and_says_so(app, owner, editor, db, capsys, monkeypatch):
+    """The live log showed nothing: the deploy (`app.seed refresh`) runs the repair and
+    always prints its summary."""
+    from app import seed, seed_drafts, settings
+
+    _video(owner, editor)
+    monkeypatch.setattr(settings, "get_settings", lambda: app.state.settings)
+    monkeypatch.setattr(seed_drafts, "import_drafts", lambda db, folder: 0)
+    seed.main("refresh")
+    out = capsys.readouterr().out
+    assert "Marriage Rejection: added Nate to the cast" in out
+    assert "Missing roles: gave 1 of 1 scripts their speakers" in out
+
+
+def test_versions_naming_one_person_differently_are_flagged_never_merged(owner, db):
+    """QA-Live, Marriage Rejection: version A says GROOM, B says NOAH for the same man, so
+    the backstop made two roles. They're flagged as maybe one person, for a click to merge."""
+    made = _make(owner, title="Altar", text="INT. CHURCH — DAY\nGROOM: Will you marry me?")
+    base = f"/scripts/{made['id']}"
+    owner.put(f"{base}/drafts/1", json={"text": "INT. CHURCH — DAY\nNOAH: Will you marry me?"})
+    repair_missing_roles(db)
+    cast = {s["role"]: s["id"] for s in owner.get(base).json()["cast"]}
+    assert set(cast) == {"Groom", "Noah"}  # never merged by itself
+    pairs = owner.get(base).json()["maybe_same"]
+    assert [(p["a_slot_id"], p["b_slot_id"], p["into_slot_id"]) for p in pairs] == [
+        (cast["Groom"], cast["Noah"], cast["Groom"])
+    ]
+    assert pairs[0]["why"] == "They say the same line in different versions of the script."
+
+
+def test_a_role_this_video_never_shows_needs_no_look_here(owner, editor, db):
+    _, pid, _ = _video(owner, editor)
+    project = db.get(Project, pid)
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    db.add(ScriptCastSlot(script_id=draft.script_id, role="Rival", position=9))
+    db.commit()
+    rows = {r["role"]: r for r in editor.get(f"/projects/{pid}/assets").json() if r["slot_id"]}
+    assert (rows["Rival"]["shots"], rows["Rival"]["ready"]) == (0, True)
+    missing = editor.get(f"/projects/{pid}/assets/missing-looks").json()["roles"]
+    assert "Rival" not in missing and set(missing) == {"Bride", "Nate"}
+
+
+def test_script_twos_versions_flag_both_pairs_and_a_one_version_echo_flags_none(owner, db):
+    """QA on #628, script 2's shape: A says GROOM/BRIDE, B NOAH/GIRLFRIEND, C BRIDE/NOAH, and
+    no line is said word for word twice. BRIDE in A and C talks to GROOM and to NOAH; NOAH in
+    B and C talks to GIRLFRIEND and to BRIDE. Flagged, never merged."""
+    versions = [
+        "INT. CHURCH — DAY\nGROOM: Will you marry me?\nBRIDE: I can't do this. I don't love you.",
+        "INT. PARK — DAY\nNOAH: Babe, marry me?\nGIRLFRIEND: Never. We're done.",
+        "INT. CHURCH — DAY\nNOAH: Marry me?\nBRIDE: No. I don't love you anymore.",
+    ]
+    base = f"/scripts/{_make(owner, title='Marriage Rejection', text=versions[0])['id']}"
+    for slot in (1, 2):
+        owner.put(f"{base}/drafts/{slot}", json={"text": versions[slot]})
+    repair_missing_roles(db)
+    script = owner.get(base).json()
+    cast = {s["role"]: s["id"] for s in script["cast"]}
+    assert set(cast) == {"Groom", "Bride", "Noah", "Girlfriend"}  # nothing merged
+    why = "Both are the one {} speaks to in different versions."
+    assert {(p["a_slot_id"], p["b_slot_id"], p["why"]) for p in script["maybe_same"]} == {
+        (cast["Groom"], cast["Noah"], why.format("Bride")),
+        (cast["Bride"], cast["Girlfriend"], why.format("Noah")),
+    }
+
+    echo = _make(
+        owner, title="Echo", text="INT. KITCHEN — DAY\nMOM: Are you sure?\nNATE: Are you sure?"
+    )
+    repair_missing_roles(db)
+    assert owner.get(f"/scripts/{echo['id']}").json()["maybe_same"] == []

@@ -17,7 +17,7 @@ import sys
 import uuid
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.filetypes import matches
@@ -185,23 +185,30 @@ def repair_missing_roles(db: Session) -> list[str]:
     """Every speaker in a script is a role, and every role is in its shots (Reed, 2026-10-27,
     "Marriage Rejection": made before the cast read, its groom was never a role): every
     script still in use gets the speakers it's missing, and every video `complete_cast`.
-    Free, no model call. One plain line per script or video changed; running it again
-    changes nothing."""
+    Free, no model call. One plain line per script or video changed, then always a summary
+    (the live log has to show it ran); running it again changes nothing."""
     from app import breakdown
     from app.models.projects import Project
     from app.models.script_library import Script, ScriptDraft
 
-    out = []
+    out, scripts, videos = [], 0, 0
     live = select(Script).where(Script.deleted_at.is_(None), Script.archived.is_(False))
-    for script in db.scalars(live).all():
-        out += [
-            f"{script.title}: added {n} to the cast" for n in breakdown.add_speakers(db, script)
-        ]
+    for script in (checked := db.scalars(live).all()):
+        added = breakdown.add_speakers(db, script)
+        out += [f"{script.title}: added {name} to the cast" for name in added]
+        scripts += bool(added)
     made = select(Project).where(Project.script_draft_id.in_(select(ScriptDraft.id)))
-    for project in db.scalars(made).all():
-        out += breakdown.complete_cast(db, project)
+    for project in (projects := db.scalars(made).all()):
+        lines = breakdown.complete_cast(db, project)
+        out += [line for line in lines if not line.endswith(" to the cast")]
+        videos += any(not line.endswith(" to the cast") for line in lines)
     db.commit()
-    return out
+    unlinked = db.scalar(
+        select(func.count()).select_from(Project).where(Project.script_draft_id.is_(None))
+    )
+    return [*out, f"Missing roles: gave {scripts} of {len(checked)} scripts their speakers and "
+            f"{videos} of {len(projects)} videos the roles in their shots ({unlinked} older "
+            "videos have no library script, so they have no roles to add)."]  # fmt: skip
 
 
 def repair_unknown_cast(db: Session) -> tuple[int, list[str]]:

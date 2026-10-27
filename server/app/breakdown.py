@@ -265,6 +265,18 @@ def land(
 OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
 
 
+def carry_kept(kept: list[str], problems: list[str]) -> list[str]:
+    """What the editor kept anyway still kept on a new version saved for them (a look made at
+    Assets, a recast): the same line, or a cast line on a shot whose cast line was kept,
+    whatever look names it now (QA-Live, video 16: Assets sent the editor back to Breakdown)."""
+    from app.advice import CAST
+
+    shot = re.compile(r"shot ([\w.]+):")
+    cast = {m[1] for p in kept or [] if p.startswith(CAST) and (m := shot.search(p))}
+    return [p for p in problems if p in (kept or [])
+            or (p.startswith(CAST) and (m := shot.search(p)) and m[1] in cast)]  # fmt: skip
+
+
 def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[str, list[str]]:
     """Each of the video's roles is in the shots that show them (Reed, 2026-10-27, "Marriage
     Rejection": the groom was never in his own shots, so no sheet was attached and the video
@@ -282,7 +294,10 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
             who = ref(db, project, slot)
             if {who, f"slot:{slot.id}"} & set(shot.character_ids):
                 continue
+            seen = f"{shot.action} {shot.reaction or ''}"
+            reacting = [s for s in slots if s is not slot and named(s.role, seen)]
             speaks = bool(shot.speaker) and labels(shot.speaker, slot.role) and not off
+            speaks = speaks and not (reacting and not named(slot.role, seen))  # a reaction shot
             if speaks or named(slot.role, shot.action):
                 shot.character_ids = [*shot.character_ids, who]
                 added.setdefault(shot.id, []).append(short(slot.role))
@@ -316,7 +331,11 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     bd = Breakdown.model_validate(row.data)
     if not (added := show_roles(db, project, bd, words.text)):
         return out
-    notes = [f"Advice: Shot {sid} now shows {' and '.join(names)}." for sid, names in added.items()]
+    counts: dict[str, int] = {}
+    for name in (n for names in added.values() for n in names):
+        counts[name] = counts.get(name, 0) + 1
+    notes = [f"Advice: {name} now appears in {'1 shot' if n == 1 else f'{n} shots'}."
+             for name, n in counts.items()]  # fmt: skip
     row.data = bd.model_dump()
     row.problems = problems(db, project, words.text, bd) + notes
     off = 0
