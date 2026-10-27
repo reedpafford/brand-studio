@@ -542,8 +542,8 @@ BACKGROUND = re.compile(
 def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()) -> list[str]:
     """The roles every version needs a look for (Reed, #197). Fixes: no slots, a version that
     doesn't exist. Advice: a background-sounding role, a name a listed version never uses,
-    two slots with one name, a name the cast or the scripts' speakers use that no slot carries.
-    `cast` holds the cast's names."""
+    two slots with one name, a name the cast or the scripts' speakers use that no slot carries,
+    a `may_be_same_as` that names no other slot. `cast` holds the cast's names."""
     if not result.slots:
         return ["no cast slots; regenerate"]
     problems, seen = [], set()
@@ -568,13 +568,24 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
             problems.append(f"{ADVICE}{role}: sounds like background people, who are never cast")
         name = re.split(r"[ ,(]", role.strip(), maxsplit=1)[0]
         named = rf"\b{re.escape(name)}\b"
+        part = re.sub(r"\([^)]*\)", "", role.split(",", 1)[-1]).split()  # "Nate's rich friend"
+        noun = rf"\b{re.escape(part[-1])}\b" if "," in role and part else named
         if any(re.search(named, text, re.I) for text in versions.values()):  # a script name
-            for v in sorted(set(slot.appears_in) & set(versions)):
-                if not re.search(named, versions[v], re.I):
+            for v in sorted(set(slot.appears_in) & set(versions)):  # or "his rich friend" there
+                if not re.search(named, versions[v], re.I) and not re.search(
+                    noun, versions[v], re.I
+                ):
                     problems.append(f"{ADVICE}{role}: “{name}” isn't in version {v}")
             if name.lower() in seen:
                 problems.append(f"{ADVICE}two slots are called {name}; merge them")
             seen.add(name.lower())
+    others = {s.role for s in result.slots}
+    for slot in result.slots:  # a possible duplicate the editor confirms (Reed, 2026-10-27)
+        if slot.may_be_same_as and slot.may_be_same_as not in others - {slot.role}:
+            problems.append(
+                f"{ADVICE}{slot.role}: may be the same as “{slot.may_be_same_as}”, which isn't "
+                "another slot; name that slot's role word for word"
+            )
     return problems
 
 

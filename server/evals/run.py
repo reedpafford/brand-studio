@@ -120,7 +120,8 @@ def run_case(
             if dry:  # needs the variations' answer
                 return
             made = answers["variations"].variations if "variations" in answers else []
-            versions = {0: script} | {i: v.script for i, v in enumerate(made, 1)}
+            given = [v.script for v in made] or ["\n".join(v) for v in case.get("versions", [])]
+            versions = {0: script} | dict(enumerate(given, 1))
             prompt = cast_slots_input(versions, reference.strip(), case["cast"], case["brief"])
         elif step == "breakdown":
             (out / f"{case['id']}.script.txt").write_text(script)
