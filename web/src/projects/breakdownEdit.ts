@@ -6,7 +6,7 @@ export type Shot = components["schemas"]["Shot"];
 export const clone = (bd: Breakdown): Breakdown => structuredClone(bd);
 
 /** Clip ids run c1, c2… in order and a clip's seconds are its shots' seconds added up, rounded up. */
-export function recompute(bd: Breakdown): Breakdown {
+function recompute(bd: Breakdown): Breakdown {
   const secs = new Map(bd.scenes.flatMap((s) => s.shots).map((s) => [s.id, s.seconds]));
   return {
     ...bd,

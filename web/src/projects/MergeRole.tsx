@@ -7,7 +7,7 @@ import { useMedia } from "../useMedia";
 import { errorText as errorClass } from "../ui";
 
 /** A role as the dialog lists it. */
-export type MergeTarget = { id: number; role: string; kind?: string; locked: boolean; facts?: string };
+type MergeTarget = { id: number; role: string; kind?: string; locked: boolean; facts?: string };
 /** What a merge moves (the same reply for the preview and the real thing). */
 export type Moved = { shots: string[]; lines: { version: string | number; line: number }[]; look_unused: { name: string } | null };
 /** The two calls behind the dialog; Cast and Assets each bring their own routes. */

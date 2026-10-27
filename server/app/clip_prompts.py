@@ -1,6 +1,9 @@
 """Clip prompts: Claude writes one Seedance prompt per clip of the newest breakdown, with its
 references (storyboard frame, cast, place, screens, voice samples). Saved per clip with the
-problems `check.clip_prompts` finds; the editor can edit them before generating."""
+problems `check.clip_prompts` finds; the editor can edit them before generating.
+
+Over 400 lines on purpose: writing, saving, repairing and rewriting a clip prompt share the same
+cast and picture helpers, so a split would only move code between files (Steward, 2026-10-27)."""
 
 import json
 import logging

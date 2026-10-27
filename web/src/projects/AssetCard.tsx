@@ -9,7 +9,6 @@ import { Badge, Button, Card, Menu, MenuItem, TextArea, useToast, Select, wholeC
 import { errorText as errorClass } from "../ui";
 import { lookFitNote, useSheetPrice } from "../library/SheetPanel";
 import { RoleFacts } from "./RoleFacts";
-import { useSaveToCast } from "./SaveToCast";
 
 type Asset = components["schemas"]["AssetOut"];
 
@@ -36,7 +35,6 @@ export function AssetCard({
   projectId,
   brandId,
   stopFor,
-  canSave,
   onMerge,
   mergeAlone,
   sameAs,
@@ -45,7 +43,6 @@ export function AssetCard({
   projectId: number;
   brandId: number;
   stopFor: (cost: number | undefined) => string | null;
-  canSave: boolean;
   /** Merge into… for a role, when the video has another role; and the "may be the same as" badge. */
   onMerge?: () => void;
   /** The only role on the video: Merge into… is shown disabled, with why. */
@@ -166,7 +163,6 @@ export function AssetCard({
       });
     },
   });
-  const { setSaving, dialog: saveDialog } = useSaveToCast({ projectId, slot, refresh });
   // A look's sheet may get one automatic redo, so the press holds the most it can cost; the usual price is the sheet alone.
   const makeUpTo = asset.look_credits ?? undefined;
   const makeUsual = asset.look_usual_credits ?? price;
@@ -361,11 +357,6 @@ export function AssetCard({
               <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={changeUpTo ?? price} upTo={changeUpTo !== undefined} usually={item.data?.sheet_usual_credits || price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
                 Change it
               </Button>
-              {asset.only_here === "video" && canSave && (
-                <Button variant="secondary" dense icon={Users} reason={asset.sheet_status === "approved" ? null : "Approve the sheet first"} disabled={asset.sheet_status !== "approved"} onClick={() => setSaving(asset.role)}>
-                  Save to Cast &amp; places
-                </Button>
-              )}
             </div>
           )}
           {!asset.locked &&
@@ -384,7 +375,6 @@ export function AssetCard({
               {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error)!.message}
             </p>
           )}
-          {saveDialog}
         </div>
       </Card>
     </section>

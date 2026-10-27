@@ -9,19 +9,18 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import advice, breakdown, cast_roles, clip_prompts, merge_roles
 from app.auth import current_user
-from app.credits import COUNTED, fits, get_limits, price
+from app.credits import COUNTED, fits, price
 from app.db import get_db
 from app.enhance import project_screens, screen_name
 from app.models.accounts import User
-from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
-from app.models.library import Kind, LibraryItem, LibraryItemVersion
+from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.script_library import CastMerge, Script, ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
@@ -38,7 +37,6 @@ from app.routes.script_cast import (
 )
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, queue_sheet
-from app.schemas import Name
 from app.sheets import look_price, look_usual
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
@@ -65,15 +63,6 @@ class AssetOut(BaseModel):
     library_deleted: bool = False  # its Cast & places character was deleted: Make or Pick
     look_credits: int | None = None  # Make a look on a role: "up to" (held at the press)
     look_usual_credits: int | None = None  # "Usually N": its sheet and check, no redo
-
-
-class SaveLookIn(BaseModel):
-    name: Name
-
-
-class SavedOut(BaseModel):
-    library_item_id: int  # the new Cast & places character; Undo is DELETE on it
-    assets: list[AssetOut]
 
 
 class SlotCastIn(BaseModel):
@@ -387,81 +376,6 @@ def decline_missing_looks(
     project.slot_looks = {**project.slot_looks, **waiting}
     db.commit()
     return _missing_out(db, user, project)
-
-
-@router.post("/slots/{slot_id}/save-to-library", response_model=SavedOut, status_code=201)
-def save_to_library(
-    project_id: int,
-    slot_id: int,
-    body: SaveLookIn,
-    user: User = Depends(current_user),
-    db: Session = Depends(get_db),
-):
-    """Copy this video's look into Cast & places as a normal character (free: same sheet) and
-    use the copy here. Reed always; editors only with the Team setting on."""
-    project = get_project(db, user, project_id)
-    if not user.is_owner and not get_limits(db, user.workspace_id).editors_can_save_looks:
-        raise HTTPException(403, "Only the owner can save looks to Cast & places.")
-    slot = _open_slot(db, project, slot_id)
-    look = db.get(LibraryItem, project.slot_cast.get(str(slot.id)) or 0)
-    if look is None or look.owner_project_id != project.id:
-        raise HTTPException(409, f"{slot.role} doesn't have a look made for this video.")
-    if sheet_status(look) != "approved":
-        raise HTTPException(409, "Approve the sheet first.")
-    name = body.name.strip()
-    taken = db.scalar(
-        select(LibraryItem.id).where(
-            LibraryItem.workspace_id == project.workspace_id,
-            LibraryItem.kind == Kind.character,
-            LibraryItem.archived.is_(False),
-            LibraryItem.owner_project_id.is_(None),
-            LibraryItem.owner_script_id.is_(None),
-            func.lower(LibraryItem.name) == name.lower(),
-        )
-    )
-    if taken:
-        raise HTTPException(409, f"{name} is already in Cast & places. Pick another name.")
-    copy = LibraryItem(
-        workspace_id=look.workspace_id,
-        kind=Kind.character,
-        name=name,
-        notes=look.notes,
-        image_file_ids=look.image_file_ids,
-        outfits=look.outfits,
-        voice_file_id=look.voice_file_id,
-        source_photo_file_id=look.source_photo_file_id,
-        sheet_file_id=look.sheet_file_id,
-        sheet_approved=True,
-        copied_from_id=look.id,
-        brands=[db.get(Brand, project.brand_id)],
-    )
-    db.add(copy)
-    db.flush()
-    _cast(db, user, project, slot, copy, same_look=True)
-    db.commit()
-    return SavedOut(library_item_id=copy.id, assets=list_assets(project_id, user, db))
-
-
-def undo_save(db: Session, user: User, copy: LibraryItem) -> bool:
-    """Undo of Save to Cast & places (DELETE on the copy): the video goes back on its own look
-    and the copy goes for good, unless another video has picked it since (then it's only
-    archived, as any DELETE)."""
-    look = db.get(LibraryItem, copy.copied_from_id)
-    project = db.get(Project, look.owner_project_id) if look and look.owner_project_id else None
-    if project is None:
-        return False
-    for key, item_id in list(project.slot_cast.items()):
-        if item_id == copy.id:
-            slot = db.get(ScriptCastSlot, int(key))
-            look.archived = False  # removed after the save (nobody used it): it's back in use
-            _cast(db, user, project, slot, look, same_look=True)
-    used = db.scalars(select(Project.cast_ids).where(Project.workspace_id == copy.workspace_id))
-    if any(copy.id in ids for ids in used):
-        return False
-    db.execute(delete(LibraryItemVersion).where(LibraryItemVersion.item_id == copy.id))
-    copy.brands = []
-    db.delete(copy)
-    return True
 
 
 def _own_look(db: Session, project: Project, item_id: int) -> LibraryItem | None:

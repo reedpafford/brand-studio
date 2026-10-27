@@ -1,6 +1,5 @@
 """Looks for one video only (gaps #19; Reed, 2026-10-26): a look made on Assets stays with its
-video. It's never in Cast & places or another video's picker; Save to Cast & places copies it
-(Reed, or editors with the Team setting on), and Undo puts the video back on its own look."""
+video. It's never in Cast & places or another video's picker (Current rules 12)."""
 
 import copy
 
@@ -91,50 +90,6 @@ def test_swapping_to_a_library_character_keeps_the_look_and_back_is_free(owner, 
     assert _row(editor, pid, nate)["library_item_id"] == look
 
 
-def test_save_to_cast_and_places_copies_the_look_and_undo_puts_it_back(owner, editor, db):
-    _, pid, nate = _video(owner, editor, db)
-    editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
-    look = _row(editor, pid, nate)["own_look_id"]
-    url = f"/projects/{pid}/assets/slots/{nate}/save-to-library"
-
-    refused = editor.post(url, json={"name": "Nate"})
-    assert refused.status_code == 403  # the Team setting is off by default
-    assert owner.get("/credits/limits").json()["editors_can_save_looks"] is False
-    limits = owner.get("/credits/limits").json()
-    owner.put("/credits/limits", json={**limits, "editors_can_save_looks": True})
-    assert editor.post(url, json={"name": "Nate"}).json()["detail"] == "Approve the sheet first."
-    _drawn(db, editor, look)
-    editor.post(f"/library/character/{look}/sheet/approve")
-    owner.post("/library/character", json={"name": "Bo"})
-    taken = editor.post(url, json={"name": "bo"})
-    assert (taken.status_code, taken.json()["detail"]) == (
-        409,
-        "bo is already in Cast & places. Pick another name.",
-    )
-
-    jobs = db.query(Job).count()
-    saved = editor.post(url, json={"name": "Nate"})
-    assert saved.status_code == 201, saved.text
-    new = saved.json()["library_item_id"]
-    assert db.query(Job).count() == jobs  # free: the same sheet
-    row = next(r for r in saved.json()["assets"] if r["slot_id"] == nate)
-    assert (row["library_item_id"], row["only_here"], row["sheet_status"]) == (
-        new,
-        None,
-        "approved",
-    )
-    listed = {c["id"]: c for c in owner.get("/library/character").json()}
-    assert new in listed and look not in listed
-    assert listed[new]["sheet_file_id"] == db.get(LibraryItem, look).sheet_file_id
-
-    assert editor.delete(f"/library/character/{new}").status_code == 204  # Undo
-    db.expire_all()
-    assert db.get(LibraryItem, new) is None  # removed, not left in the archive
-    assert _row(editor, pid, nate)["library_item_id"] == look
-    del limits["editors_can_save_looks"]  # an older screen's save leaves it as it is
-    assert owner.put("/credits/limits", json=limits).json()["editors_can_save_looks"] is True
-
-
 def test_a_scripts_own_look_is_used_by_its_videos_only_and_goes_with_it(app, owner, editor, db):
     from app.purge import purge_deleted
     from tests.test_purge import _deleted
@@ -201,25 +156,6 @@ def test_only_reed_or_the_videos_maker_removes_its_look(owner, editor, db):
     db.commit()
     refused = editor.delete(f"/library/character/{look}")
     assert refused.status_code == 403
-
-
-def test_undoing_a_save_after_the_original_was_removed_brings_the_original_back(owner, editor, db):
-    """QA on #435: save to Cast & places, remove the (now unused) original, then Undo the save:
-    the role goes back onto its own look, which is no longer removed."""
-    _, pid, nate = _video(owner, editor, db)
-    editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
-    look = _row(editor, pid, nate)["own_look_id"]
-    _drawn(db, editor, look)
-    editor.post(f"/library/character/{look}/sheet/approve")
-    saved = owner.post(
-        f"/projects/{pid}/assets/slots/{nate}/save-to-library", json={"name": "Nate"}
-    )
-    copy_id = saved.json()["library_item_id"]
-    assert owner.delete(f"/library/character/{look}").status_code == 204  # nobody uses it now
-    assert owner.delete(f"/library/character/{copy_id}").status_code == 204  # Undo the save
-    row = _row(editor, pid, nate)
-    assert (row["library_item_id"], row["own_look_id"]) == (look, look)
-    assert db.get(LibraryItem, look).archived is False
 
 
 def test_a_look_made_for_a_role_is_drawn_as_its_part(owner, editor, db):

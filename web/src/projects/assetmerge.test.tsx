@@ -32,7 +32,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
   "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "2K": 1.5 } }, { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729, editors_can_save_looks: false }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
 };
 
 function open(query = "?step=assets") {

@@ -83,7 +83,6 @@ Waiting invites (section)
   - Lowering the allowance below what an editor has used this week asks first: "Sam has used 120 credits this week. With 100, Sam can't make anything more until Monday." **Keep 145** / **Save 100**.
   - After: toast "Limits saved." with **Undo** (it saves the old values back). Editors' meters and stop reasons use the new numbers on their next load.
   - The existing per-editor allowance rows (#228) stay under People, and now read against the new allowance.
-- **Editors can save looks to Cast & places** (Reed only, gaps #19): a switch row under Credit limits, off by default. Meta under it: "When on, an editor can copy a look made for one video into the brand's Cast & places. Reed always can." It saves at once, with the toast "Editors can now save looks." or "Only you can save looks now." and **Undo**.
   - Server: `GET /credits/limits` and `PUT /credits/limits {weekly_quick_clip_credits, per_video_max_credits}`. Both fields are always sent.
 
 ### Phone

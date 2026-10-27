@@ -31,7 +31,7 @@ export function useKeep(projectId: number, target: Target) {
 }
 
 const PREFIX = "Advice: ";
-export const isAdvice = (p: string) => p.startsWith(PREFIX);
+const isAdvice = (p: string) => p.startsWith(PREFIX);
 /** What the text of a line is without its label. */
 const plain = (p: string) => (p.startsWith(PREFIX) ? p.slice(PREFIX.length) : p);
 

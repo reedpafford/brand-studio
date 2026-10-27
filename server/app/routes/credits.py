@@ -33,13 +33,11 @@ class RateOut(BaseModel):
 class LimitsIn(BaseModel):
     weekly_quick_clip_credits: Decimal = Field(ge=0, le=100000)
     per_video_max_credits: int = Field(gt=0, le=100000)  # required: never reset by omission
-    editors_can_save_looks: bool | None = None  # Team: left as is when not sent
 
 
 class LimitsOut(BaseModel):
     weekly_quick_clip_credits: float
     per_video_max_credits: int
-    editors_can_save_looks: bool
 
 
 class AllowanceOut(BaseModel):

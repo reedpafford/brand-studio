@@ -80,13 +80,7 @@ Only characters and places made in **Cast & places** go into the brand's library
   - The role, the look's 9:16 sheet, and a neutral badge "This video only" ("This script only" for a script's look).
   - Its own sheet buttons, because it belongs here: **Approve**, and a **Change this…** box to redraw it (`change-notes.md` §1). It's paid like any sheet. Its earlier versions stay, and picking one back is free.
   - **Use a Cast & places character** still swaps the role to a library character. The per-video look is kept, with "Not used" (meta), so swapping back is free.
-- **Save to Cast & places** (secondary dense, `Users`, in the card's `Ellipsis` menu on phone):
-  - **Who sees it:** Reed always. An editor only when Team's **Editors can save looks to Cast & places** is on (`phase3/screens/studio.md`; off by default). With it off, editors don't see the button at all.
-  - **Needs an approved sheet.** Before that, it's disabled with "Approve the sheet first".
-  - **Asks for a name** (dialog on desktop, sheet on phone): "Save to Cast & places", with **Name** filled with the role ("Mia"), and the meta line "It becomes a normal character any script can use. This video keeps its look either way." **Save** (amber in the dialog) / **Cancel** (ghost).
-    - A name already used by a brand character gives the server's words under Name: "Bo is already in Cast & places. Pick another name."
-  - **After:** a copy goes into Cast & places as a normal character, with its approved sheet. The video now uses the library character, and the badge becomes the usual library look. The toast says "Mia saved to Cast & places." with **Undo** (8 s). Undo removes the copy and puts the video back on its own look.
-  - It's free: copying makes nothing new.
+- **No Save to Cast & places** (Current rules 12): a look made for a video or script stays with it; Reed remakes it in Cast & places if he likes it.
 - **Delete this look** (in the card's `Ellipsis` menu, `Trash2`, danger): only on a look made for this video (or script), never on a Cast & places character.
   - **Who:** Reed, or whoever made the video (an editor on their own video).
   - **Only while no role uses it**, which is when the card reads "Not used" (the server refuses otherwise: "Swap the role to another look first."). While the look is in use, Delete isn't offered, so the press never fails. Stills already drawn with it keep their pictures.
@@ -218,6 +212,4 @@ Each version is made only once, so a version started by mistake must be able to 
   - **Auto-make:** `POST /projects/{id}/assets/make-missing` (paid, all or none) makes a look for every main or recurring role with none, and refuses with the plain reason when the budget or week can't cover it. `GET /projects/{id}/assets` adds `missing_looks: {roles: [names], credits}` for the note, and a per-slot `declined` flag so Not now sticks.
   - **Role facts:** each cast slot carries `age_range`, `gender` and `occupation`, each with `inferred: bool`.
   - **No raw ids in messages:** the server's sentences about a missing look name the role ("Nate needs a look").
-  - `POST /videos/{id}/assets/{slot}/save-to-library` `{name}`: copies the approved look into Cast & places as a normal character and points the slot at it. It returns the new character id, and the Undo is `DELETE` on it, which puts the slot back on the look. It refuses with 409 "Approve the sheet first" or "{Name} is already in Cast & places. Pick another name."
-  - A team setting `editors_can_save_looks` (default false) on `GET/PUT /credits/limits` or `/team/settings`. The save route refuses editors with 403 while it's off.
 - **Downloads:** the takes listed per clip, with times; `GET /videos/{id}/clips.zip` for the picked takes; and the stitched video, as today.
