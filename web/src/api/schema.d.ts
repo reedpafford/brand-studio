@@ -2950,12 +2950,13 @@ export interface paths {
         put?: never;
         /**
          * Keep Clip Advice
-         * @description Keep anyway: this clip's advice stays as it is.
+         * @description Keep anyway: this clip's advice stays as it is. A blocking problem can be kept too once
+         *     the free fix was tried (one-click-fixes.md §5); it then stops blocking the takes.
          */
         post: operations["keep_clip_advice_projects__project_id__clips__clip_id__keep_post"];
         /**
          * Unkeep Clip Advice
-         * @description Undo Keep anyway on this clip's advice (?problem=, the text as shown).
+         * @description Undo Keep anyway on this clip's advice or kept problem (?problem=, the text as shown).
          */
         delete: operations["unkeep_clip_advice_projects__project_id__clips__clip_id__keep_delete"];
         options?: never;

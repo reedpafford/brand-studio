@@ -171,7 +171,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     kind: "clips",
     noun: "clip",
     rows,
-    ready: rows.filter((c) => c.picked_take_id !== null && !c.approved && !c.stale && blocking(c.problems).length === 0).length,
+    ready: rows.filter((c) => c.picked_take_id !== null && !c.approved && !c.stale && blocking(c.problems, c.kept).length === 0).length,
     waiting: rows.filter((c) => !c.approved).length,
   });
   if (clips.isPending || frames.isPending) return <p className="text-muted">Loading…</p>;
@@ -185,7 +185,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   // In the new flow every prompt is read and marked "Looks good" before takes are paid for.
   const toRead = (c: Clip) => !!props.review && c.takes.length === 0 && !c.prompt_ok;
   const unread = list.filter(toRead).length;
-  const missing = list.filter((c) => c.takes.length === 0 && !toRead(c) && blocking(c.problems).length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
+  const missing = list.filter((c) => c.takes.length === 0 && !toRead(c) && blocking(c.problems, c.kept).length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
   const waitingForSheet = list.filter((c) => c.takes.length === 0 && blocks.forClip(c.clip_id).length > 0);
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
@@ -364,12 +364,18 @@ function ClipCard(props: {
           <PromptText clip={c} />
         </div>
       )}
-      {blocking(c.problems).length > 0 && (
+      {blocking(c.problems, c.kept).length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
-          {blocking(c.problems).map((p) => (
+          {blocking(c.problems, c.kept).map((p) => (
             <li key={p}>
               {props.words(p)}
               {props.fix(p)}
+              {/* Once the free fix was tried the card is never a dead end: keep it anyway (Undo is under Advice). */}
+              {c.free_fix_used && (
+                <Button variant="ghost" dense busy={keep.isPending} aria-label={`Keep it anyway: ${props.words(p)}`} onClick={() => keep.mutate({ problem: p })}>
+                  Keep it anyway
+                </Button>
+              )}
             </li>
           ))}
         </ul>
@@ -464,7 +470,7 @@ function ClipCard(props: {
             </Button>
           )}
           {note === null && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.toRead || props.stopped || props.busy || blocking(c.problems).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.toRead || props.stopped || props.busy || blocking(c.problems, c.kept).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
             {verb}
             {price}
           </button>

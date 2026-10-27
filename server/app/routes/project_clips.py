@@ -282,7 +282,7 @@ def generate(
     """Make a new take of this clip (a paid video job, counted against the project budget and
     its per-video cap). A clip with problems must be fixed first."""
     project, row = _clip(db, user, project_id, clip_id)
-    if advice.blocking(row.problems):  # "Advice: …" never blocks
+    if advice.stops(row):  # advice and problems kept anyway never block
         raise HTTPException(409, "Fix this clip's problems first.")
     if _stale(db, row, _newest_breakdown(db, project)):
         raise HTTPException(
@@ -469,9 +469,13 @@ def keep_clip_advice(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Keep anyway: this clip's advice stays as it is."""
+    """Keep anyway: this clip's advice stays as it is. A blocking problem can be kept too once
+    the free fix was tried (one-click-fixes.md §5); it then stops blocking the takes."""
     project, row = _clip(db, user, project_id, clip_id)
-    advice.keep(row, body.problem)
+    tried = row.free_fix_used
+    advice.keep(
+        row, body.problem, None if tried else "Try Fix this clip's prompt first. It's free."
+    )
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
@@ -484,7 +488,7 @@ def unkeep_clip_advice(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Undo Keep anyway on this clip's advice (?problem=, the text as shown)."""
+    """Undo Keep anyway on this clip's advice or kept problem (?problem=, the text as shown)."""
     project, row = _clip(db, user, project_id, clip_id)
     advice.unkeep(row, problem)
     db.commit()
