@@ -73,7 +73,10 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
   const writeCost = rate("write-claude");
-  const imageCost = rate("image");
+  // A still is made with the default image model; its rate is kept under "image-<model>".
+  const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
+  const stillModel = models.data?.find((m) => m.kind === "image" && m.default)?.id;
+  const imageCost = stillModel ? rate(`image-${stillModel}`) : undefined;
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
 
   const roles = useRoleNames(projectId);
@@ -433,10 +436,10 @@ function FrameCard(props: {
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for clip ${f.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
           <div className="flex gap-2">
-            <button className={redraws ? btnSecondary : btnPrimary} onClick={() => { props.onSave(editing); setEditing(null); }}>
+            <button className={`${redraws ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`} onClick={() => { props.onSave(editing); setEditing(null); }}>
               {redraws ? `Save and redraw · ${props.cost === undefined ? "…" : `${wholeCredits(props.cost)} credits`}` : "Save prompt"}
             </button>
-            <button className={btnSecondary} onClick={() => setEditing(null)}>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={() => setEditing(null)}>
               Cancel
             </button>
           </div>
