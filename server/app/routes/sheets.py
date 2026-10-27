@@ -65,10 +65,13 @@ def make_sheet(
     return queue_sheet(db, user, item, body)
 
 
-IDENTITY = re.compile(
-    r"(?i)\b(older|younger|old|young|age[ds]?|\d0s|teen\w*|kid|child|adult|face|jaw|nose|eyes?"
-    r"|skin|build|thin\w*|slim\w*|heav\w*|fat\w*|muscul\w*|tall\w*|short\w*|bald|beard|hair)\b"
+IDENTITY = re.compile(  # a clear change of age, face or build; an outfit never is
+    r"(?i)\b(older|younger|aged?|years? old|\d0s|teen\w*|elderly|middle-aged|"
+    r"(different|new|rounder|narrower|longer|wider|softer|sharper) (face|jaw)|"
+    r"(heavier|slimmer|thinner|leaner|stockier|bigger|smaller) (build|body|frame)|"
+    r"muscular|overweight|chubby|stocky|skinny)\b"
 )
+KEEPS = re.compile(r"(?i)\b(keep|same)\b")  # "keep the same face": the sheet stays
 
 
 def own_look(item: LibraryItem) -> bool:
@@ -89,7 +92,8 @@ def queue_sheet(
     redo = bool(body.change.strip()) and item.sheet_file_id is not None
     # A note that reworks the face, age or build of a video's or script's own look is drawn
     # fresh from its description and the note: the old sheet won over the note (QA-Live 6).
-    fresh = redo and own_look(item) and bool(IDENTITY.search(body.change))
+    fresh = (redo and own_look(item) and bool(IDENTITY.search(body.change))
+             and not KEEPS.search(body.change))  # unsure: keep the sheet  # fmt: skip
     refs = [item.source_photo_file_id] if from_photo else []
     refs += [item.sheet_file_id] if redo and not fresh else []
     notes = f"{item.notes.rstrip('. ')}. {body.change.strip()}" if fresh else item.notes

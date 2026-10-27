@@ -74,3 +74,19 @@ def test_a_plan_saved_for_the_editor_keeps_what_they_kept_anyway(owner, editor, 
     _resave(db, user, project, row, row.data)
     new = db.query(BreakdownVersion).order_by(BreakdownVersion.id.desc()).first()
     assert new.id != row.id and new.kept == [p for p in row.kept if p in new.problems]
+
+
+def test_only_a_clear_change_of_age_face_or_build_drops_the_sheet():
+    """QA on #642: outfit notes, and anything that keeps the face, keep the old sheet."""
+    from app.routes.sheets import IDENTITY, KEEPS
+
+    def fresh(note: str) -> bool:
+        return bool(IDENTITY.search(note)) and not KEEPS.search(note)
+
+    for note in ("Make him twenty years older.", "She's in her 50s.", "A teenager instead.",
+                 "A rounder face.", "A heavier build.", "Muscular arms."):  # fmt: skip
+        assert fresh(note), note
+    for note in ("Short sleeves.", "A shorter coat.", "Tall boots and a thin scarf.",
+                 "A heavy winter coat.", "Keep the same face, older jacket.",
+                 "Same face, but a red cap."):  # fmt: skip
+        assert not fresh(note), note
