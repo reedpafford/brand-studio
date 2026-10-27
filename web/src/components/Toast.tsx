@@ -3,13 +3,14 @@ import { Check, CircleAlert } from "lucide-react";
 import { Button } from "./Button";
 
 type Kind = "success" | "error";
-type Item = { message: string; undo?: () => void; kind: Kind; id: number };
-type Show = (message: string, undo?: () => void, kind?: Kind) => void;
+type Item = { message: string; undo?: () => void; kind: Kind; long?: boolean; id: number };
+/** `long` keeps a toast without Undo up as long as one with it: for a message that takes time to read. */
+type Show = (message: string, undo?: () => void, kind?: Kind, long?: boolean) => void;
 const Ctx = createContext<Show>(() => {});
 
 export const useToast = () => useContext(Ctx);
 
-/** One line, 4 seconds (8 with Undo); hovering or focusing it pauses the clock. One live region. */
+/** One line, 4 seconds (8 with Undo, or when it asks for `long`); hovering or focusing it pauses the clock. One live region. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [item, setItem] = useState<Item | null>(null);
   // Paused while the pointer is over it OR focus is inside it, each tracked on its own.
@@ -17,11 +18,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [focused, setFocused] = useState(false);
   const paused = hovered || focused;
   const seq = useRef(0);
-  const show = useCallback<Show>((message, undo, kind = "success") => {
-    setItem({ message, undo, kind, id: ++seq.current });
+  const show = useCallback<Show>((message, undo, kind = "success", long) => {
+    setItem({ message, undo, kind, long, id: ++seq.current });
   }, []);
   const id = item?.id;
-  const ms = item?.undo ? 8000 : 4000;
+  const ms = item?.undo || item?.long ? 8000 : 4000;
   useEffect(() => {
     if (id === undefined || paused) return;
     const t = setTimeout(() => setItem(null), ms);

@@ -10,7 +10,7 @@ Source: `ref.mp4` - 1080x1920, 60 fps, 45.02 s. 3D animated (Pixar-style CG) for
 
 ## MONTAGE - REPLACE WITH FOMO TRADING MONTAGE: 17.42-29.15 s (shots 17-40)
 
-Wordless, music-driven rise montage (11.7 s, 24 shots, median 0.3 s): hand on laptop, typing, camera to lens, POV typing, online store page, rapid match-cut taping/packing of parcels as the background swaps from bedroom to stockroom to big warehouse (one bg shows a rising bar chart), walking toward camera down warehouse aisles with match-cut background swaps, then a tracking shot of him in a black suit walking through a penthouse onto a night-skyline balcony. This whole section is to be replaced by a fomo trading montage; keep the length, the match-cut 'same pose, bigger world' device, and the end on the arrival/skyline shot before the '2 YEARS LATER' card.
+Wordless, music-driven rise montage (11.7 s, 24 shots, median 0.3 s): hand on laptop, typing, camera to lens, POV typing, online store page, rapid match-cut taping/packing of parcels as the background swaps from bedroom to stockroom to big warehouse (one bg shows a rising bar chart), walking toward camera down warehouse aisles with match-cut background swaps, then a tracking shot of him in a black suit walking through a penthouse onto a night-skyline balcony. This whole section is to be replaced by a fomo trading montage; keep the length and the match-cut 'same pose, bigger world' device, and land on a clearly big payoff before the '2 YEARS LATER' card; the payoffs themselves are new for each video.
 
 ## Pacing
 

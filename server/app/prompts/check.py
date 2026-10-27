@@ -105,6 +105,7 @@ def breakdown(
         if needed and not needed & set(shot.screen_ids):
             problems.append(f"shot {shot.id}: '{shot.moment}' moment without its screen")
     problems += _money_climbs(shots)
+    problems += cta_screen(shots, end_line, brand)
     quick = [not shot.line and shot.seconds <= 0.6 for shot in shots]  # wordless, fast
     for i, shot in enumerate(shots):
         # a montage is 3+ quick shots in a row; is this shot inside one?
@@ -402,6 +403,18 @@ def _exact(text: str) -> str:
 
 
 NEAR = 0.5  # share of the end line's words a near match needs (Reed: never block a near one)
+
+
+def cta_screen(shots: list, end_line: str, brand: str = "") -> list[str]:
+    """The end line's shot (the call to action) shows the brand's real screen, on the phone the
+    hero holds up to the camera (Reed, 2026-10-27): its clip then attaches it (`clip_prompts`)."""
+    said = [
+        s for s in shots if end_line.strip() and s.line and ends_on(end_line, s.line, brand) != "no"
+    ]
+    if said and not said[-1].screen_ids:
+        return [f"{ADVICE}shot {said[-1].id}: the end line's shot shows no screen; show the "
+                "brand's real screen on the phone he holds up to the camera"]  # fmt: skip
+    return []
 
 
 def ends_on(end_line: str, last: str, brand: str = "", before: str = "") -> str:
@@ -739,6 +752,41 @@ def misheard(transcript: list[dict]) -> list[str]:
                 break
         seen.append(x["text"])
     return problems
+
+
+PAYOFFS = {  # the got-rich run copied too often (Reed, 2026-10-27): one example among many
+    "keys": r"\bkeys\b",
+    "a car": r"\b(?:car|coupe|supercar|sports car|suv|lamborghini|lambo|ferrari|porsche)\b"
+    r"|behind the wheel",
+    "a penthouse": r"\bpenthouse\b",
+    "a balcony": r"\b(?:balcony|terrace)\b",
+    "a skyline": r"\bskyline\b",
+    "a mansion": r"\b(?:mansion|villa)\b",
+    "a yacht": r"\byacht\b",
+    "a private jet": r"\bprivate jet\b",
+}
+
+
+def payoffs(text: str) -> list[str]:
+    """The stock payoffs a montage shows, in the order it first shows them."""
+    found = [(m.start(), name) for name, pat in PAYOFFS.items()
+             if (m := re.search(pat, text, re.I))]  # fmt: skip
+    return [name for _, name in sorted(found)]
+
+
+def montage_text(script: str) -> str:
+    """A script's montage action lines (the house format names them "Wordless montage, …")."""
+    return " ".join(x for x in script.splitlines() if "montage" in x.lower())
+
+
+def repeated_payoffs(mine: str, earlier: str, whose: str) -> list[str]:
+    """Advice when a montage shows two or more of the stock payoffs an earlier one showed (the
+    reference's or the original's): each video invents its own."""
+    same = [x for x in payoffs(mine) if x in payoffs(earlier)]
+    if len(same) < 2:
+        return []
+    return [f"{ADVICE}the montage repeats {whose} payoffs ({', '.join(same)}); invent ones "
+            "that fit this story and its people"]  # fmt: skip
 
 
 READ_AGAIN = (

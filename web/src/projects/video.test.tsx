@@ -855,6 +855,60 @@ test("a locked step says Breakdown, the name this page uses, when problems in it
   expect(within(steps).getByRole("button", { name: "Assets" })).toHaveAccessibleDescription("Fix the 2 problems in Breakdown first");
 });
 
+const gone = asset({ ref: "slot:3", slot_id: 3, library_item_id: 77, name: "", role: "Nate", sheet_status: "none", library_deleted: true, look_credits: 4, look_usual_credits: 2 });
+const deletedRoutes = {
+  ...base,
+  "GET /projects/9/assets": [200, [gone]] as [number, unknown],
+  "GET /library/character/77": [404, { detail: "none" }] as [number, unknown],
+  "GET /library/character": [200, [{ id: 5, name: "Bo", sheet_status: "approved", image_file_ids: [], brand_ids: [1] }]] as [number, unknown],
+  "GET /projects/9/assets/missing-looks": noMissing,
+};
+
+test("a role whose Cast & places character was deleted says so and offers two fixes: Make a look, or Pick another for free", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...deletedRoutes, "POST /projects/9/assets/slots/3/make-look": [200, []] });
+  open();
+  const card = await screen.findByLabelText("Nate");
+  expect(within(card).getByText("Character deleted")).toBeInTheDocument();
+  expect(within(card).getByText("The character this role used was deleted from Cast & places.")).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: "Use a different character" })).toBeNull();
+  expect(within(card).getByText("Free")).toBeInTheDocument(); // Pick another costs nothing
+  await userEvent.click(within(card).getByRole("button", { name: /^Make a look · up to 4 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/make-look")).toBe(true));
+});
+
+test("Pick another opens the Cast & places picker for the deleted role", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...deletedRoutes, "PUT /projects/9/assets/slots/3": [200, []] });
+  open();
+  const card = await screen.findByLabelText("Nate");
+  expect(within(card).queryByLabelText("Use a Cast & places character")).toBeNull(); // closed until Pick another is pressed
+  await userEvent.click(within(card).getByRole("button", { name: "Pick another" }));
+  await userEvent.selectOptions(within(card).getByLabelText("Use a Cast & places character"), "5");
+  await userEvent.click(within(card).getByRole("button", { name: "Use this character" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
+});
+
+test("a role that is not deleted has no Character deleted badge or Pick another", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({})]], "GET /projects/9/assets/missing-looks": noMissing });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).queryByText("Character deleted")).toBeNull();
+  expect(within(card).queryByRole("button", { name: "Pick another" })).toBeNull();
+});
+
+test("Pick another is disabled, with the reason, when Cast & places has no other characters", async () => {
+  setViewport(1440);
+  fakeServer({ ...deletedRoutes, "GET /library/character": [200, []] });
+  open();
+  const card = await screen.findByLabelText("Nate");
+  const pick = within(card).getByRole("button", { name: "Pick another" });
+  expect(pick).toBeDisabled();
+  expect(pick).toHaveAccessibleDescription("Cast & places has no other characters yet.");
+  expect(within(card).queryByText("Free")).toBeNull();
+});
+
 test("on the video page too, a shot with no script lines shows no Show line button and does not break Breakdown", async () => {
   setViewport(1440);
   const wordless = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [{ id: "1.1", script_lines: [], speaker: null, line: null, action: "Bo looks up.", reaction: null, camera: "Wide", seconds: 2, character_ids: [], place_id: null, moment: null, screen_ids: [] }] }], clips: [{ id: "c1", shot_ids: ["1.1"], seconds: 2, seam: "end" }] } };
@@ -862,4 +916,70 @@ test("on the video page too, a shot with no script lines shows no Show line butt
   open("?step=breakdown");
   const silent = await screen.findByLabelText("Shot 1.1");
   expect(within(silent).queryByRole("button", { name: /in the script$/ })).toBeNull();
+});
+
+const clipProblem = "c1: the prompt has no [Image1] for the first frame";
+const fixRoutes = {
+  ...toClips,
+  "GET /projects/9/clips/prompts/price?clip_id=c1": [200, { clip_ids: ["c1"], credits: 3 }] as [number, unknown],
+};
+
+test("a clip with a blocking problem has a free Fix this clip's prompt; it shows what changed, with Undo, and never makes a take", async () => {
+  setViewport(1440);
+  const routes: Record<string, [number, unknown]> = {
+    ...fixRoutes,
+    "POST /projects/9/clips/3/fix": [200, { fixed: true, before: "Bo sniffs", after: "[Image1] Bo sniffs", reason: "", clip: clip({}) }],
+    "PUT /projects/9/clips/3": [200, clip({})],
+  };
+  Object.defineProperty(routes, "GET /projects/9/clips", {
+    enumerable: true,
+    get: () => [200, [calls.some((c) => c.key === "POST /projects/9/clips/3/fix") && !calls.some((c) => c.key === "PUT /projects/9/clips/3")
+      ? clip({ prompt: "[Image1] Bo sniffs", prompt_ok: false, change: { note: "Fix this clip's prompt", status: "done", before: "Bo sniffs", after: "[Image1] Bo sniffs", unchanged: false } })
+      : clip({ prompt: "Bo sniffs", prompt_ok: true, problems: [clipProblem] })]],
+  });
+  const calls = fakeServer(routes);
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).getByText("Free")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Fix this clip's prompt" }));
+  expect(await screen.findByText("Fixed clip c1's prompt.")).toBeInTheDocument(); // the toast, with Undo
+  const note = await within(card).findByRole("note", { name: "Prompt fixed" });
+  expect(note).toHaveTextContent("After: [Image1] Bo sniffs");
+  expect(calls.some((c) => c.key.includes("/takes") || c.key.endsWith("/generate"))).toBe(false); // nothing was made
+  await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/clips/3")?.body).toMatchObject({ prompt: "Bo sniffs" }));
+});
+
+test("once the free rewrite is used, the clip says so and offers the priced Rewrite and Change this…, not the Fix again", async () => {
+  setViewport(1440);
+  fakeServer({ ...fixRoutes, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, problems: [clipProblem], free_fix_used: true })]] });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).queryByRole("button", { name: "Fix this clip's prompt" })).toBeNull();
+  expect(within(card).getByRole("status")).toHaveTextContent("We couldn't fix this one automatically.");
+  expect(within(card).getByRole("status")).not.toHaveTextContent("Try saying");
+  expect(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · 3 credits" })).toBeInTheDocument();
+  expect(within(card).getByLabelText("Change this…")).toBeInTheDocument();
+});
+
+test("when the server can't fix it, the card says why in the server's words", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...fixRoutes,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, problems: [clipProblem] })]],
+    "POST /projects/9/clips/3/fix": [409, { detail: "We couldn't fix this one automatically." }],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  await userEvent.click(within(card).getByRole("button", { name: "Fix this clip's prompt" }));
+  expect(await within(card).findByRole("status")).toHaveTextContent("We couldn't fix this one automatically.");
+});
+
+test("a clip that is out of date keeps its own Rewrite and has no Fix this clip's prompt", async () => {
+  setViewport(1440);
+  fakeServer({ ...fixRoutes, "GET /projects/9/clips": [200, [clip({ stale: true, problems: [clipProblem] })]] });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(await within(card).findByRole("button", { name: /^Rewrite this clip's prompt/ })).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: "Fix this clip's prompt" })).toBeNull();
 });
