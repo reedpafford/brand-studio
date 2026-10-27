@@ -205,7 +205,7 @@ def fix_clip(
         raise HTTPException(409, "This clip has nothing to fix.")
     if running := clip_prompts.fixing(db, row):  # one in flight per clip: never a second call
         return FixOut(fixed=None, before=was.prompt, job=running, clip=_out(db, row, newest))
-    now = clip_prompts.repair_shape(was, bd)
+    now = clip_prompts.repair_shape(was, bd) if row.prompt else was  # unwritten: Claude
     problems = clip_prompts.clip_problems(db, project, bd, now)
     if now != was:
         row.same_fix = True  # the free fix's own change: its free rewrite stays counted
@@ -472,7 +472,7 @@ def keep_clip_advice(
     """Keep anyway: this clip's advice stays as it is. A blocking problem can be kept too once
     the free fix was tried (one-click-fixes.md §5); it then stops blocking the takes."""
     project, row = _clip(db, user, project_id, clip_id)
-    tried = row.free_fix_used
+    tried = row.free_fix_used and bool(row.prompt)  # an unwritten clip has nothing to keep
     advice.keep(
         row, body.problem, None if tried else "Try Fix this clip's prompt first. It's free."
     )

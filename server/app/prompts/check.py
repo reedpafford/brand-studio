@@ -354,7 +354,7 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
     """The Seedance prompt shape (Reed, 2026-10-23): the same audio line first and last, a
     Summary line, whole-second shots back to back from 0 to `seconds`, a Keep line before the
     closing audio line, and no settings words. Returns the problems and the shot count."""
-    lines = prompt.strip().splitlines()
+    lines = prompt.strip().splitlines() or [""]  # an empty prompt is a problem, never a crash
     problems = []
     if not (AUDIO_LINE.match(lines[0]) and lines[-1] == lines[0]):
         problems.append("doesn't open and close with the same audio line")

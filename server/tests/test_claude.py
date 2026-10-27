@@ -91,10 +91,12 @@ def test_refusal_raises_plain_error():
     assert err.value.cost_usd == Decimal("0.0144")  # refused answers are still billed
 
 
-def test_cut_off_answer_raises():
-    with pytest.raises(ClaudeError, match="cut off") as err:
+def test_cut_off_and_unreadable_answers_say_which():
+    with pytest.raises(ClaudeError, match="ran out of room") as err:
         suggest_enhancements(_client(_reply("max_tokens", text='{"sugg'), []), "b", "s")
     assert err.value.cost_usd  # whatever was received is still recorded
+    with pytest.raises(ClaudeError, match="unreadable"):
+        suggest_enhancements(_client(_reply(text='{"suggestions": 3}'), []), "b", "s")
 
 
 def test_key_comes_only_from_studio_env_var(monkeypatch):
