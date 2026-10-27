@@ -81,7 +81,8 @@ def test_a_role_listed_twice_is_one_slot(db, owner):
     save_cast_slots(db, job)
     db.commit()
     cast = owner.get(f"/scripts/{made['id']}").json()["cast"]
-    assert [(s["role"], s["appears_in"]) for s in cast] == [("Nate", [0, 1, 2])]
+    # Mom speaks too, so the backstop gives her the role the read left out (Reed: FRIEND)
+    assert [(s["role"], s["appears_in"]) for s in cast] == [("Nate", [0, 1, 2]), ("Mom", [0])]
 
 
 def test_a_roles_facts_and_its_guesses(db, owner):
@@ -107,9 +108,25 @@ def test_a_roles_facts_and_its_guesses(db, owner):
     save_cast_slots(db, job)
     db.commit()
     url = f"/scripts/{made['id']}"
-    (nate,) = owner.get(url).json()["cast"]
+    nate = next(c for c in owner.get(url).json()["cast"] if c["role"] == "Nate")
     assert nate["facts"]["occupation"] == {"value": "student", "inferred": True}
     assert nate["facts"]["age_range"] == {"value": "17-year-old", "inferred": False}
     owner.patch(f"{url}/cast/{nate['id']}", json={"description": "17-year-old boy, a student"})
-    (nate,) = owner.get(url).json()["cast"]
+    nate = next(c for c in owner.get(url).json()["cast"] if c["role"] == "Nate")
     assert nate["facts"]["occupation"]["inferred"] is False
+
+
+def test_only_people_who_speak_get_a_role_never_script_cues(db, owner):
+    """QA on #565: CUT TO:, MUSIC:, SFX:, FADE OUT: and the like are cues, not people (each
+    role would auto-make a paid look); "(V.O.)" is the same speaker; a name with no words
+    after it speaks nothing."""
+    from app.script_cast_read import _speakers
+
+    cues = "\n".join([
+        "SCENE 1 — INT. KITCHEN — DAY", "INT. KITCHEN — DAY:", "CUT TO:", "SMASH CUT TO:",
+        "MUSIC: soft piano", "SFX: a door slams", "FADE OUT:", "SUPER: Two years later",
+        "TITLE: The empty chair", "TEXT ON SCREEN: $348,920", "INSERT: the phone",
+        "MOM: Nate, where is all your money?", "NATE (V.O.): I bought the dip.", "FRIEND:",
+    ])  # fmt: skip
+    made = _make(owner, text=cues)
+    assert _speakers(db, db.get(Script, made["id"])) == {"Mom": [0], "Nate": [0]}

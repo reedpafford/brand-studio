@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app import breakdown, prompts
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
+from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
 from app.prompts import check
@@ -39,18 +40,21 @@ def stand_in_project(
     )
 
 
-def with_slots(db: Session, script_id: int, context: str, cast: dict | None = None) -> str:
-    """The context with the script's unlocked slots added to <cast> as slot:N lines, leaving
-    out any the video already cast (`cast`: the project's slot_cast)."""
-    unlocked = db.scalars(
+def with_slots(db: Session, script_id: int, context: str, project: Project | None = None) -> str:
+    """The context with the script's roles that have no usable look added to <cast> as slot:N
+    lines: not locked and not cast in the video (`project`), or their look was deleted (Kel's
+    empty chair: "Her friend" was left out of the prompt altogether)."""
+    from app.cast_roles import pick
+
+    slots = db.scalars(
         select(ScriptCastSlot)
-        .where(ScriptCastSlot.script_id == script_id, ScriptCastSlot.library_item_id.is_(None))
+        .where(ScriptCastSlot.script_id == script_id)
         .order_by(ScriptCastSlot.position)
     )
     lines = "\n".join(
         f"slot:{s.id} | {s.role} | {s.description} (no look yet)"
-        for s in unlocked
-        if str(s.id) not in (cast or {})
+        for s in slots
+        if (pick(db, project, s) if project else s.library_item_id) is None
     )
     return context.replace("\n</cast>", f"\n{escape(lines)}\n</cast>") if lines else context
 
@@ -58,7 +62,7 @@ def with_slots(db: Session, script_id: int, context: str, cast: dict | None = No
 def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict | None) -> dict:
     project = stand_in_project(db, script, draft, reference)
     system, context = project_context(db, project, "breakdown")
-    context = with_slots(db, script.id, context)
+    context = with_slots(db, script.id, context, project)
     parts = [context, f"<places>\n{escape(breakdown._places(db, project))}\n</places>"]
     parts.append(breakdown.video_model_block(breakdown.video_model()))
     if project.reference_breakdown:
@@ -76,6 +80,19 @@ def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict |
     }
 
 
+def live_looks(db: Session, script: Script) -> set[str]:
+    """A plan may name any live look in the workspace (it joins the video's cast), not a
+    deleted one or another workspace's."""
+    looks = db.scalars(
+        select(LibraryItem.id).where(
+            LibraryItem.workspace_id == script.workspace_id,
+            LibraryItem.kind == Kind.character,
+            LibraryItem.archived.is_(False),
+        )
+    )
+    return {f"char:{i}" for i in looks}
+
+
 def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> list[str]:
     project = stand_in_project(db, script, draft)
     screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
@@ -86,7 +103,7 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
         approved=draft.status == "approved",
     )  # fmt: skip
     slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
-    known_slots = {f"slot:{s.id}" for s in slots}
+    known_slots = {f"slot:{s.id}" for s in slots} | live_looks(db, script)
     unknown = [
         p
         for p in breakdown.unknown_ids(db, project, bd)
@@ -98,15 +115,20 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
 
     found += unknown + breakdown.cast_problems(db, project, draft.text, bd)
     called = {f"slot:{s.id}": short(s.role) or s.role for s in slots}
-    return plain(found, {**called, **names(assets(db, project))})
+    unknown_called = breakdown.unknown_names(db, project, bd)  # even a deleted look's name
+    return plain(found, {**unknown_called, **called, **names(assets(db, project))})
 
 
 def save(
     db: Session, draft: ScriptDraft, bd: Breakdown, by_id: int | None = None, text=None
 ) -> None:
     """A new plan for the version, from `text` (the words it was made from; the version's
-    own by default). Advice kept on the old plan doesn't carry over."""
+    own by default). Advice kept on the old plan doesn't carry over. A name the version doesn't
+    have is taken out first, said as advice (it has no Remove button here)."""
     script = db.get(Script, draft.script_id)
+    bd, removed = breakdown.land(
+        db, stand_in_project(db, script, draft), bd, live_looks(db, script)
+    )
     draft.breakdown, draft.breakdown_by_id = bd.model_dump(), by_id
     draft.breakdown_text, draft.breakdown_kept = draft.text if text is None else text, []
-    draft.breakdown_problems = problems(db, script, draft, bd)
+    draft.breakdown_problems = problems(db, script, draft, bd) + removed
