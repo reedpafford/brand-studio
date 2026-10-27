@@ -138,3 +138,10 @@ def test_a_name_inside_a_roles_description_is_never_that_role(owner, editor, db)
     cast = owner.get(base).json()["cast"]
     assert [s["role"] for s in cast] == ["Kimchi, Nate's rich friend", "Nate"]
     assert _who(editor, pid) == [[f"slot:{cast[1]['id']}"], [f"slot:{kimchi[0]['id']}"]]
+
+
+def test_storyboard_right_after_produce_waits_without_assets_being_opened(owner, editor, db):
+    """QA-2 on #614: the gate never depends on a page being opened."""
+    _, pid, _ = _video(owner, editor)
+    refused = editor.post(f"/projects/{pid}/storyboard", json={})
+    assert refused.status_code == 409 and "Nate and Bride" in refused.json()["detail"]

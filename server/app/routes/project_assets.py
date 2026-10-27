@@ -603,6 +603,18 @@ def merge(
     return {**out, "token": record.id, "assets": list_assets(project_id, user, db)}
 
 
+def _recast_only(made: dict, now: dict) -> dict[str, str] | None:
+    """Who now plays whom ({"slot:3": "char:9"}) when the shots changed since the merge only
+    by roles getting their looks (Assets making the missing ones); None for any other change
+    (QA-2 on #614: Undo was refused after Assets made a look)."""
+    a, b = Breakdown.model_validate(made), Breakdown.model_validate(now)
+    blank = {"scenes": {"__all__": {"shots": {"__all__": {"character_ids"}}}}}
+    if a.model_dump(exclude=blank) != b.model_dump(exclude=blank):
+        return None
+    swaps = cast_roles._swaps(a, b).values()
+    return None if None in swaps else {k: v for one in swaps for k, v in one.items()}
+
+
 @router.post("/merge/undo", response_model=list[AssetOut])
 def undo_merge(
     project_id: int, body: UndoIn, user: User = Depends(current_user), db: Session = Depends(get_db)
@@ -612,16 +624,25 @@ def undo_merge(
     record = db.get(CastMerge, body.token)
     if record is None or record.project_id != project.id:
         raise HTTPException(404, "There's nothing to undo here any more.")
-    data = record.data
+    data, swap = record.data, {}
     if (now := _newest(db, project)) and now.id != data.get("made"):
-        raise HTTPException(
-            409, "This can't be undone any more: the shots were changed after the merge."
-        )
-    project.slot_merged, project.slot_cast = data["slot_merged"], data["slot_cast"]
-    project.cast_ids = data["cast_ids"]
+        made = db.get(BreakdownVersion, data.get("made") or 0)
+        if made is None or (swap := _recast_only(made.data, now.data)) is None:
+            raise HTTPException(
+                409, "This can't be undone any more: the shots were changed after the merge."
+            )
+    # Looks given to other roles since (Assets making the missing ones) stay.
+    merged = {k for k in project.slot_merged or {} if k not in data["slot_merged"]}
+    project.slot_merged = {k: v for k, v in project.slot_merged.items() if k not in merged}
+    project.slot_cast = {**{k: v for k, v in project.slot_cast.items() if k not in merged},
+                         **{k: v for k, v in data["slot_cast"].items() if k in merged}}  # fmt: skip
+    project.cast_ids = sorted({*project.cast_ids, *data["cast_ids"]})
     bd = _newest(db, project)
     if bd and data["breakdown"]:
-        _resave(db, user, project, bd, data["breakdown"])
+        text = json.dumps(data["breakdown"])
+        for was, now_ref in swap.items():
+            text = text.replace(f'"{was}"', f'"{now_ref}"')
+        _resave(db, user, project, bd, json.loads(text))
         clip_prompts.follow(db, project, user)
     db.delete(record)
     db.commit()

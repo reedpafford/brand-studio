@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, change, clip_prompts, clip_takes, credits, cut_in
+from app import advice, breakdown, change, clip_prompts, clip_takes, credits, cut_in
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db, utcnow
@@ -175,8 +175,7 @@ def write_prompts(
     project = get_project(db, user, project_id)
     if not (bd := _newest_breakdown(db, project)):
         raise HTTPException(409, "Make a breakdown first.")
-    shots = [s["character_ids"] for scene in bd.data["scenes"] for s in scene["shots"]]
-    require_looks(shots, picture_assets(db, project), 409)
+    require_looks(breakdown.would_show(db, project, bd.data), picture_assets(db, project), 409)
     ids = _rewrite_ids(db, project, body.clip_id if body else None)
     if ids == []:
         raise HTTPException(409, "No clip needs new prompts.")

@@ -331,6 +331,29 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     return out
 
 
+def would_show(db: Session, project: Project, data: dict, shot_ids=None) -> list[list[str]]:
+    """Who each shot (all, or `shot_ids`) shows once every role is in its shots, for the
+    look gate before anything is written or drawn (QA-2 on #614: right after produce, before
+    Assets was opened), plus a speaker with no role yet as `unroled:<name>`. Read only:
+    `show_roles` runs on a copy."""
+    from app import script_cast_read
+    from app.cast_roles import labels, video_slots
+    from app.models.script_library import Script, ScriptDraft
+    from app.routes.scripts import latest
+
+    bd, words = Breakdown.model_validate(data), latest(db, project)
+    if words is not None:
+        show_roles(db, project, bd, words.text)
+    shots = [s for scene in bd.scenes for s in scene.shots if shot_ids is None or s.id in shot_ids]
+    out = [s.character_ids for s in shots]
+    if draft := db.get(ScriptDraft, project.script_draft_id or 0):
+        roles = [s.role for s in video_slots(db, project)]
+        said = script_cast_read._speakers(db, db.get(Script, draft.script_id))
+        out.append([f"unroled:{n}" for n in said if not any(labels(n, r) for r in roles)
+                    and any(s.speaker and labels(s.speaker, n) for s in shots)])  # fmt: skip
+    return out
+
+
 def add_speakers(db: Session, script) -> list[str]:
     """The script's speakers the cast read missed (or that it never had: a script from
     before the cast read), added to its cast as roles. Their names."""

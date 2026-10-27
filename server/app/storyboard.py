@@ -25,7 +25,7 @@ from app.models.script_library import ScriptCastSlot
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
-from app.sheets import require_cast_sheets, require_sheet, usable_files
+from app.sheets import require_cast_sheets, require_looks, require_sheet, usable_files
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
@@ -412,9 +412,12 @@ def still_price(db: Session, project: Project) -> int:
 def render_input(db: Session, project: Project, frame: StoryboardFrame, note: str = "") -> dict:
     """The Nano Banana job for one frame's still: the project's aspect ratio (always sent),
     character sheets first, then the place, props and screens, in the frame's order."""
+    from app.breakdown import would_show
+
     known = assets(db, project)
     breakdown = db.get(BreakdownVersion, frame.breakdown_id)
     require_cast_sheets(db, breakdown.data, [frame.shot_id], known)
+    require_looks(would_show(db, project, breakdown.data, [frame.shot_id]), known)
     characters, objects = [], []
     for ref in frame.reference_ids:
         if ref not in known:

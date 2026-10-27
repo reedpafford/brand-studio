@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, change, credits, storyboard
+from app import advice, breakdown, change, credits, storyboard
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db
@@ -148,8 +148,7 @@ def make(
     bd = _newest_breakdown(db, project)
     if not bd:
         raise HTTPException(409, "Make a breakdown first.")
-    shots = [s["character_ids"] for scene in bd.data["scenes"] for s in scene["shots"]]
-    require_looks(shots, storyboard.assets(db, project), 409)
+    require_looks(breakdown.would_show(db, project, bd.data), storyboard.assets(db, project), 409)
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("step") == "storyboard" for j in pending):
         raise HTTPException(409, "A storyboard is already being written for this project.")

@@ -45,7 +45,7 @@ def require_cast_sheets(db, breakdown_data: dict, shot_ids: list[str], known=Non
 def lookless(shots: list[list[str]], known: dict) -> list[str]:
     """The names of the roles in these shots (each a list of character ids) that have no
     approved look yet, each once."""
-    out = []
+    out = [r.partition(":")[2] for ids in shots for r in ids if r.startswith("unroled:")]
     for ref in (r for ids in shots for r in ids if r.startswith("slot:")):
         if ref in known and not known[ref][-1]:
             parts = known[ref][0].split(" | ")
