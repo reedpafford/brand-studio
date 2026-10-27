@@ -63,6 +63,22 @@ def enhance(script: str, result: EnhanceResult, screens: dict[str, list[str]]) -
     return problems
 
 
+DEVICE = {"mobile", "desktop"}  # what a screen is shown on, not what kind of screen it is
+
+
+def moment_screen(shot, screens: dict[str, list[str]], kinds: dict[str, set[str]]) -> str:
+    """A brand moment's shot shows one of its screens, or a screen of the same kind (any
+    "home" screen for fomo-mention: Home or Home (rich), Reed 2026-10-27). Advice, never a
+    block; "" when it does."""
+    needed = {sid for sid, moments in screens.items() if shot.moment in moments}
+    if not needed or needed & set(shot.screen_ids):
+        return ""
+    wanted = {t for sid in needed for t in kinds.get(sid, set())} - DEVICE
+    if any(wanted & (kinds.get(s, set()) - DEVICE) for s in shot.screen_ids):
+        return ""
+    return f"{ADVICE}shot {shot.id}: '{shot.moment}' moment without its screen"
+
+
 def breakdown(
     script: str,
     bd: Breakdown,
@@ -72,6 +88,7 @@ def breakdown(
     end_line: str = "",
     brand: str = "",  # the brand's name: a near end line must still say it
     approved: bool = False,  # Reed approved the words: the end line never blocks (advice)
+    kinds: dict[str, set[str]] | None = None,  # each screen's type tags ("home"): moment_screen
 ) -> list[str]:
     lines = script.splitlines()
     shots = [shot for scene in bd.scenes for shot in scene.shots]
@@ -101,9 +118,8 @@ def breakdown(
         for sid in shot.screen_ids:
             if sid not in screens:
                 problems.append(f"shot {shot.id}: unknown screen {sid}")
-        needed = {sid for sid, moments in screens.items() if shot.moment in moments}
-        if needed and not needed & set(shot.screen_ids):
-            problems.append(f"shot {shot.id}: '{shot.moment}' moment without its screen")
+        if said := moment_screen(shot, screens, kinds or {}):
+            problems.append(said)
     problems += _money_climbs(shots)
     problems += cta_screen(shots, end_line, brand)
     quick = [not shot.line and shot.seconds <= 0.6 for shot in shots]  # wordless, fast
