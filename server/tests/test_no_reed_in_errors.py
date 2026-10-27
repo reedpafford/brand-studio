@@ -120,9 +120,12 @@ def test_stored_checks_show_no_ids(app, db, editor, setup):  # noqa: F811
         assert not IDS.search(text), text
 
 
-def test_a_left_over_id_is_said_for_what_it_is():
+def test_a_left_over_id_is_said_for_what_it_is(monkeypatch):
     """Reed saw "slot:28": whatever made a message, an id in it never reaches a person."""
+    from app import advice
     from app.advice import said
+
+    monkeypatch.setattr(advice, "LOOKUP", None)  # nothing to look it up in: what it is
 
     assert said("c2: slot:28 has no look yet") == "A character has no look yet"
     assert said("Advice: screen:4 is shown twice") == "Advice: a screen is shown twice"
@@ -170,9 +173,31 @@ def test_a_stored_id_is_never_shown_and_can_still_be_kept(app, db, editor, setup
     db.commit()
     url = f"/projects/{setup['project']}/clips"
     shown = editor.get(url).json()[0]["problems"]
-    assert shown == ["Advice: A character looks older than the role"]
+    assert shown == ["Advice: A character looks older than the role"]  # slot 28 isn't there
     kept = editor.post(f"{url}/{clip.id}/keep", json={"problem": shown[0]})
     assert kept.status_code == 200, kept.text
     assert kept.json()["kept"] == shown
     undone = editor.delete(f"{url}/{clip.id}/keep", params={"problem": shown[0]})
     assert undone.json()["kept"] == []
+
+
+def test_a_left_over_id_is_named(app, db, editor, setup):  # noqa: F811
+    """Reed: the character's name, not "a character": a role by its name, a look and a
+    screen by theirs."""
+    from app.advice import said
+    from app.models.script_library import ScriptCastSlot
+    from tests.conftest import upload
+
+    fomo = editor.get("/brands").json()[0]["id"]
+    script = editor.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"})
+    slot = ScriptCastSlot(script_id=script.json()["id"], role="Nate, the son")
+    db.add(slot)
+    db.commit()
+    mia = editor.post(
+        "/library/character", json={"name": "Mia", "image_file_ids": [upload(editor)]}
+    ).json()["id"]
+    text = f"c1: slot:{slot.id} and char:{mia} share screen:{setup['screen']}; char:99999 left"
+    shown = said(text)
+    assert shown.startswith("Nate and Mia share ") and shown.endswith("; a character left")
+    assert "a screen" not in shown  # the brand screen by its own name
+    assert not IDS.search(shown)

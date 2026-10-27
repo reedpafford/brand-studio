@@ -2,10 +2,12 @@
 blocks a step; the editor can keep it ("Keep anyway") and it isn't shown as open again."""
 
 import re
+from contextlib import nullcontext
 from typing import Annotated
 
 from fastapi import HTTPException
 from pydantic import AfterValidator, BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 
 PREFIX = "Advice: "
 # The cast in a shot looks wrong (cast_roles.mismatches): stills wait until it's fixed or kept.
@@ -55,10 +57,47 @@ def plain(problems: list[str], called: dict[str, str]) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+LOOKUP = None  # the app's sessionmaker (main.create_app), to name an id left in a message
+
+
+def called(db, ids: set[str]) -> dict[str, str]:
+    """What people call these ids (Reed: the character's name, not "a character"): a role by
+    its name ("Nate"), a look, place or prop by its name, a screen by its name. One that
+    isn't there any more is left out (said for what it is)."""
+    from app.cast_roles import short
+    from app.enhance import screen_name
+    from app.models.brands import BrandScreen
+    from app.models.library import LibraryItem
+    from app.models.script_library import ScriptCastSlot
+
+    out = {}
+    for ref in ids:
+        kind, _, n = ref.partition(":")
+        if kind == "frame":
+            out[ref] = f"clip {n.lstrip('c')}'s still"
+        if not n.isdigit():
+            continue
+        if kind == "slot" and (slot := db.get(ScriptCastSlot, int(n))):
+            out[ref] = short(slot.role) or slot.role
+        elif kind in ("char", "place", "prop", "voice") and (item := db.get(LibraryItem, int(n))):
+            out[ref] = f"{item.name}'s voice" if kind == "voice" else item.name
+        elif kind == "screen" and (screen := db.get(BrandScreen, int(n))):
+            out[ref] = screen_name(screen)
+    return out
+
+
 def said(text: str) -> str:
     """One message as people read it: an id still in it (an AI's note, an older saved check)
-    said for what it is ("a character")."""
-    return plain([text], {})[0] if text else text
+    named ("Nate"), or said for what it is ("a character") when it's gone."""
+    ids = {m[0] for m in ID.finditer(text or "")}
+    if not ids:
+        return plain([text], {})[0] if text else text
+    try:
+        with LOOKUP() if LOOKUP else nullcontext() as db:
+            names_ = called(db, ids) if db else {}
+    except SQLAlchemyError:  # never fails a response: said for what it is
+        names_ = {}
+    return plain([text], names_)[0]
 
 
 # What a response shows people (Reed saw "slot:28"): every problem, kept advice and note
