@@ -1,4 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+2026-10-27 16:25 · HANDOFF rewritten to 60 lines: the long Built history and decision notes are now a short summary pointing here and to DECISIONS Current rules; spend detail stays in ops/SPEND.md
+2026-10-27 16:21 · #609 ops: Current rules (28 numbered rules) at the top of DECISIONS, History below; agents re-read them before each task, merged (by the Producer)
+2026-10-27 16:14 · #608 ops: HANDOFF/LOG refresh merged (by the Producer)
+2026-10-27 16:13 · #605 Clip prompts always finish: a few clips per answer, causes named (stabilization step 2) merged
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
 - 2026-10-27 16:11 · Decision (#607, Reed): the size budget is a cap of about 36,000 lines of app code (server/app plus web/src without tests or generated files), replacing the 8,000 aim, with no net growth; ops/AGENTS.md updated
