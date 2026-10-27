@@ -921,6 +921,11 @@ def test_sheet_prompts_are_house_style_with_no_names_or_text():
     assert "a front view, a side view in profile and a back view" in sheet
     assert "all three views are always there" in sheet  # a live sheet came back without its side
     assert "never a child's" in sheet and "6 heads" not in sheet  # Lexi, an adult, came out a child
+    assert "never one that resembles a famous film, TV, comic or game character" in sheet
+    assert "Keep the person, not a famous character's signature" in prompts.sheet_prompt(
+        "character", from_photo=True
+    )  # Seedance refused 23 takes of a look that read as a famous goth character (10-27)
+    assert "an original character, never one that resembles" in prompts.system("cast_slots")
     assert "No text" in sheet and sheet.endswith(
         "The character: 17, red beanie, grey hoodie, headphones"
     )
