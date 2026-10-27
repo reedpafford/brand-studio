@@ -368,6 +368,13 @@ test("a still's price comes from the default image model's rate, so every frame 
   expect(screen.getByRole("button", { name: "Redo · 5 credits" })).toBeInTheDocument();
 });
 
+test("a frame's own still_credits wins over the rate table", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ still_credits: 4 }), frame({ id: 2, clip_id: "c2", shot_id: "2.1", file_id: 40, still_credits: 4 })]] });
+  open();
+  expect(await screen.findByRole("button", { name: /^Make still · 4 credits/ })).toBeInTheDocument(); // the table says 3
+  expect(screen.getByRole("button", { name: "Redo · 4 credits" })).toBeInTheDocument();
+});
+
 test("Save prompt and Cancel are 44px tall on a phone", async () => {
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({})]] });
   open();
