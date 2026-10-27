@@ -37,6 +37,7 @@ class WriteManyEstimate(BaseModel):
     writing: int = 0  # scripts that are simply written
     waiting: list[int] = []  # reels still being prepared: Write all waits for them
     failed: list[int] = []  # reels that need the video uploaded (fetch failed, or too old)
+    reels: dict[str, int] = {"links": 0, "videos": 0}  # the reels read first, by kind
 
 
 def _price(db: Session, user: User) -> Decimal:
@@ -124,6 +125,8 @@ def write_many_estimate(
     plans = [_plan(db, s) for s in scripts]
     left = credits_left(db, user)
     costs = [(p, _cost(db, user, s, p)) for s, p in zip(scripts, plans, strict=True)]
+    read = [s for s, p in zip(scripts, plans, strict=True) if p in ("read", "waiting")]
+    videos = sum((s.reel or {}).get("source") == "upload" for s in read)
     return WriteManyEstimate(
         count=len(ids),
         credits=sum((c for _, c in costs), 0),
@@ -134,6 +137,7 @@ def write_many_estimate(
         writing=plans.count("write"),
         waiting=[s.id for s, p in zip(scripts, plans, strict=True) if p == "waiting"],
         failed=[s.id for s, p in zip(scripts, plans, strict=True) if p == "failed"],
+        reels={"links": len(read) - videos, "videos": videos},
     )
 
 

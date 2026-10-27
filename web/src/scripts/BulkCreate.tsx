@@ -113,7 +113,7 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
             {made.map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-2">
                 <span className="min-w-0 break-words">{m.title}</span>
-                {reels ? <ReelChip reel={(estimate.data?.failed ?? []).includes(m.id) ? { status: "failed", seconds: null, fetch_error: m.reel?.fetch_error } : m.reel} /> : <Badge>Writing</Badge>}
+                {reels ? <ReelChip reel={(estimate.data?.failed ?? []).includes(m.id) ? { source: "link", ...m.reel, status: "failed", seconds: null, fetch_error: m.reel?.fetch_error } : m.reel} /> : <Badge>Writing</Badge>}
               </li>
             ))}
           </ul>
