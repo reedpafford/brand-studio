@@ -165,15 +165,16 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
   const approveAll = useApproveAllWith({
     noun: "version",
     ready: drafts,
-    waiting: drafts,
+    waiting: s.versions.filter((v) => v.slot > 0 && v.status === "draft").length, // one still being written is waiting too, so the button says "Approve 1"
     press: async () => {
       const { data, error } = await api.POST("/scripts/{script_id}/drafts/approve-all", { params: { path: { script_id: s.id } } });
       if (!data) throw new Error(errorText(error));
       return data as ApproveAllResult;
     },
     undo: async (ids) => {
-      const { data } = await api.POST("/scripts/{script_id}/drafts/approve-all/undo", { params: { path: { script_id: s.id } }, body: { ids } });
-      if (data) queryClient.setQueryData(["script-lib", s.id], data);
+      const back = await api.POST("/scripts/{script_id}/drafts/approve-all/undo", { params: { path: { script_id: s.id } }, body: { ids } });
+      if (back.data) queryClient.setQueryData(["script-lib", s.id], back.data);
+      return back;
     },
     refresh: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] }), queryClient.invalidateQueries({ queryKey: ["scripts"] })]),
     name: (k) => k.label ?? "",

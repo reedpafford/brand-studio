@@ -427,6 +427,13 @@ test("Variations: Approve all approves the written drafts, says which version wa
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/approve-all/undo")?.body).toEqual({ ids: [1] }));
 });
 
+test("Variations: with one version still to be written, the button counts only the ones it can approve", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, approvedOriginal([ver(1, { text: "SCENE 1\nMIA: Hell no." }), ver(2, { text: "" })])], "GET /scripts/7/variations/estimate": [200, { credits: 6 }] });
+  open("/b/1/scripts/7?step=variations");
+  expect(await screen.findByRole("button", { name: "Approve 1" })).toBeInTheDocument();
+});
+
 test("Variations: the lines that differ from the original are found by their words, ignoring blanks", async () => {
   const { changedLines } = await import("./VariationsStep");
   expect(changedLines("A\nB\nC", "A\nX\n\nC")).toEqual([false, true, false, false]);
