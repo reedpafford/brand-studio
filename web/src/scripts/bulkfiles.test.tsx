@@ -88,6 +88,39 @@ test("a refused file takes no place out of the 20, so removing nothing still let
   expect(up.sent).toHaveLength(20);
 });
 
+test("links pasted after files share the 20 cap: Make is disabled with the reason, and removing one clears it", async () => {
+  setup();
+  const up = stand();
+  open(up.uploader);
+  await toReels();
+  await drop(video("a.mp4"));
+  up.pending[0].done({ id: 1, seconds: 10 });
+  await screen.findByText("Ready");
+  await userEvent.click(screen.getByLabelText("Paste reel links, one per line"));
+  await userEvent.paste(Array.from({ length: 20 }, (_, i) => `https://www.instagram.com/reel/r${i}/`).join("\n"));
+  const make = screen.getByRole("button", { name: /^Make 21 drafts/ });
+  expect(make).toBeDisabled();
+  expect(make).toHaveAccessibleDescription("Up to 20 reels at once: remove 1");
+  expect(screen.getByText("That's 21 reels. Up to 20 at a time.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Remove a.mp4" }));
+  expect(screen.queryByText(/Up to 20 at a time/)).toBeNull();
+});
+
+test("closing without making drafts deletes the files that were kept", async () => {
+  setup();
+  const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /references": [200, []], "GET /credits/me": [200, null], "DELETE /uploads/7": [204, null] });
+  const up = stand();
+  const onClose = vi.fn();
+  open(up.uploader, onClose);
+  await toReels();
+  await drop(video("a.mp4"));
+  up.pending[0].done({ id: 7, seconds: 10 });
+  await screen.findByText("Ready");
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(onClose).toHaveBeenCalled();
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /uploads/7")).toBe(true));
+});
+
 test("a file that isn't MP4 or MOV, or is over 100 MB, is refused on its own row before anything is sent", async () => {
   setup();
   const up = stand();

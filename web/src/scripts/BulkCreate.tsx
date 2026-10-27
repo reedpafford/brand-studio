@@ -53,7 +53,6 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
   const [change, setChange] = useState("");
   const linkList = links.split("\n").map((l) => l.trim()).filter(Boolean);
   const badLinks = linkList.map((l, i) => (LINK.test(l) ? 0 : i + 1)).filter(Boolean);
-  const tooMany = linkList.length > MAX;
   const goodLinks = linkList.length - badLinks.length; // the button counts only real reel links
   // Video files go in the same queue as the links: up to MAX reels in all, uploading as soon as they are added.
   const files = useFileQueue(useMemo(() => uploader ?? videoUploader(brandId), [uploader, brandId]), MAX - linkList.length, forgetVideo);
@@ -68,11 +67,18 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
       window.removeEventListener("drop", keep);
     };
   }, []);
-  const closePanel = () => (files.uploading > 0 ? setStopping(true) : onClose());
+  const leave = () => {
+    files.forgetAll();
+    onClose();
+  };
+  const closePanel = () => (files.uploading > 0 ? setStopping(true) : leave());
+  // Links and the files that weren't refused share the one cap.
+  const reelsTotal = linkList.length + files.rows.filter((r) => r.status !== "problem").length;
+  const tooMany = reelsTotal > MAX;
   const reelCount = goodLinks + files.ready.length;
   // Reel links: why Make N drafts can't be pressed yet.
   const holdReason =
-    mode !== "links" ? null : reelCount === 0 && linkList.length === 0 && files.rows.length === 0 ? "Add a reel link or a video first" : files.uploading > 0 ? `Wait for the uploads to finish (${files.uploading} left)` : badLinks.length > 0 ? "Fix the lines that aren't reel links" : tooMany ? `Up to ${MAX} links` : reelCount === 0 ? "Add a reel link or a video first" : null;
+    mode !== "links" ? null : reelCount === 0 && linkList.length === 0 && files.rows.length === 0 ? "Add a reel link or a video first" : files.uploading > 0 ? `Wait for the uploads to finish (${files.uploading} left)` : badLinks.length > 0 ? "Fix the lines that aren't reel links" : tooMany ? `Up to ${MAX} reels at once: remove ${reelsTotal - MAX}` : reelCount === 0 ? "Add a reel link or a video first" : null;
   const refs = useReferences();
   const { data: me } = useMe();
   const editor = me?.role !== undefined && me.role !== "owner";
@@ -201,7 +207,7 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
                 ))}
               </ul>
             )}
-            {tooMany && <p role="alert" className={errorClass}>That's {linkList.length} links. Up to {MAX} at a time.</p>}
+            {tooMany && <p role="alert" className={errorClass}>That's {reelsTotal} reels. Up to {MAX} at a time.</p>}
             <BulkFiles queue={files} />
             <div className="space-y-1">
               <label className="flex min-h-control items-center gap-3">
@@ -275,7 +281,7 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
         </Button>
         {mode === "links" && files.problems > 0 && <p className="text-sm text-muted">{files.problems} file{files.problems === 1 ? " won't be" : "s won't be"} added.</p>}
         {stopping && (
-          <Dialog title="Stop the uploads?" cancelLabel="Keep uploading" actionLabel="Stop and close" danger onCancel={() => setStopping(false)} onConfirm={() => { files.stopAll(); onClose(); }}>
+          <Dialog title="Stop the uploads?" cancelLabel="Keep uploading" actionLabel="Stop and close" danger onCancel={() => setStopping(false)} onConfirm={() => { files.stopAll(); leave(); }}>
             The files you added won't be kept.
           </Dialog>
         )}

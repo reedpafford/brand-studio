@@ -98,6 +98,8 @@ export function useFileQueue(uploader: Uploader, room: number, forget?: (id: num
     const row = rows.find((r) => r.key === key);
     if (row) start(key, row.file);
   };
+  // The panel closes without making drafts: the files that were kept for them go too.
+  const forgetAll = () => rows.forEach((r) => r.id != null && forget?.(r.id));
   const stopAll = () => {
     stops.current.forEach((s) => s.abort());
     stops.current.clear();
@@ -111,6 +113,7 @@ export function useFileQueue(uploader: Uploader, room: number, forget?: (id: num
     remove,
     retry,
     stopAll,
+    forgetAll,
     uploading: rows.filter((r) => r.status === "uploading").length,
     ready: rows.filter((r) => r.status === "ready"),
     problems: rows.filter((r) => r.status === "problem").length,
