@@ -185,6 +185,38 @@ def _across_versions(db: Session, script: Script, slots: list[ScriptCastSlot]) -
     return [(*sorted((a, b), key=lambda s: (s.position, s.id)), why) for a, b, why in first]
 
 
+def video_pairs(db: Session, project, bd) -> list[tuple]:
+    """The video's roles without a look that are one of its locked or cast roles by another
+    name (Kel's empty chair: "Girl" was the locked girlfriend, "Brad" the locked Mogging BF):
+    [(role, the role it is, certain)], never a pair kept apart here. Certain: the role's name
+    or a short form ("GF"), or a line of 3+ words it says in another version. Unsure: its shots
+    all show that role and no one else who speaks as themselves (the hero). Free."""
+    from app.cast_roles import labels, pick, ref, same, short, video_slots
+
+    if (draft := db.get(ScriptDraft, project.script_draft_id or 0)) is None:
+        return []
+    script, out = db.get(Script, draft.script_id), []
+    apart = {frozenset(p) for p in project.cast_apart or []}
+    shots = [s for sc in bd.scenes for s in sc.shots] if bd is not None else []
+    talk = {x.speaker for x in shots if x.speaker}
+    for own in [s for s in video_slots(db, project) if not pick(db, project, s)]:
+        name, slots = short(own.role) or own.role, [s for s in video_slots(db, project)
+                                                    if pick(db, project, s)]  # fmt: skip
+        hit = next((s for s in slots if labels(name, s.role)), None) or next(
+            (b if a is own else a for a, b, why in _across_versions(db, script, [own, *slots])
+             if why.startswith("They say") and own in (a, b)), None)  # fmt: skip
+        mine = [x for x in shots if f"slot:{own.id}" in x.character_ids
+                or (x.speaker and same(x.speaker, name))]  # fmt: skip
+        refs = {ref(db, project, s): s for s in slots
+                if not any(labels(n, s.role) for n in talk if not same(n, name))}  # fmt: skip
+        seen = [{refs[r] for r in x.character_ids if r in refs} for x in mine]
+        common = set.intersection(*seen) if seen else set()
+        into = hit or (common.pop() if len(common) == 1 else None)
+        if into and frozenset((own.id, into.id)) not in apart:
+            out.append((own, into, hit is not None))
+    return out
+
+
 def maybe_same(db: Session, script: Script) -> list[dict]:
     """Pairs that may be one person: [{a_slot_id, b_slot_id, into_slot_id, why}], never a pair
     kept apart, nor two roles that share a shot."""

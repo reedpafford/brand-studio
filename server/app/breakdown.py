@@ -325,35 +325,49 @@ def _hero_in_montage(db: Session, project: Project, bd: Breakdown, added: dict) 
 def complete_cast(db: Session, project: Project) -> list[str]:
     """Every speaker in the video's script is a role, and every role is in its shots
     (`show_roles`), so Assets makes and asks for their looks and frames and clips get their
-    sheets. A screen shot that gains a person has "Use the real image" turned off (it was only
-    offered as a shot with nobody in it). Free and idempotent: when Assets opens, and on
-    deploy. One plain line per change."""
+    sheets; a role that is a locked or cast one by another name is merged into it on this video
+    (with Undo). A screen shot that gains a person has "Use the real image" turned off (it was
+    only offered as a shot with nobody in it). Free and idempotent: when Assets, Storyboard or
+    Clips opens. One plain line per change."""
+    from app import merge_roles
+    from app.cast_roles import merge_shots, short
     from app.models.clips import ProjectClip
-    from app.models.script_library import Script, ScriptDraft
+    from app.models.script_library import CastMerge, Script, ScriptDraft
     from app.routes.scripts import latest
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     script = db.get(Script, draft.script_id) if draft else None
     if script is None:
         return []
-    out = [f"{script.title}: added {name} to the cast" for name in add_speakers(db, script)]
     row = db.scalar(
         select(BreakdownVersion)
         .where(BreakdownVersion.project_id == project.id)
         .order_by(BreakdownVersion.id.desc())
         .limit(1)
     )
+    out = [f"{script.title}: added {name} to the cast" for name in add_speakers(db, script)]
     words = latest(db, project)
     if row is None or words is None:
         return out
     bd = Breakdown.model_validate(row.data)
-    if not (added := show_roles(db, project, bd, words.text)):
+    merged = []  # a role that is a locked or cast one by another name, when that's certain
+    for slot, into, _ in [p for p in merge_roles.video_pairs(db, project, bd) if p[2]]:
+        old = {"slot_merged": project.slot_merged or {}, "slot_cast": project.slot_cast or {},
+               "cast_ids": project.cast_ids or [], "breakdown": bd.model_dump(), "made": row.id,
+               "auto": [slot.id, into.id]}  # fmt: skip
+        db.add(CastMerge(workspace_id=project.workspace_id, script_id=script.id,
+                         project_id=project.id, data=old))  # fmt: skip
+        merge_shots(db, project, bd, slot, into)
+        project.slot_merged = {**(project.slot_merged or {}), str(slot.id): into.id}
+        merged.append(f"Advice: {short(slot.role) or slot.role} is {short(into.role) or into.role}"
+                      ", one role in this video.")  # fmt: skip
+    if not (added := show_roles(db, project, bd, words.text)) and not merged:
         return out
     counts: dict[str, int] = {}
     for name in (n for names in added.values() for n in names):
         counts[name] = counts.get(name, 0) + 1
-    notes = [f"Advice: {name} now appears in {'1 shot' if n == 1 else f'{n} shots'}."
-             for name, n in counts.items()]  # fmt: skip
+    notes = merged + [f"Advice: {name} now appears in {'1 shot' if n == 1 else f'{n} shots'}."
+                      for name, n in counts.items()]  # fmt: skip
     row.data = bd.model_dump()
     row.problems = problems(db, project, words.text, bd) + notes
     off = 0
@@ -371,16 +385,18 @@ def complete_cast(db: Session, project: Project) -> list[str]:
 def would_show(db: Session, project: Project, data: dict, shot_ids=None) -> list[list[str]]:
     """Who each shot (all, or `shot_ids`) shows once every role is in its shots, for the
     look gate before anything is written or drawn (QA-2 on #614: right after produce, before
-    Assets was opened), plus a speaker with no role yet as `unroled:<name>`. Read only:
-    `show_roles` runs on a copy."""
-    from app import script_cast_read
-    from app.cast_roles import labels, video_slots
+    Assets was opened), plus a speaker with no role yet as `unroled:<name>`; a role that is or
+    may be another (`video_pairs`) counts as them. Read only: it runs on a copy."""
+    from app import merge_roles, script_cast_read
+    from app.cast_roles import labels, merge_shots, video_slots
     from app.models.script_library import Script, ScriptDraft
     from app.routes.scripts import latest
 
     bd, words = Breakdown.model_validate(data), latest(db, project)
     if words is not None:
         show_roles(db, project, bd, words.text)
+    for slot, into, _ in merge_roles.video_pairs(db, project, bd):
+        merge_shots(db, project, bd, slot, into)  # never blocks on one that may be another
     shots = [s for scene in bd.scenes for s in scene.shots if shot_ids is None or s.id in shot_ids]
     out = [s.character_ids for s in shots]
     if draft := db.get(ScriptDraft, project.script_draft_id or 0):
@@ -405,23 +421,19 @@ def add_speakers(db: Session, script) -> list[str]:
 
 
 def _role(db: Session, project: Project, slots: list, speaker: str | None):
-    """The script's role for a shot's speaker, added to the script when it has none yet (the
-    cast read missed them); None without a speaker or a library script."""
-    from app.cast_roles import short
-    from app.models.script_library import ScriptCastSlot, ScriptDraft
+    """The script's role for a shot's speaker (`cast_roles.labels`), made with the script's
+    other missed speakers when it has none yet; None without a speaker or a library script."""
+    from app.cast_roles import labels, video_slots
+    from app.models.script_library import Script, ScriptDraft
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     if not speaker or draft is None:
         return None
-    want = speaker.strip().lower()
-    found = next((s for s in slots if want in (s.role.lower(), short(s.role).lower())), None)
-    if found is None:
-        found = ScriptCastSlot(script_id=draft.script_id, role=speaker.strip().title()[:120],
-                               position=len(slots) + 1, kind="Helper")  # fmt: skip
-        db.add(found)
-        db.flush()
-        slots.append(found)
-    return found
+    if not any(labels(speaker, s.role) for s in slots) and add_speakers(
+        db, db.get(Script, draft.script_id)
+    ):
+        slots[:] = video_slots(db, project)
+    return next((s for s in slots if labels(speaker, s.role)), None)
 
 
 def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:

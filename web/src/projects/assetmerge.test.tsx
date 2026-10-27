@@ -145,3 +145,18 @@ test("a refused They're different shows the server's words", async () => {
   await userEvent.click(screen.getByRole("button", { name: /are different/ }));
   expect(await screen.findByText("Those two roles aren't both in this video.")).toBeInTheDocument();
 });
+
+test("a role the server merged by itself (Girl is the locked girlfriend) says so, with Undo", async () => {
+  setViewport(390);
+  const why = "Girl is Girlfriend in this video, so they're one role.";
+  const calls = fakeServer({
+    ...roles,
+    "GET /projects/9/assets/maybe-same": [200, [{ a_slot_id: 32, b_slot_id: 40, into_slot_id: 32, why, undo_token: 11 }]],
+    "POST /projects/9/assets/merge/undo": [200, [kimchi, friend]],
+  });
+  open();
+  expect(await screen.findByText(why)).toBeInTheDocument();
+  expect(screen.queryByText(/These may be the same person/)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/assets/merge/undo")?.body).toEqual({ token: 11 }));
+});

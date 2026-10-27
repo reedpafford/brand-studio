@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
-import { useToast } from "../components";
+import { Button, useToast } from "../components";
 import { MaybeSame, MaybeSameBadge, pairId, type Pair } from "./MaybeSame";
 import { MergeRole, mergedText } from "./MergeRole";
 
@@ -23,7 +23,8 @@ export function useAssetMerge(projectId: number, cast: Asset[]) {
   const flags = useQuery({ queryKey: ["assets-maybe-same", projectId], queryFn: async () => (await api.GET("/projects/{project_id}/assets/maybe-same", { params: { path } })).data ?? [] });
   const refresh = () => Promise.all([["assets", projectId], ["assets-maybe-same", projectId], ["breakdown", projectId], ["storyboard", projectId], ["project-clips", projectId]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
   const bySlot = (id: number) => roles.find((a) => slotOf(a) === id);
-  const pairs: Pair[] = (flags.data ?? []).filter((p) => bySlot(p.a_slot_id) && bySlot(p.b_slot_id)).map((p) => ({ a: p.a_slot_id, b: p.b_slot_id, into: p.into_slot_id, why: p.why }));
+  const merged = (flags.data ?? []).filter((p) => p.undo_token); // merged by itself ("Girl is Girlfriend"), with Undo
+  const pairs: Pair[] = (flags.data ?? []).filter((p) => !p.undo_token && bySlot(p.a_slot_id) && bySlot(p.b_slot_id)).map((p) => ({ a: p.a_slot_id, b: p.b_slot_id, into: p.into_slot_id, why: p.why }));
   const pairsOf = (a: Asset) => pairs.filter((p) => p.a === slotOf(a) || p.b === slotOf(a));
   const nameBySlot = (id: number) => (bySlot(id) ? nameOf(bySlot(id)!) : "");
   const showPair = (p: Pair) => {
@@ -82,7 +83,19 @@ export function useAssetMerge(projectId: number, cast: Asset[]) {
     /** A role with nobody to merge into: the menu shows Merge into… disabled, with the reason. */
     alone: (a: Asset) => slotOf(a) !== null && roles.length === 1,
     start: (a: Asset) => setMerging({ asset: a }),
-    note: <MaybeSame compact pairs={pairs} name={nameBySlot} outlined={outlined} onMerge={(p) => { const a = bySlot(p.into === p.a ? p.b : p.a); if (a) setMerging({ asset: a, suggested: p.into }); }} onDismiss={keepTwo} />,
+    note: (
+      <>
+        {merged.map((p) => (
+          <p key={p.undo_token} className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm sm:min-h-9">
+            <span className="flex-1">{p.why}</span>
+            <Button variant="ghost" dense onClick={() => void undo(p.undo_token!).catch((e: Error) => toast(e.message, undefined, "error"))}>
+              Undo
+            </Button>
+          </p>
+        ))}
+        <MaybeSame compact pairs={pairs} name={nameBySlot} outlined={outlined} onMerge={(p) => { const a = bySlot(p.into === p.a ? p.b : p.a); if (a) setMerging({ asset: a, suggested: p.into }); }} onDismiss={keepTwo} />
+      </>
+    ),
     badge: (a: Asset): ReactNode => pairsOf(a).slice(0, 1).map((p) => <MaybeSameBadge key={pairId(p)} other={nameBySlot(p.a === slotOf(a) ? p.b : p.a)} onClick={() => showPair(p)} />),
     dialog,
   };

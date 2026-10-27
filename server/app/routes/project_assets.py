@@ -565,6 +565,8 @@ def undo_merge(
     project.slot_cast = {**{k: v for k, v in project.slot_cast.items() if k not in merged},
                          **{k: v for k, v in data["slot_cast"].items() if k in merged}}  # fmt: skip
     project.cast_ids = sorted({*project.cast_ids, *data["cast_ids"]})
+    if pair := data.get("auto"):  # merged by itself: never again on this video
+        project.cast_apart = [*(project.cast_apart or []), sorted(pair)]
     bd = _newest(db, project)
     if bd and data["breakdown"]:
         text = json.dumps(data["breakdown"])
@@ -587,9 +589,22 @@ def maybe_same(project_id: int, user: User = Depends(current_user), db: Session 
     script = db.get(Script, db.get(ScriptDraft, project.script_draft_id).script_id)
     here = {s.id for s in _slots(db, project)}
     apart = {frozenset(p) for p in project.cast_apart or []}
-    return [p for p in merge_roles.maybe_same(db, script)
-            if {p["a_slot_id"], p["b_slot_id"]} <= here
-            and frozenset((p["a_slot_id"], p["b_slot_id"])) not in apart]  # fmt: skip
+    bd = _newest(db, project)  # a role that may be a locked one by another name ("Girl")
+    plan = Breakdown.model_validate(bd.data) if bd else None
+    unsure = [{"a_slot_id": b.id, "b_slot_id": a.id, "into_slot_id": b.id,
+               "why": "Their shots show the same person."}
+              for a, b, sure in merge_roles.video_pairs(db, project, plan) if not sure]  # fmt: skip
+    auto = []  # merged by itself, with Undo while the shots are as it merged them
+    for r in db.scalars(select(CastMerge).where(CastMerge.project_id == project.id)):
+        roles = [db.get(ScriptCastSlot, i) for i in r.data.get("auto") or [0]]
+        if None not in roles and bd and r.data["made"] == bd.id:
+            pair, (one, into) = r.data["auto"], (cast_roles.short(x.role) for x in roles)
+            auto.append({"a_slot_id": pair[1], "b_slot_id": pair[0], "into_slot_id": pair[1],
+                         "why": f"{one} is {into} in this video, so they're one role.",
+                         "undo_token": r.id})  # fmt: skip
+    return auto + [p for p in [*merge_roles.maybe_same(db, script), *unsure]
+                   if {p["a_slot_id"], p["b_slot_id"]} <= here
+                   and frozenset((p["a_slot_id"], p["b_slot_id"])) not in apart]  # fmt: skip
 
 
 def _apart(project_id: int, body: PairIn, user: User, db: Session, undo: bool) -> list[dict]:
