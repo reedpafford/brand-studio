@@ -9,7 +9,7 @@ export const VIDEO_STEPS = [
   { id: "clips", label: "Clips", old: "clips" },
   { id: "downloads", label: "Downloads", old: "final" },
 ] as const satisfies readonly { id: string; label: string; old: StepId }[];
-export type VideoStepId = (typeof VIDEO_STEPS)[number]["id"];
+type VideoStepId = (typeof VIDEO_STEPS)[number]["id"];
 
 export const videoStepFromParams = (params: URLSearchParams): VideoStepId => VIDEO_STEPS.find((s) => s.id === params.get("step"))?.id ?? "breakdown";
 

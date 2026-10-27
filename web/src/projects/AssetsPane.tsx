@@ -28,7 +28,7 @@ export function useAssets(projectId: number) {
 }
 
 /** A product or an app screen the shots show: the brand's own picture, nothing to make or approve. */
-export function PictureCard({ asset }: { asset: Asset }) {
+function PictureCard({ asset }: { asset: Asset }) {
   return (
     <section aria-label={asset.name}>
       <Card className="flex items-center gap-4">

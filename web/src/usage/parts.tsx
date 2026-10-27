@@ -34,7 +34,7 @@ export function periodLine(period: Period, startsAt: string | null) {
   return period === "week" ? `Week of ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
-export type Figures = { spend_usd: number; spend_estimated: boolean; finished: number; cost_per_finished_usd: number | null; in_progress: number; previous: { spend_usd: number; finished: number; cost_per_finished_usd: number | null } | null };
+type Figures = { spend_usd: number; spend_estimated: boolean; finished: number; cost_per_finished_usd: number | null; in_progress: number; previous: { spend_usd: number; finished: number; cost_per_finished_usd: number | null } | null };
 
 /** "≈ $30.62" when some of it is an estimate; the tooltip says so. */
 export function Money({ value, estimated }: { value: number; estimated: boolean }) {

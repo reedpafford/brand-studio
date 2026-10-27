@@ -4,7 +4,7 @@ import { useMe } from "../auth/useMe";
 import type { components } from "../api/schema";
 
 export type Script = components["schemas"]["app__routes__script_library__ScriptOut"];
-export type ScriptPatch = components["schemas"]["ScriptPatch"];
+type ScriptPatch = components["schemas"]["ScriptPatch"];
 
 /** One script with its versions' words, from the library API. */
 export function useScript(id: number) {

@@ -30,7 +30,6 @@ function KitForm({ brand }: { brand: Brand }) {
     name: brand.name,
     logo_file_id: brand.logo_file_id ?? null,
     style_board_file_id: brand.style_board_file_id ?? null,
-    end_card_file_id: brand.end_card_file_id ?? null,
     colours: brand.colours ?? [],
     fonts: brand.fonts ?? [],
     tone_notes: brand.tone_notes ?? "",
@@ -118,10 +117,7 @@ function KitForm({ brand }: { brand: Brand }) {
           <p className="text-sm text-muted">The first colour tints the brand's dot.</p>
         </fieldset>
         <ChipList label="Fonts" items={kit.fonts} onChange={(v) => set("fonts", v)} placeholder="e.g. Manrope" />
-        <div className="flex flex-wrap gap-6">
-          <ImagePicker label="Style board" shape="wide" fileId={kit.style_board_file_id} onChange={(id) => set("style_board_file_id", id)} />
-          <ImagePicker label="End card" shape="tall" fileId={kit.end_card_file_id} onChange={(id) => set("end_card_file_id", id)} />
-        </div>
+        <ImagePicker label="Style board" shape="wide" fileId={kit.style_board_file_id} onChange={(id) => set("style_board_file_id", id)} />
       </Card>
       <Card className="min-w-0 space-y-5 lg:self-start">
         <h2 className="type-section">Voice</h2>

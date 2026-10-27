@@ -11,12 +11,10 @@ export const WRITING_STEPS = [
   { id: "breakdown", label: "Breakdown" },
   { id: "publish", label: "Publish" },
 ] as const;
-export type WritingStep = (typeof WRITING_STEPS)[number]["id"];
+type WritingStep = (typeof WRITING_STEPS)[number]["id"];
 
 /** Steps that are built so far; the rest show in the picker but can't be opened yet. */
 const BUILT: WritingStep[] = ["description", "script", "directions", "variations", "cast", "breakdown", "publish"];
-/** Skippable steps that are not built yet: Next steps over them, and the picker marks them as skipped. */
-export const SKIPPED: WritingStep[] = [];
 
 export const stepFromParam = (p: string | null): WritingStep => (WRITING_STEPS.find((s) => s.id === p)?.id ?? "description") as WritingStep;
 
