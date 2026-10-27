@@ -995,6 +995,59 @@
      "diners"
     ]
    }
+  },
+  {
+   "id": "fomo-kimchi-cast",
+   "brand": "fomo",
+   "steps": [
+    "cast_slots"
+   ],
+   "brief": "Reed's live test (2026-10-27): Nate's rich friend Kimchi mocks him from a supercar; a year of trading; Nate pulls up beside him.",
+   "cast": [
+    "char:1 Nate, the hero",
+    "char:4 Kimchi, Nate's rich friend"
+   ],
+   "places": [],
+   "script": [
+    "SCENE 1 — EXT. CAR MEET — DAY",
+    "Kimchi pulls up beside Nate's bus stop in a silver supercar and revs it.",
+    "KIMCHI: Still taking the bus, Nate?",
+    "NATE: Not for long.",
+    "SCENE 2 — INT. NATE'S ROOM — NIGHT",
+    "★ fomo screen: Token chart down — on Nate's phone in his hand",
+    "Wordless montage, Nate in every shot: a red day he shakes off, a small first win, another late night, a bigger win, then his own garage with a car under a cover.",
+    "★ fomo screen: Token chart up — on Nate's phone in his hand, a phone ding",
+    "SCENE 3 — EXT. CAR MEET — DAY, ONE YEAR LATER",
+    "Nate pulls the cover off and drives up beside Kimchi's silver supercar. Kimchi's sunglasses slide down his nose.",
+    "★ fomo screen: Home (rich) — Nate holds his phone up to the camera, the fomo logo clear",
+    "NATE: Want to trade like me? Download fomo through the link in my bio."
+   ],
+   "versions": [
+    [
+     "SCENE 1 — EXT. COLLEGE PARKING LOT — DAY",
+     "His friend with the supercar leans on the silver hood while Nate locks up his old bike.",
+     "FRIEND: Nice bike. Does it come in grown-up?",
+     "NATE: Give me a year.",
+     "SCENE 2 — INT. NATE'S DORM — NIGHT",
+     "★ fomo screen: Token chart down — on Nate's phone in his hand",
+     "Wordless montage, Nate in every shot: a red day, a small win, another late night, a bigger win, then his own motorbike shop.",
+     "★ fomo screen: Token chart up — on Nate's phone in his hand, a phone ding",
+     "SCENE 3 — EXT. COLLEGE PARKING LOT — DAY, ONE YEAR LATER",
+     "Nate rolls in on a custom motorbike and parks beside the silver supercar; his rich friend's jaw drops.",
+     "★ fomo screen: Home (rich) — Nate holds his phone up to the camera, the fomo logo clear",
+     "NATE: Want to trade like me? Download fomo through the link in my bio."
+    ]
+   ],
+   "good": [
+    "One person, one slot (Reed, 2026-10-27): 'his friend with the supercar' in version 1 is Kimchi, Nate's rich friend (same friend, same silver supercar, same part), so two slots: Nate and Kimchi, each in both versions."
+   ],
+   "expect": {
+    "slots_named": [
+     "Nate",
+     "Kimchi"
+    ],
+    "max_slots": 2
+   }
   }
  ]
 }
