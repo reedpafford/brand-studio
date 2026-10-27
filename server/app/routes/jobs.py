@@ -117,18 +117,6 @@ class JobDetailOut(JobOut):
     cost_usd: float = 0.0
 
 
-class UsageOut(BaseModel):
-    id: int
-    job_id: int
-    provider: str
-    kind: str
-    units: Decimal
-    unit: str
-    cost_usd: Decimal
-    estimated: bool
-    created_at: UtcTime
-
-
 OVER_BUDGET = "That's more than this video's budget."
 NOT_APPROVED = "This video's length isn't approved yet, so nothing can be made."
 
@@ -327,13 +315,3 @@ def stop_jobs(db: Session, *where) -> None:
     for job in db.scalars(select(Job).where(*where, Job.status == JobStatus.running)):
         job.input = {**job.input, "discard": True}
         job.status = JobStatus.cancelled  # finished_at stays empty until the provider is done
-
-
-@router.get("/usage", response_model=list[UsageOut])
-def list_usage(owner: User = Depends(owner_only), db: Session = Depends(get_db)):
-    return db.scalars(
-        select(Usage)
-        .where(Usage.workspace_id == owner.workspace_id)
-        .order_by(Usage.id.desc())
-        .limit(500)
-    ).all()

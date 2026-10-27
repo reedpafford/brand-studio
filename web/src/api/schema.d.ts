@@ -693,23 +693,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/usage": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Usage */
-        get: operations["list_usage_usage_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/usage/summary": {
         parameters: {
             query?: never;
@@ -5911,30 +5894,6 @@ export interface components {
             /** Items */
             items: components["schemas"]["UsageCharge"][];
         };
-        /** UsageOut */
-        UsageOut: {
-            /** Id */
-            id: number;
-            /** Job Id */
-            job_id: number;
-            /** Provider */
-            provider: string;
-            /** Kind */
-            kind: string;
-            /** Units */
-            units: string;
-            /** Unit */
-            unit: string;
-            /** Cost Usd */
-            cost_usd: string;
-            /** Estimated */
-            estimated: boolean;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-        };
         /** UsagePrevious */
         UsagePrevious: {
             /** Spend Usd */
@@ -7983,26 +7942,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_usage_usage_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UsageOut"][];
                 };
             };
         };

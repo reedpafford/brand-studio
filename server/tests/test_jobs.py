@@ -37,15 +37,6 @@ def test_editor_sees_no_dollars_on_finished_jobs(editor, db):
     assert "usd" not in text and "cost" not in text
 
 
-def test_usage_dollars_are_owner_only(owner, editor, db):
-    enqueue(db, db.query(User).first(), "video-480p", {"seconds": 10})
-    fake = FakeProvider()
-    run_once(db, {"fake": fake})
-    run_once(db, {"fake": fake})
-    assert editor.get("/usage").status_code == 403
-    assert owner.get("/usage").json()[0]["cost_usd"] == "1.0280"
-
-
 def test_editor_never_sees_raw_provider_errors(owner, editor, db):
     job = enqueue(db, db.query(User).first(), "video-480p", {})
     fake = FakeProvider()
