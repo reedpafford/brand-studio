@@ -11,11 +11,12 @@ import { useDebounced } from "../scripts/ScriptsPage";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { ViewSwitch } from "./ViewSwitch";
+import { serverTime } from "../time";
 
 type Project = components["schemas"]["ProjectOut"];
 
 const STEP: Record<string, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
-const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** Where a video opens: the new page for one made from a script version (Downloads when it is done), the earlier six-step page for the rest. */
 const to = (p: Project) => (p.script_draft_id ? `/b/${p.brand_id}/videos/${p.id}${p.finished_at ? "?step=downloads" : ""}` : `/b/${p.brand_id}/projects/${p.id}`);

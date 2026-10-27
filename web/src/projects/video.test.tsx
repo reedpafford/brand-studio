@@ -908,3 +908,12 @@ test("Pick another is disabled, with the reason, when Cast & places has no other
   expect(pick).toHaveAccessibleDescription("Cast & places has no other characters yet.");
   expect(within(card).queryByText("Free")).toBeNull();
 });
+
+test("on the video page too, a shot with no script lines shows no Show line button and does not break Breakdown", async () => {
+  setViewport(1440);
+  const wordless = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [{ id: "1.1", script_lines: [], speaker: null, line: null, action: "Bo looks up.", reaction: null, camera: "Wide", seconds: 2, character_ids: [], place_id: null, moment: null, screen_ids: [] }] }], clips: [{ id: "c1", shot_ids: ["1.1"], seconds: 2, seam: "end" }] } };
+  fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, wordless] });
+  open("?step=breakdown");
+  const silent = await screen.findByLabelText("Shot 1.1");
+  expect(within(silent).queryByRole("button", { name: /in the script$/ })).toBeNull();
+});
