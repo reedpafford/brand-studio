@@ -29,6 +29,8 @@ class Script(Entity, Base):
     archived: Mapped[bool] = mapped_column(default=False)  # removed: deleted, undoable
     deleted_at: Mapped[datetime | None]  # when; purged for good 30 days on (not built yet)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    # Roles kept apart for good ("They're different"): [[slot id, slot id], …] (merge-roles.md)
+    cast_apart: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class ScriptDraft(Entity, Base):
@@ -97,6 +99,17 @@ class ScriptCastSlot(Entity, Base):
     library_item_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))
     sheet_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # when locked
     locked_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    # The cast read's "may be the same person as" this other role (word for word), or ""
+    may_be_same_as: Mapped[str] = mapped_column(String(120), default="")
+
+
+class CastMerge(Entity, Base):
+    """What a role merge changed, so its Undo puts it all back (merge-roles.md §1)."""
+
+    __tablename__ = "cast_merges"
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    script_id: Mapped[int] = mapped_column(ForeignKey("scripts.id"), index=True)
+    data: Mapped[dict] = mapped_column(JSON)
 
 
 class SeededScript(Entity, Base):

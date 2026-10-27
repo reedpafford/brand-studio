@@ -9,6 +9,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import merge_roles
 from app import script_library as lib
 from app.auth import current_user
 from app.db import get_db
@@ -127,6 +128,120 @@ def _unique(db: Session, script: Script, role: str, slot_id: int | None = None) 
     )
     if taken:
         raise HTTPException(409, f"There's already a slot called {role}.")
+
+
+class Line(BaseModel):
+    version: str  # A, B or C
+    line: int  # 1-based, in that version's script
+
+
+class Moved(BaseModel):
+    shots: list[str]
+    lines: list[Line]
+
+
+class LookName(BaseModel):
+    name: str
+
+
+class MergePreview(BaseModel):
+    """What a merge moves; the merged role's look (if any) is left unused, never deleted."""
+
+    moved: Moved
+    look_unused: LookName | None
+
+
+class MergeIn(BaseModel):
+    into_slot_id: int
+
+
+class Merged(MergePreview):
+    token: int  # for Undo
+    cast: list[SlotOut]
+
+
+class UndoIn(BaseModel):
+    token: int
+
+
+class SamePair(BaseModel):
+    a_slot_id: int
+    b_slot_id: int
+    into_slot_id: int  # the suggested role to keep
+    why: str
+
+
+class PairIn(BaseModel):
+    a_slot_id: int
+    b_slot_id: int
+
+
+@router.get("/maybe-same", response_model=list[SamePair])
+def maybe_same(script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Roles that may be one person, never two kept apart or seen in one shot."""
+    return merge_roles.maybe_same(db, lib.get_script(db, user, script_id))
+
+
+@router.post("/maybe-same/dismiss", response_model=list[SamePair])
+def dismiss(
+    script_id: int, body: PairIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """They're different: the pair isn't suggested again."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    merge_roles.dismiss(script, body.a_slot_id, body.b_slot_id)
+    db.commit()
+    return merge_roles.maybe_same(db, script)
+
+
+@router.delete("/maybe-same/dismiss", response_model=list[SamePair])
+def undo_dismiss(
+    script_id: int, body: PairIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo "They're different"."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    merge_roles.dismiss(script, body.a_slot_id, body.b_slot_id, undo=True)
+    db.commit()
+    return merge_roles.maybe_same(db, script)
+
+
+@router.post("/merge/undo", response_model=list[SlotOut])
+def undo_merge(
+    script_id: int, body: UndoIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Put a merged role back, with its shots, lines and look as they were."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    merge_roles.undo(db, script, body.token)
+    db.commit()
+    return slots(db, script)
+
+
+@router.get("/{slot_id}/merge/preview", response_model=MergePreview)
+def merge_preview(
+    script_id: int,
+    slot_id: int,
+    into: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """What merging this role into `into` would move, before it's done."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    return merge_roles.preview(db, script, *merge_roles.pair(db, script, slot_id, into))
+
+
+@router.post("/{slot_id}/merge", response_model=Merged)
+def merge(
+    script_id: int,
+    slot_id: int,
+    body: MergeIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Merge this role into another: its shots and lines move there (see app/merge_roles.py)."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    pair = merge_roles.pair(db, script, slot_id, body.into_slot_id)
+    out = merge_roles.merge(db, script, *pair)
+    db.commit()
+    return {**out, "cast": slots(db, script)}
 
 
 @router.get("", response_model=list[SlotOut])
