@@ -14,7 +14,7 @@ import { useMe } from "../auth/useMe";
 import { blocking, CAST } from "./problems";
 import { plainWords } from "./names";
 import { AdviceList, useKeep } from "./Keep";
-import { useBreakdownFixes } from "./BreakdownFixes";
+import { useBreakdownFixes, useRemoveRef, type RefKind } from "./BreakdownFixes";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
 /** "Line 3" / "Lines 3–5"; empty for a shot with no script lines (a reaction, an insert, a montage shot). */
@@ -44,7 +44,13 @@ function EditableText({ value, label, onChange, children }: { value: string; lab
 
 type Picks = { characters: { key: string; name: string }[]; places: { key: string; name: string }[]; screens: { key: string; name: string; moments: string[] }[] };
 
-function ShotEditor({ shot, picks, onChange }: { shot: Shot; picks: Picks; onChange: (patch: Partial<Shot>) => void }) {
+/** A character, place or screen a shot names that the video doesn't have: it can only be taken out, and the server does that for free. */
+function ShotEditor({ shot, picks, called, remove, onChange }: { shot: Shot; picks: Picks; called: (id: string, kind: RefKind) => string; remove?: (shotId: string, kind: RefKind, ref: string, name: string) => ReactNode; onChange: (patch: Partial<Shot>) => void }) {
+  const gone = [
+    ...shot.character_ids.filter((id) => !picks.characters.some((c) => c.key === id)).map((id) => ({ kind: "character" as const, id })),
+    ...(shot.place_id && !picks.places.some((p) => p.key === shot.place_id) ? [{ kind: "place" as const, id: shot.place_id }] : []),
+    ...shot.screen_ids.filter((id) => !picks.screens.some((s) => s.key === id)).map((id) => ({ kind: "screen" as const, id })),
+  ];
   const moments = [...new Set([...picks.screens.flatMap((s) => s.moments), ...(shot.moment ? [shot.moment] : [])])];
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const label = (t: string) => `Shot ${shot.id} ${t}`;
@@ -100,6 +106,13 @@ function ShotEditor({ shot, picks, onChange }: { shot: Shot; picks: Picks; onCha
           </label>
         ))}
       </fieldset>
+      {remove &&
+        gone.map((g) => (
+          <div key={g.id} className="space-y-1 text-xs">
+            <p>{called(g.id, g.kind).startsWith("a ") ? `This ${g.kind} isn't in this video.` : `${called(g.id, g.kind)} isn't in this video.`}</p>
+            {remove(shot.id, g.kind, g.id, called(g.id, g.kind))}
+          </div>
+        ))}
       {shot.line && <p className="text-xs text-muted">To change the words, edit the script.</p>}
     </div>
   );
@@ -168,6 +181,17 @@ export function BreakdownView(props: {
     },
   });
 
+  // Undo of a fix puts the breakdown that was there back. If the server refuses, the person is told why, in its words.
+  const putBack = async (body: Breakdown) => {
+    try {
+      const r = preview ? await preview.save(body) : await api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body });
+      const refused = r as { response?: Response; error?: unknown } | undefined;
+      if (refused?.response && !refused.response.ok) toast(errorText(refused.error), undefined, "error");
+      return r;
+    } catch (e) {
+      toast((e as Error).message, undefined, "error");
+    }
+  };
   // "Put the right cast in each shot": free, no model call. Undo puts each changed shot's earlier cast back.
   type Changed = { shot_id: string; before: string[]; after: string[] };
   const fixCast = useMutation({
@@ -183,18 +207,22 @@ export function BreakdownView(props: {
         if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
       };
       await fresh();
-      const put = (body: Breakdown) => (preview ? preview.save(body) : api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body }));
       toast(`Cast fixed in ${changed.length} shot${changed.length === 1 ? "" : "s"}.`, async () => {
         const back = clone(row.breakdown); // the breakdown as it was before the fix (this view still holds it)
         for (const scene of back.scenes) for (const shot of scene.shots) {
           const was = changed.find((c) => c.shot_id === shot.id);
           if (was) shot.character_ids = was.before;
         }
-        await put(back);
+        await putBack(back);
         await fresh();
       });
     },
   });
+  // After a fix or its Undo: the new breakdown, and what was made from the old one.
+  const refreshAll = async () => {
+    await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
+    if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
+  };
   // Free one-click fixes for lines that are missing or changed, and for shots with nothing in them.
   const fixes = useBreakdownFixes({
     offered: (row as { fixes?: unknown[] }).fixes,
@@ -206,11 +234,8 @@ export function BreakdownView(props: {
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    put: (body) => (preview ? preview.save(body) : api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body })),
-    refresh: async () => {
-      await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
-      if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
-    },
+    put: putBack,
+    refresh: refreshAll,
   });
   const castOpen = real.filter((p) => p.startsWith(CAST));
   const castFix = castOpen.length > 0 && (
@@ -233,6 +258,21 @@ export function BreakdownView(props: {
   const shots = bd.scenes.flatMap((s) => s.shots);
   const total = Math.round(bd.clips.reduce((sum, c) => sum + c.seconds, 0));
   const dirty = draft !== null;
+  // A shot that names someone the video doesn't have: take the name out (free). It saves at once, so it waits for unsaved edits.
+  const removal = useRemoveRef({
+    run: async (shotId, kind, ref, name) => {
+      // The id goes to the server (two unknown people in one shot stay apart); the sentence is made here, in words.
+      const { data, error } = await api.POST("/projects/{project_id}/shots/{shot_id}/remove-ref", { params: { path: { project_id: projectId, shot_id: shotId } }, body: { kind, name: ref } });
+      if (!data) throw new Error(errorText(error));
+      // There is no Undo (the video doesn't have them), so the toast says how to use them again.
+      const again = { character: "add them in Cast & places, then pick them in this shot", place: "add it in Cast & places, then pick it in this shot", screen: "add it to the brand's screens, then pick it in this shot" }[kind];
+      return { fixed: [`Removed ${name} from shot ${shotId}. To use ${kind === "character" ? "them" : "it"} again, ${again}.`] };
+    },
+    refresh: refreshAll,
+  });
+  const unknownNames = (row as { unknown_names?: Record<string, string> }).unknown_names ?? {};
+  const calledUnknown = (id: string, kind: RefKind) => unknownNames[id] ?? `a ${kind}`; // the name the server knows, or what it is
+  const removeRef = preview ? undefined : (shotId: string, kind: RefKind, ref: string, name: string) => removal.button(shotId, kind, ref, name, dirty ? "Save your changes first." : undefined);
   // The frame's Next button waits while edits are unsaved.
   const { onDirty } = props;
   useEffect(() => {
@@ -456,10 +496,10 @@ export function BreakdownView(props: {
                               <Badge key={id} tone="accent" icon={Smartphone}>{name(id)}</Badge>
                             ))}
                           </p>
-                          {editing && !phone && <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
+                          {editing && !phone && <ShotEditor shot={s} picks={picks} called={calledUnknown} remove={removeRef} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
                           {phone && sheetShot === s.id && (
                             <Sheet title={`Shot ${s.id}`} onClose={() => setSheetShot(null)}>
-                              <ShotEditor shot={s} picks={picks} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />
+                              <ShotEditor shot={s} picks={picks} called={calledUnknown} remove={removeRef} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />
                             </Sheet>
                           )}
                         </li>
