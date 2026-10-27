@@ -165,14 +165,15 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     if (finishedKey) queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
   }, [finishedKey, projectId, queryClient]);
 
+  // Ask for all the stills at once, so leaving the page can't stop the rest. A frame already being drawn is left alone.
+  const drawAll = (frames: Frame[]) => Promise.allSettled(frames.filter((f) => !f.drawing && !drawingNow[f.id]).map((f) => render.mutateAsync({ frame: f })));
+
   // The frames are written: draw the stills that are missing, once.
   useEffect(() => {
     const todo = (frames.data ?? []).filter((f) => f.file_id === null && !blocking(f.problems).length && blocks.forShot(f.shot_id).length === 0);
     if (!auto.current || writingNow || stillOld || frames.isFetching || todo.length === 0) return;
     auto.current = false;
-    void (async () => {
-      for (const f of todo) await render.mutateAsync({ frame: f }).catch(() => undefined);
-    })();
+    void drawAll(todo);
   });
 
   const rows = frames.data ?? [];
@@ -188,7 +189,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const list = frames.data;
   // After a cast change the stills that show the old cast are redrawn by themselves when the video can pay for it; otherwise they say "Out of date".
-  const outOfDate = list.filter((f) => f.still_stale);
+  const outOfDate = list.filter((f) => f.still_stale && !f.drawing && !drawingNow[f.id]); // ones already being redrawn (the server queues them after a cast change) are not asked for again
   const redrawn = list.filter((f) => f.redrawn && !f.approved);
   const cast = props.castRedraw as { redrawn_for_cast?: { count: number; credits: number }; redraw_refused?: { count: number; credits: number; reason: string } } | null | undefined;
   const redrawCost = imageCost === undefined ? undefined : imageCost * outOfDate.length;
@@ -200,7 +201,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     ) : null;
   // Past what the video can spend, an editor is declined with the reason; Reed decides for himself.
   const redrawBlocked = outOfDate.length === 0 ? null : stopFor(redrawCost);
-  const missing = list.filter((f) => f.file_id === null && !blocking(f.problems).length && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
+  const missing = list.filter((f) => f.file_id === null && !blocking(f.problems).length && !f.drawing && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
   const price = (n: number | undefined) => (n === undefined ? "" : ` · ${creditsLabel(n)}`);
@@ -272,16 +273,14 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
             <button
               className={outOfDate.length > 0 ? btnSecondary : btnPrimary}
               disabled={render.isPending || !!stopFor(allCost)}
-              onClick={async () => {
-                for (const f of missing) await render.mutateAsync({ frame: f }).catch(() => undefined);
-              }}
+              onClick={() => void drawAll(missing)}
             >
               Make all stills
               {price(allCost)}
             </button>
           )}
           {outOfDate.length > 0 && (
-            <button className={btnPrimary} disabled={render.isPending || redrawBlocked !== null} onClick={async () => { for (const f of outOfDate) await render.mutateAsync({ frame: f }).catch(() => undefined); }}>
+            <button className={btnPrimary} disabled={render.isPending || redrawBlocked !== null} onClick={() => void drawAll(outOfDate)}>
               Redraw {outOfDate.length} still{outOfDate.length === 1 ? "" : "s"}
               {price(redrawCost)}
             </button>
