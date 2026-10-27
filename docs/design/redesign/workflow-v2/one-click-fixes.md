@@ -26,9 +26,9 @@ Each problem row gets a fix next to **Go to**:
 ## 2. Edit shot
 When a shot names a character, place or screen the video doesn't have ("Shot 1.3 names Nate, who isn't in this video's cast."):
 - **The problem row** in the Edit shot panel has **Remove Nate from this shot** (secondary dense, `UserMinus`; `MapPinOff` for a place, `MonitorOff` for a screen), with "Free" beside it.
-- **After:** the name goes from the shot's cast (or place, or screens), and the shot's action is left as written. Toast: "Removed Nate from shot 1.3." with **Undo**.
+- **After:** the name goes from the shot's cast (or place, or screens), and the shot's action is left as written. Toast: "Removed Nate from shot 1.3." with no Undo (as built in #533; Producer, 2026-10-27): putting back a name the video doesn't have would only bring the problem back. This is the one exception to the Undo rule above.
 - If the name is a role in the script's cast with no look yet, the row also has **Go to Assets** (the look gets made there), and the remove button stays.
-- **Repaired on its own:** when the server removes an unknown name itself, it's shown as Advice, never as a problem: "Advice: Removed Nate from shot 1.3. Nobody by that name is in this video." It sits under **Advice (N)** like any advice, with **Undo** in place of Keep anyway.
+- **Repaired on its own:** when the server removes an unknown name itself, it's shown as Advice, never as a problem: "Advice: Removed Nate from shot 1.3. Nobody by that name is in this video." It sits under **Advice (N)** like any advice, with no Undo, for the same reason.
 
 ## 3. Assets
 When a slot points at a Cast & places character that was deleted:
