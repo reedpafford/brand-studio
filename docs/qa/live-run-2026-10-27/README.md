@@ -63,3 +63,27 @@ Goth GF plus a drawn look          clips  9  refused clips 0  tries  11  refusal
 prompt says Pixar                  clips 56  refused clips 5  tries  98  refusals 23  (23% of tries)
 ```
 - Every refusal is on a clip with Goth GF and only photo-made looks. Photo-made looks without her (Carl, Mogging BF, Wyatt, Kimchi) were never refused (0/17). Clips with any drawn look were never refused (0/16, a small and recent sample).
+
+## Run 2: the montage-screen test, video #17 (reel De49GvzS76f, 66.6 s)
+Reed's picks: the goth waitress = **Goth GF 2** (a new Cast & places character made from Goth GF's source picture so videos in progress keep the original), Kim Chi the mentor = **Kimchi**. Takes were made as QA Owner because QA Editor had used its weekly allowance. 98.98 credits ($10.18) in `ops/SPEND.md`.
+
+**Worked (main 5b4bfe0 and later):**
+- **Montage phones and monitor show invented charts** (no Token chart or Desktop trading screenshots attached), and the numbers climb beat by beat with one dip: $0.42 → red dip → $42 → $1,23x → $3,489 → +$345,431 (`p17_c4c5.jpg`, `p17_c6c7.jpg`).
+- **The payoff and CTA show the real Home screen** at $348,920.15, the CTA held up to camera (`p17_c8c9.jpg`).
+- **The bridge into the app is there,** and the one big celebration (Kimchi's "100X, bro!" jump) is at the payoff.
+- **Reactions read right** (the boyfriend tearful and touched when she returns the scrapbook).
+- **Faces hold** for the boyfriend, Sophie, Damon and Kimchi.
+- **No false "Check the cast" alarms and no breakdown resets** (#628). The auto looks are adults in a matching style (#630). 9 short clips (4–12 s).
+- **Every take with dialogue is in English.**
+
+**Findings:**
+1. **The logo on invented screens is wrong.** Clip 4 reads "JOMO" (in the still and the take), and clips 5–6 show only the icon. Rule 14 needs the fomo logo or the word right, so the logo picture alone isn't enough; the prompt may need the word "fomo" spelled out, or a bigger logo crop.
+2. **Goth GF 2's purple streak came back** in clips 3, 4, 7 and 9 after her sheet went back to the original look (bangs, choker, mesh), even with every prompt's wording updated. In clips 5–6 she matches.
+3. **Changing a Cast & places sheet doesn't mark the stills or clip prompts that use it as out of date.** They kept describing and showing the old look until edited by hand. 8 prompts and 5 stills had to be updated.
+4. **Clip 1's saved prompt was 5,070 characters, but an edit can save at most 5,000,** so it couldn't be edited at all, even unchanged. It took shortening the wording to save it.
+5. **Copyright refusals on clip 7 (the glow-up montage):** refused 3 times, plus 1 "service unavailable". Removing the hot-air balloon didn't help. Removing the white-haired old craftsman who hands over the scrapbook in the opening shot (`p17_c7_still_refused.jpg` → `p17_c7_still_new.jpg`) did, on the next try. A Pixar-style scrapbook gift from an old man, with a balloon, is close to *Up*.
+   - New refusal message (#648): "The video model thinks this clip looks too much like someone else's character or video. Try another look for boyfriend, or use Change this… on the opening shot. Nothing was charged." It blamed the boyfriend, but the trigger was the opening shot.
+   - The "service unavailable" failure still shows "The service couldn't finish this. Ask the owner for details."
+6. **"Change this…" on a clip with no take only rewrites the prompt,** and the editor must press Make clip. It charged 0.48 credits against 3 quoted.
+7. **Prices quoted vs charged:** "About 55 credits to make" against 99 charged; clip prompts quoted 18 and charged 9.09.
+8. **"Make storyboard" now draws all the stills by itself,** so the "Make all stills" button disappears.
