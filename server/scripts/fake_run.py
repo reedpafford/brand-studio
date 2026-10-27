@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 import app.models  # noqa: F401
+from app import end_logo
 from app.db import Base
 from app.main import create_app
 from app.models.jobs import Job, JobStatus
@@ -140,8 +141,10 @@ def make(c, work, brand: str, case: dict, script: str, planned: int, variants=No
         done = subprocess.run(probe, input=data, capture_output=True)  # noqa: S603
         length = done.stdout.decode().strip()
         print(f"  final video: {float(length):.1f} s, {len(data) / 1e6:.1f} MB")
-        if abs(float(length) - sum(seconds)) > 1:
-            problems.append(f"video is {length} s, clips add up to {sum(seconds)} s")
+        card = end_logo.CARD_SECONDS if video["end_logo"] == "end_card" else 0
+        print(f"  ends on the logo: {video['end_logo']}")
+        if abs(float(length) - sum(seconds) - card) > 1:
+            problems.append(f"video is {length} s, clips add up to {sum(seconds)} s (+{card})")
 
 
 def write_all(c, work) -> None:

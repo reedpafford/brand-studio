@@ -44,6 +44,22 @@ test("saving the kit sends the edited fields", async () => {
   });
 });
 
+test("the owner sets End on the logo and Save sends it", async () => {
+  const owner = { ...editor, id: 1, role: "owner" };
+  const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, [{ ...brand, end_logo: "off" }]], "PATCH /brands/1": [200, brand] });
+  renderAt("/b/1/kit");
+  await userEvent.selectOptions(await screen.findByLabelText("End on the logo"), "end_card");
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")?.body).toMatchObject({ end_logo: "end_card" }));
+});
+
+test("an editor can't change End on the logo and is told why", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [{ ...brand, end_logo: "end_card" }]] });
+  renderAt("/b/1/kit");
+  expect(await screen.findByLabelText("End on the logo")).toBeDisabled();
+  expect(screen.getByText("Only the owner can change this.")).toBeInTheDocument();
+});
+
 test("a bad colour code is explained and blocks saving", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]] });
   renderAt("/b/1/kit");

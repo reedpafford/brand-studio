@@ -33,6 +33,8 @@ log = logging.getLogger(__name__)
 LAUNCH_BRANDS = {"fomo": "fomo", "Iron Paws": "ironpaws"}
 # Reed, 2026-10-23: every fomo video ends on this (Iron Paws' closing line comes from the brief).
 END_LINES = {"fomo": "Want to trade like me? Download fomo through the link in my bio."}
+# Reed, 2026-10-27: fomo's videos end on its logo, a short card after the end line (end_logo.py).
+END_LOGOS = {"fomo": "end_card"}
 IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -58,6 +60,7 @@ def seed_brands(db: Session, workspace_id: int, storage: Storage, assets_dir: st
                     name=name,
                     slug=slug,
                     end_line=END_LINES.get(name, ""),
+                    end_logo=END_LOGOS.get(name, "off"),
                 )
             )
     db.commit()

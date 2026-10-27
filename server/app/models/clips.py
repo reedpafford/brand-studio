@@ -56,4 +56,5 @@ class FinalVideo(Entity, Base):
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
     take_ids: Mapped[list[int]] = mapped_column(JSON)
     cut_ins: Mapped[list[str]] = mapped_column(JSON, default=list)  # "c1/1.2" for each one used
+    end_logo: Mapped[str] = mapped_column(String(20), default="off")  # how it ended (end_logo.py)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))

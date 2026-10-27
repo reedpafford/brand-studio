@@ -27,6 +27,8 @@ class Brand(Entity, Base):
     never_say: Mapped[list[str]] = mapped_column(JSON, default=list)
     legal_line: Mapped[str] = mapped_column(Text, default="")
     end_line: Mapped[str] = mapped_column(Text, default="")  # every video ends on it, word for word
+    # End on the logo when the end line is the call to action: off | overlay | end_card (owner).
+    end_logo: Mapped[str] = mapped_column(String(20), default="off")
 
 
 class BrandScreen(Entity, Base):

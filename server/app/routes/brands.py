@@ -1,5 +1,7 @@
 """Brands and their kit. Anyone on the team can create and edit; only the owner archives."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -27,6 +29,8 @@ class KitFields(BaseModel):
     never_say: list[ShortText] = []
     legal_line: LongText = ""
     end_line: LongText = ""  # the call to action every video ends on, word for word
+    # End on the logo when the end line is the call to action (end_logo.py); owner only.
+    end_logo: Literal["off", "overlay", "end_card"] = "off"
 
 
 class BrandIn(KitFields):
@@ -56,6 +60,8 @@ def get_brand(db: Session, user: User, brand_id: int) -> Brand:
 def _apply(db: Session, user: User, brand: Brand, values: dict) -> None:
     if values.get("name") is None:
         values.pop("name", None)
+    if values.get("end_logo", brand.end_logo) != brand.end_logo and not user.is_owner:
+        raise HTTPException(403, "Only the owner can change how videos end.")
     for field in FILE_FIELDS:
         if values.get(field) is not None:
             get_file(db, user, values[field], "image")

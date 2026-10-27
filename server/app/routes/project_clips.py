@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, change, clip_prompts, clip_takes, credits, cut_in
+from app import advice, change, clip_prompts, clip_takes, credits, cut_in, end_logo
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db, utcnow
@@ -47,7 +47,8 @@ class TakeOut(BaseModel):
 class VideoOut(BaseModel):
     file_id: int
     take_ids: list[int]  # the picked takes it was made from, in clip order
-    out_of_date: bool  # a pick or a "Use the real image" switch changed since
+    out_of_date: bool  # a pick, a "Use the real image" switch or End on the logo changed since
+    end_logo: str = "off"  # how it ends: off | overlay | end_card (end_logo.py)
 
 
 class InsertOut(BaseModel):
@@ -507,9 +508,13 @@ def unapprove(
 def _video_out(db: Session, video: FinalVideo) -> VideoOut:
     clips = _clips(db, video.project_id)
     current = [c.picked_take_id for c in clips]
-    cuts = _cut_ins(db, db.get(Project, video.project_id), clips)
+    project = db.get(Project, video.project_id)
+    cuts = _cut_ins(db, project, clips)
     old = video.take_ids != current or (video.cut_ins or []) != cuts
-    return VideoOut(file_id=video.file_id, take_ids=video.take_ids, out_of_date=old)
+    old = old or video.end_logo != end_logo.mode(db, project, clips)  # the setting changed
+    return VideoOut(
+        file_id=video.file_id, take_ids=video.take_ids, out_of_date=old, end_logo=video.end_logo
+    )
 
 
 @router.post("/video", response_model=VideoOut, status_code=201)
@@ -530,7 +535,10 @@ def make_video(
     storage = request.app.state.storage
     try:
         videos = [_with_cut_ins(db, storage, project, c) for c in clips]
-        data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
+        ending = end_logo.mode(db, project, clips)
+        videos = end_logo.apply(db, storage, project, clips, videos)
+        cuts = bool(_cut_ins(db, project, clips))
+        data = clip_takes.stitch(videos, reencode=cuts or ending != "off")
     except Exception as exc:  # noqa: BLE001 - a bad clip file: say so plainly
         raise HTTPException(
             422, "The clips couldn't be put together. Redo the odd one out."
@@ -553,6 +561,7 @@ def make_video(
         file_id=stored.id,
         take_ids=[c.picked_take_id for c in clips],
         cut_ins=_cut_ins(db, project, clips),
+        end_logo=ending,
         created_by_id=user.id,
     )
     db.add(video)

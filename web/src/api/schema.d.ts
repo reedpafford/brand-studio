@@ -3452,6 +3452,12 @@ export interface components {
              * @default
              */
             end_line: string;
+            /**
+             * End Logo
+             * @default off
+             * @enum {string}
+             */
+            end_logo: "off" | "overlay" | "end_card";
             /** Name */
             name: string;
         };
@@ -3493,6 +3499,12 @@ export interface components {
              * @default
              */
             end_line: string;
+            /**
+             * End Logo
+             * @default off
+             * @enum {string}
+             */
+            end_logo: "off" | "overlay" | "end_card";
             /** Id */
             id: number;
             /** Name */
@@ -3541,6 +3553,12 @@ export interface components {
              * @default
              */
             end_line: string;
+            /**
+             * End Logo
+             * @default off
+             * @enum {string}
+             */
+            end_logo: "off" | "overlay" | "end_card";
             /** Name */
             name?: string | null;
         };
@@ -5863,6 +5881,11 @@ export interface components {
             take_ids: number[];
             /** Out Of Date */
             out_of_date: boolean;
+            /**
+             * End Logo
+             * @default off
+             */
+            end_logo: string;
         };
         /** Who */
         Who: {

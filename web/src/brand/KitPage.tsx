@@ -4,7 +4,8 @@ import { Plus, X } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
-import { Banner, Button, Card, Field, TextArea } from "../components";
+import { Banner, Button, Card, Field, Select, TextArea } from "../components";
+import { useMe } from "../auth/useMe";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
@@ -37,6 +38,7 @@ function KitForm({ brand }: { brand: Brand }) {
     never_say: brand.never_say ?? [],
     legal_line: brand.legal_line ?? "",
     end_line: brand.end_line ?? "",
+    end_logo: brand.end_logo ?? "off",
   };
   const [kit, setKit] = useState(start);
   const [saved, setSaved] = useState(start);
@@ -66,6 +68,7 @@ function KitForm({ brand }: { brand: Brand }) {
   const changed = JSON.stringify(kit) !== JSON.stringify(saved);
   useReportDirty(changed);
   const valid = kit.colours.every((c) => HEX.test(c));
+  const owner = useMe().data?.role === "owner";
 
   return (
     <form
@@ -129,6 +132,17 @@ function KitForm({ brand }: { brand: Brand }) {
         <ChipList label="Never say" items={kit.never_say} onChange={(v) => set("never_say", v)} placeholder="A word or phrase" />
         <Field label="Legal line" value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
         <Field label="End line" value={kit.end_line} onChange={(e) => set("end_line", e.target.value)} hint={'The last clip of every video says this. Example: "Want to trade like me? Download fomo through the link in my bio."'} />
+        <Select
+          label="End on the logo"
+          value={kit.end_logo}
+          disabled={!owner}
+          hint={owner ? "When a video ends on the end line, the finished video shows the logo. Free." : "Only the owner can change this."}
+          onChange={(e) => set("end_logo", e.target.value as typeof kit.end_logo)}
+        >
+          <option value="off">Off</option>
+          <option value="end_card">Logo card after the end line (1.5 s)</option>
+          <option value="overlay">Logo over the end line&apos;s shot</option>
+        </Select>
         {save.isError && (
           <p role="alert" className={errorClass}>
             {save.error.message}

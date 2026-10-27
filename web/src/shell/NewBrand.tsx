@@ -13,7 +13,7 @@ export function NewBrand({ onClose }: { onClose: () => void }) {
   const toast = useToast();
   const make = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/brands", { body: { name: name.trim(), colours: [], fonts: [], tone_notes: "", never_say: [], legal_line: "", end_line: "" } });
+      const { data, error } = await api.POST("/brands", { body: { name: name.trim(), colours: [], fonts: [], tone_notes: "", never_say: [], legal_line: "", end_line: "", end_logo: "off" } });
       if (!data) throw new Error(errorText(error));
       return data;
     },
