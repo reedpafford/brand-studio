@@ -27,6 +27,9 @@ function open(adapter: Partial<MergeAdapter> = {}, extra: Partial<Parameters<typ
 test("lines read as 'A lines 4 and 7, B lines 4, 6 and 9' and the toast text counts shots and lines", () => {
   expect(linesText(moved.lines)).toBe("A lines 4 and 7, B lines 4, 6 and 9");
   expect(mergedText("Kimchi", moved)).toBe("Merged into Kimchi. 3 shots and 5 lines moved.");
+  expect(mergedText("Kimchi", { shots: [], lines: [{ version: 0, line: 1 }], look_unused: null })).toBe("Merged into Kimchi. 1 line moved.");
+  expect(mergedText("Kimchi", { shots: ["1.1"], lines: [], look_unused: null })).toBe("Merged into Kimchi. 1 shot moved.");
+  expect(mergedText("Kimchi", { shots: [], lines: [], look_unused: null })).toBe("Merged into Kimchi.");
   expect(mergedText("Kimchi", { shots: ["1.1"], lines: [{ version: 0, line: 1 }], look_unused: null })).toBe("Merged into Kimchi. 1 shot and 1 line moved.");
 });
 

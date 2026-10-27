@@ -28,7 +28,10 @@ export const linesText = (lines: Moved["lines"]) => {
 };
 
 /** "Merged into Kimchi. 3 shots and 5 lines moved." */
-export const mergedText = (into: string, m: Moved) => `Merged into ${into}. ${count(m.shots.length, "shot")} and ${count(m.lines.length, "line")} moved.`;
+export const mergedText = (into: string, m: Moved) => {
+  const parts = [m.shots.length > 0 && count(m.shots.length, "shot"), m.lines.length > 0 && count(m.lines.length, "line")].filter(Boolean) as string[];
+  return `Merged into ${into}.${parts.length ? ` ${and(parts)} moved.` : ""}`;
+};
 
 /** What picking a role would change, in words. Nothing until one is picked. */
 function WhatMoves({ role, target, moved }: { role: string; target: MergeTarget; moved: Moved }) {
