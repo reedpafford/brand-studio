@@ -13,6 +13,23 @@ from app.catalogue import get_model
 from app.prompts import SCHEMAS, check, required, schemas
 
 CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
+
+
+def logo_only(s: dict) -> bool:
+    """As the server's enhance.logo_only (rule 14): a trading screen goes as the logo alone."""
+    return "trading" in s["tags"] and "product" not in s["tags"]
+
+
+def one_logo(bd, screens: list[dict]):
+    """Every logo-only screen counts as the one logo attached, the first of them, as the
+    server's clip_prompts.clip_problems counts them."""
+    ids = [f"screen:{s['id']}" for s in screens if logo_only(s)]
+    bd = bd.model_copy(deep=True)
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        shot.screen_ids = list(dict.fromkeys(ids[0] if s in ids else s for s in shot.screen_ids))
+    return bd
+
+
 ROOT = Path(__file__).parents[2]
 
 
@@ -170,7 +187,7 @@ def score(out: Path, case: dict) -> list[str]:
             )
         if cp := answers.get("clip_prompts"):
             limits = video.max_reference_images, video.max_reference_audios
-            problems += check.clip_prompts(bd, cp, *limits)
+            problems += check.clip_prompts(one_logo(bd, brand["screens"]), cp, *limits)
             problems += [f"{c.clip_id}: {p}" for c in cp.clips for p in check.unlabelled(c.prompt)]
             shown = " ".join(check.QUOTED.sub("", c.prompt) for c in cp.clips).lower()
             problems += [f"clip prompts say '{w}' outside the dialogue"

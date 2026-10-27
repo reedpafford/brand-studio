@@ -19,6 +19,15 @@ def example(step):
     return ex, prompts.SCHEMAS[step].model_validate(ex["output"])
 
 
+def logo_once(bd):
+    """fomo's trading screens are logo-only: the server counts them as the one logo it
+    attached, screen:2 (clip_prompts.clip_problems), as the clip example does."""
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        shot.screen_ids = list(dict.fromkeys("screen:2" if s in ("screen:3", "screen:4") else s
+                                             for s in shot.screen_ids))  # fmt: skip
+    return bd
+
+
 def script_of(ex):
     block = re.search(r"<script>\n(.*)\n</script>", ex["input"], re.S).group(1)
     return "\n".join(line.split("| ", 1)[1] for line in block.splitlines())
@@ -43,7 +52,7 @@ def test_worked_examples_pass_their_own_checks():
     ex, bd = example("breakdown")
     assert check.breakdown(script_of(ex), bd, FOMO, 4, 30) == []
     _, cp = example("clip_prompts")
-    assert check.clip_prompts(bd, cp, 30, 10) == []
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == []
 
 
 def test_checks_catch_added_words_a_missing_screen_and_a_long_clip():
@@ -669,7 +678,7 @@ def test_clip_prompt_checks_catch_music_and_aspect():
     clip = cp.clips[0]
     clip.prompt = clip.prompt.split("\n", 1)[1] + "\nStyle: 9:16."
     clip.references.append(schemas.Reference(kind="image", id="char:2", role="Tasha"))
-    assert check.clip_prompts(bd, cp, 30, 10) == [
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == [
         "c2: doesn't open and close with the same audio line",
         "c2: has no Keep line before the closing audio line",
         "c2: writes aspect or resolution (those are settings)",
@@ -679,7 +688,7 @@ def test_clip_prompt_checks_catch_music_and_aspect():
 def test_the_keep_line_holds_every_attached_characters_look():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")
-    assert check.clip_prompts(bd, cp, 30, 10) == []
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == []
     clip = cp.clips[0]
     clip.prompt = clip.prompt.replace("[Image2] is Malik.", "[Image2] is Malik. [Image7] is Tasha.")
     assert "Advice: c2: the Keep line doesn't name Tasha; give their look and outfit" in (
@@ -768,12 +777,12 @@ def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     clip.prompt = clip.prompt.replace('"Come on. One more."', '"No."')
     clip.prompt = clip.prompt.replace("eyes red.", 'eyes red. Malik: "Okay, I know. It\'s 3:15."')
     shots[2].line, shots[4].line = "No.", "Okay, I know. It's 3:15."
-    assert check.clip_prompts(bd, cp, 30, 10) == []
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == []
     clip.prompt = clip.prompt.replace("eyes red.", "eyes red, a wall clock reading 3:12.")
-    assert check.clip_prompts(bd, cp, 30, 10) == []  # a clock outside the dialogue too
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == []  # a clock outside the dialogue too
     shots[1].line = "No."  # a line said twice on purpose, quoted twice
     clip.prompt = clip.prompt.replace("eyes shut.", 'eyes shut. Malik (muttering): "No."')
-    assert check.clip_prompts(bd, cp, 30, 10) == []
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == []
 
 
 def test_improve_keeps_the_editors_words_and_the_reference_lines():
@@ -816,7 +825,7 @@ def test_clip_prompt_check_wants_first_frame_summary_and_whole_seconds():
     clip.prompt = re.sub(r"Summary: .*\n", "", clip.prompt)
     clip.prompt = clip.prompt.replace("[Image1] is the first frame.", "[Image1] storyboard frame.")
     clip.prompt = clip.prompt.replace("Shot 1 | 0-1 s.", "Shot 1 | 0-1.2 s.")
-    assert check.clip_prompts(bd, cp, 30, 10) == [
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == [
         "c2: has no Summary line",
         "c2: shot 1's times aren't whole seconds; write them like “0-2 s.”",
         "c2: doesn't name [Image1] the first frame",
@@ -1119,9 +1128,28 @@ def test_money_on_trading_screens_only_climbs():
         "or more)"
     ]
     _, cp = example("clip_prompts")
-    assert check.clip_prompts(bd, cp, 30, 10) == []  # the clip says what its shot says
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == []  # the clip says what its shot says
     shots["2.7"].action = "Malik at the desk; the balance reads $12,900."
-    assert check.clip_prompts(bd, cp, 30, 10) == []  # Reed #600: a screen's numbers can be anything
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == []  # Reed #600: numbers are free
+
+
+def test_a_montages_invented_trading_screens_climb():
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")  # c2: -$380, then +$420, then +$48,000
+    clip = cp.clips[0]
+    assert "[Image4] is the fomo logo." in clip.prompt
+    assert clip.prompt.count("an invented trading screen in the fomo style") == 3
+    assert "layout exactly" not in clip.prompt  # never for an invented screen (rule 14)
+    clip.prompt = clip.prompt.replace("+$48,000", "+$300")
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == [
+        "Advice: c2: shot 7's trading screen reads +$300, not more than shot 4's; make each win "
+        "bigger"
+    ]
+    clip.prompt = clip.prompt.replace("+$300", "-$300")  # a red day is a dip, never flagged
+    assert check.clip_prompts(bd, cp, 30, 10) == []
+    for step in ("clip_prompts", "storyboard", "improve"):
+        assert "invented trading screen" in prompts.system(step), step
+    assert "the fomo logo from [ImageN] sharp in the top corner" in prompts.system("change")
 
 
 def test_a_frames_only_watch_says_so_and_keeps_the_cuts_and_words():

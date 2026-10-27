@@ -254,6 +254,22 @@ def _money_climbs(shots: list) -> list[str]:
     return problems
 
 
+def _screens_climb(prompt: str) -> list[str]:
+    """Reed (#650, rule 14): each invented trading screen in a clip's shots reads bigger than
+    the last; a red day (a loss) is exempt. Advice."""
+    problems, last = [], {}
+    for n, text in SHOT_ANY.findall(prompt):
+        for part in text.split("trading screen")[1:]:
+            if not (fig := _figure(part)) or fig[1] < 0:
+                continue
+            kind, value, found = fig
+            if kind in last and value <= last[kind][1]:
+                problems.append(f"shot {n}'s trading screen reads {found}, not more than shot "
+                                f"{last[kind][0]}'s; make each win bigger")  # fmt: skip
+            last[kind] = (n, value)
+    return problems
+
+
 def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: int) -> list[str]:
     shots = {shot.id: shot for scene in bd.scenes for shot in scene.shots}
     clips = {clip.id: clip for clip in bd.clips}
@@ -286,6 +302,7 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         if _montage(clip.shot_ids, shots):  # guests and crowds elsewhere are never cast
             problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
+            problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _screens_climb(c.prompt)]
         keep = next((x for x in c.prompt.splitlines() if x.startswith("Keep: ")), "")
         problems += [  # each attached character holds their look by name (live test, 10-26)
             f"{ADVICE}{c.clip_id}: the Keep line doesn't name {who}; give their look and outfit"
