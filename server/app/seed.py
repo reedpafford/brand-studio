@@ -168,17 +168,23 @@ def repair_frames(db: Session) -> int:
     return changed
 
 
-def repair_clips(db: Session) -> int:
+def repair_clips(db: Session) -> str:
     """Clips saved before the server attached their characters' sheets (Reed: a look read
-    as not approved): fixed for free, with no model call; running it again changes nothing."""
-    from app.clip_prompts import repair
+    as not approved): fixed for free, with no model call; running it again changes nothing.
+    A clip made for an older breakdown is repaired against its own breakdown, never skipped.
+    One plain line: what changed, and what it looked at (so a 0 says why)."""
+    from app import clip_prompts
     from app.models.clips import ProjectClip
     from app.models.projects import Project
 
     ids = db.scalars(select(ProjectClip.project_id).distinct()).all()
-    changed = sum(repair(db, db.get(Project, pid)) for pid in ids)
+    changed = sum(clip_prompts.repair(db, db.get(Project, pid)) for pid in ids)
     db.commit()
-    return changed
+    rows = list(db.scalars(select(ProjectClip)))
+    newest = {pid: clip_prompts.newest(db, db.get(Project, pid)) for pid in ids}
+    older = sum(1 for r in rows if clip_prompts.is_stale(db, r, newest[r.project_id]))
+    return (f"Gave {changed} clips their characters' sheets (checked {len(rows)} on "
+            f"{len(ids)} videos; {older} made for an older breakdown).")  # fmt: skip
 
 
 def plain_stored(db: Session) -> int:
@@ -225,26 +231,25 @@ def plain_stored(db: Session) -> int:
     return changed
 
 
-def rewrite_owner_clips(db: Session) -> str:
-    """Reed's current video, whose clips went stale before Clips could rewrite them (Reed,
-    2026-10-26, #503): of the videos an owner made, the one edited most recently (its newest
-    breakdown change) with stale clips gets its stale clip prompts rewritten once, free to
-    him (one real Claude call, at most 3 credits' worth, charged to no budget or week; its
-    dollars are in Usage). Only that one video, only once ever. A take waiting or held on a
-    stale clip is cancelled first (it never started, so nothing was charged); one being made,
-    or one on a clip that's up to date, waits for the next deploy. Others get the button, or
-    the rewrite on their next change. One plain line for the deploy log, whatever happens."""
+REPAIR_VIDEOS = 5  # Reed, 2026-10-27: "repair my existing videos for free", at most 5 a deploy
+
+
+def rewrite_owner_clips(db: Session) -> list[str]:
+    """Reed's videos whose clips went stale before Clips could rewrite them (Reed, 2026-10-26
+    #503; 10-27: every one, free): each unarchived video an owner made, with stale clips, gets
+    its stale clip prompts rewritten once, free to him (one real Claude call each, at most 3
+    credits' worth, charged to no budget or week; its dollars are in Usage). Once per video,
+    newest change first, at most `REPAIR_VIDEOS` a deploy. A take waiting or held on a stale
+    clip is cancelled first (it never started, so nothing was charged); one being made, or
+    on a clip that's up to date, waits for the next deploy. One plain line per video for the
+    deploy log, or one saying why there was nothing to do."""
     from app import clip_prompts
-    from app.job_brand import brand_for
     from app.models.accounts import Role, User
-    from app.models.clips import ProjectClip
-    from app.models.jobs import Job, JobStatus
+    from app.models.jobs import Job
     from app.models.projects import Project
-    from app.routes.jobs import stop_jobs
 
     jobs = db.scalars(select(Job).where(Job.input["step"].as_string() == "clip_prompts"))
-    if any(j.input.get("repair") for j in jobs):
-        return "Clip prompts: already rewritten once."
+    done = {j.project_id for j in jobs if j.input.get("repair")}
     owners = {u.id: u for u in db.scalars(select(User).where(User.role == Role.owner))}
     candidates = []
     for project in db.scalars(select(Project).where(Project.created_by_id.in_(owners))):
@@ -252,19 +257,35 @@ def rewrite_owner_clips(db: Session) -> str:
         if project.archived_at is None and bd and clip_prompts.to_rewrite(db, project):
             candidates.append((bd.id, project))
     if not candidates:
-        return "Clip prompts: nothing to rewrite."
-    _, project = max(candidates, key=lambda c: c[0])  # the latest breakdown change
+        return ["Clip prompts: nothing to rewrite."]
+    lines = []
+    for _, project in sorted(candidates, key=lambda c: -c[0])[:REPAIR_VIDEOS]:
+        lines.append(_rewrite_one(db, project, owners, done))
+    db.commit()
+    return lines
+
+
+def _rewrite_one(db: Session, project, owners: dict, done: set) -> str:
+    from app import clip_prompts
+    from app.job_brand import brand_for
+    from app.models.clips import ProjectClip
+    from app.models.jobs import Job, JobStatus
+    from app.routes.jobs import stop_jobs
+
+    if project.id in done:
+        return f"Clip prompts: already rewritten once on “{project.name}”."
     ids = clip_prompts.to_rewrite(db, project)
     waiting = [j for j in db.scalars(select(Job).where(Job.project_id == project.id))
                if j.status in clip_prompts.WAITING]  # fmt: skip
     if any(j.input.get("step") == "clip_prompts" for j in waiting):
         return f"Clip prompts: waiting, they're already being written on “{project.name}”."
-    for take in (j for j in waiting if j.input.get("step") == "clip_take"):
+    takes = [j for j in waiting if j.input.get("step") == "clip_take"]
+    for take in takes:
         row = db.get(ProjectClip, take.input.get("project_clip_id") or 0)
-        if take.status != JobStatus.running and (row is None or row.clip_id in ids):
-            stop_jobs(db, Job.id == take.id)  # held only because its clip is out of date
-        else:
+        if take.status == JobStatus.running or (row is not None and row.clip_id not in ids):
             return f"Clip prompts: waiting, a take is still being made on “{project.name}”."
+    for take in takes:  # held only because its clip is out of date: never started, so free
+        stop_jobs(db, Job.id == take.id)
     bd = clip_prompts.newest(db, project)
     data = {**clip_prompts.job_input(db, project, bd), "clip_ids": ids, "repair": True}
     owner = owners[project.created_by_id]
@@ -272,7 +293,6 @@ def rewrite_owner_clips(db: Session) -> str:
                approved_by_id=owner.id, kind="write-claude", provider="claude", input=data,
                project_id=project.id, brand_id=brand_for(db, project, data),
                credits=0, status=JobStatus.queued))  # fmt: skip
-    db.commit()
     return f"Rewrote clip prompts on “{project.name}”."
 
 
@@ -346,9 +366,9 @@ def main(folder: str, slug: str = "fomo") -> None:
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
-            print(f"Gave {repair_clips(db)} clips their characters' sheets.")
+            print(repair_clips(db))
             print(f"Said {plain_stored(db)} saved checks in plain words.")
-            print(rewrite_owner_clips(db))
+            print("\n".join(rewrite_owner_clips(db)))
             print(remove_qa_owner(db))
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))

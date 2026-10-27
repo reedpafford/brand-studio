@@ -115,10 +115,10 @@ def test_reeds_current_video_is_rewritten_once_free(app, db, owner, editor, setu
     db.add(take)
     db.commit()
     said = rewrite_owner_clips(db)  # a take is being made: not now, and the log says why
-    assert said == f"Clip prompts: waiting, a take is still being made on “{project.name}”."
+    assert said == [f"Clip prompts: waiting, a take is still being made on “{project.name}”."]
     take.status = "succeeded"
     db.commit()
-    assert rewrite_owner_clips(db) == f"Rewrote clip prompts on “{project.name}”."
+    assert rewrite_owner_clips(db) == [f"Rewrote clip prompts on “{project.name}”."]
     (job,) = _rewrites(db, project.id)
     assert (job.credits, job.input["repair"], job.input["clip_ids"]) == (0, True, ["c1"])
     _run(app, db, FakeClaude(_answer(clip["references"][0]["id"][5:], setup["screen"], _prompt())))
@@ -126,10 +126,15 @@ def test_reeds_current_video_is_rewritten_once_free(app, db, owner, editor, setu
     assert db.get(Job, job.id).credits == 0  # free to him: no budget, no week
     assert editor.get(f"/projects/{project.id}/clips").json()[0]["stale"] is False
     _newer_breakdown(db, project.id)
-    assert rewrite_owner_clips(db) == "Clip prompts: already rewritten once."  # the button next
+    again = rewrite_owner_clips(db)  # once per video: next time it's the button
+    assert again == [f"Clip prompts: already rewritten once on “{project.name}”."]
 
 
-def test_only_the_video_edited_last_is_repaired(app, db, owner, editor, setup, clip):  # noqa: F811
+def test_every_owner_video_is_repaired_once(app, db, owner, setup, clip, monkeypatch):  # noqa: F811
+    """Reed, 10-27: "repair my existing videos for free": every owner-made video with stale
+    clips, newest change first, at most 5 a deploy, once per video, one line each."""
+    import app.seed as seed
+
     reed = db.query(User).filter_by(role=Role.owner).one()
     first = db.get(Project, setup["project"])
     first.created_by_id = reed.id
@@ -144,8 +149,15 @@ def test_only_the_video_edited_last_is_repaired(app, db, owner, editor, setup, c
                        prompt="x", references=[]))  # fmt: skip
     db.commit()
     _newer_breakdown(db, first.id)  # the first video was edited last
-    assert rewrite_owner_clips(db).startswith("Rewrote clip prompts on")
+    monkeypatch.setattr(seed, "REPAIR_VIDEOS", 1)
+    assert rewrite_owner_clips(db) == [f"Rewrote clip prompts on “{first.name}”."]
     assert len(_rewrites(db, first.id)) == 1 and not _rewrites(db, other.id)
+    monkeypatch.setattr(seed, "REPAIR_VIDEOS", 5)
+    assert rewrite_owner_clips(db) == [
+        f"Clip prompts: already rewritten once on “{first.name}”.",
+        "Rewrote clip prompts on “Other”.",
+    ]
+    assert len(_rewrites(db, other.id)) == 1
 
 
 def test_a_take_held_only_because_its_clip_is_stale_is_cancelled_first(app, db, owner, setup, clip):  # noqa: F811
@@ -156,14 +168,14 @@ def test_a_take_held_only_because_its_clip_is_stale_is_cancelled_first(app, db, 
     reed = db.query(User).filter_by(role=Role.owner).one()
     project.created_by_id = reed.id
     db.commit()
-    assert rewrite_owner_clips(db) == "Clip prompts: nothing to rewrite."
+    assert rewrite_owner_clips(db) == ["Clip prompts: nothing to rewrite."]
     _newer_breakdown(db, project.id)
     held = Job(workspace_id=project.workspace_id, created_by_id=reed.id, kind="video",
                provider="fake", input={"step": "clip_take", "project_clip_id": clip["id"]},
                project_id=project.id, status="needs_owner_approval", credits=5)  # fmt: skip
     db.add(held)
     db.commit()
-    assert rewrite_owner_clips(db) == f"Rewrote clip prompts on “{project.name}”."
+    assert rewrite_owner_clips(db) == [f"Rewrote clip prompts on “{project.name}”."]
     db.expire_all()
     assert db.get(Job, held.id).status == "cancelled"
     assert len(_rewrites(db, project.id)) == 1

@@ -136,12 +136,13 @@ def test_saved_clips_are_repaired_for_free_once(app, db, editor, setup):  # noqa
     db.add(clip)
     db.commit()
     jobs = db.query(Job).count()
-    assert repair_clips(db) == 1  # the deploy step
+    said = repair_clips(db)  # the deploy step
+    assert said.startswith("Gave 1 clips their characters' sheets (checked 1 on 1 videos;")
     db.refresh(clip)
     assert [r["id"] for r in clip.references] == ["frame:c1", mom, nate, screen]
     assert "Shows [Image4]" in clip.prompt
     assert not [p for p in clip.problems if "isn't attached" in p]
-    assert repair_clips(db) == 0  # idempotent
+    assert repair_clips(db).startswith("Gave 0 clips")  # idempotent
     assert db.query(Job).count() == jobs  # no model call, nothing charged
 
 
