@@ -108,6 +108,7 @@ def test_a_label_naming_a_role_already_there_never_makes_a_second_one(owner, edi
     owner.post(f"{base}/publish")
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     name = db.get(Project, pid).name  # shot 1.2's speaker is Nate too
-    assert repair_missing_roles(db) == [f"{name}: Shot 1.1 now shows Nate. Shot 1.2 now shows Nate."]
+    shown = f"{name}: Shot 1.1 now shows Nate. Shot 1.2 now shows Nate."
+    assert repair_missing_roles(db) == [shown]
     assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Nate, the teen groom"]
     assert _who(editor, pid)[0] == [f"slot:{nate}"]
