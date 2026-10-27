@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app import advice, rewritten
 from app import script_library as lib
+from app.advice import Said
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -90,7 +91,7 @@ class VersionOut(VersionSummary):
     target_seconds: int | None
     premise: str
     changes: list[str]
-    problems: list[str]
+    problems: Said
     changed_lines: list[str]  # the reel's lines rewritten for the brand swap
     # "Was:" marks until approval: [{line_index (0-based line of text), text, was}]
     rewritten: list[dict] = []

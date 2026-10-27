@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import advice, change, clip_prompts, clip_takes, credits, cut_in
+from app.advice import Said
 from app.auth import current_user
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -72,8 +73,8 @@ class ProjectClipOut(BaseModel):
     seconds: int
     prompt: str
     references: list[Reference]
-    problems: list[str]
-    kept: list[str]  # advice kept anyway (never blocks)
+    problems: Said
+    kept: Said  # advice kept anyway (never blocks)
     file_id: int | None  # the picked take's video
     takes: list[TakeOut]
     picked_take_id: int | None
