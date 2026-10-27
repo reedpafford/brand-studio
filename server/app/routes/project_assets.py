@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app import breakdown, cast_roles, clip_prompts
+from app import advice, breakdown, cast_roles, clip_prompts
 from app.auth import current_user
 from app.credits import COUNTED, fits, get_limits, price
 from app.db import get_db
@@ -26,7 +26,7 @@ from app.models.projects import Project
 from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
-from app.routes.library import LookFitOut, pick_item, sheet_status
+from app.routes.library import LookFitOut, _save_version, pick_item, sheet_status
 from app.routes.projects import get_project
 from app.routes.script_cast import RoleFacts, role_facts
 from app.routes.scripts import latest
@@ -445,3 +445,59 @@ def undo_save(db: Session, user: User, copy: LibraryItem) -> bool:
     copy.brands = []
     db.delete(copy)
     return True
+
+
+def _own_look(db: Session, project: Project, item_id: int) -> LibraryItem | None:
+    """A look made for this video, or for the script it's made from (never a library one)."""
+    item = db.get(LibraryItem, item_id)
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    mine = item and (item.owner_project_id == project.id
+                     or (draft and item.owner_script_id == draft.script_id))  # fmt: skip
+    return item if mine else None
+
+
+@router.post("/approve-all", response_model=advice.ApproveAllOut)
+def approve_all(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Approve all (Reed, 2026-10-26): every look made for this video or its script whose sheet
+    is drawn and waits for approval. Roles still drawing or with no look are listed with why;
+    library characters and locked roles are never counted. Undo takes back exactly these."""
+    project = get_project(db, user, project_id)
+    approved, skipped = [], []
+    for row in list_assets(project_id, user, db):
+        if row.kind != "character" or row.locked or row.sheet_status == "approved":
+            continue
+        if row.library_item_id is None:
+            skipped.append({"id": None, "slot_id": row.slot_id, "label": row.role,
+                            "reason": "no look yet"})  # fmt: skip
+            continue
+        item = _own_look(db, project, row.library_item_id)
+        if item is None:
+            continue  # a library character: approved in Cast & places
+        why = {"drawing": "still drawing", "waiting_for_owner": "waiting for the owner",
+               "none": "no sheet yet"}.get(row.sheet_status, "")  # fmt: skip
+        if why:
+            skipped.append({"id": item.id, "slot_id": row.slot_id, "label": row.role,
+                            "reason": why})  # fmt: skip
+            continue
+        _save_version(db, user, item)
+        item.sheet_approved = True
+        approved.append(item.id)
+    db.commit()
+    return advice.ApproveAllOut(approved=approved, skipped=skipped)
+
+
+@router.post("/approve-all/undo", response_model=list[AssetOut])
+def undo_approve_all(
+    project_id: int,
+    body: advice.UndoIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo Approve all: exactly the looks it approved go back to waiting for approval."""
+    project = get_project(db, user, project_id)
+    for item_id in body.ids:
+        if (item := _own_look(db, project, item_id)) and item.sheet_approved:
+            _save_version(db, user, item)
+            item.sheet_approved = False
+    db.commit()
+    return list_assets(project_id, user, db)

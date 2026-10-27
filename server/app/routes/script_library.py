@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import rewritten
+from app import advice, rewritten
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -483,6 +483,58 @@ def approve_draft(
         draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), user.id
         draft.rewritten = []  # approved: the "Was:" marks and the banner go
         db.commit()
+    return _out(db, script)
+
+
+@router.post("/{script_id}/drafts/approve-all", response_model=advice.ApproveAllOut)
+def approve_all_drafts(
+    script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Approve all (Reed, 2026-10-26): every version that's written and still a draft; one
+    still being written, or with no words yet, is listed with why ("C: still writing").
+    Undo takes back exactly these (ids are the versions' slots)."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    rows = db.scalars(
+        select(ScriptDraft).where(ScriptDraft.script_id == script.id).order_by(ScriptDraft.slot)
+    )
+    busy = lib.writing(db, script.id, "variations")
+    approved, skipped = [], []
+    for draft in rows:
+        if draft.status == "approved":
+            continue
+        why = (
+            "still writing" if busy and draft.slot > 0
+            else "no words yet" if not draft.text.strip()
+            else ""
+        )  # fmt: skip
+        if why:
+            skipped.append({"id": draft.slot, "label": chr(ord("A") + draft.slot), "reason": why})
+            continue
+        draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), user.id
+        draft.rewritten = []
+        approved.append(draft.slot)
+    db.commit()
+    return advice.ApproveAllOut(approved=approved, skipped=skipped)
+
+
+@router.post("/{script_id}/drafts/approve-all/undo", response_model=ScriptOut)
+def undo_approve_all_drafts(
+    script_id: int,
+    body: advice.UndoIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo Approve all: exactly the versions it approved go back to drafts."""
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    rows = db.scalars(
+        select(ScriptDraft).where(
+            ScriptDraft.script_id == script.id, ScriptDraft.slot.in_(body.ids)
+        )
+    )
+    for draft in rows:
+        if draft.status == "approved":
+            draft.status, draft.approved_at, draft.approved_by_id = "draft", None, None
+    db.commit()
     return _out(db, script)
 
 
