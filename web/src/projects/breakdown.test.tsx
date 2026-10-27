@@ -392,3 +392,62 @@ test("a shot with no script lines (a reaction or an insert) shows no line label 
   expect(within(silent).queryByText(/^Lines? \d/)).toBeNull();
   expect(within(screen.getByLabelText("Shot 1.1")).getByText("Line 1")).toBeInTheDocument();
 });
+
+const lost = "Line 4 isn't in any shot.";
+const changed = "Shot 1.1 says 'see you later', but the script says 'see you soon'.";
+
+test("a missing line has a free fix beside it; it says what it did and Undo puts the breakdown back", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, breakdown({ problems: [lost], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }] })],
+    "POST /projects/9/breakdown/fix": [200, { ...breakdown(), fixed: ["Put line 4 in shot 1.2."] }],
+    "PUT /projects/9/breakdown": [200, breakdown({ problems: [lost] })],
+  });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  expect(within(box).getByText("Free")).toBeInTheDocument();
+  await userEvent.click(within(box).getByRole("button", { name: `Add it to a shot: ${lost}` }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/breakdown/fix")?.body).toEqual({ problems: [lost] }));
+  expect(await screen.findByText("Put line 4 in shot 1.2.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
+});
+
+test("several fixable problems also get one Fix N problems for all of them", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, breakdown({ problems: [lost, changed], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }, { problem: changed, kind: "restore_line", label: "Use the script's words" }] })],
+    "POST /projects/9/breakdown/fix": [200, { ...breakdown(), fixed: ["Put line 4 in shot 1.2.", "Put the script's words back in shot 1.1."] }],
+  });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  await userEvent.click(within(box).getByRole("button", { name: "Fix 2 problems" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/breakdown/fix")?.body).toEqual({ problems: [lost, changed] }));
+});
+
+test("a problem with no free fix shows no fix button", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [lost], fixes: [] })] });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  expect(within(box).queryByText("Free")).toBeNull();
+});
+
+test("a problem's words get the whole row on a phone, with its buttons wrapping under them", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [lost], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }] })] });
+  open();
+  const words = (await screen.findByLabelText("Problems")).querySelector("li > span");
+  expect(words).toHaveClass("w-full", "sm:flex-1");
+  expect(words?.parentElement).toHaveClass("flex-wrap");
+});
+
+test("when a fix is refused, the server's reason is shown, in its words", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, breakdown({ problems: [lost, changed], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }, { problem: changed, kind: "restore_line", label: "Use the script's words" }] })],
+    "POST /projects/9/breakdown/fix": [409, { detail: "Nothing here can be fixed for you. Edit the shot instead." }],
+  });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  await userEvent.click(within(box).getByRole("button", { name: "Fix 2 problems" }));
+  expect(await within(box).findByRole("alert")).toHaveTextContent("Nothing here can be fixed for you. Edit the shot instead.");
+});

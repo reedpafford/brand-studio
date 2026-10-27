@@ -3594,6 +3594,13 @@ export interface components {
              * @default []
              */
             fixed: string[];
+            /**
+             * Unknown Names
+             * @default {}
+             */
+            unknown_names: {
+                [key: string]: string;
+            };
         };
         /** BreakdownReview */
         BreakdownReview: {
@@ -4679,6 +4686,13 @@ export interface components {
              * @default []
              */
             fixed: string[];
+            /**
+             * Unknown Names
+             * @default {}
+             */
+            unknown_names: {
+                [key: string]: string;
+            };
         };
         /** PriceOut */
         PriceOut: {

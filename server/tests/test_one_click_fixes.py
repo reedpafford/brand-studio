@@ -147,3 +147,25 @@ def test_a_versions_plan_has_the_same_free_fixes(owner):
     assert fixed["fixed"] == ["Put line 3 in shot 1.2."]
     assert fixed["breakdown"]["scenes"][0]["shots"][1]["script_lines"] == [3]
     assert "line 3 is in no shot" not in fixed["problems"]
+
+
+def test_edit_shot_can_name_what_the_video_doesnt_have(app, db, editor, outsider, setup):  # noqa: F811
+    """Designer, §2: "Remove Mia from this shot", never another workspace's name."""
+    from tests.conftest import upload
+
+    url = f"/projects/{setup['project']}/breakdown"
+    editor.post(url)
+    _run(app, db, FakeClaude(BREAKDOWN))
+    mia = editor.post("/library/character", json={"name": "Mia"}).json()["id"]  # not cast
+    rival = outsider.post(
+        "/library/character", json={"name": "Secret Rival", "image_file_ids": [upload(outsider)]}
+    ).json()["id"]
+    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    data = copy.deepcopy(row.data)
+    data["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mia}", f"char:{rival}"]
+    row.data = data
+    db.commit()
+    assert editor.get(url).json()["unknown_names"] == {
+        f"char:{mia}": "Mia",
+        f"char:{rival}": "a character",  # another workspace's: said for what it is
+    }

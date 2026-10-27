@@ -216,6 +216,11 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
         preview={{
           keep: (problem, undo) => keep.mutate({ problem, undo }),
           keepBusy: keep.isPending,
+          fix: async (problems) => {
+            const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/fix", { params: { path }, body: { problems } });
+            if (!data) throw new Error(errorText(error));
+            return data;
+          },
           fixCast: async () => {
             const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/fix-cast", { params: { path } });
             if (!data) throw new Error(errorText(error));
