@@ -5684,7 +5684,7 @@ export interface components {
             reaction: string | null;
             /**
              * Camera
-             * @description Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or 'Macro insert of the phone screen, static'.
+             * @description Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or 'Over-the-shoulder close-up on the phone in his hand, static'.
              */
             camera: string;
             /**
