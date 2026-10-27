@@ -3,7 +3,6 @@
 import hashlib
 import re
 import uuid
-from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
@@ -16,6 +15,7 @@ from app.filetypes import ALLOWED_TYPES, matches
 from app.models.accounts import User
 from app.models.files import StoredFile
 from app.references import too_many_pixels
+from app.schemas import UtcTime
 
 router = APIRouter(prefix="/files", tags=["files"])
 CHUNK = 1024 * 1024
@@ -26,7 +26,7 @@ class FileOut(BaseModel):
     filename: str
     content_type: str
     size: int
-    created_at: datetime
+    created_at: UtcTime
 
 
 def get_file(

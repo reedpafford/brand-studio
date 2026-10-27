@@ -7,10 +7,11 @@ import { useToast } from "../toast";
 import { Pencil, Upload, History as Versions, FileText } from "lucide-react";
 import { Banner, Button, Card, Menu, MenuItem, buttonClass } from "../components";
 import { errorText as errorClass, input } from "../ui";
+import { serverTime } from "../time";
 
 const SOURCE = { paste: "pasted", upload: "uploaded", draft: "written by Claude", enhance: "enhanced" } as Record<string, string>;
 const when = (iso: string) => {
-  const d = new Date(iso);
+  const d = serverTime(iso);
   const today = d.toDateString() === new Date().toDateString();
   return `${today ? "Today" : d.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
 };

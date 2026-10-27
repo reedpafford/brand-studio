@@ -10,10 +10,11 @@ import { backLink, btnPrimary, btnSecondary, card, errorText as errorClass, inpu
 import { CharacterExtras } from "./CharacterExtras";
 import { SheetPanel } from "./SheetPanel";
 import { KINDS, isKindSlug } from "./kinds";
+import { serverTime } from "../time";
 
 type Item = components["schemas"]["ItemOut"];
 
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+const day = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 export function ItemPage() {
   const { brandId, kindSlug, itemId } = useParams();
