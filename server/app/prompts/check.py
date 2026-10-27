@@ -268,9 +268,6 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                     )
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
-            if _money(shot):
-                problems += [f"{ADVICE}{c.clip_id}: shot {sid}'s screen should read {x}"
-                             for x in MONEY.findall(shot.action) if x not in c.prompt]  # fmt: skip
             said = [_exact(q) for q in QUOTED.findall(c.prompt)]
             line = _exact(shot.line or "")
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
