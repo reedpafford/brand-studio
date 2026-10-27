@@ -9,7 +9,7 @@ import re
 
 from fastapi import HTTPException
 from sqlalchemy import delete, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.models.accounts import User
 from app.models.clips import ProjectClip
@@ -83,9 +83,25 @@ def spoken_seconds(text: str) -> int:
 
 
 def seconds(draft: ScriptDraft) -> int:
+    """The version's length: its breakdown's, else the owner's target, else the larger of the
+    spoken words and the reel it was made from (a montage-heavy reel says little: 62 s and 66
+    shots read as 32 s from its words alone)."""
     if draft.breakdown:
         return sum(c["seconds"] for c in draft.breakdown.get("clips", []))
-    return draft.target_seconds or spoken_seconds(draft.text)
+    return draft.target_seconds or max(spoken_seconds(draft.text), reel_seconds(draft))
+
+
+def reel_seconds(draft: ScriptDraft) -> int:
+    """How long the script's reel is: the imported reel's, else the catalogue reference's."""
+    from app.routes.references import catalogue
+    from app.settings import get_settings
+
+    script = object_session(draft).get(Script, draft.script_id)
+    imported = (script.reference_breakdown or {}).get("duration_seconds") if script else None
+    if imported or not (script and script.reference_id):
+        return round(imported or 0)
+    found = catalogue(get_settings().references_dir).get(script.reference_id)
+    return round(found[0].seconds) if found else 0
 
 
 def version_status(db: Session, draft: ScriptDraft) -> tuple[str, int | None]:

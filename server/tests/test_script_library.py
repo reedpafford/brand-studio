@@ -43,7 +43,7 @@ def test_write_approve_and_publish_a_script(owner):
     url = f"/scripts/{made['id']}"
     (original,) = made["versions"]
     assert (original["slot"], original["status"], original["words"]) == (0, "draft", 19)
-    assert original["seconds"] == 2 and made["status"] == "draft"  # 10 spoken words / 4.8
+    assert original["seconds"] == 45 and made["status"] == "draft"  # its reel, not 10 words
     variation = owner.put(f"{url}/drafts/1", json={"text": SCRIPT + "\nNATE: Fine."}).json()
     assert [v["slot"] for v in variation["versions"]] == [0, 1]
     assert owner.post(f"{url}/publish").status_code == 409  # versions not approved yet
@@ -281,3 +281,17 @@ def test_removed_scripts_have_their_own_list_with_a_purge_date(owner, editor):
     assert owner.get("/scripts").json() == []
     owner.post(f"/scripts/{reeds['id']}/restore")
     assert [s["title"] for s in owner.get("/scripts").json()] == ["Reed's"]
+
+
+def test_a_dialogue_light_reel_is_estimated_at_its_own_length(owner, db):
+    """Producer, 2026-10-27: a 62 s, 66-shot reel with few lines read as "about 32 s"."""
+    from app.models.script_library import Script
+
+    words = "\n".join(f"NATE: Line {n} here." for n in range(1, 6))  # ~3 s of speech
+    made = _make(owner, text=words)
+    assert owner.get(f"/scripts/{made['id']}").json()["versions"][0]["seconds"] == 3
+    script = db.get(Script, made["id"])
+    script.reference_breakdown = {"duration_seconds": 61.6, "shots": []}  # imported reel
+    db.commit()
+    shown = owner.get(f"/scripts/{made['id']}").json()["versions"][0]
+    assert (shown["seconds"], shown["estimate_credits"]) == (62, 62)  # the reel's length wins
