@@ -130,6 +130,11 @@ class CastSlot(BaseModel):
         description="Version slots the role is in: 0 is the original, then 1 and 2."
     )
     recurring: bool = Field(description="True when the role is in two or more scenes or versions.")
+    may_be_same_as: str = Field(
+        default="",
+        description="Only when you're unsure whether this is a named slot under another name: "
+        "that slot's role, word for word (e.g. 'Kimchi, Nate's rich friend'). Empty otherwise.",
+    )
 
 
 class CastSlots(BaseModel):
