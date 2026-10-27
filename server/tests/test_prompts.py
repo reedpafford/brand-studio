@@ -904,7 +904,9 @@ def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
 def test_sheet_prompts_are_house_style_with_no_names_or_text():
     sheet = prompts.sheet_prompt("character", "17, red beanie, grey hoodie, headphones")
     assert sheet.startswith("Generate a character turnaround sheet")
-    assert "front view, full body side view and full body back view" in sheet
+    assert "a front view, a side view in profile and a back view" in sheet
+    assert "all three views are always there" in sheet  # a live sheet came back without its side
+    assert "never a child's" in sheet and "6 heads" not in sheet  # Lexi, an adult, came out a child
     assert "No text" in sheet and sheet.endswith(
         "The character: 17, red beanie, grey hoodie, headphones"
     )
@@ -918,6 +920,7 @@ def test_sheet_prompts_are_house_style_with_no_names_or_text():
 def test_a_made_look_is_checked_against_its_role_and_redone_once():
     text = prompts.system("look_fit")
     assert text.startswith("# Step: Look fit") and "Be engaging" not in text  # no writer rules
+    assert "**Three views:**" in text and "slightly large head" not in text  # live run #16
     msg = prompts.look_fit_input("Mid-40s woman, a teacher; cardigan.", role="Ms Lee, the teacher")
     assert (
         msg

@@ -8,9 +8,9 @@ What this is: the default look, sound and storytelling for every Brand Studio vi
 
 ## Visual style line (first line of every image/video prompt)
 
-> Stylised 3D animated feature-film look (Pixar/Disney-like CG). Characters have slightly enlarged heads (about 6 heads tall), big glossy round eyes with one sharp catchlight, thick expressive brows, small noses and soft subsurface skin. Wardrobe is simple, clean and real-world, with fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The frame is mostly locked off at eye level with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off.
+> Stylised 3D animated feature-film look (Pixar/Disney-like CG). Faces, builds and outfits come from the character sheets: each character's body and face follow their age, and an adult is never drawn with a child's proportions. Fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The frame is mostly locked off at eye level with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off.
 
-A short version for tight prompt budgets: *"Pixar-style 3D animation, big glossy eyes, soft subsurface skin, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions."*
+A short version for tight prompt budgets: *"Pixar-style 3D animation, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions."*
 
 All reels are vertical 9:16. Set the aspect ratio as the generation setting, never in the prompt text (our prompt checks reject ratios in prompts).
 
@@ -56,7 +56,7 @@ Measured on close-ups with a grid overlay (DehudnaAmce 0.95 s, DcP_aC_AoQz 0.66 
 
 | Feature | Measurement / rule |
 |---|---|
-| Body | About **6–6.5 heads tall** (crown to chin; a real teen is about 7). Slim, normal limbs; hands slightly large and soft. Adults are caricatured by type: the rich rival or dad has a huge square jaw and broad chest; the mom is slim with a bob. |
+| Body | The teen hero in these reels is about **6–6.5 heads tall** (crown to chin; a real teen is about 7); adults are drawn at adult height and build (about 7 heads), never with a teen's or child's proportions. Slim, normal limbs; hands slightly large and soft. Adults are caricatured by type: the rich rival or dad has a huge square jaw and broad chest; the mom is slim with a bob. |
 | Head / face shape | Soft oval for the young hero; a short chin and full cheeks. The rival or dad has an oversized, block-like jaw (a "villain" read at a glance). |
 | Eyes | Big and round: **each eye about 23 % of face width** (hero) and **25–28 %** (women). The gap between the eyes is about 0.9 of an eye width. The iris is about **60 % of eye width**, warm brown for the hero and bright blue for love interests. One sharp white catchlight, upper side. In shock the white shows all round the iris. |
 | Eye line | At about 51 % of head height (crown to chin), so eyes sit mid-head as in real anatomy. The stylisation comes from size, not placement. |
@@ -67,7 +67,7 @@ Measured on close-ups with a grid overlay (DehudnaAmce 0.95 s, DcP_aC_AoQz 0.66 
 | Wardrobe | One fixed outfit per character, repeated in every scene (that is what keeps them recognisable). Hero: oversized plain tee with a small chest logo, thin silver chain, stud earring, dark joggers, white sneakers, cap worn backwards. After the time jump the *same* character is upgraded (black suit or knit tee, heavier chain, glasses, the cap now forward) so the success reads instantly. |
 | Consistency | Always keep the same face, hair, outfit and logo. Small model drift does occur in the source (DeukYhBBTKE's rival changes build). Avoid it: attach the character sheet to every shot. |
 
-For brand videos: design new characters to these proportions. Give each one a single silhouette-defining item (the cap, the bob, the jaw) and a fixed colour pairing (hero: white plus navy).
+For brand videos: design new characters in this style, with proportions that fit their age (an adult always reads as an adult). Give each one a single silhouette-defining item (the cap, the bob, the jaw) and a fixed colour pairing (hero: white plus navy).
 
 ---
 
