@@ -194,7 +194,9 @@ def moment_problems(db: Session) -> int:
         )
         if row and (new := again(project, row.data, row.problems)) is not None:
             row.problems, changed = new, changed + 1
-    for draft in db.scalars(select(ScriptDraft).where(ScriptDraft.breakdown.is_not(None))).all():
+    for draft in db.scalars(select(ScriptDraft)).all():
+        if not draft.breakdown:  # a deleted plan is JSON null, which is_not(None) lets through
+            continue
         stand_in = stand_in_project(db, db.get(Script, draft.script_id), draft)
         if (new := again(stand_in, draft.breakdown, draft.breakdown_problems)) is not None:
             draft.breakdown_problems, changed = new, changed + 1

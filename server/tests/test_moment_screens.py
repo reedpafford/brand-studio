@@ -77,3 +77,20 @@ def test_a_saved_false_blocker_is_said_again_on_deploy(app, db, editor, setup): 
     assert db.get(BreakdownVersion, row.id).problems == [
         "Advice: shot 1.1: 'trading' moment without its screen"
     ]
+
+
+def test_a_deleted_plan_is_skipped_on_deploy(db, owner):
+    """A version whose plan was deleted holds JSON null, which SQL's is_not(None) lets through
+    (#565's deploy crashed on it): the repair skips it."""
+    from sqlalchemy import text
+
+    from app.models.script_library import ScriptDraft
+    from tests.test_script_library import SCRIPT, _make
+
+    made = _make(owner, text=SCRIPT)
+    draft = db.query(ScriptDraft).filter_by(script_id=made["id"]).first()
+    draft.breakdown_problems = ["shot 1.1: 'trading' moment without its screen"]
+    db.commit()
+    db.execute(text("UPDATE script_drafts SET breakdown = 'null' WHERE id = :id"), {"id": draft.id})
+    db.commit()
+    assert moment_problems(db) == 0
