@@ -22,7 +22,7 @@ def upgrade() -> None:
         sa.Column("brand_id", sa.Integer(), sa.ForeignKey("brands.id"), nullable=False),
         sa.Column("created_by_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("file_id", sa.Integer(), sa.ForeignKey("files.id"), nullable=False),
-        sa.Column("seconds", sa.Float(), nullable=False),
+        sa.Column("seconds", sa.Double(), nullable=False),
         sa.Column("used", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
     op.create_index("ix_video_uploads_workspace_id", "video_uploads", ["workspace_id"])

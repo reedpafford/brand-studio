@@ -38,7 +38,7 @@ def test_an_upload_is_checked_and_kept_for_free_and_remove_drops_it(owner, edito
     sent = _send(owner, clip)
     assert sent.status_code == 201, sent.text
     got = sent.json()
-    assert got["upload_id"] and got["file_name"] == "bo-tries-salmon.mp4" and got["problem"] is None
+    assert got["upload_id"] and got["file_name"] == "bo-tries-salmon.mp4" and got["problem"] == ""
     assert 0 < got["seconds"] <= 90 and got["size"] == clip.stat().st_size
     assert db.query(Job).count() == 0  # nothing is read
     url = f"/uploads/{got['upload_id']}"

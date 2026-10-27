@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.advice import SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -25,7 +26,7 @@ class UploadOut(BaseModel):
     file_name: str
     seconds: float | None
     size: int
-    problem: str | None = None  # the plain sentence for the file's row
+    problem: SaidText = ""  # the plain sentence for the file's row ("" when fine)
     problem_code: str | None = None  # too_long | bad_file
 
 

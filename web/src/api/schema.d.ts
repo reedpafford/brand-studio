@@ -5607,8 +5607,11 @@ export interface components {
             seconds: number | null;
             /** Size */
             size: number;
-            /** Problem */
-            problem?: string | null;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
             /** Problem Code */
             problem_code?: string | null;
         };
