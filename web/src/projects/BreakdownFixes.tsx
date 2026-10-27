@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, RotateCcw, Trash2, Wand2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { errorText } from "../api/client";
 import { Button } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
@@ -61,7 +60,7 @@ export function useBreakdownFixes(opts: {
             <span className="text-sm text-muted">Free</span>
           </span>
         )}
-        {fix.error && <p role="alert" className={errorClass}>{errorText(fix.error) || fix.error.message}</p>}
+        {fix.error && <p role="alert" className={errorClass}>{fix.error.message}</p>}
       </div>
     ) : null;
   return { beside, all };
