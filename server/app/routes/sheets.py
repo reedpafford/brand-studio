@@ -4,6 +4,7 @@ editor approves it; only an approved sheet is ever used in a video (`app/sheets.
 source photo never is."""
 
 import logging
+import re
 from decimal import Decimal
 from typing import Literal
 
@@ -64,6 +65,20 @@ def make_sheet(
     return queue_sheet(db, user, item, body)
 
 
+IDENTITY = re.compile(  # a clear change of age, face or build; an outfit never is
+    r"(?i)\b(older|younger|aged?|years? old|\d0s|teen\w*|elderly|middle-aged|"
+    r"(different|new|rounder|narrower|longer|wider|softer|sharper) (face|jaw)|"
+    r"(heavier|slimmer|thinner|leaner|stockier|bigger|smaller) (build|body|frame)|"
+    r"muscular|overweight|chubby|stocky|skinny)\b"
+)
+KEEPS = re.compile(r"(?i)\b(keep|same)\b")  # "keep the same face": the sheet stays
+
+
+def own_look(item: LibraryItem) -> bool:
+    """Made for one video or script (never Cast & places)."""
+    return bool(item.owner_project_id or item.owner_script_id)
+
+
 def queue_sheet(
     db: Session, user: User, item: LibraryItem, body: SheetIn, fit_redo=False, auto=False
 ) -> Job:
@@ -75,10 +90,15 @@ def queue_sheet(
     kind = item.kind
     from_photo = bool(item.source_photo_file_id)
     redo = bool(body.change.strip()) and item.sheet_file_id is not None
+    # A note that reworks the face, age or build of a video's or script's own look is drawn
+    # fresh from its description and the note: the old sheet won over the note (QA-Live 6).
+    fresh = (redo and own_look(item) and bool(IDENTITY.search(body.change))
+             and not KEEPS.search(body.change))  # unsure: keep the sheet  # fmt: skip
     refs = [item.source_photo_file_id] if from_photo else []
-    refs += [item.sheet_file_id] if redo else []
+    refs += [item.sheet_file_id] if redo and not fresh else []
+    notes = f"{item.notes.rstrip('. ')}. {body.change.strip()}" if fresh else item.notes
     prompt = prompts.sheet_prompt(
-        str(kind), item.notes, from_photo=from_photo, change=body.change if redo else "",
+        str(kind), notes, from_photo=from_photo, change=body.change if redo and not fresh else "",
         role=role_for(db, item),
     )  # fmt: skip
     job = image_job_input(
