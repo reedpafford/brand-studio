@@ -1826,6 +1826,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/cast/maybe-same": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Maybe Same
+         * @description Roles that may be one person, never two kept apart or seen in one shot.
+         */
+        get: operations["maybe_same_scripts__script_id__cast_maybe_same_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/maybe-same/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss
+         * @description They're different: the pair isn't suggested again.
+         */
+        post: operations["dismiss_scripts__script_id__cast_maybe_same_dismiss_post"];
+        /**
+         * Undo Dismiss
+         * @description Undo "They're different".
+         */
+        delete: operations["undo_dismiss_scripts__script_id__cast_maybe_same_dismiss_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/merge/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Merge
+         * @description Put a merged role back, with its shots, lines and look as they were.
+         */
+        post: operations["undo_merge_scripts__script_id__cast_merge_undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/{slot_id}/merge/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Merge Preview
+         * @description What merging this role into `into` would move, before it's done.
+         */
+        get: operations["merge_preview_scripts__script_id__cast__slot_id__merge_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/cast/{slot_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge
+         * @description Merge this role into another: its shots and lines move there (see app/merge_roles.py).
+         */
+        post: operations["merge_scripts__script_id__cast__slot_id__merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/cast": {
         parameters: {
             query?: never;
@@ -4459,6 +4563,13 @@ export interface components {
             /** Editors Can Save Looks */
             editors_can_save_looks: boolean;
         };
+        /** Line */
+        Line: {
+            /** Version */
+            version: string;
+            /** Line */
+            line: number;
+        };
         /** LinkIn */
         LinkIn: {
             /** Brand Id */
@@ -4488,6 +4599,11 @@ export interface components {
             seen: string;
             /** Problem */
             problem: string;
+        };
+        /** LookName */
+        LookName: {
+            /** Name */
+            name: string;
         };
         /** MadeOut */
         MadeOut: {
@@ -4519,6 +4635,28 @@ export interface components {
             /** Name */
             name: string;
             role: components["schemas"]["Role"];
+        };
+        /** MergeIn */
+        MergeIn: {
+            /** Into Slot Id */
+            into_slot_id: number;
+        };
+        /**
+         * MergePreview
+         * @description What a merge moves; the merged role's look (if any) is left unused, never deleted.
+         */
+        MergePreview: {
+            moved: components["schemas"]["Moved"];
+            look_unused: components["schemas"]["LookName"] | null;
+        };
+        /** Merged */
+        Merged: {
+            moved: components["schemas"]["Moved"];
+            look_unused: components["schemas"]["LookName"] | null;
+            /** Token */
+            token: number;
+            /** Cast */
+            cast: components["schemas"]["SlotOut"][];
         };
         /** MissingLooksOut */
         MissingLooksOut: {
@@ -4606,6 +4744,13 @@ export interface components {
             /** Seconds */
             seconds: number;
         };
+        /** Moved */
+        Moved: {
+            /** Shots */
+            shots: string[];
+            /** Lines */
+            lines: components["schemas"]["Line"][];
+        };
         /** MyAllowanceOut */
         MyAllowanceOut: {
             /** Quick Clip Credits Used */
@@ -4689,6 +4834,13 @@ export interface components {
              * @default []
              */
             file_ids: number[];
+        };
+        /** PairIn */
+        PairIn: {
+            /** A Slot Id */
+            a_slot_id: number;
+            /** B Slot Id */
+            b_slot_id: number;
         };
         /** Person */
         Person: {
@@ -5165,6 +5317,17 @@ export interface components {
         RoleIn: {
             role: components["schemas"]["Role"];
         };
+        /** SamePair */
+        SamePair: {
+            /** A Slot Id */
+            a_slot_id: number;
+            /** B Slot Id */
+            b_slot_id: number;
+            /** Into Slot Id */
+            into_slot_id: number;
+            /** Why */
+            why: string;
+        };
         /** SaveLookIn */
         SaveLookIn: {
             /** Name */
@@ -5598,11 +5761,6 @@ export interface components {
              */
             created_at: string;
         };
-        /** UndoIn */
-        UndoIn: {
-            /** Ids */
-            ids: number[];
-        };
         /** UploadOut */
         UploadOut: {
             /** Upload Id */
@@ -6019,6 +6177,11 @@ export interface components {
             /** Script Ids */
             script_ids: number[];
         };
+        /** UndoIn */
+        app__advice__UndoIn: {
+            /** Ids */
+            ids: number[];
+        };
         /** InviteOut */
         app__routes__auth__InviteOut: {
             /** Workspace Name */
@@ -6060,6 +6223,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** UndoIn */
+        app__routes__script_cast__UndoIn: {
+            /** Token */
+            token: number;
         };
         /** ScriptIn */
         app__routes__script_library__ScriptIn: {
@@ -6150,6 +6318,11 @@ export interface components {
             new_lines: boolean;
             /** Cast */
             cast: components["schemas"]["SlotOut"][];
+            /**
+             * Maybe Same
+             * @default []
+             */
+            maybe_same: components["schemas"]["SamePair"][];
         };
         /** VersionOut */
         app__routes__script_library__VersionOut: {
@@ -9719,7 +9892,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UndoIn"];
+                "application/json": components["schemas"]["app__advice__UndoIn"];
             };
         };
         responses: {
@@ -9886,6 +10059,212 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    maybe_same_scripts__script_id__cast_maybe_same_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamePair"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_scripts__script_id__cast_maybe_same_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamePair"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_dismiss_scripts__script_id__cast_maybe_same_dismiss_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamePair"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_merge_scripts__script_id__cast_merge_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__routes__script_cast__UndoIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_preview_scripts__script_id__cast__slot_id__merge_preview_get: {
+        parameters: {
+            query: {
+                into: number;
+            };
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_scripts__script_id__cast__slot_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Merged"];
                 };
             };
             /** @description Validation Error */
@@ -11685,7 +12064,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UndoIn"];
+                "application/json": components["schemas"]["app__advice__UndoIn"];
             };
         };
         responses: {
@@ -12189,7 +12568,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UndoIn"];
+                "application/json": components["schemas"]["app__advice__UndoIn"];
             };
         };
         responses: {
@@ -12747,7 +13126,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UndoIn"];
+                "application/json": components["schemas"]["app__advice__UndoIn"];
             };
         };
         responses: {

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, rewritten
+from app import advice, merge_roles, rewritten
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -24,7 +24,7 @@ from app.routes.brands import get_brand
 from app.routes.jobs import stop_jobs
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
-from app.routes.script_cast import SlotOut, slots
+from app.routes.script_cast import SamePair, SlotOut, slots
 from app.routes.script_import import UNTITLED, one_at_a_time, prepare
 from app.routes.scripts import ScriptText
 from app.routes.uploads import get_upload
@@ -147,6 +147,7 @@ class ScriptOut(ScriptRow):
     new_lines: bool
     versions: list[VersionOut]
     cast: list[SlotOut]  # roles shared by every version, locked or not
+    maybe_same: list[SamePair] = []  # roles that may be one person (advice, never blocks)
 
 
 def _person(db: Session, user_id: int | None) -> Person | None:
@@ -236,6 +237,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         reference_replace=script.reference_replace,
         new_lines=script.new_lines,
         cast=slots(db, script),
+        maybe_same=merge_roles.maybe_same(db, script),
     )
 
 
