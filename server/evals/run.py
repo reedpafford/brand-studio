@@ -14,6 +14,7 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
+from app.breakdown import payoffs_block
 from app.catalogue import get_model
 from app.claude import ask, make_client
 from app.prompts import (
@@ -84,6 +85,8 @@ def run_case(
     if ref := case.get("reference"):
         path = Path(__file__).parents[2] / ref["path"]
         reference = "\n" + reference_block(json.loads(path.read_text()), ref["replace"])
+    recent = payoffs_block(list(case.get("recent_payoffs", {}).items()))  # the brand's last videos
+    recent = f"\n{recent}" if recent else ""
     answers = {}
     for step in case["steps"]:
         if not dry and sum(spent) >= cap:
@@ -111,11 +114,13 @@ def run_case(
         if step == "enhance":
             prompt = f"{brief}\n{cast}\n<script>\n{number_lines(script)}\n</script>"
         elif step == "script_draft":
-            prompt = f"{brief}\n{cast}{reference}"
+            prompt = f"{brief}\n{cast}{recent}{reference}"
             if case.get("new_lines"):
                 prompt += "\n<new_lines>true</new_lines>"
         elif step == "variations":
-            prompt = variations_input(script, case["cast"], case["count"], reference.strip())
+            prompt = (
+                variations_input(script, case["cast"], case["count"], reference.strip()) + recent
+            )
         elif step == "cast_slots":
             if dry:  # needs the variations' answer
                 return
@@ -125,7 +130,7 @@ def run_case(
             prompt = cast_slots_input(versions, reference.strip(), case["cast"], case["brief"])
         elif step == "breakdown":
             (out / f"{case['id']}.script.txt").write_text(script)
-            prompt = f"{brief}\n{cast}\n{places}\n{video_model()}{reference}\n"
+            prompt = f"{brief}\n{cast}\n{places}{recent}\n{video_model()}{reference}\n"
             prompt += f"<script>\n{number_lines(script)}\n</script>"
         else:  # clip_prompts
             if dry:  # needs the breakdown's answer
