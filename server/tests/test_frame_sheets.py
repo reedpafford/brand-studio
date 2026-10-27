@@ -7,7 +7,6 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown, Frame
-from app.seed import repair_frames
 from tests.conftest import upload
 from tests.helpers import with_sheet
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
@@ -81,10 +80,12 @@ def test_saved_frames_are_repaired_for_free_once(app, db, editor, setup):  # noq
     db.add(frame)
     db.commit()
     jobs = db.query(Job).count()
-    assert repair_frames(db) == 1  # the deploy step
+    project = db.get(storyboard.Project, setup["project"])
+    assert storyboard.repair(db, project) == 1  # as when the storyboard opens
+    db.commit()
     db.refresh(frame)
     assert (frame.reference_ids, frame.problems) == ([mom, nate], [])
-    assert repair_frames(db) == 0  # idempotent
+    assert storyboard.repair(db, project) == 0  # idempotent
     shown = editor.get(f"/projects/{setup['project']}/storyboard").json()
     assert [f["reference_ids"] for f in shown] == [[mom, nate]]
     assert db.query(Job).count() == jobs  # no model call, nothing charged
