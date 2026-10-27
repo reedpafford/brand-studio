@@ -1,4 +1,4 @@
-as of 69d67da · 2026-10-27 16:25 UTC
+as of 019d23d · 2026-10-27 16:40 UTC
 # Handoff (rewritten each refresh by the Scribe; under 60 lines)
 Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of ops/DECISIONS.md (#609: 28 numbered rules, newest wins; re-read before every task). Detail of what merged, when and why is in ops/LOG.md.
 
@@ -9,21 +9,22 @@ Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of o
 - Workflow v2: Script Library, owner/editor split, weekly allowances, reel import and Bulk create, In production view, Delete/Archive with Undo.
 - Live: https://srv2091584.hstgr.cloud, auto-deploys on every merge to main (needs the server secrets), generation on. Free stand-ins: `BS_FAKE_PROVIDERS`, `scripts/fake_run.py`.
 - Design: Screening room redesign docs in `docs/design/redesign/` (Reed picked direction B).
-- Latest merges: #603/#604 character sheet owns the face, main character's sheet first; #601 app screens only need the logo right; #605 clip prompts always finish, a few clips per answer, causes named; #607 size cap; #609 Current rules.
+- Latest merges: #603/#604 character sheet owns the face, main character's sheet first; #601 app screens only need the logo right; #606 "Use the real image" cleared on replace; #605 clip prompts always finish, a few clips per answer, causes named; #607 size cap; #609 Current rules.
 
 ## Where we are: stabilization pass (Reed, DECISIONS #602, rule 25)
-No new features until, in order: 1 faces (done in #603/#604), 2 failing clip prompts (#605 merged), 3 bloat clean-up by the Steward (line counts before and after), 4 QA-Live runs the full editor flow on the live site, including Kel's and Mary's broken videos.
+No new features until, in order: 1 faces (sheet rules in #603/#604; not done until the cast fix lands), 2 failing clip prompts (#605 merged), 3 bloat clean-up by the Steward (line counts before and after), 4 QA-Live runs the full editor flow on the live site, including Kel's and Mary's broken videos.
 - Size cap (rule 26): about 36,000 lines of app code (server/app plus web/src, no tests or generated files), no net growth; the Steward reports the count on every PR.
 
-## Open PRs (1, not counting the Scribe's own)
-- #606 "Use the real image" is cleared when its shot is replaced (rule 13) | Builder-Server-3 | in review (QA)
+## Open PRs (none, not counting the Scribe's own)
+- #605 and #606 merged; no other PR is open.
 
 ## Who is on what
-- Builder-Server-3: land #606; the Producer adds the SPEND.md line for the #506 repair call after it runs on deploy.
-- Builder-Screens-3: screens for the 2026-10-27 decisions as the Producer assigns; Back from Review goes to the script's first step (follow-up).
-- Steward: the bloat clean-up (step 3) and line count on every PR.
-- Director: Betty after the montage rule; reel-import evals; screens-in-hand and montage variety checks.
-- QA-Live: step 4 once the clean-up lands; Reed invites the new QA account (rule 27).
+- Builder-Server-3: cast completeness (every role at Assets, plus the Marriage Rejection repair); the Producer adds the SPEND.md line for the #506 repair call after it runs on deploy.
+- Builder-Server-4: Mary's #5 timing auto-repair and the free-fix retry cap.
+- Builder-Screens-3: screens for the 2026-10-27 decisions as the Producer assigns.
+- Director: prompt clean-up against Current rules, free evals only.
+- Steward: approved deletions (bloat clean-up, step 3); line count on every PR.
+- QA-Live 6: phase 1 done; phase 2 after the fixes land.
 - Reed: verdict on the altar reel-import video; picks test characters saved to the library to delete; tests the climbing-numbers montage rule live; makes video B (Iron Paws Pitbull 1) himself.
 
 ## Definition of done (Reed, ops/MISSION.md)
