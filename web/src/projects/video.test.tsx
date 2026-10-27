@@ -902,7 +902,8 @@ test("once the free rewrite is used, the clip says so and offers the priced Rewr
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
   expect(within(card).queryByRole("button", { name: "Fix this clip's prompt" })).toBeNull();
-  expect(within(card).getByRole("alert")).toHaveTextContent("We couldn't fix this one. Try saying what should change in Change this…");
+  expect(within(card).getByRole("status")).toHaveTextContent("We couldn't fix this one automatically.");
+  expect(within(card).getByRole("status")).not.toHaveTextContent("Try saying");
   expect(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · 3 credits" })).toBeInTheDocument();
   expect(within(card).getByLabelText("Change this…")).toBeInTheDocument();
 });
@@ -917,7 +918,7 @@ test("when the server can't fix it, the card says why in the server's words", as
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
   await userEvent.click(within(card).getByRole("button", { name: "Fix this clip's prompt" }));
-  expect(await within(card).findByRole("alert")).toHaveTextContent("We couldn't fix this one automatically.");
+  expect(await within(card).findByRole("status")).toHaveTextContent("We couldn't fix this one automatically.");
 });
 
 test("a clip that is out of date keeps its own Rewrite and has no Fix this clip's prompt", async () => {

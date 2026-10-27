@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { Check, TriangleAlert } from "lucide-react";
 import { Badge, Banner, Button, useToast } from "../components";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -417,9 +417,10 @@ function ClipCard(props: {
       )}
       {blocking(c.problems).length > 0 && !c.stale && !props.fixBusy && !c.free_fix_used && <FixThisPrompt busy={false} onFix={props.onFix} />}
       {props.fixBusy && <FixThisPrompt busy onFix={props.onFix} />}
-      {blocking(c.problems).length > 0 && !c.stale && !props.fixBusy && (props.fixSaid ?? (c.free_fix_used ? "We couldn't fix this one." : null)) && (
-        <p role="alert" className="text-sm text-warning">
-          {props.fixSaid ?? "We couldn't fix this one."} Try saying what should change in Change this…
+      {blocking(c.problems).length > 0 && !c.stale && !props.fixBusy && (props.fixSaid ?? (c.free_fix_used ? "We couldn't fix this one automatically." : null)) && (
+        <p role="status" className="flex items-start gap-2 text-sm text-warning">
+          <TriangleAlert size={16} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
+          {props.fixSaid ?? "We couldn't fix this one automatically."}
         </p>
       )}
       {(() => {
