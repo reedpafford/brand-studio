@@ -46,3 +46,10 @@ Reed approved the paid run (cap $15) in this session and steered the cast during
 - **No voice sample** is attached to any of them.
 - **Brand or studio words:** "Pixar-style 3D animation, big glossy eyes…" in every Style line. No car, watch or fashion brands.
 - **Neither is enough on its own:** Goth GF and "Pixar-style" are also in clips that went through, including all 6 takes of #16 and #4 c1. The refused clips are all the opening breakup or rejection clips. That's a pattern, not a proven cause.
+
+## Refusal rates across the whole site (98 take attempts on 56 clips)
+- Most refused: a tie between Kel's #13 c1 and #14 c1, 7 copyright refusals each. #13 c1 also had 2 "service unavailable" failures and worked on its 10th try; #14 c1 worked on its 8th.
+- Per take attempt, from the app's job records (references as stored now):
+```
+```
+- Every refusal is on a clip with Goth GF and only photo-made looks. Photo-made looks without her (Carl, Mogging BF, Wyatt, Kimchi) were never refused (0/17). Clips with any drawn look were never refused (0/16, a small and recent sample).
