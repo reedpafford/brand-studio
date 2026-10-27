@@ -14,8 +14,14 @@ import { useMe } from "../auth/useMe";
 import { blocking, CAST } from "./problems";
 import { plainWords } from "./names";
 import { AdviceList, useKeep } from "./Keep";
+import { useBreakdownFixes } from "./BreakdownFixes";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown, type Shot } from "./breakdownEdit";
 
+/** "Line 3" / "Lines 3–5"; empty for a shot with no script lines (a reaction, an insert, a montage shot). */
+const lineLabel = (n: number[]) => {
+  const t = lines(n);
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
 const lines = (n: number[]) => (n.length === 0 ? "" : n.length === 1 ? `line ${n[0]}` : `lines ${Math.min(...n)}–${Math.max(...n)}`);
 const small = `${input} min-h-11 sm:min-h-9`;
 // Below sm every tap target is at least 44px tall.
@@ -113,7 +119,7 @@ export function BreakdownView(props: {
   onShowLines?: (lines: number[]) => void; // none in the writing flow: the words are on another step
   onDirty?: (dirty: boolean) => void;
   /** A plan saved on a library version (the writing flow), not on a video: saved through its own route, with no Keep anyway. */
-  preview?: { save: (bd: Breakdown) => Promise<{ problems: string[] }>; fixCast: () => Promise<{ changed_shots: { shot_id: string; before: string[]; after: string[] }[] }>; keep: (problem: string, undo?: boolean) => void; keepBusy: boolean; again: ReactNode };
+  preview?: { save: (bd: Breakdown) => Promise<{ problems: string[] }>; fix: (problems: string[]) => Promise<{ fixed: string[] }>; fixCast: () => Promise<{ changed_shots: { shot_id: string; before: string[]; after: string[] }[] }>; keep: (problem: string, undo?: boolean) => void; keepBusy: boolean; again: ReactNode };
 }) {
   const { row, projectId, makeButton, name, preview } = props;
   const queryClient = useQueryClient();
@@ -189,6 +195,23 @@ export function BreakdownView(props: {
       });
     },
   });
+  // Free one-click fixes for lines that are missing or changed, and for shots with nothing in them.
+  const fixes = useBreakdownFixes({
+    offered: (row as { fixes?: unknown[] }).fixes,
+    open: real,
+    was: row.breakdown,
+    run: async (problems) => {
+      if (preview) return preview.fix(problems);
+      const { data, error } = await api.POST("/projects/{project_id}/breakdown/fix", { params: { path: { project_id: projectId } }, body: { problems } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    put: (body) => (preview ? preview.save(body) : api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body })),
+    refresh: async () => {
+      await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
+      if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
+    },
+  });
   const castOpen = real.filter((p) => p.startsWith(CAST));
   const castFix = castOpen.length > 0 && (
     <div className="space-y-1 pt-2">
@@ -258,9 +281,10 @@ export function BreakdownView(props: {
   const problemList = (after?: () => void) => (
     <ul className="space-y-1 text-sm">
       {real.map((p) => (
-        <li key={p} className="flex items-start gap-2">
-          <span className="flex-1 py-3">{words(p)}</span>
+        <li key={p} className="flex flex-wrap items-start gap-2">
+          <span className="w-full py-3 sm:w-auto sm:flex-1">{words(p)}</span>
           {goButton(p, after)}
+          {fixes.beside(p)}
           {p.startsWith(CAST) && (
             <Button variant="ghost" dense aria-label={`Keep anyway: ${words(p)}`} onClick={() => (preview ? preview.keep(p) : keep.mutate({ problem: p }))}>
               Keep anyway
@@ -297,6 +321,7 @@ export function BreakdownView(props: {
           {problemsOpen && (
             <Sheet title={`Problems (${real.length})`} onClose={() => setProblemsOpen(false)}>
               {problemList(() => setProblemsOpen(false))}
+              {fixes.all}
               {castFix}
             </Sheet>
           )}
@@ -309,6 +334,7 @@ export function BreakdownView(props: {
             {real.length} problem{real.length === 1 ? "" : "s"} {preview ? "in this plan" : "to fix before the storyboard"}
           </h3>
           {problemList()}
+          {fixes.all}
           {castFix}
         </section>
       )}
@@ -357,13 +383,14 @@ export function BreakdownView(props: {
                             <span className="tabular-nums">{s.seconds} s</span>
                             <span className="text-muted">{s.camera}</span>
                             <span className="ml-auto flex items-center gap-1">
-                              {props.onShowLines ? (
-                                <Button type="button" variant="ghost" dense aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines!(s.script_lines)}>
-                                  {lines(s.script_lines)[0].toUpperCase() + lines(s.script_lines).slice(1)}
-                                </Button>
-                              ) : (
-                                <span className="text-muted">{lines(s.script_lines)[0].toUpperCase() + lines(s.script_lines).slice(1)}</span>
-                              )}
+                              {s.script_lines.length > 0 &&
+                                (props.onShowLines ? (
+                                  <Button type="button" variant="ghost" dense aria-label={`Show ${lines(s.script_lines)} in the script`} onClick={() => props.onShowLines!(s.script_lines)}>
+                                    {lineLabel(s.script_lines)}
+                                  </Button>
+                                ) : (
+                                  <span className="text-muted">{lineLabel(s.script_lines)}</span>
+                                ))}
                               <Button
                                 type="button"
                                 variant="ghost"
