@@ -1,4 +1,9 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-27 18:11 · #622 Web: the End card picker and exports nothing imports removed (Steward) merged
+- 2026-10-27 18:11 · #626 Steward: GET /usage, which no screen calls, removed (-31 lines) merged
+- 2026-10-27 17:59 · #625 Remove Save to Cast & places (Current rules 12), -372 lines, merged
+- 2026-10-27 17:27 · #623 Evals and examples: no skyline ending, no stock payoff run (Current rules 17) merged
+- 2026-10-27 17:25 · #624 ops: HANDOFF/LOG refresh as of 005b591 merged (by the Producer)
 - 2026-10-27 17:21 · #621 Tests: duplicates the route guard and sibling tests already cover removed (Steward clean-up) merged
 - 2026-10-27 17:16 · #620 A never-written clip points to the priced rewrite once its free fix is used merged
 - 2026-10-27 16:51 · #618 Server: two unused endpoints and four finished deploy repair steps removed merged
