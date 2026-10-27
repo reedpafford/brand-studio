@@ -4,15 +4,27 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.models.jobs import Job
+from app.models.jobs import Job, JobStatus
 
 log = logging.getLogger(__name__)
+
+
+def explain(db: Session, job: Job) -> None:
+    """A failed clip-prompts run names its cause in plain words (stabilization, 2026-10-27)."""
+    from app.clip_prompts import failed
+
+    if job.input.get("step") == "clip_prompts":
+        try:
+            failed(db, job)
+        except Exception:  # never let the explanation break the worker
+            log.exception("job %s: explaining the failure failed", job.id)
 
 
 def step_failed(db: Session, job: Job) -> None:
     """A step's job failed at the provider: the reel watch retries, then falls back."""
     from app.reel_read import watch_failed
 
+    explain(db, job)
     if job.input.get("step") == "reel_watch":
         try:
             watch_failed(db, job)
@@ -61,6 +73,9 @@ def save_step_result(db: Session, job: Job) -> None:
     except Exception:  # never lose the paid answer: it stays in job.output
         log.exception("job %s: saving the %s result failed", job.id, job.input["step"])
         saved = False
+        if job.input.get("step") == "clip_prompts":  # not charged, and says so
+            job.status, job.error = JobStatus.failed, "Its answer couldn't be saved."
+            explain(db, job)
     if job.input.get("reel_step"):  # a step of reading an imported reel: queue the next
         follow_on(db, job, saved)
     elif saved and job.input.get("then_cast"):  # Write or variations: the cast read next

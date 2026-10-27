@@ -338,12 +338,12 @@ test("a failed prompt run says so, nothing was charged, and the one Write button
   const calls = fakeServer({
     ...base,
     "GET /projects/9/clips": [200, []],
-    "GET /jobs": [200, [{ id: 31, kind: "write-claude", step: "clip_prompts", status: "failed", credits: 6, project_id: 9, created_at: new Date().toISOString() }]],
+    "GET /jobs": [200, [{ id: 31, kind: "write-claude", step: "clip_prompts", status: "failed", credits: 6, project_id: 9, created_at: new Date().toISOString(), error: "The answer ran out of room before it was finished. Nothing was charged; try again." }]],
     "POST /projects/9/clips/prompts": [201, { id: 32, kind: "write-claude", step: "clip_prompts", status: "queued", credits: 6, project_id: 9 }],
   });
   open();
   expect(await screen.findByText("The clip prompts didn't finish.")).toBeInTheDocument();
-  expect(screen.getByText(/Nothing was charged\./)).toBeInTheDocument();
+  expect(screen.getByText(/ran out of room before it was finished\. Nothing was charged/)).toBeInTheDocument(); // the cause
   expect(screen.queryByText("Writing your clip prompts…")).toBeNull();
   // One paid button, not two: the banner only says what happened.
   expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);

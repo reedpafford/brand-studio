@@ -3,6 +3,7 @@ references (storyboard frame, cast, place, screens, voice samples). Saved per cl
 problems `check.clip_prompts` finds; the editor can edit them before generating."""
 
 import json
+import logging
 import re
 from decimal import Decimal
 
@@ -24,8 +25,14 @@ from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts, Reference
 from app.storyboard import CHAR, LEFT_OUT, _name, _renumber, _same, left_out, nearest_first
 from app.storyboard import assets as picture_assets
 
+log = logging.getLogger(__name__)
+
 # asset id -> (line for the prompt, kind for Seedance, its file ids)
 Assets = dict[str, tuple[str, str, list[int]]]
+# One call writes at most this many clips or shots: every clip of a long video in one answer
+# ran out of room (the output limit, thinking included) and failed the whole run.
+BATCH_CLIPS, BATCH_SHOTS = 3, 12
+UNWRITTEN = "This clip's prompt wasn't written"
 
 
 def assets(db: Session, project: Project) -> Assets:
@@ -50,8 +57,30 @@ def assets(db: Session, project: Project) -> Assets:
     return out
 
 
-def job_input(db: Session, project: Project, bd: BreakdownVersion) -> dict:
+def batches(bd: Breakdown, clip_ids: list[str] | None = None) -> list[list[str]]:
+    """The clips in calls of a few clips each (BATCH_CLIPS clips or BATCH_SHOTS shots at
+    most); a long montage clip gets a call of its own."""
+    out: list[list[str]] = []
+    shots = 0
+    for clip in bd.clips:
+        if clip_ids is not None and clip.id not in clip_ids:
+            continue
+        n = len(clip.shot_ids)
+        if not out or len(out[-1]) >= BATCH_CLIPS or shots + n > BATCH_SHOTS:
+            out.append([])
+            shots = 0
+        out[-1].append(clip.id)
+        shots += n
+    return out
+
+
+def job_input(
+    db: Session, project: Project, bd: BreakdownVersion, clip_ids: list[str] | None = None
+) -> dict:
+    """One job, one price: Claude is asked a few clips at a time (`parts`), so no answer runs
+    out of room."""
     system, _ = project_context(db, project, "clip_prompts")
+    groups = batches(Breakdown.model_validate(bd.data), clip_ids)
     lines = "\n".join(dict.fromkeys(line for line, _, _ in assets(db, project).values()))
     prompt = "\n".join(
         [
@@ -67,7 +96,45 @@ def job_input(db: Session, project: Project, bd: BreakdownVersion) -> dict:
         "system": system,
         "prompt": prompt,
         "max_tokens": 32000,
+        "batches": groups,
+        "parts": [
+            f'<write clips="{", ".join(g)}">Write the prompts for these clips only: '
+            f"{', '.join(g)}. The other clips are written separately.</write>"
+            for g in groups
+        ],
     }
+
+
+def cause(error: str, detail: str = "") -> str:
+    """Why a clip-prompts run (or one clip of it) didn't finish, in plain words."""
+    text = f"{error} {detail}"
+    if "ran out of room" in text:
+        return "the answer ran out of room before it was finished"
+    if "unreadable" in text:
+        return "the answer came back in the wrong shape"
+    if "declined" in text:
+        return "Claude declined to write it"
+    if "restarted" in text or "Lost contact" in text:
+        return "the server restarted or lost contact while it was being written"
+    if any(w in text for w in ("RateLimit", "Overloaded", "InternalServerError", "busy")):
+        return "Claude was too busy, three tries in a row"
+    if "couldn't be saved" in text:
+        return "it was written but couldn't be saved"
+    return "an unexpected error (the details are in the server log)"
+
+
+def failed(db: Session, job: Job) -> None:
+    """A clip-prompts run that failed says why in plain words (its `error`, which everyone
+    sees, and the server log); a free fix that failed can be pressed again."""
+    reason = cause(job.error or "", job.error_detail or "")
+    log.warning("job %s: clip prompts didn't finish: %s (%s)", job.id, reason, job.error_detail)
+    job.error = f"{reason[0].upper()}{reason[1:]}. Nothing was charged; try again."
+    if job.input.get("fix") and (ids := job.input.get("clip_ids")):
+        mine = select(ProjectClip).where(
+            ProjectClip.project_id == job.input["project_id"], ProjectClip.clip_id == ids[0]
+        )
+        if row := db.scalar(mine):
+            row.free_fix_used = False
 
 
 TAGS = re.compile(r"(\[Image)(\d+)\]")
@@ -207,6 +274,8 @@ def repair(db: Session, project: Project) -> int:
     known, changed = assets(db, project), 0
     breakdowns: dict[int, Breakdown] = {}
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)):
+        if not row.prompt:  # not written yet: it keeps its free fix
+            continue
         if row.breakdown_id not in breakdowns:
             data = db.get(BreakdownVersion, row.breakdown_id).data
             breakdowns[row.breakdown_id] = Breakdown.model_validate(data)
@@ -253,10 +322,19 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             db.execute(delete(ClipTake).where(ClipTake.clip_id == row.id))
             db.delete(row)
     known = assets(db, project)
+    gone = _unwritten(job)
+    written = {c.clip_id for c in result.clips}
     for c in result.clips:
         if c.clip_id not in wanted or (only is not None and c.clip_id not in only):
             continue
-        c = with_cast(db, project, c, bd, known)
+        try:  # one clip that can't be saved never loses the others
+            c = with_cast(db, project, c, bd, known)
+            problems = clip_problems(db, project, bd, c)
+        except Exception:
+            log.exception("job %s: saving clip %s's prompt failed", job.id, c.clip_id)
+            gone[c.clip_id] = "it was written but couldn't be saved"
+            written.discard(c.clip_id)
+            continue
         row = rows.get(c.clip_id)
         if row is None:
             row = ProjectClip(project_id=project.id, clip_id=c.clip_id)
@@ -267,12 +345,37 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         row.same_fix = bool(job.input.get("fix"))  # the free fix landing: still counted
         row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, c.seconds
         row.prompt, row.references = c.prompt, [r.model_dump() for r in c.references]
-        row.problems, row.kept = clip_problems(db, project, bd, c), []
+        row.problems, row.kept = problems, []
         row.approved, row.prompt_ok, row.change = False, False, None
         if job.input.get("fix"):  # Fix this clip's prompt: its Before and After
             before = job.input.get("before") or ""
             row.change = {"note": "Fix this clip's prompt", "status": "done", "before": before,
                           "after": c.prompt, "unchanged": before == c.prompt}  # fmt: skip
+    for clip in bd.clips:  # never a dead end: a clip left unwritten gets a free one-click fix
+        if clip.id in written or (only is not None and clip.id not in only):
+            continue
+        reason = gone.get(clip.id, "the answer left it out")
+        log.warning("job %s: clip %s's prompt wasn't written: %s", job.id, clip.id, reason)
+        row = rows.get(clip.id)
+        if row is not None and row.prompt:  # its earlier prompt stays (stale: Rewrite this clip)
+            row.free_fix_used = row.free_fix_used and not job.input.get("fix")
+            continue
+        if row is None:
+            row = ProjectClip(project_id=project.id, clip_id=clip.id, prompt="", references=[])
+            db.add(row)
+        row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, clip.seconds
+        row.problems = [f"{UNWRITTEN}: {reason}. Fix this clip's prompt writes it, free."]
+        row.kept, row.approved, row.prompt_ok, row.free_fix_used = [], False, False, False
+
+
+def _unwritten(job: Job) -> dict[str, str]:
+    """clip id -> why its part of the run failed (the provider's `failed_parts`)."""
+    groups = job.input.get("batches") or []
+    out: dict[str, str] = {}
+    for part in (job.output or {}).get("failed_parts") or []:
+        for clip_id in groups[part["part"]] if part["part"] < len(groups) else []:
+            out[clip_id] = cause(part["error"])
+    return out
 
 
 def _line(lines: list[str], start: str) -> int:
@@ -339,8 +442,8 @@ def queue_fix(db: Session, user, project: Project, row: ProjectClip, problems: l
         raise HTTPException(409, "Wait for the clips being made to finish first.")
     if "clip_prompts" in waiting:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
-    data = job_input(db, project, bd)
     clip = row.clip_id
+    data = job_input(db, project, bd, [clip])
     fix = ("Rewrite only this clip's prompt, keeping every spoken line word for word, and "
            f"clear these problems: {'; '.join(problems)}")  # fmt: skip
     data = {**data, "prompt": f"{data['prompt']}\n<fix clip=\"{clip}\">\n{escape(fix)}\n</fix>",
@@ -417,7 +520,7 @@ def queue_rewrite(db: Session, user, project: Project, clip_ids: list[str] | Non
         raise HTTPException(409, "Wait for the clips being made to finish first.")
     if "clip_prompts" in waiting:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
-    data = {**job_input(db, project, bd), "clip_ids": clip_ids}
+    data = {**job_input(db, project, bd, clip_ids), "clip_ids": clip_ids}
     return enqueue(db, user, "write-claude", data, project=project, provider="claude")
 
 
