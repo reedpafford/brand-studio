@@ -29,6 +29,13 @@ class ReferenceOut(BaseModel):
     has_thumbnail: bool
 
 
+def reference_name(logline: str) -> str:
+    """The logline's first clause: cut at a comma, never inside a number ("$2,000").
+    A long one ends at a whole word."""
+    name = re.split(r",(?!\d)", logline)[0]
+    return name if len(name) <= 80 else name[:79].rsplit(" ", 1)[0] + "…"
+
+
 @cache
 def catalogue(root: str) -> dict[str, tuple[ReferenceOut, Path]]:
     """id -> (summary, folder), brand-picked reels first. Read once per process."""
@@ -45,7 +52,7 @@ def catalogue(root: str) -> dict[str, tuple[ReferenceOut, Path]]:
         out[ref_id] = (
             ReferenceOut(
                 id=ref_id,
-                name=logline.split(",")[0][:80] or ref_id,
+                name=reference_name(logline) or ref_id,
                 logline=logline,
                 seconds=data.get("duration_seconds", 0),
                 style=data.get("style", ""),
