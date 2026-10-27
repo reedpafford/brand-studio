@@ -126,7 +126,24 @@ NOT_A_ROLE = {
     "int.",
     "ext.",
     "scene",
+    "hook",
+    "cta",
+    "flashback",
+    "later",
+    "end",
+    "location",
+    "setting",
+    "camera",
+    "action",
 }
+# A label as people type it, not only in caps (Reed's "Marriage Rejection"): "Noah:" or
+# "Her Friend (V.O.):", 1-3 capitalised words at the start of the line.
+NAMED = re.compile(r"^\s*[A-Z][\w'.-]*(?: [A-Z][\w'.-]*){0,2}\s*(?:\([^)]*\))?:")
+
+
+def label(line: str):
+    """The speaker label a script line starts with ("NATE (V.O.):", "Noah:"), or None."""
+    return check.SPEAKER.match(line) or NAMED.match(line)
 
 
 def _speakers(db: Session, script: Script) -> dict[str, list[int]]:
@@ -135,7 +152,7 @@ def _speakers(db: Session, script: Script) -> dict[str, list[int]]:
     out: dict[str, list[int]] = {}
     for draft in db.scalars(select(ScriptDraft).where(ScriptDraft.script_id == script.id)):
         for line in draft.text.splitlines():
-            if m := check.SPEAKER.match(line):
+            if m := label(line):
                 name = re.sub(r"\(.*?\)", "", m[0]).strip(" :").strip()  # "NATE (V.O.)"
                 said = re.search(r"[A-Za-z]", line[m.end() :])  # only someone who speaks
                 cue = name.lower() in NOT_A_ROLE or name.lower().endswith(" to")  # "CUT TO:"

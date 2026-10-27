@@ -270,12 +270,13 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
     Rejection": the groom was never in his own shots, so no sheet was attached and the video
     model invented him): the shots they speak in on screen (the script's label has no V.O. or
     O.S.), and the shots whose action names them. In place; {shot id: names added}. Free."""
+    from app import script_cast_read
     from app.cast_roles import labels, named, ref, short, video_slots
 
     slots = [s for s in video_slots(db, project) if short(s.role)]
     lines, added = text.splitlines(), {}
     for shot in (s for scene in bd.scenes for s in scene.shots):
-        said = [check.SPEAKER.match(lines[n - 1]) for n in shot.script_lines
+        said = [script_cast_read.label(lines[n - 1]) for n in shot.script_lines
                 if 0 < n <= len(lines)]  # fmt: skip
         off = any(m and OFF_SCREEN.search(m[0]) for m in said)
         for slot in slots:

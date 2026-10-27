@@ -57,12 +57,18 @@ def test_the_repair_adds_missed_speakers_and_shows_them_where_they_speak(owner, 
     name = db.get(Project, pid).name
     assert said == ["Marriage Rejection: added Nate to the cast",
                     f"{name}: Shot 1.1 now shows Nate.",
-                    f"{name}: turned off Use the real image on 1 shot with a person"]  # fmt: skip
+                    f"{name}: turned off Use the real image on 1 shot with a person",
+                    "Missing roles: gave 1 of 1 scripts their speakers and 1 of 1 videos the "
+                    "roles in their shots (0 older videos have no library script, so they have "
+                    "no roles to add)."]  # fmt: skip
     assert db.get(ProjectClip, clip).real_images == {"1.2": True}  # its shot didn't change
     assert _who(editor, pid) == [[f"slot:{nate}"], [f"slot:{bride}"]]  # not over his V.O.
     roles = [r["role"] for r in editor.get(f"/projects/{pid}/assets").json() if r["slot_id"]]
     assert roles == ["Bride", "Nate"]
-    assert repair_missing_roles(db) == []  # once only
+    assert repair_missing_roles(db) == [  # once only, and it always says it ran
+        "Missing roles: gave 0 of 1 scripts their speakers and 0 of 1 videos the roles in "
+        "their shots (0 older videos have no library script, so they have no roles to add)."
+    ]
     assert db.query(Job).count() == jobs  # free: no model call
 
 
@@ -109,7 +115,7 @@ def test_a_label_naming_a_role_already_there_never_makes_a_second_one(owner, edi
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     name = db.get(Project, pid).name  # shot 1.2's speaker is Nate too
     shown = f"{name}: Shot 1.1 now shows Nate. Shot 1.2 now shows Nate."
-    assert repair_missing_roles(db) == [shown]
+    assert repair_missing_roles(db)[:-1] == [shown]
     assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Nate, the teen groom"]
     assert _who(editor, pid)[0] == [f"slot:{nate}"]
 
@@ -145,3 +151,27 @@ def test_storyboard_right_after_produce_waits_without_assets_being_opened(owner,
     _, pid, _ = _video(owner, editor)
     refused = editor.post(f"/projects/{pid}/storyboard", json={})
     assert refused.status_code == 409 and "Nate and Bride" in refused.json()["detail"]
+
+
+def test_the_deploy_step_runs_the_repair_and_says_so(app, owner, editor, db, capsys, monkeypatch):
+    """The live log showed nothing: the deploy (`app.seed refresh`) runs the repair and
+    always prints its summary."""
+    from app import seed, seed_drafts, settings
+
+    _video(owner, editor)
+    monkeypatch.setattr(settings, "get_settings", lambda: app.state.settings)
+    monkeypatch.setattr(seed_drafts, "import_drafts", lambda db, folder: 0)
+    seed.main("refresh")
+    out = capsys.readouterr().out
+    assert "Marriage Rejection: added Nate to the cast" in out
+    assert "Missing roles: gave 1 of 1 scripts their speakers" in out
+
+
+def test_a_label_typed_in_mixed_case_is_read_too(owner, editor, db):
+    """Reed typed "Noah:" by hand; a direction or a heading is never a role."""
+    text = "INT. CHURCH — DAY\nNoah: Marry me?\nFlashback: the ring.\nLater that day: rain."
+    made = _make(owner, title="Typed", text=text)
+    base = f"/scripts/{made['id']}"
+    owner.post(f"{base}/cast", json={"role": "Girlfriend"})
+    repair_missing_roles(db)
+    assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Girlfriend", "Noah"]
