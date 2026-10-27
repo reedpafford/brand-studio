@@ -423,23 +423,46 @@ test("a problem with no free fix shows no fix button", async () => {
   expect(within(box).queryByText("Free")).toBeNull();
 });
 
-test("a shot that names someone the video doesn't have offers a free Remove; it says what it did and Undo puts the breakdown back", async () => {
-  const withNate = breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({ character_ids: ["char:4", "char:99"] }), shot({ id: "1.2" })] }] } });
+const withUnknown = (ids: string[], names: object = {}) => ({
+  ...breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({ character_ids: ["char:4", ...ids] }), shot({ id: "1.2" })] }] } }),
+  unknown_names: names,
+});
+
+test("a shot that names someone the video doesn't have offers a free Remove by name; the toast says what was done and Undo puts the breakdown back", async () => {
+  const before = withUnknown(["char:99"], { "char:99": "Nate" });
   const calls = fakeServer({
     ...base,
-    "GET /projects/9/breakdown": [200, withNate],
-    "POST /projects/9/shots/1.1/remove-ref": [200, { ...breakdown(), fixed: ["Removed Nate from shot 1.1."] }],
-    "PUT /projects/9/breakdown": [200, withNate],
+    "GET /projects/9/breakdown": [200, before],
+    "POST /projects/9/shots/1.1/remove-ref": [200, { ...breakdown(), fixed: ["Removed char:99 from shot 1.1."] }],
+    "PUT /projects/9/breakdown": [200, before],
   });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
-  const remove = await screen.findByRole("button", { name: /^Remove .* from this shot$/ });
-  expect(remove).toHaveTextContent("Remove Character from this shot"); // never the raw id
-  await userEvent.click(remove);
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/shots/1.1/remove-ref")?.body).toMatchObject({ kind: "character" }));
+  expect(await screen.findByText("Nate isn't in this video.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Remove Nate from this shot" }));
+  // The id goes to the server so two unknown people stay apart; the toast uses the name, never the id.
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/shots/1.1/remove-ref")?.body).toEqual({ kind: "character", name: "char:99" }));
   expect(await screen.findByText("Removed Nate from shot 1.1.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
+});
+
+test("an unknown name the server can't give reads \"a character\"; two of them stay apart; an error shows right under the button", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, withUnknown(["char:98", "char:99"])],
+    "POST /projects/9/shots/1.1/remove-ref": [409, { detail: "Shot 1.1 doesn't have that any more." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  expect(await screen.findAllByText("This character isn't in this video.")).toHaveLength(2);
+  const buttons = screen.getAllByRole("button", { name: "Remove a character from this shot" });
+  expect(buttons).toHaveLength(2);
+  await userEvent.click(buttons[1]);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/shots/1.1/remove-ref")?.body).toEqual({ kind: "character", name: "char:99" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("Shot 1.1 doesn't have that any more.");
+  expect(alert.previousElementSibling).toContainElement(buttons[1]); // under the button, inside the editor
 });
 
 test("a shot that only names people the video has shows no Remove", async () => {

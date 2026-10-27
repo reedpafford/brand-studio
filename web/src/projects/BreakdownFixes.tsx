@@ -72,14 +72,14 @@ const REMOVE_ICON = { character: UserMinus, place: MapPinOff, screen: MonitorOff
 
 /** "Remove Nate from this shot": a name the video doesn't have, taken out of one shot for free. Undo puts back the breakdown that was there. */
 export function useRemoveRef(opts: {
-  run: (shotId: string, kind: RefKind, name: string) => Promise<{ fixed: string[] }>;
+  run: (shotId: string, kind: RefKind, ref: string, name: string) => Promise<{ fixed: string[] }>;
   was: Breakdown;
   put: (bd: Breakdown) => Promise<unknown>;
   refresh: () => Promise<unknown>;
 }) {
   const toast = useToast();
   const remove = useMutation({
-    mutationFn: (a: { shotId: string; kind: RefKind; name: string }) => opts.run(a.shotId, a.kind, a.name),
+    mutationFn: (a: { shotId: string; kind: RefKind; ref: string; name: string }) => opts.run(a.shotId, a.kind, a.ref, a.name),
     onSuccess: async (done) => {
       const back = clone(opts.was);
       await opts.refresh();
@@ -89,16 +89,20 @@ export function useRemoveRef(opts: {
       });
     },
   });
-  const button = (shotId: string, kind: RefKind, name: string, disabled?: string) => {
+  /** `ref` is the id the shot holds (it tells two unknown people apart); `name` is how people call them, or "a character" when it isn't known. */
+  const button = (shotId: string, kind: RefKind, ref: string, name: string, disabled?: string) => {
     const Icon = REMOVE_ICON[kind];
     return (
-      <span className="flex flex-wrap items-center gap-2">
-        <Button variant="secondary" dense icon={Icon} busy={remove.isPending} disabled={!!disabled} reason={disabled} onClick={() => remove.mutate({ shotId, kind, name })}>
-          Remove {name} from this shot
-        </Button>
-        {!disabled && <span className="text-sm text-muted">Free</span>}
-      </span>
+      <div className="space-y-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" dense icon={Icon} busy={remove.isPending} disabled={!!disabled} reason={disabled} onClick={() => remove.mutate({ shotId, kind, ref, name })}>
+            Remove {name} from this shot
+          </Button>
+          {!disabled && <span className="text-sm text-muted">Free</span>}
+        </span>
+        {remove.error && remove.variables?.ref === ref && <p role="alert" className={errorClass}>{remove.error.message}</p>}
+      </div>
     );
   };
-  return { button, error: remove.error ? <p role="alert" className={errorClass}>{errorText(remove.error) || remove.error.message}</p> : null };
+  return { button };
 }

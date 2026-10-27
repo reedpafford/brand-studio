@@ -40,7 +40,7 @@ function EditableText({ value, label, onChange, children }: { value: string; lab
 type Picks = { characters: { key: string; name: string }[]; places: { key: string; name: string }[]; screens: { key: string; name: string; moments: string[] }[] };
 
 /** A character, place or screen a shot names that the video doesn't have: it can only be taken out, and the server does that for free. */
-function ShotEditor({ shot, picks, called, remove, onChange }: { shot: Shot; picks: Picks; called: (id: string) => string; remove?: (shotId: string, kind: RefKind, name: string) => ReactNode; onChange: (patch: Partial<Shot>) => void }) {
+function ShotEditor({ shot, picks, called, remove, onChange }: { shot: Shot; picks: Picks; called: (id: string, kind: RefKind) => string; remove?: (shotId: string, kind: RefKind, ref: string, name: string) => ReactNode; onChange: (patch: Partial<Shot>) => void }) {
   const gone = [
     ...shot.character_ids.filter((id) => !picks.characters.some((c) => c.key === id)).map((id) => ({ kind: "character" as const, id })),
     ...(shot.place_id && !picks.places.some((p) => p.key === shot.place_id) ? [{ kind: "place" as const, id: shot.place_id }] : []),
@@ -104,8 +104,8 @@ function ShotEditor({ shot, picks, called, remove, onChange }: { shot: Shot; pic
       {remove &&
         gone.map((g) => (
           <div key={g.id} className="space-y-1 text-xs">
-            <p>{called(g.id)} isn't in this video.</p>
-            {remove(shot.id, g.kind, called(g.id))}
+            <p>{called(g.id, g.kind).startsWith("a ") ? `This ${g.kind} isn't in this video.` : `${called(g.id, g.kind)} isn't in this video.`}</p>
+            {remove(shot.id, g.kind, g.id, called(g.id, g.kind))}
           </div>
         ))}
       {shot.line && <p className="text-xs text-muted">To change the words, edit the script.</p>}
@@ -246,16 +246,19 @@ export function BreakdownView(props: {
   const dirty = draft !== null;
   // A shot that names someone the video doesn't have: take the name out (free). It saves at once, so it waits for unsaved edits.
   const removal = useRemoveRef({
-    run: async (shotId, kind, name) => {
-      const { data, error } = await api.POST("/projects/{project_id}/shots/{shot_id}/remove-ref", { params: { path: { project_id: projectId, shot_id: shotId } }, body: { kind, name } });
+    run: async (shotId, kind, ref, name) => {
+      // The id goes to the server (two unknown people in one shot stay apart); the sentence is made here, in words.
+      const { data, error } = await api.POST("/projects/{project_id}/shots/{shot_id}/remove-ref", { params: { path: { project_id: projectId, shot_id: shotId } }, body: { kind, name: ref } });
       if (!data) throw new Error(errorText(error));
-      return data;
+      return { fixed: [`Removed ${name} from shot ${shotId}.`] };
     },
     was: row.breakdown,
     put: putBack,
     refresh: refreshAll,
   });
-  const removeRef = preview ? undefined : (shotId: string, kind: RefKind, name: string) => removal.button(shotId, kind, name, dirty ? "Save your changes first." : undefined);
+  const unknownNames = (row as { unknown_names?: Record<string, string> }).unknown_names ?? {};
+  const calledUnknown = (id: string, kind: RefKind) => unknownNames[id] ?? `a ${kind}`; // the name the server knows, or what it is
+  const removeRef = preview ? undefined : (shotId: string, kind: RefKind, ref: string, name: string) => removal.button(shotId, kind, ref, name, dirty ? "Save your changes first." : undefined);
   // The frame's Next button waits while edits are unsaved.
   const { onDirty } = props;
   useEffect(() => {
@@ -332,7 +335,6 @@ export function BreakdownView(props: {
       </div>
       {props.failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
       {props.problem}
-      {removal.error}
       {real.length > 0 && phone && (
         <>
           <button className="flex min-h-control w-full items-center gap-2 rounded-lg border border-danger bg-danger-soft px-3 text-left text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
@@ -479,10 +481,10 @@ export function BreakdownView(props: {
                               <Badge key={id} tone="accent" icon={Smartphone}>{name(id)}</Badge>
                             ))}
                           </p>
-                          {editing && !phone && <ShotEditor shot={s} picks={picks} called={name} remove={removeRef} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
+                          {editing && !phone && <ShotEditor shot={s} picks={picks} called={calledUnknown} remove={removeRef} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />}
                           {phone && sheetShot === s.id && (
                             <Sheet title={`Shot ${s.id}`} onClose={() => setSheetShot(null)}>
-                              <ShotEditor shot={s} picks={picks} called={name} remove={removeRef} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />
+                              <ShotEditor shot={s} picks={picks} called={calledUnknown} remove={removeRef} onChange={(patch) => change((b) => patchShot(b, s.id, patch))} />
                             </Sheet>
                           )}
                         </li>
