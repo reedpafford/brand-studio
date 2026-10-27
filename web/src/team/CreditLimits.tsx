@@ -79,7 +79,7 @@ export function CreditLimits() {
       <h2 className="type-section">Credit limits</h2>
       <Card className="space-y-4">
         {field("weekly-limit", "Editors' weekly allowance", weekly, (v) => setEdit({ weekly: v, cap }), weeklyError, "Free generation for each editor's own scripts and quick clips. Resets on Monday.", dollars(weekly) && `${dollars(weekly)} a week`)}
-        {field("video-cap", "Most one video can cost", cap, (v) => setEdit({ weekly, cap: v }), capError, "For everyone, Reed too. A video's budget is twice its estimate, up to this.", dollars(cap))}
+        {field("video-cap", "Most one video can cost", cap, (v) => setEdit({ weekly, cap: v }), capError, "For everyone, the owner too. A video's budget is twice its estimate, up to this.", dollars(cap))}
         {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
         <div className="sm:flex sm:justify-end">
           <Button variant="secondary" busy={put.isPending} disabled={reason !== null} reason={reason} onClick={press} className="w-full sm:w-auto">

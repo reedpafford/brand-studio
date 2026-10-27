@@ -6,7 +6,7 @@ import { Button, Card, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
-/** The name an invite link shows. A stored slug like "owner-reed" reads as "Reed's studio" until Reed picks a name. */
+/** The name an invite link shows. A stored slug like "owner-reed" reads as "{owner}'s studio" until the owner picks a name. */
 export function StudioName({ owner }: { owner: string }) {
   const queryClient = useQueryClient();
   const toast = useToast();

@@ -18,7 +18,7 @@ export function LoginPage() {
         { name: "password", label: "Password", type: "password", autoComplete: "current-password" },
       ]}
       submit={(v) => api.POST("/auth/login", { body: { email: v.email, password: v.password } })}
-      footer={<p className="text-sm text-muted">Forgot your password? Ask Reed.</p>}
+      footer={<p className="text-sm text-muted">Forgot your password? Ask the owner.</p>}
     />
   );
 }
@@ -30,7 +30,7 @@ export function SetupPage() {
       submitLabel="Create owner account"
       fields={[
         { name: "setup_token", label: "Setup code (from your server settings)", type: "password" },
-        { name: "workspace_name", label: "Studio name", hint: "What your team sees when they're invited, e.g. Reed's studio." },
+        { name: "workspace_name", label: "Studio name", hint: "What your team sees when they're invited, e.g. Northside Studio." },
         { name: "name", label: "Your name", autoComplete: "name" },
         { name: "email", label: "Email", type: "email", autoComplete: "email" },
         { name: "password", label: "Password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
@@ -57,10 +57,10 @@ export function SetupPage() {
 
 class InviteGone extends Error {}
 
-/** A stored name like "owner-reed" is a slug, not a name: say "Reed's studio" instead, from whoever invited you. */
-export function studioName(stored: string, owner: string) {
+/** A stored name like "owner-reed" is a slug, not a name. The owner's own settings say "{owner}'s studio"; anyone else is told "your team's studio" (editors never see the owner's name). */
+export function studioName(stored: string, owner?: string) {
   const slug = !/\s/.test(stored.trim()) && stored.includes("-");
-  return slug && owner ? `${owner}'s studio` : stored;
+  return !slug ? stored : owner ? `${owner}'s studio` : "your team's studio";
 }
 
 export function InvitePage() {
@@ -108,13 +108,13 @@ export function InvitePage() {
       </AuthShell>
     );
   const i = invite.data;
-  const studio = studioName(i.workspace_name, i.owner_name);
+  const studio = studioName(i.workspace_name);
   return (
     <AuthForm
       title={`Join ${studio}`}
       intro={
         <p className="text-sm text-muted">
-          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}. Your email is {i.email}.
+          {i.invited_by_name && i.invited_by_name !== i.owner_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}. Your email is {i.email}.
         </p>
       }
       submitLabel="Create my account"

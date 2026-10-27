@@ -92,7 +92,7 @@ export function ScriptFlowPage() {
   const published = s.published;
   // Who can see a draft: its author and Reed.
   const mine = s.created_by_id === me?.id;
-  const draftNote = mine ? (me?.role === "owner" ? "Draft · only you can see it" : "Draft · only you and Reed can see it") : `Draft · ${s.created_by_name || "an editor"}'s, not published`;
+  const draftNote = mine ? (me?.role === "owner" ? "Draft · only you can see it" : "Draft · only you and the owner can see it") : `Draft · ${s.created_by_name || "an editor"}'s, not published`;
 
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
