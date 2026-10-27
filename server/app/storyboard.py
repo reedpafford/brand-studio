@@ -244,6 +244,17 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
 TOO_MANY = "more references than"
 
 
+LEFT_OUT = "Advice: Left out "
+
+
+def left_out(names: list[str], limit: int) -> list[str]:
+    """Advice naming the pictures a trim to the model's limit left out (QA on #527)."""
+    if not names:
+        return []
+    return [f"{LEFT_OUT}{', '.join(dict.fromkeys(names))}: the model takes {limit} "
+            "pictures, nearest the camera first."]  # fmt: skip
+
+
 def _cap(frame: Frame, known: dict) -> Frame:
     """Over the image model's limit even with the nearest people only: the last pictures
     (props, then screens) go, and the prompt names them instead."""
@@ -270,15 +281,49 @@ def repair(db: Session, project: Project) -> int:
         was = Frame(clip_id=row.clip_id, shot_id=row.shot_id, prompt=row.prompt,
                     reference_ids=row.reference_ids)  # fmt: skip
         now = with_cast(db, project, was, breakdowns[row.breakdown_id], known, trim=False)
-        problems = frame_problems(db, project, now, row.breakdown_id)
+        problems = frame_problems(db, project, now, row.breakdown_id) + [
+            p for p in row.problems or [] if p.startswith(LEFT_OUT)
+        ]  # what an earlier trim left out stays said
         if any(p.lower().startswith(TOO_MANY) for p in problems):  # never a dead end
             now = _cap(with_cast(db, project, was, breakdowns[row.breakdown_id], known), known)
-            problems = frame_problems(db, project, now, row.breakdown_id)
+            problems = frame_problems(db, project, now, row.breakdown_id) + left_out(
+                [_name(known, r) for r in was.reference_ids if r not in now.reference_ids],
+                image_model().max_reference_images,
+            )
         if now == was and problems == (row.problems or []):
             continue
         row.prompt, row.reference_ids, row.problems = now.prompt, now.reference_ids, problems
         changed += 1
     return changed
+
+
+GENTLE = {  # what Nano Banana refuses (check.FLAGGED), said so it draws (Reed, #520)
+    "leggings": "workout pants", "lap": "knees", "laps": "knees", "thigh": "leg",
+    "thighs": "legs", "cleavage": "neckline", "pus": "redness", "discharge": "irritation",
+    "wound": "scrape", "wounds": "scrapes",
+}  # fmt: skip
+STEMS = {"crust": "dry patches", "ooz": "glistening", "blood": "red", "vomit": "feeling sick"}
+
+
+def soften(prompt: str) -> str:
+    """The prompt with only the words the image model refuses said gently; free, no model
+    call. The same prompt when there's nothing to soften."""
+
+    def gentle(m: re.Match) -> str:
+        word = m[0].lower()
+        out = GENTLE.get(word) or next(v for k, v in STEMS.items() if word.startswith(k))
+        return out[:1].upper() + out[1:] if m[0][:1].isupper() else out
+
+    return check.FLAGGED.sub(gentle, prompt)
+
+
+def softened(prompt: str) -> dict | None:
+    """The change note for a frame softened by itself: shown with its Before and After."""
+    after = soften(prompt)
+    if after == prompt:
+        return None
+    return {"note": "Softened so it can be drawn.", "status": "done", "before": prompt,
+            "after": after, "unchanged": False, "softened": True}  # fmt: skip
 
 
 def save_frames(db: Session, job: Job) -> None:
@@ -289,6 +334,8 @@ def save_frames(db: Session, job: Job) -> None:
     bd = Breakdown.model_validate(db.get(BreakdownVersion, job.input["breakdown_id"]).data)
     known = assets(db, project)
     for f in (with_cast(db, project, f, bd, known) for f in result.frames):
+        note = softened(f.prompt)  # a word the image model refuses never blocks
+        f = f.model_copy(update={"prompt": note["after"]}) if note else f
         db.add(
             StoryboardFrame(
                 project_id=project.id,
@@ -299,6 +346,7 @@ def save_frames(db: Session, job: Job) -> None:
                 prompt=f.prompt,
                 reference_ids=f.reference_ids,
                 problems=frame_problems(db, project, f, job.input["breakdown_id"]),
+                change=note,
             )
         )
 

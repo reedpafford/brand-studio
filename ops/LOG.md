@@ -8,6 +8,14 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-27 01:10 · #517 No raw ids reach people: every shown check and note is said in words merged
+- 2026-10-27 01:05 · #525 Approve all on Assets: the looks made for this video, with Undo merged
+- 2026-10-27 00:51 · #530 spec: Clips' free prompt fix is once per prompt version, then a priced rewrite merged
+- 2026-10-27 00:47 · #527 No dead ends (part 1): free fixes for breakdown problems, and repairs that never stick merged
+- 2026-10-27 00:32 · #528 docs: as built, Breakdown wording on locked steps (#523) and Approve all on Variations (#526) merged
+- 2026-10-27 00:28 · #523 The video page's locked steps call the first step Breakdown, not Shots merged
+- 2026-10-27 00:17 · #524 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-27 00:16 · #521 Deploy steps say what they did and why; free clip rewrite on every owner video (up to 5) merged
 - 2026-10-27 00:06 · #519 Approve all on Assets looks and Variations, with Undo merged
 - 2026-10-27 00:01 · #522 spec: one-click fixes for blocking problems merged
 - 2026-10-27 00:00 · #518 A link to a locked step lands on the step that blocks it merged

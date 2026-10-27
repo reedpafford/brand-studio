@@ -23,6 +23,7 @@ export function useApproveAllWith(opts: {
   undo: (ids: number[]) => Promise<{ response: { ok: boolean }; error?: unknown } | undefined>;
   refresh: () => Promise<unknown>;
   name: (skipped: Skipped) => string;
+  target?: (skipped: Skipped) => string; // the card to scroll to, when it is called something else
   ready: number;
   waiting: number;
 }): { button: ReactNode; line: ReactNode } {
@@ -72,7 +73,7 @@ export function useApproveAllWith(opts: {
       {left.map((s, i) => (
         <span key={`${s.id}-${s.label}`}>
           {i > 0 && " · "}
-          <button type="button" className="inline-flex min-h-11 items-center underline sm:min-h-0" onClick={() => show(opts.name(s))}>
+          <button type="button" className="inline-flex min-h-11 items-center underline sm:min-h-0" onClick={() => show(opts.target?.(s) ?? opts.name(s))}>
             {opts.name(s)}
           </button>
           : {s.reason}
