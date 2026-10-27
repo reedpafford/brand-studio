@@ -134,6 +134,7 @@ export function AssetsPane({
           stopFor={stopFor}
           canSave={canSave}
           onMerge={a.kind === "character" && merge.canMerge(a) ? () => merge.start(a) : undefined}
+          mergeAlone={a.kind === "character" && merge.alone(a)}
           sameAs={a.kind === "character" ? merge.badge(a) : undefined}
         />
       ))}

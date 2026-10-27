@@ -1,4 +1,4 @@
-import { Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Users } from "lucide-react";
 import { Badge, Button } from "../components";
 
 /** Two roles the server thinks may be one person. `into` is the role to keep; `why` is the server's plain reason. */
@@ -25,10 +25,12 @@ function PairNote({ pair, name, outlined, compact, onMerge, onDismiss }: { pair:
   // One closed line; the reason and Merge open under it.
   if (compact)
     return (
-      <details id={pairId(pair)} className={`rounded-lg border border-border bg-warning-soft px-3 text-sm ${outlined ? "ring-2 ring-warning" : ""}`}>
+      <details id={pairId(pair)} className={`group rounded-lg border border-border bg-warning-soft px-3 text-sm ${outlined ? "ring-2 ring-warning" : ""}`}>
         <summary className="flex min-h-11 cursor-pointer items-center gap-2 font-medium text-text sm:min-h-9">
           <Users size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />
-          These may be the same person: {name(pair.a)} and {name(pair.b)}.
+          <span className="flex-1">These may be the same person: {name(pair.a)} and {name(pair.b)}.</span>
+          <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 group-open:hidden" />
+          <ChevronDown size={20} strokeWidth={1.75} aria-hidden className="hidden shrink-0 group-open:block" />
         </summary>
         <div className="space-y-2 pb-3">
           <p className="text-xs text-muted">{pair.why}</p>
