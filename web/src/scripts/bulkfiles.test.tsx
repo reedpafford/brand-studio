@@ -61,6 +61,33 @@ test("a video added to Reels uploads at once, shows its progress, and is Ready w
   expect(screen.getByRole("button", { name: "Make 1 draft" })).toBeEnabled();
 });
 
+test("a video dropped outside the zone adds nothing and the browser is told not to open it", async () => {
+  setup();
+  const up = stand();
+  open(up.uploader);
+  await toReels();
+  const file = video("stray.mp4");
+  for (const type of ["dragover", "drop"]) {
+    const ev = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(ev, "dataTransfer", { value: { files: [file] } });
+    screen.getByText("Bulk create").dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  }
+  expect(up.sent).toEqual([]);
+  expect(screen.queryByText("stray.mp4")).not.toBeInTheDocument();
+});
+
+test("a refused file takes no place out of the 20, so removing nothing still lets good files in", async () => {
+  setup();
+  const up = stand();
+  open(up.uploader);
+  await toReels();
+  await drop(video("a.txt", 5 * MB, "text/plain"));
+  const good = Array.from({ length: 20 }, (_, i) => video(`v${i}.mp4`));
+  await drop(...good);
+  expect(up.sent).toHaveLength(20);
+});
+
 test("a file that isn't MP4 or MOV, or is over 100 MB, is refused on its own row before anything is sent", async () => {
   setup();
   const up = stand();

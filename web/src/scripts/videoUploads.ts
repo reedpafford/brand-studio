@@ -66,7 +66,7 @@ export function useFileQueue(uploader: Uploader, room: number, forget?: (id: num
   const add = (files: File[]) => {
     const said: string[] = [];
     let skipped = 0;
-    let have = rows.length;
+    let have = rows.filter((r) => r.status !== "problem").length; // a refused file takes no place out of the cap
     const next: FileRow[] = [];
     for (const file of files) {
       if ([...rows, ...next].some((r) => same(r.file, file))) {

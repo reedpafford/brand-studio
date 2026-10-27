@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardPaste, Plus, X } from "lucide-react";
 import { api, errorText } from "../api/client";
@@ -58,6 +58,16 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
   // Video files go in the same queue as the links: up to MAX reels in all, uploading as soon as they are added.
   const files = useFileQueue(useMemo(() => uploader ?? videoUploader(brandId), [uploader, brandId]), MAX - linkList.length, forgetVideo);
   const [stopping, setStopping] = useState(false);
+  // A video dropped anywhere but the zone must not make the browser open it (that would lose the panel and every upload).
+  useEffect(() => {
+    const keep = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("dragover", keep);
+    window.addEventListener("drop", keep);
+    return () => {
+      window.removeEventListener("dragover", keep);
+      window.removeEventListener("drop", keep);
+    };
+  }, []);
   const closePanel = () => (files.uploading > 0 ? setStopping(true) : onClose());
   const reelCount = goodLinks + files.ready.length;
   // Reel links: why Make N drafts can't be pressed yet.
