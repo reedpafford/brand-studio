@@ -3,7 +3,7 @@ import { Banner, Button, Field, TextArea } from "../components";
 import { ReferenceList } from "./ReferenceList";
 
 export type Description = { title: string; description: string; notes: string; reference_id: string | null; reference_replace: string };
-export const emptyDescription: Description = { title: "", description: "", notes: "", reference_id: null, reference_replace: "" };
+const emptyDescription: Description = { title: "", description: "", notes: "", reference_id: null, reference_replace: "" };
 
 /** The fields of step 1, used both to make a script and to edit its description. */
 export function DescriptionForm({ initial = emptyDescription, brandName, submitLabel, busy, error, onSubmit, onCancel }: { initial?: Description; brandName?: string; submitLabel: string; busy: boolean; error?: string | null; onSubmit: (d: Description) => void; onCancel?: () => void }) {
