@@ -80,6 +80,12 @@ def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -
             "attached as a reference image: logo, colours and layout exact, numbers free:"
         )
         lines += [_screen(s) + f" — required at: {', '.join(s['default_for'])}" for s in needed]
+        by_moment: dict[str, list[str]] = {}
+        for s in needed:
+            for m in s["default_for"]:
+                by_moment.setdefault(m, []).append(s["name"])
+        lines += [f"At {m}, one of these is enough: {' or '.join(names)}."  # Home or Home (rich)
+                  for m, names in by_moment.items() if len(names) > 1]  # fmt: skip
     if product:
         lines.append(
             f'Required product: product:{product["id"]} "{product["name"]}", attached as a '

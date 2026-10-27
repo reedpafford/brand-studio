@@ -124,7 +124,8 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
 
 
 def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
-    screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
+    shown = project_screens(db, project)
+    screens = {f"screen:{s.id}": s.default_for for s in shown}
     m = video_model()
     brand = db.get(Brand, project.brand_id)
     # The Director's check takes the brand's end line (#107); older checks don't yet.
@@ -132,6 +133,8 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
     extra = {"end_line": brand.end_line} if "end_line" in params else {}
     if "brand" in params:
         extra["brand"] = brand.name
+    if "kinds" in params:  # a moment takes any screen of the same kind (home)
+        extra["kinds"] = check.kinds_of(shown)
     if "approved" in params:  # a video from the library is made from an approved version
         extra["approved"] = project.script_draft_id is not None
     if "recent" in params:  # montage variety: the brand's other videos' payoffs

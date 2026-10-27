@@ -76,6 +76,34 @@ def payoff(shots: list) -> list:
     return shots[end - 2 : end + 1]
 
 
+DEVICE = {"mobile", "desktop"}  # what a screen is shown on, not what kind of screen it is
+BALANCE = "$balance"  # a screen that prints a balance (the win needs one: Home (rich))
+
+
+def kinds_of(screens) -> dict[str, set[str]]:
+    """Each brand screen's kind tags, with BALANCE when its picture prints one."""
+    return {f"screen:{s.id}": {*s.tags, *([BALANCE] if s.balance else [])} for s in screens}
+
+
+def moment_screen(shot, screens: dict[str, list[str]], kinds: dict[str, set[str]]) -> str:
+    """A brand moment's shot shows one of its screens, or a screen of the same kind (any
+    "home" screen for fomo-mention: Home or Home (rich), Reed 2026-10-27). A screen that
+    prints a balance (the win's) is only stood in for by one that prints one too. Advice,
+    never a block; "" when it does."""
+    needed = {sid for sid, moments in screens.items() if shot.moment in moments}
+    if not needed or needed & set(shot.screen_ids):
+        return ""
+
+    def stands_in(shown: str, want: str) -> bool:
+        a, b = kinds.get(shown, set()), kinds.get(want, set())
+        same = (a & b) - DEVICE - {BALANCE}
+        return bool(same) and (BALANCE not in b or BALANCE in a)
+
+    if any(stands_in(s, n) for s in shot.screen_ids for n in needed):
+        return ""
+    return f"{ADVICE}shot {shot.id}: '{shot.moment}' moment without its screen"
+
+
 def breakdown(
     script: str,
     bd: Breakdown,
@@ -85,6 +113,7 @@ def breakdown(
     end_line: str = "",
     brand: str = "",  # the brand's name: a near end line must still say it
     approved: bool = False,  # Reed approved the words: the end line never blocks (advice)
+    kinds: dict[str, set[str]] | None = None,  # each screen's type tags ("home"): moment_screen
     recent: list[str] = (),  # recent videos' payoff actions (montage variety, Reed 2026-10-27)
 ) -> list[str]:
     lines = script.splitlines()
@@ -115,9 +144,8 @@ def breakdown(
         for sid in shot.screen_ids:
             if sid not in screens:
                 problems.append(f"shot {shot.id}: unknown screen {sid}")
-        needed = {sid for sid, moments in screens.items() if shot.moment in moments}
-        if needed and not needed & set(shot.screen_ids):
-            problems.append(f"shot {shot.id}: '{shot.moment}' moment without its screen")
+        if said := moment_screen(shot, screens, kinds or {}):
+            problems.append(said)
     problems += _money_climbs(shots)
     seen = {_words(a) for a in recent}
     problems += [f"{ADVICE}shot {s.id}: this payoff repeats one of a recent video; show a new one"

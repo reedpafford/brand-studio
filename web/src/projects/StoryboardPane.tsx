@@ -1,29 +1,26 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useJobs } from "../clip/History";
 import { fileUrl } from "../api/upload";
-import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
-import { useMedia } from "../useMedia";
+import { btnPrimary, btnSecondary, card, errorText as errorClass } from "../ui";
 import { Sheet } from "./Sheet";
-import { blockerNames, SheetWarning, useSheetBlocks, type Blocker } from "./sheetBlocks";
+import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { blocking } from "./problems";
-import { AdviceList, useKeep } from "./Keep";
 import { refName, useRoleNames } from "./names";
 import { useProblemWords } from "./ProblemText";
 import { useOwnScriptStop } from "./useOwnScriptStop";
-import { Badge, Banner, creditsLabel, useToast, wholeCredits } from "../components";
-import { RotateCcw } from "lucide-react";
+import { Banner, creditsLabel, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
-import { ChangeBox, type ChangeState } from "./ChangeBox";
+import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
-import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
+import { type Softened } from "./Soften";
+import { FrameCard } from "./FrameCard";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
-const ratio = (a: string) => a.replace(":", " / ");
 
 /** One still per clip: Claude writes the frame prompts, then each still is drawn. */
 /** The project's storyboard frames (shared by the Storyboard and Clips steps). */
@@ -74,10 +71,10 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
   const writeCost = rate("write-claude");
-  // A still is made with the default image model; its rate is kept under "image-<model>".
+  // A still costs what the server says on its frames (the same for every frame); before there are frames, the default image model's rate stands in.
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const stillModel = models.data?.find((m) => m.kind === "image" && m.default)?.id;
-  const imageCost = stillModel ? rate(`image-${stillModel}`) : undefined;
+  const imageCost = frames.data?.[0]?.still_credits ?? (stillModel ? rate(`image-${stillModel}`) : undefined);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
 
   const roles = useRoleNames(projectId);
@@ -352,181 +349,5 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
         </Sheet>
       )}
     </div>
-  );
-}
-
-function FrameCard(props: {
-  frame: Frame;
-  projectId: number;
-  aspect: string;
-  busy: boolean;
-  error: string | null;
-  failed: boolean;
-  blockers: Blocker[];
-  brandId: number;
-  nameOf: (id: string) => string;
-  words: (p: string) => string;
-  fix: (p: string) => ReactNode;
-  cost: number | undefined;
-  stopped: boolean;
-  stopFor: (cost: number | undefined) => string | null;
-  oneStep: boolean;
-  onPick: (file: number) => void;
-  onRender: (note?: string) => void;
-  onApprove: (yes: boolean) => void;
-  onSave: (prompt: string) => void;
-  softening: boolean;
-  undoing: boolean;
-  softened: Softened | null;
-  softenedBySelf: boolean;
-  onSoften: () => void;
-  onUndoSoften: (before: string) => void;
-  onOpen: () => void;
-}) {
-  const { frame: f } = props;
-  const keep = useKeep(props.projectId, { of: "frame", id: f.id });
-  const [editing, setEditing] = useState<string | null>(null);
-  const [redo, setRedo] = useState<string | null>(null);
-  const phone = useMedia("(max-width: 639px)");
-  const verb = f.file_id === null ? "Make still" : "Redo";
-  const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
-  const price = props.cost !== undefined ? ` · ${creditsLabel(props.cost)}` : "";
-  const redoForm = (
-    <div className="space-y-2">
-      <label className="block text-sm">
-        What should change? (optional)
-        <textarea className={input} rows={3} maxLength={500} value={redo ?? ""} onChange={(e) => setRedo(e.target.value)} />
-      </label>
-      <button
-        className={`${btnPrimary} min-h-11 sm:min-h-9`}
-        disabled={props.stopped}
-        onClick={() => {
-          props.onRender((redo ?? "").trim());
-          setRedo(null);
-        }}
-      >
-        Redo
-        {price}
-      </button>
-    </div>
-  );
-  return (
-    <li className="space-y-2 text-sm" aria-label={`Frame ${f.clip_id}`}>
-      <div className={`relative grid place-items-center overflow-hidden rounded-md bg-surface-2 ${f.approved ? "border-2 border-accent" : "border border-border"}`} style={{ aspectRatio: ratio(props.aspect) }}>
-        {f.approved && <span className="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-on-accent">✓ Approved</span>}
-        {!f.approved && f.still_stale && (
-          <span className="absolute left-2 top-2">
-            <Badge tone="warning">Out of date</Badge>
-          </span>
-        )}
-        {!f.approved && !f.still_stale && f.redrawn && (
-          <span className="absolute left-2 top-2">
-            <Badge icon={RotateCcw}>Redrawn</Badge>
-          </span>
-        )}
-        {props.busy ? (
-          <span className="text-muted">Drawing…</span>
-        ) : f.file_id !== null && (f.change as ChangeState)?.status === "changing" ? (
-          <>
-            <img src={fileUrl(f.file_id)} alt={`Still for clip ${f.clip_id}`} className="h-full w-full object-cover opacity-50" />
-            <span className="absolute inset-0 grid place-items-center text-sm font-medium">Making the change…</span>
-          </>
-        ) : f.file_id !== null ? (
-          <button type="button" className="h-full w-full" aria-label={`Open the still for clip ${f.clip_id}`} onClick={props.onOpen}>
-            <img src={fileUrl(f.file_id)} alt={`Still for clip ${f.clip_id}`} className="h-full w-full object-cover" />
-          </button>
-        ) : (
-          <span className="text-muted">No still yet</span>
-        )}
-      </div>
-      <div className="font-medium">
-        {f.clip_id} · shot {f.shot_id}
-      </div>
-      {f.stale && <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">Breakdown changed: redo this frame</span>}
-      {props.error && <p role="alert" className={errorClass}>{props.error}</p>}
-      {props.failed && <span className="inline-block rounded-sm bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Didn't finish · credits returned</span>}
-      <p className="flex flex-wrap gap-1 text-xs">
-        {f.reference_ids.map((id) => (
-          <span key={id} className="rounded-sm bg-surface-2 px-2 py-0.5">
-            {id.startsWith("screen") ? "★ " : id.startsWith("char") ? "● " : id.startsWith("place") ? "⌂ " : ""}
-            {props.nameOf(id)}
-          </span>
-        ))}
-      </p>
-      <SheetWarning blockers={props.blockers} brandId={props.brandId} />
-      {blocking(f.problems).length > 0 && (
-        <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${f.clip_id}`}>
-          {blocking(f.problems).map((p) => (
-            <li key={p}>
-              {props.words(p)}
-              {props.fix(p)}
-              {/may refuse/.test(p) && <SoftenIt busy={props.softening} onSoften={props.onSoften} />}
-            </li>
-          ))}
-        </ul>
-      )}
-      {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.undoing} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
-      <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${f.clip_id}`} />
-      {editing !== null ? (
-        <div className="space-y-2">
-          <textarea className={input} rows={5} aria-label={`Prompt for clip ${f.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
-          <div className="flex gap-2">
-            <button className={`${redraws ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`} onClick={() => { props.onSave(editing); setEditing(null); }}>
-              {redraws ? `Save and redraw · ${props.cost === undefined ? "…" : creditsLabel(props.cost)}` : "Save prompt"}
-            </button>
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={() => setEditing(null)}>
-              Cancel
-            </button>
-          </div>
-          {f.file_id !== null && props.stopped && <p className="text-sm text-warning">Saving keeps the current still. {props.stopFor(props.cost)}</p>}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {f.file_id === null ? (
-              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
-                {verb}
-                {price}
-              </button>
-            ) : (
-              <>
-                <button
-                  className={`${btnSecondary} min-h-11 sm:min-h-9`}
-                  disabled={props.busy || (!f.approved && (f.stale || blocking(f.problems).length > 0))}
-                  onClick={() => props.onApprove(!f.approved)}
-                >
-                  {f.approved ? "Undo approve" : "Approve"}
-                </button>
-                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => (props.oneStep ? props.onRender() : setRedo(redo === null ? "" : null))} aria-expanded={props.oneStep ? undefined : redo !== null}>
-                  {props.oneStep ? "Make another" : verb}
-                  {price}
-                </button>
-              </>
-            )}
-            <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>
-              {props.oneStep ? "Advanced: edit the prompt" : "Edit prompt"}
-            </button>
-          </div>
-          {props.oneStep && f.file_id !== null && (
-            <ChangeBox
-              kind="frame"
-              projectId={props.projectId}
-              id={f.id}
-              label={f.clip_id}
-              change={f.change as ChangeState}
-              hold={props.busy ? "This one is still being made" : f.stale ? "Make the storyboard again first" : null}
-              stopFor={props.stopFor}
-              onUndo={f.earlier.length ? () => props.onPick((f.earlier.at(-1) as { file_id: number }).file_id) : undefined}
-            />
-          )}
-          {redo !== null && !phone && redoForm}
-          {redo !== null && phone && (
-            <Sheet title={`Redo clip ${f.clip_id}`} closeLabel="Cancel" onClose={() => setRedo(null)}>
-              {redoForm}
-            </Sheet>
-          )}
-        </div>
-      )}
-    </li>
   );
 }

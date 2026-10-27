@@ -1270,15 +1270,15 @@ test("Bulk create, Reel links: one link per line, bad lines are named and block 
     ...base,
     "GET /scripts": [200, []],
     "POST /scripts/bulk": [201, [{ id: 11, title: "Untitled reel", reel: { status: "ready", seconds: 45 } }, { id: 12, title: "Untitled reel", reel: { status: "failed", seconds: null, fetch_error: "Instagram didn't let us download it." } }]],
-    "POST /scripts/write/estimate": [200, { count: 2, credits: 35, credits_left: null, reading: 1, read_credits: 5, writing: 2, write_credits: 30, waiting: [], failed: [12] }],
+    "POST /scripts/write/estimate": [200, { count: 2, credits: 35, credits_left: null, reading: 1, read_credits: 5, writing: 2, write_credits: 30, waiting: [], failed: [12], reels: { links: 1, videos: 0 } }],
     "POST /scripts/write": [201, [{ id: 1, status: "queued" }, { id: 2, status: "queued" }]],
   });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Bulk create" }));
   const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
-  await userEvent.click(within(dialog).getByRole("radio", { name: "Reel links" }));
+  await userEvent.click(within(dialog).getByRole("radio", { name: "Reels" }));
   expect(within(dialog).queryByLabelText(/^Title \d$/)).toBeNull();
-  expect(within(dialog).getByRole("button", { name: "Make 0 drafts" })).toHaveAccessibleDescription("Paste at least one reel link");
+  expect(within(dialog).getByRole("button", { name: "Make 0 drafts" })).toHaveAccessibleDescription("Add a reel link or a video first");
   await userEvent.type(within(dialog).getByLabelText("Paste reel links, one per line"), "https://www.instagram.com/reel/Abc123/{Enter}https://example.com/nope{Enter}https://www.instagram.com/reel/Def456/");
   expect(within(dialog).getByText("Line 2 isn't a reel link")).toBeInTheDocument();
   const make = within(dialog).getByRole("button", { name: "Make 2 drafts" }); // counts only the two real reel links

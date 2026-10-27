@@ -216,7 +216,7 @@ Each problem shows as a danger line on that row, with **Remove** (and **Try agai
 - **Closing the panel** while files are still uploading asks first, with a Dialog: "Stop the uploads? The files you added won't be kept." It has **Stop and close** and **Keep uploading** (the default).
 
 ### The queue: files and links together
-- **Drafts made** lists every draft in the order the reels were added, links and files mixed. Each draft has its source chip:
+- **Drafts made** lists the links first, in the order they're pasted, then the files in the order they were added (as built in #574: pasted links have no added order). Each draft has its source chip:
   - a link: `Link` "Reel · 45 s", as in §7
   - a file: `FileVideo` "Video · 38 s", with the file name in meta under the title "Untitled reel"
 - **Write all** reads them one after another, in that order, then writes each script and cast, exactly as for links. The library rows show "A · Reading the reel…" and then "A · Writing" for both.

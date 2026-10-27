@@ -56,7 +56,7 @@ def test_checks_catch_added_words_a_missing_screen_and_a_long_clip():
     shot.screen_ids = []
     bd.clips[1].seconds = 31
     problems = check.breakdown(script_of(example("breakdown")[0]), bd, FOMO, 4, 30)
-    assert "shot 2.1: 'loss' moment without its screen" in problems
+    assert "Advice: shot 2.1: 'loss' moment without its screen" in problems
     assert "line 9 is a ★ screen line but no shot shows a screen" in problems
     assert "clip c2: 31 s is outside 4–30 s" in problems
 
@@ -884,7 +884,7 @@ def test_the_projects_product_is_a_required_asset_like_a_screen():
         clips=[{"id": "c1", "shot_ids": ["1.1"], "seconds": 4, "seam": "end"}],
     )
     problems = check.breakdown(script, bd, needs, 4, 30)
-    assert "shot 1.1: 'feeding' moment without its screen" in problems
+    assert "Advice: shot 1.1: 'feeding' moment without its screen" in problems
     bd.scenes[0].shots[0].screen_ids = ["product:2"]
     assert check.breakdown(script, bd, needs, 4, 30) == []
 
