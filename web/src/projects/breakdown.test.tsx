@@ -479,3 +479,15 @@ test("a problem's words get the whole row on a phone, with its buttons wrapping 
   expect(words).toHaveClass("w-full", "sm:flex-1");
   expect(words?.parentElement).toHaveClass("flex-wrap");
 });
+
+test("when a fix is refused, the server's reason is shown, in its words", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, breakdown({ problems: [lost, changed], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }, { problem: changed, kind: "restore_line", label: "Use the script's words" }] })],
+    "POST /projects/9/breakdown/fix": [409, { detail: "Nothing here can be fixed for you. Edit the shot instead." }],
+  });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  await userEvent.click(within(box).getByRole("button", { name: "Fix 2 problems" }));
+  expect(await within(box).findByRole("alert")).toHaveTextContent("Nothing here can be fixed for you. Edit the shot instead.");
+});
