@@ -3,7 +3,7 @@ checked (`check.breakdown`) and saved with its problems so the editor sees what 
 
 from inspect import signature
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import prompts
@@ -49,6 +49,45 @@ def _places(db: Session, project: Project) -> str:
     return "\n".join(lines)
 
 
+def recent_payoffs(
+    db: Session, brand_id: int, exclude: int | None = None, n: int = 5
+) -> list[tuple[str, list[str]]]:
+    """Where the brand's latest videos' montages landed (Reed, 2026-10-27: a video's payoffs
+    never repeat one of the same brand's): up to `n` other videos with a montage in their
+    newest breakdown, newest first, as (video name, its last 3 montage actions in plain
+    words). Library drafts don't count. Free."""
+    from app.advice import names, plain
+    from app.storyboard import assets
+
+    newest = (
+        select(BreakdownVersion.project_id, func.max(BreakdownVersion.id).label("id"))
+        .group_by(BreakdownVersion.project_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(Project, BreakdownVersion)
+        .join(newest, newest.c.project_id == Project.id)
+        .join(BreakdownVersion, BreakdownVersion.id == newest.c.id)
+        .where(Project.brand_id == brand_id, Project.archived_at.is_(None))
+        .order_by(BreakdownVersion.id.desc())
+    )
+    out = []
+    for project, row in rows:
+        if project.id == exclude or len(out) == n:
+            continue
+        shots = [s for scene in Breakdown.model_validate(row.data).scenes for s in scene.shots]
+        if landed := check.payoff(shots):
+            called = names(assets(db, project))
+            out.append((project.name, plain([s.action for s in landed], called)))
+    return out
+
+
+def payoffs_block(payoffs: list[tuple[str, list[str]]]) -> str:
+    """One line a video, about 300 characters at most; "" when there are none."""
+    lines = [f'"{name}": {"; ".join(actions)}'[:300] for name, actions in payoffs]
+    return f"<recent_payoffs>\n{escape(chr(10).join(lines))}\n</recent_payoffs>" if lines else ""
+
+
 def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     system, context = project_context(db, project, "breakdown")
     if project.script_draft_id:  # from the library: its unlocked slots, cast at Assets
@@ -58,6 +97,8 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         draft = db.get(ScriptDraft, project.script_draft_id)
         context = script_preview.with_slots(db, draft.script_id, context, project.slot_cast)
     parts = [context, f"<places>\n{escape(_places(db, project))}\n</places>"]
+    if block := payoffs_block(recent_payoffs(db, project.brand_id, project.id)):
+        parts.append(block)
     parts.append(video_model_block(video_model()))
     if project.reference_breakdown:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
@@ -84,6 +125,9 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
         extra["brand"] = brand.name
     if "approved" in params:  # a video from the library is made from an approved version
         extra["approved"] = project.script_draft_id is not None
+    if "recent" in params:  # montage variety: the brand's other videos' payoffs
+        recent = recent_payoffs(db, project.brand_id, project.id)
+        extra["recent"] = [a for _, actions in recent for a in actions]
     found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     from app.advice import names, plain
     from app.storyboard import assets

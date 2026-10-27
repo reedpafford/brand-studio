@@ -63,6 +63,19 @@ def enhance(script: str, result: EnhanceResult, screens: dict[str, list[str]]) -
     return problems
 
 
+def payoff(shots: list) -> list:
+    """Where the montage lands: the last 3 shots of its first run of 3+ quick wordless shots
+    (as the montage checks below count them); [] without a montage."""
+    quick = [not s.line and s.seconds <= 0.6 for s in shots]
+    start = next((i for i in range(len(shots) - 2) if all(quick[i : i + 3])), None)
+    if start is None:
+        return []
+    end = start
+    while end + 1 < len(shots) and quick[end + 1]:
+        end += 1
+    return shots[end - 2 : end + 1]
+
+
 def breakdown(
     script: str,
     bd: Breakdown,
@@ -72,6 +85,7 @@ def breakdown(
     end_line: str = "",
     brand: str = "",  # the brand's name: a near end line must still say it
     approved: bool = False,  # Reed approved the words: the end line never blocks (advice)
+    recent: list[str] = (),  # recent videos' payoff actions (montage variety, Reed 2026-10-27)
 ) -> list[str]:
     lines = script.splitlines()
     shots = [shot for scene in bd.scenes for shot in scene.shots]
@@ -105,6 +119,9 @@ def breakdown(
         if needed and not needed & set(shot.screen_ids):
             problems.append(f"shot {shot.id}: '{shot.moment}' moment without its screen")
     problems += _money_climbs(shots)
+    seen = {_words(a) for a in recent}
+    problems += [f"{ADVICE}shot {s.id}: this payoff repeats one of a recent video; show a new one"
+                 for s in payoff(shots) if _words(s.action) in seen]  # fmt: skip
     problems += cta_screen(shots, end_line, brand)
     quick = [not shot.line and shot.seconds <= 0.6 for shot in shots]  # wordless, fast
     for i, shot in enumerate(shots):

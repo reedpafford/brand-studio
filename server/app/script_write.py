@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import prompts, rewritten
 from app import script_library as lib
+from app.breakdown import payoffs_block, recent_payoffs
 from app.enhance import escape, escape_block, project_context
 from app.models.brands import Brand
 from app.models.jobs import Job
@@ -34,6 +35,8 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     system, context = project_context(db, project, "script_draft")
     context = context.replace("<brief>\n", f"<brief>\nTitle: {escape(script.title)}\n", 1)
     context = with_slots(db, script.id, context)
+    if block := payoffs_block(recent_payoffs(db, script.brand_id)):  # montage variety
+        context += f"\n{block}"
     if reference:
         context += f"\n{escape_block(prompts.reference_block(reference, script.reference_replace))}"
         if script.new_lines:
