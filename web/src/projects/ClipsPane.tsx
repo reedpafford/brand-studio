@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
-import { Badge, Banner, Button } from "../components";
+import { Check, TriangleAlert } from "lucide-react";
+import { Badge, Banner, Button, useToast } from "../components";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
@@ -18,6 +18,7 @@ import { useMe } from "../auth/useMe";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
 import { RewriteNote, RewriteOne } from "./RewriteClips";
+import { FIX_NOTE, FixedNote, FixThisPrompt } from "./FixClip";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -155,6 +156,36 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     },
     onSuccess: refresh,
   });
+  // "Fix this clip's prompt": free, never charged. The answer is fixed now, on its way (Claude is rewriting it), or not possible.
+  const toast = useToast();
+  const [fixing, setFixing] = useState<Record<number, number>>({}); // clip → the job fixing it
+  const [fixSaid, setFixSaid] = useState<Record<number, string>>({});
+  const undoFix = async (clip: Clip, before: string) => {
+    await edit.mutateAsync({ clip, prompt: before });
+    setFixSaid((m) => Object.fromEntries(Object.entries(m).filter(([id]) => Number(id) !== clip.id)));
+  };
+  const fixPrompt = useMutation({
+    mutationFn: async (clip: Clip) => {
+      const { data, error } = await api.POST("/projects/{project_id}/clips/{clip_id}/fix", { params: { path: { ...path, clip_id: clip.id } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: async (r, clip) => {
+      setFixSaid((m) => Object.fromEntries(Object.entries(m).filter(([id]) => Number(id) !== clip.id)));
+      if (r.job) setFixing((f) => ({ ...f, [clip.id]: r.job!.id }));
+      if (r.fixed === false) setFixSaid((m) => ({ ...m, [clip.id]: r.reason }));
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refresh();
+      if (r.fixed === true) toast(`Fixed clip ${clip.clip_id}'s prompt.`, () => void undoFix(clip, r.before));
+    },
+    onError: (e, clip) => setFixSaid((m) => ({ ...m, [clip.id]: e.message })),
+  });
+  const fixBusy = (c: Clip) => (fixPrompt.isPending && fixPrompt.variables?.id === c.id) || (fixing[c.id] !== undefined && !!jobOf(fixing[c.id]) && GOING.includes(jobOf(fixing[c.id])!.status));
+  // When the rewrite Claude was doing has finished, bring in the new prompt.
+  const fixDone = Object.entries(fixing).filter(([, j]) => jobOf(j) && !GOING.includes(jobOf(j)!.status)).map(([id]) => id).join(",");
+  useEffect(() => {
+    if (fixDone) refresh();
+  }, [fixDone]); // eslint-disable-line react-hooks/exhaustive-deps
   const realImage = useMutation({
     mutationFn: async ({ clip, shot, on }: { clip: Clip; shot: string; on: boolean }) => {
       const { data, error } = await api.PUT("/projects/{project_id}/clips/{clip_id}/inserts/{shot_id}", {
@@ -288,7 +319,12 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
               onRealImage={(shot, on) => realImage.mutate({ clip: c, shot, on })}
               onUnapprove={() => review.mutate({ clip: c, undo: true })}
               onSave={(prompt) => edit.mutate({ clip: c, prompt })}
-              rewrite={c.stale && !writingNow ? <RewriteOne projectId={projectId} clipId={c.clip_id} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(c.clip_id)} /> : null}
+              fixBusy={fixBusy(c)}
+              fixSaid={fixSaid[c.id] ?? null}
+              onFix={() => fixPrompt.mutate(c)}
+              onUndoFix={(before) => undoFix(c, before)}
+              undoing={edit.isPending && edit.variables?.clip.id === c.id}
+              rewrite={(c.stale || (c.free_fix_used && blocking(c.problems).length > 0)) && !writingNow ? <RewriteOne projectId={projectId} clipId={c.clip_id} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(c.clip_id)} /> : null}
             />
           );
         })}
@@ -324,6 +360,11 @@ function ClipCard(props: {
   onRealImage: (shotId: string, on: boolean) => void;
   onSave: (prompt: string) => void;
   rewrite: ReactNode;
+  fixBusy: boolean;
+  fixSaid: string | null;
+  onFix: () => void;
+  onUndoFix: (before: string) => void;
+  undoing: boolean;
 }) {
   const { clip: c } = props;
   const keep = useKeep(props.projectId, { of: "clip", id: c.id });
@@ -374,6 +415,20 @@ function ClipCard(props: {
           ))}
         </ul>
       )}
+      {blocking(c.problems).length > 0 && !c.stale && !props.fixBusy && !c.free_fix_used && <FixThisPrompt busy={false} onFix={props.onFix} />}
+      {props.fixBusy && <FixThisPrompt busy onFix={props.onFix} />}
+      {blocking(c.problems).length > 0 && !c.stale && !props.fixBusy && (props.fixSaid ?? (c.free_fix_used ? "We couldn't fix this one automatically." : null)) && (
+        <p role="status" className="flex items-start gap-2 text-sm text-warning">
+          <TriangleAlert size={16} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
+          {props.fixSaid ?? "We couldn't fix this one automatically."}
+        </p>
+      )}
+      {(() => {
+        const change = c.change as { note?: string; status?: string; before?: string; after?: string } | null;
+        return change?.note === FIX_NOTE && change.status === "done" && change.before !== undefined && change.after !== undefined && change.after === c.prompt ? (
+          <FixedNote before={change.before} after={change.after} busy={props.undoing} onUndo={() => props.onUndoFix(change.before!)} />
+        ) : null;
+      })()}
       <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${c.clip_id}`} />
       {c.takes.length > 0 && (
         <fieldset className="flex flex-wrap items-center gap-3">
