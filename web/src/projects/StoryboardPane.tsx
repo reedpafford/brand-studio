@@ -433,8 +433,8 @@ function FrameCard(props: {
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for clip ${f.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
           <div className="flex gap-2">
-            <button className={btnPrimary} onClick={() => { props.onSave(editing); setEditing(null); }}>
-              {redraws ? `Save and redraw${price}` : "Save prompt"}
+            <button className={redraws ? btnSecondary : btnPrimary} onClick={() => { props.onSave(editing); setEditing(null); }}>
+              {redraws ? `Save and redraw · ${props.cost === undefined ? "…" : `${wholeCredits(props.cost)} credits`}` : "Save prompt"}
             </button>
             <button className={btnSecondary} onClick={() => setEditing(null)}>
               Cancel

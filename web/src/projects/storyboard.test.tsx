@@ -110,6 +110,13 @@ test("editing the prompt of a frame that has a still saves it and draws the stil
   expect(await within(screen.getByLabelText("Frame c1")).findByText("This frame's still is already being made.")).toBeInTheDocument();
 });
 
+test("Save and redraw shows … until the price is known", async () => {
+  fakeServer({ ...base, "GET /credits/rates": [500, { detail: "later" }], "GET /projects/9/storyboard": [200, [frame({ file_id: 40 })]] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit the prompt for clip c1" }));
+  expect(screen.getByRole("button", { name: "Save and redraw · …" })).toBeInTheDocument();
+});
+
 test("a still being made for a frame (a Change it's) says Drawing… and the new still shows once it lands", async () => {
   const routes: Record<string, [number, unknown]> = { ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40, drawing: true, change: { note: "night", status: "done", before: "a", after: "a night" } })]] };
   fakeServer(routes);
