@@ -816,3 +816,18 @@ test("Approve all on Assets is not offered for a library character, which is app
   await screen.findByLabelText("Bo");
   expect(screen.queryByRole("button", { name: /^Approve (all|\d)/ })).toBeNull();
 });
+
+test("a link to a locked step lands on the step that blocks it, not always on Breakdown", async () => {
+  setViewport(1440);
+  // Breakdown and Assets are done, but the storyboard frames are out of date: Clips is locked, and Storyboard is what blocks it.
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]], "GET /projects/9/clips": [200, []] });
+  open("?step=clips");
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+});
+
+test("a link to a locked step lands on Assets while assets are left to approve", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/assets": [200, [asset({})]] });
+  open("?step=storyboard");
+  expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
+});

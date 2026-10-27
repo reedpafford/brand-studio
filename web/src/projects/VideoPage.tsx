@@ -20,7 +20,7 @@ import { ShapeRow } from "./ShapeRow";
 import { StoryboardPane } from "./StoryboardPane";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
-import { VIDEO_STEPS, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
+import { VIDEO_STEPS, videoBlocker, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
 
 /** A video made from a library version: Breakdown · Assets · Storyboard · Clips · Downloads. */
 export function VideoPage() {
@@ -60,8 +60,8 @@ export function VideoPage() {
   if (!p) return <p className="p-6">That video doesn't exist.</p>;
   const list = assets.data ?? [];
   const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length } };
-  // A link to a step that is locked lands on Breakdown.
-  if (videoLock(step, all) !== null) return <Navigate to="?step=breakdown" replace />;
+  // A link to a step that is locked lands on the step that blocks it (Storyboard when its frames are out of date, say).
+  if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
 
   const pick = (to: string) => {
     setParams(to === "breakdown" ? {} : { step: to });

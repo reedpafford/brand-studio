@@ -49,6 +49,7 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 - Phones (390): no sideways scroll, every control at least 44px.
 - After a server API change, `schema.d.ts` is regenerated and committed.
 - Can the user undo or delete what they just made? (delete or archive, plus Undo after a delete or big change)
+- No dead ends (Reed, 2026-10-26): every blocking problem is repaired by the server for free, turned into Advice, or has a one-click fix on the same screen. Editing the raw prompt is never the only way out.
 
 ## Limits
 - Paid calls only within the $15/week cap, logged in ops/SPEND.md, asked through the Producer.
