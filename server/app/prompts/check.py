@@ -419,6 +419,21 @@ def _silence(prompt: str, spoken: bool) -> list[str]:
     return problems
 
 
+SPOKEN = re.compile(r'\b([A-Z][\w-]*(?: [A-Z][\w-]*)?) \(([^)"]*)\):\s*["“]')  # Nate (…): "
+
+
+def unlabelled(prompt: str) -> list[str]:
+    """Advice when a spoken line doesn't name its language: without "in English" Seedance may
+    speak another one (Reed, a Change this… take, 2026-10-27; docs/prompting/seedance-2.5.md §3).
+    Scored in the evals only: in the app the server adds "Use English: …" to every take, and a
+    flag on every saved clip would have no one-click fix (Current rules 22)."""
+    who = [m.group(1) for m in SPOKEN.finditer(prompt) if "in english" not in m.group(2).lower()]
+    if not who:
+        return []
+    names = ", ".join(dict.fromkeys(who))
+    return [f"{ADVICE}{names}: say each spoken line's language, e.g. {who[0]} (in English, …)"]
+
+
 def improve(
     idea: str, result: ImprovedPrompt, references: str, shots: int, seconds: float
 ) -> list[str]:

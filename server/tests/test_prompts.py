@@ -722,6 +722,20 @@ def test_reference_lines_bind_each_image_in_upload_order():
     )
 
 
+def test_every_spoken_line_names_its_language():
+    """Reed: a Change this… take spoke another language (2026-10-27). seedance-2.5.md §3."""
+    for step in ("clip_prompts", "improve"):
+        assert 'Name (in English, how it\'s said): "words"' in prompts.system(step)
+    assert "never translate a line or drop its quotes or its label" in prompts.system("change")
+    _, cp = example("clip_prompts")
+    _, improved = example("improve")
+    assert check.unlabelled(cp.clips[0].prompt) == check.unlabelled(improved.prompt) == []
+    bare = improved.prompt.replace("(in English, ", "(")
+    assert check.unlabelled(bare) == [
+        "Advice: Maya, Leo: say each spoken line's language, e.g. Maya (in English, …)"
+    ]
+
+
 def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")
