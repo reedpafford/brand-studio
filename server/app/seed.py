@@ -172,7 +172,7 @@ def repair_cta_screens(db: Session) -> int:
             .order_by(BreakdownVersion.id.desc())
             .limit(1)
         )
-        if row is None:
+        if row is None or not row.data:  # JSON null passes SQL is_not(None)
             continue
         bd, notes = cta_screen(db, project, Breakdown.model_validate(row.data))
         if notes:
