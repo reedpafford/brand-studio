@@ -1,7 +1,7 @@
 """The team: list members, invite people, change a role, remove people and bring them back.
 Changes are owner-only."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user, new_token, owner_only
 from app.db import get_db, utcnow
 from app.models.accounts import Invite, LoginSession, Role, User
-from app.schemas import Email
+from app.schemas import Email, UtcTime
 
 router = APIRouter(prefix="/team", tags=["team"])
 
@@ -36,7 +36,7 @@ class InviteOut(BaseModel):
     id: int
     email: str
     role: Role
-    expires_at: datetime
+    expires_at: UtcTime
 
 
 class NewInviteOut(InviteOut):

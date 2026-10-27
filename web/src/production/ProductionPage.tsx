@@ -10,6 +10,7 @@ import { useBrands } from "../shell/useBrands";
 import { lastText, money } from "../usage/parts";
 import { useRail } from "../useMedia";
 import { useProduction, useProductionSummary, type Row, type Sort, type Step } from "./useProduction";
+import { serverTime } from "../time";
 
 const STEPS: Record<Step, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
 const SORTS: { id: Sort; label: string }[] = [
@@ -26,7 +27,7 @@ const FLAGS: Record<NonNullable<Row["flag"]>, { label: string; tone: Tone; icon:
 };
 const CLOSE = "Close to the budget. Going over needs your approval.";
 
-const mins = (iso: string) => Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000));
+const mins = (iso: string) => Math.max(1, Math.floor((Date.now() - serverTime(iso).getTime()) / 60_000));
 const span = (iso: string) => (mins(iso) < 90 ? `${mins(iso)} min` : `${Math.floor(mins(iso) / 60)} h`);
 /** "3 h" reads "3 h ago" on a card; "yesterday" and dates stand alone. */
 const ago = (t: string) => (/ (min|h|days)$/.test(t) ? `${t} ago` : t);

@@ -1,7 +1,6 @@
 """Usage, the brand tracker (Reed only; DECISIONS #237): spend, finished videos and cost per
 finished video per brand, for this week, this month or all time. Editors get 404."""
 
-from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -22,6 +21,7 @@ from app.models.projects import Project
 from app.models.script_library import Script
 from app.routes.script_library import ScriptRow
 from app.routes.script_library import _out as library_row
+from app.schemas import UtcTime
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 PeriodName = Literal["week", "month", "all"]
@@ -52,7 +52,7 @@ class UsagePrevious(BaseModel):
 
 class UsageSummaryOut(BaseModel):
     period: PeriodName
-    starts_at: datetime | None  # null for all time
+    starts_at: UtcTime | None  # null for all time
     previous: UsagePrevious | None  # last week or last month; null for all time
     spend_usd: float  # every charge in the period, brands and not
     spend_estimated: bool  # some of it is an estimate (the provider didn't say)
@@ -74,7 +74,7 @@ class UsageBrandRow(BaseModel):
     in_progress: int
     scripts: int
     versions_left: int
-    last_activity_at: datetime | None
+    last_activity_at: UtcTime | None
 
 
 class UsageBrandsOut(BaseModel):
@@ -233,8 +233,8 @@ class UsageVideo(BaseModel):
     spend_usd: float  # its whole life
     spend_estimated: bool
     credits: float
-    finished_at: datetime | None
-    last_activity_at: datetime
+    finished_at: UtcTime | None
+    last_activity_at: UtcTime
 
 
 class UsageVideosOut(BaseModel):
@@ -319,7 +319,7 @@ def brand_videos(
 class UsageScript(ScriptRow):
     spend_usd: float  # writing it plus every video made from it, whole life
     spend_estimated: bool
-    changed_at: datetime
+    changed_at: UtcTime
 
 
 class UsageScriptsOut(BaseModel):
@@ -397,7 +397,7 @@ class UsageBrandRef(BaseModel):
 
 class UsageCharge(BaseModel):
     id: int  # for POST /usage/charges/{id}/refund
-    at: datetime
+    at: UtcTime
     person: Who | None
     brand: UsageBrandRef | None  # null: not tied to one brand
     what: str  # "Clip 3 take · Bo tries salmon · B", "Quick clip"
@@ -413,7 +413,7 @@ class UsageCharge(BaseModel):
 class RefundedOut(BaseModel):
     credits: float  # what it was charged before the refund (`credits` above is now 0)
     reason: str
-    at: datetime
+    at: UtcTime
 
 
 class UsageChargesOut(BaseModel):
@@ -485,7 +485,7 @@ class RefundOut(BaseModel):
     credits: float  # given back
     reason: str
     by: Who | None
-    at: datetime
+    at: UtcTime
 
 
 @router.post("/charges/{charge_id}/refund", response_model=RefundOut)

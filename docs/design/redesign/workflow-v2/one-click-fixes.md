@@ -26,9 +26,9 @@ Each problem row gets a fix next to **Go to**:
 ## 2. Edit shot
 When a shot names a character, place or screen the video doesn't have ("Shot 1.3 names Nate, who isn't in this video's cast."):
 - **The problem row** in the Edit shot panel has **Remove Nate from this shot** (secondary dense, `UserMinus`; `MapPinOff` for a place, `MonitorOff` for a screen), with "Free" beside it.
-- **After:** the name goes from the shot's cast (or place, or screens), and the shot's action is left as written. Toast: "Removed Nate from shot 1.3." with **Undo**.
+- **After:** the name goes from the shot's cast (or place, or screens), and the shot's action is left as written. Toast: "Removed Nate from shot 1.3." with no Undo (as built in #533; Producer, 2026-10-27): putting back a name the video doesn't have would only bring the problem back. This is the one exception to the Undo rule above.
 - If the name is a role in the script's cast with no look yet, the row also has **Go to Assets** (the look gets made there), and the remove button stays.
-- **Repaired on its own:** when the server removes an unknown name itself, it's shown as Advice, never as a problem: "Advice: Removed Nate from shot 1.3. Nobody by that name is in this video." It sits under **Advice (N)** like any advice, with **Undo** in place of Keep anyway.
+- **Repaired on its own:** when the server removes an unknown name itself, it's shown as Advice, never as a problem: "Advice: Removed Nate from shot 1.3. Nobody by that name is in this video." It sits under **Advice (N)** like any advice, with no Undo, for the same reason.
 
 ## 3. Assets
 When a slot points at a Cast & places character that was deleted:
@@ -51,7 +51,7 @@ Any clip card with a blocking problem (refused, flagged or failed check) has **F
 - **Still blocked after the free fix** (the rewrite didn't clear it, or a new problem came up on the same prompt): the button goes, and the card says "We couldn't fix this one automatically." (meta, `TriangleAlert` in `text-warning`), with:
   - **Rewrite this clip's prompt · N credits** (secondary dense, `Wand2`, the price inside)
   - **Change this…**, which stays under the card as always (`change-notes.md` §1)
-  - **Keep it anyway** (ghost), as for any problem
+  - **Keep it anyway** (ghost dense, 44px on phone), as on Breakdown (Producer, 2026-10-27). It's shown only once the free fix is used, so the free fix is always tried first. Pressing it marks the problem "Kept anyway" (meta), and the problem stops blocking **Make the takes** and Next. **Undo keep** (ghost dense) puts it back. The wording is neutral for everyone: it never names Reed, and editors never see "Reed will see it".
   - An editor past their week or the video's budget sees the priced rewrite disabled, with the usual reason under it. **Keep it anyway** is still there, so the card is never a dead end.
 - **A new prompt version** (written again, the paid rewrite, a **Change it**, or saved from Advanced; not the free fix itself, and not its Undo) makes the free fix available again for that clip.
 - A stale clip keeps its own **Rewrite this clip's prompt · N credits** (`video-flow.md` §4); this button is for problems, not for staleness.
@@ -62,4 +62,5 @@ Any clip card with a blocking problem (refused, flagged or failed check) has **F
 - **Assets:** each slot carries `library_deleted: bool`.
 - **Frames:** `POST /projects/{id}/storyboard/frames/{frame_id}/soften` (free) returns `{before, after}`; a frame softened on its own carries `softened: {before, after}`.
 - **Clips:** `POST /projects/{id}/clips/{clip_id}/fix` (free, never charged, never refused for money; once per clip per prompt version) returns `{before, after}` or `{fixed: false, reason}`. Each clip carries `free_fix_used: bool` for its current prompt, so the card knows which buttons to show; a second call refuses with 409 in plain words.
+- **Keep a clip's blocking problem:** `POST /projects/{id}/clips/{clip_id}/keep {problem}` also accepts a blocking problem once `free_fix_used` is true (409 in plain words before that), and the kept one stops blocking; `DELETE …/keep?problem=` is its Undo. Kept problems come back in `kept`, as advice does.
 - Every fix route refuses with the reason in plain words, never a raw id.

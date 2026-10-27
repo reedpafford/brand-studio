@@ -8,7 +8,7 @@ approved → downloads. Flags (one per row, in this order): failed (its newest j
 nothing started since), stuck (a job queued or running for over 30 min), idle (no job or edit
 for 48 h)."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from typing import Literal
 
@@ -28,6 +28,7 @@ from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.models.storyboards import StoryboardFrame
+from app.schemas import UtcTime
 from app.worker import FAILED
 
 router = APIRouter(prefix="/production", tags=["production"])
@@ -64,13 +65,13 @@ class ProductionRow(BaseModel):
     letter: str  # A, B or C: the version
     editor: Named | None
     step: Literal["breakdown", "assets", "storyboard", "clips", "downloads"]
-    last_activity_at: datetime
+    last_activity_at: UtcTime
     credits_used: float
     budget_credits: float
     spent_usd: float  # owner only, like the whole page
     poster_file_id: int | None
     flag: Flag | None = None
-    flag_since: datetime | None = None
+    flag_since: UtcTime | None = None
     flag_job: str | None = None  # e.g. "Making the takes"
     flag_problem: str | None = None  # the failed job's plain sentence
 
