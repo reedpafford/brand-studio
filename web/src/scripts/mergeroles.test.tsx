@@ -113,3 +113,34 @@ test("a flagged pair never blocks the step: no note, no badge when nothing is fl
   expect(screen.queryByText(/may be the same person/i)).toBeNull();
   expect(screen.queryByText(/May be the same as/)).toBeNull();
 });
+
+test("a published script is read-only: the flag is not shown and there is no Merge into…", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7": [200, { ...flagged, published: true, status: "published" }] }));
+  open();
+  await screen.findByText("Kimchi");
+  expect(screen.queryByText(/These may be the same person/)).toBeNull();
+  expect(screen.queryByRole("button", { name: /More for (Kimchi|His friend)/ })).toBeNull();
+});
+
+test("two roles with the same name don't share a preview", async () => {
+  setViewport(1440);
+  const twin = slot(34, "Kimchi");
+  fakeServer(base({
+    "GET /scripts/7/cast": [200, [{ ...kimchi, locked: false }, twin, friend]],
+    "GET /scripts/7/cast/32/merge/preview?into=33": [200, { moved: { shots: ["1.1"], lines: [] }, look_unused: null }],
+    "GET /scripts/7/cast/34/merge/preview?into=33": [200, { moved: { shots: ["9.9"], lines: [] }, look_unused: null }],
+  }));
+  open();
+  const mergeFirst = async (n: number) => {
+    await userEvent.click((await screen.findAllByRole("button", { name: "More for Kimchi" }))[n]);
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Merge into…" }));
+    await userEvent.click(await screen.findByRole("radio", { name: /His friend/ }));
+  };
+  await mergeFirst(0);
+  expect(await screen.findByText("1 shot: 1.1")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  await mergeFirst(1);
+  expect(screen.queryByText("1 shot: 1.1")).toBeNull(); // the other role's cached preview must not flash here
+  expect(await screen.findByText("1 shot: 9.9")).toBeInTheDocument();
+});

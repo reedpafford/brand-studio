@@ -56,6 +56,8 @@ function WhatMoves({ role, target, moved }: { role: string; target: MergeTarget;
 /** "Merge {role} into…": pick who it is the same person as, see what moves (free), then merge. A sheet on a phone. */
 export function MergeRole(props: {
   role: string;
+  /** The role's id, so two roles with the same name never share a preview. */
+  roleId: number;
   others: MergeTarget[];
   /** The role the server suggests (from "These may be the same person"). */
   suggested?: number | null;
@@ -70,7 +72,7 @@ export function MergeRole(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const target = props.others.find((o) => o.id === picked) ?? null;
-  const preview = useQuery({ queryKey: ["merge-preview", props.role, picked], enabled: picked !== null, queryFn: () => props.adapter.preview(picked!) });
+  const preview = useQuery({ queryKey: ["merge-preview", props.roleId, picked], enabled: picked !== null, queryFn: () => props.adapter.preview(picked!) });
   const hold = target ? null : "Pick who this is the same person as";
   const go = async () => {
     if (!target || busy) return;

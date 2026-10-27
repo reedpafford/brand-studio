@@ -18,7 +18,7 @@ function open(adapter: Partial<MergeAdapter> = {}, extra: Partial<Parameters<typ
   const onClose = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MergeRole role="His friend with the supercar" others={others} adapter={a} onMerged={onMerged} onClose={onClose} {...extra} />
+      <MergeRole role="His friend with the supercar" roleId={3} others={others} adapter={a} onMerged={onMerged} onClose={onClose} {...extra} />
     </QueryClientProvider>,
   );
   return { a, onMerged, onClose };

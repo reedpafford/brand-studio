@@ -31,7 +31,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
   const locked = slots.filter((s) => s.locked).length;
   const roleName = (id: number) => slots.find((x) => x.id === id)?.role ?? "";
   // The server's "may be the same person" flags; both roles must still be here.
-  const pairs: Pair[] = (script.maybe_same ?? []).filter((p) => slots.some((x) => x.id === p.a_slot_id) && slots.some((x) => x.id === p.b_slot_id)).map((p) => ({ a: p.a_slot_id, b: p.b_slot_id, into: p.into_slot_id, why: p.why }));
+  const pairs: Pair[] = readOnly ? [] : (script.maybe_same ?? []).filter((p) => slots.some((x) => x.id === p.a_slot_id) && slots.some((x) => x.id === p.b_slot_id)).map((p) => ({ a: p.a_slot_id, b: p.b_slot_id, into: p.into_slot_id, why: p.why }));
   const pairsOf = (id: number) => pairs.filter((p) => p.a === id || p.b === id);
   const showPair = (p: Pair) => {
     document.getElementById(pairId(p))?.scrollIntoView?.({ block: "center" });
@@ -69,7 +69,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
           <p className="text-sm text-muted">
             {slots.length} role{slots.length === 1 ? "" : "s"} · {locked} locked
           </p>
-          <MaybeSame pairs={pairs} name={roleName} outlined={outlined} readOnly={readOnly} onMerge={mergePair} onDismiss={keepTwo} />
+          <MaybeSame pairs={pairs} name={roleName} outlined={outlined} onMerge={mergePair} onDismiss={keepTwo} />
           <Card className="p-0 sm:p-0">
             <ul className="divide-y divide-border">
               {slots.map((s) => (
@@ -175,6 +175,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
       {merging && (
         <MergeRole
           role={merging.slot.role}
+          roleId={merging.slot.id}
           others={slots.filter((x) => x.id !== merging.slot.id).map((x) => ({ id: x.id, role: x.role, kind: x.kind, locked: x.locked, facts: factsText(x) }))}
           suggested={merging.suggested}
           adapter={{ preview: (into) => roles.preview(merging.slot.id, into), merge: async (into) => {
