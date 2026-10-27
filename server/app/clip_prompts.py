@@ -134,16 +134,11 @@ def cause(error: str, detail: str = "") -> str:
 
 def failed(db: Session, job: Job) -> None:
     """A clip-prompts run that failed says why in plain words (its `error`, which everyone
-    sees, and the server log); a free fix that failed can be pressed again."""
+    sees, and the server log). A free fix that failed stays used: once per prompt version,
+    then "Rewrite this clip" at its price (QA on #605)."""
     reason = cause(job.error or "", job.error_detail or "")
     log.warning("job %s: clip prompts didn't finish: %s (%s)", job.id, reason, job.error_detail)
     job.error = f"{reason[0].upper()}{reason[1:]}. Nothing was charged; try again."
-    if job.input.get("fix") and (ids := job.input.get("clip_ids")):
-        mine = select(ProjectClip).where(
-            ProjectClip.project_id == job.input["project_id"], ProjectClip.clip_id == ids[0]
-        )
-        if row := db.scalar(mine):
-            row.free_fix_used = False
 
 
 TAGS = re.compile(r"(\[Image)(\d+)\]")
@@ -281,7 +276,8 @@ def _cap(clip: ClipPrompt, known: Assets) -> ClipPrompt:
 
 def repair(db: Session, project: Project) -> int:
     """Give every clip of the video its characters' sheets (`with_cast`, nothing dropped),
-    and check it again. Free and idempotent: on deploy for clips saved before
+    put its shape right (`repair_shape`: shot times, "No one speaks." and the rest) and check
+    it again. Runs whenever Clips is opened. Free and idempotent: on deploy for clips saved before
     (app.seed refresh). Returns how many clips changed."""
     known, changed = assets(db, project), 0
     breakdowns: dict[int, Breakdown] = {}
@@ -293,21 +289,22 @@ def repair(db: Session, project: Project) -> int:
             breakdowns[row.breakdown_id] = Breakdown.model_validate(data)
         bd = breakdowns[row.breakdown_id]
         was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
-                         references=[Reference(**r) for r in row.references])  # fmt: skip
-        now = with_cast(db, project, was, bd, known, trim=False)
+                         references=[Reference(**r) for r in row.references or []])  # fmt: skip
+        now = repair_shape(with_cast(db, project, was, bd, known, trim=False), bd)
         problems = clip_problems(db, project, bd, now) + [
             p for p in row.problems or [] if p.startswith(LEFT_OUT)
         ]  # what an earlier trim left out stays said
         if any(p.lower().startswith("more references than") for p in problems):
-            now = _cap(with_cast(db, project, was, bd, known), known)  # never a dead end
+            now = repair_shape(_cap(with_cast(db, project, was, bd, known), known), bd)
             kept = {r.id for r in now.references}
             gone = [_name(_pictures(known), r.id) for r in was.references if r.id not in kept]
             limit = video_model().max_reference_images
             problems = clip_problems(db, project, bd, now) + left_out(gone, limit)
         if now == was and problems == (row.problems or []):
             continue
+        row.same_fix = row.free_fix_used  # a code repair never gives back a used free fix
         row.prompt, row.references = now.prompt, [r.model_dump() for r in now.references]
-        row.problems = problems
+        row.seconds, row.problems = now.seconds, problems
         changed += 1
     return changed
 
@@ -340,7 +337,7 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         if c.clip_id not in wanted or (only is not None and c.clip_id not in only):
             continue
         try:  # one clip that can't be saved never loses the others
-            c = with_cast(db, project, c, bd, known)
+            c = repair_shape(with_cast(db, project, c, bd, known), bd)  # free, at once
             problems = clip_problems(db, project, bd, c)
         except Exception:
             log.exception("job %s: saving clip %s's prompt failed", job.id, c.clip_id)
@@ -370,14 +367,14 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         log.warning("job %s: clip %s's prompt wasn't written: %s", job.id, clip.id, reason)
         row = rows.get(clip.id)
         if row is not None and row.prompt:  # its earlier prompt stays (stale: Rewrite this clip)
-            row.free_fix_used = row.free_fix_used and not job.input.get("fix")
             continue
         if row is None:
             row = ProjectClip(project_id=project.id, clip_id=clip.id, prompt="", references=[])
             db.add(row)
         row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, clip.seconds
         row.problems = [f"{UNWRITTEN}: {reason}. Fix this clip's prompt writes it, free."]
-        row.kept, row.approved, row.prompt_ok, row.free_fix_used = [], False, False, False
+        row.kept, row.approved, row.prompt_ok = [], False, False
+        row.free_fix_used = bool(job.input.get("fix"))  # once per version, then priced (QA)
 
 
 def _unwritten(job: Job) -> dict[str, str]:
@@ -429,10 +426,51 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
             len(lines) - 1, f"Keep: {held or 'every person and screen as in their pictures'}."
         )
     seconds = planned.seconds if planned else clip.seconds
+    lines = _quiet(_retime(lines, seconds))
     prompt = "\n".join(lines)
     if prompt == clip.prompt.strip() and seconds == clip.seconds:
         return clip
     return clip.model_copy(update={"prompt": prompt, "seconds": seconds})
+
+
+SHOT = re.compile(r"^(Shot \d+ \| )(\d+)[-–](\d+)( s\..*)$")
+
+
+def _retime(lines: list[str], seconds: int) -> list[str]:
+    """Shots back to back from 0 to the clip's length, each keeping its length (at least 1 s);
+    the longest give a second each when they run over, the last takes up any gap. Unchanged
+    when the shots can't fit (more shots than seconds) or a time isn't whole seconds."""
+    at = [i for i, x in enumerate(lines) if x.startswith("Shot ")]
+    found = [SHOT.match(lines[i]) for i in at]
+    if not at or not all(found):
+        return lines
+    lengths = [max(int(m[3]) - int(m[2]), 1) for m in found]
+    while sum(lengths) > seconds and max(lengths) > 1:
+        lengths[lengths.index(max(lengths))] -= 1
+    if sum(lengths) > seconds:
+        return lines
+    lengths[-1] += seconds - sum(lengths)
+    out, start = list(lines), 0
+    for i, m, n in zip(at, found, lengths, strict=True):
+        if (int(m[2]), int(m[3])) != (start, start + n):  # a right one stays as written
+            out[i] = f"{m[1]}{start}-{start + n}{m[4]}"
+        start += n
+    return out
+
+
+def _quiet(lines: list[str]) -> list[str]:
+    """Every shot without a spoken line ends with "No one speaks." (the check's rule)."""
+    from app.prompts.check import QUOTED
+
+    at = [i for i, x in enumerate(lines) if SHOT.match(x)]
+    end = next((i for i, x in enumerate(lines) if x.startswith("Keep: ")), len(lines))
+    out = list(lines)
+    for a, b in zip(at, [*at[1:], max(end, at[-1] + 1)] if at else [], strict=True):
+        shot = "\n".join(lines[a:b])
+        if not QUOTED.search(shot) and "No one speaks." not in shot:
+            last = max(i for i in range(a, b) if lines[i].strip())
+            out[last] = f"{lines[last].rstrip()} No one speaks."
+    return out
 
 
 def fixing(db: Session, row: ProjectClip) -> Job | None:
