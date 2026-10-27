@@ -94,6 +94,32 @@ test("editing a frame's prompt saves it with its references", async () => {
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toEqual({ prompt: "Warmer light", reference_ids: ["char:4", "screen:3"] }));
 });
 
+test("editing the prompt of a frame that has a still saves it and draws the still again, with the price on the button", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40 })]],
+    "PUT /projects/9/storyboard/frames/1": [200, frame({ file_id: 40, prompt: "Warmer light" })],
+    "POST /projects/9/storyboard/frames/1/render": [409, { detail: "This frame's still is already being made." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit the prompt for clip c1" }));
+  await userEvent.type(screen.getByLabelText("Prompt for clip c1"), " at night");
+  await userEvent.click(screen.getByRole("button", { name: "Save and redraw · 3 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/render")).toBe(true));
+  // A refusal says why on the frame itself.
+  expect(await within(screen.getByLabelText("Frame c1")).findByText("This frame's still is already being made.")).toBeInTheDocument();
+});
+
+test("a still being made for a frame (a Change it's) says Drawing… and the new still shows once it lands", async () => {
+  const routes: Record<string, [number, unknown]> = { ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40, drawing: true, change: { note: "night", status: "done", before: "a", after: "a night" } })]] };
+  fakeServer(routes);
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(within(card).getByText("Drawing…")).toBeInTheDocument();
+  routes["GET /projects/9/storyboard"] = [200, [frame({ file_id: 41, drawing: false, change: { note: "night", status: "done", before: "a", after: "a night" } })]];
+  expect(await within(card).findByAltText("Still for clip c1", {}, { timeout: 5000 })).toHaveAttribute("src", "/api/files/41");
+});
+
 test("a still opens full size with the prompt Claude wrote", async () => {
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40 })]] });
   open();
