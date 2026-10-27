@@ -377,7 +377,7 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             row = ProjectClip(project_id=project.id, clip_id=clip.id, prompt="", references=[])
             db.add(row)
         row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, clip.seconds
-        row.problems = [f"{UNWRITTEN}: {reason}. Fix this clip's prompt writes it, free."]
+        row.problems = [f"{UNWRITTEN}: {reason}."]  # the card names the way out (free, then priced)
         row.kept, row.approved, row.prompt_ok = [], False, False
         row.free_fix_used = bool(job.input.get("fix"))  # once per version, then priced (QA)
 
