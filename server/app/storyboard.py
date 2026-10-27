@@ -42,6 +42,22 @@ def script_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
     )
 
 
+def cast_looks(db: Session, project: Project) -> list[LibraryItem]:
+    """The video's cast looks a breakdown may name (char:N): in its cast, in its workspace and
+    not deleted. The breakdown's prompt and its check both use this, so the AI is never told
+    about someone the check then calls "not part of this video" (Kel's empty chair)."""
+    ids = set(project.cast_ids or [])
+    items = db.scalars(
+        select(LibraryItem).where(
+            LibraryItem.id.in_(ids),
+            LibraryItem.workspace_id == project.workspace_id,
+            LibraryItem.kind == Kind.character,
+            LibraryItem.archived.is_(False),
+        )
+    )
+    return sorted(items, key=lambda i: project.cast_ids.index(i.id))
+
+
 def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     """Every picture a frame may use: asset id -> (its line for the prompt, its file ids).
     The cast (each look with the roles it plays), the script's cast slots (a filled slot:N is
@@ -52,14 +68,13 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     roles = cast_roles(db, project)
     items = db.scalars(
         select(LibraryItem).where(
-            LibraryItem.workspace_id == project.workspace_id, LibraryItem.archived.is_(False)
+            LibraryItem.workspace_id == project.workspace_id,
+            LibraryItem.archived.is_(False),
+            LibraryItem.kind != Kind.character,
         )
     )
-    for item in items:
-        in_brand = any(b.id == project.brand_id for b in item.brands)
-        if item.kind == Kind.character and item.id not in project.cast_ids:
-            continue
-        if item.kind != Kind.character and not in_brand:
+    for item in [*cast_looks(db, project), *items]:
+        if item.kind != Kind.character and not any(b.id == project.brand_id for b in item.brands):
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
         parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)

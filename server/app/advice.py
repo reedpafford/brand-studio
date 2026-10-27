@@ -20,6 +20,8 @@ ID = re.compile(r"\b(char|slot|place|prop|screen|frame|voice):[\w.]+")
 CLIP = re.compile(r"^c\d+: ")
 KIND = {"char": "a character", "slot": "a character", "place": "a place", "prop": "a prop",
         "screen": "a screen", "frame": "a still", "voice": "a voice"}  # fmt: skip
+# Someone a shot names that the video doesn't have, when no name is left to call them by.
+UNNAMED = {**KIND, "char": "an unnamed character", "slot": "an unnamed character"}
 
 
 def names(known: dict) -> dict[str, str]:
@@ -50,7 +52,7 @@ def plain(problems: list[str], called: dict[str, str]) -> list[str]:
         body, clipped = CLIP.subn("", p[len(lead) :])
         body = re.sub(
             rf"unknown (?:reference )?({ID.pattern})",
-            lambda m: f"{called.get(m[1], KIND[m[2]])} that isn't part of this video",
+            lambda m: f"{called.get(m[1], UNNAMED[m[2]])} that isn't part of this video",
             body,
         )
         body = ID.sub(what, body)

@@ -139,7 +139,11 @@ def save(
     project, version = _working(db, user, project_id)
     body = breakdown.as_roles(db, project, body)  # speakers are roles, never looks
     if unknown := breakdown.unknown_ids(db, project, body):
-        said = plain(unknown, names(storyboard.assets(db, project)))[0]
+        called = {
+            **breakdown.unknown_names(db, project, body),
+            **names(storyboard.assets(db, project)),
+        }
+        said = plain(unknown, called)[0]
         raise HTTPException(422, f"{said}. Pick from the video's cast, places and screens.")
     breakdown.record_length(project, body)
     row = BreakdownVersion(

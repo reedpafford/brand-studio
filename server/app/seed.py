@@ -276,56 +276,48 @@ def rewrite_owner_clips(db: Session) -> str:
     return f"Rewrote clip prompts on “{project.name}”."
 
 
-QA_OWNER = "QA Owner"  # the live test's owner account (Reed, 2026-10-26: remove it)
+def repair_unknown_cast(db: Session) -> tuple[int, list[str]]:
+    """Saved breakdowns (videos' newest, and library plans) that name someone the video
+    doesn't have, like a deleted look (Kel's empty chair): the name is taken out, said as
+    advice, for free. Returns how many were fixed and the videos still naming one (none
+    expected). Running it again changes nothing."""
+    from app import breakdown, script_preview
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.projects import Project
+    from app.models.script_library import Script, ScriptDraft
+    from app.prompts.schemas import Breakdown
+    from app.routes.scripts import latest
 
-
-def remove_qa_owner(db: Session) -> str:
-    """Remove the QA test owner: only an owner named exactly "QA Owner", and never a
-    workspace's last active owner. With nothing of its own it's deleted; otherwise it's
-    removed as Team's Remove does (it can't sign in, its sessions and the invites it sent are
-    gone) so the work it made keeps its history. One plain line for the deploy log; running
-    it again changes nothing."""
-    from sqlalchemy import delete, func
-
-    from app.db import Base
-    from app.models.accounts import Invite, LoginSession, Role, User
-
-    found, kept, seen = False, False, False
-    for user in db.scalars(select(User).where(User.name == QA_OWNER, User.role == Role.owner)):
-        seen = True
-        others = select(func.count(User.id)).where(
-            User.workspace_id == user.workspace_id,
-            User.role == Role.owner,
-            User.active.is_(True),
-            User.id != user.id,
+    fixed, still = 0, []
+    for project in db.scalars(select(Project)).all():
+        row = db.scalar(
+            select(BreakdownVersion)
+            .where(BreakdownVersion.project_id == project.id)
+            .order_by(BreakdownVersion.id.desc())
+            .limit(1)
         )
-        if not db.scalar(others):
-            kept = kept or user.active  # never a workspace's last active owner
+        if row is None:
             continue
-        sessions = delete(LoginSession).where(LoginSession.user_id == user.id)
-        invites = delete(Invite).where(
-            Invite.invited_by_id == user.id, Invite.accepted_at.is_(None)
-        )
-        changed = bool(db.execute(sessions).rowcount + db.execute(invites).rowcount)
-        uses = [
-            db.scalar(select(func.count()).select_from(table).where(column == user.id))
-            for table in Base.metadata.sorted_tables
-            for column in table.columns
-            for fk in column.foreign_keys
-            if fk.column.table.name == "users" and table.name != "login_sessions"
-        ]
-        if not any(uses):
-            db.delete(user)
-            changed = True
-        elif user.active:
-            user.active, changed = False, True
-        found = found or changed
+        bd, removed = breakdown.land(db, project, Breakdown.model_validate(row.data))
+        if removed:
+            script = latest(db, project)
+            row.data = bd.model_dump()
+            row.problems = breakdown.problems(db, project, script.text if script else "", bd)
+            row.problems += removed
+            fixed += 1
+        if breakdown.unknown_ids(db, project, bd):
+            still.append(project.name)
+    for draft in db.scalars(select(ScriptDraft).where(ScriptDraft.breakdown.is_not(None))).all():
+        script = db.get(Script, draft.script_id)
+        stand_in = script_preview.stand_in_project(db, script, draft)
+        also = script_preview.live_looks(db, script)
+        bd, removed = breakdown.land(db, stand_in, Breakdown.model_validate(draft.breakdown), also)
+        if removed:
+            draft.breakdown = bd.model_dump()
+            draft.breakdown_problems = script_preview.problems(db, script, draft, bd) + removed
+            fixed += 1
     db.commit()
-    if found:
-        return "Removed the QA test owner."
-    if kept:
-        return "QA test owner: kept, it's the workspace's only owner."
-    return "QA test owner: already removed." if seen else "QA test owner: none found."
+    return fixed, still
 
 
 def main(folder: str, slug: str = "fomo") -> None:
@@ -349,7 +341,10 @@ def main(folder: str, slug: str = "fomo") -> None:
             print(f"Gave {repair_clips(db)} clips their characters' sheets.")
             print(f"Said {plain_stored(db)} saved checks in plain words.")
             print(rewrite_owner_clips(db))
-            print(remove_qa_owner(db))
+            fixed, still = repair_unknown_cast(db)
+            print(f"Took a name the video doesn't have out of {fixed} saved breakdowns.")
+            for name in still:
+                print(f"Still names someone it doesn't have: {name}")
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:

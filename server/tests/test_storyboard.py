@@ -63,7 +63,7 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     edit = {"prompt": "Close on the wallet.", "reference_ids": [char, "char:999"]}
     edited = editor.put(f"{url}/frames/{frames[0]['id']}", json=edit).json()
     assert edited["prompt"] == "Close on the wallet."
-    assert edited["problems"] == ["A character that isn't part of this video"]
+    assert edited["problems"] == ["An unnamed character that isn't part of this video"]
     too_many = {"prompt": "x", "reference_ids": [char] * 5}
     over = editor.put(f"{url}/frames/{frames[0]['id']}", json=too_many).json()
     assert over["problems"] == ["More references than the image model keeps"]
@@ -113,7 +113,7 @@ def test_breakdown_ids_must_be_the_projects(app, db, editor, setup):  # noqa: F8
     bad["scenes"][0]["shots"][0]["character_ids"] = ["char:999"]
     r = editor.put(url, json=bad)
     assert r.status_code == 422 and r.json()["detail"] == (
-        "shot 1.1: a character that isn't part of this video. "
+        "shot 1.1: an unnamed character that isn't part of this video. "
         "Pick from the video's cast, places and screens."
     )
     good = copy.deepcopy(BREAKDOWN)

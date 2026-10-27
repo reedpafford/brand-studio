@@ -89,7 +89,7 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
     from app.storyboard import assets
 
     found += unknown_ids(db, project, bd) + cast_problems(db, project, script, bd)
-    return plain(found, names(assets(db, project)))
+    return plain(found, {**unknown_names(db, project, bd), **names(assets(db, project))})
 
 
 def cast_problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
@@ -130,22 +130,26 @@ def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
 
 
 def _called(db: Session, ref: str, workspace_id: int) -> str:
-    """A name the video doesn't have, as people call it ("Mia"), or what it is; only ever a
-    name from this workspace."""
-    from app.advice import KIND
-    from app.enhance import screen_name
-    from app.models.brands import Brand, BrandScreen
+    """A name the video doesn't have, as people call it ("Mia"), even a deleted look's or
+    another video's, or what it is ("an unnamed character"); only ever a name from this
+    workspace."""
+    from app.advice import UNNAMED, called
 
-    kind, _, n = ref.partition(":")
-    if n.isdigit() and kind in ("char", "place", "prop"):
-        item = db.get(LibraryItem, int(n))
-        if item and item.workspace_id == workspace_id:
-            return item.name
-    elif n.isdigit() and kind == "screen" and (screen := db.get(BrandScreen, int(n))):
-        brand = db.get(Brand, screen.brand_id)
-        if brand and brand.workspace_id == workspace_id:
-            return screen_name(screen)
-    return KIND.get(kind, "a name")
+    return called(db, {ref}, workspace_id).get(ref) or UNNAMED.get(ref.partition(":")[0], "a name")
+
+
+def land(
+    db: Session, project: Project, bd: Breakdown, also: set[str] = frozenset()
+) -> tuple[Breakdown, list[str]]:
+    """A breakdown as it is saved, however it came (the AI, a library plan, an edit, a cast
+    swap): each speaker is the role, and a name the video doesn't have (or `also` allows) is
+    taken out, said as advice. So "a character that isn't part of this video" never sticks."""
+    from app.breakdown_fix import drop_unknown
+    from app.storyboard import assets
+
+    bd = as_roles(db, project, bd)
+    known = {**assets(db, project), **dict.fromkeys(also)}
+    return drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
 
 
 def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:
@@ -176,17 +180,13 @@ def save_breakdown(db: Session, job: Job) -> None:
     the library version it previews (workflow v2)."""
     if draft_id := job.input.get("script_draft_id"):
         from app import script_preview
-        from app.models.script_library import Script, ScriptDraft
+        from app.models.script_library import ScriptDraft
 
         draft = db.get(ScriptDraft, draft_id)
-        stand_in = script_preview.stand_in_project(db, db.get(Script, draft.script_id), draft)
-        script_preview.save(
-            db,
-            draft,
-            as_roles(db, stand_in, Breakdown.model_validate(job.output)),
-            job.created_by_id,
+        script_preview.save(  # it lands the plan (roles, names it doesn't have)
+            db, draft, Breakdown.model_validate(job.output), job.created_by_id,
             job.input.get("script_text"),
-        )
+        )  # fmt: skip
         return
     project = db.get(Project, job.input["project_id"])
     version = db.scalar(
@@ -195,12 +195,7 @@ def save_breakdown(db: Session, job: Job) -> None:
             ScriptVersion.version == job.input["script_version"],
         )
     )
-    bd = as_roles(db, project, Breakdown.model_validate(job.output))
-    from app.breakdown_fix import drop_unknown
-    from app.storyboard import assets
-
-    known = assets(db, project)  # a name the video doesn't have never blocks: it's taken out
-    bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
+    bd, removed = land(db, project, Breakdown.model_validate(job.output))
     record_length(project, bd)
     db.add(
         BreakdownVersion(

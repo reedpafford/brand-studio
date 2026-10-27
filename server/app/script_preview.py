@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app import breakdown, prompts
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
+from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
 from app.prompts import check
@@ -76,6 +77,19 @@ def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict |
     }
 
 
+def live_looks(db: Session, script: Script) -> set[str]:
+    """A plan may name any live look in the workspace (it joins the video's cast), not a
+    deleted one or another workspace's."""
+    looks = db.scalars(
+        select(LibraryItem.id).where(
+            LibraryItem.workspace_id == script.workspace_id,
+            LibraryItem.kind == Kind.character,
+            LibraryItem.archived.is_(False),
+        )
+    )
+    return {f"char:{i}" for i in looks}
+
+
 def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> list[str]:
     project = stand_in_project(db, script, draft)
     screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
@@ -86,7 +100,7 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
         approved=draft.status == "approved",
     )  # fmt: skip
     slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
-    known_slots = {f"slot:{s.id}" for s in slots}
+    known_slots = {f"slot:{s.id}" for s in slots} | live_looks(db, script)
     unknown = [
         p
         for p in breakdown.unknown_ids(db, project, bd)
@@ -98,15 +112,20 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
 
     found += unknown + breakdown.cast_problems(db, project, draft.text, bd)
     called = {f"slot:{s.id}": short(s.role) or s.role for s in slots}
-    return plain(found, {**called, **names(assets(db, project))})
+    unknown_called = breakdown.unknown_names(db, project, bd)  # even a deleted look's name
+    return plain(found, {**unknown_called, **called, **names(assets(db, project))})
 
 
 def save(
     db: Session, draft: ScriptDraft, bd: Breakdown, by_id: int | None = None, text=None
 ) -> None:
     """A new plan for the version, from `text` (the words it was made from; the version's
-    own by default). Advice kept on the old plan doesn't carry over."""
+    own by default). Advice kept on the old plan doesn't carry over. A name the version doesn't
+    have is taken out first, said as advice (it has no Remove button here)."""
     script = db.get(Script, draft.script_id)
+    bd, removed = breakdown.land(
+        db, stand_in_project(db, script, draft), bd, live_looks(db, script)
+    )
     draft.breakdown, draft.breakdown_by_id = bd.model_dump(), by_id
     draft.breakdown_text, draft.breakdown_kept = draft.text if text is None else text, []
-    draft.breakdown_problems = problems(db, script, draft, bd)
+    draft.breakdown_problems = problems(db, script, draft, bd) + removed

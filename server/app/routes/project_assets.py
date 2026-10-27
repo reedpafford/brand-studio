@@ -207,14 +207,14 @@ def _cast(
         for before in (f'"slot:{slot.id}"', f'"char:{old}"' if old else None):
             if before:
                 text = text.replace(before, f'"char:{item.id}"')
-        new = Breakdown.model_validate(json.loads(text))
+        new, removed = breakdown.land(db, project, Breakdown.model_validate(json.loads(text)))
         script = latest(db, project)
         row = BreakdownVersion(
             project_id=project.id,
             script_version=bd.script_version,
             source="edit",
             data=new.model_dump(),
-            problems=breakdown.problems(db, project, script.text if script else "", new),
+            problems=breakdown.problems(db, project, script.text if script else "", new) + removed,
             created_by_id=user.id,
         )
         db.add(row)
