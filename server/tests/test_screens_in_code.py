@@ -4,9 +4,14 @@ is attached to its clip and its frame, so "screen isn't attached" never blocks. 
 
 import copy
 
+from sqlalchemy import select
+
 from app import clip_prompts, storyboard
 from app.models.brands import Brand, BrandScreen
+from app.models.breakdowns import BreakdownVersion
+from app.models.clips import ProjectClip
 from app.models.projects import Project
+from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts, Frame, Reference
 from tests.conftest import upload
@@ -72,14 +77,8 @@ def test_a_clip_and_a_frame_attach_every_screen_their_shots_show(app, db, editor
     assert storyboard.with_cast(db, project, drawn, bd) == drawn  # again changes nothing
 
 
-def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
-    app,
-    db,
-    editor,
-    owner,
-    setup,  # noqa: F811
-):
-    """Current rules 14 (QA-Live, video #16: every montage phone copied one STONK chart)."""
+def _trading(db, editor, owner, setup):  # noqa: F811
+    """fomo with a logo, two trading screens and Home; shot 1.1 trades, 1.2 is the CTA."""
     project, mom = _cast(editor, db, setup)
     brand = db.get(Brand, project.brand_id)
     brand.logo_file_id = logo = upload(owner)
@@ -95,6 +94,19 @@ def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
     data = _bd(mom)
     data["scenes"][0]["shots"][0]["screen_ids"] = [up, down]  # a montage win and dip
     data["scenes"][0]["shots"][1]["screen_ids"] = [home]  # the CTA
+    return project, f"char:{mom}", logo, (up, down, home), data
+
+
+def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
+    app,
+    db,
+    editor,
+    owner,
+    setup,  # noqa: F811
+):
+    """Current rules 14 (QA-Live, video #16: every montage phone copied one STONK chart)."""
+    project, char, logo, (up, down, home), data = _trading(db, editor, owner, setup)
+    mom = int(char[5:])
     bd = Breakdown.model_validate(data)
     known = clip_prompts.assets(db, project)
     assert known[up][2] == known[down][2] == [logo]  # never the chart screenshot
@@ -120,3 +132,39 @@ def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
                                "reference_ids": [f"char:{mom}"]}), bd)  # fmt: skip
     assert cta.reference_ids == [f"char:{mom}", home]
     assert "Show the Home screen from image 2 as it is." in cta.prompt
+
+
+def test_saved_trading_prompts_stills_and_cut_ins_are_repaired_for_free(
+    app,
+    db,
+    editor,
+    owner,
+    setup,  # noqa: F811
+):
+    project, mom, _, (up, down, home), data = _trading(db, editor, owner, setup)
+    editor.post(f"/projects/{project.id}/breakdown")
+    _run(app, db, FakeClaude(data))
+    bd = db.scalars(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)).one()
+    old = ('References: [Image1] is Mom. [Image2] is the fomo "Token chart up" screen. [Image3] '
+           'is the fomo "Token chart down" screen.\nShot 1 | 0–2 s. Her phone shows [Image3], '
+           "with its logo, colours and layout exactly.")  # fmt: skip
+    refs = [{"kind": "image", "id": i, "role": "x"} for i in (mom, up, down)]
+    ids = {"project_id": project.id, "breakdown_id": bd.id, "clip_id": "c1"}
+    cuts = {"1.1": True, "1.2": True}
+    clip = ProjectClip(**ids, seconds=5, prompt=old, references=refs, real_images=cuts)
+    still = "Place the app screen from image 2; keep its logo, colours and layout exactly."
+    frame = StoryboardFrame(**ids, shot_id="1.1", reference_ids=[mom, up], prompt=still)
+    db.add_all([clip, frame])
+    db.commit()
+    assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 1
+    db.commit()
+    db.refresh(clip)
+    db.refresh(frame)
+    assert [r["id"] for r in clip.references] == [mom, up, home]  # the logo once
+    assert clip.prompt.count("[Image2] is the fomo logo.") == 1 and "layout" not in clip.prompt
+    assert "shows [Image2], with its fomo logo sharp in the top corner" in clip.prompt
+    assert clip.real_images == {"1.2": True}  # no real chart pasted; Home still can be
+    assert "keep its fomo logo sharp in the top corner, the rest of the screen invented." in (
+        frame.prompt
+    )
+    assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 0  # idempotent

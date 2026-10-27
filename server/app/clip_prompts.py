@@ -35,6 +35,7 @@ from app.storyboard import (
     hero,
     is_logo,
     left_out,
+    logo_words,
     nearest_first,
     one_logo,
 )
@@ -307,6 +308,14 @@ def repair(db: Session, project: Project) -> int:
         was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
                          references=[Reference(**r) for r in row.references or []])  # fmt: skip
         now = repair_shape(with_cast(db, project, was, bd, known, trim=False), bd)
+        for n, r in enumerate((r for r in now.references if r.kind == "image"), 1):
+            if is_logo(known, r.id):  # old words for a logo-only screen say the logo
+                who, tag = _name(known, r.id), rf"\[Image{n}\]"
+                said = logo_words(now.prompt, tag, f"[Image{n}] is the {who}.", who)
+                now = now.model_copy(update={"prompt": said})
+        cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}  # none on a logo-only screen
+        if cleared := bool((row.real_images or {}).keys() - cuts):
+            row.real_images = {k: v for k, v in row.real_images.items() if k in cuts}
         problems = clip_problems(db, project, bd, now) + [
             p for p in row.problems or [] if p.startswith(LEFT_OUT)
         ]  # what an earlier trim left out stays said
@@ -317,6 +326,7 @@ def repair(db: Session, project: Project) -> int:
             limit = video_model().max_reference_images
             problems = clip_problems(db, project, bd, now) + left_out(gone, limit)
         if now == was and problems == (row.problems or []):
+            changed += cleared
             continue
         row.same_fix = row.free_fix_used  # a code repair never gives back a used free fix
         row.prompt, row.references = now.prompt, [r.model_dump() for r in now.references]

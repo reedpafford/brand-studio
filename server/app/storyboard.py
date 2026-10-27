@@ -182,6 +182,33 @@ def one_logo(known: dict, ref: str) -> str:
     return next((k for k in known if is_logo(known, k) and _same(known, k, ref)), ref)
 
 
+OLD_SCREEN = re.compile(r"logo, colou?rs and layout exact(ly)?")
+
+
+def logo_words(prompt: str, tag: str, said: str, who: str) -> str:
+    """A saved prompt's old words for a logo-only screen (`tag` matches its "[Image4]" or
+    "image 4") say the logo, `said`, instead (rule 14). Free; again changes nothing."""
+
+    seen: list[str] = []
+
+    def fix(m: re.Match) -> str:
+        if not re.search(tag, m[0]):
+            return m[0]
+        if lead := re.match(rf"(\s*(?:References: )?)(?:{tag} is the |Show the )", m[0]):
+            seen.append(said)  # up and down both attached: the logo is said once
+            return lead[1] + said if len(seen) == 1 else lead[1].strip(" ")
+        return OLD_SCREEN.sub(
+            f"{who} sharp in the top corner, the rest of the screen invented", m[0]
+        )
+
+    return re.sub(r"[^.\n]*\.", fix, prompt)
+
+
+def logo_still(n: int, who: str) -> str:
+    return (f"Image {n} is the {who}: sharp in the top corner of the phone's trading screen, "
+            "invented with the chart this beat needs.")  # fmt: skip
+
+
 def _same(known: dict, a: str, b: str) -> bool:
     """The same person: one id, or a cast role and the look that plays it (one sheet)."""
     if a == b:
@@ -265,8 +292,7 @@ def with_cast(
     prompt = _renumber(frame.prompt, moved, dropped)
     for r in new:
         if r in screens and is_logo(known, r):
-            prompt += f" Image {new.index(r) + 1} is the {_name(known, r)}: sharp in the top corner"
-            prompt += " of the phone's trading screen, invented with the chart this beat needs."
+            prompt += " " + logo_still(new.index(r) + 1, _name(known, r))
         elif r in screens:
             prompt += f" Show the {_name(known, r)} screen from image {new.index(r) + 1} as it is."
         elif r not in was:
@@ -341,6 +367,11 @@ def repair(db: Session, project: Project) -> int:
         was = Frame(clip_id=row.clip_id, shot_id=row.shot_id, prompt=row.prompt,
                     reference_ids=row.reference_ids)  # fmt: skip
         now = with_cast(db, project, was, breakdowns[row.breakdown_id], known, trim=False)
+        for n, r in enumerate(now.reference_ids, 1):  # old words for a logo-only screen
+            if is_logo(known, r):
+                who = _name(known, r)
+                said = logo_words(now.prompt, rf"(?i:\bimage {n}\b)", logo_still(n, who), who)
+                now = now.model_copy(update={"prompt": said})
         problems = frame_problems(db, project, now, row.breakdown_id) + [
             p for p in row.problems or [] if p.startswith(LEFT_OUT)
         ]  # what an earlier trim left out stays said
