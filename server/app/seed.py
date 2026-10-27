@@ -155,16 +155,19 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
         screen.balance = meta.get("balance", "")
 
 
-def repair_cta_screens(db: Session) -> int:
+def repair_cta_screens(db: Session) -> tuple[int, int, int]:
     """Each video's newest breakdown whose end line's shot shows no screen gets the brand's
     balance (else home) screen and the hero, in place (breakdown.cta_screen); its frames
-    and clips then attach it (repair_frames, repair_clips). Free; again changes nothing."""
+    and clips then attach it (repair_frames, repair_clips). Free; again changes nothing.
+    Returns how many it gave a screen, how many end-line shots already show one, and how
+    many plans have no single shot that says the end line (for the deploy log)."""
     from app.breakdown import cta_screen
     from app.models.breakdowns import BreakdownVersion
     from app.models.projects import Project
+    from app.prompts.check import ends_on
     from app.prompts.schemas import Breakdown
 
-    changed = 0
+    changed = already = unsaid = 0
     for project in db.scalars(select(Project)).all():
         row = db.scalar(
             select(BreakdownVersion)
@@ -178,14 +181,24 @@ def repair_cta_screens(db: Session) -> int:
         if notes:
             row.data, row.problems = bd.model_dump(), [*(row.problems or []), *notes]
             changed += 1
+            continue
+        brand = db.get(Brand, project.brand_id)
+        shots = [s for scene in bd.scenes for s in scene.shots if s.line]
+        said = [s for s in shots if ends_on(brand.end_line, s.line, brand.name) != "no"]
+        if brand.end_line.strip() and not said:
+            unsaid += 1
+        elif said and said[-1].screen_ids:
+            already += 1
     db.commit()
-    return changed
+    return changed, already, unsaid
 
 
-def moment_problems(db: Session) -> int:
+def moment_problems(db: Session) -> tuple[int, int]:
     """Saved checks that said "'fomo-mention' moment without its screen" as a block: said
     again with today's rule (advice, and any screen of the same kind counts: Reed,
-    2026-10-27), so videos and plans lose the false blocker. Free; again changes nothing."""
+    2026-10-27), so videos and plans lose the false blocker. Free; again changes nothing.
+    Returns how many were said again, and how many such checks are still stored as a block
+    (read-only, for the deploy log: the matcher missed them)."""
     import re
 
     from app.enhance import project_screens
@@ -211,7 +224,11 @@ def moment_problems(db: Session) -> int:
             out += [moment_screen(shots[m[1]], screens, kinds)] if m and m[1] in shots else [p]
         return [p for p in out if p]
 
-    changed = 0
+    def blocking(problems: list[str]) -> int:
+        return sum("moment without its screen" in p and not p.startswith("Advice: ")
+                   for p in problems or [])  # fmt: skip
+
+    changed = left = 0
     for project in db.scalars(select(Project)).all():
         row = db.scalar(
             select(BreakdownVersion)
@@ -221,58 +238,16 @@ def moment_problems(db: Session) -> int:
         )
         if row and (new := again(project, row.data, row.problems)) is not None:
             row.problems, changed = new, changed + 1
+        left += blocking(row.problems) if row else 0
     for draft in db.scalars(select(ScriptDraft)).all():
         if not draft.breakdown:  # a deleted plan is JSON null, which is_not(None) lets through
             continue
         stand_in = stand_in_project(db, db.get(Script, draft.script_id), draft)
         if (new := again(stand_in, draft.breakdown, draft.breakdown_problems)) is not None:
             draft.breakdown_problems, changed = new, changed + 1
+        left += blocking(draft.breakdown_problems)
     db.commit()
-    return changed
-
-
-def why(db: Session) -> list[str]:
-    """What the two deploy repairs see, for someone to read on the live server (read-only,
-    changes nothing): every saved brand-moment check as it's stored, and each video's
-    end-line shot, whether it already shows a screen. `python -m app.seed why`"""
-    from app.models.breakdowns import BreakdownVersion
-    from app.models.projects import Project
-    from app.models.script_library import ScriptDraft
-    from app.prompts.check import ends_on
-    from app.prompts.schemas import Breakdown
-
-    out = []
-    for draft in db.scalars(select(ScriptDraft)).all():
-        for p in draft.breakdown_problems or []:
-            if "moment without" in p.lower():
-                out.append(f"Script {draft.script_id} version {draft.slot}: saved check {p!r}")
-    for project in db.scalars(select(Project)).all():
-        row = db.scalar(
-            select(BreakdownVersion)
-            .where(BreakdownVersion.project_id == project.id)
-            .order_by(BreakdownVersion.id.desc())
-            .limit(1)
-        )
-        if row is None or not row.data:
-            continue
-        name = f"Video {project.id} (plan {row.id})"
-        out += [f"{name}: saved check {p!r}" for p in row.problems or []
-                if "moment without" in p.lower()]  # fmt: skip
-        brand = db.get(Brand, project.brand_id)
-        if not brand.end_line.strip():
-            continue
-        shots = [s for sc in Breakdown.model_validate(row.data).scenes for s in sc.shots]
-        said = [s for s in shots if s.line and ends_on(brand.end_line, s.line, brand.name) != "no"]
-        if not said:
-            last = next((s for s in reversed(shots) if s.line), None)
-            out.append(f"{name}: no shot says the end line on its own; the last line is "
-                       f"{last.line if last else None!r}")  # fmt: skip
-        elif said[-1].screen_ids:
-            out.append(f"{name}: end-line shot {said[-1].id} already shows {said[-1].screen_ids}")
-        else:
-            out.append(f"{name}: end-line shot {said[-1].id} shows no screen (would be fixed)")
-    db.rollback()
-    return out
+    return changed, left
 
 
 def repair_frames(db: Session) -> int:
@@ -454,9 +429,6 @@ def main(folder: str, slug: str = "fomo") -> None:
     settings = get_settings()
     storage = LocalStorage(settings.storage_dir)
     with make_sessionmaker(settings.database_url)() as db:
-        if folder == "why":  # read-only
-            print("\n".join(why(db)) or "Nothing to show.")
-            return
         if folder == "refresh":
             for workspace_id in db.scalars(select(Workspace.id)).all():
                 seed_brands(db, workspace_id, storage, settings.brand_assets_dir)
@@ -464,8 +436,11 @@ def main(folder: str, slug: str = "fomo") -> None:
             print("Launch brands brought up to date from the manifests.")
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
-            print(f"Said {moment_problems(db)} brand-moment checks as advice.")
-            print(f"Gave {repair_cta_screens(db)} end-line shots the brand's screen.")
+            said, left = moment_problems(db)
+            print(f"Said {said} brand-moment checks as advice ({left} still stored as blocking).")
+            gave, already, unsaid = repair_cta_screens(db)
+            print(f"Gave {gave} end-line shots the brand's screen ({already} already show one, "
+                  f"{unsaid} with no single end-line shot).")  # fmt: skip
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Gave {repair_clips(db)} clips their characters' sheets.")
             print(f"Said {plain_stored(db)} saved checks in plain words.")
