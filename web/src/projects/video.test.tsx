@@ -951,3 +951,30 @@ test("a clip that is out of date keeps its own Rewrite and has no Fix this clip'
   expect(await within(card).findByRole("button", { name: /^Rewrite this clip's prompt/ })).toBeInTheDocument();
   expect(within(card).queryByRole("button", { name: "Fix this clip's prompt" })).toBeNull();
 });
+
+/** Hold one request until `release` is called, answering with `status`; everything else goes to the fake server. */
+function holdRequest(key: string) {
+  const real = globalThis.fetch;
+  let release: (status: number, body?: unknown) => void = () => {};
+  const waiting = new Promise<Response>((resolve) => {
+    release = (status, body = {}) => resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+  });
+  vi.stubGlobal("fetch", (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    return `${req.method} ${new URL(req.url).pathname.replace(/^\/api/, "")}` === key ? waiting : real(input, init);
+  });
+  return release;
+}
+
+test("pressing a prompt's Looks good shows it at once (the badge, Undo, the take button on), before the server answers; a refusal puts it back", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false })]] });
+  const release = holdRequest("POST /projects/9/clips/3/prompt-ok");
+  open("?step=clips");
+  await userEvent.click(await screen.findByRole("button", { name: "Prompt for c1 looks good" }));
+  expect(await screen.findByRole("button", { name: "Prompt for c1 undo looks good" })).toBeInTheDocument();
+  expect(screen.getByText("Looks good")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
+  release(409, { detail: "Not now." });
+  expect(await screen.findByRole("button", { name: "Prompt for c1 looks good" })).toBeInTheDocument();
+});
