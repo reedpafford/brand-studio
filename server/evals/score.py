@@ -171,6 +171,7 @@ def score(out: Path, case: dict) -> list[str]:
         if cp := answers.get("clip_prompts"):
             limits = video.max_reference_images, video.max_reference_audios
             problems += check.clip_prompts(bd, cp, *limits)
+            problems += [f"{c.clip_id}: {p}" for c in cp.clips for p in check.unlabelled(c.prompt)]
             shown = " ".join(check.QUOTED.sub("", c.prompt) for c in cp.clips).lower()
             problems += [f"clip prompts say '{w}' outside the dialogue"
                          for w in exp.get("clip_absent", []) if w in shown]  # fmt: skip
