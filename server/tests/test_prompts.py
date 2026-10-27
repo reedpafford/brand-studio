@@ -128,7 +128,7 @@ def test_every_quick_cut_names_a_cast_member():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
     assert check._cuts_name_someone(prompt) == []
-    empty = prompt.replace("behind Malik as he pushes open", "as a hand pushes open")
+    empty = prompt.replace("behind Malik as he walks", "as a hand pushes")
     assert check._cuts_name_someone(empty) == [
         "shot 9: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
     ]
@@ -157,6 +157,18 @@ def test_breakdown_check_wants_grind_before_the_payoff_and_the_hook_first():
     bd.clips[0].shot_ids = ["1.0", "1.01", *bd.clips[0].shot_ids]
     assert "Advice: shot 1.0: 2 shots come before the first line; open on the exchange " \
         "itself" in check.breakdown(script, bd, FOMO, 4, 30)  # fmt: skip
+
+
+def test_app_screens_are_on_a_phone_in_hand_never_a_flat_on_screenshot():
+    for step in ("breakdown", "storyboard", "clip_prompts", "improve"):  # Reed, 2026-10-27
+        text = (EXAMPLES.parent / f"{step}.md").read_text().lower()
+        assert "never a screenshot filling the frame flat-on" in text, step
+    _, bd = example("breakdown")
+    for shot in (s for scene in bd.scenes for s in scene.shots if s.screen_ids):
+        assert shot.character_ids, shot.id  # his hand or face is in the shot
+    for path in EXAMPLES.glob("*.json"):
+        if path.name != "reel_watch.json":  # a reading of someone else's reel
+            assert not re.search("fills the frame|flat-on", path.read_text()), path.name
 
 
 def test_breakdown_check_keeps_a_clip_to_three_screens():
@@ -217,8 +229,7 @@ def test_on_approved_words_the_end_line_never_blocks():
     """Reed: once he approved the script, the end line is advice at most, any wording."""
     ex, bd = example("breakdown")
     end = "Want to trade like me? Download fomo through the link in my bio."
-    tag = "★ fomo screen: Home — closing tag"
-    script = script_of(ex).replace(tag, f"MALIK: Get the app, link in bio.\n{tag}")
+    script = script_of(ex).replace(f"MALIK: {end}", "MALIK: Get the app, link in bio.")
     approved = check.breakdown(script, bd, FOMO, 4, 30, end_line=end, brand="fomo", approved=True)
     draft = check.breakdown(script, bd, FOMO, 4, 30, end_line=end, brand="fomo")
     assert "Advice: the script doesn't end on the brand's end line" in approved
@@ -241,10 +252,42 @@ def test_variations_advice_covers_length_closeness_and_format():
         "variation 1 drops the ★ line for Token chart down; put it back where it fits",
         "variation 1 drops the ★ line for Token chart up; put it back where it fits",
         "Advice: variation 1 has 14 spoken words, the original 54",
-        "Advice: variation 1 runs 19 words in all, the original 195",
+        "Advice: variation 1 runs 19 words in all, the original 204",
         "Advice: variation 1 is very close to the original; regenerate with a note",
         "Advice: variation 1: “# The sneakers” isn't house format",
     ]
+
+
+def test_a_montage_invents_its_payoffs_never_the_reference_or_original_run(tmp_path):
+    from evals.score import CASES, ROOT, reference_montage, score
+
+    ref = "a black suit walking through a penthouse onto a night-skyline balcony"
+    copied = (
+        "Montage: keys dropped into his palm, Nate behind the wheel, the penthouse, the skyline."
+    )
+    assert check.payoffs(copied) == ["keys", "a car", "a penthouse", "a skyline"]
+    assert check.repeated_payoffs(copied, ref, "the reference's") == [
+        "Advice: the montage repeats the reference's payoffs (a penthouse, a skyline); invent "
+        "ones that fit this story and its people"
+    ]
+    assert check.repeated_payoffs("Montage: Nate on the balcony.", ref, "the reference's") == []
+    altar = ROOT / "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
+    ref = reference_montage(json.loads(altar.read_text()))
+    _, drafts = example("script_draft")  # the worked examples invent their own
+    for d in drafts.drafts:
+        assert check.repeated_payoffs(check.montage_text(d.script), ref, "the reference's") == []
+    original, result, _ = _variation_case()
+    for v in result.variations:
+        mine, theirs = check.montage_text(v.script), check.montage_text(original)
+        assert check.repeated_payoffs(mine, theirs, "the original's") == []
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-altar-variations")
+    again = {"title": "x", "premise": "x", "script": "\n".join(case["script"]), "changes": []}
+    (tmp_path / f"{case['id']}.variations.json").write_text(json.dumps({"variations": [again]}))
+    (tmp_path / f"{case['id']}.cast_slots.json").write_text('{"slots": []}')
+    assert (
+        "variation 1: Advice: the montage repeats the original's payoffs (keys, a car, a "
+        "penthouse); invent ones that fit this story and its people"
+    ) in score(tmp_path, case)
 
 
 def test_an_echo_repeats_what_was_said_to_his_face():
@@ -353,7 +396,7 @@ def test_quick_cut_check_is_advice_and_only_inside_a_montage_clip():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")  # clip c2 holds the montage
     c = cp.clips[0]
-    c.prompt = c.prompt.replace("behind Malik as he pushes open", "as a hand pushes open")
+    c.prompt = c.prompt.replace("behind Malik as he walks", "as a hand pushes")
     flag = (
         "Advice: c2: shot 9: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
     )
@@ -690,15 +733,17 @@ def test_breakdown_check_wants_the_script_to_end_on_the_brands_end_line():
     ex, bd = example("breakdown")
     script = script_of(ex)
     end = "Want to trade like me? Download fomo through the link in my bio."
-    assert check.breakdown(script, bd, FOMO, 4, 30, end_line=end) == [
-        "the script doesn't end on the brand's end line"
-    ]
-    ended = script.replace(
-        "★ fomo screen: Home — closing tag", f"MALIK: {end}\n★ fomo screen: Home — closing tag"
+    assert check.breakdown(script, bd, FOMO, 4, 30, end_line=end) == []
+    other = script.replace(f"MALIK: {end}", "MALIK: Get the app, link in bio.")
+    assert "the script doesn't end on the brand's end line" in check.breakdown(
+        other, bd, FOMO, 4, 30, end_line=end
     )
-    assert "the script doesn't end on the brand's end line" not in check.breakdown(
-        ended, bd, FOMO, 4, 30, end_line=end
-    )
+    cta = next(s for s in bd.scenes[2].shots if s.line == end)  # Reed, 2026-10-27
+    cta.screen_ids = []
+    assert (
+        "Advice: shot 3.6: the end line's shot shows no screen; show the brand's real screen "
+        "on the phone he holds up to the camera"
+    ) in check.breakdown(script, bd, FOMO, 4, 30, end_line=end)
 
 
 def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
@@ -730,10 +775,8 @@ def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
     ex, bd = example("breakdown")
     script = script_of(ex)
 
-    tag = "★ fomo screen: Home — closing tag"
-
     def ending(last):
-        found = script.replace(tag, f"{last}\n{tag}")
+        found = script.replace(f"MALIK: {end}", last)
         return check.breakdown(found, bd, FOMO, 4, 30, end_line=end, brand="fomo")
 
     assert not [p for p in ending(caps) if "end line" in p]  # passes cleanly
@@ -914,6 +957,7 @@ def test_money_on_trading_screens_only_climbs():
     assert check._money_climbs(list(shots.values())) == []  # gains and balances apart
     shots["2.4"].action = "The token rockets up: the position reads +$420 (+38%)."
     shots["3.2"].action = "Malik's phone slides across the counter to Tasha."  # no payoff figure
+    shots["3.6"].action = "Tasha holds the phone up in both hands."
     shots["2.7"].action = "Malik at the desk; the balance reads $12,400."
     shots["2.4"].moment = "win"
     assert check._money_climbs(list(shots.values())) == [

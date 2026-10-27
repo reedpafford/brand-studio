@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, RotateCcw, Trash2, Wand2 } from "lucide-react";
+import { MapPinOff, MonitorOff, Plus, RotateCcw, Trash2, UserMinus, Wand2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "../components";
 import { useToast } from "../toast";
@@ -64,4 +64,38 @@ export function useBreakdownFixes(opts: {
       </div>
     ) : null;
   return { beside, all };
+}
+
+export type RefKind = "character" | "place" | "screen";
+const REMOVE_ICON = { character: UserMinus, place: MapPinOff, screen: MonitorOff };
+
+/** "Remove Nate from this shot": a name the video doesn't have, taken out of one shot for free. There is no Undo yet: the server can't put back a name the video doesn't have. */
+export function useRemoveRef(opts: {
+  run: (shotId: string, kind: RefKind, ref: string, name: string) => Promise<{ fixed: string[] }>;
+  refresh: () => Promise<unknown>;
+}) {
+  const toast = useToast();
+  const remove = useMutation({
+    mutationFn: (a: { shotId: string; kind: RefKind; ref: string; name: string }) => opts.run(a.shotId, a.kind, a.ref, a.name),
+    onSuccess: async (done) => {
+      await opts.refresh();
+      toast(done.fixed.join(" ") || "Removed.", undefined, "success", true); // no Undo, and a long line: it stays as long as one with Undo
+    },
+  });
+  /** `ref` is the id the shot holds (it tells two unknown people apart); `name` is how people call them, or "a character" when it isn't known. */
+  const button = (shotId: string, kind: RefKind, ref: string, name: string, disabled?: string) => {
+    const Icon = REMOVE_ICON[kind];
+    return (
+      <div className="space-y-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" dense icon={Icon} busy={remove.isPending} disabled={!!disabled} reason={disabled} onClick={() => remove.mutate({ shotId, kind, ref, name })}>
+            Remove {name} from this shot
+          </Button>
+          {!disabled && <span className="text-sm text-muted">Free</span>}
+        </span>
+        {remove.error && remove.variables?.ref === ref && <p role="alert" className={errorClass}>{remove.error.message}</p>}
+      </div>
+    );
+  };
+  return { button };
 }

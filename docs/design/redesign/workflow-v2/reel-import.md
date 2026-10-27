@@ -151,7 +151,7 @@ A page of its own, reached from the done card's **Review the breakdown** (second
 - **Description:** the title is empty for Reed to fill ("Untitled reel" until then). "What it's for" is pre-filled from the logline. The reference is the imported reel, and **What to change** is ready to type.
 
 ## 7. Bulk create: paste reel links (DECISIONS #271)
-Bulk create (`description.md`) gets a mode switch at the top: a segmented control **Rows · Reel links**.
+Bulk create (`description.md`) gets a mode switch at the top: a segmented control **Rows · Reel links** (now **Rows · Reels**, since it takes video files too; §8).
 - **Reel links:**
   - A textarea, "Paste reel links, one per line", with the placeholder "https://www.instagram.com/reel/…".
   - Under it, the switch **Write new lines in the same style** (off), which applies to all of them.
@@ -167,6 +167,65 @@ Bulk create (`description.md`) gets a mode switch at the top: a segmented contro
   - For an editor, the same total is checked against the week. Past it, the button is disabled with the reason, and there's no Ask Reed. The server runs all or none, as for Write all.
 - **After Write all:** the library rows show "A · Reading the reel…", then "A · Writing". The toast reads "Reading 5 reels and writing their scripts. They'll show as drafts when they're ready."
 - **Phone:** the same, in the sheet. The mode control is full width, and the amber button is in the action bar.
+
+## 8. Bulk create: drop video files too (Reed, 2026-10-27; DECISIONS)
+The **Reel links** mode of Bulk create (§7) also takes video files. Each file becomes its own draft with its reference, in the same queue as the links. The mode is renamed **Rows · Reels**, because it holds both.
+
+### Where it sits
+```
+Rows | Reels                                    (segmented, as today)
+Paste reel links, one per line
+[ textarea                                   ]
+┌ - - - - - - - - - - - - - - - - - - - - - - - - - - - ┐
+  Upload  Drop video files here, or [Choose files]
+  MP4 or MOV, up to 90 s and 100 MB each (meta)
+└ - - - - - - - - - - - - - - - - - - - - - - - - - - - ┘
+[file rows]
+Write new lines in the same style (switch)   ·   What to change (as §7)
+```
+- **Desktop:** a drop zone under the links textarea, with a dashed `border-border` and `rounded-lg`, 96px tall. It reads "Drop video files here, or" followed by **Choose files** (ghost dense, `Upload`). While files are dragged over it, the border turns `border-accent` on `bg-accent-soft` and the text reads "Drop to add them". Dropping anywhere else in the panel does nothing, so the browser never opens the video.
+- **Phone:** there's no drag and drop, so the zone is just a full-width **Choose files** (secondary, `Upload`, 44px), with the limits line under it. The picker allows several files (`multiple`, MP4 and MOV).
+- The switch and **What to change** apply to links and files alike.
+
+### A row per file
+```
+┌ FileVideo  bo-tries-salmon.mp4            38 s · 24 MB     [X] ┐
+│ ███████████░░░░░░  Uploading… 62%                              │
+└────────────────────────────────────────────────────────────────┘
+```
+- **Rows** show in the order the files were added, under the zone. Each has `FileVideo`, the file name (one line, cut in the middle if it's long: "bo-tries-sal…mon.mp4"), and its size in MB (meta). Once it's checked, the length shows too: "38 s · 24 MB".
+- **Uploading starts as soon as a file is added**, so the person can keep adding files meanwhile. The row shows a bar and "Uploading… 62%". When it's done, the bar goes and the row reads "Ready" (`Check`, `text-success`).
+- **Remove:** a ghost icon button with `X` and the label "Remove {name}" (44px on phone). It works at any time before **Make {n} drafts**: it stops an upload that's still running and drops the file. Nothing was charged, so it needs no Undo.
+- **Uploading is free.** Nothing is read or written until **Write all** (§7).
+
+### Limits and errors (plain words, on the file's own row)
+Each problem shows as a danger line on that row, with **Remove** (and **Try again** where it can help). A row with a problem is left out of the drafts and never blocks the others.
+| Case | The row says |
+|---|---|
+| Not a video, or not MP4/MOV | "Only MP4 or MOV videos can be read." (checked before uploading, so nothing is sent) |
+| Over 100 MB | "This one is over 100 MB." (checked before uploading) |
+| Over 90 seconds | "This one is longer than 90 seconds." (after the upload, from the server's check) |
+| Upload failed | "The upload didn't finish." with **Try again** |
+| The server refused it | the server's sentence (`problem`), as in §1 |
+- **How many:** up to 20 reels at once, counting links and files together. Past that, the extra files aren't added, and one line under the zone says why: "Up to 20 reels at once. 3 files weren't added."
+- **The same file twice** (the same name and size) isn't added again. The line reads "bo-tries-salmon.mp4 is already in the list."
+
+### Make {n} drafts
+- **n** counts the valid links plus the files that are **Ready**. Rows with a problem aren't counted, and the line above the button says so: "2 files won't be added." The amber button keeps its place and wording from §7.
+- **Disabled reasons**, the first that applies: "Add a reel link or a video first", then "Wait for the uploads to finish (2 left)", then the link problems from §7 ("Line 3 isn't a reel link").
+- **Closing the panel** while files are still uploading asks first, with a Dialog: "Stop the uploads? The files you added won't be kept." It has **Stop and close** and **Keep uploading** (the default).
+
+### The queue: files and links together
+- **Drafts made** lists every draft in the order the reels were added, links and files mixed. Each draft has its source chip:
+  - a link: `Link` "Reel · 45 s", as in §7
+  - a file: `FileVideo` "Video · 38 s", with the file name in meta under the title "Untitled reel"
+- **Write all** reads them one after another, in that order, then writes each script and cast, exactly as for links. The library rows show "A · Reading the reel…" and then "A · Writing" for both.
+- A file never shows "Couldn't get the reel", because it's already uploaded. Only links can fail to download.
+
+### Price line
+- A file is read at the same price as one uploaded reel, by its length, the same as a link.
+- The total line names both: "About 49 credits: reading 4 reel links and 3 videos (7) and writing 7 scripts and casts (42)" (meta). With only one kind, it says "reading 7 reels (7)", as in §7.
+- The amber **Write all scripts · 49 credits** and the editor's weekly check work as in §7. There's no Ask Reed, and editors never see dollars.
 
 ## States (summary)
 | State | What shows |
@@ -217,3 +276,8 @@ For Builder-Server. Downloading and uploading are free. Every paid step goes thr
   - `POST /scripts/bulk` accepts `reel_urls[]` (with `new_lines` and `reference_change`). It makes one draft per link and fetches each reel (free), returning per-row `fetch_error?`.
   - `POST /scripts/write/estimate` includes the reading of unread reels in its total and breaks it down (`read_credits`, `write_credits`).
   - `POST /scripts/write` reads and then writes, all or none against an editor's allowance.
+- **Bulk from files (Reed, 2026-10-27):**
+  - `POST /uploads/video` (multipart `file`, `brand_id`) stores the file without making a draft, checks its type, size and length, and returns `{upload_id, seconds, size, problem?, problem_code?}` (free). Uploads not used within a day are removed.
+  - `DELETE /uploads/{id}` is Remove.
+  - `POST /scripts/bulk` also accepts `upload_ids[]`, mixed with `reel_urls[]` and in the order given (an `items: [{url} | {upload_id}]` list keeps that order). It makes one draft per item, with the uploaded video as its reference. Together they're capped at 20, with the refusal in plain words.
+  - The estimate's `read_credits` counts uploaded videos by their `seconds`, at the uploaded-reel price, and breaks the count down: `reels: {links, videos}`.
