@@ -79,7 +79,7 @@ export function useRemoveRef(opts: {
     mutationFn: (a: { shotId: string; kind: RefKind; ref: string; name: string }) => opts.run(a.shotId, a.kind, a.ref, a.name),
     onSuccess: async (done) => {
       await opts.refresh();
-      toast(done.fixed.join(" ") || "Removed.");
+      toast(done.fixed.join(" ") || "Removed.", undefined, "success", true); // no Undo, and a long line: it stays as long as one with Undo
     },
   });
   /** `ref` is the id the shot holds (it tells two unknown people apart); `name` is how people call them, or "a character" when it isn't known. */
