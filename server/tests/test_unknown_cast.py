@@ -3,7 +3,7 @@ every Redo. Its role ("Her friend") was cast to a Cast & places look that was la
 the prompt still offered the look, the check didn't know it, and the fixes put it back. A
 deleted look now counts as no look everywhere; a shot naming someone the video doesn't have
 shows their role instead (made from the script if the cast read missed it), else they're
-taken out, said as advice by name; and a free repair fixes saved breakdowns."""
+taken out, said as advice by name."""
 
 import copy
 
@@ -11,7 +11,6 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.models.script_library import ScriptCastSlot
-from app.seed import repair_unknown_cast
 from tests.conftest import upload
 from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
@@ -56,7 +55,7 @@ def _kels_video(owner, editor, db):
     return pid, friend, girlfriend
 
 
-def test_kels_deleted_look_leaves_the_role_uncast_and_the_repair_puts_the_role_back(
+def test_kels_deleted_look_leaves_the_role_uncast_and_a_redo_puts_the_role_back(
     app,
     db,
     owner,
@@ -68,12 +67,6 @@ def test_kels_deleted_look_leaves_the_role_uncast_and_the_repair_puts_the_role_b
     row = next(r for r in editor.get(f"{url}/assets").json() if r["slot_id"] == friend)
     assert (row["ref"], row["library_deleted"], row["ready"]) == (f"slot:{friend}", True, False)
     assert editor.get(f"{url}/assets/missing-looks").json()["slot_ids"] == [friend]
-    # The free repair (no AI) points shot 1.2 at the role, so nobody has to Redo anything.
-    fixed, said = repair_unknown_cast(db)
-    assert fixed == 1 and said == ["Dip: Shot 1.2 now shows Her friend, a role in this video."]
-    shots = editor.get(f"{url}/breakdown").json()["breakdown"]["scenes"][0]["shots"]
-    assert shots[1]["character_ids"] == [f"slot:{friend}"]
-    assert not [p for p in editor.get(f"{url}/breakdown").json()["problems"] if "isn't part" in p]
     # A Redo offers the role, never the deleted look; the cast fix doesn't put it back.
     editor.post(f"{url}/breakdown")
     prompt = (
@@ -130,18 +123,3 @@ def test_another_workspaces_look_is_never_named(db, editor, outsider, setup):  #
     assert "Advice: Removed an unnamed character from shot 1.2." in " ".join(
         saved.json()["problems"]
     )
-
-
-def test_the_repair_skips_a_deleted_plan(app, db, owner):
-    """Live deploy, 2026-10-27: a version whose plan was deleted holds JSON null, which passes
-    `breakdown IS NOT NULL`, and the repair crashed the seed."""
-    from sqlalchemy import JSON, update
-
-    from app.models.script_library import ScriptDraft
-
-    made = _make(owner, text=SCRIPT)
-    db.execute(
-        update(ScriptDraft).where(ScriptDraft.script_id == made["id"]).values(breakdown=JSON.NULL)
-    )
-    db.commit()
-    assert repair_unknown_cast(db) == (0, [])

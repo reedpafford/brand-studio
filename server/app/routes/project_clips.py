@@ -156,7 +156,7 @@ def rewrite_price(
     every = [c["id"] for c in bd.data["clips"]] if bd else []
     return RewriteOut(
         clip_ids=every if ids is None else ids,
-        credits=credits.price(clip_prompts.rewrite_price(db, project)),
+        credits=credits.price(clip_prompts.rewrite_price(db, project, ids)),
     )
 
 

@@ -29,6 +29,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/script/suggestions": [200, []],
   "GET /projects/9/script/notes": [200, []],
   "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "video", unit: "second", credits_per_unit: 3 }]],
+  "GET /projects/9/clips/prompts/price": [200, { clip_ids: ["c1"], credits: 6 }], // a Claude call per few clips
   "GET /jobs": [200, []],
   "GET /projects/9/video": [404, { detail: "none" }],
   "GET /library/character": [200, []],
@@ -357,4 +358,22 @@ test("a failed prompt run says so, nothing was charged, and the one Write button
   expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);
   await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
+});
+
+test("pressing a take's Looks good shows Approved with Undo approval at once, before the server answers", async () => {
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]] });
+  const faked = globalThis.fetch;
+  let release: (r: Response) => void = () => {};
+  const waiting = new Promise<Response>((resolve) => (release = resolve));
+  vi.stubGlobal("fetch", (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    return `${req.method} ${new URL(req.url).pathname}`.endsWith("POST /api/projects/9/clips/1/approve") ? waiting : faked(input, init);
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  await userEvent.click(within(card).getByRole("button", { name: "✓ Looks good" }));
+  expect(await within(card).findByRole("button", { name: "Undo approval" })).toBeInTheDocument();
+  expect(within(card).getByText("Approved")).toBeInTheDocument();
+  release(new Response(JSON.stringify({ detail: "Pick a take first." }), { status: 409, headers: { "content-type": "application/json" } }));
+  expect(await within(card).findByRole("button", { name: "✓ Looks good" })).toBeInTheDocument(); // refused: back as it was
 });

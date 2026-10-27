@@ -8,6 +8,7 @@ import { Banner, Button, Skeleton, StepPicker } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { AssetsPane, useAssets } from "./AssetsPane";
+import { notInShots } from "./AssetCard";
 import { BreakdownPane } from "./BreakdownPane";
 import { useBriefChoices } from "./BriefPickers";
 import { ClipsPane } from "./ClipsPane";
@@ -58,7 +59,7 @@ export function VideoPage() {
       </div>
     );
   if (!p) return <p className="p-6">That video doesn't exist.</p>;
-  const list = assets.data ?? [];
+  const list = (assets.data ?? []).filter((a) => !notInShots(a)); // a role no shot uses is not counted
   const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length } };
   // A link to a step that is locked lands on the step that blocks it (Storyboard when its frames are out of date, say).
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;

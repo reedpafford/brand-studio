@@ -17,7 +17,7 @@ import sys
 import uuid
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.filetypes import matches
@@ -155,110 +155,6 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
         screen.balance = meta.get("balance", "")
 
 
-def repair_frames(db: Session) -> int:
-    """Frames saved before every shot's people got their sheets (Reed's live test): fixed
-    for free, with no model call; running it again changes nothing."""
-    from app.models.projects import Project
-    from app.models.storyboards import StoryboardFrame
-    from app.storyboard import repair
-
-    ids = db.scalars(select(StoryboardFrame.project_id).distinct()).all()
-    changed = sum(repair(db, db.get(Project, pid)) for pid in ids)
-    db.commit()
-    return changed
-
-
-def repair_clips(db: Session) -> int:
-    """Clips saved before the server attached their characters' sheets (Reed: a look read
-    as not approved): fixed for free, with no model call; running it again changes nothing."""
-    from app.clip_prompts import repair
-    from app.models.clips import ProjectClip
-    from app.models.projects import Project
-
-    ids = db.scalars(select(ProjectClip.project_id).distinct()).all()
-    changed = sum(repair(db, db.get(Project, pid)) for pid in ids)
-    db.commit()
-    return changed
-
-
-def repair_missing_roles(db: Session) -> list[str]:
-    """Every speaker in a script is a role, and every role is in its shots (Reed, 2026-10-27,
-    "Marriage Rejection": made before the cast read, its groom was never a role): every
-    script still in use gets the speakers it's missing, and every video `complete_cast`.
-    Free, no model call. One plain line per script or video changed, then always a summary
-    (the live log has to show it ran); running it again changes nothing."""
-    from app import breakdown
-    from app.models.projects import Project
-    from app.models.script_library import Script, ScriptDraft
-
-    out, scripts, videos = [], 0, 0
-    live = select(Script).where(Script.deleted_at.is_(None), Script.archived.is_(False))
-    for script in (checked := db.scalars(live).all()):
-        added = breakdown.add_speakers(db, script)
-        out += [f"{script.title}: added {name} to the cast" for name in added]
-        scripts += bool(added)
-    made = select(Project).where(Project.script_draft_id.in_(select(ScriptDraft.id)))
-    for project in (projects := db.scalars(made).all()):
-        lines = breakdown.complete_cast(db, project)
-        out += [line for line in lines if not line.endswith(" to the cast")]
-        videos += any(not line.endswith(" to the cast") for line in lines)
-    db.commit()
-    unlinked = db.scalar(
-        select(func.count()).select_from(Project).where(Project.script_draft_id.is_(None))
-    )
-    return [*out, f"Missing roles: gave {scripts} of {len(checked)} scripts their speakers and "
-            f"{videos} of {len(projects)} videos the roles in their shots ({unlinked} older "
-            "videos have no library script, so they have no roles to add)."]  # fmt: skip
-
-
-def repair_unknown_cast(db: Session) -> tuple[int, list[str]]:
-    """Saved breakdowns (videos' newest, and library plans) that name someone the video
-    doesn't have, like a deleted look still cast in a role (Kel's empty chair): landed again
-    for free (breakdown.land), so the shot shows that role and its look is made at Assets.
-    Returns how many were fixed and one plain line per change or per video still naming
-    someone (none expected). Running it again changes nothing."""
-    from app import breakdown, script_preview
-    from app.models.breakdowns import BreakdownVersion
-    from app.models.projects import Project
-    from app.models.script_library import Script, ScriptDraft
-    from app.prompts.schemas import Breakdown
-    from app.routes.scripts import latest
-
-    fixed, still = 0, []
-    for project in db.scalars(select(Project)).all():
-        row = db.scalar(
-            select(BreakdownVersion)
-            .where(BreakdownVersion.project_id == project.id)
-            .order_by(BreakdownVersion.id.desc())
-            .limit(1)
-        )
-        if row is None:
-            continue
-        bd, removed = breakdown.land(db, project, Breakdown.model_validate(row.data))
-        if removed:
-            script = latest(db, project)
-            row.data = bd.model_dump()
-            row.problems = breakdown.problems(db, project, script.text if script else "", bd)
-            row.problems += removed
-            fixed += 1
-            still += [f"{project.name}: {n.removeprefix('Advice: ')}" for n in removed]
-        if breakdown.unknown_ids(db, project, bd):
-            still.append(f"Still names someone it doesn't have: {project.name}")
-    for draft in db.scalars(select(ScriptDraft).where(ScriptDraft.breakdown.is_not(None))).all():
-        if not draft.breakdown:  # a deleted plan is stored as JSON null, which passes the filter
-            continue
-        script = db.get(Script, draft.script_id)
-        stand_in = script_preview.stand_in_project(db, script, draft)
-        also = script_preview.live_looks(db, script)
-        bd, removed = breakdown.land(db, stand_in, Breakdown.model_validate(draft.breakdown), also)
-        if removed:
-            draft.breakdown = bd.model_dump()
-            draft.breakdown_problems = script_preview.problems(db, script, draft, bd) + removed
-            fixed += 1
-    db.commit()
-    return fixed, still
-
-
 def main(folder: str, slug: str = "fomo") -> None:
     from app.credits import seed_rates
     from app.db import make_sessionmaker
@@ -276,14 +172,6 @@ def main(folder: str, slug: str = "fomo") -> None:
             print("Launch brands brought up to date from the manifests.")
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
-            for line in repair_missing_roles(db):  # before the frames and clips get sheets
-                print(line)
-            print(f"Gave {repair_frames(db)} frames their characters' sheets.")
-            print(f"Gave {repair_clips(db)} clips their characters' sheets.")
-            fixed, said = repair_unknown_cast(db)
-            print(f"Fixed who's in the shots of {fixed} saved breakdowns.")
-            for line in said:
-                print(line)
             return
         brand = db.scalar(select(Brand).where(Brand.slug == slug))
         if not brand:

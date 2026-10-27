@@ -9,7 +9,7 @@ import { useApproveAllWith, type ApproveAllResult } from "./ApproveAll";
 import { AutoLooks } from "./AutoLooks";
 import { useAssetMerge } from "./AssetMerge";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
-import { AssetCard, InShots } from "./AssetCard";
+import { AssetCard, InShots, notInShots } from "./AssetCard";
 
 type Asset = components["schemas"]["AssetOut"];
 
@@ -80,7 +80,7 @@ export function AssetsPane({
       queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   });
   // Approve all: the looks made for this video (or script) whose sheet is drawn. Library characters and locked roles are approved elsewhere or already are.
-  const roles = (assets.data ?? []).filter((a) => a.kind === "character" && !a.locked && a.sheet_status !== "approved" && (a.only_here != null || a.library_item_id == null));
+  const roles = (assets.data ?? []).filter((a) => !notInShots(a) && a.kind === "character" && !a.locked && a.sheet_status !== "approved" && (a.only_here != null || a.library_item_id == null));
   const approveAll = useApproveAllWith({
     noun: "look",
     ready: roles.filter((a) => a.only_here != null && a.sheet_status === "needs_approval").length,
@@ -106,7 +106,8 @@ export function AssetsPane({
         ))}
       </div>
     );
-  const list = assets.data ?? [];
+  const list = (assets.data ?? []).filter((a) => !notInShots(a));
+  const unused = (assets.data ?? []).filter(notInShots);
   const cast = list.filter((a) => a.kind === "character");
   const places = list.filter((a) => a.kind === "place");
   const products = list.filter((a) => a.kind === "product");
@@ -134,7 +135,7 @@ export function AssetsPane({
       ))}
     </div>
   );
-  if (list.length === 0 && picks.products.size === 0)
+  if (list.length === 0 && unused.length === 0 && picks.products.size === 0)
     return (
       <EmptyState title="Nothing to approve">
         The breakdown uses no characters or places. Go on to the storyboard.
@@ -144,7 +145,7 @@ export function AssetsPane({
     <div className="space-y-6">
       {merge.dialog}
       <AutoLooks projectId={projectId} toApprove={list.some((a) => a.sheet_status === "needs_approval")} />
-      {cast.length > 0 && (
+      {(cast.length > 0 || unused.length > 0) && (
         <section aria-label="Cast" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="type-section">Cast</h3>
@@ -153,6 +154,14 @@ export function AssetsPane({
           {approveAll.line}
           {merge.note}
           {grid(cast)}
+          {unused.map((a) => (
+            <section key={a.ref} aria-label={a.role || a.name}>
+              <Card className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <p className="font-medium">{a.role || a.name}</p>
+                <p className="text-sm text-muted">Not in this video's shots</p>
+              </Card>
+            </section>
+          ))}
         </section>
       )}
       {places.length > 0 && (

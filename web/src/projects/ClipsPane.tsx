@@ -13,7 +13,7 @@ import { usePressed } from "./usePressed";
 import { useProblemWords } from "./ProblemText";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
-import { RewriteNote, RewriteOne } from "./RewriteClips";
+import { RewriteNote, RewriteOne, useRewritePrice } from "./RewriteClips";
 import { ClipCard } from "./ClipCard";
 
 type Clip = components["schemas"]["ProjectClipOut"];
@@ -27,7 +27,20 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const frames = useFrames(projectId);
   const blocks = useSheetBlocks(projectId, props.brandId);
   // "Looks good" on a prompt is kept on the server (saving an edit counts as read; a rewritten prompt clears it).
+  // A press shows its result at once ("Approved", "Looks good" with Undo); the server's answer replaces it, and a refusal puts the old state back.
+  const clipsKey = ["project-clips", projectId];
+  const showNow = async (id: number, patch: Partial<Clip>) => {
+    await queryClient.cancelQueries({ queryKey: clipsKey });
+    const before = queryClient.getQueryData<Clip[]>(clipsKey);
+    queryClient.setQueryData<Clip[]>(clipsKey, (all) => all?.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    return { before };
+  };
+  const putBack = (_e: Error, _v: unknown, ctx?: { before?: Clip[] }) => {
+    if (ctx?.before) queryClient.setQueryData(clipsKey, ctx.before);
+  };
   const promptOk = useMutation({
+    onMutate: ({ clip, undo }: { clip: Clip; undo?: boolean }) => showNow(clip.id, { prompt_ok: !undo }),
+    onError: putBack,
     mutationFn: async ({ clip, undo }: { clip: Clip; undo?: boolean }) => {
       const args = { params: { path: { ...path, clip_id: clip.id } } };
       const { response, error } = undo ? await api.DELETE("/projects/{project_id}/clips/{clip_id}/prompt-ok", args) : await api.POST("/projects/{project_id}/clips/{clip_id}/prompt-ok", args);
@@ -55,8 +68,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     queryFn: async () => (await api.GET("/projects/{project_id}/clips", { params: { path } })).data ?? [],
     refetchInterval: (q) => (anyGoing || q.state.data?.some((c) => (c.change as ChangeState)?.status === "changing") ? 3000 : false),
   });
-  const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
-  const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
+  const writeCost = useRewritePrice(projectId); // a Claude call per few clips, from the server
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] });
     queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
@@ -99,6 +111,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
   });
   const review = useMutation({
+    onMutate: (act: { clip: Clip; take?: number; undo?: boolean }) => (act.take === undefined ? showNow(act.clip.id, { approved: !act.undo }) : Promise.resolve({ before: undefined })),
+    onError: putBack,
     mutationFn: async (act: { clip: Clip; take?: number; undo?: boolean }) => {
       const args = { params: { path: { ...path, clip_id: act.clip.id } } };
       const { error, response } = act.undo
@@ -182,7 +196,6 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
   const stale = list.filter((c) => c.stale);
-  const writeCost = rate("write-claude");
   const declined = stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
 
   if (writingNow && list.length === 0)

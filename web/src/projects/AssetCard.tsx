@@ -24,6 +24,9 @@ const STATUS: Record<
   missing: { tone: "warning", text: "Needs a look" },
 };
 
+/** A cast role none of this video's shots uses: nothing to make or approve for it here, and it stays out of every count. */
+export const notInShots = (a: Asset) => a.slot_id != null && a.shots === 0;
+
 export const InShots = ({ n }: { n: number }) => (
   <p className="text-sm text-muted">
     In {n} shot{n === 1 ? "" : "s"}
