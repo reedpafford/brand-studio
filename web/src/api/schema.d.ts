@@ -5025,6 +5025,8 @@ export interface components {
              * @default false
              */
             free_fix_used: boolean;
+            /** Take Warning */
+            take_warning?: string | null;
         };
         /** ProjectEstimateOut */
         ProjectEstimateOut: {

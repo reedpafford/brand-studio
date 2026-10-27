@@ -358,3 +358,16 @@ test("a failed prompt run says so, nothing was charged, and the one Write button
   await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
 });
+
+test("a refused take says why, and after two refusals the card warns before the next paid take", async () => {
+  const why = "The video model thinks this clip looks too much like someone else's character or video. Try another look for Mom, or use Change this… on the opening shot. Nothing was charged.";
+  const warning = "The last two takes of this clip were refused: the video model thought they looked too much like someone else's character or video. Change the look or the opening shot first, or this take may be refused too.";
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ take_warning: warning })]],
+    "GET /jobs": [200, [{ id: 40, kind: "video", step: "clip_take", status: "failed", credits: 5, project_id: 9, project_clip_id: 1, created_at: new Date().toISOString(), error: why }]],
+  });
+  open();
+  expect(await screen.findByText(why)).toBeInTheDocument();
+  expect(screen.getByText(warning)).toBeInTheDocument();
+});
