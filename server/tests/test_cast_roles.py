@@ -253,3 +253,22 @@ def test_a_refused_redraw_never_breaks_the_cast(owner, editor, db, monkeypatch):
     assert slot["library_item_id"] == leo
     refused = editor.get(f"/projects/{pid}").json()["cast_redraw"]["redraw_refused"]
     assert refused["reason"] == "That's more than one video can cost."
+
+
+def test_every_check_the_cast_line_comes_with_its_one_click_fix(owner, editor, db):
+    """QA-Live (rule 22): a blocking cast line lists its fix, and Fix applies it, free."""
+    pid, mia, kid = _video(owner, editor, db)
+    url = f"/projects/{pid}/breakdown"
+    wrong = copy.deepcopy(BREAKDOWN)
+    wrong["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mia}", f"char:{kid}"]
+    wrong["scenes"][0]["shots"][1]["character_ids"] = [f"char:{mia}"]
+    saved = editor.put(url, json=wrong).json()
+    (line,) = [p for p in saved["problems"] if p.startswith("Check the cast")]
+    assert {"problem": line, "kind": "fix_cast", "label": "Put the right cast in each shot"} in (
+        saved["fixes"]
+    )
+    jobs = db.query(Job).count()
+    done = editor.post(f"{url}/fix", json={"problems": [line]}).json()
+    assert done["fixed"] == ["Put the right cast in each shot."]
+    assert done["breakdown"]["scenes"][0]["shots"][1]["character_ids"] == [f"char:{kid}"]
+    assert db.query(Job).count() == jobs

@@ -149,6 +149,27 @@ def undo(db: Session, script: Script, token: int) -> None:
     db.flush()
 
 
+def _same_lines(db: Session, script: Script, slots: list[ScriptCastSlot]) -> list[tuple]:
+    """Pairs of roles (the earlier one first) that speak the same line of 3+ words under
+    different labels in different versions ("GROOM:" in A, "NOAH:" in B; QA-Live, Marriage
+    Rejection)."""
+    from app.cast_roles import labels
+
+    said: dict[str, set[str]] = {}
+    for draft in _drafts(db, script):
+        for line in draft.text.splitlines():
+            if check.SPEAKER.match(line) and (m := LABEL.match(line)):
+                words = re.sub(r"[^a-z0-9 ]", "", line[m.end() :].lower()).split()
+                if len(words) >= 3:
+                    said.setdefault(" ".join(words), set()).add(m[2].strip())
+    out = []
+    for names in (n for n in said.values() if len(n) > 1):
+        who = [next((s for s in slots if labels(n, s.role)), None) for n in sorted(names)]
+        found = sorted({s.id: s for s in who if s}.values(), key=lambda s: (s.position, s.id))
+        out += [(a, b) for i, a in enumerate(found) for b in found[i + 1 :]]
+    return out
+
+
 def maybe_same(db: Session, script: Script) -> list[dict]:
     """Pairs that may be one person: [{a_slot_id, b_slot_id, into_slot_id, why}], never a pair
     kept apart, nor two roles that share a shot."""
@@ -174,6 +195,8 @@ def maybe_same(db: Session, script: Script) -> list[dict]:
     for s in slots:  # the cast read wasn't sure
         if (other := by_role.get(s.may_be_same_as)) is not None:
             add(s, other, other, "The cast read wasn't sure if they're one person.")
+    for a, b in _same_lines(db, script, slots):  # versions that name one person differently
+        add(a, b, a, "They say the same line in different versions of the script.")
     for i, a in enumerate(slots):  # the same relationship, never in one shot
         for b in slots[i + 1 :]:
             words_a = set(re.findall(r"[a-z]+", f"{a.role} {a.description}".lower()))

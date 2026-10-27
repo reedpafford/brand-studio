@@ -11,6 +11,7 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
+from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
 from app.seed import repair_missing_roles
 from tests.test_breakdown import BREAKDOWN
@@ -56,7 +57,7 @@ def test_the_repair_adds_missed_speakers_and_shows_them_where_they_speak(owner, 
     nate = next(s["id"] for s in owner.get(base).json()["cast"] if s["role"] == "Nate")
     name = db.get(Project, pid).name
     assert said == ["Marriage Rejection: added Nate to the cast",
-                    f"{name}: Shot 1.1 now shows Nate.",
+                    f"{name}: Nate now appears in 1 shot.",
                     f"{name}: turned off Use the real image on 1 shot with a person",
                     "Missing roles: gave 1 of 1 scripts their speakers and 1 of 1 videos the "
                     "roles in their shots (0 older videos have no library script, so they have "
@@ -114,7 +115,7 @@ def test_a_label_naming_a_role_already_there_never_makes_a_second_one(owner, edi
     owner.post(f"{base}/publish")
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     name = db.get(Project, pid).name  # shot 1.2's speaker is Nate too
-    shown = f"{name}: Shot 1.1 now shows Nate. Shot 1.2 now shows Nate."
+    shown = f"{name}: Nate now appears in 2 shots."
     assert repair_missing_roles(db)[:-1] == [shown]
     assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Nate, the teen groom"]
     assert _who(editor, pid)[0] == [f"slot:{nate}"]
@@ -167,11 +168,29 @@ def test_the_deploy_step_runs_the_repair_and_says_so(app, owner, editor, db, cap
     assert "Missing roles: gave 1 of 1 scripts their speakers" in out
 
 
-def test_a_label_typed_in_mixed_case_is_read_too(owner, editor, db):
-    """Reed typed "Noah:" by hand; a direction or a heading is never a role."""
-    text = "INT. CHURCH — DAY\nNoah: Marry me?\nFlashback: the ring.\nLater that day: rain."
-    made = _make(owner, title="Typed", text=text)
+def test_versions_naming_one_person_differently_are_flagged_never_merged(owner, db):
+    """QA-Live, Marriage Rejection: version A says GROOM, B says NOAH for the same man, so
+    the backstop made two roles. They're flagged as maybe one person, for a click to merge."""
+    made = _make(owner, title="Altar", text="INT. CHURCH — DAY\nGROOM: Will you marry me?")
     base = f"/scripts/{made['id']}"
-    owner.post(f"{base}/cast", json={"role": "Girlfriend"})
+    owner.put(f"{base}/drafts/1", json={"text": "INT. CHURCH — DAY\nNOAH: Will you marry me?"})
     repair_missing_roles(db)
-    assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Girlfriend", "Noah"]
+    cast = {s["role"]: s["id"] for s in owner.get(base).json()["cast"]}
+    assert set(cast) == {"Groom", "Noah"}  # never merged by itself
+    pairs = owner.get(base).json()["maybe_same"]
+    assert [(p["a_slot_id"], p["b_slot_id"], p["into_slot_id"]) for p in pairs] == [
+        (cast["Groom"], cast["Noah"], cast["Groom"])
+    ]
+    assert pairs[0]["why"] == "They say the same line in different versions of the script."
+
+
+def test_a_role_this_video_never_shows_needs_no_look_here(owner, editor, db):
+    _, pid, _ = _video(owner, editor)
+    project = db.get(Project, pid)
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    db.add(ScriptCastSlot(script_id=draft.script_id, role="Rival", position=9))
+    db.commit()
+    rows = {r["role"]: r for r in editor.get(f"/projects/{pid}/assets").json() if r["slot_id"]}
+    assert (rows["Rival"]["shots"], rows["Rival"]["ready"]) == (0, True)
+    missing = editor.get(f"/projects/{pid}/assets/missing-looks").json()["roles"]
+    assert "Rival" not in missing and set(missing) == {"Bride", "Nate"}

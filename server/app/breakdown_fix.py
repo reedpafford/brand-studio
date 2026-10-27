@@ -16,11 +16,13 @@ KINDS = {  # the problem as said (advice.plain), and its fix
         r"(?i)^(clips don't cover the shots once each, in order|clip \w+: [\d.]+ s is "
         r"shorter than its shots)$"
     ),
+    "fix_cast": re.compile(r"^Check the cast: "),  # QA-Live: no blocking line without its fix
 }
 LABELS = {
     "add_line": "Add it to a shot",
     "restore_line": "Use the script's words",
     "recover_clips": "Fit the clips to the shots",
+    "fix_cast": "Put the right cast in each shot",
 }
 
 
@@ -38,13 +40,15 @@ def _said(text: str) -> str:
     return DIALOGUE.sub("", TAG.sub("", text)).strip()
 
 
-def repair(script: str, bd: Breakdown, problems: list[str], min_s: int, max_s: int):
+def repair(script: str, bd: Breakdown, problems: list[str], min_s: int, max_s: int, cast=None):
     """The breakdown with these problems fixed, and what was done in plain words (for the
-    toast). Problems with no fix are left as they are."""
-    bd = bd.model_copy(deep=True)
+    toast). Problems with no fix are left as they are. `cast(bd)` puts the right cast in each
+    shot (cast_roles.fix), for "Check the cast" lines."""
+    bd, done = bd.model_copy(deep=True), []
+    if cast and any(kind(p) == "fix_cast" for p in problems) and (new := cast(bd)) is not None:
+        bd, done = new, ["Put the right cast in each shot."]
     lines = script.splitlines()
     shots = [shot for scene in bd.scenes for shot in scene.shots]
-    done: list[str] = []
     for p in problems:
         k = kind(p)
         m = KINDS[k].match(p) if k else None

@@ -156,6 +156,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
             for s in shots
             if refs & {*s["character_ids"], s.get("place_id"), *s.get("screen_ids", [])}
         )
+        if row.slot_id and not row.shots:  # a role this video never shows needs no look here
+            row.ready = True
     return out
 
 

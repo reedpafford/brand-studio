@@ -221,17 +221,18 @@ def fix_plan(
 ):
     """Fix the version's plan for free (spec one-click-fixes.md §1), as for a video's
     breakdown. Undo saves the old plan back with PUT."""
-    from app import breakdown
+    from app import breakdown, cast_roles
 
-    _, draft = _version(db, user, script_id, slot, edit=True)
+    script, draft = _version(db, user, script_id, slot, edit=True)
     if not draft.breakdown:
         raise HTTPException(404, "This version has no plan yet.")
     text = draft.breakdown_text if draft.breakdown_text is not None else draft.text
+    project = script_preview.stand_in_project(db, script, draft)
     every = [f["problem"] for f in breakdown_fix.fixes(draft.breakdown_problems or [])]
     m = breakdown.video_model()
     fixed, done = breakdown_fix.repair(
         text, Breakdown.model_validate(draft.breakdown), (body.problems if body else []) or every,
-        m.duration.min, m.duration.max,
+        m.duration.min, m.duration.max, lambda bd: cast_roles.fix(db, project, draft.text, bd),
     )  # fmt: skip
     if not done:
         raise HTTPException(409, "Nothing here can be fixed for you. Edit the shot instead.")

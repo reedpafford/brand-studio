@@ -230,9 +230,12 @@ def fix(
     every = [f["problem"] for f in breakdown_fix.fixes(row.problems)]
     asked = (body.problems if body else []) or every
     m = breakdown.video_model()
+    from app.cast_roles import fix as cast
+
     fixed, done = breakdown_fix.repair(
-        version.text, Breakdown.model_validate(row.data), asked, m.duration.min, m.duration.max
-    )
+        version.text, Breakdown.model_validate(row.data), asked, m.duration.min, m.duration.max,
+        lambda bd: cast(db, project, version.text, bd),
+    )  # fmt: skip
     if not done:
         raise HTTPException(409, "Nothing here can be fixed for you. Edit the shot instead.")
     out = _out(new_version(db, user, project, row, version.text, fixed), version.version)
