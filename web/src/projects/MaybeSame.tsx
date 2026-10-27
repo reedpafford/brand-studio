@@ -9,7 +9,7 @@ export const pairId = (p: Pair) => `maybe-same-${p.a}-${p.b}`;
 
 const MAX = 3;
 
-function PairNote({ pair, name, outlined, onMerge, onDismiss }: { pair: Pair; name: (id: number) => string; outlined: boolean; onMerge: (p: Pair) => void; onDismiss: (p: Pair) => void }) {
+function PairNote({ pair, name, outlined, onMerge, onDismiss }: { pair: Pair; name: (id: number) => string; outlined: boolean; onMerge: (p: Pair) => void; onDismiss?: (p: Pair) => void }) {
   return (
     <div id={pairId(pair)} className={`space-y-1 rounded-lg border border-border bg-warning-soft p-3 text-sm ${outlined ? "ring-2 ring-warning" : ""}`}>
       <p className="flex items-start gap-2 font-medium text-text">
@@ -21,16 +21,18 @@ function PairNote({ pair, name, outlined, onMerge, onDismiss }: { pair: Pair; na
         <Button variant="secondary" dense aria-label={`Merge ${name(pair.a)} and ${name(pair.b)}`} onClick={() => onMerge(pair)}>
           Merge
         </Button>
-        <Button variant="ghost" dense aria-label={`${name(pair.a)} and ${name(pair.b)} are different`} onClick={() => onDismiss(pair)}>
-          They're different
-        </Button>
+        {onDismiss && (
+          <Button variant="ghost" dense aria-label={`${name(pair.a)} and ${name(pair.b)} are different`} onClick={() => onDismiss(pair)}>
+            They're different
+          </Button>
+        )}
       </div>
     </div>
   );
 }
 
 /** "These may be the same person": one note per pair, at most three; the rest wait under a closed disclosure. It is advice and never blocks anything. */
-export function MaybeSame(props: { pairs: Pair[]; name: (id: number) => string; outlined?: string | null; onMerge: (p: Pair) => void; onDismiss: (p: Pair) => void }) {
+export function MaybeSame(props: { pairs: Pair[]; name: (id: number) => string; outlined?: string | null; onMerge: (p: Pair) => void; onDismiss?: (p: Pair) => void }) {
   if (props.pairs.length === 0) return null;
   const show = props.pairs.slice(0, MAX);
   const more = props.pairs.slice(MAX);
