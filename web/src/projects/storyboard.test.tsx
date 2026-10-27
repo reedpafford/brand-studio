@@ -23,7 +23,8 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/breakdown": [200, breakdown],
   "GET /projects/9/script/suggestions": [200, []],
   "GET /projects/9/script/notes": [200, []],
-  "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "image", unit: "image", credits_per_unit: 3 }]],
+  "GET /models": [200, [{ id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
+  "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 3 }]],
   "GET /jobs": [200, []],
   "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
   "GET /library/place": [200, []],
@@ -92,6 +93,39 @@ test("editing a frame's prompt saves it with its references", async () => {
   await userEvent.type(box, "Warmer light");
   await userEvent.click(screen.getByRole("button", { name: "Save prompt" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toEqual({ prompt: "Warmer light", reference_ids: ["char:4", "screen:3"] }));
+});
+
+test("editing the prompt of a frame that has a still saves it and draws the still again, with the price on the button", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40 })]],
+    "PUT /projects/9/storyboard/frames/1": [200, frame({ file_id: 40, prompt: "Warmer light" })],
+    "POST /projects/9/storyboard/frames/1/render": [409, { detail: "This frame's still is already being made." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit the prompt for clip c1" }));
+  await userEvent.type(screen.getByLabelText("Prompt for clip c1"), " at night");
+  await userEvent.click(screen.getByRole("button", { name: "Save and redraw · 3 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/render")).toBe(true));
+  // A refusal says why on the frame itself.
+  expect(await within(screen.getByLabelText("Frame c1")).findByText("This frame's still is already being made.")).toBeInTheDocument();
+});
+
+test("Save and redraw shows … until the price is known", async () => {
+  fakeServer({ ...base, "GET /credits/rates": [500, { detail: "later" }], "GET /projects/9/storyboard": [200, [frame({ file_id: 40 })]] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit the prompt for clip c1" }));
+  expect(screen.getByRole("button", { name: "Save and redraw · …" })).toBeInTheDocument();
+});
+
+test("a still being made for a frame (a Change it's) says Drawing… and the new still shows once it lands", async () => {
+  const routes: Record<string, [number, unknown]> = { ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40, drawing: true, change: { note: "night", status: "done", before: "a", after: "a night" } })]] };
+  fakeServer(routes);
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(within(card).getByText("Drawing…")).toBeInTheDocument();
+  routes["GET /projects/9/storyboard"] = [200, [frame({ file_id: 41, drawing: false, change: { note: "night", status: "done", before: "a", after: "a night" } })]];
+  expect(await within(card).findByAltText("Still for clip c1", {}, { timeout: 5000 })).toHaveAttribute("src", "/api/files/41");
 });
 
 test("a still opens full size with the prompt Claude wrote", async () => {
@@ -321,6 +355,26 @@ test("an editor past the video's budget is told why and can't redraw; the price 
   expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
 });
 
+test("a still's price comes from the default image model's rate, so every frame button shows it before it is pressed", async () => {
+  // The real rate kinds are "image-<model>", never plain "image".
+  fakeServer({
+    ...base,
+    "GET /models": [200, [{ id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 5 } }, { id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "1K": 9 } }]],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 5 }, { kind: "image-nano-banana-pro", unit: "image", credits_per_unit: 9 }]],
+    "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2", shot_id: "2.1", file_id: 40 })]],
+  });
+  open();
+  expect(await screen.findByRole("button", { name: /^Make still · 5 credits/ })).toBeInTheDocument(); // the default model's rate, not the Pro one
+  expect(screen.getByRole("button", { name: "Redo · 5 credits" })).toBeInTheDocument();
+});
+
+test("Save prompt and Cancel are 44px tall on a phone", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({})]] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit the prompt for clip c1" }));
+  for (const name of ["Save prompt", "Cancel"]) expect(screen.getByRole("button", { name }).className).toContain("min-h-11");
+});
+
 const flagged = "c1: the image model may refuse “knife”; say it gently";
 
 test("a frame the image model may refuse offers a free Soften it, shows what changed, and Undo puts the earlier prompt back", async () => {
@@ -376,4 +430,20 @@ test("a frame problem that is not about a refused word has no Soften it", async 
   open();
   const list = await screen.findByLabelText("Problems for c1");
   expect(within(list).queryByRole("button", { name: "Soften it" })).toBeNull();
+});
+
+test("a fractional rate is shown in whole credits, rounded up, and one credit is never '1 credits'", async () => {
+  // 1/3 of a credit per still: two stills come to 0.67, which reads "1 credit"; the real server's rate has many decimals.
+  fakeServer({
+    ...base,
+    "GET /models": [200, [{ id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 0.3333 } }]],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 0.3333 }]],
+    "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2", shot_id: "2.1" }), frame({ id: 3, clip_id: "c3", shot_id: "3.1", file_id: 40 })]],
+  });
+  open();
+  expect(await screen.findByRole("button", { name: "Make all stills · 1 credit" })).toBeInTheDocument(); // two stills, 0.6666, rounded up
+  expect(screen.getByRole("button", { name: "Redo · 1 credit" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Edit the prompt for clip c3" }));
+  expect(screen.getByRole("button", { name: "Save and redraw · 1 credit" })).toBeInTheDocument();
+  expect(screen.queryByText(/0\.\d|1 credits/)).toBeNull();
 });

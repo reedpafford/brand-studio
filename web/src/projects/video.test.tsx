@@ -31,7 +31,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /brands/1/screens": [200, []],
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
-  "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", credits_per_unit: { "2K": 1.5 } }]],
+  "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "2K": 1.5 } }, { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
   "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729, editors_can_save_looks: false }],
 };
 
@@ -153,7 +153,7 @@ test("one-press Make storyboard is off for an editor when the writing plus the s
     ...base,
     "GET /projects/9": [200, { ...project, credits_used: 590, budget_credits: 600 }],
     "GET /projects/9/assets": [200, []],
-    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image", unit: "image", credits_per_unit: 4 }]],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 4 }]],
     "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
   });
   open("?step=storyboard");
@@ -232,7 +232,7 @@ test("on an editor's own script past the weekly allowance the storyboard is decl
     "GET /projects/9": [200, { ...project, own_script: true, credits_used: 590, budget_credits: 600 }],
     "GET /projects/9/assets": [200, []],
     "GET /credits/me": [200, { quick_clip_credits_used: 140, quick_clip_credits_allowed: 145 }],
-    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image", unit: "image", credits_per_unit: 4 }]],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 4 }]],
     "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
   });
   open("?step=storyboard");

@@ -57,6 +57,7 @@ class FrameOut(BaseModel):
     # after, unchanged, error}; cleared on Approve or the next note ("What your note changed").
     change: dict | None
     softened: dict | None = None  # softened by itself so it can be drawn: {before, after}
+    drawing: bool = False  # a still for it is queued or being made (a Change it's included)
 
 
 class SoftenOut(BaseModel):
@@ -96,14 +97,28 @@ def _stale(db: Session, project: Project, frame: StoryboardFrame) -> bool:
     )
 
 
-def _out(db: Session, project: Project, frame: StoryboardFrame) -> FrameOut:
+def _waiting(db: Session, project: Project) -> list[Job]:
+    return list(
+        db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
+    )
+
+
+def _out(
+    db: Session, project: Project, frame: StoryboardFrame, waiting: list[Job] | None = None
+) -> FrameOut:
     stale = _stale(db, project, frame)
-    computed = ("stale", "approved", "softened")
+    waiting = _waiting(db, project) if waiting is None else waiting
+    computed = ("stale", "approved", "softened", "change", "drawing")
     change = frame.change or {}
+    if change.get("status") == "changing" and all(j.id != change.get("job_id") for j in waiting):
+        # its rewrite ended without saving (failed, or stopped): never "Changing…" for ever
+        change = {**change, "status": "failed", "error": "The change didn't finish. Try again."}
     return FrameOut(
         **{f: getattr(frame, f) for f in FrameOut.model_fields if f not in computed},
         approved=frame.approved and not stale,
         stale=stale,
+        change=change or None,
+        drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
         softened={"before": change["before"], "after": change["after"]}
         if change.get("softened")
         else None,
@@ -153,7 +168,8 @@ def frames(project_id: int, user: User = Depends(current_user), db: Session = De
         .where(StoryboardFrame.project_id == project.id)
         .order_by(StoryboardFrame.id)
     )
-    return [_out(db, project, f) for f in rows]
+    waiting = _waiting(db, project)
+    return [_out(db, project, f, waiting) for f in rows]
 
 
 @router.put("/frames/{frame_id}", response_model=FrameOut)

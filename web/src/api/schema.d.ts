@@ -3933,6 +3933,11 @@ export interface components {
             softened?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Drawing
+             * @default false
+             */
+            drawing: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
