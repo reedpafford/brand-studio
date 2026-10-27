@@ -23,7 +23,8 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/breakdown": [200, breakdown],
   "GET /projects/9/script/suggestions": [200, []],
   "GET /projects/9/script/notes": [200, []],
-  "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "image", unit: "image", credits_per_unit: 3 }]],
+  "GET /models": [200, [{ id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
+  "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 3 }]],
   "GET /jobs": [200, []],
   "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
   "GET /library/place": [200, []],
@@ -352,4 +353,24 @@ test("an editor past the video's budget is told why and can't redraw; the price 
   const redraw = await screen.findByRole("button", { name: "Redraw 2 stills · 6 credits" });
   expect(redraw).toBeDisabled();
   expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+});
+
+test("a still's price comes from the default image model's rate, so every frame button shows it before it is pressed", async () => {
+  // The real rate kinds are "image-<model>", never plain "image".
+  fakeServer({
+    ...base,
+    "GET /models": [200, [{ id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 5 } }, { id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "1K": 9 } }]],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 5 }, { kind: "image-nano-banana-pro", unit: "image", credits_per_unit: 9 }]],
+    "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2", shot_id: "2.1", file_id: 40 })]],
+  });
+  open();
+  expect(await screen.findByRole("button", { name: /^Make still · 5 credits/ })).toBeInTheDocument(); // the default model's rate, not the Pro one
+  expect(screen.getByRole("button", { name: "Redo · 5 credits" })).toBeInTheDocument();
+});
+
+test("Save prompt and Cancel are 44px tall on a phone", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({})]] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit the prompt for clip c1" }));
+  for (const name of ["Save prompt", "Cancel"]) expect(screen.getByRole("button", { name }).className).toContain("min-h-11");
 });
