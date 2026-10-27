@@ -1,4 +1,6 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-27 18:31 · #614 Every speaker is a role at Assets, and nothing is drawn without their look (DECISIONS #602) merged
+- 2026-10-27 18:26 · #627 ops: HANDOFF/LOG refresh as of 9a867af merged (by the Producer)
 - 2026-10-27 18:11 · #622 Web: the End card picker and exports nothing imports removed (Steward) merged
 - 2026-10-27 18:11 · #626 Steward: GET /usage, which no screen calls, removed (-31 lines) merged
 - 2026-10-27 17:59 · #625 Remove Save to Cast & places (Current rules 12), -372 lines, merged
