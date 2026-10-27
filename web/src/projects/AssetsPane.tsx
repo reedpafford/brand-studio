@@ -475,7 +475,7 @@ export function AssetsPane({
       return data as ApproveAllResult;
     },
     undo: (ids) => api.POST("/projects/{project_id}/assets/approve-all/undo", { params: { path: { project_id: projectId } }, body: { ids } }),
-    refresh: () => queryClient.invalidateQueries({ queryKey: ["assets", projectId] }),
+    refresh: () => Promise.all([["assets", projectId], ["library", "character"], ["breakdown", projectId], ["storyboard", projectId], ["project-clips", projectId]].map((queryKey) => queryClient.invalidateQueries({ queryKey }))), // as a single Approve does
     name: (s) => s.label ?? "",
   });
   if (assets.isPending)

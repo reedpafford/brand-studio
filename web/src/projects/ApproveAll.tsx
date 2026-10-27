@@ -25,7 +25,6 @@ export function useApproveAllWith(opts: {
   name: (skipped: Skipped) => string;
   ready: number;
   waiting: number;
-  wide?: boolean; // full width on a phone and on desktop (a heading's own row)
 }): { button: ReactNode; line: ReactNode } {
   const { noun } = opts;
   const toast = useToast();
