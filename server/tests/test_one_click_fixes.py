@@ -110,6 +110,10 @@ def test_too_many_pictures_never_blocks_once_repaired(app, db, editor, setup, mo
     assert shown["reference_ids"] == [mom, screen]  # the nearest person, and the screen
     assert "Nate in Nate" in shown["prompt"] and "image 2." in shown["prompt"]
     assert not [p for p in shown["problems"] if "references" in p]
+    left = "Advice: Left out Nate: the model takes 2 pictures, nearest the camera first."
+    assert left in shown["problems"]
+    again = editor.get(f"/projects/{setup['project']}/storyboard").json()[0]
+    assert left in again["problems"]  # still said the next time it's opened
 
 
 def test_opening_clips_attaches_sheets_approved_since(app, db, editor, setup):  # noqa: F811

@@ -1,7 +1,7 @@
 """A project's clips: one video prompt per clip of the breakdown (Claude writes it, the editor
 can edit it), and later the generated video."""
 
-from sqlalchemy import JSON, ForeignKey, String, Text
+from sqlalchemy import JSON, ForeignKey, String, Text, event
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
@@ -25,6 +25,16 @@ class ProjectClip(Entity, Base):
     # Insert shot id -> "Use the real image" as the editor set it (else the default, cut_in.py)
     real_images: Mapped[dict[str, bool]] = mapped_column(JSON, default=dict)
     change: Mapped[dict | None] = mapped_column(JSON)  # the last note: app/change.py
+    # Fix this clip's prompt's free Claude rewrite was used for this prompt (once per prompt
+    # version): cleared when the prompt changes any other way (`same_fix` keeps it).
+    free_fix_used: Mapped[bool] = mapped_column(default=False)
+
+
+@event.listens_for(ProjectClip.prompt, "set")
+def _new_prompt(clip: ProjectClip, value, old, _initiator) -> None:
+    """A prompt changed by any route but the free fix (or its Undo) can be fixed free again."""
+    if value != old and not getattr(clip, "same_fix", False):
+        clip.free_fix_used = False
 
 
 class ClipTake(Entity, Base):

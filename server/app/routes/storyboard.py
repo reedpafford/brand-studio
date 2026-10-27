@@ -56,6 +56,13 @@ class FrameOut(BaseModel):
     # The last Change it note: {note, status: changing | done | unchanged | failed, before,
     # after, unchanged, error}; cleared on Approve or the next note ("What your note changed").
     change: dict | None
+    softened: dict | None = None  # softened by itself so it can be drawn: {before, after}
+
+
+class SoftenOut(BaseModel):
+    before: str
+    after: str
+    frame: FrameOut
 
 
 class ChangeIn(BaseModel):
@@ -91,11 +98,15 @@ def _stale(db: Session, project: Project, frame: StoryboardFrame) -> bool:
 
 def _out(db: Session, project: Project, frame: StoryboardFrame) -> FrameOut:
     stale = _stale(db, project, frame)
-    computed = ("stale", "approved")
+    computed = ("stale", "approved", "softened")
+    change = frame.change or {}
     return FrameOut(
         **{f: getattr(frame, f) for f in FrameOut.model_fields if f not in computed},
         approved=frame.approved and not stale,
         stale=stale,
+        softened={"before": change["before"], "after": change["after"]}
+        if change.get("softened")
+        else None,
     )
 
 
@@ -162,6 +173,29 @@ def edit_frame(
     frame.problems = storyboard.frame_problems(db, project, edited, frame.breakdown_id)
     db.commit()
     return _out(db, project, frame)
+
+
+@router.post("/frames/{frame_id}/soften", response_model=SoftenOut)
+def soften(
+    project_id: int,
+    frame_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Soften it (spec one-click-fixes.md §4): only the words the image model refuses are
+    said gently; free, no model call, nothing drawn. Undo is PUT of the earlier prompt."""
+    project, frame = _frame(db, user, project_id, frame_id)
+    before, after = frame.prompt, storyboard.soften(frame.prompt)
+    if after == before:
+        raise HTTPException(409, "There's nothing in this frame to soften.")
+    edited = Frame(clip_id=frame.clip_id, shot_id=frame.shot_id, prompt=after,
+                   reference_ids=frame.reference_ids)  # fmt: skip
+    frame.prompt, frame.approved = after, False
+    frame.problems = storyboard.frame_problems(db, project, edited, frame.breakdown_id)
+    frame.change = {"note": "Soften it", "status": "done", "before": before, "after": after,
+                    "unchanged": False}  # fmt: skip
+    db.commit()
+    return SoftenOut(before=before, after=after, frame=_out(db, project, frame))
 
 
 @router.post(
