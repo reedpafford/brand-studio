@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import breakdown
+from app import breakdown, script_preview
 from app import script_library as lib
 from app.auth import current_user
 from app.credits import estimate
@@ -98,15 +98,20 @@ def produce(
     )
     db.add(version)
     if draft.breakdown:
-        bd = Breakdown.model_validate(draft.breakdown)
+        plan = Breakdown.model_validate(draft.breakdown)
+        named = {r for sc in plan.scenes for sh in sc.shots for r in sh.character_ids}
+        live = named & script_preview.live_looks(db, script)  # a look the plan names joins the cast
+        project.cast_ids = sorted({*project.cast_ids, *(int(r[5:]) for r in live)})
+        db.flush()
+        bd, removed = breakdown.land(db, project, plan)
         breakdown.record_length(project, bd)
         db.add(
             BreakdownVersion(
                 project_id=project.id,
                 script_version=1,
                 source="library",
-                data=draft.breakdown,
-                problems=breakdown.problems(db, project, draft.text, bd),
+                data=bd.model_dump(),
+                problems=breakdown.problems(db, project, draft.text, bd) + removed,
                 created_by_id=user.id,
             )
         )

@@ -63,7 +63,7 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     edit = {"prompt": "Close on the wallet.", "reference_ids": [char, "char:999"]}
     edited = editor.put(f"{url}/frames/{frames[0]['id']}", json=edit).json()
     assert edited["prompt"] == "Close on the wallet."
-    assert edited["problems"] == ["A character that isn't part of this video"]
+    assert edited["problems"] == ["An unnamed character that isn't part of this video"]
     too_many = {"prompt": "x", "reference_ids": [char] * 5}
     over = editor.put(f"{url}/frames/{frames[0]['id']}", json=too_many).json()
     assert over["problems"] == ["More references than the image model keeps"]
@@ -111,10 +111,14 @@ def test_breakdown_ids_must_be_the_projects(app, db, editor, setup):  # noqa: F8
     url = f"/projects/{setup['project']}/breakdown"
     bad = copy.deepcopy(BREAKDOWN)
     bad["scenes"][0]["shots"][0]["character_ids"] = ["char:999"]
-    r = editor.put(url, json=bad)
-    assert r.status_code == 422 and r.json()["detail"] == (
-        "shot 1.1: a character that isn't part of this video. "
-        "Pick from the video's cast, places and screens."
+    r = editor.put(url, json=bad)  # never refused (Reed, 2026-10-27): taken out, as advice
+    assert (
+        r.status_code == 200
+        and r.json()["breakdown"]["scenes"][0]["shots"][0]["character_ids"] == []
+    )
+    assert (
+        "Advice: Removed an unnamed character from shot 1.1. Nobody by that name is in this video."
+        in r.json()["problems"]
     )
     good = copy.deepcopy(BREAKDOWN)
     good["scenes"][0]["shots"][0]["screen_ids"] = [f"screen:{setup['screen']}"]
@@ -244,3 +248,21 @@ def frame_breakdown(db, frame_id):
     from app.models.storyboards import StoryboardFrame
 
     return db.get(StoryboardFrame, frame_id).breakdown_id
+
+
+def test_each_frame_says_what_one_still_costs(app, db, editor, setup):  # noqa: F811
+    # QA-2 on #547: the web guessed the rate's kind and never found it; the server says it.
+    from app.models.projects import Project
+    from app.storyboard import still_price
+
+    mom = editor.post(
+        "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
+    ).json()["id"]
+    with_sheet(db, mom)
+    editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom]})
+    _with_breakdown(app, db, editor, setup)
+    url = f"/projects/{setup['project']}/storyboard"
+    editor.post(url, json={})
+    _run(app, db, FakeClaude(_frames(f"char:{mom}", f"screen:{setup['screen']}")))
+    price = still_price(db, db.get(Project, setup["project"]))
+    assert price >= 1 and {f["still_credits"] for f in editor.get(url).json()} == {price}
