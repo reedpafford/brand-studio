@@ -91,12 +91,13 @@ test("an Undo the server refuses (the shots changed since) shows its words", asy
   expect(await screen.findByText("This can't be undone any more: the shots were changed after the merge.")).toBeInTheDocument();
 });
 
-test("a single role has no Merge into…", async () => {
+test("a single role shows Merge into… disabled, with why", async () => {
   setViewport(1440);
   fakeServer({ ...roles, "GET /projects/9/assets": [200, [friend]] });
   open();
-  await screen.findByText("His friend with the supercar");
-  expect(screen.queryByRole("button", { name: "More for His friend with the supercar" })).toBeNull();
+  await menu("His friend with the supercar");
+  expect(await screen.findByRole("menuitem", { name: "Merge into…" })).toHaveAttribute("aria-disabled", "true");
+  expect(screen.getByText("There's no other role to merge into.")).toBeInTheDocument();
 });
 
 test("a flagged pair shows the note and badges on Assets; Merge opens the dialog with the kept role picked", async () => {
@@ -111,9 +112,36 @@ test("a flagged pair shows the note and badges on Assets; Merge opens the dialog
   expect(screen.getByText("May be the same as Kimchi")).toBeInTheDocument();
   const note = screen.getByText("These may be the same person: Kimchi and His friend with the supercar.").closest("details")!;
   expect(note.open).toBe(false); // one quiet line until opened
-  expect(screen.queryByRole("button", { name: /are different/ })).toBeNull(); // no video-only dismiss route
   await userEvent.click(screen.getByText("May be the same as Kimchi")); // the badge opens the note
   expect(note.open).toBe(true);
   await userEvent.click(screen.getByRole("button", { name: "Merge Kimchi and His friend with the supercar" }));
   expect(await screen.findByRole("radio", { name: /Kimchi/ })).toBeChecked();
+});
+
+test("They're different keeps both roles on this video, with an Undo that brings the pair back", async () => {
+  setViewport(1440);
+  const pair = { a_slot_id: 32, b_slot_id: 33, into_slot_id: 32, why: "Both are described as Nate's friend." };
+  const calls = fakeServer({
+    ...roles,
+    "GET /projects/9/assets/maybe-same": [200, [pair]],
+    "POST /projects/9/assets/maybe-same/dismiss": [200, []],
+    "DELETE /projects/9/assets/maybe-same/dismiss": [200, [pair]],
+  });
+  open();
+  await userEvent.click(await screen.findByText("These may be the same person: Kimchi and His friend with the supercar."));
+  await userEvent.click(screen.getByRole("button", { name: "Kimchi and His friend with the supercar are different" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/assets/maybe-same/dismiss")?.body).toEqual({ a_slot_id: 32, b_slot_id: 33 }));
+  expect(await screen.findByText("Kept as two roles.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "DELETE /projects/9/assets/maybe-same/dismiss")?.body).toEqual({ a_slot_id: 32, b_slot_id: 33 }));
+});
+
+test("a refused They're different shows the server's words", async () => {
+  setViewport(1440);
+  const pair = { a_slot_id: 32, b_slot_id: 33, into_slot_id: 32, why: "x" };
+  fakeServer({ ...roles, "GET /projects/9/assets/maybe-same": [200, [pair]], "POST /projects/9/assets/maybe-same/dismiss": [404, { detail: "Those two roles aren't both in this video." }] });
+  open();
+  await userEvent.click(await screen.findByText(/^These may be the same person/));
+  await userEvent.click(screen.getByRole("button", { name: /are different/ }));
+  expect(await screen.findByText("Those two roles aren't both in this video.")).toBeInTheDocument();
 });

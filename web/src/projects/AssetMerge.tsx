@@ -39,6 +39,16 @@ export function useAssetMerge(projectId: number, cast: Asset[]) {
     if (!response.ok) throw new Error(errorText(error)); // "This can't be undone any more: the shots were changed after the merge."
     await refresh();
   };
+  const keepTwo = (p: Pair) =>
+    void api.POST("/projects/{project_id}/assets/maybe-same/dismiss", { params: { path }, body: { a_slot_id: p.a, b_slot_id: p.b } }).then(
+      async ({ response, error }) => {
+        if (!response.ok) return toast(errorText(error), undefined, "error");
+        await refresh();
+        toast("Kept as two roles.", () =>
+          void api.DELETE("/projects/{project_id}/assets/maybe-same/dismiss", { params: { path }, body: { a_slot_id: p.a, b_slot_id: p.b } }).then(async ({ response: r, error: e }) => (r.ok ? await refresh() : toast(errorText(e), undefined, "error"))),
+        );
+      },
+    );
   const dialog = merging && (
     <MergeRole
       role={nameOf(merging.asset)}
@@ -69,8 +79,10 @@ export function useAssetMerge(projectId: number, cast: Asset[]) {
   return {
     /** Merge into… is offered on a role card when there is another role. */
     canMerge: (a: Asset) => slotOf(a) !== null && roles.length > 1,
+    /** A role with nobody to merge into: the menu shows Merge into… disabled, with the reason. */
+    alone: (a: Asset) => slotOf(a) !== null && roles.length === 1,
     start: (a: Asset) => setMerging({ asset: a }),
-    note: <MaybeSame compact pairs={pairs} name={nameBySlot} outlined={outlined} onMerge={(p) => { const a = bySlot(p.into === p.a ? p.b : p.a); if (a) setMerging({ asset: a, suggested: p.into }); }} />,
+    note: <MaybeSame compact pairs={pairs} name={nameBySlot} outlined={outlined} onMerge={(p) => { const a = bySlot(p.into === p.a ? p.b : p.a); if (a) setMerging({ asset: a, suggested: p.into }); }} onDismiss={keepTwo} />,
     badge: (a: Asset): ReactNode => pairsOf(a).slice(0, 1).map((p) => <MaybeSameBadge key={pairId(p)} other={nameBySlot(p.a === slotOf(a) ? p.b : p.a)} onClick={() => showPair(p)} />),
     dialog,
   };
