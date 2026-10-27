@@ -130,9 +130,10 @@ def blocking(problems: list[str]) -> list[str]:
 
 def stops(row) -> list[str]:
     """A frame's or clip's problems that must be fixed first: advice never blocks, nor does a
-    cast problem kept anyway (as the screens' `blocking`)."""
+    problem kept anyway (a cast problem, or a clip's once its free fix was tried; as the
+    screens' `blocking`)."""
     kept = row.kept or []
-    return [p for p in blocking(row.problems or []) if not (p.startswith(CAST) and p in kept)]
+    return [p for p in blocking(row.problems or []) if p not in kept]
 
 
 class ApproveAllOut(BaseModel):
@@ -151,13 +152,17 @@ def open_cast(row) -> list[str]:
     return [p for p in row.problems or [] if p.startswith(CAST) and p not in (row.kept or [])]
 
 
-def keep(row, problem: str) -> None:
-    """Record "Keep anyway" for one piece of advice on a breakdown, frame or clip row."""
+NEEDS_FIXING = "Only advice can be kept; this one needs fixing."
+
+
+def keep(row, problem: str, refuse: str | None = NEEDS_FIXING) -> None:
+    """Record "Keep anyway" for one piece of advice on a breakdown, frame or clip row. A real
+    problem is refused with `refuse`; None lets it be kept too (a clip's, after its free fix)."""
     problem = next((p for p in row.problems or [] if problem in (p, said(p))), None)
     if problem is None:
         raise HTTPException(404, "That advice isn't on this one any more.")
-    if not problem.startswith((PREFIX, CAST)):
-        raise HTTPException(409, "Only advice can be kept; this one needs fixing.")
+    if refuse and not problem.startswith((PREFIX, CAST)):
+        raise HTTPException(409, refuse)
     if problem not in (row.kept or []):
         row.kept = [*(row.kept or []), problem]
 

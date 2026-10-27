@@ -94,6 +94,10 @@ def test_a_used_or_removed_upload_refuses_the_whole_batch_naming_the_file(owner,
         both.json()["detail"]
         == "Row 1 (bo-tries-salmon.mp4): Give it a reel link or a video, not both."
     )
+    twice = _send(owner, clip).json()["upload_id"]
+    again = _bulk(owner, [{"upload_id": twice}, {"upload_id": twice}])  # QA: one file, two drafts
+    assert again.status_code == 422
+    assert again.json()["detail"] == "Row 2 (bo-tries-salmon.mp4): That video is already in row 1."
     assert db.query(Script).count() == 0  # all or none
     many = _bulk(owner, [{"reel_url": f"https://www.instagram.com/reel/R{n}x/"} for n in range(21)])
     assert (many.status_code, many.json()["detail"]) == (422, "Up to 20 reels at once.")

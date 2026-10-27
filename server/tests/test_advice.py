@@ -33,3 +33,24 @@ def test_breakdown_advice_can_be_kept(db, editor, setup, clip):  # noqa: F811
     assert editor.get(url).json()["kept"] == []
     assert editor.post(f"{url}/keep", json={"problem": ADVICE}).json()["kept"] == [ADVICE]
     assert editor.delete(f"{url}/keep", params={"problem": ADVICE}).json()["kept"] == []
+
+
+def test_a_clips_problem_can_be_kept_anyway_once_its_free_fix_was_tried(db, editor, setup, clip):  # noqa: F811
+    # one-click-fixes.md §5: past the free fix the card is never a dead end.
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    problem = "c1: shot 1.1's line isn't there once, word for word"
+    row = db.get(ProjectClip, clip["id"])
+    row.problems = [problem]
+    db.commit()
+    early = editor.post(f"{url}/keep", json={"problem": problem})
+    assert early.status_code == 409 and "free" in early.json()["detail"]  # the free fix first
+    row.free_fix_used = True
+    db.commit()
+    kept = editor.post(f"{url}/keep", json={"problem": problem}).json()
+    assert kept["kept"] == kept["problems"] and len(kept["kept"]) == 1  # still shown, as kept
+    assert editor.post(f"{url}/generate").status_code == 201  # it no longer blocks the take
+    undone = editor.delete(f"{url}/keep", params={"problem": problem}).json()
+    assert undone["kept"] == []
+    db.get(ProjectClip, clip["id"]).problems = [problem]
+    db.commit()
+    assert editor.post(f"{url}/generate").status_code == 409  # Undo: it blocks again

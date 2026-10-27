@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from app.clip_takes import save_take
 from app.models.clips import ClipTake, ProjectClip
-from app.models.jobs import Job, Usage
+from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.storyboard import save_still
@@ -235,3 +235,28 @@ def test_a_refused_still_never_loses_the_rewrite_it_paid_for(app, db, editor, se
     assert row.prompt == after  # kept, though nothing more could be made
     assert row.change["status"] == "failed" and row.change["error"]
     assert "made_job_id" not in row.change
+
+
+def test_a_frame_says_drawing_until_its_new_still_lands_and_a_failed_rewrite_says_so(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+):
+    # Reed's "I submit and nothing happens": the page must keep checking until the still is in.
+    url, frame = _frame(app, db, editor, setup)
+    shown = lambda: next(f for f in editor.get(url).json() if f["id"] == frame.id)  # noqa: E731
+    editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Make it night."})
+    _run(app, db, FakeClaude({"prompt": f"{frame.prompt} At night."}))
+    db.expire_all()
+    assert shown()["drawing"] is True
+    draw = db.get(Job, shown()["change"]["made_job_id"])
+    draw.status, draw.output = JobStatus.succeeded, {"file_ids": [upload(editor)]}
+    save_still(db, draw)
+    db.commit()
+    assert shown()["drawing"] is False and shown()["file_id"] == draw.output["file_ids"][0]
+
+    job = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Warmer."}).json()
+    db.get(Job, job["id"]).status = JobStatus.failed  # the rewrite never came back
+    db.commit()
+    assert shown()["change"]["status"] == "failed" and shown()["change"]["error"]

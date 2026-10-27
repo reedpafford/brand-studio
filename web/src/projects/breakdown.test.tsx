@@ -106,8 +106,16 @@ test("Keep anyway on breakdown advice calls keep and takes it out of the count",
   const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [advice], kept: [advice] })], "POST /projects/9/breakdown/keep": [200, breakdown({})] });
   open();
   expect(await screen.findByText("Advice (0)")).toBeInTheDocument();
-  expect(screen.getByText("Kept · Reed will see it")).toBeInTheDocument();
+  expect(screen.getByText("Kept anyway")).toBeInTheDocument();
+  expect(screen.queryByText(/Reed/)).toBeNull(); // editors never see Reed's name
   expect(calls.some((c) => c.key === "POST /projects/9/breakdown/keep")).toBe(false);
+});
+
+test("the owner sees kept advice in the same neutral words", async () => {
+  const advice = "Advice: shot 1.2: a montage shot without the main character";
+  fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9/breakdown": [200, breakdown({ problems: [advice], kept: [advice] })] });
+  open();
+  expect(await screen.findByText("Kept anyway")).toBeInTheDocument();
 });
 
 test("Keep anyway can be undone", async () => {

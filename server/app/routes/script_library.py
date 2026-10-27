@@ -372,6 +372,9 @@ def create_many(
             uploads.append(item.upload_id and get_upload(db, user, item.upload_id))
             if uploads[-1]:
                 row += f" ({db.get(StoredFile, uploads[-1].file_id).filename})"
+                if uploads[-1] in uploads[:-1]:  # one video, one draft: never two sharing it
+                    first = uploads.index(uploads[-1]) + 1
+                    raise HTTPException(422, f"That video is already in row {first}.")
             if item.reel_url and not links[-1]:
                 raise HTTPException(422, "That isn't an Instagram reel link.")
             if item.reel_url and item.upload_id:

@@ -107,6 +107,28 @@ test("advice on a clip is closed under Advice (1), and Keep anyway calls keep; M
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/1/keep")?.body).toEqual({ problem: advice }));
 });
 
+test("after its free fix a clip's problem can be kept anyway: it then shows as Kept anyway, with Undo, and Make clip opens", async () => {
+  const problem = "Shot 1.1's line isn't there once, word for word";
+  const routes: Record<string, [number, unknown]> = { ...base, "GET /projects/9/clips": [200, [clip({ problems: [problem], free_fix_used: true })]], "POST /projects/9/clips/1/keep": [200, clip({})] };
+  const calls = fakeServer(routes);
+  open();
+  expect(await screen.findByRole("button", { name: "Make clip · 24 credits" })).toBeDisabled();
+  routes["GET /projects/9/clips"] = [200, [clip({ problems: [problem], kept: [problem], free_fix_used: true })]];
+  await userEvent.click(screen.getByRole("button", { name: `Keep it anyway: ${problem}` }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/1/keep")?.body).toEqual({ problem }));
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "Make clip · 24 credits" })).toBeEnabled(), { timeout: 3000 });
+  const box = screen.getByLabelText("Advice for c1");
+  expect(within(box).getByText("Kept anyway")).toBeInTheDocument(); // never "Reed will see it"
+  expect(within(box).getByRole("button", { name: `Undo keep: ${problem}`, hidden: true })).toBeInTheDocument();
+});
+
+test("before its free fix a clip's problem has no Keep it anyway", async () => {
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ problems: ["Shot 1.1's line isn't there once, word for word"] })]] });
+  open();
+  expect(await screen.findByRole("button", { name: "Make clip · 24 credits" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: /Keep it anyway/ })).not.toBeInTheDocument();
+});
+
 test("shot chips never show a raw id: an uncast slot shows its role with a hint", async () => {
   fakeServer({
     ...base,
