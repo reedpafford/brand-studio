@@ -153,15 +153,15 @@ def _key(role: str) -> str:
     return (short(role) or role).strip().lower()
 
 
-def speaker_slots(db: Session, script: Script, slots: list, same=None) -> list[ScriptCastSlot]:
+def speaker_slots(db: Session, script: Script, slots: list[ScriptCastSlot]) -> list[ScriptCastSlot]:
     """A role for each speaker the cast read missed (Reed: FRIEND), added to the script. A
-    speaker whose label is a role already there (`cast_roles.labels`, or `same(name)`) is that
-    role, never a second one (Reed: one person is never two roles)."""
+    speaker whose label is a role already there (`cast_roles.labels`) is that role, never a
+    second one (Reed: one person is never two roles)."""
     from app.cast_roles import labels
 
     out = []
     for name, versions in _speakers(db, script).items():
-        if not any(labels(name, s.role) for s in [*slots, *out]) and not (same and same(name)):
+        if not any(labels(name, s.role) for s in [*slots, *out]):
             out.append(ScriptCastSlot(script_id=script.id, role=name, kind="Helper",
                                       appears_in=versions))  # fmt: skip
             db.add(out[-1])

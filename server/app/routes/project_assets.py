@@ -590,7 +590,10 @@ def maybe_same(project_id: int, user: User = Depends(current_user), db: Session 
     here = {s.id for s in _slots(db, project)}
     apart = {frozenset(p) for p in project.cast_apart or []}
     bd = _newest(db, project)  # a role that may be a locked one by another name ("Girl")
-    unsure = merge_roles.video_pairs(db, project, Breakdown.model_validate(bd.data) if bd else None)
+    plan = Breakdown.model_validate(bd.data) if bd else None
+    unsure = [{"a_slot_id": b.id, "b_slot_id": a.id, "into_slot_id": b.id,
+               "why": "Their shots show the same person."}
+              for a, b, sure in merge_roles.video_pairs(db, project, plan) if not sure]  # fmt: skip
     auto = []  # merged by itself, with Undo while the shots are as it merged them
     for r in db.scalars(select(CastMerge).where(CastMerge.project_id == project.id)):
         roles = [db.get(ScriptCastSlot, i) for i in r.data.get("auto") or [0]]
@@ -599,7 +602,7 @@ def maybe_same(project_id: int, user: User = Depends(current_user), db: Session 
             auto.append({"a_slot_id": pair[1], "b_slot_id": pair[0], "into_slot_id": pair[1],
                          "why": f"{one} is {into} in this video, so they're one role.",
                          "undo_token": r.id})  # fmt: skip
-    return auto + [p for p in [*merge_roles.maybe_same(db, script), *unsure[1]]
+    return auto + [p for p in [*merge_roles.maybe_same(db, script), *unsure]
                    if {p["a_slot_id"], p["b_slot_id"]} <= here
                    and frozenset((p["a_slot_id"], p["b_slot_id"])) not in apart]  # fmt: skip
 

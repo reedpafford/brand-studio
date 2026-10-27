@@ -185,58 +185,36 @@ def _across_versions(db: Session, script: Script, slots: list[ScriptCastSlot]) -
     return [(*sorted((a, b), key=lambda s: (s.position, s.id)), why) for a, b, why in first]
 
 
-def same_person(db: Session, project, name: str, bd=None, own=None) -> tuple:
-    """The video's locked or cast role a label is, however the script or breakdown calls them
-    (Kel's empty chair: "Girl" was the locked girlfriend, "Brad" the locked Mogging BF), and
-    whether that's certain: (role or None, certain). Certain: the role's name or a short form
-    ("GF"); a line of 3+ words that role says in another version; or 2+ shots
-    the label speaks in (or `own`, its role, is in) all showing that role and no one else
-    who doesn't speak as themselves (the hero). Unsure: just one such shot. Free."""
-    from app.cast_roles import labels, pick, ref, same, video_slots
-    from app.routes.scripts import latest
+def video_pairs(db: Session, project, bd) -> list[tuple]:
+    """The video's roles without a look that are one of its locked or cast roles by another
+    name (Kel's empty chair: "Girl" was the locked girlfriend, "Brad" the locked Mogging BF):
+    [(role, the role it is, certain)], never a pair kept apart here. Certain: the role's name
+    or a short form ("GF"), or a line of 3+ words it says in another version. Unsure: its shots
+    all show that role and no one else who speaks as themselves (the hero). Free."""
+    from app.cast_roles import labels, pick, ref, same, short, video_slots
 
-    slots = [s for s in video_slots(db, project) if s is not own and pick(db, project, s)]
-    if hit := next((s for s in slots if labels(name, s.role)), None):
-        return hit, True
-    script = db.get(Script, db.get(ScriptDraft, project.script_draft_id).script_id)
-    for a, b, why in _across_versions(db, script, [own, *slots]) if own else []:
-        if why.startswith("They say") and own in (a, b):  # the same line in another version
-            return (b if a is own else a), True
-    shots = [s for sc in bd.scenes for s in sc.shots] if bd is not None else []
-    own_ref = f"slot:{own.id}" if own else None
-    text = getattr(latest(db, project) if shots else None, "text", "")
-    lines = {n for n, line in enumerate(text.splitlines(), 1) if check.SPEAKER.match(line)
-             and (m := LABEL.match(line)) and _key(m[2]) == _key(name)}  # fmt: skip
-    mine = [s for s in shots if (s.speaker and same(s.speaker, name))
-            or own_ref in s.character_ids or lines & set(s.script_lines)]  # fmt: skip
-    if mine:  # less anyone who speaks as themselves (the hero, mostly)
-        said = {m[2] for line in text.splitlines() if check.SPEAKER.match(line)
-                and (m := LABEL.match(line)) and _key(m[2]) != _key(name)}  # fmt: skip
-        refs = {ref(db, project, s): s for s in slots if not any(labels(n, s.role) for n in said)}
-        common = set.intersection(*({refs[r] for r in s.character_ids if r in refs} for s in mine))
-        if len(common) == 1:
-            return common.pop(), len(mine) > 1
-    return None, False
-
-
-def video_pairs(db: Session, project, bd) -> tuple[dict, list[dict]]:
-    """The video's roles without a look that are a locked or cast one by another name
-    (`same_person`), never a pair kept apart here: ({role: role it is} when certain, the unsure
-    ones as "These may be the same person" pairs)."""
-    from app.cast_roles import pick, short, video_slots
-
+    if (draft := db.get(ScriptDraft, project.script_draft_id or 0)) is None:
+        return []
+    script, out = db.get(Script, draft.script_id), []
     apart = {frozenset(p) for p in project.cast_apart or []}
-    certain, unsure = {}, []
-    for slot in [s for s in video_slots(db, project) if not pick(db, project, s)]:
-        into, sure = same_person(db, project, short(slot.role) or slot.role, bd, slot)
-        if into is None or frozenset((slot.id, into.id)) in apart:
-            continue
-        if sure:
-            certain[slot] = into
-            continue
-        unsure.append({"a_slot_id": into.id, "b_slot_id": slot.id, "into_slot_id": into.id,
-                       "why": "Only one shot shows who they are."})  # fmt: skip
-    return certain, unsure
+    shots = [s for sc in bd.scenes for s in sc.shots] if bd is not None else []
+    talk = {x.speaker for x in shots if x.speaker}
+    for own in [s for s in video_slots(db, project) if not pick(db, project, s)]:
+        name, slots = short(own.role) or own.role, [s for s in video_slots(db, project)
+                                                    if pick(db, project, s)]  # fmt: skip
+        hit = next((s for s in slots if labels(name, s.role)), None) or next(
+            (b if a is own else a for a, b, why in _across_versions(db, script, [own, *slots])
+             if why.startswith("They say") and own in (a, b)), None)  # fmt: skip
+        mine = [x for x in shots if f"slot:{own.id}" in x.character_ids
+                or (x.speaker and same(x.speaker, name))]  # fmt: skip
+        refs = {ref(db, project, s): s for s in slots
+                if not any(labels(n, s.role) for n in talk if not same(n, name))}  # fmt: skip
+        seen = [{refs[r] for r in x.character_ids if r in refs} for x in mine]
+        common = set.intersection(*seen) if seen else set()
+        into = hit or (common.pop() if len(common) == 1 else None)
+        if into and frozenset((own.id, into.id)) not in apart:
+            out.append((own, into, hit is not None))
+    return out
 
 
 def maybe_same(db: Session, script: Script) -> list[dict]:
