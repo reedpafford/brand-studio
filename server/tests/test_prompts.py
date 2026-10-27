@@ -77,8 +77,11 @@ def test_a_screen_that_prints_a_balance_gives_the_payoff_its_number():
             "balance": "$348,920.15"}  # fmt: skip
     block = prompts.brand_block({"name": "fomo"}, [rich])
     assert 'screen:5 "Home (rich)" (home), shows a balance of $348,920.15' in block
-    for step in ("breakdown", "script_draft", "clip_prompts"):
+    for step in ("breakdown", "script_draft"):  # the story's figures match the screen
         assert "shows a balance" in prompts.system(step)
+    for step in ("storyboard", "clip_prompts"):  # Reed #600: only the logo must be right
+        text = (EXAMPLES.parent / f"{step}.md").read_text()
+        assert "key number" not in text and "reads $" not in text, step
 
 
 def test_number_lines():
@@ -1035,9 +1038,7 @@ def test_money_on_trading_screens_only_climbs():
     _, cp = example("clip_prompts")
     assert check.clip_prompts(bd, cp, 30, 10) == []  # the clip says what its shot says
     shots["2.7"].action = "Malik at the desk; the balance reads $12,900."
-    assert check.clip_prompts(bd, cp, 30, 10) == [
-        "Advice: c2: shot 2.7's screen should read $12,900"
-    ]
+    assert check.clip_prompts(bd, cp, 30, 10) == []  # Reed #600: a screen's numbers can be anything
 
 
 def test_a_frames_only_watch_says_so_and_keeps_the_cuts_and_words():
