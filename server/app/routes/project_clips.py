@@ -181,6 +181,8 @@ def write_prompts(
 @router.get("/clips", response_model=list[ProjectClipOut])
 def list_clips(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project = get_project(db, user, project_id)
+    if clip_prompts.repair(db, project):  # free: a look approved or swapped since, never stuck
+        db.commit()
     newest = _newest_breakdown(db, project)
     return [_out(db, r, newest) for r in _clips(db, project.id)]
 

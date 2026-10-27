@@ -55,6 +55,7 @@ class AssetOut(BaseModel):
     facts: RoleFacts | None = None  # the role's age range, gender and job (a slot's row only)
     look_fit: LookFitOut | None = None  # its sheet doesn't read as the role: advice, Redo it
     declined: bool = False  # Not now on the missing-looks note: never made by itself again
+    library_deleted: bool = False  # its Cast & places character was deleted: Make or Pick
     look_credits: int | None = None  # Make a look on a role: "up to" (held at the press)
     look_usual_credits: int | None = None  # "Usually N": its sheet and check, no redo
 
@@ -137,6 +138,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         out[-1].own_look_id = own.id if own and not own.archived else None  # removed: gone
         out[-1].declined = project.slot_looks.get(str(slot.id), 0) is None
         out[-1].look_credits, out[-1].look_usual_credits = look, usual_look
+        gone = db.get(LibraryItem, item_id) if item_id else None
+        out[-1].library_deleted = bool(item_id and (gone is None or gone.archived))
         seen.add(f"char:{item_id}")
     for ref in used:
         if ref in seen or not ref.startswith("char:"):
