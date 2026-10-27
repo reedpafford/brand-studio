@@ -44,7 +44,7 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 
 **Team and process**
 25. Stabilization first: no new features until the stabilization pass is done.
-26. The size cap is about 36,000 lines of app code (server/app plus web/src, without tests or generated files), with no net growth.
+26. Code stays lean: no redundant or duplicate code, and delete what a change replaces. About 36,000 lines of app code (server/app plus web/src, without tests or generated files) is a guide, not a hard cap: the app can grow when a needed fix or feature needs it, as long as it isn't redundant. The Steward reports the count on every PR.
 27. A QA account is kept for live testing; its sign-in lives in the environment, never in chat or code.
 28. Only the Producer merges, and no agent touches the live server.
 29. A clip holds one scene: it ends wherever the place or time changes. Outside a montage a clip runs at most about 12 s and 12 shots, split at a natural cut; montages keep their quick cuts (Advice checks). (Producer, after QA-Live's run on video #16; Reed informed.)
@@ -161,3 +161,4 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-27 Producer (QA-Live, video #16): faces drifted only in a 20 s, 19-shot clip crossing three scenes, so clips hold one scene and about 12 s / 12 shots outside montages (#640). Reed informed.
 - 2026-10-27 Reed: Seedance doesn't mind real brand names (Lamborghini, Jordans); the copyright refusals have another cause (they all involve the Goth GF look).
 - 2026-10-27 Reed (montage trading screens, QA-Live video #16: every phone showed the same STONK chart at $0.0366): montage and trading beats get the brand logo attached and an invented chart that follows the story; real screenshots only for the payoff/CTA brand moment; stills follow the same rule; montage arc and reaction lines as creative guidance (Current rules 14 and 17). QA-Live re-runs a fresh fomo script end to end once it's live (Reed approved the spend).
+- 2026-10-27 Reed: the line count can grow if needed; the point of the cap is no redundant or poorly written code, not a hard limit (Current rules 26).
