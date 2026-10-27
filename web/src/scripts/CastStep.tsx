@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Ellipsis, Lock, Pencil, Plus, Users } from "lucide-react";
+import { Ellipsis, Lock, Merge, Pencil, Plus, Users } from "lucide-react";
 import { fileUrl } from "../api/upload";
 import { Banner, Badge, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem, Panel, Select, Skeleton, TextArea } from "../components";
 import { useToast } from "../toast";
@@ -7,7 +7,9 @@ import { errorText as errorClass } from "../ui";
 import type { Script } from "./useScript";
 import { FindRoles } from "./FindRoles";
 import { LockPanel } from "./LockPanel";
-import { useBrandCharacters, useCast, useCastActions, type Slot } from "./useCast";
+import { useBrandCharacters, useCast, useCastActions, useMergeRoles, type Slot } from "./useCast";
+import { MergeRole, mergedText } from "../projects/MergeRole";
+import { MaybeSame, MaybeSameBadge, pairId, type Pair } from "../projects/MaybeSame";
 import { RoleFacts } from "../projects/RoleFacts";
 
 /** Step 5: the roles of the script, each with one locked look or none (made at Assets). Every role is optional. */
@@ -21,9 +23,31 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
   const [locking, setLocking] = useState<Slot | null>(null);
   const [renaming, setRenaming] = useState<Slot | null>(null);
   const [removing, setRemoving] = useState<Slot | null>(null);
+  const [merging, setMerging] = useState<{ slot: Slot; suggested?: number } | null>(null);
+  const [outlined, setOutlined] = useState<string | null>(null);
+  const roles = useMergeRoles(scriptId);
   const slots = cast.data ?? [];
   const nameOf = (id: number | null) => chars.data?.find((c) => c.id === id)?.name;
   const locked = slots.filter((s) => s.locked).length;
+  const roleName = (id: number) => slots.find((x) => x.id === id)?.role ?? "";
+  // The server's "may be the same person" flags; both roles must still be here.
+  const pairs: Pair[] = readOnly ? [] : (script.maybe_same ?? []).filter((p) => slots.some((x) => x.id === p.a_slot_id) && slots.some((x) => x.id === p.b_slot_id)).map((p) => ({ a: p.a_slot_id, b: p.b_slot_id, into: p.into_slot_id, why: p.why }));
+  const pairsOf = (id: number) => pairs.filter((p) => p.a === id || p.b === id);
+  const showPair = (p: Pair) => {
+    document.getElementById(pairId(p))?.scrollIntoView?.({ block: "center" });
+    setOutlined(pairId(p));
+    setTimeout(() => setOutlined(null), 1500);
+  };
+  const mergePair = (p: Pair) => {
+    const slot = slots.find((x) => x.id === (p.into === p.a ? p.b : p.a));
+    if (slot) setMerging({ slot, suggested: p.into });
+  };
+  const keepTwo = (p: Pair) =>
+    void roles.dismiss(p.a, p.b).then(
+      () => toast("Kept as two roles.", () => void roles.undoDismiss(p.a, p.b).catch((e: Error) => toast(e.message, undefined, "error"))),
+      (e: Error) => toast(e.message, undefined, "error"),
+    );
+  const factsText = (s: Slot) => [s.facts?.age_range, s.facts?.gender, s.facts?.occupation].map((f) => f?.value).filter(Boolean).join(" · ");
 
   return (
     <div className="max-w-[820px] space-y-4">
@@ -45,6 +69,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
           <p className="text-sm text-muted">
             {slots.length} role{slots.length === 1 ? "" : "s"} · {locked} locked
           </p>
+          <MaybeSame pairs={pairs} name={roleName} outlined={outlined} onMerge={mergePair} onDismiss={keepTwo} />
           <Card className="p-0 sm:p-0">
             <ul className="divide-y divide-border">
               {slots.map((s) => (
@@ -53,6 +78,9 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
                     <div className="flex items-center gap-2">
                       <h3 className="font-display text-md font-bold">{s.role}</h3>
                       <Badge>{s.kind}</Badge>
+                      {pairsOf(s.id).slice(0, 1).map((p) => (
+                        <MaybeSameBadge key={pairId(p)} other={roleName(p.a === s.id ? p.b : p.a)} onClick={() => showPair(p)} />
+                      ))}
                       {!readOnly && (
                         <button type="button" aria-label={`Rename ${s.role}`} onClick={() => setRenaming(s)} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
                           <Pencil size={16} strokeWidth={1.75} aria-hidden />
@@ -95,6 +123,18 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
                     {!readOnly && (
                       <Menu title={s.role} align="right" trigger={(t) => <button type="button" {...t} aria-label={`More for ${s.role}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2"><Ellipsis size={20} strokeWidth={1.75} aria-hidden /></button>}>
                         {(close) => (
+                          <>
+                          <MenuItem
+                            disabled={slots.length < 2}
+                            onClick={() => {
+                              close();
+                              setMerging({ slot: s });
+                            }}
+                          >
+                            <Merge size={18} strokeWidth={1.75} aria-hidden />
+                            Merge into…
+                          </MenuItem>
+                          {slots.length < 2 && <p className="px-3 pb-2 text-xs text-muted">There's no other role to merge into.</p>}
                           <MenuItem
                             danger
                             onClick={() => {
@@ -104,6 +144,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
                           >
                             Remove role
                           </MenuItem>
+                          </>
                         )}
                       </Menu>
                     )}
@@ -129,6 +170,23 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
           error={act.edit.isError ? act.edit.error.message : null}
           onClose={() => setRenaming(null)}
           onSubmit={(v) => act.edit.mutate({ id: renaming.id, ...v }, { onSuccess: () => setRenaming(null) })}
+        />
+      )}
+      {merging && (
+        <MergeRole
+          role={merging.slot.role}
+          roleId={merging.slot.id}
+          others={slots.filter((x) => x.id !== merging.slot.id).map((x) => ({ id: x.id, role: x.role, kind: x.kind, locked: x.locked, facts: factsText(x) }))}
+          suggested={merging.suggested}
+          adapter={{ preview: (into) => roles.preview(merging.slot.id, into), merge: async (into) => {
+            const r = await roles.merge(merging.slot.id, into);
+            return { ...r.moved, token: r.token };
+          } }}
+          onMerged={(into, merged) => {
+            setMerging(null);
+            toast(mergedText(into.role, merged), () => void roles.undoMerge(merged.token!).catch((e: Error) => toast(e.message, undefined, "error")));
+          }}
+          onClose={() => setMerging(null)}
         />
       )}
       {removing && (

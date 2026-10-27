@@ -44,14 +44,15 @@ export function Menu({ title, trigger, align = "left", children }: { title: stri
 }
 
 /** One row in a menu: 44px, icon optional, a check when it is the current choice. */
-export function MenuItem({ children, checked, danger, onClick }: { children: ReactNode; checked?: boolean; danger?: boolean; onClick?: () => void }) {
+export function MenuItem({ children, checked, danger, disabled, onClick }: { children: ReactNode; checked?: boolean; danger?: boolean; disabled?: boolean; onClick?: () => void }) {
   return (
     <button
       type="button"
       role={checked === undefined ? "menuitem" : "menuitemradio"}
       aria-checked={checked}
-      onClick={onClick}
-      className={`flex min-h-control w-full items-center gap-3 rounded-md px-3 text-left hover:bg-surface-2 ${danger ? "text-danger" : "text-text"}`}
+      onClick={disabled ? undefined : onClick}
+      aria-disabled={disabled || undefined}
+      className={`flex min-h-control w-full items-center gap-3 rounded-md px-3 text-left ${disabled ? "cursor-not-allowed text-faint" : `hover:bg-surface-2 ${danger ? "text-danger" : "text-text"}`}`}
     >
       {children}
     </button>
