@@ -11,7 +11,9 @@ export type MergeTarget = { id: number; role: string; kind: string; locked: bool
 /** What a merge moves (the same reply for the preview and the real thing). */
 export type Moved = { shots: string[]; lines: { version: string | number; line: number }[]; look_unused: { name: string } | null };
 /** The two calls behind the dialog; Cast and Assets each bring their own routes. */
-export type MergeAdapter = { preview: (into: number) => Promise<Moved>; merge: (into: number) => Promise<Moved> };
+/** `token` puts the merge back (Undo). */
+export type Merged = Moved & { token?: number };
+export type MergeAdapter = { preview: (into: number) => Promise<Moved>; merge: (into: number) => Promise<Merged> };
 
 const LETTERS = ["A", "B", "C"];
 const versionName = (v: string | number) => (typeof v === "number" ? (LETTERS[v] ?? String(v)) : v);
@@ -60,7 +62,7 @@ export function MergeRole(props: {
   /** On Assets: the script's cast stays as it is. */
   videoOnly?: boolean;
   adapter: MergeAdapter;
-  onMerged: (into: MergeTarget, moved: Moved) => void;
+  onMerged: (into: MergeTarget, merged: Merged) => void;
   onClose: () => void;
 }) {
   const phone = useMedia("(max-width: 639px)");
