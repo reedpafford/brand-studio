@@ -226,6 +226,7 @@ def _resave(db: Session, user: User, project: Project, bd, data: dict, same_look
         problems=breakdown.problems(db, project, script.text if script else "", new) + removed,
         created_by_id=user.id,
     )
+    row.kept = breakdown.carry_kept(bd.kept, row.problems)
     db.add(row)
     db.flush()
     outdated = cast_roles.carry_frames(db, project, bd, row, same_look)

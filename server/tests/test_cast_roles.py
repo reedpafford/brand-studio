@@ -272,3 +272,37 @@ def test_every_check_the_cast_line_comes_with_its_one_click_fix(owner, editor, d
     assert done["fixed"] == ["Put the right cast in each shot."]
     assert done["breakdown"]["scenes"][0]["shots"][1]["character_ids"] == [f"char:{kid}"]
     assert db.query(Job).count() == jobs
+
+
+def test_a_reaction_shot_to_someone_elses_line_is_never_a_cast_problem(owner, editor, db):
+    """QA-Live, video 16: the boss's line over "Lexi takes the hit" isn't a swap, and the free
+    fix never puts the speaker into the reaction shot."""
+    pid, mia, kid = _video(owner, editor, db)
+    url = f"/projects/{pid}/breakdown"
+    react = copy.deepcopy(BREAKDOWN)
+    react["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mia}", f"char:{kid}"]
+    react["scenes"][0]["shots"][1].update(character_ids=[f"char:{mia}"],
+                                          action="Mom takes the hit.")  # Nate's line  # fmt: skip
+    saved = editor.put(url, json=react).json()
+    assert not [p for p in saved["problems"] if p.startswith("Check the cast")]
+    assert editor.post(f"{url}/fix-cast").status_code == 409  # nothing to change
+    editor.get(f"/projects/{pid}/assets")  # nor does filling the roles in their shots
+    shots = editor.get(url).json()["breakdown"]["scenes"][0]["shots"]
+    assert shots[1]["character_ids"] == [f"char:{mia}"]
+
+
+def test_a_new_version_saved_for_the_editor_keeps_what_they_kept_anyway():
+    """QA-Live, video 16: a look made at Assets saved a new plan that dropped the Keep anyway
+    choices. A kept line stays kept, and so does a cast line on the same shot that now names
+    the new look; a new shot's line doesn't."""
+    from app.breakdown import carry_kept
+
+    kept = ["Check the cast: shot 1.11: the script has Boss here, but the shot shows Lexi (Lexi)",
+            "Advice: shot 1.3: a montage shot without the main character"]  # fmt: skip
+    problems = [
+        "Check the cast: shot 1.11: the script has Boss here, but the shot shows Lexi (Lexi)"
+        " instead of Boss look",
+        "Advice: shot 1.3: a montage shot without the main character",
+        "Check the cast: shot 1.12: the script has Boss here, but the shot shows Lexi (Lexi)",
+    ]
+    assert carry_kept(kept, problems) == problems[:2]

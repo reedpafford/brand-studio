@@ -139,7 +139,8 @@ def mismatches(db: Session, project: Project, script: str, bd) -> list[tuple]:
     """Shots whose script lines name a role but show someone else's character in its place:
     (shot, [missing (role, ref)], [wrong (role, ref)]). Only a clear swap counts (a named
     role's look missing *and* another role's look there instead), so someone in a shot
-    without lines is never flagged."""
+    without lines is never flagged, nor a reaction shot whose action names who it shows
+    (QA-Live, video 16: the boss's line over "Lexi takes the hit")."""
     roles = role_refs(db, project)
     if not roles:
         return []
@@ -153,7 +154,8 @@ def mismatches(db: Session, project: Project, script: str, bd) -> list[tuple]:
             wanted = {r: s for r, slots in roles.items() for s in slots if named(s.role, text)}
             missing = [(s.role, r) for r, s in wanted.items() if r not in here]
             wrong = [(roles[r][0].role, r) for r in here if r in roles and r not in wanted]
-            if missing and wrong:
+            seen = f"{shot.action} {shot.reaction or ''}"  # "Lexi takes the hit": her reaction
+            if missing and wrong and not any(named(role, seen) for role, _ in wrong):
                 found.append((shot, missing, wrong))
     return found
 
