@@ -53,7 +53,7 @@ export function MaybeSame(props: { pairs: Pair[]; name: (id: number) => string; 
 /** "May be the same as Kimchi" on a role's row. Tapping it goes to the note. */
 export function MaybeSameBadge({ other, onClick }: { other: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex min-h-11 items-center sm:min-h-0">
+    <button type="button" onClick={onClick} className="inline-flex min-h-11 items-center sm:min-h-9">
       <Badge tone="warning">May be the same as {other}</Badge>
     </button>
   );

@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { expect, test, vi } from "vitest";
-import { MaybeSame } from "./MaybeSame";
+import { MaybeSame, MaybeSameBadge } from "./MaybeSame";
 import { linesText, mergedText, MergeRole, type MergeAdapter, type Moved } from "./MergeRole";
 import { setViewport } from "../test/viewport";
 
@@ -92,4 +92,9 @@ test("each pair gets a note with its reason, Merge and They're different; the ca
 test("no pairs, nothing shown", () => {
   const { container } = render(<MaybeSame pairs={[]} name={name} onMerge={() => {}} onDismiss={() => {}} />);
   expect(container).toBeEmptyDOMElement();
+});
+
+test("the 'May be the same as' badge is a 44px tap target on a phone", () => {
+  render(<MaybeSameBadge other="Kimchi" onClick={() => {}} />);
+  expect(screen.getByRole("button", { name: "May be the same as Kimchi" }).className).toContain("min-h-11");
 });
