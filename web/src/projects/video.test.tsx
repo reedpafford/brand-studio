@@ -882,6 +882,7 @@ test("Pick another opens the Cast & places picker for the deleted role", async (
   const calls = fakeServer({ ...deletedRoutes, "PUT /projects/9/assets/slots/3": [200, []] });
   open();
   const card = await screen.findByLabelText("Nate");
+  expect(within(card).queryByLabelText("Use a Cast & places character")).toBeNull(); // closed until Pick another is pressed
   await userEvent.click(within(card).getByRole("button", { name: "Pick another" }));
   await userEvent.selectOptions(within(card).getByLabelText("Use a Cast & places character"), "5");
   await userEvent.click(within(card).getByRole("button", { name: "Use this character" }));
@@ -895,4 +896,15 @@ test("a role that is not deleted has no Character deleted badge or Pick another"
   const card = await screen.findByLabelText("Coach");
   expect(within(card).queryByText("Character deleted")).toBeNull();
   expect(within(card).queryByRole("button", { name: "Pick another" })).toBeNull();
+});
+
+test("Pick another is disabled, with the reason, when Cast & places has no other characters", async () => {
+  setViewport(1440);
+  fakeServer({ ...deletedRoutes, "GET /library/character": [200, []] });
+  open();
+  const card = await screen.findByLabelText("Nate");
+  const pick = within(card).getByRole("button", { name: "Pick another" });
+  expect(pick).toBeDisabled();
+  expect(pick).toHaveAccessibleDescription("Cast & places has no other characters yet.");
+  expect(within(card).queryByText("Free")).toBeNull();
 });

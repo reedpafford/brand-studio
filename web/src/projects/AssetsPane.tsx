@@ -240,6 +240,7 @@ function AssetCard({
   const title = asset.role || asset.name;
   // Its Cast & places character was deleted: the slot is stuck until a look is made or another character is picked.
   const deleted = asset.library_deleted && !asset.locked;
+  const others = (characters.data ?? []).filter((c) => c.id !== id).length; // Cast & places characters to pick instead
   const slotLeft =
     asset.ref.startsWith("slot:") && asset.library_item_id === null;
 
@@ -340,16 +341,15 @@ function AssetCard({
                   </Button>
                   {deleted && !swapping && (
                     <span className="flex flex-wrap items-center gap-2">
-                      <Button variant="secondary" icon={Users} onClick={() => setSwapping(true)}>
+                      <Button variant="secondary" icon={Users} disabled={others === 0} reason={others === 0 ? "Cast & places has no other characters yet." : undefined} onClick={() => setSwapping(true)}>
                         Pick another
                       </Button>
-                      <span className="text-sm text-muted">Free</span>
+                      {others > 0 && <span className="text-sm text-muted">Free</span>}
                     </span>
                   )}
                 </div>
               )}
-              {(characters.data ?? []).filter((c) => c.id !== id).length >
-                0 && (
+              {(slotLeft || swapping) && others > 0 && (
                 <>
                   <Select
                     label="Use a Cast & places character"
