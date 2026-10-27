@@ -145,6 +145,9 @@ def score(out: Path, case: dict) -> list[str]:
         if "clips" in exp and not exp["clips"][0] <= len(bd.clips) <= exp["clips"][1]:
             problems.append(f"{len(bd.clips)} clips, expected {exp['clips']}")
         shots = [shot for scene in bd.scenes for shot in scene.shots]
+        for s in shots:  # the actions name no real brand (the spoken lines may)
+            seen = check.real_brands(f"{s.action} {s.reaction or ''} {s.camera}")
+            problems += [f"shot {s.id}: {p}" for p in seen]
         end = brand["brand"].get("end_line", "")
         problems += check.cta_screen(shots, end, brand["brand"]["name"])
         lines = script.splitlines()
@@ -172,6 +175,7 @@ def score(out: Path, case: dict) -> list[str]:
             limits = video.max_reference_images, video.max_reference_audios
             problems += check.clip_prompts(bd, cp, *limits)
             problems += [f"{c.clip_id}: {p}" for c in cp.clips for p in check.unlabelled(c.prompt)]
+            problems += [f"{c.clip_id}: {p}" for c in cp.clips for p in check.real_brands(c.prompt)]
             shown = " ".join(check.QUOTED.sub("", c.prompt) for c in cp.clips).lower()
             problems += [f"clip prompts say '{w}' outside the dialogue"
                          for w in exp.get("clip_absent", []) if w in shown]  # fmt: skip

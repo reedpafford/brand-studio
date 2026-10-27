@@ -736,6 +736,21 @@ def test_every_spoken_line_names_its_language():
     ]
 
 
+def test_prompts_describe_real_brands_and_leave_spoken_words_alone():
+    """Seedance refuses some clips on copyright grounds (2026-10-27): describe a real brand
+    outside the quoted lines; the spoken words never change (Current rules 19)."""
+    for step in ("breakdown", "clip_prompts", "improve", "storyboard"):
+        assert "a yellow supercar" in prompts.system(step), step
+    said = 'Omar (in English, smug): "Nice Lamborghini." Omar tosses the Lamborghini keys.'
+    assert check.real_brands(said) == [
+        'Advice: names lamborghini; describe it instead ("a yellow supercar")'
+    ]
+    assert check.real_brands('Omar (in English): "My Rolex." He checks his gold watch.') == []
+    for step in ("breakdown", "clip_prompts", "improve"):  # the examples already describe
+        out = json.loads((EXAMPLES / f"{step}.json").read_text())["output"]
+        assert check.real_brands(json.dumps(out)) == [], step
+
+
 def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")

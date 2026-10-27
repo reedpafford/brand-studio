@@ -434,6 +434,24 @@ def unlabelled(prompt: str) -> list[str]:
     return [f"{ADVICE}{names}: say each spoken line's language, e.g. {who[0]} (in English, …)"]
 
 
+REAL_BRANDS = re.compile(  # trademarks the video model may refuse (copyright refusals, 10-27)
+    r"\b(lamborghini|lambo|ferrari|porsche|bugatti|tesla|mercedes|bmw|rolls[- ]royce|rolex|"
+    r"patek|cartier|gucci|prada|chanel|louis vuitton|balenciaga|supreme|nike|adidas|"
+    r"air jordans?|jordans|yeezys?|iphone|macbook|airpods|playstation|xbox|marvel)\b",
+    re.I,
+)
+
+
+def real_brands(text: str) -> list[str]:
+    """Advice when a prompt names a real brand outside its quoted lines: describe it instead
+    ("a yellow supercar"). Spoken words are never touched (Current rules 19). Scored in the
+    evals; in the app, a flag with no one-click fix would only add noise (rule 22)."""
+    found = sorted({m.lower() for m in REAL_BRANDS.findall(QUOTED.sub("", text))})
+    if not found:
+        return []
+    return [f'{ADVICE}names {", ".join(found)}; describe it instead ("a yellow supercar")']
+
+
 def improve(
     idea: str, result: ImprovedPrompt, references: str, shots: int, seconds: float
 ) -> list[str]:
