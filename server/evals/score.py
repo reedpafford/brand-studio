@@ -140,6 +140,8 @@ def score(out: Path, case: dict) -> list[str]:
         if "clips" in exp and not exp["clips"][0] <= len(bd.clips) <= exp["clips"][1]:
             problems.append(f"{len(bd.clips)} clips, expected {exp['clips']}")
         shots = [shot for scene in bd.scenes for shot in scene.shots]
+        end = brand["brand"].get("end_line", "")
+        problems += check.cta_screen(shots, end, brand["brand"]["name"])
         lines = script.splitlines()
         in_montage = {n for n, x in enumerate(lines, 1) if "montage" in x.lower()}
         montage = " ".join(s.action for s in shots if in_montage & set(s.script_lines))

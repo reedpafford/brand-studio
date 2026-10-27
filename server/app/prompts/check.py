@@ -105,6 +105,7 @@ def breakdown(
         if needed and not needed & set(shot.screen_ids):
             problems.append(f"shot {shot.id}: '{shot.moment}' moment without its screen")
     problems += _money_climbs(shots)
+    problems += cta_screen(shots, end_line, brand)
     quick = [not shot.line and shot.seconds <= 0.6 for shot in shots]  # wordless, fast
     for i, shot in enumerate(shots):
         # a montage is 3+ quick shots in a row; is this shot inside one?
@@ -402,6 +403,18 @@ def _exact(text: str) -> str:
 
 
 NEAR = 0.5  # share of the end line's words a near match needs (Reed: never block a near one)
+
+
+def cta_screen(shots: list, end_line: str, brand: str = "") -> list[str]:
+    """The end line's shot (the call to action) shows the brand's real screen, on the phone the
+    hero holds up to the camera (Reed, 2026-10-27): its clip then attaches it (`clip_prompts`)."""
+    said = [
+        s for s in shots if end_line.strip() and s.line and ends_on(end_line, s.line, brand) != "no"
+    ]
+    if said and not said[-1].screen_ids:
+        return [f"{ADVICE}shot {said[-1].id}: the end line's shot shows no screen; show the "
+                "brand's real screen on the phone he holds up to the camera"]  # fmt: skip
+    return []
 
 
 def ends_on(end_line: str, last: str, brand: str = "", before: str = "") -> str:

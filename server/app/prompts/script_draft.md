@@ -19,6 +19,6 @@ A grind or proof montage earns its payoff: its action line lists at least three 
 - **With <new_lines>true</new_lines>**, write new dialogue instead: the same characters, beats, shots and pacing, each line doing the same job at the same length in the brand's voice, and `changed_lines` stays empty.
 - Rebuild anything the reference marks "Replace" from the brief, keeping its length and its visual device, and put the brand's screens there. Never copy its on-screen text or captions. Live-action segments are never kept: their slot becomes the brand's end line. Here the 2–3 drafts differ in how they play the hook (framing, timing, the reaction), never in its words.
 
-Every draft ends on the brand's end line from the brand block, word for word (or the brief's closing line if the brand has none), said by the hero over the real brand element.
+Every draft ends on the brand's end line from the brand block, word for word (or the brief's closing line if the brand has none), said by the hero as he holds the brand's real element up to the camera, on its own ★ line just before it: the phone with the app's real screen toward the lens ("★ fomo screen: Home (rich) — Nate holds his phone up to the camera, the fomo logo clear"), or the bag, label first.
 
 Use only the cast you are given, by name. Put every brand moment on its own ★ line with the screen that fits. Dialogue is short, spoken, and sounds like real people; no narrator explaining the story. Captions, text overlays and music are added in post, so don't write them.
