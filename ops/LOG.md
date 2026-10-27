@@ -1,4 +1,11 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-27 23:26 · Agents (#662): the Writer (Reed's scripts) and Builder-Server-6 added to ops/AGENTS.md; the size budget follows rule 26 merged
+- 2026-10-27 23:20 · Decision (#660, Reed): the line count can grow if needed; the cap is a guide against redundant or poorly written code, not a hard limit (Current rules 26) merged
+- 2026-10-27 23:14 · #659 Flagged roles get no look by themselves and never hold Assets up; an automatic merge's Undo always stays merged
+- 2026-10-27 22:47 · #658 Eval-only checks move from the app to server/evals (rule 26) merged
+- 2026-10-27 22:33 · #655 A role named another way is the locked role, never a second one merged
+- 2026-10-27 22:31 · #657 ops: HANDOFF/LOG refresh as of 5b4bfe0 merged (by the Producer)
+- 2026-10-27 23:00 · Goth GF redraw done as a new character, "Goth GF 2" (the original is untouched); the #12 c2 retry was skipped
 - 2026-10-27 22:18 · #654 Montage trading screens get the brand's logo, not the chart screenshot (Current rules 14, 17) merged
 - 2026-10-27 22:12 · #656 Director: invented trading screens, the montage arc, and reactions that name the feeling (rules 14, 17) merged
 - 2026-10-27 22:08 · #653 Web: nextTheme, which only its own test used, removed merged
