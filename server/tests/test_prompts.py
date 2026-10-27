@@ -127,13 +127,21 @@ def test_breakdown_check_wants_the_main_character_in_every_montage_shot():
     assert not lone.line and not lone.character_ids and lone.seconds <= 0.6
 
 
+QUICK = (  # a montage clip with two quick cuts in one second, as the old example had
+    "Shot 4 | 3-4 s. Wide shot tracking in behind Malik as he walks courtside at a packed game, "
+    "the crowd on its feet. No one speaks.",
+    "Shot 4 | 3-4 s. Two quick cuts: a wide shot tracking in behind Malik as he walks courtside; "
+    "then a close-up of Malik grinning. No one speaks.",
+)
+
+
 def test_every_quick_cut_names_a_cast_member():
     _, cp = example("clip_prompts")
-    prompt = cp.clips[0].prompt
+    prompt = cp.clips[1].prompt.replace(*QUICK)
     assert check._cuts_name_someone(prompt) == []
     empty = prompt.replace("behind Malik as he walks", "as a hand pushes")
     assert check._cuts_name_someone(empty) == [
-        "shot 9: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
+        "shot 4: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
     ]
     refs = next(line for line in empty.splitlines() if line.startswith("References: "))
     no_cast = empty.replace(refs, "References: [Image1] is the first frame.")
@@ -146,8 +154,9 @@ def test_breakdown_check_wants_grind_before_the_payoff_and_the_hook_first():
     assert check.breakdown(script, bd, FOMO, 4, 30) == []  # four beats before the fast run
     scene = bd.scenes[1]
     jump = scene.shots[:4] + scene.shots[7:]  # the old way: one trade, then the car
-    scene.shots, bd.clips[1].shot_ids = jump, [s.id for s in jump]
-    bd.clips[1].seconds = 7
+    scene.shots = jump
+    bd.clips[1].shot_ids, bd.clips[1].seconds = [s.id for s in jump[:4]], 6
+    bd.clips[2].shot_ids, bd.clips[2].seconds = [s.id for s in jump[4:]], 4
     lines = check.breakdown(script, bd, FOMO, 4, 30)
     assert "Advice: shot 2.8: the montage reaches the payoff after 1 grind beats; add a red " \
         "day, a small win, another late night first" in lines  # fmt: skip
@@ -174,11 +183,33 @@ def test_app_screens_are_on_a_phone_in_hand_never_a_flat_on_screenshot():
             assert not re.search("fills the frame|flat-on", path.read_text()), path.name
 
 
+def test_faces_hold_a_second_a_shot_the_sheet_and_identity_and_clothing():
+    """Reed (faces, 2026-10-27): montage clips with fewer cuts, one shot a second, the face from
+    the sheet, the official consistency line. All advice."""
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []  # c3: 5 montage shots in 5 s
+    bd.clips[2].seconds = 4
+    assert check.breakdown(script, bd, FOMO, 4, 30) == [
+        "Advice: clip c3: 5 montage shots in 4 s; give each its own second, 6 at most, and move "
+        "the rest to the next clip"
+    ]
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    assert check.clip_prompts(bd, cp, 30, 10) == []
+    text = prompts.system("clip_prompts")
+    assert "It sets the opening composition only." in text and "big glossy eyes" not in text
+    assert "Keep: Nate's identity and clothing stable in every shot" in text
+    for step in ("breakdown", "script_draft", "variations"):
+        assert "never a new costume" in prompts.system(step)
+
+
 def test_breakdown_check_keeps_a_clip_to_three_screens():
     ex, bd = example("breakdown")
     script = script_of(ex)
-    shot = next(s for s in bd.scenes[1].shots if s.id == "2.11")
-    shot.screen_ids = ["screen:1"]
+    more = {"2.5": "screen:1", "2.6": "screen:4"}  # c2 already shows charts down and up
+    for shot in bd.scenes[1].shots:
+        shot.screen_ids = [more[shot.id]] if shot.id in more else shot.screen_ids
     assert check.breakdown(script, bd, FOMO, 4, 30) == [
         "clip c2: 4 screens; keep the 3 its beats need"
     ]
@@ -465,13 +496,15 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
 
 def test_quick_cut_check_is_advice_and_only_inside_a_montage_clip():
     _, bd = example("breakdown")
-    _, cp = example("clip_prompts")  # clip c2 holds the montage
-    c = cp.clips[0]
-    c.prompt = c.prompt.replace("behind Malik as he walks", "as a hand pushes")
+    _, cp = example("clip_prompts")  # clip c3 holds the payoff montage
+    c = cp.clips[1]
+    c.prompt = c.prompt.replace(*QUICK).replace("behind Malik as he walks", "as a hand pushes")
     flag = (
-        "Advice: c2: shot 9: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
+        "Advice: c3: shot 4: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
     )
-    assert flag in check.clip_prompts(bd, cp, 30, 10)
+    found = check.clip_prompts(bd, cp, 30, 10)
+    assert flag in found
+    assert "Advice: c3: a montage gives each shot its own second; no quick cuts" in found
     for shot in bd.scenes[1].shots:  # slow the montage down: now it's not one
         shot.seconds = max(shot.seconds, 0.8)
     assert not [p for p in check.clip_prompts(bd, cp, 30, 10) if "names nobody" in p]
@@ -547,15 +580,15 @@ def test_shot_times_take_a_hyphen_or_an_en_dash():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
     assert "| 0-1 s." in prompt
-    assert check._shape(prompt, 10) == check._shape(prompt.replace("-", "–"), 10)
-    assert check._shape(prompt, 10)[0] == []
-    assert check._shape(prompt.replace("0-1 s.", "0\ty1 s."), 10)[0] == [
+    assert check._shape(prompt, 7) == check._shape(prompt.replace("-", "–"), 7)
+    assert check._shape(prompt, 7)[0] == []
+    assert check._shape(prompt.replace("0-1 s.", "0\ty1 s."), 7)[0] == [
         "shot 1's times aren't whole seconds; write them like “0-2 s.”"
     ]
     last = re.findall(r"^Shot \d+ \| \d+[-–]\d+ s\.", prompt, re.M)[-1]
-    empty = prompt.replace(last, f"{last}\nShot 99 | 10-10 s.")  # the live test's 12–12 s
-    assert check._shape(empty, 10)[0] == [
-        "has an empty last shot (10–10 s). Remove it or give it a length."
+    empty = prompt.replace(last, f"{last}\nShot 99 | 7-7 s.")  # the live test's 12–12 s
+    assert check._shape(empty, 7)[0] == [
+        "has an empty last shot (7–7 s). Remove it or give it a length."
     ]
 
 
@@ -620,7 +653,7 @@ def test_the_keep_line_holds_every_attached_characters_look():
     _, cp = example("clip_prompts")
     assert check.clip_prompts(bd, cp, 30, 10) == []
     clip = cp.clips[0]
-    clip.prompt = clip.prompt.replace("[Image2] is Malik.", "[Image2] is Malik. [Image7] is Tasha.")
+    clip.prompt = clip.prompt.replace("[Image2] is Malik:", "[Image7] is Tasha. [Image2] is Malik:")
     assert "Advice: c2: the Keep line doesn't name Tasha; give their look and outfit" in (
         check.clip_prompts(bd, cp, 30, 10)
     )

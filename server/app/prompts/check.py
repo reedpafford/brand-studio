@@ -192,6 +192,12 @@ def breakdown(
         screens = {sid for s in clip.shot_ids if s in by_id for sid in by_id[s].screen_ids}
         if len(screens) > 3:  # the model mixes them up (fomo montage run 3, 2026-10-24)
             problems.append(f"clip {clip.id}: {len(screens)} screens; keep the 3 its beats need")
+        n = len(clip.shot_ids)  # each shot gets its own second, or faces drift (Reed, 10-27)
+        if _montage(clip.shot_ids, by_id) and (n > clip.seconds or n > MONTAGE_SHOTS):
+            problems.append(
+                f"{ADVICE}clip {clip.id}: {n} montage shots in {clip.seconds} s; give each its own "
+                f"second, {MONTAGE_SHOTS} at most, and move the rest to the next clip"
+            )
     return problems
 
 
@@ -275,6 +281,10 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         if _montage(clip.shot_ids, shots):  # guests and crowds elsewhere are never cast
             problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
+            if re.search(r"\bquick cuts\b", c.prompt, re.I):  # a face held under a second drifts
+                problems.append(
+                    f"{ADVICE}{c.clip_id}: a montage gives each shot its own second; no quick cuts"
+                )
         keep = next((x for x in c.prompt.splitlines() if x.startswith("Keep: ")), "")
         problems += [  # each attached character holds their look by name (live test, 10-26)
             f"{ADVICE}{c.clip_id}: the Keep line doesn't name {who}; give their look and outfit"
@@ -374,6 +384,9 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
 
 
 CAST = re.compile(r"\[Image\d+\] (?:is|are) ([A-Z][\w-]+)")  # "[Image2] is Malik."
+
+
+MONTAGE_SHOTS = 6  # a montage clip's most shots, a second each (Reed, faces, 2026-10-27)
 
 
 def _montage(ids: list[str], shots: dict) -> bool:
