@@ -331,6 +331,7 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     Clips opens. One plain line per change."""
     from app import merge_roles
     from app.cast_roles import merge_shots, short
+    from app.credits import lock
     from app.models.clips import ProjectClip
     from app.models.script_library import CastMerge, Script, ScriptDraft
     from app.routes.scripts import latest
@@ -339,6 +340,8 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     script = db.get(Script, draft.script_id) if draft else None
     if script is None:
         return []
+    lock(db, Project, project.id)  # one at a time per video (QA-2: Assets' parallel requests
+    db.refresh(project)  # each merged Girl again); the next one sees what this one did
     row = db.scalar(
         select(BreakdownVersion)
         .where(BreakdownVersion.project_id == project.id)

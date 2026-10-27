@@ -130,3 +130,23 @@ def test_a_short_name_is_the_role_and_never_a_second_one(owner, editor, db):
 
     assert labels("GF", "Girlfriend") and labels("BF", "Mogging BF")
     assert not labels("GIRL", "Girlfriend")
+
+
+def test_two_opens_at_once_record_one_automatic_merge(owner, editor, db):
+    """QA-2 on #661: Assets' parallel requests each merged Girl, so her note showed three
+    times. The backstop runs one at a time per video, and the second request, which loaded
+    the video before the first one finished, sees what it did and records nothing."""
+    from sqlalchemy.orm import Session
+
+    from app import breakdown
+    from app.models.script_library import CastMerge
+
+    _, pid, _ = _video(owner, editor, db, "INT. DINER — NIGHT\nGIRLFRIEND: Sorry I'm late, babe.")
+    other = Session(bind=db.get_bind())
+    late = other.get(Project, pid)  # loaded before the first request is done
+    assert breakdown.complete_cast(db, db.get(Project, pid))
+    db.commit()
+    breakdown.complete_cast(other, late)
+    other.commit()
+    other.close()
+    assert db.query(CastMerge).filter_by(project_id=pid).count() == 1
