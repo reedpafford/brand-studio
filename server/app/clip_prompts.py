@@ -89,6 +89,17 @@ def _cast(bd: Breakdown, clip_id: str, pics: dict) -> list[str]:
     return out
 
 
+def _screens(bd: Breakdown, clip_id: str) -> list[str]:
+    """The screens the clip's shots show, the one shown last (the payoff) last."""
+    clip = next((c for c in bd.clips if c.id == clip_id), None)
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    out: list[str] = []
+    for sid in clip.shot_ids if clip else []:
+        for screen in shots[sid].screen_ids if sid in shots else []:
+            out = [s for s in out if s != screen] + [screen]
+    return out
+
+
 def _add(prompt: str, start: str, text: str) -> str:
     lines = prompt.splitlines()
     for i, line in enumerate(lines):
@@ -104,9 +115,12 @@ def with_cast(
     """The clip twin of `storyboard.with_cast` (Reed, 2026-10-26): whatever the AI picked, the
     server attaches the approved sheet of every character in the clip's shots, in the order
     they first appear (nearest the camera first), after the first frame ([Image1]) and before
-    the place and screens, within the video model's limit. Every [ImageN] follows its picture;
-    an added character joins the References and Keep lines. Free; doing it again changes
-    nothing. With trim off (an edit, or a saved clip) nothing already picked is dropped."""
+    the place and screens, within the video model's limit. Every screen the clip's shots show
+    is attached too, after them, the payoff screen last (the Director, #556: "screen isn't
+    attached" never blocks). Every [ImageN] follows its picture; an added character joins the
+    References and Keep lines, an added screen the References line. Free; doing it again
+    changes nothing. With trim off (an edit, or a saved clip) nothing already picked is
+    dropped."""
     known = known if known is not None else assets(db, project)
     pics = _pictures(known)
     images = [r for r in clip.references if r.kind == "image"]
@@ -129,6 +143,11 @@ def with_cast(
     elif added := added[: max(room - len(people), 0)]:
         people = sorted(people + added, key=rank)
     new = first + people + objects
+    want = [s for s in _screens(bd, clip.clip_id) if s not in {r.id for r in new} and s in pics]
+    if limit := video_model().max_reference_images:  # people first; the payoff screen kept
+        room = max(limit - len(new), 0)
+        want = want[-room:] if room else []
+    new += [Reference(kind="image", id=s, role=f"{_name(pics, s)} screen") for s in want]
     if new == images:
         return clip
     moved = {i + 1: new.index(r) + 1 for i, r in enumerate(images) if r in new}
@@ -136,6 +155,9 @@ def with_cast(
     prompt = _renumber(clip.prompt, moved, dropped, TAGS)
     for r in (r for r in new if r not in images):
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
+        if r.id in want:
+            prompt = _add(prompt, "References: ", f"{tag} is the {who} screen, exactly as it is.")
+            continue
         prompt = _add(prompt, "References: ", f"{tag} is {who}.")
         prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
     return clip.model_copy(update={"prompt": prompt, "references": new + others})

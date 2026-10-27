@@ -217,16 +217,23 @@ def with_cast(
         people = sorted(people + missing, key=rank)[:room]
     elif missing := missing[: max(room - len(people), 0)]:
         people = sorted(people + missing, key=rank)
-    else:
-        return frame
     new = people + objects
+    # The shot's screens too, after everything else, while there's room (the Director, #556).
+    screens = [s for s in shot.screen_ids if s in known and s not in new]
+    if m.max_reference_images:
+        screens = screens[: max(m.max_reference_images - len(new), 0)]
+    if not (trim or missing or screens):
+        return frame  # an edit with nothing to add stays as the editor saved it
+    new += screens
     if new == frame.reference_ids:
         return frame
     moved = {i + 1: new.index(r) + 1 for i, r in enumerate(frame.reference_ids) if r in new}
     dropped = {i + 1: _name(known, r) for i, r in enumerate(frame.reference_ids) if r not in new}
     prompt = _renumber(frame.prompt, moved, dropped)
     for r in new:
-        if r not in frame.reference_ids:
+        if r in screens:
+            prompt += f" Show the {_name(known, r)} screen from image {new.index(r) + 1} as it is."
+        elif r not in frame.reference_ids:
             prompt += (
                 f" Keep {_name(known, r)} from image {new.index(r) + 1} exactly as on their sheet."
             )
@@ -239,9 +246,10 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
     m = image_model()
     known = assets(db, project)
     bd = Breakdown.model_validate(db.get(BreakdownVersion, breakdown_id).data)
-    problems = check.storyboard(
-        StoryboardFrames(frames=[frame]), m.max_reference_images, m.max_character_images
-    )
+    found = check.storyboard(
+        StoryboardFrames(frames=[frame]), m.max_reference_images, m.max_character_images, bd
+    )  # its people are checked below, by name, with roles not cast yet left out
+    problems = [p for p in found if not p.endswith("in the shot without a sheet")]
     problems += [
         f"{frame.clip_id}: unknown reference {r}" for r in frame.reference_ids if r not in known
     ]

@@ -503,7 +503,8 @@
     "The got-rich beat shows a big portfolio balance (hundreds of thousands) on the fomo Home screen, not a coin price.",
     "Ends on the skyline arrival in the black suit.",
     "At least three grind beats (late nights, a red day, a small then a bigger win) before the fast got-rich run.",
-    "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance."
+    "Money climbs with the chart: each trading insert says what it reads (e.g. +$42, then $1,240, then $18,900) and none is below the one before, up to the Home (rich) balance.",
+    "The montage payoffs are new against <recent_payoffs> too: no Lamborghini keys, coast drive or yacht."
    ],
    "expect": {
     "drafts": [
@@ -527,6 +528,13 @@
      "flat-on"
     ],
     "min_money_figures": 3
+   },
+   "recent_payoffs": {
+    "Lambo Halloween": [
+     "A valet tosses Omar the keys to a yellow Lamborghini.",
+     "Omar drives the Lamborghini along the night coast.",
+     "Omar steps onto his own yacht as fireworks go up."
+    ]
    }
   },
   {
@@ -610,7 +618,8 @@
     "The fomo screens and the montage stay, with new wealth payoffs; Nate and Mia stay; it ends on the end line.",
     "About the same length as the original, action lines included (more action means more shots and cost).",
     "The two premises differ from each other and from the original.",
-    "Cast slots: Nate (the groom), Mia (the bride) and the rich rival, with looks that fit every version; no admirers or guests."
+    "Cast slots: Nate (the groom), Mia (the bride) and the rich rival, with looks that fit every version; no admirers or guests.",
+    "The montage payoffs are new against <recent_payoffs> too: no Lamborghini keys, coast drive or yacht."
    ],
    "expect": {
     "slots_named": [
@@ -626,6 +635,13 @@
      "guest",
      "women",
      "crowd"
+    ]
+   },
+   "recent_payoffs": {
+    "Lambo Halloween": [
+     "A valet tosses Omar the keys to a yellow Lamborghini.",
+     "Omar drives the Lamborghini along the night coast.",
+     "Omar steps onto his own yacht as fireworks go up."
     ]
    }
   },

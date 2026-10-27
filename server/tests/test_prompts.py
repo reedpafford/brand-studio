@@ -290,6 +290,28 @@ def test_a_montage_invents_its_payoffs_never_the_reference_or_original_run(tmp_p
     ) in score(tmp_path, case)
 
 
+def test_the_evals_tell_and_check_the_brands_recent_payoffs(tmp_path):
+    from evals.run import run_case
+    from evals.score import CASES, score
+
+    for step in ("breakdown", "script_draft", "variations"):  # Reed, 2026-10-27
+        assert "<recent_payoffs>" in prompts.system(step)
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-altar-variations")
+    run_case(None, case, tmp_path, [], 0, dry=True)  # free: writes the prompt only
+    told = (tmp_path / f"{case['id']}.variations.prompt.txt").read_text()
+    assert '<recent_payoffs>\n"Lambo Halloween": A valet tosses Omar the keys' in told
+    lambo = case["script"] + [
+        "Wordless montage, Nate in every shot: the Lamborghini, then his yacht."
+    ]
+    again = {"title": "x", "premise": "x", "script": "\n".join(lambo), "changes": []}
+    (tmp_path / f"{case['id']}.variations.json").write_text(json.dumps({"variations": [again]}))
+    (tmp_path / f"{case['id']}.cast_slots.json").write_text('{"slots": []}')
+    assert (
+        "variation 1: Advice: the montage repeats a recent video's payoffs (keys, a car, a "
+        "yacht); invent ones that fit this story and its people"
+    ) in score(tmp_path, case)
+
+
 def test_an_echo_repeats_what_was_said_to_his_face():
     said = "GIRLFRIEND: You're just a loser who doesn't get invited to anything.\n"
     assert check.echo_lines(said + "GIRLFRIEND (V.O.): Doesn't get invited to anything.") == []

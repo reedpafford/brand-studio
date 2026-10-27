@@ -263,7 +263,9 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             shot = shots[sid]
             for screen in shot.screen_ids:
                 if screen not in images:
-                    problems.append(f"{c.clip_id}: shot {sid}'s screen {screen} isn't attached")
+                    problems.append(  # attached in code when there's room: never a block
+                        f"{ADVICE}{c.clip_id}: shot {sid}'s screen {screen} isn't attached"
+                    )
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
             if _money(shot):
