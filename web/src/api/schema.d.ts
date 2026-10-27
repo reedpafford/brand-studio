@@ -3406,12 +3406,38 @@ export interface paths {
         };
         /**
          * Maybe Same
-         * @description The script's roles that may be one person, less those merged on this video.
+         * @description The script's roles that may be one person, less those merged or kept apart on this
+         *     video.
          */
         get: operations["maybe_same_projects__project_id__assets_maybe_same_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/maybe-same/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss
+         * @description They're different, on this video only: the pair isn't flagged here again. The script's
+         *     Cast is untouched. Free.
+         */
+        post: operations["dismiss_projects__project_id__assets_maybe_same_dismiss_post"];
+        /**
+         * Undo Dismiss
+         * @description Undo "They're different" on this video.
+         */
+        delete: operations["undo_dismiss_projects__project_id__assets_maybe_same_dismiss_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -13361,6 +13387,76 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamePair"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_projects__project_id__assets_maybe_same_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamePair"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_dismiss_projects__project_id__assets_maybe_same_dismiss_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
