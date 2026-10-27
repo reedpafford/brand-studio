@@ -12,6 +12,8 @@ Rules
 import base64
 import hashlib
 import logging
+import signal
+import threading
 import time
 import uuid
 from datetime import timedelta
@@ -352,8 +354,8 @@ def run_once(
         _mine(select(func.count(Job.id)).where(Job.status == JobStatus.queued), only)
     )
     for _ in range(queued):
-        if not start_next(db, providers, storage, allow_paid, only):
-            break
+        if STOP.is_set() or not start_next(db, providers, storage, allow_paid, only):
+            break  # stopping: the next start waits for the new worker
 
 
 def main() -> None:  # pragma: no cover - the loop itself is trivial
@@ -375,7 +377,9 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
     elif not settings.generation_enabled:
         log.warning("Generation is switched off (BS_GENERATION_ENABLED): paid jobs stay queued.")
     tidied = None  # the reel worker removes long-deleted scripts at start and once a day
-    while True:
+
+    def tick() -> None:
+        nonlocal tidied
         if (only is None or "local" in only) and (tidied is None or time.time() - tidied > DAY):
             tidied = time.time()
             try:
@@ -389,7 +393,26 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
                 run_once(db, providers, storage, settings.generation_enabled, only)
         except Exception:  # keep the worker alive through e.g. a database hiccup
             log.exception("worker tick failed; trying again next tick")
-        time.sleep(settings.worker_poll_seconds)
+
+    serve(tick, settings.worker_poll_seconds)
+
+
+STOP = threading.Event()
+
+
+def serve(tick, poll: float) -> None:
+    """Run the worker's ticks until it's asked to stop (SIGTERM: a deploy restarting it). The
+    job in hand always finishes first, so a deploy never cuts a Claude call off mid-answer
+    (QA-Live 6: two clip-prompts runs lost to deploys); compose waits for it (stop_grace_period)."""
+
+    def stop(*_) -> None:
+        log.info("stopping after the job in hand")
+        STOP.set()
+
+    signal.signal(signal.SIGTERM, stop)
+    while not STOP.is_set():
+        tick()
+        STOP.wait(poll)
 
 
 def warm_speech_model() -> None:  # pragma: no cover - downloads ~460 MB once

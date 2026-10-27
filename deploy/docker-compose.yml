@@ -59,6 +59,8 @@ services:
   worker:
     <<: *server
     command: ["python", "-m", "app.worker"]
+    # A deploy waits for the job in hand (a Claude call can take minutes) instead of cutting it off.
+    stop_grace_period: 10m
     environment:
       <<: *server-env
       REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
