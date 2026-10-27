@@ -31,3 +31,18 @@ Reed approved the paid run (cap $15) in this session and steered the cast during
 11. **After the swap to Kimchi, his outfit came from the old role text** (backwards cap, white tee, gold chain) rather than his sheet's white shirt. Rule 10 says the sheet sets the outfit. His face held.
 12. **The hero is missing from some montage shots** (frame c3, shots 5.1–5.2 are the trader friend's hands), against rule 17.
 13. **Faces in the takes:** clips 1, 3, 4, 5 and 6 hold to the sheets. Clip 2 (20 s, 19 shots, the longest) drifts. Lexi turns softer and younger in the rain at 0.8–1.5 s (2.1), 5.1–5.4 s (2.4) and 9.6–12.3 s (2.8–2.11), and Kimchi's face widens at 17.8–18.4 s (4.2). Long clips are still where faces drift.
+
+## Language of the takes (asked by the Producer; free, transcribed locally with Whisper "small")
+- **#15 "Mom gave him three days…", clip c1:** take 1 (id 64, file 315, 19:18 UTC) speaks **English** (p 0.98), word for word.
+  Take 2 (id 66, file 322, 19:23 UTC, made by "Change this…", note "She says '3 days' twice. Also have it open with her slamming the door open.", rewrite job 440, take job 441) speaks **Mandarin Chinese** (p 1.00). It's a line-by-line translation of the script: "内恩 我的钱都哪去了" = "Nate, where did all my money go?", "三天" = "Three days", ending "妈妈" = "Mom".
+- Both prompts are in English and name no language (`p15_c1_take1_prompt.txt`, `p15_c1_take2_prompt.txt`). The only differences are the door slam in shot 1 and the audio line. So the language switch came from the video model, not the text.
+- Every other take checked is English: all 6 of video #16 and #15's c2–c6 (files 311–314, 316).
+
+## Takes refused as a copyright risk (for the Director)
+- **23 refusals across 5 clips:** #13 c1 ×7, #14 c1 ×7, #12 c2 ×5 (still has no take), #9 c2 ×2, #11 c2 ×2. Jobs 108, 113, 246, 281–282, 310, 312–313, 318, 321, 330, 337, 369, 371–373, 384, 388, 394–397, 399.
+- **The editor sees** "The service couldn't finish this. Ask the owner for details." **The stored detail is** "Prediction failed: Async prediction failed: Exception: The request failed because the output video may be related to copyright restrictions. Request id: 0217930…/0217929…".
+- **References lines** (as stored now): #13 c1 and #14 c1 "[Image1] is the first frame. [Image2] is the Girlfriend."; #12 c2 "… [Image2] is Nate. [Image3] is the Girl."; #9 c2 "… [Image2] is Carl. [Image3] is the girlfriend. [Image4] is the rival."; #11 c2 "… [Image2] is Nate. [Image3] is the girlfriend."
+- **Every refused clip has Goth GF (char 1).** Her sheet, like Carl's and Mogging BF's, was made from an uploaded picture. Those pictures are 3D character renders, not photos of real people (`source_pictures_gothgf_carl_moggingbf.jpg`).
+- **No voice sample** is attached to any of them.
+- **Brand or studio words:** "Pixar-style 3D animation, big glossy eyes…" in every Style line. No car, watch or fashion brands.
+- **Neither is enough on its own:** Goth GF and "Pixar-style" are also in clips that went through, including all 6 takes of #16 and #4 c1. The refused clips are all the opening breakup or rejection clips. That's a pattern, not a proven cause.
