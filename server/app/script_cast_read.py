@@ -153,33 +153,15 @@ def _key(role: str) -> str:
     return (short(role) or role).strip().lower()
 
 
-def _locked_as(db: Session, script: Script, role: str, slots: list) -> ScriptCastSlot | None:
-    """The locked role (of `slots`) that a role or label is by another name: its label, or a
-    line of 3+ words it says in another version (Kel's empty chair: "GIRL:" was the locked
-    girlfriend)."""
-    from app.cast_roles import labels, short
-    from app.merge_roles import said_as
-
-    locked, name = [s for s in slots if s.library_item_id], short(role) or role
-    return next((s for s in locked if labels(name, s.role)), None) or said_as(
-        db, script, name, locked
-    )
-
-
-def speaker_slots(
-    db: Session, script: Script, slots: list[ScriptCastSlot], same=None
-) -> list[ScriptCastSlot]:
+def speaker_slots(db: Session, script: Script, slots: list, same=None) -> list[ScriptCastSlot]:
     """A role for each speaker the cast read missed (Reed: FRIEND), added to the script. A
-    speaker whose label is a role already there (`cast_roles.labels`), a locked role by another
-    name (`_locked_as`), or one `same(name)` says a video shows as its role, is that role,
-    never a second one (Reed: one person is never two roles)."""
+    speaker whose label is a role already there (`cast_roles.labels`, or `same(name)`) is that
+    role, never a second one (Reed: one person is never two roles)."""
     from app.cast_roles import labels
 
     out = []
     for name, versions in _speakers(db, script).items():
-        if any(labels(name, s.role) for s in [*slots, *out]) or (same and same(name)):
-            continue
-        if not _locked_as(db, script, name, slots):
+        if not any(labels(name, s.role) for s in [*slots, *out]) and not (same and same(name)):
             out.append(ScriptCastSlot(script_id=script.id, role=name, kind="Helper",
                                       appears_in=versions))  # fmt: skip
             db.add(out[-1])
@@ -195,11 +177,10 @@ def save_cast_slots(db: Session, job: Job) -> None:
     order, done = [], {}
     for made in result.slots:
         key = _key(made.role)
-        same = done.get(key) or _locked_as(db, script, made.role, [*order, *have.values()])
-        if same in order:  # listed twice ("Nate", "Nate, the groom"), or "Girl" for the GF
-            same.appears_in, done[key] = sorted({*(same.appears_in or []), *made.appears_in}), same
+        if key in done:  # one role listed twice ("Nate", "Nate, the groom"): one slot
+            done[key].appears_in = sorted({*done[key].appears_in, *made.appears_in})
             continue
-        slot = have.pop(key, None) or (same and have.pop(_key(same.role)))
+        slot = have.pop(key, None)
         if slot is None:
             slot = ScriptCastSlot(script_id=script.id, role=made.role[:120], kind=made.kind)
             db.add(slot)

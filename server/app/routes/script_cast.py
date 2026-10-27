@@ -169,6 +169,7 @@ class SamePair(BaseModel):
     b_slot_id: int
     into_slot_id: int  # the suggested role to keep
     why: str
+    undo_token: int | None = None  # merged by itself already; Undo puts it back
 
 
 class PairIn(BaseModel):

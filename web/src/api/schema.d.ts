@@ -5349,6 +5349,8 @@ export interface components {
             into_slot_id: number;
             /** Why */
             why: string;
+            /** Undo Token */
+            undo_token?: number | null;
         };
         /** Scene */
         Scene: {

@@ -362,16 +362,8 @@ def as_roles(db: Session, project: Project, bd):
         item = db.get(LibraryItem, char_id)
         if item and len(slots) == 1 and item.name.strip().lower() != slots[0].role.strip().lower():
             looks[item.name.strip().lower()] = slots[0].role
-    from app.merge_roles import same_person
-
-    roles = [s.role for s in video_slots(db, project)]
-    shots = [s for scene in bd.scenes for s in scene.shots]
-    other = {x.speaker for x in shots if x.speaker and project.script_draft_id
-             and not any(labels(x.speaker, r) for r in roles)}  # fmt: skip
-    other = {n: same_person(db, project, n, bd) for n in other}  # "Girl" is the locked girlfriend
-    for shot in shots:
-        if shot.speaker and (role := looks.get(shot.speaker.strip().lower())):
-            shot.speaker = role
-        elif (into := other.get(shot.speaker)) and into[1]:  # when that's certain
-            shot.speaker = into[0].role
+    for scene in bd.scenes:
+        for shot in scene.shots:
+            if shot.speaker and (role := looks.get(shot.speaker.strip().lower())):
+                shot.speaker = role
     return bd

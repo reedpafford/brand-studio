@@ -165,7 +165,8 @@ def make(
 @router.get("", response_model=list[FrameOut])
 def frames(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project = get_project(db, user, project_id)
-    if storyboard.repair(db, project):  # free: a sheet approved since, or frames from before
+    # free: a role named another way merged, a sheet approved since, or frames from before
+    if any([breakdown.complete_cast(db, project), storyboard.repair(db, project)]):
         db.commit()
     rows = db.scalars(
         select(StoryboardFrame)

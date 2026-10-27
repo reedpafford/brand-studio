@@ -325,13 +325,14 @@ def _hero_in_montage(db: Session, project: Project, bd: Breakdown, added: dict) 
 def complete_cast(db: Session, project: Project) -> list[str]:
     """Every speaker in the video's script is a role, and every role is in its shots
     (`show_roles`), so Assets makes and asks for their looks and frames and clips get their
-    sheets. A screen shot that gains a person has "Use the real image" turned off (it was only
-    offered as a shot with nobody in it). Free and idempotent: when Assets opens, and on
-    deploy. One plain line per change."""
+    sheets; a role that is a locked or cast one by another name is merged into it on this video
+    (with Undo). A screen shot that gains a person has "Use the real image" turned off (it was
+    only offered as a shot with nobody in it). Free and idempotent: when Assets, Storyboard or
+    Clips opens. One plain line per change."""
     from app import merge_roles
     from app.cast_roles import merge_shots, short
     from app.models.clips import ProjectClip
-    from app.models.script_library import Script, ScriptDraft
+    from app.models.script_library import CastMerge, Script, ScriptDraft
     from app.routes.scripts import latest
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
@@ -352,6 +353,11 @@ def complete_cast(db: Session, project: Project) -> list[str]:
         return out
     merged = []  # a role that is a locked or cast one by another name, when that's certain
     for slot, into in merge_roles.video_pairs(db, project, bd)[0].items():
+        old = {"slot_merged": project.slot_merged or {}, "slot_cast": project.slot_cast or {},
+               "cast_ids": project.cast_ids or [], "breakdown": bd.model_dump(), "made": row.id,
+               "auto": [slot.id, into.id]}  # fmt: skip
+        db.add(CastMerge(workspace_id=project.workspace_id, script_id=script.id,
+                         project_id=project.id, data=old))  # fmt: skip
         merge_shots(db, project, bd, slot, into)
         project.slot_merged = {**(project.slot_merged or {}), str(slot.id): into.id}
         merged.append(f"Advice: {short(slot.role) or slot.role} is {short(into.role) or into.role}"
@@ -382,12 +388,12 @@ def would_show(db: Session, project: Project, data: dict, shot_ids=None) -> list
     look gate before anything is written or drawn (QA-2 on #614: right after produce, before
     Assets was opened), plus a speaker with no role yet as `unroled:<name>`. Read only:
     `show_roles` runs on a copy."""
-    from app import script_cast_read
+    from app import merge_roles, script_cast_read
     from app.cast_roles import labels, video_slots
     from app.models.script_library import Script, ScriptDraft
     from app.routes.scripts import latest
 
-    bd, words = as_roles(db, project, Breakdown.model_validate(data)), latest(db, project)
+    bd, words = Breakdown.model_validate(data), latest(db, project)
     if words is not None:
         show_roles(db, project, bd, words.text)
     shots = [s for scene in bd.scenes for s in scene.shots if shot_ids is None or s.id in shot_ids]
@@ -396,14 +402,14 @@ def would_show(db: Session, project: Project, data: dict, shot_ids=None) -> list
         roles = [s.role for s in video_slots(db, project)]
         said = script_cast_read._speakers(db, db.get(Script, draft.script_id))
         out.append([f"unroled:{n}" for n in said if not any(labels(n, r) for r in roles)
-                    and any(s.speaker and labels(s.speaker, n) for s in shots)])  # fmt: skip
+                    and any(s.speaker and labels(s.speaker, n) for s in shots)
+                    and not merge_roles.same_person(db, project, n, bd)[1]])  # fmt: skip
     return out
 
 
 def add_speakers(db: Session, script, same=None) -> list[str]:
     """The script's speakers the cast read missed (or that it never had: a script from
-    before the cast read), added to its cast as roles (not one `same(name)` says is a role
-    already). Their names."""
+    before the cast read), added to its cast as roles (not one `same(name)`). Their names."""
     from app import script_cast_read
 
     slots = script_cast_read._slots(db, script)

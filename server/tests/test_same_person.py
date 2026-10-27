@@ -58,12 +58,6 @@ def test_girl_and_brad_are_the_locked_girlfriend_and_mogging_bf(owner, editor, d
     assert "Girl" not in roles and "Brad" not in roles
     assert "Girl" not in [r["role"] for r in rows] and "Brad" not in [r["role"] for r in rows]
     shots = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]["scenes"][0]["shots"]
-    assert [s["speaker"] for s in shots[1:]] == [
-        "Girlfriend",
-        "Mogging BF",
-        "Girlfriend",
-        "Mogging BF",
-    ]
     assert not [i for s in shots for i in s["character_ids"] if i.startswith("slot:")
                 and int(i[5:]) not in (ids["Omar"],)]  # fmt: skip
     refused = editor.post(f"/projects/{pid}/storyboard", json={}).json().get("detail", "")
@@ -101,6 +95,18 @@ def test_a_girl_role_already_made_is_merged_into_the_locked_slot(owner, editor, 
     gf, bf = f"char:{ids['look Goth GF']}", f"char:{ids['look Mogging BF']}"
     who = [s["character_ids"] for s in shots["breakdown"]["scenes"][0]["shots"]]
     assert who[1:] == [[gf], [bf, gf], [gf, bf], [bf]]
+    # Rule 9: the merge says so on Assets, with Undo; undone, it's never merged again here.
+    url = f"/projects/{pid}/assets"
+    notes = [p for p in editor.get(f"{url}/maybe-same").json() if p["undo_token"]]
+    one = " in this video, so they're one role."
+    assert [n["why"] for n in notes] == [f"Girl is Girlfriend{one}", f"Brad is Mogging BF{one}"]
+    assert (
+        editor.post(f"{url}/merge/undo", json={"token": notes[0]["undo_token"]}).status_code == 200
+    )
+    roles = [r["role"] for r in editor.get(url).json()]
+    assert "Girl" in roles and "Brad" not in roles  # Brad merges again by himself
+    db.expire_all()
+    assert str(made["Girl"].id) not in (db.get(Project, pid).slot_merged or {})
 
 
 def test_one_shot_is_not_enough_to_merge_so_it_is_flagged(owner, editor, db):
@@ -123,4 +129,4 @@ def test_one_shot_is_not_enough_to_merge_so_it_is_flagged(owner, editor, db):
     editor.get(f"/projects/{pid}/assets")
     assert not db.get(Project, pid).slot_merged
     pairs = editor.get(f"/projects/{pid}/assets/maybe-same").json()
-    assert [(p["a_slot_id"], p["b_slot_id"]) for p in pairs] == [(ids["Mogging BF"], brad.id)]
+    assert (ids["Mogging BF"], brad.id) in [(p["a_slot_id"], p["b_slot_id"]) for p in pairs]
