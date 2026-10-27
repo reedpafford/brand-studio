@@ -371,6 +371,49 @@ def rewrite_owner_clips(db: Session) -> str:
     return f"Rewrote clip prompts on “{project.name}”."
 
 
+def repair_missing_roles(db: Session) -> list[str]:
+    """Every speaker in a script is a role at Assets (Reed, 2026-10-27, "Marriage Rejection"):
+    the cast read's speaker backstop run on every script still in use, and each video's newest
+    breakdown shows a role in the shots it speaks on screen in, so its look is made at Assets
+    and Storyboard waits for it. Free, no model call. One plain line per script or video
+    changed; running it again changes nothing."""
+    from app import breakdown, script_cast_read
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.projects import Project
+    from app.models.script_library import Script, ScriptDraft
+    from app.prompts.schemas import Breakdown
+    from app.routes.scripts import latest
+
+    out = []
+    live = select(Script).where(Script.deleted_at.is_(None), Script.archived.is_(False))
+    for script in db.scalars(live).all():
+        slots = script_cast_read._slots(db, script)
+        taken = {script_cast_read._key(s.role) for s in slots}
+        if new := script_cast_read.speaker_slots(db, script, taken):
+            for position, slot in enumerate(new, len(slots) + 1):
+                slot.position = position
+            out.append(f"{script.title}: added {', '.join(s.role for s in new)} to the cast")
+    db.flush()
+    drafts = select(ScriptDraft.id)
+    for project in db.scalars(select(Project).where(Project.script_draft_id.in_(drafts))).all():
+        row = db.scalar(
+            select(BreakdownVersion)
+            .where(BreakdownVersion.project_id == project.id)
+            .order_by(BreakdownVersion.id.desc())
+            .limit(1)
+        )
+        script = latest(db, project)
+        if row is None or script is None:
+            continue
+        bd = Breakdown.model_validate(row.data)
+        if notes := breakdown.show_speakers(db, project, bd, script.text):
+            row.data = bd.model_dump()
+            row.problems = breakdown.problems(db, project, script.text, bd) + notes
+            out.append(f"{project.name}: " + " ".join(n.removeprefix("Advice: ") for n in notes))
+    db.commit()
+    return out
+
+
 def repair_unknown_cast(db: Session) -> tuple[int, list[str]]:
     """Saved breakdowns (videos' newest, and library plans) that name someone the video
     doesn't have, like a deleted look still cast in a role (Kel's empty chair): landed again
@@ -441,6 +484,8 @@ def main(folder: str, slug: str = "fomo") -> None:
             gave, already, unsaid = repair_cta_screens(db)
             print(f"Gave {gave} end-line shots the brand's screen ({already} already show one, "
                   f"{unsaid} with no single end-line shot).")  # fmt: skip
+            for line in repair_missing_roles(db):  # before the frames and clips get sheets
+                print(line)
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Gave {repair_clips(db)} clips their characters' sheets.")
             print(f"Said {plain_stored(db)} saved checks in plain words.")

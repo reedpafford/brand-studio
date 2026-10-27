@@ -60,7 +60,7 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     """Every picture a frame may use: asset id -> (its line for the prompt, its file ids).
     The cast (each look with the roles it plays), the script's cast slots (a filled slot:N is
     the same line as the look that plays it, so one person never shows under two names or
-    outfits; an empty one has no picture until Assets casts it, and is never a problem), the
+    outfits; an empty one has no picture until Assets casts it), the
     brand's places and props, and the brand's screens."""
     out: dict[str, tuple[str, list[int]]] = {}
     roles = cast_roles(db, project)
@@ -242,7 +242,8 @@ def with_cast(
 
 def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: int) -> list[str]:
     """With the frame's breakdown, a character in the shot without an approved look is
-    flagged too (by name; a role not cast yet waits for Assets and is never a problem)."""
+    flagged too, by name, a role not cast yet included (Reed, 2026-10-27: nothing is drawn
+    without a sheet for everyone in it); the problem links to Assets."""
     m = image_model()
     known = assets(db, project)
     bd = Breakdown.model_validate(db.get(BreakdownVersion, breakdown_id).data)
@@ -257,8 +258,6 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
     people = [r for r in frame.reference_ids if r.startswith(CHAR)]
     if shot and (not m.max_character_images or len(people) < m.max_character_images):
         for c in shot.character_ids:
-            if c.startswith("slot:") and c in known and not known[c][1]:
-                continue  # not cast yet: Assets casts it
             if not any(_same(known, c, r) for r in people):
                 problems.append(
                     f"{_name(known, c)} has no approved look yet. Approve one in Assets."

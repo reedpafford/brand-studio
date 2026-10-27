@@ -21,6 +21,7 @@ from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.scripts import latest
 from app.schemas import LongText
+from app.sheets import require_looks
 
 router = APIRouter(prefix="/projects/{project_id}/storyboard", tags=["storyboard"])
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
@@ -147,6 +148,8 @@ def make(
     bd = _newest_breakdown(db, project)
     if not bd:
         raise HTTPException(409, "Make a breakdown first.")
+    shots = [s["character_ids"] for scene in bd.data["scenes"] for s in scene["shots"]]
+    require_looks(shots, storyboard.assets(db, project), 409)
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("step") == "storyboard" for j in pending):
         raise HTTPException(409, "A storyboard is already being written for this project.")

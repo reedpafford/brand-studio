@@ -27,6 +27,8 @@ from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
 from app.schemas import LongText, UtcTime
+from app.sheets import require_looks
+from app.storyboard import assets as picture_assets
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["project clips"])
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
@@ -171,8 +173,10 @@ def write_prompts(
     clip, or one clip (Reed, 2026-10-26: Clips never dead-ends). Existing takes are kept as
     earlier takes (clip_prompts.save_clip_prompts)."""
     project = get_project(db, user, project_id)
-    if not _newest_breakdown(db, project):
+    if not (bd := _newest_breakdown(db, project)):
         raise HTTPException(409, "Make a breakdown first.")
+    shots = [s["character_ids"] for scene in bd.data["scenes"] for s in scene["shots"]]
+    require_looks(shots, picture_assets(db, project), 409)
     ids = _rewrite_ids(db, project, body.clip_id if body else None)
     if ids == []:
         raise HTTPException(409, "No clip needs new prompts.")

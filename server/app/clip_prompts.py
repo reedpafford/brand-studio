@@ -164,8 +164,8 @@ def with_cast(
 
 
 def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt) -> list[str]:
-    """A character in the clip without an approved look is flagged by name (a role not cast
-    yet waits for Assets and is never a problem); sheets are attached by `with_cast`."""
+    """A character in the clip without an approved look is flagged by name, a role not cast
+    yet included (Reed, 2026-10-27); sheets are attached by `with_cast`."""
     m = video_model()
     problems = check.clip_prompts(
         bd, ClipPrompts(clips=[clip]), m.max_reference_images, m.max_reference_audios
@@ -173,7 +173,7 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
     known = assets(db, project)
     pics = _pictures(known)
     for c in _cast(bd, clip.clip_id, pics):
-        if c in pics and (pics[c][1] or pics[c][0].endswith("(no look yet)")):
+        if c in pics and pics[c][1]:
             continue
         if not any(_same(pics, c, r.id) for r in clip.references):
             problems.append(f"{_name(pics, c)} has no approved look yet. Approve one in Assets.")

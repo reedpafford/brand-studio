@@ -1,6 +1,7 @@
 """Breakdown: Claude turns the working script into scenes, shots and clips. The answer is
 checked (`check.breakdown`) and saved with its problems so the editor sees what to fix."""
 
+import re
 from inspect import signature
 
 from sqlalchemy import func, select
@@ -259,6 +260,34 @@ def land(
     bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
     bd, shown = cta_screen(db, project, bd)  # the end line's shot shows the brand's screen
     return bd, notes + removed + shown
+
+
+OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
+
+
+def show_speakers(db: Session, project: Project, bd: Breakdown, text: str) -> list[str]:
+    """A shot whose speaker is one of the video's roles, speaking on screen (the script's
+    label has no V.O. or O.S.), shows that role (Reed, 2026-10-27: the bride's groom wasn't
+    in his own shots, so the video model invented him). In place; each change said as
+    advice. Free."""
+    from app.cast_roles import ref, short, video_slots
+
+    slots = {short(s.role).lower(): s for s in video_slots(db, project) if short(s.role)}
+    lines, notes = text.splitlines(), []
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        slot = slots.get(short(shot.speaker or "").lower())
+        if slot is None:
+            continue
+        who = ref(db, project, slot)
+        if {who, f"slot:{slot.id}"} & set(shot.character_ids):
+            continue
+        labels = [check.SPEAKER.match(lines[n - 1]) for n in shot.script_lines
+                  if 0 < n <= len(lines)]  # fmt: skip
+        if any(m and OFF_SCREEN.search(m[0]) for m in labels):
+            continue
+        shot.character_ids = [*shot.character_ids, who]
+        notes.append(f"Advice: Shot {shot.id} now shows {short(slot.role)}, who speaks in it.")
+    return notes
 
 
 def _role(db: Session, project: Project, slots: list, speaker: str | None):
