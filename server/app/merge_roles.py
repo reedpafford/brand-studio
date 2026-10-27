@@ -133,7 +133,7 @@ def merge(db: Session, script: Script, slot: ScriptCastSlot, into: ScriptCastSlo
 def undo(db: Session, script: Script, token: int) -> None:
     """Put the merged role back with its shots, lines and look exactly as they were."""
     record = db.get(CastMerge, token)
-    if record is None or record.script_id != script.id:
+    if record is None or record.script_id != script.id or record.project_id is not None:
         raise HTTPException(404, "There's nothing to undo here any more.")
     data = record.data
     if db.get(ScriptCastSlot, data["slot"]["id"]) is not None:

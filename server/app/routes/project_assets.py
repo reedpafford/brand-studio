@@ -582,6 +582,8 @@ def merge(
     if bd:  # the shots move first, while the role's look still names them
         _resave(db, user, project, bd, plan.model_dump())
         clip_prompts.follow(db, project, user)
+    made = _newest(db, project)
+    saved["made"] = made.id if made else None  # Undo only while the plan is still this one
     draft = db.get(ScriptDraft, project.script_draft_id)
     record = CastMerge(workspace_id=project.workspace_id, script_id=draft.script_id,
                        project_id=project.id, data=saved)  # fmt: skip
@@ -600,6 +602,10 @@ def undo_merge(
     if record is None or record.project_id != project.id:
         raise HTTPException(404, "There's nothing to undo here any more.")
     data = record.data
+    if (now := _newest(db, project)) and now.id != data.get("made"):
+        raise HTTPException(
+            409, "This can't be undone any more: the shots were changed after the merge."
+        )
     project.slot_merged, project.slot_cast = data["slot_merged"], data["slot_cast"]
     project.cast_ids = data["cast_ids"]
     bd = _newest(db, project)

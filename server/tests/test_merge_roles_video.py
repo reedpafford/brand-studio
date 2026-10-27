@@ -5,8 +5,13 @@ it leaves the video's Assets; the script's cast stays as it is. Every later save
 
 import copy
 
+import pytest
+from fastapi import HTTPException
+
+from app import merge_roles
 from app.models.jobs import Job
 from app.models.projects import Project
+from app.models.script_library import Script
 from tests.test_breakdown import BREAKDOWN
 from tests.test_merge_roles import TEXT
 from tests.test_script_library import _make
@@ -64,12 +69,6 @@ def test_merge_on_a_video_moves_its_shots_and_leaves_the_script_alone(owner, edi
     assert looks[mother] not in db.get(Project, pid).cast_ids  # unused, never deleted
     assert db.query(Job).count() == jobs  # free: nothing drawn or written
 
-    # An edit naming the merged role (as an old plan or a Redo would) lands on the role kept.
-    plan = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]
-    plan["scenes"][0]["shots"][1].update(character_ids=[f"slot:{mother}"], speaker="His mother")
-    assert editor.put(f"/projects/{pid}/breakdown", json=plan).status_code == 200
-    assert _shots(editor, pid) == [("Mom", [f"char:{looks[mom]}"])] * 2
-
     editor.post(f"{url}/merge/undo", json={"token": done["token"]})
     assert _shots(editor, pid) == before
     assert [r["slot_id"] for r in editor.get(url).json() if r["slot_id"]] == [mom, mother]
@@ -88,3 +87,27 @@ def test_a_video_merge_refuses_itself_and_roles_it_doesnt_have(owner, editor, db
     # Merged here, it can't be merged into or merged again, and its pair isn't flagged.
     assert editor.post(f"{url}/{mom}/merge", json={"into_slot_id": mother}).status_code == 404
     assert editor.get(f"/projects/{pid}/assets/maybe-same").json() == []
+
+
+def test_after_an_edit_the_merge_stays_and_cant_be_undone(owner, editor, db):
+    """Undo would drop the editor's later work, so it's refused once the shots changed."""
+    base, pid, mom, mother, looks = _video(owner, editor, db)
+    url = f"/projects/{pid}/assets"
+    done = editor.post(f"{url}/slots/{mother}/merge", json={"into_slot_id": mom}).json()
+    # An edit naming the merged role (as an old plan or a Redo would) lands on the role kept.
+    plan = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]
+    plan["scenes"][0]["shots"][1].update(character_ids=[f"slot:{mother}"], speaker="His mother")
+    assert editor.put(f"/projects/{pid}/breakdown", json=plan).status_code == 200
+    assert _shots(editor, pid) == [("Mom", [f"char:{looks[mom]}"])] * 2
+
+    late = editor.post(f"{url}/merge/undo", json={"token": done["token"]})
+    assert late.status_code == 409
+    assert late.json()["detail"] == (
+        "This can't be undone any more: the shots were changed after the merge."
+    )
+    # A video's merge is never undone from the script's Cast either.
+    script = db.get(Script, int(base.rsplit("/", 1)[1]))
+    with pytest.raises(HTTPException) as refused:
+        merge_roles.undo(db, script, done["token"])
+    assert refused.value.status_code == 404
+    assert _shots(editor, pid) == [("Mom", [f"char:{looks[mom]}"])] * 2
