@@ -91,6 +91,7 @@ function AssetCard({
   stopFor,
   canSave,
   onMerge,
+  mergeAlone,
   sameAs,
 }: {
   asset: Asset;
@@ -100,6 +101,8 @@ function AssetCard({
   canSave: boolean;
   /** Merge into… for a role, when the video has another role; and the "may be the same as" badge. */
   onMerge?: () => void;
+  /** The only role on the video: Merge into… is shown disabled, with why. */
+  mergeAlone?: boolean;
   sameAs?: ReactNode;
 }) {
   const kind: "place" | "character" =
@@ -304,16 +307,17 @@ function AssetCard({
           </div>
           {deleted && <p className="text-sm text-muted">The character this role used was deleted from Cast &amp; places.</p>}
           {sameAs}
-          {((notUsed && lookId != null && !asset.locked) || onMerge) && (
+          {((notUsed && lookId != null && !asset.locked) || onMerge || mergeAlone) && (
             <Menu title="Look actions" trigger={(t) => <Button variant="ghost" dense icon={Ellipsis} aria-label={`More for ${title}`} {...t} />}>
               {(close) => (
                 <>
-                  {onMerge && (
-                    <MenuItem onClick={() => { close(); onMerge(); }}>
+                  {(onMerge || mergeAlone) && (
+                    <MenuItem disabled={!onMerge} onClick={() => { close(); onMerge?.(); }}>
                       <Merge size={20} strokeWidth={1.75} aria-hidden />
                       Merge into…
                     </MenuItem>
                   )}
+                  {mergeAlone && <p className="px-3 pb-2 text-xs text-muted">There's no other role to merge into.</p>}
                   {notUsed && lookId != null && !asset.locked && (
                     <MenuItem danger onClick={() => { close(); remove.mutate(); }}>
                       <Trash2 size={20} strokeWidth={1.75} aria-hidden />
@@ -548,6 +552,7 @@ export function AssetsPane({
           stopFor={stopFor}
           canSave={canSave}
           onMerge={a.kind === "character" && merge.canMerge(a) ? () => merge.start(a) : undefined}
+          mergeAlone={a.kind === "character" && merge.alone(a)}
           sameAs={a.kind === "character" ? merge.badge(a) : undefined}
         />
       ))}

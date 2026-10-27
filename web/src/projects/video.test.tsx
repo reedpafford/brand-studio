@@ -519,7 +519,9 @@ test("a look a role still uses has no Delete this look: it is offered only once 
   open();
   const card = await screen.findByLabelText("Coach");
   expect(within(card).getByText("This video only")).toBeInTheDocument();
-  expect(within(card).queryByRole("button", { name: /^More for/ })).toBeNull();
+  // Its only menu item is the disabled Merge into… (it is the video's one role); no Delete this look.
+  await userEvent.click(within(card).getByRole("button", { name: /^More for/ }));
+  expect(screen.queryByRole("menuitem", { name: "Delete this look" })).toBeNull();
 });
 
 test("a Cast & places character has no Delete this look", async () => {
