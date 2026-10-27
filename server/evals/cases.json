@@ -950,6 +950,51 @@
     "The payoff callback ('Sorry, I don't get invited to anything.' or its new version) answers that same line."
    ],
    "expect": {}
+  },
+  {
+   "id": "fomo-empty-chair-cast",
+   "brand": "fomo",
+   "steps": [
+    "cast_slots"
+   ],
+   "brief": "The empty chair: Omar is stood up on his birthday, his friend calls it, a year of trading, the friend toasts him at the payoff.",
+   "cast": [
+    "char:3 Omar, the hero"
+   ],
+   "places": [],
+   "script": [
+    "SCENE 1 — INT. DINER — NIGHT",
+    "Omar sits alone in a booth across from an empty chair, a birthday candle in a cupcake. Other diners chat and laugh around him.",
+    "FRIEND: She's not coming, man.",
+    "Omar stares at the door.",
+    "WAITER: Still waiting on the second order?",
+    "OMAR: Just the check.",
+    "SCENE 2 — INT. OMAR'S ROOM — NIGHT",
+    "★ fomo screen: Token chart down — on Omar's phone in his hand",
+    "FRIEND (V.O.): She's not coming, man.",
+    "Wordless montage, Omar in every shot: a red day he shakes off, a small first win, another late night, a bigger win, then his own food truck with a line round the block.",
+    "★ fomo screen: Token chart up — on Omar's phone in his hand, a phone ding",
+    "SCENE 3 — INT. ROOFTOP RESTAURANT — NIGHT, ONE YEAR LATER",
+    "Omar's table is full; the friend raises a glass to him.",
+    "FRIEND: Told you she'd regret it.",
+    "★ fomo screen: Home (rich) — Omar holds his phone up to the camera, the fomo logo clear",
+    "OMAR: Want to trade like me? Download fomo through the link in my bio."
+   ],
+   "good": [
+    "Every character who speaks or appears in more than one shot is a slot under the script's name (Reed, 2026-10-27): Omar, the friend and the waiter; the diners and the full table are background."
+   ],
+   "expect": {
+    "slots_named": [
+     "Omar",
+     "Friend",
+     "Waiter"
+    ],
+    "slots_absent": [
+     "crowd",
+     "guest",
+     "diners"
+    ]
+   }
   }
  ]
 }

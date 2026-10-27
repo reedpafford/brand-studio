@@ -363,6 +363,22 @@ def test_cast_slots_keep_the_names_the_cast_and_scripts_use(tmp_path):
     assert "no slot for Bruno" in problems
 
 
+def test_every_speaker_is_a_slot_in_the_eval(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-empty-chair-cast")
+    slot = {"kind": "Main", "appears_in": [0], "recurring": True}
+    slots = [
+        slot | {"role": "Omar, the hero", "description": "Late-20s man, a line cook"},
+        slot | {"role": "Friend, Omar's best friend", "description": "Late-20s man, a barber"},
+    ]
+    (tmp_path / f"{case['id']}.cast_slots.json").write_text(json.dumps({"slots": slots}))
+    assert score(tmp_path, case) == [
+        "Advice: no slot carries the name Waiter; use it in that role",
+        "no slot for Waiter",
+    ]
+
+
 def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     ex, result = example("cast_slots")
     versions = {
@@ -371,6 +387,10 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     }
     assert check.cast_slots(versions, result) == []
     assert check.cast_slots(versions, schemas.CastSlots(slots=[])) == ["no cast slots; regenerate"]
+    no_friend = schemas.CastSlots(slots=result.slots[:2])  # a one-off who speaks is a role
+    assert check.cast_slots(versions, no_friend) == [
+        "Advice: no slot carries the name Friend; use it in that role"
+    ]
     extra = {"description": "30s man, a cook", "kind": "Helper", "recurring": False}
     result.slots += [
         schemas.CastSlot(role="Wedding guests", appears_in=[0], **extra),
