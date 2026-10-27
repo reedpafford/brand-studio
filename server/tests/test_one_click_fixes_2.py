@@ -97,3 +97,36 @@ def test_what_code_cant_fix_claude_rewrites_free(app, db, owner, editor, setup):
     fixed = db.get(ProjectClip, row.id)
     assert fixed.prompt == _prompt() and fixed.change["before"] == wrong
     assert db.get(Job, job.id).credits == 0 and ed.id == job.created_by_id  # free to them
+
+
+def test_the_free_claude_fix_runs_once_per_prompt(app, db, editor, setup):  # noqa: F811
+    """Reed, 2026-10-27 (spec #530): one free rewrite per clip per prompt version, one in
+    flight at a time; a second press after it answers "We couldn't fix this one
+    automatically."; a manual edit makes it free again, its Undo doesn't."""
+    mom = _mom(editor, db, setup)
+    _with_breakdown(app, db, editor, setup)
+    wrong = _prompt().replace("where is all your money", "where is your money")
+    row = _clip(db, setup, wrong, mom=mom)
+    url = f"/projects/{setup['project']}/clips/{row.id}"
+
+    def fixes():
+        return [j for j in db.query(Job).all() if j.input.get("fix")]
+
+    first = editor.post(f"{url}/fix").json()
+    second = editor.post(f"{url}/fix").json()  # while it's on its way: the same job
+    assert first["job"]["id"] == second["job"]["id"] and len(fixes()) == 1
+    _run(app, db, FakeClaude(_answer(mom, setup["screen"], wrong)))  # Claude can't clear it
+    db.expire_all()
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
+    assert shown["free_fix_used"] is True
+    third = editor.post(f"{url}/fix")
+    assert third.status_code == 409
+    assert third.json()["detail"] == "We couldn't fix this one automatically."
+    assert len(fixes()) == 1  # three presses, one Claude call
+
+    body = {"prompt": wrong, "references": shown["references"]}  # its Undo: the same prompt
+    assert editor.put(url, json=body).json()["free_fix_used"] is True
+    edited = wrong.replace("Close-up, push in.", "Close-up.")  # the editor's own change
+    assert editor.put(url, json={**body, "prompt": edited}).json()["free_fix_used"] is False
+    assert editor.post(f"{url}/fix").json()["job"]["id"] != first["job"]["id"]
+    assert len(fixes()) == 2

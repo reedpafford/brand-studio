@@ -244,6 +244,17 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
 TOO_MANY = "more references than"
 
 
+LEFT_OUT = "Advice: Left out "
+
+
+def left_out(names: list[str], limit: int) -> list[str]:
+    """Advice naming the pictures a trim to the model's limit left out (QA on #527)."""
+    if not names:
+        return []
+    return [f"{LEFT_OUT}{', '.join(dict.fromkeys(names))}: the model takes {limit} "
+            "pictures, nearest the camera first."]  # fmt: skip
+
+
 def _cap(frame: Frame, known: dict) -> Frame:
     """Over the image model's limit even with the nearest people only: the last pictures
     (props, then screens) go, and the prompt names them instead."""
@@ -270,10 +281,15 @@ def repair(db: Session, project: Project) -> int:
         was = Frame(clip_id=row.clip_id, shot_id=row.shot_id, prompt=row.prompt,
                     reference_ids=row.reference_ids)  # fmt: skip
         now = with_cast(db, project, was, breakdowns[row.breakdown_id], known, trim=False)
-        problems = frame_problems(db, project, now, row.breakdown_id)
+        problems = frame_problems(db, project, now, row.breakdown_id) + [
+            p for p in row.problems or [] if p.startswith(LEFT_OUT)
+        ]  # what an earlier trim left out stays said
         if any(p.lower().startswith(TOO_MANY) for p in problems):  # never a dead end
             now = _cap(with_cast(db, project, was, breakdowns[row.breakdown_id], known), known)
-            problems = frame_problems(db, project, now, row.breakdown_id)
+            problems = frame_problems(db, project, now, row.breakdown_id) + left_out(
+                [_name(known, r) for r in was.reference_ids if r not in now.reference_ids],
+                image_model().max_reference_images,
+            )
         if now == was and problems == (row.problems or []):
             continue
         row.prompt, row.reference_ids, row.problems = now.prompt, now.reference_ids, problems

@@ -21,7 +21,7 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts, Reference
-from app.storyboard import CHAR, _name, _renumber, _same, nearest_first
+from app.storyboard import CHAR, LEFT_OUT, _name, _renumber, _same, left_out, nearest_first
 from app.storyboard import assets as picture_assets
 
 # asset id -> (line for the prompt, kind for Seedance, its file ids)
@@ -192,10 +192,15 @@ def repair(db: Session, project: Project) -> int:
         was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
                          references=[Reference(**r) for r in row.references])  # fmt: skip
         now = with_cast(db, project, was, bd, known, trim=False)
-        problems = clip_problems(db, project, bd, now)
+        problems = clip_problems(db, project, bd, now) + [
+            p for p in row.problems or [] if p.startswith(LEFT_OUT)
+        ]  # what an earlier trim left out stays said
         if any(p.lower().startswith("more references than") for p in problems):
             now = _cap(with_cast(db, project, was, bd, known), known)  # never a dead end
-            problems = clip_problems(db, project, bd, now)
+            kept = {r.id for r in now.references}
+            gone = [_name(_pictures(known), r.id) for r in was.references if r.id not in kept]
+            limit = video_model().max_reference_images
+            problems = clip_problems(db, project, bd, now) + left_out(gone, limit)
         if now == was and problems == (row.problems or []):
             continue
         row.prompt, row.references = now.prompt, [r.model_dump() for r in now.references]
@@ -237,6 +242,7 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         else:
             for take in db.scalars(select(ClipTake).where(ClipTake.clip_id == row.id)):
                 take.prompt = take.prompt if take.prompt is not None else row.prompt
+        row.same_fix = bool(job.input.get("fix"))  # the free fix landing: still counted
         row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, c.seconds
         row.prompt, row.references = c.prompt, [r.model_dump() for r in c.references]
         row.problems, row.kept = clip_problems(db, project, bd, c), []
@@ -288,6 +294,14 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
     return clip.model_copy(update={"prompt": prompt, "seconds": seconds})
 
 
+def fixing(db: Session, row: ProjectClip) -> Job | None:
+    """The free fix already on its way for this clip, if one is."""
+    jobs = db.scalars(select(Job).where(Job.project_id == row.project_id, Job.status.in_(WAITING)))
+    return next(
+        (j for j in jobs if j.input.get("fix") and j.input.get("clip_ids") == [row.clip_id]), None
+    )
+
+
 def queue_fix(db: Session, user, project: Project, row: ProjectClip, problems: list[str]) -> Job:
     """Fix this clip's prompt with Claude, free (charged to no budget or week; its dollars
     are in Usage): one clip, told which problems to clear, never its spoken lines."""
@@ -309,6 +323,7 @@ def queue_fix(db: Session, user, project: Project, row: ProjectClip, problems: l
               kind="write-claude", provider="claude", input=data, project_id=project.id,
               brand_id=brand_for(db, project, data), credits=0, status="queued")  # fmt: skip
     db.add(job)
+    row.free_fix_used = True
     db.commit()
     return job
 

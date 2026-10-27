@@ -4776,6 +4776,11 @@ export interface components {
             change: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Free Fix Used
+             * @default false
+             */
+            free_fix_used: boolean;
         };
         /** ProjectEstimateOut */
         ProjectEstimateOut: {
