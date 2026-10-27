@@ -4,7 +4,6 @@ import type { components } from "../api/schema";
 import { Card, EmptyState, Skeleton } from "../components";
 import { fileUrl } from "../api/upload";
 import { errorText as errorClass } from "../ui";
-import { useMe } from "../auth/useMe";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { useApproveAllWith, type ApproveAllResult } from "./ApproveAll";
 import { AutoLooks } from "./AutoLooks";
@@ -66,10 +65,6 @@ export function AssetsPane({
 }) {
   const assets = useAssets(projectId);
   const stopFor = useOwnScriptStop(ownScript, { used, budget });
-  const { data: me } = useMe();
-  const limits = useQuery({ queryKey: ["credit-limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
-  // Reed always may save a look to Cast & places; an editor only when Team allows it.
-  const canSave = me?.role === "owner" || !!limits.data?.editors_can_save_looks;
   const queryClient = useQueryClient();
   const picks = useBriefChoices(brandId, variants);
   const merge = useAssetMerge(projectId, (assets.data ?? []).filter((a) => a.kind === "character"));
@@ -132,7 +127,6 @@ export function AssetsPane({
           projectId={projectId}
           brandId={brandId}
           stopFor={stopFor}
-          canSave={canSave}
           onMerge={a.kind === "character" && merge.canMerge(a) ? () => merge.start(a) : undefined}
           mergeAlone={a.kind === "character" && merge.alone(a)}
           sameAs={a.kind === "character" ? merge.badge(a) : undefined}

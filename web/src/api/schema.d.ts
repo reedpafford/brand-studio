@@ -453,8 +453,7 @@ export interface paths {
         post?: never;
         /**
          * Archive Item
-         * @description Archive (reversible: see unarchive). Anyone on the team can do this. On a look just
-         *     saved to Cast & places, it's the Undo: the video goes back on its own look.
+         * @description Archive (reversible: see unarchive). Anyone on the team can do this.
          */
         delete: operations["archive_item_library__kind___item_id__delete"];
         options?: never;
@@ -3214,27 +3213,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project_id}/assets/slots/{slot_id}/save-to-library": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Save To Library
-         * @description Copy this video's look into Cast & places as a normal character (free: same sheet) and
-         *     use the copy here. Reed always; editors only with the Team setting on.
-         */
-        post: operations["save_to_library_projects__project_id__assets_slots__slot_id__save_to_library_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/projects/{project_id}/assets/approve-all": {
         parameters: {
             query?: never;
@@ -4606,8 +4584,6 @@ export interface components {
             weekly_quick_clip_credits: number | string;
             /** Per Video Max Credits */
             per_video_max_credits: number;
-            /** Editors Can Save Looks */
-            editors_can_save_looks?: boolean | null;
         };
         /** LimitsOut */
         LimitsOut: {
@@ -4615,8 +4591,6 @@ export interface components {
             weekly_quick_clip_credits: number;
             /** Per Video Max Credits */
             per_video_max_credits: number;
-            /** Editors Can Save Looks */
-            editors_can_save_looks: boolean;
         };
         /** Line */
         Line: {
@@ -5377,18 +5351,6 @@ export interface components {
             into_slot_id: number;
             /** Why */
             why: string;
-        };
-        /** SaveLookIn */
-        SaveLookIn: {
-            /** Name */
-            name: string;
-        };
-        /** SavedOut */
-        SavedOut: {
-            /** Library Item Id */
-            library_item_id: number;
-            /** Assets */
-            assets: components["schemas"]["AssetOut"][];
         };
         /** Scene */
         Scene: {
@@ -12987,42 +12949,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MissingLooksOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    save_to_library_projects__project_id__assets_slots__slot_id__save_to_library_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-                slot_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SaveLookIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedOut"];
                 };
             };
             /** @description Validation Error */

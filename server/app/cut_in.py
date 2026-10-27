@@ -2,8 +2,7 @@
 replaced by the real brand picture, so screens and products show exactly (Seedance can't
 promise exact text). Any shot that shows a brand screen can have it, characters or not (screens
 are in the character's hand, Director #546). The editor can switch each one on; all start off
-(Reed, 2026-10-27: screens and products may be generated, as long as the logo, layout and main
-text are right).
+(Reed, 2026-10-27: screens and products may be generated, as long as the logo is right).
 
 The picture is fitted inside the frame over the clip itself, blurred, with a slow push in
 (about 3% over the shot). It stays up at least 1.2 s. The clip's audio is unchanged."""
