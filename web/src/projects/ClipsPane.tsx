@@ -14,7 +14,6 @@ import { useOwnScriptStop } from "./useOwnScriptStop";
 import { usePressed } from "./usePressed";
 import { AdviceList, useKeep } from "./Keep";
 import { useProblemWords } from "./ProblemText";
-import { useMe } from "../auth/useMe";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
 import { RewriteNote, RewriteOne } from "./RewriteClips";
@@ -327,7 +326,6 @@ function ClipCard(props: {
 }) {
   const { clip: c } = props;
   const keep = useKeep(props.projectId, { of: "clip", id: c.id });
-  const owner = useMe().data?.role === "owner";
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const failed = props.job?.status === "failed";
@@ -380,7 +378,7 @@ function ClipCard(props: {
           ))}
         </ul>
       )}
-      <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${c.clip_id}`} />
+      <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${c.clip_id}`} />
       {c.takes.length > 0 && (
         <fieldset className="flex flex-wrap items-center gap-3">
           <legend className="sr-only">Takes for clip {c.clip_id}</legend>

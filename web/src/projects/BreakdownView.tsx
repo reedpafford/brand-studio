@@ -10,7 +10,6 @@ import { Sheet } from "./Sheet";
 import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User, Users } from "lucide-react";
 import { Badge, Banner, Button, Menu, MenuItem } from "../components";
 import { errorText as errorClass, input } from "../ui";
-import { useMe } from "../auth/useMe";
 import { blocking, CAST } from "./problems";
 import { plainWords } from "./names";
 import { AdviceList, useKeep } from "./Keep";
@@ -135,7 +134,6 @@ export function BreakdownView(props: {
   const [sheetShot, setSheetShot] = useState<string | null>(null);
   const line = props.line;
   const keep = useKeep(projectId, { of: "breakdown" });
-  const owner = useMe().data?.role === "owner";
   const real = blocking(row.problems, row.kept); // advice is listed apart, closed
 
   // A line picked in the script brings its shot into view.
@@ -338,7 +336,7 @@ export function BreakdownView(props: {
           {castFix}
         </section>
       )}
-      <AdviceList label={words} problems={row.problems} kept={row.kept} onKeep={preview ? preview.keep : (problem, undo) => keep.mutate({ problem, undo })} busy={preview ? preview.keepBusy : keep.isPending} owner={owner} extra={(p) => goButton(p)} />
+      <AdviceList label={words} problems={row.problems} kept={row.kept} onKeep={preview ? preview.keep : (problem, undo) => keep.mutate({ problem, undo })} busy={preview ? preview.keepBusy : keep.isPending} extra={(p) => goButton(p)} />
       {bd.hook !== undefined && (
         <p className="text-sm">
           <EditableText value={bd.hook} label="hook" onChange={(v) => change((b) => setHook(b, v))}>
