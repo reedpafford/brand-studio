@@ -161,23 +161,19 @@ def test_every_shown_check_goes_through_said():
 
 def test_a_stored_id_is_never_shown_and_can_still_be_kept(app, db, editor, setup):  # noqa: F811
     from app.models.breakdowns import BreakdownVersion
-    from app.models.clips import ProjectClip
     from tests.test_storyboard import _with_breakdown
 
     _with_breakdown(app, db, editor, setup)
     bd = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
-    clip = ProjectClip(project_id=setup["project"], breakdown_id=bd.id, clip_id="c1",
-                       seconds=5, prompt="x", references=[],
-                       problems=["Advice: c1: slot:28 looks older than the role"])  # fmt: skip
-    db.add(clip)
+    bd.problems = ["Advice: c1: slot:28 looks older than the role"]  # saved before
     db.commit()
-    url = f"/projects/{setup['project']}/clips"
-    shown = editor.get(url).json()[0]["problems"]
+    url = f"/projects/{setup['project']}/breakdown"
+    shown = editor.get(url).json()["problems"]
     assert shown == ["Advice: A character looks older than the role"]  # slot 28 isn't there
-    kept = editor.post(f"{url}/{clip.id}/keep", json={"problem": shown[0]})
+    kept = editor.post(f"{url}/keep", json={"problem": shown[0]})
     assert kept.status_code == 200, kept.text
     assert kept.json()["kept"] == shown
-    undone = editor.delete(f"{url}/{clip.id}/keep", params={"problem": shown[0]})
+    undone = editor.delete(f"{url}/keep", params={"problem": shown[0]})
     assert undone.json()["kept"] == []
 
 
@@ -191,7 +187,6 @@ def test_a_left_over_id_is_named_from_the_askers_workspace_only(
     """Reed: the character's name, not "a character": a role by its name, a look and a
     screen by theirs. QA on #517: never a name from another workspace."""
     from app.models.breakdowns import BreakdownVersion
-    from app.models.clips import ProjectClip
     from app.models.script_library import ScriptCastSlot
     from tests.conftest import upload
     from tests.test_storyboard import _with_breakdown
@@ -211,10 +206,9 @@ def test_a_left_over_id_is_named_from_the_askers_workspace_only(
     bd = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
     text = (f"Advice: c1: slot:{slot.id} and char:{mia} share screen:{setup['screen']}; "
             f"char:{rival} and char:99999 left")  # fmt: skip
-    db.add(ProjectClip(project_id=setup["project"], breakdown_id=bd.id, clip_id="c1",
-                       seconds=5, prompt="x", references=[], problems=[text]))  # fmt: skip
+    bd.problems = [text]  # saved before the plain-words work
     db.commit()
-    (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()[0]["problems"]
+    (shown,) = editor.get(f"/projects/{setup['project']}/breakdown").json()["problems"]
     assert shown.startswith("Advice: Nate and Mia share ")
     assert "a screen" not in shown  # the brand screen by its own name
     assert shown.endswith("; a character and a character left")  # another workspace's: gone

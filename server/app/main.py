@@ -113,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         clips,
     ):
         app.include_router(module.router)
+    app.include_router(breakdown.shots)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
     app.add_middleware(UploadLimit, path=r"/projects/\d+/script/upload", max_bytes=MAX_DOC_BYTES)
     app.add_middleware(

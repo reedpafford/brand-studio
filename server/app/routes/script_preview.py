@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, script_preview
+from app import advice, breakdown_fix, script_preview
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user
@@ -36,6 +36,8 @@ class PreviewOut(BaseModel):
     kept: Said = []  # advice kept anyway (never blocks)
     stale: bool = False  # the words changed since it was planned: plan again or keep it
     changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
+    fixes: list[dict] = []  # [{problem, kind, label}]: a free one-click fix for that problem
+    fixed: list[str] = []  # what a fix just did, in plain words (the toast); Undo is PUT
 
 
 class EstimateOut(BaseModel):
@@ -63,6 +65,7 @@ def _out(db: Session, draft) -> PreviewOut:
         running=_running(db, draft.id),
         kept=draft.breakdown_kept,
         stale=bool(bd and draft.breakdown_text is not None and draft.breakdown_text != draft.text),
+        fixes=breakdown_fix.fixes(draft.breakdown_problems or []),
     )
 
 
@@ -191,4 +194,39 @@ def fix_plan_cast(
     db.commit()
     out = _out(db, draft)
     out.changed_shots = cast_roles.changed_shots(old, fixed)
+    return out
+
+
+class FixIn(BaseModel):
+    problems: list[str] = []  # the problems as shown; empty: every one with a fix
+
+
+@router.post("/fix", response_model=PreviewOut)
+def fix_plan(
+    script_id: int,
+    slot: Slot,
+    body: FixIn | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Fix the version's plan for free (spec one-click-fixes.md §1), as for a video's
+    breakdown. Undo saves the old plan back with PUT."""
+    from app import breakdown
+
+    _, draft = _version(db, user, script_id, slot, edit=True)
+    if not draft.breakdown:
+        raise HTTPException(404, "This version has no plan yet.")
+    text = draft.breakdown_text if draft.breakdown_text is not None else draft.text
+    every = [f["problem"] for f in breakdown_fix.fixes(draft.breakdown_problems or [])]
+    m = breakdown.video_model()
+    fixed, done = breakdown_fix.repair(
+        text, Breakdown.model_validate(draft.breakdown), (body.problems if body else []) or every,
+        m.duration.min, m.duration.max,
+    )  # fmt: skip
+    if not done:
+        raise HTTPException(409, "Nothing here can be fixed for you. Edit the shot instead.")
+    script_preview.save(db, draft, fixed, user.id, draft.breakdown_text)
+    db.commit()
+    out = _out(db, draft)
+    out.fixed = done
     return out

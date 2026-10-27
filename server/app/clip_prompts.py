@@ -164,6 +164,20 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
     return plain(problems, names(known))
 
 
+def _cap(clip: ClipPrompt, known: Assets) -> ClipPrompt:
+    """Over the video model's limit even with the nearest people only: the last pictures go,
+    and the prompt names them instead."""
+    limit = video_model().max_reference_images
+    images = [r for r in clip.references if r.kind == "image"]
+    if not limit or len(images) <= limit:
+        return clip
+    pics = _pictures(known)
+    dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(images) if i >= limit}
+    prompt = _renumber(clip.prompt, {}, dropped, TAGS)
+    keep = images[:limit] + [r for r in clip.references if r.kind != "image"]
+    return clip.model_copy(update={"prompt": prompt, "references": keep})
+
+
 def repair(db: Session, project: Project) -> int:
     """Give every clip of the video its characters' sheets (`with_cast`, nothing dropped),
     and check it again. Free and idempotent: on deploy for clips saved before
@@ -179,6 +193,9 @@ def repair(db: Session, project: Project) -> int:
                          references=[Reference(**r) for r in row.references])  # fmt: skip
         now = with_cast(db, project, was, bd, known, trim=False)
         problems = clip_problems(db, project, bd, now)
+        if any(p.lower().startswith("more references than") for p in problems):
+            now = _cap(with_cast(db, project, was, bd, known), known)  # never a dead end
+            problems = clip_problems(db, project, bd, now)
         if now == was and problems == (row.problems or []):
             continue
         row.prompt, row.references = now.prompt, [r.model_dump() for r in now.references]
