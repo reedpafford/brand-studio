@@ -119,7 +119,7 @@ test("a prompt shows pictures by name, never [Image1]", async () => {
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt: "[Image1] is the first frame. [Image2] eats. [Image3] shows.", references })]] });
   open("?step=clips");
   const prompt = await screen.findByLabelText("Prompt for clip c1");
-  expect(prompt).toHaveTextContent("First frame is the first frame. Bo's look eats. Picture 3 shows.");
+  expect(prompt).toHaveTextContent("Storyboard frame is the first frame. Bo's look eats. Picture 3 shows.");
   expect(prompt).not.toHaveTextContent("[Image");
 });
 
