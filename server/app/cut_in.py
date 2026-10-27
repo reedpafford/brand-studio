@@ -59,6 +59,18 @@ def inserts(db: Session, project: Project, clip: ProjectClip) -> list[Insert]:
     return out
 
 
+def still_shown(old: dict, new: dict, real_images: dict) -> dict:
+    """ "Use the real image" kept only for shots the new breakdown has as they were, showing
+    the same thing (Reed, 2026-10-27: it's cleared when its shot is replaced)."""
+
+    def shots(bd: dict) -> dict:
+        return {s["id"]: (s.get("action"), s.get("screen_ids") or [])
+                for scene in bd.get("scenes") or [] for s in scene.get("shots") or []}  # fmt: skip
+
+    was, now = shots(old or {}), shots(new or {})
+    return {k: on for k, on in real_images.items() if k in now and was.get(k) == now[k]}
+
+
 def _probe(path: Path) -> tuple[int, int, float, float]:
     """Width, height, frame rate and length of a video."""
     entries = "stream=width,height,r_frame_rate:format=duration"

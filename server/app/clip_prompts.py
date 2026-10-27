@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app import cut_in
 from app.advice import names, plain
 from app.breakdown import video_model, video_model_block
 from app.enhance import escape, project_context
@@ -265,6 +266,10 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             for take in db.scalars(select(ClipTake).where(ClipTake.clip_id == row.id)):
                 take.prompt = take.prompt if take.prompt is not None else row.prompt
         row.same_fix = bool(job.input.get("fix"))  # the free fix landing: still counted
+        if row.real_images and row.breakdown_id not in (None, bd_row.id):
+            was = db.get(BreakdownVersion, row.breakdown_id)
+            row.real_images = cut_in.still_shown(was.data if was else {}, bd_row.data,
+                                                 row.real_images)  # fmt: skip
         row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, c.seconds
         row.prompt, row.references = c.prompt, [r.model_dump() for r in c.references]
         row.problems, row.kept = clip_problems(db, project, bd, c), []
