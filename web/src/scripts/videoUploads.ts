@@ -5,7 +5,7 @@ export const MAX_BYTES = 100 * 1024 * 1024;
 export const MAX_SECONDS = 90;
 
 /** What the server answers once a video is uploaded and checked. `problem` is its plain sentence when it refused the file. */
-export type Uploaded = { id: string; seconds: number | null; problem?: string | null };
+export type Uploaded = { id: number | null; seconds: number | null; problem?: string | null };
 /** Uploads one file with progress (0–100); the signal stops it. */
 export type Uploader = (file: File, onProgress: (percent: number) => void, signal: AbortSignal) => Promise<Uploaded>;
 
@@ -15,7 +15,7 @@ export type FileRow = {
   status: "uploading" | "ready" | "problem";
   percent: number;
   seconds: number | null;
-  id: string | null; // the server's id for the uploaded video
+  id: number | null; // the server's id for the uploaded video (none when it refused the file)
   problem: string | null;
   canRetry: boolean;
 };
@@ -34,7 +34,7 @@ export function checkBeforeUpload(file: File): string | null {
 }
 
 /** The files added to Bulk create: each uploads as soon as it is added, and can be removed, or tried again, at any time. `room` is how many reels there is still space for (links count too). */
-export function useFileQueue(uploader: Uploader, room: number, forget?: (id: string) => void) {
+export function useFileQueue(uploader: Uploader, room: number, forget?: (id: number) => void) {
   const [rows, setRows] = useState<FileRow[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
   const stops = useRef(new Map<string, AbortController>());
@@ -90,7 +90,7 @@ export function useFileQueue(uploader: Uploader, room: number, forget?: (id: str
     stops.current.get(key)?.abort();
     stops.current.delete(key);
     const gone = rows.find((r) => r.key === key);
-    if (gone?.id) forget?.(gone.id);
+    if (gone?.id != null) forget?.(gone.id);
     setRows((all) => all.filter((r) => r.key !== key));
   };
   const retry = (key: string) => {

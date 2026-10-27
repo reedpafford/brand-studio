@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardPaste, Plus, X } from "lucide-react";
 import { api, errorText } from "../api/client";
@@ -11,7 +11,7 @@ import { weekStop } from "./useScript";
 import { LINK, ReelChip } from "./ReelImport";
 import { errorText as errorClass } from "../ui";
 import { BulkFiles } from "./BulkFiles";
-import { forgetVideo, uploadVideo } from "./uploadVideo";
+import { forgetVideo, videoUploader } from "./uploadVideo";
 import { MAX_REELS, useFileQueue, type Uploader } from "./videoUploads";
 
 type ReelRow = components["schemas"]["ReelRow"];
@@ -34,7 +34,7 @@ export function parseList(text: string): Row[] {
 }
 
 /** Reed's many-at-once: rows become drafts first (nothing is written), then Write all asks Claude for every script at one price. */
-export function BulkCreate({ brandId, onClose, uploader = uploadVideo }: { brandId: number; onClose: () => void; uploader?: Uploader }) {
+export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; onClose: () => void; uploader?: Uploader }) {
   const [rows, setRows] = useState<Row[]>([empty(), empty(), empty()]);
   const [pasting, setPasting] = useState<string | null>(null);
   const [made, setMade] = useState<{ id: number; title: string; reel?: ReelRow | null }[] | null>(null);
@@ -48,7 +48,7 @@ export function BulkCreate({ brandId, onClose, uploader = uploadVideo }: { brand
   const tooMany = linkList.length > MAX;
   const goodLinks = linkList.length - badLinks.length; // the button counts only real reel links
   // Video files go in the same queue as the links: up to MAX reels in all, uploading as soon as they are added.
-  const files = useFileQueue(uploader, MAX - linkList.length, forgetVideo);
+  const files = useFileQueue(useMemo(() => uploader ?? videoUploader(brandId), [uploader, brandId]), MAX - linkList.length, forgetVideo);
   const [stopping, setStopping] = useState(false);
   const closePanel = () => (files.uploading > 0 ? setStopping(true) : onClose());
   const reelCount = goodLinks + files.ready.length;
