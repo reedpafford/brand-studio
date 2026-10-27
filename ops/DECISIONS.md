@@ -22,12 +22,12 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 
 **Screens and products**
 13. App screens are on a phone in the character's hand, in the scene, never a flat full-frame screenshot. "Use the real image" cut-ins are off unless an editor turns them on, and cleared when their shot is replaced.
-14. On an app screen only the fomo logo or the word "fomo" must be right. Numbers, coins and charts can be anything; nothing blocks or is redone for numbers.
+14. On an app screen only the fomo logo or the word "fomo" must be right. Numbers, coins and charts can be anything; nothing blocks or is redone for numbers. Montage and trading beats (any shot showing trading, gains or losses) attach the brand's logo, not the Token chart or Desktop trading screenshots, and ask for an invented trading screen in the brand's style: the logo from the attached picture sharp in the top corner, the chart and numbers the story beat needs, each screen beat bigger than the last and visibly climbing when they're winning (a climb that doesn't rise is Advice, never a block). Storyboard stills follow the same rule. The real screenshots are kept only for brand moments (the payoff or CTA Home / Home (rich) screen), logo and layout exact, numbers free.
 15. A fomo-mention or CTA moment accepts any of the brand's home-type screens; that check is Advice.
 16. A product's real bag appears exactly: brand name, main claim and flavour label right; small print may garble.
 
 **Montages**
-17. The hero is in every shot. Grind comes before the payoff; the money climbs (story-side Advice). Payoffs are invented per video, never the reference's or a recent video's. Cuts stay quick and each beat is active and creative. The hero keeps one outfit through a montage unless the script changes it.
+17. The hero is in every shot. Grind comes before the payoff; the money climbs (story-side Advice). Payoffs are invented per video, never the reference's or a recent video's. Cuts stay quick and each beat is active and creative. The hero keeps one outfit through a montage unless the script changes it. A montage is one climb with one dip: the offer of a way out leads straight to someone opening the app with the others leaning in, then grind with small wins that each look bigger, one tense moment, then the payoff; celebration only at the payoff (creative guidance, not a hard check). A reaction line names the feeling and its reason, not just the face.
 
 **End line**
 18. Live-action parts of a reference are replaced, by default with the brand CTA. When the end line is the CTA, the CTA shot shows the character holding the phone up to camera with clear fomo branding; no end card and no logo overlay. The end-line check ignores case and punctuation and never blocks an approved script (Advice).
@@ -160,3 +160,4 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-27 Reed: remove "Save to Cast & places" for looks made for a video or script. If Reed likes a sheet or scene, he remakes it in Cast & places himself.
 - 2026-10-27 Producer (QA-Live, video #16): faces drifted only in a 20 s, 19-shot clip crossing three scenes, so clips hold one scene and about 12 s / 12 shots outside montages (#640). Reed informed.
 - 2026-10-27 Reed: Seedance doesn't mind real brand names (Lamborghini, Jordans); the copyright refusals have another cause (they all involve the Goth GF look).
+- 2026-10-27 Reed (montage trading screens, QA-Live video #16: every phone showed the same STONK chart at $0.0366): montage and trading beats get the brand logo attached and an invented chart that follows the story; real screenshots only for the payoff/CTA brand moment; stills follow the same rule; montage arc and reaction lines as creative guidance (Current rules 14 and 17). QA-Live re-runs a fresh fomo script end to end once it's live (Reed approved the spend).
