@@ -354,7 +354,7 @@ function FrameCard(props: {
   const phone = useMedia("(max-width: 639px)");
   const verb = f.file_id === null ? "Make still" : "Redo";
   const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
-  const price = props.cost !== undefined ? ` · ${props.cost} credits` : "";
+  const price = props.cost !== undefined ? ` · ${wholeCredits(props.cost)} credits` : "";
   const redoForm = (
     <div className="space-y-2">
       <label className="block text-sm">
@@ -440,7 +440,7 @@ function FrameCard(props: {
               Cancel
             </button>
           </div>
-          {f.file_id !== null && props.stopped && <p className="text-sm text-warning">Saving keeps the current still: {props.stopFor(props.cost)}</p>}
+          {f.file_id !== null && props.stopped && <p className="text-sm text-warning">Saving keeps the current still. {props.stopFor(props.cost)}</p>}
         </div>
       ) : (
         <div className="space-y-2">
