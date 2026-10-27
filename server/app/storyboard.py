@@ -209,6 +209,19 @@ def logo_still(n: int, who: str) -> str:
             "invented with the chart this beat needs.")  # fmt: skip
 
 
+def say_logo(known: dict, prompt: str, ids: list[str], clip: bool = False) -> str:
+    """Old words for each logo-only screen among `ids` (a clip's images, or a frame's) say the
+    logo: run by the free repair and before every paid still or take, so no logo goes out
+    labelled as a chart (QA on #654)."""
+    for n, r in enumerate(ids, 1):
+        if is_logo(known, r):
+            who = _name(known, r)
+            tag, said = (rf"\[Image{n}\]", f"[Image{n}] is the {who}.") if clip else (
+                rf"(?i:\bimage {n}\b)", logo_still(n, who))  # fmt: skip
+            prompt = logo_words(prompt, tag, said, who)
+    return prompt
+
+
 def _same(known: dict, a: str, b: str) -> bool:
     """The same person: one id, or a cast role and the look that plays it (one sheet)."""
     if a == b:
@@ -367,11 +380,7 @@ def repair(db: Session, project: Project) -> int:
         was = Frame(clip_id=row.clip_id, shot_id=row.shot_id, prompt=row.prompt,
                     reference_ids=row.reference_ids)  # fmt: skip
         now = with_cast(db, project, was, breakdowns[row.breakdown_id], known, trim=False)
-        for n, r in enumerate(now.reference_ids, 1):  # old words for a logo-only screen
-            if is_logo(known, r):
-                who = _name(known, r)
-                said = logo_words(now.prompt, rf"(?i:\bimage {n}\b)", logo_still(n, who), who)
-                now = now.model_copy(update={"prompt": said})
+        now = now.model_copy(update={"prompt": say_logo(known, now.prompt, now.reference_ids)})
         problems = frame_problems(db, project, now, row.breakdown_id) + [
             p for p in row.problems or [] if p.startswith(LEFT_OUT)
         ]  # what an earlier trim left out stays said
@@ -470,7 +479,8 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
         if not files and ref.startswith(("char:", "place:")):
             require_sheet(db.get(LibraryItem, int(ref.split(":")[1])))
         (characters if ref.startswith(CHAR) else objects).extend(files)
-    prompt = f"{frame.prompt}\nChange from the last still: {note}" if note else frame.prompt
+    prompt = say_logo(known, frame.prompt, frame.reference_ids)  # never a logo called a chart
+    prompt = f"{prompt}\nChange from the last still: {note}" if note else prompt
     job = image_job_input(
         image_model(), prompt, project.aspect_ratio, characters=characters, objects=objects
     )

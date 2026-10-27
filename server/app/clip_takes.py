@@ -21,6 +21,7 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.references import LONG_SIDE
 from app.sheets import require_cast_sheets, require_looks, require_sheet
+from app.storyboard import say_logo
 
 RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
 KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "reference_audios"}
@@ -38,6 +39,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
     require_looks(would_show(db, project, breakdown, shots), known)
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
+    images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
     for ref in clip.references:
         if ref["id"] not in known:
             raise HTTPException(
@@ -63,7 +65,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         "fit_images_to": LONG_SIDE[RESOLUTION],
         "exact_file_ids": exact,
         "input": {
-            "prompt": _with_note(in_english(clip.prompt), note),
+            "prompt": _with_note(in_english(say_logo(known, clip.prompt, images, clip=True)), note),
             "duration": clip.seconds,
             "resolution": RESOLUTION,
             "aspect_ratio": project.aspect_ratio,

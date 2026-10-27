@@ -3,10 +3,11 @@ line's shot shows the brand's real screen on the hero's phone, and every screen 
 is attached to its clip and its frame, so "screen isn't attached" never blocks. Free."""
 
 import copy
+import json
 
 from sqlalchemy import select
 
-from app import clip_prompts, storyboard
+from app import clip_prompts, clip_takes, storyboard
 from app.models.brands import Brand, BrandScreen
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
@@ -152,10 +153,17 @@ def test_saved_trading_prompts_stills_and_cut_ins_are_repaired_for_free(
     ids = {"project_id": project.id, "breakdown_id": bd.id, "clip_id": "c1"}
     cuts = {"1.1": True, "1.2": True}
     clip = ProjectClip(**ids, seconds=5, prompt=old, references=refs, real_images=cuts)
-    still = "Place the app screen from image 2; keep its logo, colours and layout exactly."
+    still = (
+        "Mom checks her phone. Show the Token chart up screen from image 2 as it is. Place"
+        " the app screen from image 2; keep its logo, colours and layout exactly."
+    )
     frame = StoryboardFrame(**ids, shot_id="1.1", reference_ids=[mom, up], prompt=still)
     db.add_all([clip, frame])
     db.commit()
+    # A paid take or still made before any repair never sends the logo called a chart.
+    sent = clip_takes.take_input(db, project, clip)["input"]["prompt"]
+    assert "[Image2] is the fomo logo." in sent and "Token chart up" not in sent
+    assert "layout" not in json.dumps(storyboard.render_input(db, project, frame))
     assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 1
     db.commit()
     db.refresh(clip)
@@ -167,4 +175,5 @@ def test_saved_trading_prompts_stills_and_cut_ins_are_repaired_for_free(
     assert "keep its fomo logo sharp in the top corner, the rest of the screen invented." in (
         frame.prompt
     )
+    assert "Image 2 is the fomo logo: sharp" in frame.prompt and "Token" not in frame.prompt
     assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 0  # idempotent
