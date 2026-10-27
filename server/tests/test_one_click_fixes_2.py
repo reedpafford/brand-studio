@@ -148,3 +148,53 @@ def test_a_deleted_first_frame_tag_comes_back_whole():
                          Breakdown.model_validate(BREAKDOWN))  # fmt: skip
     line = next(x for x in fixed.prompt.splitlines() if x.startswith("References: "))
     assert line == "References: [Image1] is the first frame. [Image2] is Mom."
+
+
+def _overlapping() -> str:
+    """Mary's c4 (2026-10-27): a shot starting before the one before ends, and a shot with no
+    line that doesn't say no one speaks."""
+    lines = _prompt().splitlines()
+    lines.insert(7, "Shot 2 | 1-2 s. Wide. Nate stares at his phone.")
+    return "\n".join(lines).replace("Shot 2 | 2–5 s.", "Shot 3 | 2–5 s.")
+
+
+def test_shot_times_and_no_one_speaks_are_repaired_free_on_save_and_open(app, db, editor, setup):  # noqa: E501, F811
+    mom = _mom(editor, db, setup)
+    _with_breakdown(app, db, editor, setup)
+    editor.post(f"/projects/{setup['project']}/clips/prompts")
+    _run(app, db, FakeClaude(_answer(mom, setup["screen"], _overlapping())))  # saved: repaired
+    db.expire_all()
+    saved = db.query(ProjectClip).one()
+    assert "Shot 2 | 2-3 s. Wide. Nate stares at his phone. No one speaks." in saved.prompt
+    assert "Shot 3 | 3-5 s." in saved.prompt and saved.problems == []
+
+    fixed = saved.prompt
+    saved.prompt, saved.problems, saved.free_fix_used = _overlapping(), ["x"], True
+    db.commit()  # a clip saved before this repair existed: put right when Clips opens
+    (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
+    assert shown["prompt"] == fixed  # the same repair as on save
+    assert shown["problems"] == [] and shown["free_fix_used"] is True  # never handed back
+
+
+def test_a_free_fix_that_fails_is_not_free_again(app, db, editor, setup):  # noqa: F811
+    """QA on #605: a failed free fix stays used (once per prompt version), then it's priced."""
+    import httpx2 as httpx
+
+    from tests.helpers import claude_stream
+
+    mom = _mom(editor, db, setup)
+    _with_breakdown(app, db, editor, setup)
+    wrong = _prompt().replace("where is all your money", "where is your money")
+    row = _clip(db, setup, wrong, mom=mom)
+    url = f"/projects/{setup['project']}/clips/{row.id}"
+    job = editor.post(f"{url}/fix").json()["job"]
+
+    def cut_off(request):
+        body = claude_stream('{"clips": [{"clip_id": "c1", "pro', "max_tokens")
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    _run(app, db, cut_off)
+    db.expire_all()
+    assert db.get(Job, job["id"]).status == "failed"
+    assert editor.get(f"/projects/{setup['project']}/clips").json()[0]["free_fix_used"] is True
+    assert editor.post(f"{url}/fix").json()["detail"] == "We couldn't fix this one automatically."

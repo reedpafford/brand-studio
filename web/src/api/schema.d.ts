@@ -1826,26 +1826,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/scripts/{script_id}/cast/maybe-same": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Maybe Same
-         * @description Roles that may be one person, never two kept apart or seen in one shot.
-         */
-        get: operations["maybe_same_scripts__script_id__cast_maybe_same_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/scripts/{script_id}/cast/maybe-same/dismiss": {
         parameters: {
             query?: never;
@@ -2104,27 +2084,6 @@ export interface paths {
          *     breakdown. Undo saves the old plan back with PUT.
          */
         post: operations["fix_plan_scripts__script_id__drafts__slot__breakdown_fix_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/scripts/{script_id}/drafts/{slot}/produce/estimate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Produce Estimate
-         * @description The price on "Make this version": nothing when the version has a saved plan,
-         *     otherwise the breakdown that starts with it (no paid work starts without a price).
-         */
-        get: operations["produce_estimate_scripts__script_id__drafts__slot__produce_estimate_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5018,11 +4977,6 @@ export interface components {
             /** Credits */
             credits: number;
         };
-        /** ProduceEstimate */
-        ProduceEstimate: {
-            /** Credits */
-            credits: number;
-        };
         /** ProduceOut */
         ProduceOut: {
             /** Project Id */
@@ -5684,7 +5638,7 @@ export interface components {
             reaction: string | null;
             /**
              * Camera
-             * @description Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or 'Macro insert of the phone screen, static'.
+             * @description Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or 'Over-the-shoulder close-up on the phone in his hand, static'.
              */
             camera: string;
             /**
@@ -10194,37 +10148,6 @@ export interface operations {
             };
         };
     };
-    maybe_same_scripts__script_id__cast_maybe_same_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                script_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SamePair"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     dismiss_scripts__script_id__cast_maybe_same_dismiss_post: {
         parameters: {
             query?: never;
@@ -10891,38 +10814,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreviewOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    produce_estimate_scripts__script_id__drafts__slot__produce_estimate_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                script_id: number;
-                slot: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProduceEstimate"];
                 };
             };
             /** @description Validation Error */

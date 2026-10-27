@@ -72,13 +72,13 @@ def test_brand_block_lists_required_screens_and_their_moments():
     assert block.index("Other screens") < block.index("screen:9")
 
 
-def test_a_screen_that_prints_a_balance_gives_the_payoff_its_number():
+def test_a_screen_that_prints_a_balance_never_ties_the_numbers():
     rich = {"id": 5, "name": "Home (rich)", "tags": ["home"], "default_for": ["win"],
             "balance": "$348,920.15"}  # fmt: skip
     block = prompts.brand_block({"name": "fomo"}, [rich])
     assert 'screen:5 "Home (rich)" (home), shows a balance of $348,920.15' in block
-    for step in ("breakdown", "script_draft"):  # the story's figures match the screen
-        assert "shows a balance" in prompts.system(step)
+    for step in ("breakdown", "script_draft"):  # Current rules 14: numbers can be anything
+        assert "use that number" not in prompts.system(step)
     for step in ("storyboard", "clip_prompts"):  # Reed #600: only the logo must be right
         text = (EXAMPLES.parent / f"{step}.md").read_text()
         assert "key number" not in text and "reads $" not in text, step
@@ -189,6 +189,23 @@ def test_the_sheet_owns_the_face_in_every_prompt():
     refs = next(x for x in cp.clips[0].prompt.splitlines() if x.startswith("References: "))
     assert refs.index("override the first frame") < refs.index("[Image2] is Malik.")
     assert "[Image1] is the first frame." in refs  # the server's fix-up keeps this sentence
+
+
+def test_no_prompt_or_example_keeps_a_rule_reed_replaced():
+    """Current rules (ops/DECISIONS.md, #609): screens need only the logo (14), no end card or
+    logo overlay (18), the sheets set faces (10), 3 screens a clip at most, one montage outfit."""
+    old = ["key number", "use that number", "that same balance", "end card", "logo overlay",
+           "big glossy", "subsurface", "expressive faces", "Keep a clip to 2 screens",
+           "whatever he wears", "Macro insert of the phone"]  # fmt: skip
+    files = [*EXAMPLES.parent.glob("*.md"), EXAMPLES.parent / "schemas.py"]
+    texts = {p.name: p.read_text() for p in files if p.name != "sheet.md"}  # the sheet sets faces
+    for path in EXAMPLES.glob("*.json"):
+        if path.name != "reel_watch.json":  # a reading of someone else's reel
+            texts[path.name] = json.dumps(json.loads(path.read_text())["output"])
+    for name, text in texts.items():
+        assert not [w for w in old if w in text], name
+    for name in ("storyboard.md", "clip_prompts.md", "improve.md"):  # no figure asked of a screen
+        assert "reads $" not in texts[name], name
 
 
 def test_breakdown_check_keeps_a_clip_to_three_screens():

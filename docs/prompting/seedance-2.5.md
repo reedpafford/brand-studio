@@ -90,3 +90,6 @@ From the official FAQ ([Guide § FAQ][g]).
 [skill-index]: https://arkdocs-en.tos-ap-southeast-1.volces.com/skills/.well-known/agent-skills/index.json
 [rep]: https://replicate.com/bytedance/seedance-2.5
 [rep-api]: https://replicate.com/bytedance/seedance-2.5/api/schema
+
+## Where the catalogue prices came from
+The Seedance 2.0 per-second prices in `server/app/catalogue.json` ($0.0598 at 480p up to $0.661 at 4K, unverified for Replicate) were read from tezu.ai's own model list on 2026-10-23. The competitor scrape (`docs/tezu/`) has been removed; the catalogue is the source of truth now.

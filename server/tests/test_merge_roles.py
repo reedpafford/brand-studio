@@ -68,7 +68,7 @@ def test_a_role_cant_merge_into_itself_or_another_scripts_role(owner):
 
 def test_maybe_same_is_suggested_and_theyre_different_keeps_them_apart(owner, db):
     base, mom, mother = _script(owner)
-    pairs = owner.get(f"{base}/cast/maybe-same").json()
+    pairs = owner.get(base).json()["maybe_same"]
     why = "Both are described as mother, and they're never in the same shot."
     assert pairs == [{"a_slot_id": mom, "b_slot_id": mother, "into_slot_id": mom, "why": why}]
     pair = {"a_slot_id": mom, "b_slot_id": mother}
@@ -81,17 +81,10 @@ def test_the_cast_reads_doubt_is_a_suggestion_but_never_two_roles_in_one_shot(ow
     nate = owner.post(f"{base}/cast", json={"role": "Nate"}).json()[-1]["id"]
     db.get(ScriptCastSlot, nate).may_be_same_as = "Mom"
     db.commit()
-    pairs = owner.get(f"{base}/cast/maybe-same").json()
+    pairs = owner.get(base).json()["maybe_same"]
     assert {"a_slot_id": nate, "b_slot_id": mom, "into_slot_id": mom,
             "why": "The cast read wasn't sure if they're one person."} in pairs  # fmt: skip
     bd = owner.get(f"{base}/drafts/0/breakdown").json()["breakdown"]
     bd["scenes"][0]["shots"][0]["character_ids"] += [f"slot:{nate}"]
     owner.put(f"{base}/drafts/0/breakdown", json=bd)
-    assert not [p for p in owner.get(f"{base}/cast/maybe-same").json() if nate in p.values()]
-
-
-def test_the_scripts_reply_carries_the_pairs(owner):
-    base, mom, mother = _script(owner)
-    assert [(p["a_slot_id"], p["b_slot_id"]) for p in owner.get(base).json()["maybe_same"]] == [
-        (mom, mother)
-    ]
+    assert not [p for p in owner.get(base).json()["maybe_same"] if nate in p.values()]

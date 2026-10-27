@@ -1,6 +1,6 @@
 # Workflow v2: scripts first, then videos (plan for Reed)
 
-**Status:** approved by Reed (GO, 2026-10-25) with the defaults in section 6. Nothing is built yet; screen specs follow in `workflow-v2/`. Source: Reed's decision and answers of 2026-10-25 in `ops/DECISIONS.md`. It maps the new workflow onto the approved structure (phase 1) and the Screening room design (phase 3). Map: `workflow-v2-map.png`.
+**Status:** approved by Reed (GO, 2026-10-25) with the defaults in section 6. Built; screen specs are in `workflow-v2/`. Source: Reed's decision and answers of 2026-10-25 in `ops/DECISIONS.md`. It maps the new workflow onto the approved structure (phase 1) and the Screening room design (phase 3). Map: `workflow-v2-map.png`.
 
 ## The idea in one paragraph
 A brand's home becomes the **Script library**:
