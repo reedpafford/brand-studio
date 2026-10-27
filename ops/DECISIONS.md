@@ -47,6 +47,8 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 26. The size cap is about 36,000 lines of app code (server/app plus web/src, without tests or generated files), with no net growth.
 27. A QA account is kept for live testing; its sign-in lives in the environment, never in chat or code.
 28. Only the Producer merges, and no agent touches the live server.
+29. A clip holds one scene: it ends wherever the place or time changes. Outside a montage a clip runs at most about 12 s and 12 shots, split at a natural cut; montages keep their quick cuts (Advice checks). (Producer, after QA-Live's run on video #16; Reed informed.)
+30. Real brand names (cars, sneakers and the like) are fine in scripts and prompts; Seedance doesn't refuse them (Reed).
 
 ## History (oldest first; one line each, with date)
 - 2026-10-23 (Reed) App screens (fomo) don't need to be pixel-exact: the logo and UI must be right; balances, prices and other numbers can be invented. The "Use the real image" cut-in is optional for screens too (default off). (Superseded: Current rules 14.)
@@ -156,3 +158,5 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-27 Reed: the size budget is a realistic cap of about 36,000 lines of app code (server/app plus web/src, without tests or generated files), replacing the 8,000 aim. New work adds no net lines; each change deletes about as much as it adds.
 - 2026-10-27 Reed: no face checks at all, on storyboard stills or on finished takes (they add bloat). If a face drifts, the editor uses Change this or Make another take. Current rules confirmed and placed at the top of this file; newer decisions override older ones on the same topic.
 - 2026-10-27 Reed: remove "Save to Cast & places" for looks made for a video or script. If Reed likes a sheet or scene, he remakes it in Cast & places himself.
+- 2026-10-27 Producer (QA-Live, video #16): faces drifted only in a 20 s, 19-shot clip crossing three scenes, so clips hold one scene and about 12 s / 12 shots outside montages (#640). Reed informed.
+- 2026-10-27 Reed: Seedance doesn't mind real brand names (Lamborghini, Jordans); the copyright refusals have another cause (they all involve the Goth GF look).
