@@ -354,11 +354,11 @@ test("while the description is being edited its Save is the one amber button, so
   expect(screen.getByRole("button", { name: "Next: Script" })).toBeInTheDocument();
 });
 
-test("the draft badge says who can see it: you, you and Reed, or whose draft it is", async () => {
+test("the draft badge says who can see it: you, you and the owner, or whose draft it is", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts/7": [200, full({ created_by_id: 2, created_by_name: "Sam" })] });
   open("/b/1/scripts/7");
-  expect(await screen.findByText("Draft · only you and Reed can see it")).toBeInTheDocument();
+  expect(await screen.findByText("Draft · only you and the owner can see it")).toBeInTheDocument();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
   fakeServer({ ...base, "GET /scripts/7": [200, full({ created_by_id: 2, created_by_name: "Sam" })] });

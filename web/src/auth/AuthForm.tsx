@@ -18,7 +18,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
     <main className="mx-auto flex min-h-screen max-w-[452px] flex-col items-stretch justify-start gap-4 p-4 pt-16 sm:justify-center sm:pt-4">
       <p className="text-center font-display text-xl font-extrabold">Brand Studio</p>
       {children}
-      <p className="text-center text-sm text-muted">Made for Reed's studio.</p>
+      <p className="text-center text-sm text-muted">Made for your team's studio.</p>
     </main>
   );
 }

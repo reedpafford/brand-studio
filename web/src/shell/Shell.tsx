@@ -102,7 +102,7 @@ function Frame() {
         <p role="alert" className="p-6 text-danger">Could not load brands.</p>
       ) : brands.length === 0 ? (
         <div className="mx-auto max-w-content p-4 sm:p-8">
-          <EmptyState icon={Palette} title="No brands yet">Reed adds brands. fomo and Iron Paws come with the studio.</EmptyState>
+          <EmptyState icon={Palette} title="No brands yet">The owner adds brands. fomo and Iron Paws come with the studio.</EmptyState>
         </div>
       ) : (
         <Outlet />
@@ -216,7 +216,7 @@ function BrandSwitcher({ brands, brand, current }: { brands: Brand[]; brand?: Br
                 </MenuItem>
               </div>
             ) : (
-              <p className="px-3 pb-2 pt-3 text-sm text-muted">Brands are set up by Reed.</p>
+              <p className="px-3 pb-2 pt-3 text-sm text-muted">Brands are set up by the owner.</p>
             )}
           </>
         )}
