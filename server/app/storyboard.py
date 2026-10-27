@@ -263,6 +263,35 @@ def repair(db: Session, project: Project) -> int:
     return changed
 
 
+GENTLE = {  # what Nano Banana refuses (check.FLAGGED), said so it draws (Reed, #520)
+    "leggings": "workout pants", "lap": "knees", "laps": "knees", "thigh": "leg",
+    "thighs": "legs", "cleavage": "neckline", "pus": "redness", "discharge": "irritation",
+    "wound": "scrape", "wounds": "scrapes",
+}  # fmt: skip
+STEMS = {"crust": "dry patches", "ooz": "glistening", "blood": "red", "vomit": "feeling sick"}
+
+
+def soften(prompt: str) -> str:
+    """The prompt with only the words the image model refuses said gently; free, no model
+    call. The same prompt when there's nothing to soften."""
+
+    def gentle(m: re.Match) -> str:
+        word = m[0].lower()
+        out = GENTLE.get(word) or next(v for k, v in STEMS.items() if word.startswith(k))
+        return out[:1].upper() + out[1:] if m[0][:1].isupper() else out
+
+    return check.FLAGGED.sub(gentle, prompt)
+
+
+def softened(prompt: str) -> dict | None:
+    """The change note for a frame softened by itself: shown with its Before and After."""
+    after = soften(prompt)
+    if after == prompt:
+        return None
+    return {"note": "Softened so it can be drawn.", "status": "done", "before": prompt,
+            "after": after, "unchanged": False, "softened": True}  # fmt: skip
+
+
 def save_frames(db: Session, job: Job) -> None:
     """Replace the project's frames with Claude's new ones (a new storyboard was asked for)."""
     project = db.get(Project, job.input["project_id"])
@@ -271,6 +300,8 @@ def save_frames(db: Session, job: Job) -> None:
     bd = Breakdown.model_validate(db.get(BreakdownVersion, job.input["breakdown_id"]).data)
     known = assets(db, project)
     for f in (with_cast(db, project, f, bd, known) for f in result.frames):
+        note = softened(f.prompt)  # a word the image model refuses never blocks
+        f = f.model_copy(update={"prompt": note["after"]}) if note else f
         db.add(
             StoryboardFrame(
                 project_id=project.id,
@@ -281,6 +312,7 @@ def save_frames(db: Session, job: Job) -> None:
                 prompt=f.prompt,
                 reference_ids=f.reference_ids,
                 problems=frame_problems(db, project, f, job.input["breakdown_id"]),
+                change=note,
             )
         )
 

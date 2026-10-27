@@ -2453,6 +2453,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/storyboard/frames/{frame_id}/soften": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Soften
+         * @description Soften it (spec one-click-fixes.md §4): only the words the image model refuses are
+         *     said gently; free, no model call, nothing drawn. Undo is PUT of the earlier prompt.
+         */
+        post: operations["soften_projects__project_id__storyboard_frames__frame_id__soften_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/storyboard/frames/{frame_id}/render": {
         parameters: {
             query?: never;
@@ -2640,6 +2661,29 @@ export interface paths {
          *     earlier takes (clip_prompts.save_clip_prompts).
          */
         post: operations["write_prompts_projects__project_id__clips_prompts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/{clip_id}/fix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fix Clip
+         * @description Fix this clip's prompt (spec one-click-fixes.md §5), free and never refused for money:
+         *     its shape is put right in code (seconds, [Image1], audio, Summary and Keep lines); what
+         *     the code can't fix, Claude rewrites for this clip only, charged to no budget or week.
+         *     Looks good is cleared. Undo is PUT of the earlier prompt.
+         */
+        post: operations["fix_clip_projects__project_id__clips__clip_id__fix_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3725,6 +3769,28 @@ export interface components {
              */
             created_at: string;
         };
+        /** FixOut */
+        FixOut: {
+            /** Fixed */
+            fixed: boolean | null;
+            /**
+             * Before
+             * @default
+             */
+            before: string;
+            /**
+             * After
+             * @default
+             */
+            after: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            job?: components["schemas"]["JobOut"] | null;
+            clip: components["schemas"]["ProjectClipOut"];
+        };
         /** FrameIn */
         FrameIn: {
             /** Prompt */
@@ -3764,6 +3830,10 @@ export interface components {
             }[];
             /** Change */
             change: {
+                [key: string]: unknown;
+            } | null;
+            /** Softened */
+            softened?: {
                 [key: string]: unknown;
             } | null;
         };
@@ -5250,6 +5320,14 @@ export interface components {
             description?: string | null;
             /** Position */
             position?: number | null;
+        };
+        /** SoftenOut */
+        SoftenOut: {
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
+            frame: components["schemas"]["FrameOut"];
         };
         /** StageOut */
         StageOut: {
@@ -10974,6 +11052,38 @@ export interface operations {
             };
         };
     };
+    soften_projects__project_id__storyboard_frames__frame_id__soften_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoftenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     render_projects__project_id__storyboard_frames__frame_id__render_post: {
         parameters: {
             query?: never;
@@ -11369,6 +11479,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fix_clip_projects__project_id__clips__clip_id__fix_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixOut"];
                 };
             };
             /** @description Validation Error */

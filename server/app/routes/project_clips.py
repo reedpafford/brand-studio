@@ -178,6 +178,51 @@ def write_prompts(
     return clip_prompts.queue_rewrite(db, user, project, ids)
 
 
+class FixOut(BaseModel):
+    fixed: bool | None  # True: fixed now; None: Claude is fixing it (job); False: can't be
+    before: str = ""
+    after: str = ""
+    reason: str = ""  # why it can't be fixed, in plain words
+    job: JobOut | None = None  # the free rewrite of this clip, when the code couldn't fix it
+    clip: ProjectClipOut
+
+
+@router.post("/clips/{clip_id}/fix", response_model=FixOut)
+def fix_clip(
+    project_id: int, clip_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Fix this clip's prompt (spec one-click-fixes.md §5), free and never refused for money:
+    its shape is put right in code (seconds, [Image1], audio, Summary and Keep lines); what
+    the code can't fix, Claude rewrites for this clip only, charged to no budget or week.
+    Looks good is cleared. Undo is PUT of the earlier prompt."""
+    project, row = _clip(db, user, project_id, clip_id)
+    newest = _newest_breakdown(db, project)
+    bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
+    was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
+                     references=[Reference(**r) for r in row.references])  # fmt: skip
+    if not advice.stops(row):
+        raise HTTPException(409, "This clip has nothing to fix.")
+    now = clip_prompts.repair_shape(was, bd)
+    problems = clip_prompts.clip_problems(db, project, bd, now)
+    if now != was:
+        row.prompt, row.seconds, row.problems = now.prompt, now.seconds, problems
+        row.prompt_ok, row.approved = False, False
+        row.change = {"note": "Fix this clip's prompt", "status": "done", "before": was.prompt,
+                      "after": now.prompt, "unchanged": False}  # fmt: skip
+        db.commit()
+    if not advice.stops(row):
+        return FixOut(fixed=True, before=was.prompt, after=now.prompt,
+                      clip=_out(db, row, newest))  # fmt: skip
+    if _stale(db, row, newest):
+        return FixOut(fixed=False, clip=_out(db, row, newest), reason="This clip was made for an "
+                      "older breakdown. Rewrite this clip's prompt first.")  # fmt: skip
+    looks = [p for p in advice.stops(row) if "approved look" in p]
+    if looks and len(looks) == len(advice.stops(row)):
+        return FixOut(fixed=False, clip=_out(db, row, newest), reason=looks[0])
+    job = clip_prompts.queue_fix(db, user, project, row, advice.stops(row))
+    return FixOut(fixed=None, before=was.prompt, job=job, clip=_out(db, row, newest))
+
+
 @router.get("/clips", response_model=list[ProjectClipOut])
 def list_clips(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project = get_project(db, user, project_id)
