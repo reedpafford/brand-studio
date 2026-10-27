@@ -150,3 +150,26 @@ def test_two_opens_at_once_record_one_automatic_merge(owner, editor, db):
     other.commit()
     other.close()
     assert db.query(CastMerge).filter_by(project_id=pid).count() == 1
+
+
+def test_repeated_merge_notes_on_live_collapse_into_one_whose_undo_undoes_it(owner, editor, db):
+    """What #661 left on live: three records of one automatic merge. Opening Assets keeps the
+    first, and its Undo puts Girl back for good."""
+    from app.models.script_library import CastMerge
+
+    _, pid, ids = _video(owner, editor, db, "INT. DINER — NIGHT\nGIRLFRIEND: Sorry I'm late, babe.")
+    url = f"/projects/{pid}/assets"
+    editor.get(url)
+    (first,) = db.query(CastMerge).filter_by(project_id=pid).all()
+    for _ in range(2):
+        db.add(CastMerge(workspace_id=first.workspace_id, script_id=first.script_id,
+                         project_id=pid, data=dict(first.data)))  # fmt: skip
+    db.commit()
+    editor.get(url)
+    notes = [t for (_, _, t) in _pairs(editor, pid) if t]
+    assert notes == [first.id]
+    assert editor.post(f"{url}/merge/undo", json={"token": first.id}).status_code == 200
+    db.expire_all()
+    assert not db.get(Project, pid).slot_merged
+    assert "Girl" in [r["role"] for r in editor.get(url).json()]  # and stays undone
+    assert not [t for (_, _, t) in _pairs(editor, pid) if t]
