@@ -176,12 +176,6 @@ class PairIn(BaseModel):
     b_slot_id: int
 
 
-@router.get("/maybe-same", response_model=list[SamePair])
-def maybe_same(script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Roles that may be one person, never two kept apart or seen in one shot."""
-    return merge_roles.maybe_same(db, lib.get_script(db, user, script_id))
-
-
 @router.post("/maybe-same/dismiss", response_model=list[SamePair])
 def dismiss(
     script_id: int, body: PairIn, user: User = Depends(current_user), db: Session = Depends(get_db)

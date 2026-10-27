@@ -122,7 +122,7 @@ def test_theyre_different_on_a_video_keeps_the_pair_apart_here_only(owner, edito
 
     assert editor.post(f"{url}/dismiss", json=pair).json() == []
     assert editor.get(url).json() == []
-    assert owner.get(f"{base}/cast/maybe-same").json() == flagged  # the script's Cast is untouched
+    assert owner.get(base).json()["maybe_same"] == flagged  # the script's Cast is untouched
     assert editor.request("DELETE", f"{url}/dismiss", json=pair).json() == flagged  # Undo
     assert editor.get(url).json() == flagged
 
