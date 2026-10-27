@@ -8,7 +8,6 @@ Builder-Screens builds from this folder. Nothing ships until spacing, alignment,
 
 | File | What it is |
 |---|---|
-| `tokens.css` | Drop-in replacement for `web/src/styles/tokens.css`. Holds colours (dark first plus light), type, space, radii, shadows, motion and the Tailwind v4 `@theme`. |
 | `contrast.py` | WCAG AA check of every colour pair in both modes. Run it after any colour change: `python3 contrast.py`. It must show 0 FAIL. |
 | `component-sheet.png` | Every shared part, as built from `tokens.css`. |
 | `clips-states.png` | One screen (a video at the Clips step) in all of its states, on phone and desktop. |
@@ -124,27 +123,5 @@ Emoji are never icons. Today's ✓, ★, ▸ and ✦ glyphs become `Check`, `Sma
 | `screens/brand.md` | Brand: Look, Products, App screens |
 | `screens/studio.md` | Approvals and Team (Reed only) |
 
-## 5. Build order: small PRs, web/ only
-Rules for every PR:
-- Each PR stays inside `web/`. Any change to `server/`, prompts, the database, the API, `schema.d.ts` or generation doesn't merge.
-- Browser tests stay green. Where a label changes on purpose, update the e2e locator to the new label; never weaken a test.
-- I check each PR at 390 and desktop, in dark and light, against these specs. My pass is needed to merge.
-
-| # | PR | What changes | Risk |
-|---|---|---|---|
-| 1 | **Tokens and fonts** | Replace `tokens.css`, add `@fontsource-variable/manrope` and `lucide-react`, and set dark as the default theme. Then swap the old class names that change meaning: `accent` becomes amber; `rounded-md` stays 10px. No layout changes. | Low. Everything recolours at once, so I check every screen. |
-| 2 | **Shared parts** | `ui.ts` becomes small components: `Button` (primary, secondary, ghost, danger, dense, busy, price, reason), `Field`, `Select`, `Badge`, `Card`, `MediaCard`, `Sheet`, `Dialog`, `Toast`, `Banner`, `Skeleton`, `EmptyState`, `StepPicker`, `Tabs`. Screens switch to them with no wording changes. | Low |
-| 3 | **App shell** | Desktop top bar and side rail; phone top bar, bottom tabs and action bar slot; brand switcher; Approvals bell; account menu (Team, Theme, Sign out). The nav becomes Videos · Quick clip · Cast & places · Brand. Old `/kit` and `/screens` URLs redirect to `/b/:id/brand`. | Medium: e2e nav locators change |
-| 4 | **Videos home** | Media-first cards, Reed's requests banner, the finished section, and the empty state. | Low |
-| 5 | **New video and Edit brief** | Required fields first, and the reference reel under "More options". | Low |
-| 6 | **Video frame** | Header, six-step picker with ticks, one Next placement, and the Script side panel or sheet. On phones the Script/stage tabs go. Enhance moves into Script. The Final video step is added (its own screen, using the existing video data). | High: the biggest change. Ship behind the same routes, with `?stage=` kept. |
-| 7 | **Script and Shots steps** | Drafts, Enhance marks and notes, the shots list, problems, edit. | Medium |
-| 8 | **Storyboard step** | Frame grid; "Make storyboard" also draws the stills, by calling the existing two steps one after the other; Approve, Redo, lightbox. | Medium |
-| 9 | **Clips and Final video steps** | Prompts review ("Looks good / Edit"), "Make the takes · N", take cards, "Needs a change", the real-image switch, Make the video, Download. | Medium |
-| 10 | **Quick clip** | Two-column studio, the sticky Generate, and history with the newest clip highlighted. | Low |
-| 11 | **Cast & places** | Media grid, the character / place / prop page, and the sheet flow. | Low |
-| 12 | **Brand** | One page with Look · Products · App screens. Products are grouped from the screens' existing product/variant fields, so no API change. | Medium |
-| 13 | **Studio and auth** | Approvals (Approve all, previews), Team (Copy link on waiting invites), sign in, setup, invite. | Low |
-| 14 | **Polish pass** | Motion, reduced motion, focus order, every empty, loading and error state against the specs, and a final contrast pass. | Low |
-
-PRs 4, 5, 10, 11, 12 and 13 can run in parallel once 1–3 are in. 6 must land before 7–9.
+## 5. Build
+All 14 build PRs have landed (#175–#221 and the workflow-v2 screens). Keep to these specs when changing a screen.
