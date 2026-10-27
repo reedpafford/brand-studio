@@ -831,3 +831,18 @@ test("a link to a locked step lands on Assets while assets are left to approve",
   open("?step=storyboard");
   expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
 });
+
+test("when Undo of Approve all fails, it says why", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({})]],
+    "GET /projects/9/assets/missing-looks": noMissing,
+    "POST /projects/9/assets/approve-all": [200, { approved: [12], skipped: [] }],
+    "POST /projects/9/assets/approve-all/undo": [409, { detail: "That look changed since. Undo it on its card." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  expect(await screen.findByText("That look changed since. Undo it on its card.")).toBeInTheDocument();
+});
