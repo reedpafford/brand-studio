@@ -58,6 +58,7 @@ class FrameOut(BaseModel):
     change: dict | None
     softened: dict | None = None  # softened by itself so it can be drawn: {before, after}
     drawing: bool = False  # a still for it is queued or being made (a Change it's included)
+    still_credits: int = 0  # one still for it, rounded up (Make still, Redo, Save and redraw)
 
 
 class SoftenOut(BaseModel):
@@ -108,7 +109,7 @@ def _out(
 ) -> FrameOut:
     stale = _stale(db, project, frame)
     waiting = _waiting(db, project) if waiting is None else waiting
-    computed = ("stale", "approved", "softened", "change", "drawing")
+    computed = ("stale", "approved", "softened", "change", "drawing", "still_credits")
     change = frame.change or {}
     if change.get("status") == "changing" and all(j.id != change.get("job_id") for j in waiting):
         # its rewrite ended without saving (failed, or stopped): never "Changing…" for ever
@@ -119,6 +120,7 @@ def _out(
         stale=stale,
         change=change or None,
         drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
+        still_credits=storyboard.still_price(db, project),
         softened={"before": change["before"], "after": change["after"]}
         if change.get("softened")
         else None,
