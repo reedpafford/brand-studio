@@ -1,6 +1,7 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-27 10:14 · Agents (#597): Builder-Server-3 replaces Builder-Server-2 in the session table (ops/AGENTS.md; context hygiene)
 - 2026-10-27 05:37 · Decision (#569, Reed): a fomo-mention or CTA moment accepts any of the brand's home-type screens, and the moment-screen check is Advice, never a blocker
 - 2026-10-27 05:29 · Decision (#567, Reed): one person must never become two roles: the cast read merges duplicates across versions, a cast role gets "Merge into…" with Undo, and likely duplicates are flagged for confirmation
 - 2026-10-27 04:28 · Decision (#559, Reed): a character who speaks or appears in more than one shot gets a per-video role and look (auto-made, the editor approves), never saved to Cast & places; a character is never shown unnamed
@@ -16,6 +17,10 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-27 10:52 · #598 Split AssetsPane: AssetCard and SaveToCast get their own files (no behaviour change) merged
+- 2026-10-27 10:28 · #595 They're different on a video's Assets, Merge into… when alone, a chevron on the note merged
+- 2026-10-27 10:14 · #597 ops: Builder-Server-3 replaces Builder-Server-2 in the session table merged (by the Producer)
+- 2026-10-27 10:13 · #596 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-27 10:03 · #594 Pick another opens only when pressed, again (deleted character with no id) merged
 - 2026-10-27 09:56 · #592 docs: as built, the Assets "may be the same person" note is one closed line merged
 - 2026-10-27 09:56 · #590 Merge into… and "These may be the same person" on a video's Assets (screens) merged
