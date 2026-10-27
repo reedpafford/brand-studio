@@ -95,12 +95,13 @@ def live_looks(db: Session, script: Script) -> set[str]:
 
 def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> list[str]:
     project = stand_in_project(db, script, draft)
-    screens = {f"screen:{s.id}": s.default_for for s in project_screens(db, project)}
+    shown = project_screens(db, project)
+    screens = {f"screen:{s.id}": s.default_for for s in shown}
     m = breakdown.video_model()
     brand = db.get(Brand, script.brand_id)
     found = check.breakdown(
         draft.text, bd, screens, m.duration.min, m.duration.max, brand.end_line, brand.name,
-        approved=draft.status == "approved",
+        approved=draft.status == "approved", kinds=check.kinds_of(shown),
     )  # fmt: skip
     slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
     known_slots = {f"slot:{s.id}" for s in slots} | live_looks(db, script)
