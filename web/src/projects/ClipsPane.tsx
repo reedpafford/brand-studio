@@ -13,7 +13,7 @@ import { usePressed } from "./usePressed";
 import { useProblemWords } from "./ProblemText";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
-import { RewriteNote, RewriteOne } from "./RewriteClips";
+import { RewriteNote, RewriteOne, useRewritePrice } from "./RewriteClips";
 import { ClipCard } from "./ClipCard";
 
 type Clip = components["schemas"]["ProjectClipOut"];
@@ -68,8 +68,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     queryFn: async () => (await api.GET("/projects/{project_id}/clips", { params: { path } })).data ?? [],
     refetchInterval: (q) => (anyGoing || q.state.data?.some((c) => (c.change as ChangeState)?.status === "changing") ? 3000 : false),
   });
-  const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
-  const rate = (kind: string) => rates.data?.find((r) => r.kind === kind)?.credits_per_unit;
+  const writeCost = useRewritePrice(projectId); // a Claude call per few clips, from the server
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] });
     queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
@@ -197,7 +196,6 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
   const stale = list.filter((c) => c.stale);
-  const writeCost = rate("write-claude");
   const declined = stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
 
   if (writingNow && list.length === 0)

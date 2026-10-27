@@ -9,7 +9,8 @@ import re
 
 import httpx2 as httpx
 
-from app.models.jobs import Job
+from app.credits import usd_to_credits
+from app.models.jobs import Job, Usage
 from tests.helpers import claude_stream
 from tests.test_breakdown import BREAKDOWN, _shot
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
@@ -61,14 +62,17 @@ def test_a_long_video_finishes_and_the_clip_that_ran_out_gets_a_free_fix(app, db
     base = f"/projects/{setup['project']}"
     editor.post(f"{base}/breakdown")
     _run(app, db, FakeClaude(_long_breakdown()))
+    price = editor.get(f"{base}/clips/prompts/price").json()["credits"]
     job = editor.post(f"{base}/clips/prompts").json()
     shown = job["credits"]
+    assert price == shown == 9  # 3 credits a Claude call, 3 calls (QA-Live 6: undercharged)
 
     writer = Writer(cut={"c2"})
     _run(app, db, writer)
     assert writer.asked == [["c1"], ["c2"], ["c3", "c4"]]  # the montage gets a call of its own
     done = db.get(Job, job["id"])
-    assert done.status == "succeeded" and done.credits <= shown  # one price, never above it
+    spent = sum(u.cost_usd for u in db.query(Usage).filter_by(job_id=job["id"]))
+    assert done.status == "succeeded" and done.credits == usd_to_credits(spent)  # what it cost
     clips = {c["clip_id"]: c for c in editor.get(f"{base}/clips").json()}
     assert [k for k, c in clips.items() if c["prompt"]] == ["c1", "c3", "c4"]
     assert clips["c2"]["problems"] == [

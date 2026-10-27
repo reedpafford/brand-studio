@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import { Banner, Button } from "../components";
 
 /** What rewriting costs: every stale clip, or one clip. Nothing is asked until a clip is stale. */
-function useRewritePrice(projectId: number, clipId?: string) {
+export function useRewritePrice(projectId: number, clipId?: string) {
   const price = useQuery({
     queryKey: ["rewrite-price", projectId, clipId ?? "all"],
     queryFn: async () => (await api.GET("/projects/{project_id}/clips/prompts/price", { params: { path: { project_id: projectId }, query: clipId ? { clip_id: clipId } : {} } })).data ?? null,

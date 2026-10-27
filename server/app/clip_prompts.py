@@ -554,11 +554,18 @@ def to_rewrite(db: Session, project: Project, clip_id: str | None = None) -> lis
     return [i for i in ids if i in stale or i not in have] if rows else []
 
 
-def rewrite_price(db: Session, project: Project) -> Decimal:
-    """One clip-prompts call, whatever it rewrites; never charged above it (worker)."""
+def calls(db: Session, project: Project, clip_ids: list[str] | None = None) -> int:
+    """How many Claude calls writing these clips' prompts takes (a few clips each)."""
+    bd = newest(db, project)
+    return max(len(batches(Breakdown.model_validate(bd.data), clip_ids)) if bd else 0, 1)
+
+
+def rewrite_price(db: Session, project: Project, clip_ids: list[str] | None = None) -> Decimal:
+    """A Claude call's price per call it takes (QA-Live 6: 66 shots cost $1.02 against a
+    3-credit price). The charge is the real cost, never above this (worker)."""
     from app.credits import estimate
 
-    return estimate(db, project.workspace_id, "write-claude", Decimal(1))
+    return estimate(db, project.workspace_id, "write-claude", Decimal(calls(db, project, clip_ids)))
 
 
 def _waiting(db: Session, project: Project) -> set[str]:
@@ -579,7 +586,8 @@ def queue_rewrite(db: Session, user, project: Project, clip_ids: list[str] | Non
     if "clip_prompts" in waiting:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
     data = {**job_input(db, project, bd, clip_ids), "clip_ids": clip_ids}
-    return enqueue(db, user, "write-claude", data, project=project, provider="claude")
+    units = max(len(data["batches"]), 1)  # one price per Claude call
+    return enqueue(db, user, "write-claude", data, units=units, project=project, provider="claude")
 
 
 def follow(db: Session, project: Project, user) -> Job | None:
@@ -592,7 +600,7 @@ def follow(db: Session, project: Project, user) -> Job | None:
     ids = to_rewrite(db, project)
     if not ids or "clip_take" in _waiting(db, project) or not user:
         return None
-    if fits(db, project, user, rewrite_price(db, project)):
+    if fits(db, project, user, rewrite_price(db, project, ids)):
         return None
     db.commit()  # a refusal rolls back: never take the breakdown change with it
     try:

@@ -29,6 +29,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/script/suggestions": [200, []],
   "GET /projects/9/script/notes": [200, []],
   "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }, { kind: "video", unit: "second", credits_per_unit: 3 }]],
+  "GET /projects/9/clips/prompts/price": [200, { clip_ids: ["c1"], credits: 6 }], // a Claude call per few clips
   "GET /jobs": [200, []],
   "GET /projects/9/video": [404, { detail: "none" }],
   "GET /library/character": [200, []],
