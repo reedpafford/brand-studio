@@ -73,7 +73,7 @@
       "speaker": "Tasha",
       "line": "A phone app? That's your college money!",
       "action": "Tasha jabs a finger at the phone.",
-      "reaction": "Brows crash into a hard V.",
+      "reaction": "Furious he gambled the college money: brows crash into a hard V.",
       "camera": "Close-up on Tasha, static",
       "seconds": 1.2,
       "character_ids": [
@@ -91,7 +91,7 @@
       "speaker": null,
       "line": null,
       "action": "Malik takes the hit.",
-      "reaction": "His eyes flick down, then back up.",
+      "reaction": "Stung, but sure he's right: his eyes flick down, then back up.",
       "camera": "Extreme close-up on Malik's eyes, static",
       "seconds": 0.4,
       "character_ids": [
@@ -146,7 +146,7 @@
       "speaker": null,
       "line": null,
       "action": "Malik hears the threat.",
-      "reaction": "Malik swallows, jaw set.",
+      "reaction": "Scared she might be right, too proud to show it: Malik swallows, jaw set.",
       "camera": "Extreme close-up on Malik, static",
       "seconds": 0.5,
       "character_ids": [
@@ -192,7 +192,7 @@
       "speaker": null,
       "line": null,
       "action": "Malik drops his head onto his arms.",
-      "reaction": "Shoulders sag, eyes shut.",
+      "reaction": "Crushed, the bet looks lost: shoulders sag, eyes shut.",
       "camera": "High-angle close-up, slow push in",
       "seconds": 2.0,
       "character_ids": [
@@ -421,7 +421,7 @@
       "speaker": "Tasha",
       "line": "That's… real?",
       "action": "Tasha leans over the phone.",
-      "reaction": "Her jaw drops, slowly.",
+      "reaction": "Stunned it's real, the doubt draining away: her jaw drops, slowly.",
       "camera": "Close-up on Tasha, push in",
       "seconds": 1.2,
       "character_ids": [
@@ -439,7 +439,7 @@
       "speaker": "Malik",
       "line": "Still want me bagging groceries?",
       "action": "Malik leans on the counter, calm.",
-      "reaction": "A small smirk.",
+      "reaction": "Quietly proud he proved her wrong: a small smirk.",
       "camera": "Low-angle close-up on Malik, static",
       "seconds": 1.4,
       "character_ids": [
@@ -457,7 +457,7 @@
       "speaker": null,
       "line": null,
       "action": "Tasha grabs the phone with both hands and screams.",
-      "reaction": "Mouth wide, eyes white all round.",
+      "reaction": "Overjoyed for him, disbelief turning to a scream: mouth wide, eyes white all round.",
       "camera": "Whip to an extreme close-up on Tasha's scream",
       "seconds": 1.0,
       "character_ids": [

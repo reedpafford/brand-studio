@@ -158,8 +158,8 @@ class Shot(BaseModel):
     )
     action: str = Field(description="What we see happen, concretely, in one sentence.")
     reaction: str | None = Field(
-        description="Who reacts and how, readable at phone size (eyes snap wide, jaw drops), "
-        "or null."
+        description="Who reacts, the feeling and its reason, then how it shows at phone size, "
+        "e.g. 'Tasha, touched he remembered her: eyes well, a shaky smile'; or null."
     )
     camera: str = Field(
         description="Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or "
