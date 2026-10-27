@@ -7,9 +7,10 @@ def test_editor_joins_with_editor_role(editor):
     assert editor.get("/auth/me").json()["role"] == "editor"
 
 
-def test_members_listed_for_everyone(editor):
+def test_members_listed_for_everyone(owner, editor):
     names = [m["name"] for m in editor.get("/team/members").json()]
-    assert names == ["Reed", "Ed"]
+    assert names == ["the owner", "Ed"]  # rule 4: editors never see Reed's name
+    assert [m["name"] for m in owner.get("/team/members").json()] == ["Reed", "Ed"]
 
 
 def test_editor_cannot_invite_or_remove(editor):
