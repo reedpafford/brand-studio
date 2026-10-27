@@ -1,4 +1,16 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-27 21:25 · #648 A copyright-refused take says what to do, and warns after two refusals merged
+- 2026-10-27 21:23 · Decision (#650, Reed): montage and trading beats get the brand logo and an invented chart that follows the story; real screenshots only for the payoff/CTA moment; a montage is one climb with one dip (Current rules 14, 17) merged
+- 2026-10-27 21:23 · #649 Server: DELETE .../apply, which no screen calls, removed merged
+- 2026-10-27 21:16 · #642 QA-Live 6: the sheet sets the outfit after a swap, the hero in every montage shot, a note can rework a video's own look merged
+- 2026-10-27 21:10 · #647 Storyboard: Make all stills and Redraw N stills are 44px tall on a phone merged
+- 2026-10-27 21:02 · #633 Editors see "the owner", never the owner's name (Current rules 4) merged
+- 2026-10-27 21:01 · #645, #646 Looks are original characters, never a famous one; a deploy lets the worker finish the job in hand and notes-only merges don't deploy, merged
+- 2026-10-27 20:54 · #641, #643 One-time seed repair steps removed; clip prompts priced per Claude call, merged
+- 2026-10-27 20:47 · #638 Stills asked for at once and never twice; chips name the role; Looks good shows its result merged
+- 2026-10-27 20:39 · #634 Assets: a role no shot uses says "Not in this video's shots", with nothing to make merged
+- 2026-10-27 20:36 · Decisions (#644, #640, Reed/Producer): a clip holds one scene and about 12 s / 12 shots outside montages (Current rules 29); real brand names are fine (rule 30) merged
+- 2026-10-27 20:29 · #639 ops: HANDOFF/LOG refresh as of 6541a18 merged (by the Producer)
 - 2026-10-27 20:21 · #637 A reel-made version is estimated at the reel's length before its breakdown merged
 - 2026-10-27 20:11 · #635, #636 Every spoken line names its language (English) and every take is asked for in English; a changed prompt with a problem makes no take, merged
 - 2026-10-27 20:04 · #628 Hotfix after #614 went live: duplicate roles flagged, every cast line fixable, the deploy says what the repair did merged
