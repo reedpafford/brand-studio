@@ -28,7 +28,14 @@ from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.library import LookFitOut, _save_version, pick_item, sheet_status
 from app.routes.projects import get_project
-from app.routes.script_cast import MergePreview, RoleFacts, SamePair, UndoIn, role_facts
+from app.routes.script_cast import (
+    MergePreview,
+    PairIn,
+    RoleFacts,
+    SamePair,
+    UndoIn,
+    role_facts,
+)
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, queue_sheet
 from app.schemas import Name
@@ -619,11 +626,42 @@ def undo_merge(
 
 @router.get("/maybe-same", response_model=list[SamePair])
 def maybe_same(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """The script's roles that may be one person, less those merged on this video."""
+    """The script's roles that may be one person, less those merged or kept apart on this
+    video."""
     project = get_project(db, user, project_id)
     if not project.script_draft_id:
         return []
     script = db.get(Script, db.get(ScriptDraft, project.script_draft_id).script_id)
     here = {s.id for s in _slots(db, project)}
+    apart = {frozenset(p) for p in project.cast_apart or []}
     return [p for p in merge_roles.maybe_same(db, script)
-            if {p["a_slot_id"], p["b_slot_id"]} <= here]  # fmt: skip
+            if {p["a_slot_id"], p["b_slot_id"]} <= here
+            and frozenset((p["a_slot_id"], p["b_slot_id"])) not in apart]  # fmt: skip
+
+
+def _apart(project_id: int, body: PairIn, user: User, db: Session, undo: bool) -> list[dict]:
+    project = get_project(db, user, project_id)
+    here = {s.id for s in _slots(db, project)}
+    if body.a_slot_id == body.b_slot_id or not {body.a_slot_id, body.b_slot_id} <= here:
+        raise HTTPException(404, "Those two roles aren't both in this video.")
+    pairs = [p for p in project.cast_apart or [] if set(p) != {body.a_slot_id, body.b_slot_id}]
+    project.cast_apart = pairs if undo else [*pairs, sorted((body.a_slot_id, body.b_slot_id))]
+    db.commit()
+    return maybe_same(project_id, user, db)
+
+
+@router.post("/maybe-same/dismiss", response_model=list[SamePair])
+def dismiss(
+    project_id: int, body: PairIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """They're different, on this video only: the pair isn't flagged here again. The script's
+    Cast is untouched. Free."""
+    return _apart(project_id, body, user, db, undo=False)
+
+
+@router.delete("/maybe-same/dismiss", response_model=list[SamePair])
+def undo_dismiss(
+    project_id: int, body: PairIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo "They're different" on this video."""
+    return _apart(project_id, body, user, db, undo=True)
