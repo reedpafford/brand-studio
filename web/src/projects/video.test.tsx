@@ -804,3 +804,11 @@ test("a link to a locked step lands on Assets while assets are left to approve",
   open("?step=storyboard");
   expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
 });
+
+test("a locked step says Breakdown, the name this page uses, when problems in it are in the way", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, { ...breakdown, problems: ["c1: the shot has no action", "c2: the shot has no setting"] }] });
+  open("?step=breakdown");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  expect(within(steps).getByRole("button", { name: "Assets" })).toHaveAccessibleDescription("Fix the 2 problems in Breakdown first");
+});
