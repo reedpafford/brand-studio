@@ -6,6 +6,7 @@ import subprocess
 import httpx2 as httpx
 import pytest
 
+from app.clip_takes import in_english
 from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
@@ -88,7 +89,7 @@ def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F
     fake = FakeSeedance([_mp4("red"), _mp4("blue")])
     _work(app, db, fake)
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
-    assert sent["prompt"] == clip["prompt"] and sent["aspect_ratio"] == "9:16"
+    assert sent["prompt"] == in_english(clip["prompt"]) and sent["aspect_ratio"] == "9:16"
     assert sent["duration"] == 5 and sent["resolution"] == "480p"
     assert len(sent["reference_images"]) == 2  # Mom's sheet, the screen (lossless)
 

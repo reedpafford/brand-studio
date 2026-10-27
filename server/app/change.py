@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import clip_prompts, clip_takes, prompts, storyboard
+from app import advice, clip_prompts, clip_takes, prompts, storyboard
 from app.credits import estimate, own_script
 from app.enhance import escape
 from app.models.accounts import User
@@ -139,10 +139,18 @@ def save_changed(db: Session, job: Job) -> None:
                           references=[Reference(**r) for r in row.references])  # fmt: skip
         breakdown = Breakdown.model_validate(bd.data)
         clip = clip_prompts.with_cast(db, project, clip, breakdown, trim=False)
+        clip = clip_prompts.repair_shape(clip, breakdown)  # what code can fix, free, first
         row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
+        row.seconds = clip.seconds
         row.problems = clip_prompts.clip_problems(db, project, breakdown, clip)
         if not _has_take(db, row):
             return  # before any take, a change only rewrites the prompt
+        if stops := advice.stops(row):  # never pay for a take from a prompt with a problem
+            fix = stops[0].rstrip(".")
+            row.change = {**row.change, "status": "failed", "error": f"The new prompt has a "
+                          f"problem to fix first ({fix}). Nothing was charged for a take: press "
+                          "Fix this clip's prompt (free), then Make another take."}  # fmt: skip
+            return
     db.commit()  # the new prompt is a paid answer: a refused still (it rolls back) keeps it
     try:
         kind, data, units = _draw(db, project, row, before)
