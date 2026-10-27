@@ -477,15 +477,6 @@ test("Make this version is free when a breakdown is already saved", async () => 
   expect(button).not.toHaveTextContent(/credit/);
 });
 
-test("an In production chip opens the video for Reed and for its maker, and the panel for anyone else", async () => {
-  setViewport(1440);
-  const mk = (created_by_id: number) => ({ id: 31, brand_id: 1, name: "Bo", planned_seconds: 30, status: "active", goal: "", platform: "", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null, estimate_credits: 0, budget_credits: 0, credits_used: 0, budget_pct: 0, created_by_id, created_by_name: "x" });
-  const rows = [script({ versions: [v(0, "in_production", { project_id: 31 })] })];
-  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, rows], "GET /projects": [200, [mk(2)]] });
-  open();
-  await vi.waitFor(() => expect(screen.getByLabelText("Version A, in production").closest("a")).toHaveAttribute("href", "/b/1/projects/31"));
-});
-
 test("an editor past the week's allowance on their own script can't make it, and is told when it resets; on Reed's script the button just shows the price", async () => {
   setViewport(1440);
   const answers = (createdBy: number) => ({

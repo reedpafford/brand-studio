@@ -32,6 +32,9 @@ def test_editor_sees_no_dollars_on_finished_jobs(editor, db):
     run_once(db, {"fake": fake})
     run_once(db, {"fake": fake})
     assert_no_dollars(editor, ["/jobs", f"/jobs/{job.id}"])
+    text = (editor.get("/jobs").text + editor.get(f"/jobs/{job.id}").text).lower()
+    assert editor.get(f"/jobs/{job.id}").json()["status"] == "succeeded"
+    assert "usd" not in text and "cost" not in text
 
 
 def test_usage_dollars_are_owner_only(owner, editor, db):
@@ -52,16 +55,6 @@ def test_editor_never_sees_raw_provider_errors(owner, editor, db):
     assert "987.65" not in text and "zq7x" not in text and "usd" not in text.lower()
     assert editor.get(f"/jobs/{job.id}/detail").status_code == 403
     assert "$987.65" in owner.get(f"/jobs/{job.id}/detail").json()["error_detail"]
-
-
-def test_editor_job_payload_has_no_money(editor, db):
-    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 4})
-    fake = FakeProvider()
-    run_once(db, {"fake": fake})
-    run_once(db, {"fake": fake})
-    text = (editor.get("/jobs").text + editor.get(f"/jobs/{job.id}").text).lower()
-    assert editor.get(f"/jobs/{job.id}").json()["status"] == "succeeded"
-    assert "usd" not in text and "cost" not in text
 
 
 def test_owner_sees_who_asked_and_what_it_costs(owner, editor, db):
