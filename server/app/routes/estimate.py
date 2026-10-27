@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clip_prompts
 from app.auth import current_user
 from app.breakdown import video_model
 from app.credits import credits_used, estimate
@@ -90,7 +91,12 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
             (0 if frames else claude) + stills_left,
             f"frame prompts (one Claude call) and {n_clips} stills",
         ),
-        ("clip_prompts", bool(clips), claude, "one Claude call"),
+        (
+            "clip_prompts",
+            bool(clips),
+            claude * clip_prompts.calls(db, project),
+            "a Claude call per few clips",
+        ),
         (
             "clips",
             clips_done,
