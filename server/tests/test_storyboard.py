@@ -244,3 +244,21 @@ def frame_breakdown(db, frame_id):
     from app.models.storyboards import StoryboardFrame
 
     return db.get(StoryboardFrame, frame_id).breakdown_id
+
+
+def test_each_frame_says_what_one_still_costs(app, db, editor, setup):  # noqa: F811
+    # QA-2 on #547: the web guessed the rate's kind and never found it; the server says it.
+    from app.models.projects import Project
+    from app.storyboard import still_price
+
+    mom = editor.post(
+        "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
+    ).json()["id"]
+    with_sheet(db, mom)
+    editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom]})
+    _with_breakdown(app, db, editor, setup)
+    url = f"/projects/{setup['project']}/storyboard"
+    editor.post(url, json={})
+    _run(app, db, FakeClaude(_frames(f"char:{mom}", f"screen:{setup['screen']}")))
+    price = still_price(db, db.get(Project, setup["project"]))
+    assert price >= 1 and {f["still_credits"] for f in editor.get(url).json()} == {price}

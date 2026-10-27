@@ -4,6 +4,7 @@ them before any still is rendered."""
 
 import json
 import re
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import delete, select
@@ -349,6 +350,15 @@ def save_frames(db: Session, job: Job) -> None:
                 change=note,
             )
         )
+
+
+def still_price(db: Session, project: Project) -> int:
+    """What one still costs (Make still, Redo, Save and redraw), rounded up: the image model's
+    price, the same for every frame of the video."""
+    from app.credits import estimate, price
+
+    job = image_job_input(image_model(), "", project.aspect_ratio)
+    return price(estimate(db, project.workspace_id, "image", Decimal(1), job))
 
 
 def render_input(db: Session, project: Project, frame: StoryboardFrame, note: str = "") -> dict:

@@ -3937,6 +3937,11 @@ export interface components {
              * @default false
              */
             drawing: boolean;
+            /**
+             * Still Credits
+             * @default 0
+             */
+            still_credits: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
