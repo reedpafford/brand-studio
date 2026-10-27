@@ -40,6 +40,7 @@ from app.routes import (
     sheets,
     storyboard,
     team,
+    uploads,
     usage,
     workspace,
 )
@@ -95,6 +96,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         scripts,
         script_write,
         script_import,
+        uploads,
         script_library,
         script_cast_read,
         script_cast,

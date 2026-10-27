@@ -46,7 +46,9 @@ def test_each_link_becomes_a_draft_with_its_own_prep(owner, db):
     titles = [s["title"] for s in made.json()]
     assert titles == ["Untitled reel"] * 3 + ["Plain"]
     reels = [s["reel"] for s in made.json()]
-    assert reels == [{"status": "preparing", "seconds": None, "fetch_error": None}] * 3 + [None]
+    link = {"status": "preparing", "seconds": None, "fetch_error": None, "source": "link"}
+    assert [r and {k: r[k] for k in link} for r in reels] == [link] * 3 + [None]
+    assert [r["url"] for r in reels[:3]] == LINKS
     jobs = db.query(Job).filter(Job.kind == "reel_prepare").all()
     assert sorted(j.input["url"] for j in jobs) == sorted(LINKS)
 

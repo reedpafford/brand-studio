@@ -184,11 +184,12 @@ def score(out: Path, case: dict) -> list[str]:
     if cs := answers.get("cast_slots"):
         made = answers.get("variations")
         script = answers["script_draft"].drafts[0].script if "script_draft" in answers else script
-        versions = (
-            {0: script} | {i: x.script for i, x in enumerate(made.variations, 1)}
+        given = (
+            [x.script for x in made.variations]
             if made
-            else {0: script}
+            else ["\n".join(v) for v in case.get("versions", [])]
         )
+        versions = {0: script} | dict(enumerate(given, 1))
         names = [c.split(" ", 1)[1].split(",")[0].split(" (")[0] for c in case["cast"]]
         problems += check.cast_slots(versions, cs, names)
         roles = " | ".join(s.role for s in cs.slots).lower()
@@ -198,6 +199,8 @@ def score(out: Path, case: dict) -> list[str]:
         if (any_ := exp.get("slot_any")) and not any(w in roles for w in any_):
             problems.append(f"no slot matching any of {any_}")
         problems += [f"a slot for '{w}'" for w in exp.get("slots_absent", []) if w in roles]
+        if len(cs.slots) > exp.get("max_slots", 99):  # one person, one slot
+            problems.append(f"{len(cs.slots)} slots, expected at most {exp['max_slots']}")
     saved = " ".join(a.model_dump_json() for k, a in answers.items() if k != "reel_watch").lower()
     problems += [
         f"copies '{w}' from the reference" for w in exp.get("forbid", []) if w.lower() in saved

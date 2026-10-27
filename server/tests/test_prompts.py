@@ -379,6 +379,23 @@ def test_every_speaker_is_a_slot_in_the_eval(tmp_path):
     ]
 
 
+def test_one_person_is_one_slot_across_versions_in_the_eval(tmp_path):
+    from evals.score import CASES, score
+
+    case = next(c for c in CASES["cases"] if c["id"] == "fomo-kimchi-cast")
+    one = {"description": "Mid-20s man, a barista", "kind": "Main", "recurring": True}
+    slots = [
+        one | {"role": "Nate, the hero", "appears_in": [0, 1]},
+        one | {"role": "Kimchi, Nate's rich friend", "appears_in": [0, 1]},
+    ]
+    answer = tmp_path / f"{case['id']}.cast_slots.json"
+    answer.write_text(json.dumps({"slots": slots}))
+    assert score(tmp_path, case) == []  # "his friend with the supercar" is Kimchi
+    twin = one | {"role": "His friend with the supercar", "appears_in": [1]}
+    answer.write_text(json.dumps({"slots": [*slots, twin]}))
+    assert score(tmp_path, case) == ["3 slots, expected at most 2"]
+
+
 def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     ex, result = example("cast_slots")
     versions = {
@@ -389,8 +406,17 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
     assert check.cast_slots(versions, schemas.CastSlots(slots=[])) == ["no cast slots; regenerate"]
     no_friend = schemas.CastSlots(slots=result.slots[:2])  # a one-off who speaks is a role
     assert check.cast_slots(versions, no_friend) == [
-        "Advice: no slot carries the name Friend; use it in that role"
+        "Advice: no slot carries the name Dre; use it in that role"
     ]
+    dre = result.slots[2]  # "his best friend" in the original is Dre: one person, one slot
+    assert "Dre" not in versions[0] and 0 in dre.appears_in
+    dre.may_be_same_as = "Aunt Tasha"  # a possible duplicate names another slot word for word
+    assert check.cast_slots(versions, result) == [
+        "Advice: Dre, Malik's best friend: may be the same as “Aunt Tasha”, which isn't another "
+        "slot; name that slot's role word for word"
+    ]
+    dre.may_be_same_as = result.slots[1].role
+    assert check.cast_slots(versions, result) == []
     extra = {"description": "30s man, a cook", "kind": "Helper", "recurring": False}
     result.slots += [
         schemas.CastSlot(role="Wedding guests", appears_in=[0], **extra),

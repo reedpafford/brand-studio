@@ -14,6 +14,7 @@ from app.advice import Said
 from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
+from app.models.files import StoredFile
 from app.models.jobs import Job
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.models.scripts import Suggestion
@@ -26,6 +27,7 @@ from app.routes.references import find as find_reference
 from app.routes.script_cast import SlotOut, slots
 from app.routes.script_import import UNTITLED, one_at_a_time, prepare
 from app.routes.scripts import ScriptText
+from app.routes.uploads import get_upload
 from app.schemas import LongText, UtcTime
 
 router = APIRouter(prefix="/scripts", tags=["script library"])
@@ -47,6 +49,7 @@ class ScriptIn(BaseModel):
 class BulkRow(ScriptIn):
     title: Title | None = None  # needed unless the row is a reel link ("Untitled reel")
     reel_url: Annotated[str, StringConstraints(max_length=500)] | None = None  # an Instagram reel
+    upload_id: int | None = None  # or a video from POST /uploads/video (reel-import.md §8)
 
 
 class BulkIn(BaseModel):
@@ -54,6 +57,9 @@ class BulkIn(BaseModel):
     until "Write all". A row with a reel link fetches and prepares that reel (free)."""
 
     scripts: list[BulkRow] = Field(min_length=1, max_length=50)
+
+
+MAX_REELS = 20  # links and uploaded videos together, per batch
 
 
 class ScriptPatch(BaseModel):
@@ -104,7 +110,10 @@ class VersionOut(VersionSummary):
 
 class ReelRow(BaseModel):
     status: Literal["preparing", "ready", "reading", "done", "failed"]
-    seconds: float | None  # once prepared
+    seconds: float | None  # once prepared (an uploaded video's at once)
+    source: Literal["link", "file"] = "link"
+    url: str | None = None  # a link's
+    file_name: str | None = None  # an uploaded video's
     fetch_error: str | None = None  # the reel couldn't be got or prepared: the plain reason
 
 
@@ -188,10 +197,14 @@ def _reel(db: Session, script: Script) -> ReelRow | None:
 
     status, failed = reel_read.state(db, script)
     problem = script.reel.get("problem") or "We couldn't prepare this reel. Upload it again."
+    upload = script.reel.get("source") == "upload"
     return ReelRow(
         status=status,
         seconds=script.reel.get("seconds"),
         fetch_error=problem if failed == "prepare" else None,
+        source="file" if upload else "link",
+        url=script.reel.get("url"),
+        file_name=script.reel.get("file_name") if upload else None,
     )
 
 
@@ -344,31 +357,48 @@ def create_many(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Up to 50 scripts at once, all or none: a plain error names the first bad row."""
-    links = []
+    """Up to 50 scripts at once, all or none: a plain error names the first bad row. Rows
+    with a reel link or an uploaded video (up to 20 together) are prepared one after another,
+    in this order."""
+    if sum(bool(i.reel_url or i.upload_id) for i in body.scripts) > MAX_REELS:
+        raise HTTPException(422, f"Up to {MAX_REELS} reels at once.")
+    links, uploads = [], []
     for n, item in enumerate(body.scripts, 1):
+        row = f"Row {n}"
         try:
             get_brand(db, user, item.brand_id)
             _check_reference(request, item.reference_id)
             links.append(item.reel_url and reel_link(item.reel_url))
+            uploads.append(item.upload_id and get_upload(db, user, item.upload_id))
+            if uploads[-1]:
+                row += f" ({db.get(StoredFile, uploads[-1].file_id).filename})"
+                if uploads[-1] in uploads[:-1]:  # one video, one draft: never two sharing it
+                    first = uploads.index(uploads[-1]) + 1
+                    raise HTTPException(422, f"That video is already in row {first}.")
             if item.reel_url and not links[-1]:
                 raise HTTPException(422, "That isn't an Instagram reel link.")
-            if item.reel_url and item.reference_id:
-                raise HTTPException(422, "Pick a catalogue reel or a reel link, not both.")
-            if not (item.title or item.reel_url):
+            if item.reel_url and item.upload_id:
+                raise HTTPException(422, "Give it a reel link or a video, not both.")
+            if (item.reel_url or item.upload_id) and item.reference_id:
+                raise HTTPException(422, "Pick a catalogue reel or your own reel, not both.")
+            if uploads[-1] and uploads[-1].brand_id != item.brand_id:
+                raise HTTPException(422, "That video was added for another brand.")
+            if not (item.title or item.reel_url or item.upload_id):
                 raise HTTPException(422, "Give it a title.")
         except HTTPException as exc:
-            raise HTTPException(exc.status_code, f"Row {n}: {exc.detail}") from None
-    if any(links):  # one batch at a time; its fetches are spaced by the reel worker
+            raise HTTPException(exc.status_code, f"{row}: {exc.detail}") from None
+    if any(links) or any(uploads):  # one batch at a time; the reel worker spaces its fetches
         one_at_a_time(
             db, user, "Your last reels are still being prepared. Try again when they're done."
         )
     made = []
-    for item, url in zip(body.scripts, links, strict=True):
+    for item, url, upload in zip(body.scripts, links, uploads, strict=True):
         script = Script(
             workspace_id=user.workspace_id,
             created_by_id=user.id,
-            **item.model_dump(exclude={"text", "reel_url", "title"}, exclude_none=True),
+            **item.model_dump(
+                exclude={"text", "reel_url", "upload_id", "title"}, exclude_none=True
+            ),
             title=item.title or UNTITLED,
         )
         db.add(script)
@@ -377,6 +407,12 @@ def create_many(
         made.append(script)
         if url:  # each its own free prep job; the reel worker fetches them one at a time
             prepare(db, user, script, {"source": "link", "url": url}, {"url": url})
+        elif upload:  # the video is here already: it is prepared like a single upload
+            upload.used = True
+            video = db.get(StoredFile, upload.file_id)
+            reel = {"source": "upload", "video_file_id": video.id, "file_name": video.filename,
+                    "seconds": upload.seconds}  # fmt: skip
+            prepare(db, user, script, reel, {"video_key": video.key})
     db.commit()
     return [_out(db, s, full=False) for s in made]
 
