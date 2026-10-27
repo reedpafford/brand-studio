@@ -26,7 +26,8 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 ## Context hygiene (Reed, 2026-10-25)
 - **When to restart:** when a worker finishes a batch of PRs and is above about 60% of its context (or has auto-compacted repeatedly), the Producer restarts it fresh instead of letting it compact mid-task.
 - **How:** the old worker pushes everything and lists its open PRs and unopened branches, with a short handoff. The new session starts from HANDOFF, DECISIONS, this file and those PRs, and takes over watching them. The Producer sends everyone (Status Desk included) the new session ID and updates the table below, then archives the old session.
-- **After any compaction:** re-read ops/HANDOFF.md and ops/DECISIONS.md before acting.
+- **After any compaction, and before every new task:** re-read ops/HANDOFF.md and the Current rules at the top of ops/DECISIONS.md before acting. Newer decisions override older ones; if unclear, ask the Producer.
+- **QA-Live sessions** are listed in the table below while they run, and removed when they finish.
 
 ## Sessions (current)
 | Agent | Session |
@@ -38,6 +39,9 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | QA-2 (web) | session_0151NB9uZupi8GLzzTbeAtEv |
 | Designer | session_01USbuJ9znkRnKbNV4cnJUNW |
 | Director | session_01HeFuWAEdxcgfha4QYoAC3Z |
+| Steward | session_01FRDAYFCGf1CkVUYdddfvi7 |
+| Builder-Server-4 (clip prompt failures) | session_01FRDAYETacn1PURt9KVsAjD |
+| QA-Live 6 (live checks, while it runs) | session_01FRDAYFjPARnHGEy8SXNuo8 |
 | Scribe | session_01KaFbhckt39bp16rrK4Ncoa |
 | Release | session_01BGZgB9afnDnbYURA7D11gk |
 | Status Desk | session_01GYxBJctxeeNdzejMuRiCW6 |
