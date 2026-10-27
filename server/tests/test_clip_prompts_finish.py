@@ -72,8 +72,7 @@ def test_a_long_video_finishes_and_the_clip_that_ran_out_gets_a_free_fix(app, db
     clips = {c["clip_id"]: c for c in editor.get(f"{base}/clips").json()}
     assert [k for k, c in clips.items() if c["prompt"]] == ["c1", "c3", "c4"]
     assert clips["c2"]["problems"] == [
-        "This clip's prompt wasn't written: the answer ran out of room before it was "
-        "finished. Fix this clip's prompt writes it, free."
+        "This clip's prompt wasn't written: the answer ran out of room before it was finished."
     ]
     assert editor.post(f"{base}/clips/{clips['c2']['id']}/generate").status_code == 409
 

@@ -122,6 +122,13 @@ test("after its free fix a clip's problem can be kept anyway: it then shows as K
   expect(within(box).getByRole("button", { name: `Undo keep: ${problem}`, hidden: true })).toBeInTheDocument();
 });
 
+test("a clip never written, its free fix used, points to the priced rewrite and can't be kept anyway", async () => {
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ prompt: "", problems: ["This clip's prompt wasn't written: the answer left it out."], free_fix_used: true })]] });
+  open();
+  expect(await screen.findByText("Rewrite this clip's prompt below writes it, at its price.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Keep it anyway/ })).toBeNull();
+});
+
 test("before its free fix a clip's problem has no Keep it anyway", async () => {
   fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ problems: ["Shot 1.1's line isn't there once, word for word"] })]] });
   open();

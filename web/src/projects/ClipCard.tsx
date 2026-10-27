@@ -126,7 +126,7 @@ export function ClipCard(props: {
               {props.words(p)}
               {props.fix(p)}
               {/* Once the free fix was tried the card is never a dead end: keep it anyway (Undo is under Advice). */}
-              {c.free_fix_used && (
+              {c.free_fix_used && c.prompt && ( // a clip never written has nothing to keep
                 <Button variant="ghost" dense busy={keep.isPending} aria-label={`Keep it anyway: ${props.words(p)}`} onClick={() => keep.mutate({ problem: p })}>
                   Keep it anyway
                 </Button>
@@ -140,7 +140,7 @@ export function ClipCard(props: {
       {blocking(c.problems, c.kept).length > 0 && !c.stale && !props.fixBusy && (props.fixSaid ?? (c.free_fix_used ? "We couldn't fix this one automatically." : null)) && (
         <p role="status" className="flex items-start gap-2 text-sm text-warning">
           <TriangleAlert size={16} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
-          {props.fixSaid ?? "We couldn't fix this one automatically."}
+          {props.fixSaid ?? (c.prompt ? "We couldn't fix this one automatically." : "Rewrite this clip's prompt below writes it, at its price.")}
         </p>
       )}
       {(() => {
