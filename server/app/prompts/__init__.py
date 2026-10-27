@@ -77,7 +77,8 @@ def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -
     if needed:
         lines.append(
             "Required screens. Every shot at one of these moments shows the matching screen, "
-            "attached as a reference image: logo, colours and layout exact, numbers free:"
+            "attached as a reference image: logo, colours and layout exact, numbers free; a "
+            "logo-only screen comes as the logo alone, and the screen is invented around it:"
         )
         lines += [_screen(s) + f" — required at: {', '.join(s['default_for'])}" for s in needed]
         by_moment: dict[str, list[str]] = {}
