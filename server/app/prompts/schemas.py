@@ -115,7 +115,8 @@ class CastSlot(BaseModel):
     description: str = Field(
         description="Who they are, then how they look: starts with age range, gender and role "
         "or job ('Mid-40s woman, a primary-school teacher; …'), then build, hair or coat, skin, "
-        "signature outfit. Plain and drawable; no celebrity look-alikes, no logos."
+        "signature outfit. Plain and drawable; an original character (never one resembling a "
+        "famous film, TV, comic or game character), no celebrity look-alikes, no logos."
     )
     guessed: list[Literal["age", "gender", "occupation"]] = Field(
         default_factory=list,
