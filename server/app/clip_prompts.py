@@ -294,7 +294,11 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
     images = [r for r in clip.references if r.kind == "image"]
     first = "[Image1] is the first frame."
     if images and images[0].id.startswith("frame:") and first not in clip.prompt:
-        if (at := _line(lines, "References: ")) >= 0:
+        if (at := _line(lines, "References: ")) >= 0 and "is the first frame." in lines[at]:
+            # only its tag was deleted: the sentence gets it back, never half of it (QA-2)
+            lines[at] = re.sub(r"(\[[^\]]*\]\s*)?is the first frame\.", first, lines[at], count=1)
+            lines[at] = re.sub(r"^References:\s+", "References: ", lines[at])
+        elif at >= 0:
             lines[at] = lines[at].replace("References: ", f"References: {first} ", 1)
         else:
             lines.insert(1, f"References: {first}")

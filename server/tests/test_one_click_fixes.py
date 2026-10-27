@@ -167,5 +167,5 @@ def test_edit_shot_can_name_what_the_video_doesnt_have(app, db, editor, outsider
     db.commit()
     assert editor.get(url).json()["unknown_names"] == {
         f"char:{mia}": "Mia",
-        f"char:{rival}": "a character",  # another workspace's: said for what it is
+        f"char:{rival}": "an unnamed character",  # another workspace's: said for what it is
     }

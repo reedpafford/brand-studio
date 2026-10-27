@@ -10,7 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.advice import names, plain
-from app.cast_roles import cast_roles, plays
+from app.cast_roles import cast_roles, pick, plays
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, project_context, project_screens, screen_name
 from app.images import image_job_input, image_model_block
@@ -42,6 +42,22 @@ def script_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
     )
 
 
+def cast_looks(db: Session, project: Project) -> list[LibraryItem]:
+    """The video's cast looks a breakdown may name (char:N): in its cast, in its workspace and
+    not deleted. The breakdown's prompt and its check both use this, so the AI is never told
+    about someone the check then calls "not part of this video" (Kel's empty chair)."""
+    ids = set(project.cast_ids or [])
+    items = db.scalars(
+        select(LibraryItem).where(
+            LibraryItem.id.in_(ids),
+            LibraryItem.workspace_id == project.workspace_id,
+            LibraryItem.kind == Kind.character,
+            LibraryItem.archived.is_(False),
+        )
+    )
+    return sorted(items, key=lambda i: project.cast_ids.index(i.id))
+
+
 def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     """Every picture a frame may use: asset id -> (its line for the prompt, its file ids).
     The cast (each look with the roles it plays), the script's cast slots (a filled slot:N is
@@ -52,23 +68,26 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     roles = cast_roles(db, project)
     items = db.scalars(
         select(LibraryItem).where(
-            LibraryItem.workspace_id == project.workspace_id, LibraryItem.archived.is_(False)
+            LibraryItem.workspace_id == project.workspace_id,
+            LibraryItem.archived.is_(False),
+            LibraryItem.kind != Kind.character,
         )
     )
-    for item in items:
-        in_brand = any(b.id == project.brand_id for b in item.brands)
-        if item.kind == Kind.character and item.id not in project.cast_ids:
-            continue
-        if item.kind != Kind.character and not in_brand:
+    for item in [*cast_looks(db, project), *items]:
+        if item.kind != Kind.character and not any(b.id == project.brand_id for b in item.brands):
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
         parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)
         out[key] = (" | ".join(x for x in parts if x), usable_files(item))
     for slot in script_slots(db, project):  # a role a breakdown may name before it's cast
-        item_id = slot.library_item_id or project.slot_cast.get(str(slot.id))
+        item_id = pick(db, project, slot)  # a deleted look: the role has none yet
         # A locked role uses the sheet it was locked with, even if its look has a newer sheet
         # waiting for approval (Reed's live test: "Mogging BF" read as not approved).
-        locked = [slot.sheet_file_id] if slot.library_item_id and slot.sheet_file_id else None
+        locked = (
+            [slot.sheet_file_id]
+            if item_id and slot.library_item_id and slot.sheet_file_id
+            else None
+        )
         if f"char:{item_id}" in out:  # the look's own line: its notes win (Reed: used as is)
             line, files = out[f"char:{item_id}"]
             out[f"char:{item_id}"] = out[f"slot:{slot.id}"] = (line, locked or files)
