@@ -111,3 +111,29 @@ def test_after_an_edit_the_merge_stays_and_cant_be_undone(owner, editor, db):
         merge_roles.undo(db, script, done["token"])
     assert refused.value.status_code == 404
     assert _shots(editor, pid) == [("Mom", [f"char:{looks[mom]}"])] * 2
+
+
+def test_theyre_different_on_a_video_keeps_the_pair_apart_here_only(owner, editor, db):
+    base, pid, mom, mother, _ = _video(owner, editor, db)
+    url = f"/projects/{pid}/assets/maybe-same"
+    pair = {"a_slot_id": mom, "b_slot_id": mother}
+    flagged = editor.get(url).json()
+    assert [(p["a_slot_id"], p["b_slot_id"]) for p in flagged] == [(mom, mother)]
+
+    assert editor.post(f"{url}/dismiss", json=pair).json() == []
+    assert editor.get(url).json() == []
+    assert owner.get(f"{base}/cast/maybe-same").json() == flagged  # the script's Cast is untouched
+    assert editor.request("DELETE", f"{url}/dismiss", json=pair).json() == flagged  # Undo
+    assert editor.get(url).json() == flagged
+
+    for bad in ({"a_slot_id": mom, "b_slot_id": mom}, {"a_slot_id": mom, "b_slot_id": 9999}):
+        assert editor.post(f"{url}/dismiss", json=bad).status_code == 404
+
+
+def test_theyre_different_is_refused_from_another_workspace(owner, editor, outsider, db):
+    _, pid, mom, mother, _ = _video(owner, editor, db)
+    url = f"/projects/{pid}/assets/maybe-same/dismiss"
+    pair = {"a_slot_id": mom, "b_slot_id": mother}
+    assert outsider.post(url, json=pair).status_code == 404
+    assert outsider.request("DELETE", url, json=pair).status_code == 404
+    assert db.get(Project, pid).cast_apart == []

@@ -46,6 +46,8 @@ class Project(Entity, Base):
     slot_looks: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)  # slot -> own look
     # Roles merged into another on this video's Assets only: slot -> the role kept
     slot_merged: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
+    # Role pairs kept apart on this video's Assets ("They're different"): [[a, b], ...]
+    cast_apart: Mapped[list] = mapped_column(JSON, default=list)
     # The last still redraw after a cast change: {"redrawn_for_cast": {count, credits}} or
     # {"redraw_refused": {count, credits, reason}} (for the Storyboard note).
     cast_redraw: Mapped[dict | None] = mapped_column(JSON)

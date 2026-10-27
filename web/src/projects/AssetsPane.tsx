@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ellipsis, Lock, Trash2, Users, Wand2 } from "lucide-react";
+import { Ellipsis, Lock, Merge, Trash2, Users, Wand2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -27,6 +27,7 @@ import { useOwnScriptStop } from "./useOwnScriptStop";
 import { RoleFacts } from "./RoleFacts";
 import { useApproveAllWith, type ApproveAllResult } from "./ApproveAll";
 import { AutoLooks } from "./AutoLooks";
+import { useAssetMerge } from "./AssetMerge";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
 
 type Asset = components["schemas"]["AssetOut"];
@@ -89,12 +90,17 @@ function AssetCard({
   brandId,
   stopFor,
   canSave,
+  onMerge,
+  sameAs,
 }: {
   asset: Asset;
   projectId: number;
   brandId: number;
   stopFor: (cost: number | undefined) => string | null;
   canSave: boolean;
+  /** Merge into… for a role, when the video has another role; and the "may be the same as" badge. */
+  onMerge?: () => void;
+  sameAs?: ReactNode;
 }) {
   const kind: "place" | "character" =
     asset.kind === "place" ? "place" : "character";
@@ -297,13 +303,24 @@ function AssetCard({
             {using && <Badge>{asset.only_here === "script" ? "This script only" : "This video only"}</Badge>}
           </div>
           {deleted && <p className="text-sm text-muted">The character this role used was deleted from Cast &amp; places.</p>}
-          {notUsed && lookId != null && !asset.locked && (
+          {sameAs}
+          {((notUsed && lookId != null && !asset.locked) || onMerge) && (
             <Menu title="Look actions" trigger={(t) => <Button variant="ghost" dense icon={Ellipsis} aria-label={`More for ${title}`} {...t} />}>
               {(close) => (
-                <MenuItem danger onClick={() => { close(); remove.mutate(); }}>
-                  <Trash2 size={20} strokeWidth={1.75} aria-hidden />
-                  Delete this look
-                </MenuItem>
+                <>
+                  {onMerge && (
+                    <MenuItem onClick={() => { close(); onMerge(); }}>
+                      <Merge size={20} strokeWidth={1.75} aria-hidden />
+                      Merge into…
+                    </MenuItem>
+                  )}
+                  {notUsed && lookId != null && !asset.locked && (
+                    <MenuItem danger onClick={() => { close(); remove.mutate(); }}>
+                      <Trash2 size={20} strokeWidth={1.75} aria-hidden />
+                      Delete this look
+                    </MenuItem>
+                  )}
+                </>
               )}
             </Menu>
           )}
@@ -469,6 +486,7 @@ export function AssetsPane({
   const canSave = me?.role === "owner" || !!limits.data?.editors_can_save_looks;
   const queryClient = useQueryClient();
   const picks = useBriefChoices(brandId, variants);
+  const merge = useAssetMerge(projectId, (assets.data ?? []).filter((a) => a.kind === "character"));
   const flavour = useMutation({
     mutationFn: async ([product, variant]: [string, string]) => {
       const { response, error } = await api.PATCH("/projects/{project_id}", {
@@ -529,6 +547,8 @@ export function AssetsPane({
           brandId={brandId}
           stopFor={stopFor}
           canSave={canSave}
+          onMerge={a.kind === "character" && merge.canMerge(a) ? () => merge.start(a) : undefined}
+          sameAs={a.kind === "character" ? merge.badge(a) : undefined}
         />
       ))}
     </div>
@@ -541,6 +561,7 @@ export function AssetsPane({
     );
   return (
     <div className="space-y-6">
+      {merge.dialog}
       <AutoLooks projectId={projectId} toApprove={list.some((a) => a.sheet_status === "needs_approval")} />
       {cast.length > 0 && (
         <section aria-label="Cast" className="space-y-3">
@@ -549,6 +570,7 @@ export function AssetsPane({
             {approveAll.button}
           </div>
           {approveAll.line}
+          {merge.note}
           {grid(cast)}
         </section>
       )}
