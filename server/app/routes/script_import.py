@@ -15,6 +15,7 @@ from app import reel as media
 from app import reel_read as read
 from app import script_library as lib
 from app import script_write
+from app.advice import SaidText
 from app.auth import current_user
 from app.credits import credits_left, shown
 from app.db import get_db
@@ -63,7 +64,7 @@ class ImportOut(BaseModel):
     transcript: list[dict] = []  # [{start, end, text, speaker}]
     video_file_id: int | None = None
     contact_file_id: int | None = None
-    problem: str = ""  # plain words for the editor
+    problem: SaidText = ""  # plain words for the editor
     problem_code: str | None = None  # blocked | gone | bad_file | too_long
     steps_done: list[str] = []  # of watch, write, cast
     watched_from: str | None = None  # video | frames (Gemini couldn't take the video)

@@ -25,6 +25,7 @@ import { useMe } from "../auth/useMe";
 import { lookFitNote, useSheetPrice } from "../library/SheetPanel";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { RoleFacts } from "./RoleFacts";
+import { useApproveAllWith, type ApproveAllResult } from "./ApproveAll";
 import { AutoLooks } from "./AutoLooks";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
 
@@ -462,6 +463,21 @@ export function AssetsPane({
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   });
+  // Approve all: the looks made for this video (or script) whose sheet is drawn. Library characters and locked roles are approved elsewhere or already are.
+  const roles = (assets.data ?? []).filter((a) => a.kind === "character" && !a.locked && a.sheet_status !== "approved" && (a.only_here != null || a.library_item_id == null));
+  const approveAll = useApproveAllWith({
+    noun: "look",
+    ready: roles.filter((a) => a.only_here != null && a.sheet_status === "needs_approval").length,
+    waiting: roles.length,
+    press: async () => {
+      const { data, error } = await api.POST("/projects/{project_id}/assets/approve-all", { params: { path: { project_id: projectId } } });
+      if (!data) throw new Error(errorText(error));
+      return data as ApproveAllResult;
+    },
+    undo: (ids) => api.POST("/projects/{project_id}/assets/approve-all/undo", { params: { path: { project_id: projectId } }, body: { ids } }),
+    refresh: () => Promise.all([["assets", projectId], ["library", "character"], ["breakdown", projectId], ["storyboard", projectId], ["project-clips", projectId]].map((queryKey) => queryClient.invalidateQueries({ queryKey }))), // as a single Approve does
+    name: (s) => s.label ?? "",
+  });
   if (assets.isPending)
     return (
       <div
@@ -511,7 +527,11 @@ export function AssetsPane({
       <AutoLooks projectId={projectId} toApprove={list.some((a) => a.sheet_status === "needs_approval")} />
       {cast.length > 0 && (
         <section aria-label="Cast" className="space-y-3">
-          <h3 className="type-section">Cast</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="type-section">Cast</h3>
+            {approveAll.button}
+          </div>
+          {approveAll.line}
           {grid(cast)}
         </section>
       )}

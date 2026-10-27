@@ -790,6 +790,33 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
 });
 
+const noLook = asset({ ref: "slot:4", slot_id: 4, library_item_id: null, name: "", role: "Nate", sheet_status: "missing" });
+const noMissing: [number, unknown] = [200, { slot_ids: [], roles: [], credits: 0, usual_credits: 0, reason: null }];
+
+test("Approve all on Assets approves the looks made for this video, says which role was left, and Undo sends back exactly those", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({}), noLook]],
+    "GET /projects/9/assets/missing-looks": noMissing,
+    "POST /projects/9/assets/approve-all": [200, { approved: [12], skipped: [{ id: null, slot_id: 4, label: "Nate", reason: "no look yet" }] }],
+    "POST /projects/9/assets/approve-all/undo": [200, []],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Approve 1" })); // one of the two roles has a sheet to approve
+  expect(await screen.findByText(/Approved 1\./)).toHaveTextContent("Approved 1. 1 not approved: Nate: no look yet");
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/assets/approve-all/undo")?.body).toEqual({ ids: [12] }));
+});
+
+test("Approve all on Assets is not offered for a library character, which is approved in Cast & places", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({})]], "GET /projects/9/assets/missing-looks": noMissing });
+  open();
+  await screen.findByLabelText("Bo");
+  expect(screen.queryByRole("button", { name: /^Approve (all|\d)/ })).toBeNull();
+});
+
 test("a link to a locked step lands on the step that blocks it, not always on Breakdown", async () => {
   setViewport(1440);
   // Breakdown and Assets are done, but the storyboard frames are out of date: Clips is locked, and Storyboard is what blocks it.
@@ -803,6 +830,21 @@ test("a link to a locked step lands on Assets while assets are left to approve",
   fakeServer({ ...toClips, "GET /projects/9/assets": [200, [asset({})]] });
   open("?step=storyboard");
   expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
+});
+
+test("when Undo of Approve all fails, it says why", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({})]],
+    "GET /projects/9/assets/missing-looks": noMissing,
+    "POST /projects/9/assets/approve-all": [200, { approved: [12], skipped: [] }],
+    "POST /projects/9/assets/approve-all/undo": [409, { detail: "That look changed since. Undo it on its card." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  expect(await screen.findByText("That look changed since. Undo it on its card.")).toBeInTheDocument();
 });
 
 test("a locked step says Breakdown, the name this page uses, when problems in it are in the way", async () => {

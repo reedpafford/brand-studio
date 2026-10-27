@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, object_session
 
+from app.advice import SaidText
 from app.auth import current_user, owner_only
 from app.db import get_db
 from app.models.accounts import User
@@ -57,8 +58,8 @@ class ItemPatch(BaseModel):
 
 
 class LookFitOut(BaseModel):
-    seen: str  # "This look reads as: girl of about 10"
-    problem: str  # Redo it's note, prefilled
+    seen: SaidText  # "This look reads as: girl of about 10"
+    problem: SaidText  # Redo it's note, prefilled
 
 
 class ItemOut(ItemIn):

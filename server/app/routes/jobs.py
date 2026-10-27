@@ -8,6 +8,7 @@ from pydantic import BaseModel, model_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, object_session
 
+from app.advice import SaidText
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
     USD_PER_CREDIT,
@@ -35,7 +36,7 @@ class JobOut(BaseModel):
     credits: float
     status: JobStatus
     output: dict | None
-    error: str
+    error: SaidText
     created_at: datetime
     finished_at: datetime | None
     # Safe summary of what was asked, for history lists (from the job's input).

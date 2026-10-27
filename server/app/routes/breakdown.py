@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import advice, breakdown, breakdown_fix, clip_prompts, storyboard
-from app.advice import names, plain
+from app.advice import Said, names, plain
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -31,8 +31,8 @@ class BreakdownOut(BaseModel):
     script_version: int
     source: str
     breakdown: Breakdown
-    problems: list[str]
-    kept: list[str]  # advice kept anyway (never blocks)
+    problems: Said
+    kept: Said  # advice kept anyway (never blocks)
     stale: bool  # made for an older script version
     changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
     cast_redraw: dict | None = None  # fix-cast: redrawn_for_cast or redraw_refused

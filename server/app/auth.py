@@ -10,6 +10,7 @@ from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.advice import REQUEST
 from app.db import get_db, utcnow
 from app.models.accounts import LoginSession, User
 
@@ -79,6 +80,8 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
             )
         )
         if user:
+            if (asker := REQUEST.get()) is not None:
+                asker["workspace_id"] = user.workspace_id  # names in messages: theirs only
             return user
     raise HTTPException(401, "Please log in.")
 
