@@ -181,6 +181,29 @@ def repair_clips(db: Session) -> int:
     return changed
 
 
+def repair_missing_roles(db: Session) -> list[str]:
+    """Every speaker in a script is a role, and every role is in its shots (Reed, 2026-10-27,
+    "Marriage Rejection": made before the cast read, its groom was never a role): every
+    script still in use gets the speakers it's missing, and every video `complete_cast`.
+    Free, no model call. One plain line per script or video changed; running it again
+    changes nothing."""
+    from app import breakdown
+    from app.models.projects import Project
+    from app.models.script_library import Script, ScriptDraft
+
+    out = []
+    live = select(Script).where(Script.deleted_at.is_(None), Script.archived.is_(False))
+    for script in db.scalars(live).all():
+        out += [
+            f"{script.title}: added {n} to the cast" for n in breakdown.add_speakers(db, script)
+        ]
+    made = select(Project).where(Project.script_draft_id.in_(select(ScriptDraft.id)))
+    for project in db.scalars(made).all():
+        out += breakdown.complete_cast(db, project)
+    db.commit()
+    return out
+
+
 def repair_unknown_cast(db: Session) -> tuple[int, list[str]]:
     """Saved breakdowns (videos' newest, and library plans) that name someone the video
     doesn't have, like a deleted look still cast in a role (Kel's empty chair): landed again
@@ -246,6 +269,8 @@ def main(folder: str, slug: str = "fomo") -> None:
             print("Launch brands brought up to date from the manifests.")
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
+            for line in repair_missing_roles(db):  # before the frames and clips get sheets
+                print(line)
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Gave {repair_clips(db)} clips their characters' sheets.")
             fixed, said = repair_unknown_cast(db)

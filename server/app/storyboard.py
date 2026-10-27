@@ -25,7 +25,7 @@ from app.models.script_library import ScriptCastSlot
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
-from app.sheets import require_cast_sheets, require_sheet, usable_files
+from app.sheets import require_cast_sheets, require_looks, require_sheet, usable_files
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
@@ -61,7 +61,7 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     """Every picture a frame may use: asset id -> (its line for the prompt, its file ids).
     The cast (each look with the roles it plays), the script's cast slots (a filled slot:N is
     the same line as the look that plays it, so one person never shows under two names or
-    outfits; an empty one has no picture until Assets casts it, and is never a problem), the
+    outfits; an empty one has no picture until Assets casts it), the
     brand's places and props, and the brand's screens."""
     out: dict[str, tuple[str, list[int]]] = {}
     roles = cast_roles(db, project)
@@ -267,7 +267,8 @@ def with_cast(
 
 def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: int) -> list[str]:
     """With the frame's breakdown, a character in the shot without an approved look is
-    flagged too (by name; a role not cast yet waits for Assets and is never a problem)."""
+    flagged too, by name, a role not cast yet included (Reed, 2026-10-27: nothing is drawn
+    without a sheet for everyone in it); the problem links to Assets."""
     m = image_model()
     known = assets(db, project)
     bd = Breakdown.model_validate(db.get(BreakdownVersion, breakdown_id).data)
@@ -282,8 +283,6 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
     people = [r for r in frame.reference_ids if r.startswith(CHAR)]
     if shot and (not m.max_character_images or len(people) < m.max_character_images):
         for c in shot.character_ids:
-            if c.startswith("slot:") and c in known and not known[c][1]:
-                continue  # not cast yet: Assets casts it
             if not any(_same(known, c, r) for r in people):
                 problems.append(
                     f"{_name(known, c)} has no approved look yet. Approve one in Assets."
@@ -413,9 +412,12 @@ def still_price(db: Session, project: Project) -> int:
 def render_input(db: Session, project: Project, frame: StoryboardFrame, note: str = "") -> dict:
     """The Nano Banana job for one frame's still: the project's aspect ratio (always sent),
     character sheets first, then the place, props and screens, in the frame's order."""
+    from app.breakdown import would_show
+
     known = assets(db, project)
     breakdown = db.get(BreakdownVersion, frame.breakdown_id)
     require_cast_sheets(db, breakdown.data, [frame.shot_id], known)
+    require_looks(would_show(db, project, breakdown.data, [frame.shot_id]), known)
     characters, objects = [], []
     for ref in frame.reference_ids:
         if ref not in known:

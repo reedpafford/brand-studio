@@ -41,7 +41,7 @@ def _newest(db, project_id: int) -> BreakdownVersion:
 def _kels_video(owner, editor, db):
     """A library video whose role "Her friend" is cast at Assets to a look that is then
     deleted from Cast & places (QA-Live 5: video 12, slot 26, char:6)."""
-    made = _make(owner, text=SCRIPT)
+    made = _make(owner, text="SCENE 1 — INT. KITCHEN — DAY\nHER FRIEND: Hi.")  # her only
     base = f"/scripts/{made['id']}"
     friend = owner.post(f"{base}/cast", json={"role": "Her friend"}).json()[0]["id"]
     owner.put(f"{base}/drafts/0/breakdown", json=_naming(f"slot:{friend}"))

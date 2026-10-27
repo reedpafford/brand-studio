@@ -63,15 +63,17 @@ def test_merge_on_a_video_moves_its_shots_and_leaves_the_script_alone(owner, edi
                        "look_unused": {"name": "Mother look"}}  # fmt: skip
     done = editor.post(f"{url}/slots/{mother}/merge", json={"into_slot_id": mom}).json()
     assert done["moved"] == preview["moved"]
-    assert [r["slot_id"] for r in done["assets"] if r["slot_id"]] == [mom]
+    cast = owner.get(base).json()["cast"]  # Nate speaks in the script, so he's a role too
+    assert [s["role"] for s in cast] == ["Mom", "His mother", "Nate"]
+    nate = cast[2]["id"]
+    assert [r["slot_id"] for r in done["assets"] if r["slot_id"]] == [mom, nate]
     assert _shots(editor, pid) == [("Mom", [f"char:{looks[mom]}"])] * 2
-    assert [s["role"] for s in owner.get(base).json()["cast"]] == ["Mom", "His mother"]
     assert looks[mother] not in db.get(Project, pid).cast_ids  # unused, never deleted
     assert db.query(Job).count() == jobs  # free: nothing drawn or written
 
     editor.post(f"{url}/merge/undo", json={"token": done["token"]})
     assert _shots(editor, pid) == before
-    assert [r["slot_id"] for r in editor.get(url).json() if r["slot_id"]] == [mom, mother]
+    assert [r["slot_id"] for r in editor.get(url).json() if r["slot_id"]] == [mom, mother, nate]
     gone = editor.post(f"{url}/merge/undo", json={"token": done["token"]})
     assert gone.status_code == 404
 
@@ -96,7 +98,9 @@ def test_after_an_edit_the_merge_stays_and_cant_be_undone(owner, editor, db):
     done = editor.post(f"{url}/slots/{mother}/merge", json={"into_slot_id": mom}).json()
     # An edit naming the merged role (as an old plan or a Redo would) lands on the role kept.
     plan = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]
-    plan["scenes"][0]["shots"][1].update(character_ids=[f"slot:{mother}"], speaker="His mother")
+    plan["scenes"][0]["shots"][1].update(
+        character_ids=[f"slot:{mother}"], speaker="His mother", action="She sets the table."
+    )  # a real edit too
     assert editor.put(f"/projects/{pid}/breakdown", json=plan).status_code == 200
     assert _shots(editor, pid) == [("Mom", [f"char:{looks[mom]}"])] * 2
 
@@ -111,6 +115,32 @@ def test_after_an_edit_the_merge_stays_and_cant_be_undone(owner, editor, db):
         merge_roles.undo(db, script, done["token"])
     assert refused.value.status_code == 404
     assert _shots(editor, pid) == [("Mom", [f"char:{looks[mom]}"])] * 2
+
+
+def test_undo_still_works_after_a_role_gets_a_new_look(owner, editor, db):
+    """QA-2 on #614: Assets giving a role its look after the merge isn't a change Undo
+    loses; the look stays, and the merged role comes back."""
+    _, pid, mom, mother, looks = _video(owner, editor, db)
+    url = f"/projects/{pid}/assets"
+    done = editor.post(f"{url}/slots/{mother}/merge", json={"into_slot_id": mom}).json()
+    new = _look(owner, db, "Mom, older")
+    assert editor.put(f"{url}/slots/{mom}", json={"library_item_id": new}).status_code == 200
+    undone = editor.post(f"{url}/merge/undo", json={"token": done["token"]})
+    assert undone.status_code == 200, undone.text
+    assert _shots(editor, pid) == [("Mom", [f"char:{new}"]),
+                                   ("His mother", [f"char:{looks[mother]}"])]  # fmt: skip
+
+
+def test_undo_refuses_after_another_person_was_put_in_a_shot(owner, editor, db):
+    """QA on #614: a swap to someone else isn't a role getting its look; Undo would undo it."""
+    _, pid, mom, mother, looks = _video(owner, editor, db)
+    url = f"/projects/{pid}/assets"
+    done = editor.post(f"{url}/slots/{mother}/merge", json={"into_slot_id": mom}).json()
+    nate = next(r["slot_id"] for r in editor.get(url).json() if r["role"] == "Nate")
+    plan = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]
+    plan["scenes"][0]["shots"][1]["character_ids"] = [f"slot:{nate}"]  # Nate, not Mom
+    assert editor.put(f"/projects/{pid}/breakdown", json=plan).status_code == 200
+    assert editor.post(f"{url}/merge/undo", json={"token": done["token"]}).status_code == 409
 
 
 def test_theyre_different_on_a_video_keeps_the_pair_apart_here_only(owner, editor, db):
