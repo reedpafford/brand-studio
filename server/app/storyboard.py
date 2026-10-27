@@ -14,14 +14,13 @@ from app.advice import names, plain
 from app.cast_roles import cast_roles, pick, plays, video_slots
 from app.cast_roles import ref as role_ref
 from app.catalogue import CatalogueModel, catalogue
-from app.enhance import escape, project_context, project_screens, screen_name
+from app.enhance import escape, logo_only, project_context, project_screens, screen_name
 from app.images import image_job_input, image_model_block
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
-from app.models.script_library import ScriptCastSlot
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
@@ -32,13 +31,6 @@ PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
 def image_model() -> CatalogueModel:
     return next(m for m in catalogue().values() if m.kind == "image" and m.default)
-
-
-def script_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
-    """The video's cast slots (none for older videos): cast_roles.video_slots."""
-    from app.cast_roles import video_slots
-
-    return video_slots(db, project)
 
 
 def cast_looks(db: Session, project: Project) -> list[LibraryItem]:
@@ -78,7 +70,7 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         key = f"{PREFIX[item.kind]}:{item.id}"
         parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)
         out[key] = (" | ".join(x for x in parts if x), usable_files(item))
-    for slot in script_slots(db, project):  # a role a breakdown may name before it's cast
+    for slot in video_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
         # A locked role uses the sheet it was locked with, even if its look has a newer sheet
         # waiting for approval (Reed's live test: "Mogging BF" read as not approved).
@@ -99,8 +91,13 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     for s in project_screens(db, project):
         product = "product" in s.tags  # e.g. the Iron Paws bag: shown as a product, no face
         kind, what = ("product", "product") if product else ("screen", "app screen")
-        name = screen_name(s)
-        line = f"screen:{s.id} | {kind} | {name} | {brand.name} {what}, {', '.join(s.tags)}"
+        name, tags = screen_name(s), ", ".join(s.tags)
+        if logo_only(s, brand):  # rule 14: the logo is attached, the trading screen invented
+            out[f"screen:{s.id}"] = (f"screen:{s.id} | logo | {brand.name} logo | for the {name} "
+                                     f"screen ({tags}): invent it, this logo sharp in its top "
+                                     "corner", [brand.logo_file_id])  # fmt: skip
+            continue
+        line = f"screen:{s.id} | {kind} | {name} | {brand.name} {what}, {tags}"
         out[f"screen:{s.id}"] = (line, [s.file_id])
     return out
 
@@ -176,6 +173,55 @@ def nearest_first(shot, known: dict, lead: str | None = None) -> list[str]:
     return [ref for _, ref in sorted(enumerate(shot.character_ids), key=key)]
 
 
+def is_logo(known: dict, ref: str) -> bool:
+    return known.get(ref, ("",))[0].split(" | ")[1:2] == ["logo"]
+
+
+def one_logo(known: dict, ref: str) -> str:
+    """Every logo-only screen is the one logo picture, so it stands as the first of them."""
+    return next((k for k in known if is_logo(known, k) and _same(known, k, ref)), ref)
+
+
+OLD_SCREEN = re.compile(r"logo, colou?rs and layout exact(ly)?")
+
+
+def logo_words(prompt: str, tag: str, said: str, who: str) -> str:
+    """A saved prompt's old words for a logo-only screen (`tag` matches its "[Image4]" or
+    "image 4") say the logo, `said`, instead (rule 14). Free; again changes nothing."""
+
+    seen: list[str] = []
+
+    def fix(m: re.Match) -> str:
+        if not re.search(tag, m[0]):
+            return m[0]
+        if lead := re.match(rf"(\s*(?:References: )?)(?:{tag} is the |Show the )", m[0]):
+            seen.append(said)  # up and down both attached: the logo is said once
+            return lead[1] + said if len(seen) == 1 else lead[1].strip(" ")
+        return OLD_SCREEN.sub(
+            f"{who} sharp in the top corner, the rest of the screen invented", m[0]
+        )
+
+    return re.sub(r"[^.\n]*\.", fix, prompt)
+
+
+def logo_still(n: int, who: str) -> str:
+    return (f"Image {n} is the {who}: sharp in the top corner of the phone's trading screen, "
+            "invented with the chart this beat needs.")  # fmt: skip
+
+
+def say_logo(known: dict, prompt: str, ids: list[str], clip: bool = False) -> str:
+    """Old words for each logo-only screen among `ids` (a clip's images, or a frame's) say the
+    logo: run by the free repair and before every paid still or take, so no logo goes out
+    labelled as a chart (QA on #654)."""
+    for n, r in enumerate(ids, 1):
+        if is_logo(known, r):
+            who = _name(known, r)
+            tag, said = (rf"\[Image{n}\]", f"[Image{n}] is the {who}.") if clip else (
+                rf"(?i:\bimage {n}\b)", logo_still(n, who))  # fmt: skip
+            prompt = logo_words(prompt, tag, said, who)
+    return prompt
+
+
 def _same(known: dict, a: str, b: str) -> bool:
     """The same person: one id, or a cast role and the look that plays it (one sheet)."""
     if a == b:
@@ -221,7 +267,7 @@ def with_cast(
     if shot is None:
         return frame
     m = image_model()
-    refs = list(dict.fromkeys(frame.reference_ids))
+    refs = list(dict.fromkeys(one_logo(known, r) for r in frame.reference_ids))
     people = [r for r in refs if r.startswith(CHAR)]
     objects = [r for r in refs if not r.startswith(CHAR)]
     cast = nearest_first(shot, known, hero(db, project, bd, known))
@@ -244,7 +290,8 @@ def with_cast(
         picked, people = people, sorted(people + missing, key=rank)
     new = people + objects
     # The shot's screens too, after everything else, while there's room (the Director, #556).
-    screens = [s for s in shot.screen_ids if s in known and s not in new]
+    screens = [s for s in dict.fromkeys(one_logo(known, s) for s in shot.screen_ids)
+               if s in known and s not in new]  # fmt: skip
     if m.max_reference_images:
         screens = screens[: max(m.max_reference_images - len(new), 0)]
     if not (trim or missing or screens or people != picked):
@@ -252,13 +299,16 @@ def with_cast(
     new += screens
     if new == frame.reference_ids:
         return frame
-    moved = {i + 1: new.index(r) + 1 for i, r in enumerate(frame.reference_ids) if r in new}
-    dropped = {i + 1: _name(known, r) for i, r in enumerate(frame.reference_ids) if r not in new}
+    was = [one_logo(known, r) for r in frame.reference_ids]
+    moved = {i + 1: new.index(r) + 1 for i, r in enumerate(was) if r in new}
+    dropped = {i + 1: _name(known, r) for i, r in enumerate(was) if r not in new}
     prompt = _renumber(frame.prompt, moved, dropped)
     for r in new:
-        if r in screens:
+        if r in screens and is_logo(known, r):
+            prompt += " " + logo_still(new.index(r) + 1, _name(known, r))
+        elif r in screens:
             prompt += f" Show the {_name(known, r)} screen from image {new.index(r) + 1} as it is."
-        elif r not in frame.reference_ids:
+        elif r not in was:
             prompt += (
                 f" Keep {_name(known, r)} from image {new.index(r) + 1} exactly as on their sheet."
             )
@@ -330,6 +380,7 @@ def repair(db: Session, project: Project) -> int:
         was = Frame(clip_id=row.clip_id, shot_id=row.shot_id, prompt=row.prompt,
                     reference_ids=row.reference_ids)  # fmt: skip
         now = with_cast(db, project, was, breakdowns[row.breakdown_id], known, trim=False)
+        now = now.model_copy(update={"prompt": say_logo(known, now.prompt, now.reference_ids)})
         problems = frame_problems(db, project, now, row.breakdown_id) + [
             p for p in row.problems or [] if p.startswith(LEFT_OUT)
         ]  # what an earlier trim left out stays said
@@ -428,7 +479,8 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
         if not files and ref.startswith(("char:", "place:")):
             require_sheet(db.get(LibraryItem, int(ref.split(":")[1])))
         (characters if ref.startswith(CHAR) else objects).extend(files)
-    prompt = f"{frame.prompt}\nChange from the last still: {note}" if note else frame.prompt
+    prompt = say_logo(known, frame.prompt, frame.reference_ids)  # never a logo called a chart
+    prompt = f"{prompt}\nChange from the last still: {note}" if note else prompt
     job = image_job_input(
         image_model(), prompt, project.aspect_ratio, characters=characters, objects=objects
     )
