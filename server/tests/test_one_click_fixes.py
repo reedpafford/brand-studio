@@ -110,6 +110,10 @@ def test_too_many_pictures_never_blocks_once_repaired(app, db, editor, setup, mo
     assert shown["reference_ids"] == [mom, screen]  # the nearest person, and the screen
     assert "Nate in Nate" in shown["prompt"] and "image 2." in shown["prompt"]
     assert not [p for p in shown["problems"] if "references" in p]
+    left = "Advice: Left out Nate: the model takes 2 pictures, nearest the camera first."
+    assert left in shown["problems"]
+    again = editor.get(f"/projects/{setup['project']}/storyboard").json()[0]
+    assert left in again["problems"]  # still said the next time it's opened
 
 
 def test_opening_clips_attaches_sheets_approved_since(app, db, editor, setup):  # noqa: F811
@@ -143,3 +147,25 @@ def test_a_versions_plan_has_the_same_free_fixes(owner):
     assert fixed["fixed"] == ["Put line 3 in shot 1.2."]
     assert fixed["breakdown"]["scenes"][0]["shots"][1]["script_lines"] == [3]
     assert "line 3 is in no shot" not in fixed["problems"]
+
+
+def test_edit_shot_can_name_what_the_video_doesnt_have(app, db, editor, outsider, setup):  # noqa: F811
+    """Designer, §2: "Remove Mia from this shot", never another workspace's name."""
+    from tests.conftest import upload
+
+    url = f"/projects/{setup['project']}/breakdown"
+    editor.post(url)
+    _run(app, db, FakeClaude(BREAKDOWN))
+    mia = editor.post("/library/character", json={"name": "Mia"}).json()["id"]  # not cast
+    rival = outsider.post(
+        "/library/character", json={"name": "Secret Rival", "image_file_ids": [upload(outsider)]}
+    ).json()["id"]
+    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    data = copy.deepcopy(row.data)
+    data["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mia}", f"char:{rival}"]
+    row.data = data
+    db.commit()
+    assert editor.get(url).json()["unknown_names"] == {
+        f"char:{mia}": "Mia",
+        f"char:{rival}": "a character",  # another workspace's: said for what it is
+    }

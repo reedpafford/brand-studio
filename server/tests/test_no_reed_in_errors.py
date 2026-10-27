@@ -118,3 +118,98 @@ def test_stored_checks_show_no_ids(app, db, editor, setup):  # noqa: F811
     db.refresh(row)
     for text in [refused, *shown, *row.problems, *row.kept]:
         assert not IDS.search(text), text
+
+
+def test_a_left_over_id_is_said_for_what_it_is(monkeypatch):
+    """Reed saw "slot:28": whatever made a message, an id in it never reaches a person."""
+    from app import advice
+    from app.advice import said
+
+    monkeypatch.setattr(advice, "LOOKUP", None)  # nothing to look it up in: what it is
+
+    assert said("c2: slot:28 has no look yet") == "A character has no look yet"
+    assert said("Advice: screen:4 is shown twice") == "Advice: a screen is shown twice"
+    assert said("Mia has no look yet") == "Mia has no look yet"  # plain stays the same
+    assert said("") == ""
+
+
+def _shown_fields():
+    """Every response field a person reads a check, kept advice or note in."""
+    import importlib
+    import pkgutil
+
+    from pydantic import BaseModel
+
+    import app.routes
+
+    out = []
+    for mod in pkgutil.iter_modules(app.routes.__path__):
+        module = importlib.import_module(f"app.routes.{mod.name}")
+        for model in vars(module).values():
+            if isinstance(model, type) and issubclass(model, BaseModel):
+                out += [(model.__name__, name, f) for name, f in model.model_fields.items()
+                        if name in ("problems", "kept", "error", "seen", "problem")
+                        and model.__name__.endswith("Out")]  # fmt: skip
+    return out
+
+
+def test_every_shown_check_goes_through_said():
+    fields = _shown_fields()
+    assert len(fields) >= 12  # the scan really finds them
+    assert [(m, n) for m, n, f in fields if not f.metadata] == []
+
+
+def test_a_stored_id_is_never_shown_and_can_still_be_kept(app, db, editor, setup):  # noqa: F811
+    from app.models.breakdowns import BreakdownVersion
+    from tests.test_storyboard import _with_breakdown
+
+    _with_breakdown(app, db, editor, setup)
+    bd = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    bd.problems = ["Advice: c1: slot:28 looks older than the role"]  # saved before
+    db.commit()
+    url = f"/projects/{setup['project']}/breakdown"
+    shown = editor.get(url).json()["problems"]
+    assert shown == ["Advice: A character looks older than the role"]  # slot 28 isn't there
+    kept = editor.post(f"{url}/keep", json={"problem": shown[0]})
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["kept"] == shown
+    undone = editor.delete(f"{url}/keep", params={"problem": shown[0]})
+    assert undone.json()["kept"] == []
+
+
+def test_a_left_over_id_is_named_from_the_askers_workspace_only(
+    app,
+    db,
+    editor,
+    outsider,
+    setup,  # noqa: F811
+):
+    """Reed: the character's name, not "a character": a role by its name, a look and a
+    screen by theirs. QA on #517: never a name from another workspace."""
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.script_library import ScriptCastSlot
+    from tests.conftest import upload
+    from tests.test_storyboard import _with_breakdown
+
+    fomo = editor.get("/brands").json()[0]["id"]
+    script = editor.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"})
+    slot = ScriptCastSlot(script_id=script.json()["id"], role="Nate, the son")
+    db.add(slot)
+    db.commit()
+    mia = editor.post(
+        "/library/character", json={"name": "Mia", "image_file_ids": [upload(editor)]}
+    ).json()["id"]
+    rival = outsider.post(
+        "/library/character", json={"name": "Secret Rival", "image_file_ids": [upload(outsider)]}
+    ).json()["id"]
+    _with_breakdown(app, db, editor, setup)
+    bd = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    text = (f"Advice: c1: slot:{slot.id} and char:{mia} share screen:{setup['screen']}; "
+            f"char:{rival} and char:99999 left")  # fmt: skip
+    bd.problems = [text]  # saved before the plain-words work
+    db.commit()
+    (shown,) = editor.get(f"/projects/{setup['project']}/breakdown").json()["problems"]
+    assert shown.startswith("Advice: Nate and Mia share ")
+    assert "a screen" not in shown  # the brand screen by its own name
+    assert shown.endswith("; a character and a character left")  # another workspace's: gone
+    assert "Secret Rival" not in shown and not IDS.search(shown)

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import advice, breakdown_fix, script_preview
 from app import script_library as lib
+from app.advice import Said
 from app.auth import current_user
 from app.credits import estimate
 from app.db import get_db
@@ -29,14 +30,15 @@ WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 class PreviewOut(BaseModel):
     breakdown: Breakdown | None
-    problems: list[str]
+    problems: Said
     seconds: int  # the clips added up (0 before any breakdown)
     running: bool  # a breakdown is being made
-    kept: list[str] = []  # advice kept anyway (never blocks)
+    kept: Said = []  # advice kept anyway (never blocks)
     stale: bool = False  # the words changed since it was planned: plan again or keep it
     changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
     fixes: list[dict] = []  # [{problem, kind, label}]: a free one-click fix for that problem
     fixed: list[str] = []  # what a fix just did, in plain words (the toast); Undo is PUT
+    unknown_names: dict[str, str] = {}  # a name a shot has that the plan can't use: {ref: name}
 
 
 class EstimateOut(BaseModel):
@@ -65,7 +67,16 @@ def _out(db: Session, draft) -> PreviewOut:
         kept=draft.breakdown_kept,
         stale=bool(bd and draft.breakdown_text is not None and draft.breakdown_text != draft.text),
         fixes=breakdown_fix.fixes(draft.breakdown_problems or []),
+        unknown_names=_unknown(db, draft, bd) if bd else {},
     )
+
+
+def _unknown(db: Session, draft, bd: Breakdown) -> dict[str, str]:
+    from app import breakdown
+    from app.models.script_library import Script
+
+    project = script_preview.stand_in_project(db, db.get(Script, draft.script_id), draft)
+    return breakdown.unknown_names(db, project, bd)
 
 
 @router.get("", response_model=PreviewOut)

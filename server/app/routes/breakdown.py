@@ -6,15 +6,16 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app import advice, breakdown, breakdown_fix, clip_prompts, storyboard
-from app.advice import names, plain
+from app.advice import Said, names, plain
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
+from app.models.projects import Project
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
@@ -31,17 +32,21 @@ class BreakdownOut(BaseModel):
     script_version: int
     source: str
     breakdown: Breakdown
-    problems: list[str]
-    kept: list[str]  # advice kept anyway (never blocks)
+    problems: Said
+    kept: Said  # advice kept anyway (never blocks)
     stale: bool  # made for an older script version
     changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
     cast_redraw: dict | None = None  # fix-cast: redrawn_for_cast or redraw_refused
     fixes: list[dict] = []  # [{problem, kind, label}]: a free one-click fix for that problem
     fixed: list[str] = []  # what a fix just did, in plain words (the toast); Undo is PUT
+    unknown_names: dict[str, str] = {}  # a name a shot has that the video doesn't: {ref: name}
 
 
 def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
+    db = object_session(row)
+    project = db.get(Project, row.project_id)
     return BreakdownOut(
+        unknown_names=breakdown.unknown_names(db, project, Breakdown.model_validate(row.data)),
         id=row.id,
         script_version=row.script_version,
         source=row.source,
