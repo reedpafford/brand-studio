@@ -119,11 +119,14 @@ def test_breakdown_ids_must_be_the_projects(app, db, editor, setup):  # noqa: F8
     good = copy.deepcopy(BREAKDOWN)
     good["scenes"][0]["shots"][0]["screen_ids"] = [f"screen:{setup['screen']}"]
     assert editor.put(url, json=good).status_code == 200
-    editor.post(url)  # Claude naming an unknown place is saved, with the problem shown
+    editor.post(url)  # Claude naming an unknown place: taken out, said as advice (#520)
     bad["scenes"][0]["shots"][0]["character_ids"] = []
     bad["scenes"][0]["shots"][0]["place_id"] = "place:7"
     _run(app, db, FakeClaude(bad))
-    assert "shot 1.1: a place that isn't part of this video" in editor.get(url).json()["problems"]
+    got = editor.get(url).json()
+    assert got["breakdown"]["scenes"][0]["shots"][0]["place_id"] is None
+    assert ("Advice: Removed a place from shot 1.1. Nobody by that name is in this video."
+            in got["problems"])  # fmt: skip
 
 
 class FakeNanoBanana:

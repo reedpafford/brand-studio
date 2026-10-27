@@ -241,6 +241,21 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
     return plain(problems, names(known))
 
 
+TOO_MANY = "more references than"
+
+
+def _cap(frame: Frame, known: dict) -> Frame:
+    """Over the image model's limit even with the nearest people only: the last pictures
+    (props, then screens) go, and the prompt names them instead."""
+    limit = image_model().max_reference_images
+    if not limit or len(frame.reference_ids) <= limit:
+        return frame
+    new = frame.reference_ids[:limit]
+    dropped = {i + 1: _name(known, r) for i, r in enumerate(frame.reference_ids) if r not in new}
+    prompt = _renumber(frame.prompt, {}, dropped)
+    return frame.model_copy(update={"prompt": prompt, "reference_ids": new})
+
+
 def repair(db: Session, project: Project) -> int:
     """Give every frame of the video the sheets of the characters in its shot (`with_cast`),
     and check it again. Free and idempotent: run when the storyboard is opened, and on deploy
@@ -256,6 +271,9 @@ def repair(db: Session, project: Project) -> int:
                     reference_ids=row.reference_ids)  # fmt: skip
         now = with_cast(db, project, was, breakdowns[row.breakdown_id], known, trim=False)
         problems = frame_problems(db, project, now, row.breakdown_id)
+        if any(p.lower().startswith(TOO_MANY) for p in problems):  # never a dead end
+            now = _cap(with_cast(db, project, was, breakdowns[row.breakdown_id], known), known)
+            problems = frame_problems(db, project, now, row.breakdown_id)
         if now == was and problems == (row.problems or []):
             continue
         row.prompt, row.reference_ids, row.problems = now.prompt, now.reference_ids, problems
