@@ -186,7 +186,7 @@ export function ClipCard(props: {
           </div>
         </div>
       )}
-      {props.review && props.rewrite}
+      {(props.review || !c.prompt) && props.rewrite /* never written: its only way out, everywhere */}
       {props.review && !c.stale && (
         <ChangeBox
           kind="clip"

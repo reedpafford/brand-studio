@@ -126,6 +126,7 @@ test("a clip never written, its free fix used, points to the priced rewrite and 
   fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ prompt: "", problems: ["This clip's prompt wasn't written: the answer left it out."], free_fix_used: true })]] });
   open();
   expect(await screen.findByText("Rewrite this clip's prompt below writes it, at its price.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Rewrite this clip's prompt/ })).toBeInTheDocument(); // the way out, on this page too
   expect(screen.queryByRole("button", { name: /Keep it anyway/ })).toBeNull();
 });
 
