@@ -155,101 +155,6 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
         screen.balance = meta.get("balance", "")
 
 
-def repair_cta_screens(db: Session) -> tuple[int, int, int]:
-    """Each video's newest breakdown whose end line's shot shows no screen gets the brand's
-    balance (else home) screen and the hero, in place (breakdown.cta_screen); its frames
-    and clips then attach it (repair_frames, repair_clips). Free; again changes nothing.
-    Returns how many it gave a screen, how many end-line shots already show one, and how
-    many plans have no single shot that says the end line (for the deploy log)."""
-    from app.breakdown import cta_screen
-    from app.models.breakdowns import BreakdownVersion
-    from app.models.projects import Project
-    from app.prompts.check import ends_on
-    from app.prompts.schemas import Breakdown
-
-    changed = already = unsaid = 0
-    for project in db.scalars(select(Project)).all():
-        row = db.scalar(
-            select(BreakdownVersion)
-            .where(BreakdownVersion.project_id == project.id)
-            .order_by(BreakdownVersion.id.desc())
-            .limit(1)
-        )
-        if row is None or not row.data:  # JSON null passes SQL is_not(None)
-            continue
-        bd, notes = cta_screen(db, project, Breakdown.model_validate(row.data))
-        if notes:
-            row.data, row.problems = bd.model_dump(), [*(row.problems or []), *notes]
-            changed += 1
-            continue
-        brand = db.get(Brand, project.brand_id)
-        shots = [s for scene in bd.scenes for s in scene.shots if s.line]
-        said = [s for s in shots if ends_on(brand.end_line, s.line, brand.name) != "no"]
-        if brand.end_line.strip() and not said:
-            unsaid += 1
-        elif said and said[-1].screen_ids:
-            already += 1
-    db.commit()
-    return changed, already, unsaid
-
-
-def moment_problems(db: Session) -> tuple[int, int]:
-    """Saved checks that said "'fomo-mention' moment without its screen" as a block: said
-    again with today's rule (advice, and any screen of the same kind counts: Reed,
-    2026-10-27), so videos and plans lose the false blocker. Free; again changes nothing.
-    Returns how many were said again, and how many such checks are still stored as a block
-    (read-only, for the deploy log: the matcher missed them)."""
-    import re
-
-    from app.enhance import project_screens
-    from app.models.breakdowns import BreakdownVersion
-    from app.models.projects import Project
-    from app.models.script_library import Script, ScriptDraft
-    from app.prompts.check import kinds_of, moment_screen
-    from app.prompts.schemas import Breakdown
-    from app.script_preview import stand_in_project
-
-    said = re.compile(r"(?i)^(?:c\d+: )?shot (\S+): '.+' moment without its screen$")  # as saved
-
-    def again(project: Project, data: dict, problems: list[str]) -> list[str] | None:
-        if not any(said.match(p) for p in problems or []):
-            return None
-        shown = project_screens(db, project)
-        screens = {f"screen:{s.id}": s.default_for for s in shown}
-        kinds = kinds_of(shown)
-        shots = {s.id: s for scene in Breakdown.model_validate(data).scenes for s in scene.shots}
-        out = []
-        for p in problems:
-            m = said.match(p)
-            out += [moment_screen(shots[m[1]], screens, kinds)] if m and m[1] in shots else [p]
-        return [p for p in out if p]
-
-    def blocking(problems: list[str]) -> int:
-        return sum("moment without its screen" in p and not p.startswith("Advice: ")
-                   for p in problems or [])  # fmt: skip
-
-    changed = left = 0
-    for project in db.scalars(select(Project)).all():
-        row = db.scalar(
-            select(BreakdownVersion)
-            .where(BreakdownVersion.project_id == project.id)
-            .order_by(BreakdownVersion.id.desc())
-            .limit(1)
-        )
-        if row and (new := again(project, row.data, row.problems)) is not None:
-            row.problems, changed = new, changed + 1
-        left += blocking(row.problems) if row else 0
-    for draft in db.scalars(select(ScriptDraft)).all():
-        if not draft.breakdown:  # a deleted plan is JSON null, which is_not(None) lets through
-            continue
-        stand_in = stand_in_project(db, db.get(Script, draft.script_id), draft)
-        if (new := again(stand_in, draft.breakdown, draft.breakdown_problems)) is not None:
-            draft.breakdown_problems, changed = new, changed + 1
-        left += blocking(draft.breakdown_problems)
-    db.commit()
-    return changed, left
-
-
 def repair_frames(db: Session) -> int:
     """Frames saved before every shot's people got their sheets (Reed's live test): fixed
     for free, with no model call; running it again changes nothing."""
@@ -274,101 +179,6 @@ def repair_clips(db: Session) -> int:
     changed = sum(repair(db, db.get(Project, pid)) for pid in ids)
     db.commit()
     return changed
-
-
-def plain_stored(db: Session) -> int:
-    """Problems saved before they were said in plain words ("c3: char:3 …"): the clip id
-    dropped and every id named, kept advice too, so a kept one stays kept. Free; running it
-    again changes nothing."""
-    from app import clip_prompts, storyboard
-    from app.advice import names, plain
-    from app.cast_roles import short
-    from app.models.breakdowns import BreakdownVersion
-    from app.models.clips import ProjectClip
-    from app.models.projects import Project
-    from app.models.script_library import ScriptCastSlot, ScriptDraft
-    from app.models.storyboards import StoryboardFrame
-
-    changed, called = 0, {}
-
-    def fix(row, problems: str, kept: str, n: dict) -> int:
-        old = (getattr(row, problems) or [], getattr(row, kept) or [])
-        new = (plain(old[0], n), plain(old[1], n))
-        if new == old:
-            return 0
-        setattr(row, problems, new[0])
-        setattr(row, kept, new[1])
-        return 1
-
-    for model, assets in ((BreakdownVersion, storyboard.assets),
-                          (StoryboardFrame, storyboard.assets),
-                          (ProjectClip, clip_prompts.assets)):  # fmt: skip
-        for row in db.scalars(select(model)):
-            if row.problems or row.kept:
-                key = (assets, row.project_id)
-                if key not in called:
-                    called[key] = names(assets(db, db.get(Project, row.project_id)))
-                changed += fix(row, "problems", "kept", called[key])
-    for draft in db.scalars(select(ScriptDraft)):
-        if draft.breakdown_problems or draft.breakdown_kept:
-            slots = db.scalars(
-                select(ScriptCastSlot).where(ScriptCastSlot.script_id == draft.script_id)
-            )
-            n = {f"slot:{s.id}": short(s.role) or s.role for s in slots}
-            changed += fix(draft, "breakdown_problems", "breakdown_kept", n)
-    db.commit()
-    return changed
-
-
-def rewrite_owner_clips(db: Session) -> str:
-    """Reed's current video, whose clips went stale before Clips could rewrite them (Reed,
-    2026-10-26, #503): of the videos an owner made, the one edited most recently (its newest
-    breakdown change) with stale clips gets its stale clip prompts rewritten once, free to
-    him (one real Claude call, at most 3 credits' worth, charged to no budget or week; its
-    dollars are in Usage). Only that one video, only once ever. A take waiting or held on a
-    stale clip is cancelled first (it never started, so nothing was charged); one being made,
-    or one on a clip that's up to date, waits for the next deploy. Others get the button, or
-    the rewrite on their next change. One plain line for the deploy log, whatever happens."""
-    from app import clip_prompts
-    from app.job_brand import brand_for
-    from app.models.accounts import Role, User
-    from app.models.clips import ProjectClip
-    from app.models.jobs import Job, JobStatus
-    from app.models.projects import Project
-    from app.routes.jobs import stop_jobs
-
-    jobs = db.scalars(select(Job).where(Job.input["step"].as_string() == "clip_prompts"))
-    if any(j.input.get("repair") for j in jobs):
-        return "Clip prompts: already rewritten once."
-    owners = {u.id: u for u in db.scalars(select(User).where(User.role == Role.owner))}
-    candidates = []
-    for project in db.scalars(select(Project).where(Project.created_by_id.in_(owners))):
-        bd = clip_prompts.newest(db, project)
-        if project.archived_at is None and bd and clip_prompts.to_rewrite(db, project):
-            candidates.append((bd.id, project))
-    if not candidates:
-        return "Clip prompts: nothing to rewrite."
-    _, project = max(candidates, key=lambda c: c[0])  # the latest breakdown change
-    ids = clip_prompts.to_rewrite(db, project)
-    waiting = [j for j in db.scalars(select(Job).where(Job.project_id == project.id))
-               if j.status in clip_prompts.WAITING]  # fmt: skip
-    if any(j.input.get("step") == "clip_prompts" for j in waiting):
-        return f"Clip prompts: waiting, they're already being written on “{project.name}”."
-    for take in (j for j in waiting if j.input.get("step") == "clip_take"):
-        row = db.get(ProjectClip, take.input.get("project_clip_id") or 0)
-        if take.status != JobStatus.running and (row is None or row.clip_id in ids):
-            stop_jobs(db, Job.id == take.id)  # held only because its clip is out of date
-        else:
-            return f"Clip prompts: waiting, a take is still being made on “{project.name}”."
-    bd = clip_prompts.newest(db, project)
-    data = {**clip_prompts.job_input(db, project, bd, ids), "clip_ids": ids, "repair": True}
-    owner = owners[project.created_by_id]
-    db.add(Job(workspace_id=project.workspace_id, created_by_id=owner.id,
-               approved_by_id=owner.id, kind="write-claude", provider="claude", input=data,
-               project_id=project.id, brand_id=brand_for(db, project, data),
-               credits=0, status=JobStatus.queued))  # fmt: skip
-    db.commit()
-    return f"Rewrote clip prompts on “{project.name}”."
 
 
 def repair_unknown_cast(db: Session) -> tuple[int, list[str]]:
@@ -436,15 +246,8 @@ def main(folder: str, slug: str = "fomo") -> None:
             print("Launch brands brought up to date from the manifests.")
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
-            said, left = moment_problems(db)
-            print(f"Said {said} brand-moment checks as advice ({left} still stored as blocking).")
-            gave, already, unsaid = repair_cta_screens(db)
-            print(f"Gave {gave} end-line shots the brand's screen ({already} already show one, "
-                  f"{unsaid} with no single end-line shot).")  # fmt: skip
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Gave {repair_clips(db)} clips their characters' sheets.")
-            print(f"Said {plain_stored(db)} saved checks in plain words.")
-            print(rewrite_owner_clips(db))
             fixed, said = repair_unknown_cast(db)
             print(f"Fixed who's in the shots of {fixed} saved breakdowns.")
             for line in said:

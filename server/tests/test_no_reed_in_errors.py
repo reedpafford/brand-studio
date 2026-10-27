@@ -94,12 +94,9 @@ def test_checks_are_said_with_names():
 
 
 def test_stored_checks_show_no_ids(app, db, editor, setup):  # noqa: F811
-    """Frames, the breakdown and their kept advice, as people read them, also after the
-    deploy step rewrites what was saved before."""
+    """Frames, the breakdown and their kept advice, as people read them."""
     import copy
 
-    from app.models.breakdowns import BreakdownVersion
-    from app.seed import plain_stored
     from tests.test_breakdown import BREAKDOWN
     from tests.test_enhance import FakeClaude, _run
 
@@ -112,17 +109,7 @@ def test_stored_checks_show_no_ids(app, db, editor, setup):  # noqa: F811
     editor.post(f"{url}/breakdown")
     _run(app, db, FakeClaude(bad))
     shown = editor.get(f"{url}/breakdown").json()["problems"]
-    row = (
-        db.query(BreakdownVersion)
-        .filter_by(project_id=setup["project"])
-        .order_by(BreakdownVersion.id.desc())
-        .first()
-    )
-    row.problems, row.kept = [*row.problems, "c1: unknown char:999"], ["Advice: c1: char:999"]
-    db.commit()
-    assert plain_stored(db) >= 1 and plain_stored(db) == 0  # once, then nothing to do
-    db.refresh(row)
-    for text in [refused, *shown, *row.problems, *row.kept]:
+    for text in [refused, *shown]:
         assert not IDS.search(text), text
 
 
