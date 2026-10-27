@@ -699,6 +699,63 @@ test("a look with nothing wrong shows no look-check note", async () => {
   expect(screen.queryByText(/This look reads as/)).toBeNull();
 });
 
+const waiting = (id: number, o: object = {}) => ({ ...frame, id, clip_id: `c${id}`, approved: false, earlier: [], change: null, ...o });
+
+test("Approve all on the storyboard approves the frames that can be, says why the others weren't, and Undo takes back exactly those", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [waiting(1), waiting(2, { file_id: null })]],
+    "POST /projects/9/storyboard/approve-all": [200, { approved: [1], skipped: [{ id: 2, reason: "no still yet" }] }],
+    "POST /projects/9/storyboard/approve-all/undo": [200, []],
+  });
+  open("?step=storyboard");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve 1" })); // one of the two can be approved
+  expect(await screen.findByText(/Approved 1\./)).toHaveTextContent("Approved 1. 1 not approved: Frame c2: no still yet");
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/approve-all/undo")?.body).toEqual({ ids: [1] }));
+  expect(screen.queryByText(/Approved 1\./)).toBeNull();
+});
+
+test("the Approve all result line goes away on the next action, but not when its own links are pressed", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [waiting(1), waiting(2, { file_id: null })]],
+    "POST /projects/9/storyboard/approve-all": [200, { approved: [1], skipped: [{ id: 2, reason: "no still yet" }] }],
+  });
+  open("?step=storyboard");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve 1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Frame c2" }));
+  expect(screen.getByText(/Approved 1\./)).toBeInTheDocument();
+  await userEvent.tab(); // moving by keyboard leaves it be
+  expect(screen.getByText(/Approved 1\./)).toBeInTheDocument();
+  await userEvent.click(document.body);
+  await vi.waitFor(() => expect(screen.queryByText(/Approved 1\./)).toBeNull());
+});
+
+test("Approve all is not offered when every frame is approved or has no still", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }, waiting(2, { file_id: null })]] });
+  open("?step=storyboard");
+  await screen.findByLabelText("Frame c2");
+  expect(screen.queryByRole("button", { name: /^Approve (all|\d)/ })).toBeNull();
+});
+
+test("Approve all on Clips approves the clips with a picked take", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ id: 3, clip_id: "c1", prompt_ok: true, takes: [{ id: 5 }], picked_take_id: 5 })]],
+    "POST /projects/9/clips/approve-all": [200, { approved: [3], skipped: [] }],
+  });
+  open("?step=clips");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/approve-all")).toBe(true));
+  expect(await screen.findByText("Approved 1.")).toBeInTheDocument();
+  expect(await screen.findByText("Approved 1 clip.")).toBeInTheDocument(); // the toast, with Undo
+});
+
 const staleClips = [clip({ id: 3, clip_id: "c1", stale: true, takes: [{ id: 5 }], picked_take_id: 5 }), clip({ id: 4, clip_id: "c2", stale: true })];
 const staleRoutes = {
   ...toClips,
@@ -731,4 +788,19 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
   expect(within(card).queryByLabelText("Change this…")).toBeNull();
   await userEvent.click(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
+});
+
+test("a link to a locked step lands on the step that blocks it, not always on Breakdown", async () => {
+  setViewport(1440);
+  // Breakdown and Assets are done, but the storyboard frames are out of date: Clips is locked, and Storyboard is what blocks it.
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]], "GET /projects/9/clips": [200, []] });
+  open("?step=clips");
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+});
+
+test("a link to a locked step lands on Assets while assets are left to approve", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/assets": [200, [asset({})]] });
+  open("?step=storyboard");
+  expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
 });
