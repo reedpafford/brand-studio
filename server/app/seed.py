@@ -182,6 +182,55 @@ def repair_cta_screens(db: Session) -> int:
     return changed
 
 
+def moment_problems(db: Session) -> int:
+    """Saved checks that said "'fomo-mention' moment without its screen" as a block: said
+    again with today's rule (advice, and any screen of the same kind counts: Reed,
+    2026-10-27), so videos and plans lose the false blocker. Free; again changes nothing."""
+    import re
+
+    from app.enhance import project_screens
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.projects import Project
+    from app.models.script_library import Script, ScriptDraft
+    from app.prompts.check import kinds_of, moment_screen
+    from app.prompts.schemas import Breakdown
+    from app.script_preview import stand_in_project
+
+    said = re.compile(r"^shot (\S+): '.+' moment without its screen$")
+
+    def again(project: Project, data: dict, problems: list[str]) -> list[str] | None:
+        if not any(said.match(p) for p in problems or []):
+            return None
+        shown = project_screens(db, project)
+        screens = {f"screen:{s.id}": s.default_for for s in shown}
+        kinds = kinds_of(shown)
+        shots = {s.id: s for scene in Breakdown.model_validate(data).scenes for s in scene.shots}
+        out = []
+        for p in problems:
+            m = said.match(p)
+            out += [moment_screen(shots[m[1]], screens, kinds)] if m and m[1] in shots else [p]
+        return [p for p in out if p]
+
+    changed = 0
+    for project in db.scalars(select(Project)).all():
+        row = db.scalar(
+            select(BreakdownVersion)
+            .where(BreakdownVersion.project_id == project.id)
+            .order_by(BreakdownVersion.id.desc())
+            .limit(1)
+        )
+        if row and (new := again(project, row.data, row.problems)) is not None:
+            row.problems, changed = new, changed + 1
+    for draft in db.scalars(select(ScriptDraft)).all():
+        if not draft.breakdown:  # a deleted plan is JSON null, which is_not(None) lets through
+            continue
+        stand_in = stand_in_project(db, db.get(Script, draft.script_id), draft)
+        if (new := again(stand_in, draft.breakdown, draft.breakdown_problems)) is not None:
+            draft.breakdown_problems, changed = new, changed + 1
+    db.commit()
+    return changed
+
+
 def repair_frames(db: Session) -> int:
     """Frames saved before every shot's people got their sheets (Reed's live test): fixed
     for free, with no model call; running it again changes nothing."""
@@ -337,6 +386,8 @@ def repair_unknown_cast(db: Session) -> tuple[int, list[str]]:
         if breakdown.unknown_ids(db, project, bd):
             still.append(f"Still names someone it doesn't have: {project.name}")
     for draft in db.scalars(select(ScriptDraft).where(ScriptDraft.breakdown.is_not(None))).all():
+        if not draft.breakdown:  # a deleted plan is stored as JSON null, which passes the filter
+            continue
         script = db.get(Script, draft.script_id)
         stand_in = script_preview.stand_in_project(db, script, draft)
         also = script_preview.live_looks(db, script)
@@ -366,6 +417,7 @@ def main(folder: str, slug: str = "fomo") -> None:
             print("Launch brands brought up to date from the manifests.")
             made = import_drafts(db, settings.references_dir)
             print(f"Imported {made} new script drafts into the library.")
+            print(f"Said {moment_problems(db)} brand-moment checks as advice.")
             print(f"Gave {repair_cta_screens(db)} end-line shots the brand's screen.")
             print(f"Gave {repair_frames(db)} frames their characters' sheets.")
             print(f"Gave {repair_clips(db)} clips their characters' sheets.")
