@@ -276,8 +276,8 @@ export function BreakdownView(props: {
   const problemList = (after?: () => void) => (
     <ul className="space-y-1 text-sm">
       {real.map((p) => (
-        <li key={p} className="flex items-start gap-2">
-          <span className="flex-1 py-3">{words(p)}</span>
+        <li key={p} className="flex flex-wrap items-start gap-2">
+          <span className="w-full py-3 sm:w-auto sm:flex-1">{words(p)}</span>
           {goButton(p, after)}
           {fixes.beside(p)}
           {p.startsWith(CAST) && (

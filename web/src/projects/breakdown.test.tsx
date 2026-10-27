@@ -422,3 +422,11 @@ test("a problem with no free fix shows no fix button", async () => {
   const box = await screen.findByLabelText("Problems");
   expect(within(box).queryByText("Free")).toBeNull();
 });
+
+test("a problem's words get the whole row on a phone, with its buttons wrapping under them", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [lost], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }] })] });
+  open();
+  const words = (await screen.findByLabelText("Problems")).querySelector("li > span");
+  expect(words).toHaveClass("w-full", "sm:flex-1");
+  expect(words?.parentElement).toHaveClass("flex-wrap");
+});
