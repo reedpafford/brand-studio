@@ -32,7 +32,7 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 ## Sessions (current)
 | Agent | Session |
 |---|---|
-| Builder-Server-3 (replaced Builder-Server-2 on 2026-10-27, context hygiene) | session_01FRDAYFgsbpK6qpQsnY7dJW |
+| Builder-Server-5 (replaced Builder-Server-3 and -4 on 2026-10-27, context hygiene; montage trading screens) | session_01FRDAYJJv6AhprHx2GkXuCr |
 | Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
 | Builder-Screens-3 (editor video flow; replaced Builder-Screens-2 on 2026-10-26) | session_01RY7gQZ2FyTVwVAYrbX5MXu |
 | QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
@@ -40,7 +40,6 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Designer | session_01USbuJ9znkRnKbNV4cnJUNW |
 | Director | session_01HeFuWAEdxcgfha4QYoAC3Z |
 | Steward | session_01FRDAYFCGf1CkVUYdddfvi7 |
-| Builder-Server-4 (clip prompt failures) | session_01FRDAYETacn1PURt9KVsAjD |
 | QA-Live 6 (live checks, while it runs) | session_01FRDAYFjPARnHGEy8SXNuo8 |
 | Scribe | session_01KaFbhckt39bp16rrK4Ncoa |
 | Release | session_01BGZgB9afnDnbYURA7D11gk |
