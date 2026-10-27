@@ -20,7 +20,7 @@ function show(label: string) {
 export function useApproveAllWith(opts: {
   noun: string;
   press: () => Promise<ApproveAllResult>;
-  undo: (ids: number[]) => Promise<unknown>;
+  undo: (ids: number[]) => Promise<{ response: { ok: boolean }; error?: unknown } | undefined>;
   refresh: () => Promise<unknown>;
   name: (skipped: Skipped) => string;
   ready: number;
@@ -36,7 +36,9 @@ export function useApproveAllWith(opts: {
       await opts.refresh();
       if (r.approved.length === 0) return;
       toast(`Approved ${r.approved.length} ${noun}${r.approved.length === 1 ? "" : "s"}.`, async () => {
-        await opts.undo(r.approved);
+        // A failed Undo says why, in words.
+        const back = await opts.undo(r.approved).catch((e: unknown) => ({ error: e, response: { ok: false } }));
+        if (back && !back.response.ok) return toast(errorText(back.error) || "Couldn't undo that. Try again.", undefined, "error");
         setResult(null);
         await opts.refresh();
       });
