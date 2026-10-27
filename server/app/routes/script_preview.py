@@ -38,6 +38,7 @@ class PreviewOut(BaseModel):
     changed_shots: list[dict] = []  # fix-cast: [{shot_id, before, after}], for Undo
     fixes: list[dict] = []  # [{problem, kind, label}]: a free one-click fix for that problem
     fixed: list[str] = []  # what a fix just did, in plain words (the toast); Undo is PUT
+    unknown_names: dict[str, str] = {}  # a name a shot has that the plan can't use: {ref: name}
 
 
 class EstimateOut(BaseModel):
@@ -66,7 +67,16 @@ def _out(db: Session, draft) -> PreviewOut:
         kept=draft.breakdown_kept,
         stale=bool(bd and draft.breakdown_text is not None and draft.breakdown_text != draft.text),
         fixes=breakdown_fix.fixes(draft.breakdown_problems or []),
+        unknown_names=_unknown(db, draft, bd) if bd else {},
     )
+
+
+def _unknown(db: Session, draft, bd: Breakdown) -> dict[str, str]:
+    from app import breakdown
+    from app.models.script_library import Script
+
+    project = script_preview.stand_in_project(db, db.get(Script, draft.script_id), draft)
+    return breakdown.unknown_names(db, project, bd)
 
 
 @router.get("", response_model=PreviewOut)

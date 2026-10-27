@@ -129,19 +129,35 @@ def unknown_ids(db: Session, project: Project, bd: Breakdown) -> list[str]:
     ]
 
 
-def _called(db: Session, ref: str) -> str:
-    """A name the video doesn't have, as people call it ("Mia"), or what it is."""
+def _called(db: Session, ref: str, workspace_id: int) -> str:
+    """A name the video doesn't have, as people call it ("Mia"), or what it is; only ever a
+    name from this workspace."""
     from app.advice import KIND
     from app.enhance import screen_name
-    from app.models.brands import BrandScreen
+    from app.models.brands import Brand, BrandScreen
 
     kind, _, n = ref.partition(":")
-    found = None
     if n.isdigit() and kind in ("char", "place", "prop"):
-        found = db.get(LibraryItem, int(n))
+        item = db.get(LibraryItem, int(n))
+        if item and item.workspace_id == workspace_id:
+            return item.name
     elif n.isdigit() and kind == "screen" and (screen := db.get(BrandScreen, int(n))):
-        return screen_name(screen)
-    return found.name if found else KIND.get(kind, "a name")
+        brand = db.get(Brand, screen.brand_id)
+        if brand and brand.workspace_id == workspace_id:
+            return screen_name(screen)
+    return KIND.get(kind, "a name")
+
+
+def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:
+    """What people call each name a shot has that the video doesn't ({ref: "Nate"}), so Edit
+    shot can say "Remove Nate from this shot" (spec one-click-fixes.md §2). Free."""
+    from app.storyboard import assets
+
+    known = assets(db, project) if known is None else known
+    refs = [r for scene in bd.scenes for shot in scene.shots
+            for r in [*shot.character_ids, shot.place_id, *shot.screen_ids]]  # fmt: skip
+    return {r: _called(db, r, project.workspace_id) for r in dict.fromkeys(refs)
+            if r and r not in known}  # fmt: skip
 
 
 def record_length(project: Project, bd: Breakdown) -> None:
@@ -184,7 +200,7 @@ def save_breakdown(db: Session, job: Job) -> None:
     from app.storyboard import assets
 
     known = assets(db, project)  # a name the video doesn't have never blocks: it's taken out
-    bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref))
+    bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
     record_length(project, bd)
     db.add(
         BreakdownVersion(
