@@ -1,4 +1,11 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-27 20:21 · #637 A reel-made version is estimated at the reel's length before its breakdown merged
+- 2026-10-27 20:11 · #635, #636 Every spoken line names its language (English) and every take is asked for in English; a changed prompt with a problem makes no take, merged
+- 2026-10-27 20:04 · #628 Hotfix after #614 went live: duplicate roles flagged, every cast line fixable, the deploy says what the repair did merged
+- 2026-10-27 19:53 · #632 Reference names are cut at a comma but not inside a number ('$2,000') merged
+- 2026-10-27 19:49 · #631 Editors never see the owner's name ('the owner' instead) on login hint, invite page, draft note, brand menus and scripts list merged
+- 2026-10-27 19:36 · #630 Sheets: adults look like adults, and every sheet has front, side and back merged
+- 2026-10-27 19:27 · #629 ops: HANDOFF/LOG refresh as of 5dc18ac merged (by the Producer)
 - 2026-10-27 18:31 · #614 Every speaker is a role at Assets, and nothing is drawn without their look (DECISIONS #602) merged
 - 2026-10-27 18:26 · #627 ops: HANDOFF/LOG refresh as of 9a867af merged (by the Producer)
 - 2026-10-27 18:11 · #622 Web: the End card picker and exports nothing imports removed (Steward) merged
