@@ -31,7 +31,7 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 ## Sessions (current)
 | Agent | Session |
 |---|---|
-| Builder-Server-2 (replaced Builder-Server on 2026-10-27) | session_01FRDAYDo38T5FntbUzUdcCz |
+| Builder-Server-3 (replaced Builder-Server-2 on 2026-10-27, context hygiene) | session_01FRDAYFgsbpK6qpQsnY7dJW |
 | Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
 | Builder-Screens-3 (editor video flow; replaced Builder-Screens-2 on 2026-10-26) | session_01RY7gQZ2FyTVwVAYrbX5MXu |
 | QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
