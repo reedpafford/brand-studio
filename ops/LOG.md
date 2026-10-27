@@ -1,6 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-27 05:37 · Decision (#569, Reed): a fomo-mention or CTA moment accepts any of the brand's home-type screens, and the moment-screen check is Advice, never a blocker
+- 2026-10-27 05:29 · Decision (#567, Reed): one person must never become two roles: the cast read merges duplicates across versions, a cast role gets "Merge into…" with Undo, and likely duplicates are flagged for confirmation
 - 2026-10-27 04:28 · Decision (#559, Reed): a character who speaks or appears in more than one shot gets a per-video role and look (auto-made, the editor approves), never saved to Cast & places; a character is never shown unnamed
 - 2026-10-27 04:19 · Decision (#557, Reed): keep a QA account for live testing (reverses the removal); its invite is stored as BS_QA_OWNER_INVITE, never in chat or code
 - 2026-10-27 04:04 · Decision (#554, Reed): replaces the logo end card of #540: no end card and no logo overlay; the CTA shot shows the character holding the phone up to camera, with clear fomo branding on the screen
@@ -14,6 +16,16 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-27 06:00 · #573 Fix this clip's prompt brings back a deleted [Image1] tag whole merged
+- 2026-10-27 05:51 · #571 Prompts: the cast read makes one slot per person across versions merged
+- 2026-10-27 05:37 · #569 ops: Reed's decision that moment-screen checks are advice and accept home screens merged (by the Producer)
+- 2026-10-27 05:35 · #568 spec: Merge into… for cast roles, and "These may be the same person" merged
+- 2026-10-27 05:35 · #561 Bulk create with video files: free uploads, then drafts with the links (server) merged
+- 2026-10-27 05:29 · #567 ops: Reed's decision on merging duplicate cast roles merged (by the Producer)
+- 2026-10-27 05:22 · #547 Storyboard edits show their new still; a saved prompt draws it again merged
+- 2026-10-27 05:21 · #566 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-27 05:21 · #549 Clips: Keep it anyway for a problem the free fix couldn't clear merged
+- 2026-10-27 · #570 Storyboard prices read each frame's still_credits (based on #547's branch) closed without merging
 - 2026-10-27 04:55 · #563 Keep the QA account: the seed no longer removes an owner named QA Owner merged
 - 2026-10-27 04:48 · #560 Prompts: the cast read lists every speaker and every recurring character as a role merged
 - 2026-10-27 04:37 · #558 Toast: a message without Undo can stay as long as one with Undo merged

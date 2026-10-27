@@ -33,7 +33,7 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     project = stand_in_project(db, script, draft, reference)
     system, context = project_context(db, project, "script_draft")
     context = context.replace("<brief>\n", f"<brief>\nTitle: {escape(script.title)}\n", 1)
-    context = with_slots(db, script.id, context)
+    context = with_slots(db, script.id, context, project)
     if reference:
         context += f"\n{escape_block(prompts.reference_block(reference, script.reference_replace))}"
         if script.new_lines:

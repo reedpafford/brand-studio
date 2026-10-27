@@ -12,7 +12,6 @@ from app import prompts
 from app.cast_roles import cast_roles, plays
 from app.models.brands import Brand, BrandScreen
 from app.models.jobs import Job
-from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.models.scripts import ScriptVersion, Suggestion
@@ -89,7 +88,9 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
         "legal_line": brand.legal_line,
         "end_line": brand.end_line,
     }
-    cast = [db.get(LibraryItem, i) for i in project.cast_ids]
+    from app.storyboard import cast_looks
+
+    cast = cast_looks(db, project)  # the same looks the breakdown check accepts
     brief = (
         f"Goal: {project.goal or '-'}\nPlatform: {project.platform or '-'}\n"
         f"Aspect: {project.aspect_ratio}\nPlanned length: {_length(project)}\n"
@@ -99,7 +100,6 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
     cast_lines = "\n".join(
         " | ".join(x for x in (f"char:{c.id}", c.name, plays(roles.get(c.id, [])), c.notes) if x)
         for c in cast
-        if c
     )
     message = f"<brief>\n{escape(brief)}\n</brief>\n<cast>\n{escape(cast_lines)}\n</cast>"
     return [prompts.system(step), prompts.brand_block(brand_dict, screens)], message
