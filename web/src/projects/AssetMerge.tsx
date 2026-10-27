@@ -88,7 +88,7 @@ export function useAssetMerge(projectId: number, cast: Asset[]) {
         {merged.map((p) => (
           <p key={p.undo_token} className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm sm:min-h-9">
             <span className="flex-1">{p.why}</span>
-            <Button variant="ghost" dense onClick={() => void undo(p.undo_token!).catch((e: Error) => toast(e.message, undefined, "error"))}>
+            <Button variant="ghost" dense onClick={() => void undo(p.undo_token!).then(() => toast("Kept as two roles."), (e: Error) => toast(e.message, undefined, "error"))}>
               Undo
             </Button>
           </p>
