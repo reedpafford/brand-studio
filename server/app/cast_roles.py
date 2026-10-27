@@ -29,18 +29,50 @@ def pick(db: Session, project: Project, slot: ScriptCastSlot) -> int | None:
     return item.id if live else None
 
 
-def cast_roles(db: Session, project: Project) -> dict[int, list[ScriptCastSlot]]:
-    """character id -> the roles they play (in slot order); empty for older videos."""
+def all_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
+    """Every role of the library script this video is made from, in order (none for older
+    videos)."""
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     if draft is None:
-        return {}
-    slots = db.scalars(
-        select(ScriptCastSlot)
-        .where(ScriptCastSlot.script_id == draft.script_id)
-        .order_by(ScriptCastSlot.position, ScriptCastSlot.id)
-    )
+        return []
+    query = select(ScriptCastSlot).where(ScriptCastSlot.script_id == draft.script_id)
+    return list(db.scalars(query.order_by(ScriptCastSlot.position, ScriptCastSlot.id)))
+
+
+def video_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
+    """The video's roles: the script's, less those merged into another on its Assets."""
+    merged = project.slot_merged or {}
+    return [s for s in all_slots(db, project) if str(s.id) not in merged]
+
+
+def ref(db: Session, project: Project, slot: ScriptCastSlot) -> str:
+    """How a breakdown names the role: its look (char:N) when it has one, else slot:N."""
+    return f"char:{who}" if (who := pick(db, project, slot)) else f"slot:{slot.id}"
+
+
+def merge_shots(db: Session, project: Project, bd, slot, into) -> list[str]:
+    """`slot`'s shots go to `into` in place: who's in them and who speaks. The shot ids."""
+    refs = {f"slot:{slot.id}", *([f"char:{slot.library_item_id}"] if slot.library_item_id else [])}
+    refs |= {f"char:{c}" for c in [(project.slot_cast or {}).get(str(slot.id))] if c}
+    target, moved = ref(db, project, into), []
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        spoken = bool(shot.speaker) and same(shot.speaker, slot.role)
+        if spoken or refs & set(shot.character_ids):
+            shot.character_ids = list(dict.fromkeys(target if r in refs else r
+                                                    for r in shot.character_ids))  # fmt: skip
+            shot.speaker = into.role if spoken else shot.speaker
+            moved.append(shot.id)
+    return moved
+
+
+def same(a: str, b: str) -> bool:
+    return (short(a) or a).strip().lower() == (short(b) or b).strip().lower()
+
+
+def cast_roles(db: Session, project: Project) -> dict[int, list[ScriptCastSlot]]:
+    """character id -> the roles they play (in slot order); empty for older videos."""
     out: dict[int, list[ScriptCastSlot]] = {}
-    for slot in slots:
+    for slot in video_slots(db, project):
         if who := pick(db, project, slot):
             out.setdefault(who, []).append(slot)
     return out
@@ -85,13 +117,9 @@ def role_refs(db: Session, project: Project) -> dict[str, list[ScriptCastSlot]]:
     """As a breakdown names them: "char:N" -> the roles that look plays, and "slot:N" -> its
     role, for a role nobody plays yet."""
     out = {f"char:{c}": slots for c, slots in cast_roles(db, project).items()}
-    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    if draft is not None:
-        for slot in db.scalars(
-            select(ScriptCastSlot).where(ScriptCastSlot.script_id == draft.script_id)
-        ):
-            if not pick(db, project, slot):
-                out[f"slot:{slot.id}"] = [slot]
+    for slot in video_slots(db, project):
+        if not pick(db, project, slot):
+            out[f"slot:{slot.id}"] = [slot]
     return out
 
 
@@ -296,7 +324,12 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
 
 def as_roles(db: Session, project: Project, bd):
     """A shot's speaker is the role ("Omar"), never the look that plays it ("Carl"), so the
-    breakdown reads like the script. Returns the breakdown, fixed in place."""
+    breakdown reads like the script; a role merged on the video's Assets is the role kept.
+    Returns the breakdown, fixed in place."""
+    every = {str(s.id): s for s in all_slots(db, project)}
+    for slot_id, into_id in (project.slot_merged or {}).items():
+        if (slot := every.get(slot_id)) and (into := every.get(str(into_id))):
+            merge_shots(db, project, bd, slot, into)
     looks = {}
     for char_id, slots in cast_roles(db, project).items():
         from app.models.library import LibraryItem

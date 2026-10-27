@@ -109,6 +109,7 @@ class CastMerge(Entity, Base):
     __tablename__ = "cast_merges"
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     script_id: Mapped[int] = mapped_column(ForeignKey("scripts.id"), index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))  # a video's own
     data: Mapped[dict] = mapped_column(JSON)
 
 
