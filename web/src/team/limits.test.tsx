@@ -89,22 +89,6 @@ test("an editor doesn't see Credit limits", async () => {
   expect(screen.queryByRole("region", { name: "Credit limits" })).toBeNull();
 });
 
-test("Editors can save looks to Cast & places is a switch that saves at once, says so, and Undo turns it back", async () => {
-  setViewport(1440);
-  const calls = fakeServer(base({
-    "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729, editors_can_save_looks: false }],
-    "PUT /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729, editors_can_save_looks: true }],
-  }));
-  open();
-  const on = await screen.findByRole("switch", { name: "Editors can save looks to Cast & places" });
-  expect(on).not.toBeChecked();
-  await userEvent.click(on);
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /credits/limits")?.body).toEqual({ weekly_quick_clip_credits: 145, per_video_max_credits: 729, editors_can_save_looks: true }));
-  expect(await screen.findByText("Editors can now save looks.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /credits/limits").at(-1)?.body).toMatchObject({ editors_can_save_looks: false }));
-});
-
 test("Studio name is filled, Save waits for a change, and Undo puts the old name back", async () => {
   setViewport(1440);
   const calls = fakeServer(base({ "PUT /workspace": [200, { id: 1, name: "Reed's studio" }] }));

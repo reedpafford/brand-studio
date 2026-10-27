@@ -286,17 +286,10 @@ def update_item(
 def archive_item(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> None:
-    """Archive (reversible: see unarchive). Anyone on the team can do this. On a look just
-    saved to Cast & places, it's the Undo: the video goes back on its own look."""
+    """Archive (reversible: see unarchive). Anyone on the team can do this."""
     item = get_item(db, user, kind, item_id)
     if owned(item):
         _may_remove_look(db, user, item)
-    if item.copied_from_id:
-        from app.routes.project_assets import undo_save
-
-        if undo_save(db, user, item):
-            db.commit()
-            return
     item.archived = True
     db.commit()
 

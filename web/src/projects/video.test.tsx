@@ -32,7 +32,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
   "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "2K": 1.5 } }, { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729, editors_can_save_looks: false }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
 };
 
 function open(query = "?step=assets") {
@@ -433,53 +433,6 @@ test("a look for this video only says so, is approved here with Undo, and is red
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/12/sheet/approve")).toBe(true));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/12/sheet/approve")).toBe(true));
-});
-
-test("Save to Cast & places needs an approved sheet first", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /auth/me": [200, { ...editor, role: "owner" }],
-    "GET /projects/9/assets": [200, [own({ sheet_status: "needs_approval" })]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Coach" })],
-  });
-  open();
-  const save = await within(await screen.findByLabelText("Coach")).findByRole("button", { name: "Save to Cast & places" });
-  expect(save).toBeDisabled();
-  expect(save).toHaveAccessibleDescription("Approve the sheet first");
-});
-
-test("an approved look is saved under a name; Undo removes the copy", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /auth/me": [200, { ...editor, role: "owner" }],
-    "GET /projects/9/assets": [200, [own({ sheet_status: "approved", ready: true })]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Coach", sheet_status: "approved" })],
-    "POST /projects/9/assets/slots/3/save-to-library": [201, { library_item_id: 30, assets: [] }],
-    "DELETE /library/character/30": [204, null],
-  });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Save to Cast & places" }));
-  const name = await screen.findByLabelText("Name");
-  expect(name).toHaveValue("Coach");
-  expect(screen.getByText("It becomes a normal character any script can use. This video keeps its look either way.")).toBeInTheDocument();
-  await userEvent.clear(name);
-  await userEvent.type(name, "Coach Dan");
-  await userEvent.click(screen.getByRole("button", { name: "Save" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/assets/slots/3/save-to-library")?.body).toEqual({ name: "Coach Dan" }));
-  expect(await screen.findByText("Coach Dan saved to Cast & places.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/30")).toBe(true));
-});
-
-test("an editor doesn't see Save to Cast & places unless Team allows it", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ sheet_status: "approved", ready: true })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach", sheet_status: "approved" })] });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  await within(card).findByRole("button", { name: /Change it/ });
-  expect(within(card).queryByRole("button", { name: "Save to Cast & places" })).toBeNull();
 });
 
 test("when the role has gone back to a Cast & places character, the video's own look is kept and offered again", async () => {
