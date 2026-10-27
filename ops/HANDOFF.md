@@ -1,4 +1,4 @@
-as of 019d23d · 2026-10-27 16:40 UTC
+as of 005b591 · 2026-10-27 17:30 UTC
 # Handoff (rewritten each refresh by the Scribe; under 60 lines)
 Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of ops/DECISIONS.md (#609: 28 numbered rules, newest wins; re-read before every task). Detail of what merged, when and why is in ops/LOG.md.
 
@@ -9,21 +9,23 @@ Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of o
 - Workflow v2: Script Library, owner/editor split, weekly allowances, reel import and Bulk create, In production view, Delete/Archive with Undo.
 - Live: https://srv2091584.hstgr.cloud, auto-deploys on every merge to main (needs the server secrets), generation on. Free stand-ins: `BS_FAKE_PROVIDERS`, `scripts/fake_run.py`.
 - Design: Screening room redesign docs in `docs/design/redesign/` (Reed picked direction B).
-- Latest merges: #603/#604 character sheet owns the face, main character's sheet first; #601 app screens only need the logo right; #606 "Use the real image" cleared on replace; #605 clip prompts always finish, a few clips per answer, causes named; #607 size cap; #609 Current rules.
+- Latest merges: #612/#613/#618/#621 clean-up (docs, endpoints, duplicate tests); #617/#620 clip shape repaired free, free fix capped once, then the priced rewrite; #615 no "Save to Cast & places" (rule 12); #616 prompts follow Current rules; #603/#604 character sheet owns the face, main character's sheet first; #601 app screens only need the logo right; #606 "Use the real image" cleared on replace; #605 clip prompts always finish, a few clips per answer, causes named; #607 size cap; #609 Current rules.
 
 ## Where we are: stabilization pass (Reed, DECISIONS #602, rule 25)
-No new features until, in order: 1 faces (sheet rules in #603/#604; not done until the cast fix lands), 2 failing clip prompts (#605 merged), 3 bloat clean-up by the Steward (line counts before and after), 4 QA-Live runs the full editor flow on the live site, including Kel's and Mary's broken videos.
+No new features until, in order: 1 faces (sheet rules in #603/#604; not done until the cast fix lands), 2 failing clip prompts (#605, #617, #620 merged), 3 bloat clean-up by the Steward (line counts before and after; first deletions merged), 4 QA-Live runs the full editor flow on the live site, including Kel's and Mary's broken videos.
 - Size cap (rule 26): about 36,000 lines of app code (server/app plus web/src, no tests or generated files), no net growth; the Steward reports the count on every PR.
 
-## Open PRs (none, not counting the Scribe's own)
-- #605 and #606 merged; no other PR is open.
+## Open PRs (3, not counting the Scribe's own)
+- #614 Every speaker is a role at Assets, nothing is drawn without their look (cast completeness) | Builder-Server-3
+- #622 Steward: drop the End card picker and unused exports (-6 lines) | Steward
+- #623 Evals and examples: no skyline ending, no stock payoff run (rule 17) | Director
 
 ## Who is on what
-- Builder-Server-3: cast completeness (every role at Assets, plus the Marriage Rejection repair); the Producer adds the SPEND.md line for the #506 repair call after it runs on deploy.
-- Builder-Server-4: Mary's #5 timing auto-repair and the free-fix retry cap.
+- Builder-Server-3: cast completeness (#614; plus the Marriage Rejection repair); the Producer adds the SPEND.md line for the #506 repair call after it runs on deploy.
+- Builder-Server-4: Mary's #5 timing auto-repair (the free-fix cap landed in #617).
 - Builder-Screens-3: screens for the 2026-10-27 decisions as the Producer assigns.
-- Director: prompt clean-up against Current rules, free evals only.
-- Steward: approved deletions (bloat clean-up, step 3); line count on every PR.
+- Director: prompt clean-up against Current rules, free evals only (#623).
+- Steward: approved deletions (bloat clean-up, step 3; #622); line count on every PR.
 - QA-Live 6: phase 1 done; phase 2 after the fixes land.
 - Reed: verdict on the altar reel-import video; picks test characters saved to the library to delete; tests the climbing-numbers montage rule live; makes video B (Iron Paws Pitbull 1) himself.
 
