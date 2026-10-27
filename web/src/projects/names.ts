@@ -2,13 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { Piece } from "../clip/BrandPieces";
 
-/** Role names of the cast slots not cast yet, by their `slot:N` id (from the Assets list). */
+/** Role names by the id the shots use for them (from the Assets list): `slot:N` for a role not cast yet, `char:N` for a look made for this video. */
 export function useRoleNames(projectId: number) {
   const assets = useQuery({
     queryKey: ["assets", projectId],
     queryFn: async () => (await api.GET("/projects/{project_id}/assets", { params: { path: { project_id: projectId } } })).data ?? [],
   });
-  return new Map((assets.data ?? []).filter((a) => a.ref.startsWith("slot:")).map((a) => [a.ref, a.role]));
+  return new Map((assets.data ?? []).filter((a) => a.role && (a.ref.startsWith("slot:") || a.ref.startsWith("char:"))).map((a) => [a.ref, a.role]));
 }
 
 const KIND: Record<string, string> = { char: "Character", character: "Character", place: "Place", prop: "Prop", screen: "Screen" };
@@ -19,7 +19,7 @@ export function refName(id: string, pieces: Piece[], roles: Map<string, string>)
   const [kind, n] = id.split(":");
   if (kind === "frame") return "First frame";
   if (kind === "slot") return `${roles.get(id) || "A role"} · cast at Assets`;
-  return pieces.find((p) => p.key === `${kind === "char" ? "character" : kind}-${n}`)?.name ?? KIND[kind] ?? "Picture";
+  return pieces.find((p) => p.key === `${kind === "char" ? "character" : kind}-${n}`)?.name ?? (kind === "char" ? roles.get(id) : undefined) ?? KIND[kind] ?? "Picture";
 }
 
 const REF = /\b(?:char|place|prop|screen|slot|frame):\w+/g;

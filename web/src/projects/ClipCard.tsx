@@ -22,7 +22,7 @@ function PromptText({ clip }: { clip: Clip }) {
   const name = (n: number) => {
     const ref = images[n - 1];
     if (!ref) return `Picture ${n}`;
-    if (ref.role === "storyboard frame" || ref.id.startsWith("frame:") || ref.role.startsWith("frame:")) return "First frame";
+    if (ref.role === "storyboard frame" || ref.id.startsWith("frame:") || ref.role.startsWith("frame:")) return "Storyboard frame";
     return ref.role && !ref.role.includes(":") ? ref.role : `Picture ${n}`;
   };
   const parts = clip.prompt.split(/(\[Image\d+\])/);

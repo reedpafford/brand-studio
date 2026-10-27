@@ -318,8 +318,8 @@ def _cap(frame: Frame, known: dict) -> Frame:
 
 def repair(db: Session, project: Project) -> int:
     """Give every frame of the video the sheets of the characters in its shot (`with_cast`),
-    and check it again. Free and idempotent: run when the storyboard is opened, and on deploy
-    for frames saved before (app.seed refresh). Returns how many frames changed."""
+    and check it again. Free and idempotent: run when the storyboard is opened. Returns how
+    many frames changed."""
     known, changed = assets(db, project), 0
     breakdowns: dict[int, Breakdown] = {}
     rows = db.scalars(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id))

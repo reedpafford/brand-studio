@@ -9,7 +9,6 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown, Frame, Reference
-from app.seed import repair_clips
 from tests.test_clip_sheets import _clip, _prompt
 from tests.test_enhance import setup  # noqa: F401, F811 - fixture
 from tests.test_frame_sheets import _people
@@ -81,10 +80,11 @@ def test_a_clip_leads_with_the_main_character_and_saved_clips_are_renumbered(
     db.add(clip)
     db.commit()
     jobs = db.query(Job).count()
-    assert repair_clips(db) == 1  # the deploy step
+    assert clip_prompts.repair(db, project) == 1  # as when Clips opens
+    db.commit()
     db.refresh(clip)
     assert [r["id"] for r in clip.references] == ["frame:c1", nate, mom, screen]
     assert "[Image3] is Mom. [Image2] is Nate." in clip.prompt  # each tag follows its picture
     assert "Shows [Image4]" in clip.prompt
-    assert repair_clips(db) == 0  # idempotent
+    assert clip_prompts.repair(db, project) == 0  # idempotent
     assert db.query(Job).count() == jobs  # free: no model call

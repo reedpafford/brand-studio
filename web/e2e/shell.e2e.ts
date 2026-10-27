@@ -61,7 +61,9 @@ test("an editor sees the team but not the owner's controls", async ({ page }) =>
   await expect(page.getByRole("link", { name: "Team" })).toHaveCount(0);
   await page.goto("/team");
   await expect(page.getByRole("heading", { name: "Team" })).toBeVisible();
-  await expect(page.getByText("reed@example.com")).toBeVisible();
+  await expect(page.getByText("the owner", { exact: true })).toBeVisible(); // rule 4: never Reed's name
+  await expect(page.getByText("reed@example.com")).toHaveCount(0);
+  await expect(page.getByText("Reed", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Invite someone" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^More for / })).toHaveCount(0);
 });

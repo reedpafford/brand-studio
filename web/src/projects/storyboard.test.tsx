@@ -454,3 +454,59 @@ test("a fractional rate is shown in whole credits, rounded up, and one credit is
   expect(screen.getByRole("button", { name: "Save and redraw · 1 credit" })).toBeInTheDocument();
   expect(screen.queryByText(/0\.\d|1 credits/)).toBeNull();
 });
+
+/** Hold one request open (never answered) so the test can see what else the page asks for meanwhile. */
+function holdOpen(key: string) {
+  const faked = globalThis.fetch;
+  vi.stubGlobal("fetch", (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    return `${req.method} ${new URL(req.url).pathname}` === `${key.replace(" /", " /api/")}` ? new Promise<Response>(() => {}) : faked(input, init);
+  });
+}
+
+test("Make all stills asks for every still at once: the second request doesn't wait for the first answer", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2" }), frame({ id: 3, clip_id: "c3" })]],
+    "POST /projects/9/storyboard/frames/3/render": [201, { id: 12, kind: "image", status: "queued", credits: 3, project_id: 9 }],
+  });
+  holdOpen("POST /projects/9/storyboard/frames/2/render"); // the first one never answers
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Make all stills · 6 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/3/render")).toBe(true));
+});
+
+test("Redraw N stills leaves out stills the server is already redrawing, so nothing is asked twice", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [withStill({ still_stale: true }), withStill({ id: 2, clip_id: "c2", still_stale: true, drawing: true }), withStill({ id: 3, clip_id: "c3", still_stale: true, drawing: true })]],
+    "POST /projects/9/storyboard/frames/1/render": [201, { id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9 }],
+    "POST /projects/9/storyboard/frames/2/render": [409, { detail: "This frame's still is already being made." }],
+    "POST /projects/9/storyboard/frames/3/render": [409, { detail: "This frame's still is already being made." }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Redraw 1 still · 3 credits" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/render"))).toHaveLength(1));
+  expect(calls.filter((c) => c.key.endsWith("/render"))[0].key).toBe("POST /projects/9/storyboard/frames/1/render");
+});
+
+test("a chip for a look made for this video says the role's name, not just Character", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [{ kind: "character", ref: "char:9", role: "Kel", library_item_id: 9, name: "Kel look", locked: false, sheet_status: "approved", ready: true, slot_id: 5, shots: 1 }]],
+    "GET /projects/9/storyboard": [200, [frame({ reference_ids: ["char:9"] })]],
+  });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(await within(card).findByText(/Kel/)).toBeInTheDocument();
+  expect(within(card).queryByText(/● Character/)).toBeNull();
+});
+
+test("Make all stills, Redraw N stills and Make storyboard are 44px tall on a phone", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40, still_stale: true }), frame({ id: 2, clip_id: "c2" })]],
+  });
+  open();
+  for (const name of [/^Make all stills/, /^Redraw 1 still/, /^Redo storyboard/]) expect((await screen.findByRole("button", { name })).className).toContain("min-h-11");
+});

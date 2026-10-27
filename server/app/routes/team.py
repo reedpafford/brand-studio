@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.auth import current_user, new_token, owner_only
+from app.auth import current_user, new_token, owner_only, shown_name
 from app.db import get_db, utcnow
 from app.models.accounts import Invite, LoginSession, Role, User
 from app.schemas import Email, UtcTime
@@ -51,11 +51,13 @@ def members(
 ):
     if removed and not user.is_owner:
         raise HTTPException(403, "Only the owner can do that.")
-    return db.scalars(
-        select(User)
-        .where(User.workspace_id == user.workspace_id, User.active.is_(not removed))
-        .order_by(User.id)
-    ).all()
+    found = select(User).where(User.workspace_id == user.workspace_id, User.active.is_(not removed))
+    hide = not user.is_owner  # rule 4: an editor sees "the owner", not Reed's name or email
+    return [
+        MemberOut(id=u.id, email="" if hide and u.is_owner else u.email, name=shown_name(u),
+                  role=u.role)
+        for u in db.scalars(found.order_by(User.id))
+    ]  # fmt: skip
 
 
 def _member(db: Session, owner: User, member_id: int, active: bool = True) -> User:
