@@ -1,6 +1,15 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-27 16:35 · #610 ops: HANDOFF/LOG refresh (35-line HANDOFF) merged (by the Producer)
+- 2026-10-27 16:30 · #606 "Use the real image" is cleared when its shot is replaced merged
+- 2026-10-27 16:25 · HANDOFF rewritten to 60 lines: the long Built history and decision notes are now a short summary pointing here and to DECISIONS Current rules; spend detail stays in ops/SPEND.md
+- 2026-10-27 16:21 · #609 ops: Current rules (28 numbered rules) at the top of DECISIONS, History below; agents re-read them before each task, merged (by the Producer)
+- 2026-10-27 16:14 · #608 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-27 16:13 · #605 Clip prompts always finish: a few clips per answer, causes named (stabilization step 2) merged
 - 2026-10-23 22:09 · Decisions in DECISIONS.md since the last refresh: Seedance prompt shape B adopted (Reed); script and dialogue never change in Enhance, breakdown or clips; $35 per-video max; no monthly cap; official-docs-only prompting; Iron Paws product; 1 credit = $0.1028.
 - 2026-10-23 · #58 Seedance A/B script (paid) closed without merging.
+- 2026-10-27 16:11 · Decision (#607, Reed): the size budget is a cap of about 36,000 lines of app code (server/app plus web/src without tests or generated files), replacing the 8,000 aim, with no net growth; ops/AGENTS.md updated
+- 2026-10-27 15:43 · Decisions (#602, Reed): stabilization first, no new features until faces, failing clip prompts, a bloat clean-up and a full QA-Live editor flow are done; every named or speaking role gets an Assets look, the character sheet owns the face in every Seedance prompt, "Use the real image" is cleared when its shot is replaced
+- 2026-10-27 15:17 · Decisions (#600, Reed): on app screens only the logo must be right, numbers can be anything and never block; a main character's face never changes between shots, causes investigated before any paid change
 - 2026-10-27 10:14 · Agents (#597): Builder-Server-3 replaces Builder-Server-2 in the session table (ops/AGENTS.md; context hygiene)
 - 2026-10-27 05:37 · Decision (#569, Reed): a fomo-mention or CTA moment accepts any of the brand's home-type screens, and the moment-screen check is Advice, never a blocker
 - 2026-10-27 05:29 · Decision (#567, Reed): one person must never become two roles: the cast read merges duplicates across versions, a cast role gets "Merge into…" with Undo, and likely duplicates are flagged for confirmation
@@ -17,6 +26,13 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-27 16:11 · #607 ops: Reed's realistic size cap (36,000 lines, no net growth) merged (by the Producer)
+- 2026-10-27 16:11 · #604 The main character's sheet goes first in every frame and clip merged
+- 2026-10-27 16:04 · #603 Prompts: the character sheet owns the face in every clip and still merged
+- 2026-10-27 15:43 · #602 ops: Reed's stabilization pass and face rules merged (by the Producer)
+- 2026-10-27 15:40 · #601 Prompts: on app screens only the logo must be right; numbers can be anything merged
+- 2026-10-27 15:17 · #600 ops: Reed's decisions on app-screen numbers and face consistency merged (by the Producer)
+- 2026-10-27 11:19 · #599 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-27 10:52 · #598 Split AssetsPane: AssetCard and SaveToCast get their own files (no behaviour change) merged
 - 2026-10-27 10:28 · #595 They're different on a video's Assets, Merge into… when alone, a chevron on the note merged
 - 2026-10-27 10:14 · #597 ops: Builder-Server-3 replaces Builder-Server-2 in the session table merged (by the Producer)

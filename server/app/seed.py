@@ -361,7 +361,7 @@ def rewrite_owner_clips(db: Session) -> str:
         else:
             return f"Clip prompts: waiting, a take is still being made on “{project.name}”."
     bd = clip_prompts.newest(db, project)
-    data = {**clip_prompts.job_input(db, project, bd), "clip_ids": ids, "repair": True}
+    data = {**clip_prompts.job_input(db, project, bd, ids), "clip_ids": ids, "repair": True}
     owner = owners[project.created_by_id]
     db.add(Job(workspace_id=project.workspace_id, created_by_id=owner.id,
                approved_by_id=owner.id, kind="write-claude", provider="claude", input=data,

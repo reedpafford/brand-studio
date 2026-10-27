@@ -28,7 +28,7 @@ from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
 from app.purge import purge_deleted, purge_uploads
 from app.references import fit_image
-from app.steps import save_step_result, step_failed
+from app.steps import explain, save_step_result, step_failed
 from app.storage import LocalStorage, Storage
 
 log = logging.getLogger("worker")
@@ -36,6 +36,7 @@ MAX_SUBMIT_TRIES = 3
 # Messages everyone sees. Raw provider text can hold balances or URLs, so it goes only
 # into `error_detail` (owner-only) and the log.
 UNSURE = "Lost contact while starting paid work. Check the provider before retrying."
+RESTARTED = "The server restarted while this was being written. Nothing was charged; try again."
 FAILED = "The service couldn't finish this. Ask the owner for details."
 EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 # Provider output links expire (Replicate: 1 hour); stop retrying downloads after that.
@@ -70,7 +71,7 @@ def _stop(db: Session, job: Job) -> bool:
 def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
     if detail:
         log.warning("job %s failed: %s", job.id, detail)
-    _move(
+    if _move(
         db,
         job,
         JobStatus.running,
@@ -78,7 +79,9 @@ def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
         error=message,
         error_detail=detail[:2000],
         finished_at=utcnow(),
-    )
+    ):
+        db.refresh(job)
+        explain(db, job)
 
 
 def _actual_credits(job: Job, result: Result) -> Decimal:
@@ -119,6 +122,8 @@ def recover(db: Session, providers: dict[str, Provider], only: set[str] | None =
     for job in db.scalars(_mine(query, only)).all():
         if job.provider not in providers:
             _fail(db, job, UNKNOWN, job.provider)
+        elif getattr(providers[job.provider], "sync", False):  # cut off mid-answer by a restart
+            _fail(db, job, RESTARTED)
         elif providers[job.provider].paid:
             _fail(db, job, UNSURE)
         else:
