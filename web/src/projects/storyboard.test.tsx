@@ -320,3 +320,46 @@ test("an editor past the video's budget is told why and can't redraw; the price 
   expect(redraw).toBeDisabled();
   expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
 });
+
+const flagged = "c1: the image model may refuse “knife”; say it gently";
+
+test("a frame the image model may refuse offers a free Soften it, shows what changed, and Undo puts the earlier prompt back", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ prompt: "Mia holds a knife", problems: [flagged] })]],
+    "POST /projects/9/storyboard/frames/1/soften": [200, { before: "Mia holds a knife", after: "Mia holds a kitchen tool", frame: frame({ prompt: "Mia holds a kitchen tool" }) }],
+    "PUT /projects/9/storyboard/frames/1": [200, frame({ prompt: "Mia holds a knife" })],
+  });
+  open();
+  const list = await screen.findByLabelText("Problems for c1");
+  expect(within(list).getByText("Free")).toBeInTheDocument();
+  await userEvent.click(within(list).getByRole("button", { name: "Soften it" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/soften")).toBe(true));
+  const note = await screen.findByRole("note", { name: "Softened" });
+  expect(note).toHaveTextContent("Before: Mia holds a knife");
+  expect(note).toHaveTextContent("After: Mia holds a kitchen tool");
+  expect(await screen.findByText("Softened. The earlier prompt is kept.")).toBeInTheDocument(); // the toast
+  await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toMatchObject({ prompt: "Mia holds a knife" }));
+});
+
+test("a frame the server softened by itself says so with Before and After, and Undo puts the earlier prompt back", async () => {
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ prompt: "Mia holds a kitchen tool", softened: { before: "Mia holds a knife", after: "Mia holds a kitchen tool" } })]],
+    "PUT /projects/9/storyboard/frames/1": [200, frame({})],
+  });
+  open();
+  const note = await screen.findByRole("note", { name: "Softened" });
+  expect(note).toHaveTextContent("We softened this frame so it can be drawn.");
+  expect(note).toHaveTextContent("Before: Mia holds a knife");
+  await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toMatchObject({ prompt: "Mia holds a knife" }));
+});
+
+test("a frame problem that is not about a refused word has no Soften it", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ problems: ["c1: more references than the image model keeps"] })]] });
+  open();
+  const list = await screen.findByLabelText("Problems for c1");
+  expect(within(list).queryByRole("button", { name: "Soften it" })).toBeNull();
+});

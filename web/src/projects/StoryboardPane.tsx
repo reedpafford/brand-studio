@@ -15,11 +15,12 @@ import { useMe } from "../auth/useMe";
 import { refName, useRoleNames } from "./names";
 import { useProblemWords } from "./ProblemText";
 import { useOwnScriptStop } from "./useOwnScriptStop";
-import { Badge, Banner, wholeCredits } from "../components";
+import { Badge, Banner, useToast, wholeCredits } from "../components";
 import { RotateCcw } from "lucide-react";
 import { usePressed } from "./usePressed";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
+import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -38,6 +39,7 @@ export function useFrames(projectId: number) {
 export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
+  const toast = useToast();
   const path = { project_id: projectId };
   const { pieces } = useBrandPieces(brandId);
   const jobs = useJobs();
@@ -113,6 +115,26 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     onSuccess: refresh,
   });
 
+  // "Soften it": only the words the image model refuses, said gently, for free. Undo puts the earlier prompt back.
+  const [softenedNow, setSoftenedNow] = useState<Record<number, Softened>>({});
+  const soften = useMutation({
+    mutationFn: async (frame: Frame) => {
+      const { data, error } = await api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/soften", { params: { path: { ...path, frame_id: frame.id } } });
+      if (!data) throw new Error(errorText(error));
+      return { frame, was: { before: data.before, after: data.after } };
+    },
+    onSuccess: async ({ frame, was }) => {
+      setSoftenedNow((s) => ({ ...s, [frame.id]: was }));
+      await refresh();
+      toast("Softened. The earlier prompt is kept.", async () => {
+        await undoSoften(frame, was.before);
+      });
+    },
+  });
+  const undoSoften = async (frame: Frame, before: string) => {
+    await edit.mutateAsync({ frame, prompt: before });
+    setSoftenedNow((s) => Object.fromEntries(Object.entries(s).filter(([id]) => Number(id) !== frame.id)));
+  };
   // Undo of "Change this…": an earlier still comes back with the prompt it was made from. Free.
   const pick = useMutation({
     mutationFn: async ({ frame, file }: { frame: Frame; file: number }) => {
@@ -297,6 +319,11 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
               onRender={(note) => render.mutate({ frame: f, note })}
               onApprove={(yes) => approve.mutate({ frame: f, yes })}
               onSave={(prompt) => edit.mutate({ frame: f, prompt })}
+              softening={soften.isPending}
+              softened={softenedNow[f.id] ?? ((f.softened as Softened | null | undefined) ?? null)}
+              softenedBySelf={!softenedNow[f.id]}
+              onSoften={() => soften.mutate(f)}
+              onUndoSoften={(before) => undoSoften(f, before)}
               onOpen={() => setLightbox(f)}
             />
           );
@@ -334,6 +361,11 @@ function FrameCard(props: {
   onRender: (note?: string) => void;
   onApprove: (yes: boolean) => void;
   onSave: (prompt: string) => void;
+  softening: boolean;
+  softened: Softened | null;
+  softenedBySelf: boolean;
+  onSoften: () => void;
+  onUndoSoften: (before: string) => void;
   onOpen: () => void;
 }) {
   const { frame: f } = props;
@@ -412,10 +444,12 @@ function FrameCard(props: {
             <li key={p}>
               {props.words(p)}
               {props.fix(p)}
+              {/may refuse/.test(p) && <SoftenIt busy={props.softening} onSoften={props.onSoften} />}
             </li>
           ))}
         </ul>
       )}
+      {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.softening} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
       <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} owner={owner} name={`Advice for ${f.clip_id}`} />
       {editing !== null ? (
         <div className="space-y-2">
