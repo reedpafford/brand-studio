@@ -5,15 +5,18 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
-import { Badge, Banner, Button, Field, Panel, Select, TextArea, wholeCredits } from "../components";
+import { Badge, Banner, Button, Dialog, Field, Panel, Select, TextArea, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { weekStop } from "./useScript";
 import { LINK, ReelChip } from "./ReelImport";
 import { errorText as errorClass } from "../ui";
+import { BulkFiles } from "./BulkFiles";
+import { forgetVideo, uploadVideo } from "./uploadVideo";
+import { MAX_REELS, useFileQueue, type Uploader } from "./videoUploads";
 
 type ReelRow = components["schemas"]["ReelRow"];
 type Row = { title: string; description: string; reference: string };
-const MAX = 20;
+const MAX = MAX_REELS;
 const empty = (): Row => ({ title: "", description: "", reference: "" });
 
 /** "Title — what it's for", one per line. An empty title takes the first 6 words of the description. */
@@ -31,7 +34,7 @@ export function parseList(text: string): Row[] {
 }
 
 /** Reed's many-at-once: rows become drafts first (nothing is written), then Write all asks Claude for every script at one price. */
-export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () => void }) {
+export function BulkCreate({ brandId, onClose, uploader = uploadVideo }: { brandId: number; onClose: () => void; uploader?: Uploader }) {
   const [rows, setRows] = useState<Row[]>([empty(), empty(), empty()]);
   const [pasting, setPasting] = useState<string | null>(null);
   const [made, setMade] = useState<{ id: number; title: string; reel?: ReelRow | null }[] | null>(null);
@@ -44,8 +47,14 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
   const badLinks = linkList.map((l, i) => (LINK.test(l) ? 0 : i + 1)).filter(Boolean);
   const tooMany = linkList.length > MAX;
   const goodLinks = linkList.length - badLinks.length; // the button counts only real reel links
+  // Video files go in the same queue as the links: up to MAX reels in all, uploading as soon as they are added.
+  const files = useFileQueue(uploader, MAX - linkList.length, forgetVideo);
+  const [stopping, setStopping] = useState(false);
+  const closePanel = () => (files.uploading > 0 ? setStopping(true) : onClose());
+  const reelCount = goodLinks + files.ready.length;
   // Reel links: why Make N drafts can't be pressed yet.
-  const holdReason = mode !== "links" ? null : linkList.length === 0 ? "Paste at least one reel link" : badLinks.length > 0 ? "Fix the lines that aren't reel links" : tooMany ? `Up to ${MAX} links` : null;
+  const holdReason =
+    mode !== "links" ? null : reelCount === 0 && linkList.length === 0 && files.rows.length === 0 ? "Add a reel link or a video first" : files.uploading > 0 ? `Wait for the uploads to finish (${files.uploading} left)` : badLinks.length > 0 ? "Fix the lines that aren't reel links" : tooMany ? `Up to ${MAX} links` : reelCount === 0 ? "Add a reel link or a video first" : null;
   const refs = useReferences();
   const { data: me } = useMe();
   const editor = me?.role !== undefined && me.role !== "owner";
@@ -132,20 +141,20 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
     );
 
   return (
-    <Panel title="Bulk create" onClose={onClose}>
+    <Panel title="Bulk create" onClose={closePanel}>
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
           setTried(true);
-          if (mode === "links" ? linkList.length > 0 && badLinks.length === 0 && !tooMany : missing === 0) create.mutate();
+          if (mode === "links" ? reelCount > 0 && files.uploading === 0 && badLinks.length === 0 && !tooMany : missing === 0) create.mutate();
         }}
       >
         <div role="radiogroup" aria-label="How to add them" className="flex w-full overflow-hidden rounded-md border border-border-strong sm:w-fit">
           {(
             [
               ["rows", "Rows"],
-              ["links", "Reel links"],
+              ["links", "Reels"],
             ] as const
           ).map(([id, label]) => (
             <button key={id} type="button" role="radio" aria-checked={mode === id} onClick={() => setMode(id)} className={`min-h-control flex-1 whitespace-nowrap px-4 font-medium sm:flex-none ${mode === id ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface-2"}`}>
@@ -166,6 +175,7 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
               </ul>
             )}
             {tooMany && <p role="alert" className={errorClass}>That's {linkList.length} links. Up to {MAX} at a time.</p>}
+            <BulkFiles queue={files} />
             <div className="space-y-1">
               <label className="flex min-h-control items-center gap-3">
                 <input type="checkbox" role="switch" className="size-5" checked={newLines} onChange={(e) => setNewLines(e.target.checked)} />
@@ -234,8 +244,14 @@ export function BulkCreate({ brandId, onClose }: { brandId: number; onClose: () 
         {create.isError && <Banner title="The drafts weren't made. Nothing was charged." action={<Button variant="secondary" onClick={() => create.mutate()}>Try again</Button>}>{create.error.message}</Banner>}
         {mode === "rows" && tried && missing > 0 && <p role="alert" className={errorClass}>Give every row a title and what it's for ({missing} row{missing === 1 ? "" : "s"} need{missing === 1 ? "s" : ""} it).</p>}
         <Button type="submit" busy={create.isPending} disabled={!!holdReason} reason={holdReason} className="w-full">
-          {`Make ${mode === "links" ? goodLinks : rows.length} draft${(mode === "links" ? goodLinks : rows.length) === 1 ? "" : "s"}`}
+          {`Make ${mode === "links" ? reelCount : rows.length} draft${(mode === "links" ? reelCount : rows.length) === 1 ? "" : "s"}`}
         </Button>
+        {mode === "links" && files.problems > 0 && <p className="text-sm text-muted">{files.problems} file{files.problems === 1 ? " won't be" : "s won't be"} added.</p>}
+        {stopping && (
+          <Dialog title="Stop the uploads?" cancelLabel="Keep uploading" actionLabel="Stop and close" danger onCancel={() => setStopping(false)} onConfirm={() => { files.stopAll(); onClose(); }}>
+            The files you added won't be kept.
+          </Dialog>
+        )}
       </form>
     </Panel>
   );

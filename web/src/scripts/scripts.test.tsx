@@ -1276,9 +1276,9 @@ test("Bulk create, Reel links: one link per line, bad lines are named and block 
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Bulk create" }));
   const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
-  await userEvent.click(within(dialog).getByRole("radio", { name: "Reel links" }));
+  await userEvent.click(within(dialog).getByRole("radio", { name: "Reels" }));
   expect(within(dialog).queryByLabelText(/^Title \d$/)).toBeNull();
-  expect(within(dialog).getByRole("button", { name: "Make 0 drafts" })).toHaveAccessibleDescription("Paste at least one reel link");
+  expect(within(dialog).getByRole("button", { name: "Make 0 drafts" })).toHaveAccessibleDescription("Add a reel link or a video first");
   await userEvent.type(within(dialog).getByLabelText("Paste reel links, one per line"), "https://www.instagram.com/reel/Abc123/{Enter}https://example.com/nope{Enter}https://www.instagram.com/reel/Def456/");
   expect(within(dialog).getByText("Line 2 isn't a reel link")).toBeInTheDocument();
   const make = within(dialog).getByRole("button", { name: "Make 2 drafts" }); // counts only the two real reel links
