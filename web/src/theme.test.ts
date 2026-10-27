@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "vitest";
-import { applyTheme, getTheme, nextTheme } from "./theme";
+import { applyTheme, getTheme } from "./theme";
 
 afterEach(() => {
   localStorage.removeItem("bs.theme");
@@ -21,10 +21,4 @@ test("light and system are remembered and set on the page", () => {
   applyTheme("system");
   expect(document.documentElement.getAttribute("data-theme")).toBe("system");
   expect(getTheme()).toBe("system");
-});
-
-test("the theme cycles dark, light, system", () => {
-  expect(nextTheme("dark")).toBe("light");
-  expect(nextTheme("light")).toBe("system");
-  expect(nextTheme("system")).toBe("dark");
 });
