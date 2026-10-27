@@ -69,23 +69,17 @@ export function useBreakdownFixes(opts: {
 export type RefKind = "character" | "place" | "screen";
 const REMOVE_ICON = { character: UserMinus, place: MapPinOff, screen: MonitorOff };
 
-/** "Remove Nate from this shot": a name the video doesn't have, taken out of one shot for free. Undo puts back the breakdown that was there. */
+/** "Remove Nate from this shot": a name the video doesn't have, taken out of one shot for free. There is no Undo yet: the server can't put back a name the video doesn't have. */
 export function useRemoveRef(opts: {
   run: (shotId: string, kind: RefKind, ref: string, name: string) => Promise<{ fixed: string[] }>;
-  was: Breakdown;
-  put: (bd: Breakdown) => Promise<unknown>;
   refresh: () => Promise<unknown>;
 }) {
   const toast = useToast();
   const remove = useMutation({
     mutationFn: (a: { shotId: string; kind: RefKind; ref: string; name: string }) => opts.run(a.shotId, a.kind, a.ref, a.name),
     onSuccess: async (done) => {
-      const back = clone(opts.was);
       await opts.refresh();
-      toast(done.fixed.join(" ") || "Removed.", async () => {
-        await opts.put(back);
-        await opts.refresh();
-      });
+      toast(done.fixed.join(" ") || "Removed.");
     },
   });
   /** `ref` is the id the shot holds (it tells two unknown people apart); `name` is how people call them, or "a character" when it isn't known. */

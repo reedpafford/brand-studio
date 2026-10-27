@@ -437,7 +437,7 @@ const withUnknown = (ids: string[], names: object = {}) => ({
   unknown_names: names,
 });
 
-test("a shot that names someone the video doesn't have offers a free Remove by name; the toast says what was done and Undo puts the breakdown back", async () => {
+test("a shot that names someone the video doesn't have offers a free Remove by name; the toast says what was done", async () => {
   const before = withUnknown(["char:99"], { "char:99": "Nate" });
   const calls = fakeServer({
     ...base,
@@ -452,8 +452,7 @@ test("a shot that names someone the video doesn't have offers a free Remove by n
   // The id goes to the server so two unknown people stay apart; the toast uses the name, never the id.
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/shots/1.1/remove-ref")?.body).toEqual({ kind: "character", name: "char:99" }));
   expect(await screen.findByText("Removed Nate from shot 1.1.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull(); // the server can't put back a name the video doesn't have
 });
 
 test("an unknown name the server can't give reads \"a character\"; two of them stay apart; an error shows right under the button", async () => {
@@ -499,4 +498,18 @@ test("when a fix is refused, the server's reason is shown, in its words", async 
   const box = await screen.findByLabelText("Problems");
   await userEvent.click(within(box).getByRole("button", { name: "Fix 2 problems" }));
   expect(await within(box).findByRole("alert")).toHaveTextContent("Nothing here can be fixed for you. Edit the shot instead.");
+});
+
+test("when the server refuses an Undo, the person is told why in its words", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/breakdown": [200, breakdown({ problems: [lost], fixes: [{ problem: lost, kind: "add_line", label: "Add it to a shot" }] })],
+    "POST /projects/9/breakdown/fix": [200, { ...breakdown(), fixed: ["Put line 4 in shot 1.2."] }],
+    "PUT /projects/9/breakdown": [422, { detail: "The breakdown changed since. Fix it by hand." }],
+  });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  await userEvent.click(within(box).getByRole("button", { name: `Add it to a shot: ${lost}` }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  expect(await screen.findByText("The breakdown changed since. Fix it by hand.")).toBeInTheDocument();
 });

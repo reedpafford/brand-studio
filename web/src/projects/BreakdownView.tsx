@@ -181,6 +181,17 @@ export function BreakdownView(props: {
     },
   });
 
+  // Undo of a fix puts the breakdown that was there back. If the server refuses, the person is told why, in its words.
+  const putBack = async (body: Breakdown) => {
+    try {
+      const r = preview ? await preview.save(body) : await api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body });
+      const refused = r as { response?: Response; error?: unknown } | undefined;
+      if (refused?.response && !refused.response.ok) toast(errorText(refused.error), undefined, "error");
+      return r;
+    } catch (e) {
+      toast((e as Error).message, undefined, "error");
+    }
+  };
   // "Put the right cast in each shot": free, no model call. Undo puts each changed shot's earlier cast back.
   type Changed = { shot_id: string; before: string[]; after: string[] };
   const fixCast = useMutation({
@@ -196,20 +207,18 @@ export function BreakdownView(props: {
         if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
       };
       await fresh();
-      const put = (body: Breakdown) => (preview ? preview.save(body) : api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body }));
       toast(`Cast fixed in ${changed.length} shot${changed.length === 1 ? "" : "s"}.`, async () => {
         const back = clone(row.breakdown); // the breakdown as it was before the fix (this view still holds it)
         for (const scene of back.scenes) for (const shot of scene.shots) {
           const was = changed.find((c) => c.shot_id === shot.id);
           if (was) shot.character_ids = was.before;
         }
-        await put(back);
+        await putBack(back);
         await fresh();
       });
     },
   });
   // After a fix or its Undo: the new breakdown, and what was made from the old one.
-  const putBack = (body: Breakdown) => (preview ? preview.save(body) : api.PUT("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } }, body }));
   const refreshAll = async () => {
     await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
     if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
@@ -257,8 +266,6 @@ export function BreakdownView(props: {
       if (!data) throw new Error(errorText(error));
       return { fixed: [`Removed ${name} from shot ${shotId}.`] };
     },
-    was: row.breakdown,
-    put: putBack,
     refresh: refreshAll,
   });
   const unknownNames = (row as { unknown_names?: Record<string, string> }).unknown_names ?? {};
