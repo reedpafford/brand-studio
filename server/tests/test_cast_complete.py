@@ -220,3 +220,21 @@ def test_script_twos_versions_flag_both_pairs_and_a_one_version_echo_flags_none(
     )
     _fill(db)
     assert owner.get(f"/scripts/{echo['id']}").json()["maybe_same"] == []
+
+
+def test_a_speaker_added_twice_at_once_is_added_once_without_an_error(
+    owner, editor, db, monkeypatch
+):
+    """QA-2 on #659: Assets' parallel requests each ran the backstop, and the second one's
+    insert of the same role failed with a 500."""
+    from app import script_cast_read
+
+    base, _, _ = _video(owner, editor)
+    script = db.get(Script, owner.get(base).json()["id"])
+    assert breakdown.add_speakers(db, script) == ["Nate"]
+    db.commit()
+    monkeypatch.setattr(script_cast_read, "_slots", lambda db, script: [])  # it hasn't seen Nate
+    assert breakdown.add_speakers(db, script) == []
+    db.commit()
+    roles = [s.role for s in db.scalars(select(ScriptCastSlot).filter_by(script_id=script.id))]
+    assert roles.count("Nate") == 1

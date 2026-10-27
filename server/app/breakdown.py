@@ -409,14 +409,21 @@ def would_show(db: Session, project: Project, data: dict, shot_ids=None) -> list
 
 def add_speakers(db: Session, script) -> list[str]:
     """The script's speakers the cast read missed (or that it never had: a script from
-    before the cast read), added to its cast as roles. Their names."""
+    before the cast read), added to its cast as roles. Their names. Safe to run twice at
+    once (QA-2: Assets' parallel requests both added "Girl"): the second adds none."""
+    from sqlalchemy.exc import IntegrityError
+
     from app import script_cast_read
 
-    slots = script_cast_read._slots(db, script)
-    new = script_cast_read.speaker_slots(db, script, slots)
-    for position, slot in enumerate(new, len(slots) + 1):
-        slot.position = position
-    db.flush()
+    try:
+        with db.begin_nested():
+            slots = script_cast_read._slots(db, script)
+            new = script_cast_read.speaker_slots(db, script, slots)
+            for position, slot in enumerate(new, len(slots) + 1):
+                slot.position = position
+            db.flush()
+    except IntegrityError:  # another request added them first
+        return []
     return [s.role for s in new]
 
 
