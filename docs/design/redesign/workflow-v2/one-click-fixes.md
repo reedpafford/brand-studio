@@ -21,7 +21,7 @@ Each problem row gets a fix next to **Go to**:
 
 - **Several of the same kind:** one fix for all of them under the problem list, e.g. **Fix 3 problems** (secondary, `Wand2`) with "Free" beside it. The cast fix (`change-notes.md` §2) stays as it is.
 - **Repaired on its own:** when the breakdown is made or saved, the server may put missing or changed lines back itself. The note at the top reads "Put back 2 lines that were missing from the shots." with **Undo**.
-- **The other steps' disabled reason** names the Breakdown step and links there. "Fix the 2 problems in Shots first" becomes **"Fix 2 problems in Breakdown first"**, where "Breakdown" is a link (ghost dense) that opens the step with the first problem outlined for 1.5 s. One problem reads "Fix 1 problem in Breakdown first". It's used on Next, the step picker and Make storyboard alike (`web/src/projects/steps.ts`).
+- **The other steps' disabled reason** names the Breakdown step (as built in #523): "Fix the 2 problems in Shots first" becomes **"Fix the 2 problems in Breakdown first"** on the video page (and "Make the breakdown first" / "Make a new breakdown first"). There's no link: problems in the shots lock every other step, so the reason only shows while you're already on Breakdown. The old six-step page keeps "Shots", its own name for that step.
 
 ## 2. Edit shot
 When a shot names a character, place or screen the video doesn't have ("Shot 1.3 names Nate, who isn't in this video's cast."):
