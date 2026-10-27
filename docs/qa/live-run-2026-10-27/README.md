@@ -51,5 +51,15 @@ Reed approved the paid run (cap $15) in this session and steered the cast during
 - Most refused: a tie between Kel's #13 c1 and #14 c1, 7 copyright refusals each. #13 c1 also had 2 "service unavailable" failures and worked on its 10th try; #14 c1 worked on its 8th.
 - Per take attempt, from the app's job records (references as stored now):
 ```
+all clips with takes               clips 56  refused clips 5  tries  98  refusals 23  (23% of tries)
+with a photo-made look             clips 50  refused clips 5  tries  91  refusals 23  (25% of tries)
+photo-made looks only              clips 37  refused clips 5  tries  75  refusals 23  (31% of tries)
+with a drawn look                  clips 13  refused clips 0  tries  16  refusals  0  (0% of tries)
+drawn looks only                   clips  0  refused clips 0  tries   0  refusals  0  (0% of tries)
+no character look at all           clips  6  refused clips 0  tries   7  refusals  0  (0% of tries)
+with Goth GF                       clips 36  refused clips 5  tries  74  refusals 23  (31% of tries)
+photo looks, no Goth GF            clips 14  refused clips 0  tries  17  refusals  0  (0% of tries)
+Goth GF plus a drawn look          clips  9  refused clips 0  tries  11  refusals  0  (0% of tries)
+prompt says Pixar                  clips 56  refused clips 5  tries  98  refusals 23  (23% of tries)
 ```
 - Every refusal is on a clip with Goth GF and only photo-made looks. Photo-made looks without her (Carl, Mogging BF, Wyatt, Kimchi) were never refused (0/17). Clips with any drawn look were never refused (0/16, a small and recent sample).
