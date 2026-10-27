@@ -5,8 +5,15 @@ name: deploy
 on:
   push:
     branches: [main]
-    # Notes only (ops/, docs/, any .md): nothing to deploy, and a deploy restarts the worker.
-    paths-ignore: ["ops/**", "docs/**", "**/*.md"]
+    # Notes only (ops/, docs/ but its references, root .md files): nothing to deploy, and a
+    # deploy restarts the worker. Later lines win. Prompt .md files (server/app/prompts/*.md)
+    # are app code and docs/references is copied into the server image: both always deploy.
+    paths:
+      - "**"
+      - "!ops/**"
+      - "!docs/**"
+      - "docs/references/**"
+      - "!*.md"
   workflow_dispatch:
 concurrency:
   group: deploy
