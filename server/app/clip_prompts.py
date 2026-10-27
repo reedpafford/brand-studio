@@ -281,8 +281,8 @@ def _cap(clip: ClipPrompt, known: Assets) -> ClipPrompt:
 def repair(db: Session, project: Project) -> int:
     """Give every clip of the video its characters' sheets (`with_cast`, nothing dropped),
     put its shape right (`repair_shape`: shot times, "No one speaks." and the rest) and check
-    it again. Runs whenever Clips is opened. Free and idempotent: on deploy for clips saved before
-    (app.seed refresh). Returns how many clips changed."""
+    it again. Runs whenever Clips is opened. Free and idempotent. Returns how many clips
+    changed."""
     known, changed = assets(db, project), 0
     breakdowns: dict[int, Breakdown] = {}
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)):
