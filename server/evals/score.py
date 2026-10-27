@@ -78,6 +78,8 @@ def score(out: Path, case: dict) -> list[str]:
                 problems.append(f"a note mentions '{word}', which this case shouldn't need")
 
     ref_lines, speakers, ref_montage = [], None, ""
+    recent = [a for actions in case.get("recent_payoffs", {}).values() for a in actions]
+    landed = " ".join(recent)  # where the brand's last videos' montages landed
     if ref := case.get("reference"):
         ref_montage = reference_montage(json.loads((ROOT / ref["path"]).read_text()))
     if w := answers.get("reel_watch"):
@@ -122,8 +124,9 @@ def score(out: Path, case: dict) -> list[str]:
             if not lo <= words <= hi:
                 problems.append(f"draft {i}: {words} spoken words, expected {lo}–{hi}")
             problems += [f"draft {i}: {p}" for p in check.echo_lines(draft.script)]
-            problems += [f"draft {i}: {p}" for p in check.repeated_payoffs(
-                check.montage_text(draft.script), ref_montage, "the reference's")]  # fmt: skip
+            for earlier, whose in ((ref_montage, "the reference's"), (landed, "a recent video's")):
+                problems += [f"draft {i}: {p}" for p in check.repeated_payoffs(
+                    check.montage_text(draft.script), earlier, whose)]  # fmt: skip
             problems += [f"draft {i}: {p}" for p in check.reference_lines(
                 draft.script, ref_lines, case.get("new_lines", False))]  # fmt: skip
             if speakers is not None:
@@ -136,7 +139,9 @@ def score(out: Path, case: dict) -> list[str]:
     if bd := answers.get("breakdown"):
         working = out / f"{case['id']}.script.txt"
         script = working.read_text() if working.exists() else script
-        problems += check.breakdown(script, bd, screens, video.duration.min, video.duration.max)
+        problems += check.breakdown(
+            script, bd, screens, video.duration.min, video.duration.max, recent=recent
+        )
         if "clips" in exp and not exp["clips"][0] <= len(bd.clips) <= exp["clips"][1]:
             problems.append(f"{len(bd.clips)} clips, expected {exp['clips']}")
         shots = [shot for scene in bd.scenes for shot in scene.shots]
@@ -147,6 +152,7 @@ def score(out: Path, case: dict) -> list[str]:
         montage = " ".join(s.action for s in shots if in_montage & set(s.script_lines))
         if "script_draft" in answers:  # an editor's own script may keep its payoffs
             problems += check.repeated_payoffs(montage, ref_montage, "the reference's")
+        problems += check.repeated_payoffs(montage, landed, "a recent video's")
         for n, sid in exp.get("screen_lines", {}).items():
             if not any(int(n) in s.script_lines and sid in s.screen_ids for s in shots):
                 problems.append(f"expected {sid} in the shot for line {n}")
@@ -179,6 +185,9 @@ def score(out: Path, case: dict) -> list[str]:
             problems += [f"variation {i}: {p}" for p in check.echo_lines(x.script)]
             again = check.repeated_payoffs(
                 check.montage_text(x.script), check.montage_text(script), "the original's"
+            )
+            again += check.repeated_payoffs(
+                check.montage_text(x.script), landed, "a recent video's"
             )
             problems += [f"variation {i}: {p}" for p in again]
     if cs := answers.get("cast_slots"):
