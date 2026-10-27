@@ -64,6 +64,6 @@ The server flags two roles that look like one person (similar descriptions, the 
   - It refuses a role merged into itself, and roles from another script, in plain words.
 - **Flags:** the cast and assets replies carry `maybe_same: [{a_slot_id, b_slot_id, into_slot_id, why}]`, where `why` is the plain reason and `into_slot_id` is the role to keep.
   - `POST …/cast/maybe-same/dismiss {a_slot_id, b_slot_id}` dismisses a pair for good.
-  - On a video: `POST /projects/{id}/assets/maybe-same/dismiss {a_slot_id, b_slot_id}` dismisses the pair for that video only, with `DELETE` as its Undo (Builder-Server-3).
   - `DELETE` on it is the Undo.
+  - On a video: `POST /projects/{id}/assets/maybe-same/dismiss {a_slot_id, b_slot_id}` dismisses the pair for that video only, with `DELETE` as its Undo (Builder-Server-3).
 - A merged slot keeps its look record unchanged (not deleted, not archived). It's only unlinked from the role.
