@@ -211,6 +211,30 @@ def test_no_prompt_or_example_keeps_a_rule_reed_replaced():
     assert "skyline arrival" not in cases and "ending on the skyline" not in cases  # rule 17
 
 
+def test_a_clip_holds_one_scene_and_about_12_seconds_outside_a_montage():
+    """QA-Live, video #16: faces drifted only in the 20 s, 19-shot clip that crossed scenes."""
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []
+    bd.clips[0].seconds = 14  # the opening argument, no montage
+    assert check.breakdown(script, bd, FOMO, 4, 30) == [
+        "Advice: clip c1: 14 s, 8 shots; split it at a natural cut, about 12 s and 12 shots at most"
+    ]
+    _, bd = example("breakdown")
+    bd.clips[1].shot_ids += bd.clips[2].shot_ids  # the montage clip runs on into the kitchen
+    bd.clips[1].seconds += bd.clips[2].seconds
+    bd.clips = [bd.clips[0], bd.clips[1]]
+    assert "Advice: clip c2 crosses scenes 2, 3; end it where the place or time changes" in (
+        check.breakdown(script, bd, FOMO, 4, 30)
+    )
+    assert "one scene: always end it where the place or time changes" in prompts.system("breakdown")
+    assert "Never another character's hands" in prompts.system("breakdown")
+    clip = prompts.system("clip_prompts")
+    assert "tears on the same face, never a younger or rounder one" in clip
+    for step in ("clip_prompts", "storyboard"):  # the sheet's outfit, not the old role's
+        assert "never one from the role's or the script's description" in prompts.system(step)
+
+
 def test_breakdown_check_keeps_a_clip_to_three_screens():
     ex, bd = example("breakdown")
     script = script_of(ex)
