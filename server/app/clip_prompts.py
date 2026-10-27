@@ -21,7 +21,16 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts, Reference
-from app.storyboard import CHAR, LEFT_OUT, _name, _renumber, _same, left_out, nearest_first
+from app.storyboard import (
+    CHAR,
+    LEFT_OUT,
+    _name,
+    _renumber,
+    _same,
+    hero,
+    left_out,
+    nearest_first,
+)
 from app.storyboard import assets as picture_assets
 
 # asset id -> (line for the prompt, kind for Seedance, its file ids)
@@ -77,16 +86,17 @@ def _pictures(known: Assets) -> dict[str, tuple[str, list[int]]]:
     return {k: (line, files) for k, (line, _, files) in known.items()}
 
 
-def _cast(bd: Breakdown, clip_id: str, pics: dict) -> list[str]:
-    """The clip's characters in the order they first appear, nearest the camera first."""
+def _cast(bd: Breakdown, clip_id: str, pics: dict, lead: str | None = None) -> list[str]:
+    """The clip's characters in the order they first appear, nearest the camera first; the
+    main character (`lead`) first whenever they're in the clip."""
     clip = next((c for c in bd.clips if c.id == clip_id), None)
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
     out: list[str] = []
     for sid in clip.shot_ids if clip else []:
-        for ref in nearest_first(shots[sid], pics) if sid in shots else []:
+        for ref in nearest_first(shots[sid], pics, lead) if sid in shots else []:
             if not any(_same(pics, ref, r) for r in out):
                 out.append(ref)
-    return out
+    return sorted(out, key=lambda r: not (lead and _same(pics, r, lead)))
 
 
 def _screens(bd: Breakdown, clip_id: str) -> list[str]:
@@ -128,7 +138,8 @@ def with_cast(
     first = [r for r in images if r.id.startswith("frame:")]
     people = [r for r in images if r.id.startswith(CHAR)]
     objects = [r for r in images if r not in first and r not in people]
-    cast = [c for c in _cast(bd, clip.clip_id, pics) if pics.get(c, ("", []))[1]]
+    lead = hero(db, project, bd, pics)
+    cast = [c for c in _cast(bd, clip.clip_id, pics, lead) if pics.get(c, ("", []))[1]]
     missing = [c for c in cast if not any(_same(pics, c, r.id) for r in people)]
 
     def rank(r: Reference) -> int:
@@ -140,7 +151,8 @@ def with_cast(
     added = [Reference(kind="image", id=c, role=f"{_name(pics, c)}'s look") for c in missing]
     if trim:  # stable: people not in the clip stay last
         people = sorted(people + added, key=rank)[:room]
-    elif added := added[: max(room - len(people), 0)]:
+    else:  # an edit keeps everyone; the main character still moves first
+        added = added[: max(room - len(people), 0)]
         people = sorted(people + added, key=rank)
     new = first + people + objects
     want = [s for s in _screens(bd, clip.clip_id) if s not in {r.id for r in new} and s in pics]

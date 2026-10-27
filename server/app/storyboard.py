@@ -11,7 +11,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.advice import names, plain
-from app.cast_roles import cast_roles, pick, plays
+from app.cast_roles import cast_roles, pick, plays, video_slots
+from app.cast_roles import ref as role_ref
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, project_context, project_screens, screen_name
 from app.images import image_job_input, image_model_block
@@ -137,9 +138,31 @@ def _name(known: dict, ref: str) -> str:
     return parts[2].split(",")[0].strip() if len(parts) > 2 else "A character"
 
 
-def nearest_first(shot, known: dict) -> list[str]:
-    """The shot's cast, nearest the camera first. A breakdown has no depth, so: whoever
-    speaks, then the order the action and reaction name them, then the shot's own order."""
+def hero(db: Session, project: Project, bd: Breakdown, known: dict) -> str | None:
+    """The main character, as the breakdown names them (Reed, 2026-10-27: their sheet always
+    goes first): of the script's Main roles in a shot, the one in the most shots (the first on
+    a tie); with none, whoever is in the most shots. None when no one is, or on a tie."""
+    shots = [s for scene in bd.scenes for s in scene.shots]
+
+    def count(r: str) -> int:
+        return sum(any(_same(known, r, c) for c in s.character_ids) for s in shots)
+
+    mains = [role_ref(db, project, s) for s in video_slots(db, project) if s.kind == "Main"]
+    if mains := [r for r in mains if count(r)]:
+        return max(mains, key=count)
+    everyone: list[str] = []  # one id per person (a role and its look are one)
+    for c in (c for s in shots for c in s.character_ids):
+        everyone += [] if any(_same(known, c, e) for e in everyone) else [c]
+    counts = sorted(((count(c), c) for c in everyone), key=lambda x: -x[0])
+    if not counts or (len(counts) > 1 and counts[0][0] == counts[1][0]):
+        return None
+    return counts[0][1]
+
+
+def nearest_first(shot, known: dict, lead: str | None = None) -> list[str]:
+    """The shot's cast, nearest the camera first, the main character (`lead`) always first.
+    A breakdown has no depth, so: whoever speaks, then the order the action and reaction name
+    them, then the shot's own order."""
     text = f"{shot.action} {shot.reaction or ''}".lower()
     speaker = (shot.speaker or "").lower()
 
@@ -147,7 +170,8 @@ def nearest_first(shot, known: dict) -> list[str]:
         i, ref = item
         name = _name(known, ref).lower() if ref in known else ""
         at = text.find(name) if name else -1
-        return (0 if name and name in speaker else 1, at if at >= 0 else len(text) + 1, i)
+        first = 0 if lead and _same(known, ref, lead) else 1
+        return (first, 0 if name and name in speaker else 1, at if at >= 0 else len(text) + 1, i)
 
     return [ref for _, ref in sorted(enumerate(shot.character_ids), key=key)]
 
@@ -200,7 +224,7 @@ def with_cast(
     refs = list(dict.fromkeys(frame.reference_ids))
     people = [r for r in refs if r.startswith(CHAR)]
     objects = [r for r in refs if not r.startswith(CHAR)]
-    cast = nearest_first(shot, known)
+    cast = nearest_first(shot, known, hero(db, project, bd, known))
     missing = [
         c for c in cast if known.get(c, ("", []))[1] and not any(_same(known, c, r) for r in people)
     ]
@@ -215,15 +239,16 @@ def with_cast(
         room = min(room, max(m.max_reference_images - len(objects), 0))
     if trim:  # stable: people not in the shot stay last
         people = sorted(people + missing, key=rank)[:room]
-    elif missing := missing[: max(room - len(people), 0)]:
-        people = sorted(people + missing, key=rank)
+    else:  # an edit keeps everyone; the main character still moves first
+        missing = missing[: max(room - len(people), 0)]
+        picked, people = people, sorted(people + missing, key=rank)
     new = people + objects
     # The shot's screens too, after everything else, while there's room (the Director, #556).
     screens = [s for s in shot.screen_ids if s in known and s not in new]
     if m.max_reference_images:
         screens = screens[: max(m.max_reference_images - len(new), 0)]
-    if not (trim or missing or screens):
-        return frame  # an edit with nothing to add stays as the editor saved it
+    if not (trim or missing or screens or people != picked):
+        return frame  # an edit with nothing to add or move stays as the editor saved it
     new += screens
     if new == frame.reference_ids:
         return frame
