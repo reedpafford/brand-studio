@@ -16,6 +16,13 @@
 - 2026-10-26 06:30 · Decisions (#412, Reed): the payoff balance on a brand's app screen uses the number the screen picture shows; a mismatch is never blocking. Videos stay at 480p, finals included.
 - 2026-10-26 05:15 · Decision (#405, Reed, gap #19): only characters made in Cast & places are saved to the library; a look made during a script or video belongs to that video only, with Save to Cast & places (Reed always; editors only if an owner setting allows it, off by default). Spend (#408): live end-to-end test 70.39 credits, about $7.24 of Reed's $15.
 - 2026-10-26 04:15 · Decisions (#397, Reed): editors past the allowance are declined with the reason, never "Ask Reed"; the end-line check ignores case and punctuation and never blocks an approved script's videos (Advice only); a shot's characters must match the script's roles; stills are redrawn automatically after a cast change within the budget; plain-English changes are the main way to edit stills and clips.
+- 2026-10-27 10:03 · #594 Pick another opens only when pressed, again (deleted character with no id) merged
+- 2026-10-27 09:56 · #592 docs: as built, the Assets "may be the same person" note is one closed line merged
+- 2026-10-27 09:56 · #590 Merge into… and "These may be the same person" on a video's Assets (screens) merged
+- 2026-10-27 09:50 · #593 "They're different" on a video's Assets, for that video only (server) merged
+- 2026-10-27 09:26 · #591 spec: "They're different" on Assets dismisses for this video only merged
+- 2026-10-27 09:12 · #589 ops: HANDOFF/LOG refresh merged (by the Producer)
+- 2026-10-27 09:12 · #586 Merge roles on a video's Assets, for that video only (server) merged
 - 2026-10-27 08:38 · #588 Deploy repairs: find the moment check however it's said, and say what they saw merged
 - 2026-10-27 08:13 · #587 ops: HANDOFF/LOG refresh merged (by the Producer)
 - 2026-10-27 08:08 · #583 Merge into… and "These may be the same person" on a script's Cast (screens) merged
