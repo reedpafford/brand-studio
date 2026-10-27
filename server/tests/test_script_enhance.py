@@ -45,10 +45,6 @@ def test_directions_on_a_version_suggest_accept_add_and_undo(app, owner, editor,
     assert owner.get(f"{url}/suggestions").json() == []  # on the old words
     assert owner.post(f"{url}/suggestions/{marks['s2']}/accept").status_code == 409
 
-    assert owner.delete(f"{url}/apply").status_code == 200  # Undo
-    assert owner.get(base).json()["versions"][0]["text"] == SCRIPT
-    assert owner.delete(f"{url}/apply").status_code == 409  # nothing left to undo
-
 
 def test_directions_on_an_editors_own_script_use_their_allowance(editor, db):
     from app.credits import quick_clip_used

@@ -15,7 +15,7 @@ from app.credits import estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus
-from app.models.script_library import Script, ScriptDraft, ScriptDraftText
+from app.models.script_library import Script, ScriptDraft
 from app.models.scripts import Suggestion
 from app.routes.clips import generation_on
 from app.routes.enhance import NoteOut, SuggestionOut
@@ -158,25 +158,5 @@ def apply_accepted(
     text = enhance.apply(draft.text, list(marks))
     lib.keep_text(db, draft, text, "enhance", user.id)
     draft.text = text
-    db.commit()
-    return _out(db, script)
-
-
-@router.delete("/apply", response_model=ScriptOut)
-def undo_apply(
-    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
-):
-    """Undo the newest Add directions: the words go back to how they were before it."""
-    script, draft = _version(db, user, script_id, slot)
-    newest = db.scalar(
-        select(ScriptDraftText)
-        .where(ScriptDraftText.draft_id == draft.id)
-        .order_by(ScriptDraftText.id.desc())
-        .limit(1)
-    )
-    if newest is None or newest.source != "enhance":
-        raise HTTPException(409, "There are no added directions to undo.")
-    draft.text = newest.text
-    db.delete(newest)
     db.commit()
     return _out(db, script)
