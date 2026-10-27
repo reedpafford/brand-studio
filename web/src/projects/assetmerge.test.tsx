@@ -159,4 +159,5 @@ test("a role the server merged by itself (Girl is the locked girlfriend) says so
   expect(screen.queryByText(/These may be the same person/)).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/assets/merge/undo")?.body).toEqual({ token: 11 }));
+  expect(await screen.findByText("Kept as two roles.")).toBeInTheDocument();
 });

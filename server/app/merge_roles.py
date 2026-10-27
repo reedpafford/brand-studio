@@ -186,11 +186,12 @@ def _across_versions(db: Session, script: Script, slots: list[ScriptCastSlot]) -
 
 
 def video_pairs(db: Session, project, bd) -> list[tuple]:
-    """The video's roles without a look that are one of its locked or cast roles by another
-    name (Kel's empty chair: "Girl" was the locked girlfriend, "Brad" the locked Mogging BF):
+    """The video's unlocked roles that are one of its locked or cast roles by another name
+    (Kel's empty chair: "Girl" was the locked girlfriend, "Brad" the locked Mogging BF):
     [(role, the role it is, certain)], never a pair kept apart here. Certain: the role's name
     or a short form ("GF"), or a line of 3+ words it says in another version. Unsure: its shots
-    all show that role and no one else who speaks as themselves (the hero). Free."""
+    all show that role and no one else who speaks as themselves (the hero), or the role has
+    a look of its own here (QA-2: a look made for Brad must not hide the flag). Free."""
     from app.cast_roles import labels, pick, ref, same, short, video_slots
 
     if (draft := db.get(ScriptDraft, project.script_draft_id or 0)) is None:
@@ -199,13 +200,13 @@ def video_pairs(db: Session, project, bd) -> list[tuple]:
     apart = {frozenset(p) for p in project.cast_apart or []}
     shots = [s for sc in bd.scenes for s in sc.shots] if bd is not None else []
     talk = {x.speaker for x in shots if x.speaker}
-    for own in [s for s in video_slots(db, project) if not pick(db, project, s)]:
-        name, slots = short(own.role) or own.role, [s for s in video_slots(db, project)
-                                                    if pick(db, project, s)]  # fmt: skip
+    for own in [s for s in video_slots(db, project) if not s.library_item_id]:
+        name = short(own.role) or own.role
+        slots = [s for s in video_slots(db, project) if s is not own and pick(db, project, s)]
         hit = next((s for s in slots if labels(name, s.role)), None) or next(
             (b if a is own else a for a, b, why in _across_versions(db, script, [own, *slots])
              if why.startswith("They say") and own in (a, b)), None)  # fmt: skip
-        mine = [x for x in shots if f"slot:{own.id}" in x.character_ids
+        mine = [x for x in shots if {f"slot:{own.id}", ref(db, project, own)} & set(x.character_ids)
                 or (x.speaker and same(x.speaker, name))]  # fmt: skip
         refs = {ref(db, project, s): s for s in slots
                 if not any(labels(n, s.role) for n in talk if not same(n, name))}  # fmt: skip
@@ -213,7 +214,7 @@ def video_pairs(db: Session, project, bd) -> list[tuple]:
         common = set.intersection(*seen) if seen else set()
         into = hit or (common.pop() if len(common) == 1 else None)
         if into and frozenset((own.id, into.id)) not in apart:
-            out.append((own, into, hit is not None))
+            out.append((own, into, hit is not None and not pick(db, project, own)))
     return out
 
 

@@ -123,6 +123,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     out, seen = [], set()
     look = price(look_price(db, project.workspace_id))
     usual_look = price(look_usual(db, project.workspace_id))
+    flagged = _flagged(db, project)
     for slot in _slots(db, project):
         item_id = cast_roles.picked(project, slot)
         live = cast_roles.pick(db, project, slot)  # a deleted look: the role is uncast
@@ -133,6 +134,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         out[-1].own_look_id = own.id if own and not own.archived else None  # removed: gone
         out[-1].declined = project.slot_looks.get(str(slot.id), 0) is None
         out[-1].look_credits, out[-1].look_usual_credits = look, usual_look
+        out[-1].ready = out[-1].ready or slot.id in flagged  # counted as the role it may be
         gone = db.get(LibraryItem, item_id) if item_id else None
         out[-1].library_deleted = bool(item_id and (gone is None or gone.archived))
         seen.add(f"char:{item_id}")
@@ -286,6 +288,14 @@ class MissingLooksOut(BaseModel):
     reason: str | None = None  # why they can't all be made (plain), or null when they fit
 
 
+def _flagged(db: Session, project: Project) -> set[int]:
+    """Roles that may be a locked or cast one by another name (`merge_roles.video_pairs`):
+    the look gate counts them as that role, so they never hold the video up (rule 22)."""
+    bd = _newest(db, project)
+    pairs = merge_roles.video_pairs(db, project, Breakdown.model_validate(bd.data) if bd else None)
+    return {slot.id for slot, _, sure in pairs if not sure}
+
+
 def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
     """The roles Assets makes looks for by itself (Reed, 2026-10-26): every cast slot (a main
     or recurring role; background people are never slots) that the newest breakdown's shots
@@ -295,10 +305,12 @@ def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
     shown = {
         c for s in (bd.data["scenes"] if bd else []) for x in s["shots"] for c in x["character_ids"]
     }
+    flagged = _flagged(db, project)  # maybe another role: its look waits for the editor
     return [
         s
         for s in _slots(db, project)
         if cast_roles.pick(db, project, s) is None  # a deleted look counts as none
+        and s.id not in flagged
         and str(s.id) not in project.slot_looks
         and {f"slot:{s.id}", f"char:{cast_roles.picked(project, s)}"} & shown
     ]
@@ -543,6 +555,25 @@ def _recast_only(db: Session, project: Project, made: dict, now: dict, data: dic
     return {old: new for one in swaps for old, new in one.items()}
 
 
+def _undoable(db: Session, project: Project, data: dict) -> dict | None:
+    """Who now plays whom since a merge ({} if the shots are as it left them), or None when
+    the shots changed otherwise and it can't be undone."""
+    if not (now := _newest(db, project)) or now.id == data.get("made"):
+        return {}
+    made = db.get(BreakdownVersion, data.get("made") or 0)
+    return _recast_only(db, project, made.data, now.data, data) if made else None
+
+
+def _put_back(db: Session, project: Project, slot_id: int, into_id: int, moved: list) -> dict:
+    """The newest shots with a role merged by itself back in the shots it was moved from, when
+    they changed since (rule 9: its Undo is the video's, not one breakdown version's)."""
+    bd = Breakdown.model_validate(_newest(db, project).data)
+    into = cast_roles.ref(db, project, db.get(ScriptCastSlot, into_id))
+    for shot in (s for sc in bd.scenes for s in sc.shots if s.id in moved):
+        shot.character_ids = [f"slot:{slot_id}" if r == into else r for r in shot.character_ids]
+    return bd.model_dump()
+
+
 @router.post("/merge/undo", response_model=list[AssetOut])
 def undo_merge(
     project_id: int, body: UndoIn, user: User = Depends(current_user), db: Session = Depends(get_db)
@@ -552,13 +583,13 @@ def undo_merge(
     record = db.get(CastMerge, body.token)
     if record is None or record.project_id != project.id:
         raise HTTPException(404, "There's nothing to undo here any more.")
-    data, swap = record.data, {}
-    if (now := _newest(db, project)) and now.id != data.get("made"):
-        made = db.get(BreakdownVersion, data.get("made") or 0)
-        if made is None or (swap := _recast_only(db, project, made.data, now.data, data)) is None:
-            raise HTTPException(
-                409, "This can't be undone any more: the shots were changed after the merge."
-            )
+    data = record.data
+    if (swap := _undoable(db, project, data)) is None and (pair := data.get("auto")):
+        swap, data = {}, {**data, "breakdown": _put_back(db, project, *pair, data.get("moved", []))}
+    if swap is None:
+        raise HTTPException(
+            409, "This can't be undone any more: the shots were changed after the merge."
+        )
     # Looks given to other roles since (Assets making the missing ones) stay.
     merged = {k for k in project.slot_merged or {} if k not in data["slot_merged"]}
     project.slot_merged = {k: v for k, v in project.slot_merged.items() if k not in merged}
@@ -594,10 +625,10 @@ def maybe_same(project_id: int, user: User = Depends(current_user), db: Session 
     unsure = [{"a_slot_id": b.id, "b_slot_id": a.id, "into_slot_id": b.id,
                "why": "Their shots show the same person."}
               for a, b, sure in merge_roles.video_pairs(db, project, plan) if not sure]  # fmt: skip
-    auto = []  # merged by itself, with Undo while the shots are as it merged them
+    auto = []  # merged by itself, with Undo whatever the shots did since (QA-2)
     for r in db.scalars(select(CastMerge).where(CastMerge.project_id == project.id)):
         roles = [db.get(ScriptCastSlot, i) for i in r.data.get("auto") or [0]]
-        if None not in roles and bd and r.data["made"] == bd.id:
+        if None not in roles:  # Undo stays while the record does (rule 9)
             pair, (one, into) = r.data["auto"], (cast_roles.short(x.role) for x in roles)
             auto.append({"a_slot_id": pair[1], "b_slot_id": pair[0], "into_slot_id": pair[1],
                          "why": f"{one} is {into} in this video, so they're one role.",
