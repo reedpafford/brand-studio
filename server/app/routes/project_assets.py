@@ -564,6 +564,16 @@ def _undoable(db: Session, project: Project, data: dict) -> dict | None:
     return _recast_only(db, project, made.data, now.data, data) if made else None
 
 
+def _put_back(db: Session, project: Project, slot_id: int, into_id: int, moved: list) -> dict:
+    """The newest shots with a role merged by itself back in the shots it was moved from, when
+    they changed since (rule 9: its Undo is the video's, not one breakdown version's)."""
+    bd = Breakdown.model_validate(_newest(db, project).data)
+    into = cast_roles.ref(db, project, db.get(ScriptCastSlot, into_id))
+    for shot in (s for sc in bd.scenes for s in sc.shots if s.id in moved):
+        shot.character_ids = [f"slot:{slot_id}" if r == into else r for r in shot.character_ids]
+    return bd.model_dump()
+
+
 @router.post("/merge/undo", response_model=list[AssetOut])
 def undo_merge(
     project_id: int, body: UndoIn, user: User = Depends(current_user), db: Session = Depends(get_db)
@@ -574,7 +584,9 @@ def undo_merge(
     if record is None or record.project_id != project.id:
         raise HTTPException(404, "There's nothing to undo here any more.")
     data = record.data
-    if (swap := _undoable(db, project, data)) is None:
+    if (swap := _undoable(db, project, data)) is None and (pair := data.get("auto")):
+        swap, data = {}, {**data, "breakdown": _put_back(db, project, *pair, data.get("moved", []))}
+    if swap is None:
         raise HTTPException(
             409, "This can't be undone any more: the shots were changed after the merge."
         )
@@ -613,10 +625,10 @@ def maybe_same(project_id: int, user: User = Depends(current_user), db: Session 
     unsure = [{"a_slot_id": b.id, "b_slot_id": a.id, "into_slot_id": b.id,
                "why": "Their shots show the same person."}
               for a, b, sure in merge_roles.video_pairs(db, project, plan) if not sure]  # fmt: skip
-    auto = []  # merged by itself, with Undo while it can be undone (QA-2: looks made since)
+    auto = []  # merged by itself, with Undo whatever the shots did since (QA-2)
     for r in db.scalars(select(CastMerge).where(CastMerge.project_id == project.id)):
         roles = [db.get(ScriptCastSlot, i) for i in r.data.get("auto") or [0]]
-        if None not in roles and _undoable(db, project, r.data) is not None:
+        if None not in roles:  # Undo stays while the record does (rule 9)
             pair, (one, into) = r.data["auto"], (cast_roles.short(x.role) for x in roles)
             auto.append({"a_slot_id": pair[1], "b_slot_id": pair[0], "into_slot_id": pair[1],
                          "why": f"{one} is {into} in this video, so they're one role.",

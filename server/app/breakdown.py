@@ -355,9 +355,9 @@ def complete_cast(db: Session, project: Project) -> list[str]:
         old = {"slot_merged": project.slot_merged or {}, "slot_cast": project.slot_cast or {},
                "cast_ids": project.cast_ids or [], "breakdown": bd.model_dump(), "made": row.id,
                "auto": [slot.id, into.id]}  # fmt: skip
+        old["moved"] = merge_shots(db, project, bd, slot, into)  # for Undo, whatever comes next
         db.add(CastMerge(workspace_id=project.workspace_id, script_id=script.id,
                          project_id=project.id, data=old))  # fmt: skip
-        merge_shots(db, project, bd, slot, into)
         project.slot_merged = {**(project.slot_merged or {}), str(slot.id): into.id}
         merged.append(f"Advice: {short(slot.role) or slot.role} is {short(into.role) or into.role}"
                       ", one role in this video.")  # fmt: skip

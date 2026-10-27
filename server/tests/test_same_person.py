@@ -76,6 +76,10 @@ def test_girl_and_brad_only_the_shots_show_are_flagged_and_never_block(owner, ed
     assert editor.get(f"/projects/{pid}/assets/missing-looks").json()["roles"] == ["Omar"]
     refused = editor.post(f"/projects/{pid}/storyboard", json={}).json()["detail"]
     assert refused == "Omar has no approved look yet. Approve one in Assets."  # not Girl, Brad
+    # A look picked for Brad himself doesn't hide the flag: the editor still decides.
+    brad = {"library_item_id": _look(owner, db, "Brad look")}
+    assert editor.put(f"/projects/{pid}/assets/slots/{cast['Brad']}", json=brad).status_code == 200
+    assert (ids["Mogging BF"], cast["Brad"], None) in _pairs(editor, pid)
 
 
 def test_a_same_line_merges_girl_into_the_locked_girlfriend_with_undo(owner, editor, db):
@@ -100,12 +104,23 @@ def test_a_same_line_merges_girl_into_the_locked_girlfriend_with_undo(owner, edi
     # never merged by itself again here.
     omar = {"library_item_id": _look(owner, db, "Omar look")}
     assert editor.put(f"{url}/slots/{ids['Omar']}", json=omar).status_code == 200
+    edited = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]
+    edited["scenes"][0]["shots"][2]["action"] = "Brad leans in."  # the shots changed otherwise
+    assert editor.put(f"/projects/{pid}/breakdown", json=edited).status_code == 200
     (token,) = [t for (_, b, t) in _pairs(editor, pid) if t]
     assert _pairs(editor, pid)[(ids["Girlfriend"], girl, token)] == (
         "Girl is Girlfriend in this video, so they're one role."
     )
     assert editor.post(f"{url}/merge/undo", json={"token": token}).status_code == 200
     assert "Girl" in [r["role"] for r in editor.get(url).json()]
+    shots = editor.get(f"/projects/{pid}/breakdown").json()["breakdown"]["scenes"][0]["shots"]
+    assert [f"slot:{girl}" in s["character_ids"] for s in shots] == [
+        False,
+        True,
+        False,
+        True,
+        False,
+    ]  # back in the shots she was moved from
     db.expire_all()
     assert str(girl) not in (db.get(Project, pid).slot_merged or {})
 
