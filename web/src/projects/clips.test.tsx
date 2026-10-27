@@ -360,6 +360,19 @@ test("a failed prompt run says so, nothing was charged, and the one Write button
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
 });
 
+test("a refused take says why, and after two refusals the card warns before the next paid take", async () => {
+  const why = "The video model thinks this clip looks too much like someone else's character or video. Try another look for Mom, or use Change this… on the opening shot. Nothing was charged.";
+  const warning = "The last two takes of this clip were refused: the video model thought they looked too much like someone else's character or video. Change the look or the opening shot first, or this take may be refused too.";
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ take_warning: warning })]],
+    "GET /jobs": [200, [{ id: 40, kind: "video", step: "clip_take", status: "failed", credits: 5, project_id: 9, project_clip_id: 1, created_at: new Date().toISOString(), error: why }]],
+  });
+  open();
+  expect(await screen.findByText(why)).toBeInTheDocument();
+  expect(screen.getByText(warning)).toBeInTheDocument();
+});
+
 test("pressing a take's Looks good shows Approved with Undo approval at once, before the server answers", async () => {
   fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]] });
   const faked = globalThis.fetch;

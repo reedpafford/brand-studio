@@ -16,7 +16,7 @@ from app.clip_prompts import assets
 from app.credits import estimate
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
-from app.models.jobs import Job
+from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.references import LONG_SIDE
@@ -85,6 +85,39 @@ def in_english(prompt: str) -> str:
         return prompt
     at = next((i for i, x in enumerate(lines) if x.startswith("References: ")), 0)
     return "\n".join([*lines[: at + 1], ENGLISH, *lines[at + 1 :]])
+
+
+REFUSED = "The video model thinks this clip looks too much like someone else's character or video."
+
+
+def refused(db: Session, job: Job) -> None:
+    """Seedance's copyright refusal ("…may be related to copyright restrictions") in plain
+    words with a next step (rules 4 and 22), never "Ask the owner". Refused takes aren't
+    counted (credits.COUNTED), so nothing is charged."""
+    if "copyright" not in (job.error_detail or "").lower():
+        return
+    row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+    char = next((r["id"] for r in (row.references if row else None) or []
+                 if r["id"].startswith("char:")), None)  # fmt: skip
+    item = db.get(LibraryItem, int(char.split(":")[1])) if char else None
+    lead = item.name if item else "the main character"
+    job.error = (f"{REFUSED} Try another look for {lead}, or use Change this… on the opening "
+                 "shot. Nothing was charged.")  # fmt: skip
+
+
+def take_warning(db: Session, row: ProjectClip) -> str | None:
+    """Said before the next take is paid for, once its last two takes were both refused that
+    way (Kel retried 7 times)."""
+    videos = select(Job).where(Job.project_id == row.project_id, Job.kind == "video")
+    last = [j for j in db.scalars(videos.order_by(Job.id.desc()))
+            if j.input.get("project_clip_id") == row.id][:2]  # fmt: skip
+    if len(last) == 2 and all(
+        j.status == JobStatus.failed and (j.error or "").startswith(REFUSED) for j in last
+    ):
+        return ("The last two takes of this clip were refused: the video model thought they "
+                "looked too much like someone else's character or video. Change the look or "
+                "the opening shot first, or this take may be refused too.")  # fmt: skip
+    return None
 
 
 def _with_note(prompt: str, note: str) -> str:

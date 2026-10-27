@@ -10,12 +10,13 @@ log = logging.getLogger(__name__)
 
 
 def explain(db: Session, job: Job) -> None:
-    """A failed clip-prompts run names its cause in plain words (stabilization, 2026-10-27)."""
+    """A failed clip-prompts run or take names its cause in plain words (stabilization)."""
     from app.clip_prompts import failed
+    from app.clip_takes import refused
 
-    if job.input.get("step") == "clip_prompts":
+    if (step := job.input.get("step")) in ("clip_prompts", "clip_take"):
         try:
-            failed(db, job)
+            (failed if step == "clip_prompts" else refused)(db, job)
         except Exception:  # never let the explanation break the worker
             log.exception("job %s: explaining the failure failed", job.id)
 

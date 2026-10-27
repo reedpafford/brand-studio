@@ -228,3 +228,37 @@ def test_clips_pane_support(app, db, editor, setup, clip):  # noqa: F811
 
     assert editor.post(f"{url}/approve").json()["approved"] is True
     assert editor.delete(f"{url}/approve").json()["approved"] is False
+
+
+class Refusing(FakeSeedance):
+    """Seedance refusing every take for copyright (Kel's video, 2026-10-27)."""
+
+    def __call__(self, request):
+        if request.method == "GET" and "/predictions/p" in str(request.url):
+            n = str(request.url).rsplit("p", 1)[1]
+            error = "E005: the output video may be related to copyright restrictions"
+            return httpx.Response(200, json={"id": f"p{n}", "status": "failed", "error": error})
+        return super().__call__(request)
+
+
+def test_a_copyright_refusal_says_what_to_do_and_warns_after_two(app, db, editor, setup, clip):  # noqa: F811
+    from app.credits import credits_used
+    from app.models.projects import Project
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    before = credits_used(db, db.get(Project, setup["project"]))
+    editor.post(f"{url}/generate")
+    _work(app, db, Refusing([]))
+    jobs = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
+    assert jobs[0]["error"] == (
+        "The video model thinks this clip looks too much like someone else's character or "
+        "video. Try another look for Mom, or use Change this… on the opening shot. "
+        "Nothing was charged."
+    )  # never "Ask the owner"
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
+    assert shown["take_warning"] is None  # one refusal: no warning yet
+    editor.post(f"{url}/generate")
+    _work(app, db, Refusing([]))
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
+    assert shown["take_warning"].startswith("The last two takes of this clip were refused")
+    assert credits_used(db, db.get(Project, setup["project"])) == before  # refused takes: free

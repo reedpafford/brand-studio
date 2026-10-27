@@ -86,6 +86,7 @@ class ProjectClipOut(BaseModel):
     inserts: list[InsertOut]
     change: dict | None  # the last Change it note, as on a frame (app/change.py)
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
+    take_warning: str | None = None  # said before the next take: its last two were refused
 
 
 def _takes(db: Session, row: ProjectClip) -> list[ClipTake]:
@@ -98,7 +99,7 @@ _stale = clip_prompts.is_stale
 
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
-    computed = ("stale", "takes", "take_credits", "inserts")
+    computed = ("stale", "takes", "take_credits", "inserts", "take_warning")
     project = db.get(Project, row.project_id)
     inserts = [InsertOut(**vars(i), use_real_image=i.on) for i in cut_in.inserts(db, project, row)]
     return ProjectClipOut(
@@ -110,6 +111,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
+        take_warning=clip_takes.take_warning(db, row),
     )
 
 

@@ -56,7 +56,7 @@ export function ClipCard(props: {
   aspect: string;
   poster: number | null;
   projectName: string;
-  job: { status: string; created_at: string } | undefined;
+  job: { status: string; created_at: string; error?: string | null } | undefined;
   busy: boolean;
   blockers: Blocker[];
   toRead: boolean;
@@ -103,6 +103,8 @@ export function ClipCard(props: {
           )}
         </span>
       </div>
+      {failed && props.job?.error && <p role="status" className="text-sm text-danger">{props.job.error}</p>}
+      {c.take_warning && !props.busy && <p role="status" className="text-sm text-warning">{c.take_warning}</p>}
       <div className="grid place-items-center overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: ratio(props.aspect), maxHeight: "24rem" }}>
         {c.file_id ? (
           <video controls muted src={fileUrl(c.file_id)} poster={props.poster ? fileUrl(props.poster) : undefined} className="h-full w-full object-cover" aria-label={`Video for clip ${c.clip_id}`} />
