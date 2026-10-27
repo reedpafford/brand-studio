@@ -8,6 +8,7 @@ import pytest
 import evals
 from app import prompts
 from app.prompts import check, schemas
+from evals import checks
 
 EXAMPLES = Path(prompts.__file__).parent / "examples"
 FOMO = {"screen:1": ["fomo-mention", "app-open"], "screen:2": ["trading", "win"],
@@ -338,21 +339,21 @@ def test_a_montage_invents_its_payoffs_never_the_reference_or_original_run(tmp_p
     copied = (
         "Montage: keys dropped into his palm, Nate behind the wheel, the penthouse, the skyline."
     )
-    assert check.payoffs(copied) == ["keys", "a car", "a penthouse", "a skyline"]
-    assert check.repeated_payoffs(copied, ref, "the reference's") == [
+    assert checks.payoffs(copied) == ["keys", "a car", "a penthouse", "a skyline"]
+    assert checks.repeated_payoffs(copied, ref, "the reference's") == [
         "Advice: the montage repeats the reference's payoffs (a penthouse, a skyline); invent "
         "ones that fit this story and its people"
     ]
-    assert check.repeated_payoffs("Montage: Nate on the balcony.", ref, "the reference's") == []
+    assert checks.repeated_payoffs("Montage: Nate on the balcony.", ref, "the reference's") == []
     altar = ROOT / "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
     ref = reference_montage(json.loads(altar.read_text()))
     _, drafts = example("script_draft")  # the worked examples invent their own
     for d in drafts.drafts:
-        assert check.repeated_payoffs(check.montage_text(d.script), ref, "the reference's") == []
+        assert checks.repeated_payoffs(checks.montage_text(d.script), ref, "the reference's") == []
     original, result, _ = _variation_case()
     for v in result.variations:
-        mine, theirs = check.montage_text(v.script), check.montage_text(original)
-        assert check.repeated_payoffs(mine, theirs, "the original's") == []
+        mine, theirs = checks.montage_text(v.script), checks.montage_text(original)
+        assert checks.repeated_payoffs(mine, theirs, "the original's") == []
     case = next(c for c in CASES["cases"] if c["id"] == "fomo-altar-variations")
     again = {"title": "x", "premise": "x", "script": "\n".join(case["script"]), "changes": []}
     (tmp_path / f"{case['id']}.variations.json").write_text(json.dumps({"variations": [again]}))
@@ -387,12 +388,12 @@ def test_the_evals_tell_and_check_the_brands_recent_payoffs(tmp_path):
 
 def test_an_echo_repeats_what_was_said_to_his_face():
     said = "GIRLFRIEND: You're just a loser who doesn't get invited to anything.\n"
-    assert check.echo_lines(said + "GIRLFRIEND (V.O.): Doesn't get invited to anything.") == []
-    assert check.echo_lines(said + "GIRLFRIEND (V.O.): New position can't afford a ticket.") == [
+    assert checks.echo_lines(said + "GIRLFRIEND (V.O.): Doesn't get invited to anything.") == []
+    assert checks.echo_lines(said + "GIRLFRIEND (V.O.): New position can't afford a ticket.") == [
         "Advice: the echo “New position can't afford a ticket.” calls back to nothing "
         "Girlfriend said; repeat “You're just a loser who doesn't get invited to anything.”"
     ]
-    assert check.echo_lines("BRUNO (V.O.): I was the worst dog on the street.") == []  # narrator
+    assert checks.echo_lines("BRUNO (V.O.): I was the worst dog on the street.") == []  # narrator
     lines = [
         "You're just a loser who doesn't get invited to anything.",
         "New position doesn't get invited to anything.",
@@ -762,9 +763,9 @@ def test_every_spoken_line_names_its_language():
     assert "never translate a line or drop its quotes or its label" in prompts.system("change")
     _, cp = example("clip_prompts")
     _, improved = example("improve")
-    assert check.unlabelled(cp.clips[0].prompt) == check.unlabelled(improved.prompt) == []
+    assert checks.unlabelled(cp.clips[0].prompt) == checks.unlabelled(improved.prompt) == []
     bare = improved.prompt.replace("(in English, ", "(")
-    assert check.unlabelled(bare) == [
+    assert checks.unlabelled(bare) == [
         "Advice: Maya, Leo: say each spoken line's language, e.g. Maya (in English, …)"
     ]
 
