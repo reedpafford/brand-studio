@@ -246,8 +246,8 @@ def newer_sheets(db: Session, known: dict, refs: list[str], job_id: int | None) 
     prompt: its look words may be the old look's (QA-Live, video #17)."""
     job = db.get(Job, job_id) if job_id else None
     files = {r: known.get(r, ("", []))[-1][:1] for r in refs if r.startswith(CHAR)}
-    return [r for r, f in files.items()
-            if job and f and db.get(StoredFile, f[0]).created_at > job.created_at]  # fmt: skip
+    made = {r: db.get(StoredFile, f[0]) for r, f in files.items() if f}  # None: purged
+    return [r for r, s in made.items() if job and s and s.created_at > job.created_at]
 
 
 def say_logo(known: dict, prompt: str, ids: list[str], clip: bool = False) -> str:
