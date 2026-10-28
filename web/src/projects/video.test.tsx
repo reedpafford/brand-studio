@@ -177,6 +177,23 @@ test("Downloads: the zip, the picked take and the older take each download", asy
   expect(screen.getByRole("link", { name: /Download clip 1 take 1/ })).toBeInTheDocument();
 });
 
+test("after a breakdown edit, the finished video stays downloadable and Clips stays open, each saying out of date (#749 LW1)", async () => {
+  setViewport(390);
+  const edited = { ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] as [number, unknown] };
+  fakeServer(edited);
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+});
+
+test("after a breakdown edit, Clips already made stays open (out of date), not sent back to Storyboard", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] });
+  open("?step=clips");
+  expect(await screen.findByLabelText("Clip c1")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+});
+
 test("Downloads puts the clips together by itself the first time, for free", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/video": [201, { file_id: 60, take_ids: [2], out_of_date: false }] });
