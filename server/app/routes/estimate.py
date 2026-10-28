@@ -14,7 +14,7 @@ from app import clip_prompts
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
-from app.credits import credits_used, estimate
+from app.credits import CLIP_SECONDS_GUESS, credits_used, estimate, plan_cost
 from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -25,11 +25,9 @@ from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown
 from app.routes.projects import get_project
 from app.routes.scripts import latest
-from app.sheets import look_usual
 from app.storyboard import image_model
 
 router = APIRouter(prefix="/projects/{project_id}/estimate", tags=["credits"])
-CLIP_SECONDS_GUESS = 8  # before a breakdown exists: about this many seconds per clip
 
 
 class StageOut(BaseModel):
@@ -61,24 +59,13 @@ def _video(db: Session, ws: int, seconds: int) -> Decimal:
 
 
 def version_cost(db: Session, draft: ScriptDraft) -> Decimal:
-    """A version's whole price before it's started, not just its seconds (QA-Live, video #17:
-    "About 55" quoted, 99 charged): the breakdown (unless one is saved), the frame prompts, a
-    still per clip, the clip prompts, a look per role not cast yet, and its seconds of video.
-    Redos aren't counted."""
+    """A version's whole price before it's started: `credits.plan_cost`, with a look for
+    each role not cast yet and no breakdown call when one is saved."""
     script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
-    ws = script.workspace_id
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
-    n = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
-    calls = len(clip_prompts.batches(bd)) if bd else math.ceil(n / clip_prompts.BATCH_CLIPS)
     slot = ScriptCastSlot
     uncast = select(func.count()).where(slot.script_id == script.id, slot.library_item_id.is_(None))
-    claude = _claude(db, ws) * ((0 if bd else 1) + 1 + calls)
-    return (
-        claude
-        + _still(db, ws) * n
-        + look_usual(db, ws) * db.scalar(uncast)
-        + _video(db, ws, seconds)
-    )
+    return plan_cost(db, script.workspace_id, seconds, bd, db.scalar(uncast), breakdown=not bd)
 
 
 def _stages(db: Session, project: Project) -> list[StageOut]:

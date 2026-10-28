@@ -19,7 +19,7 @@ def test_estimate_follows_the_project(app, db, owner, editor, outsider, setup): 
     assert stages["clips"] == (False, 30)  # 30 s at 480p, 1 credit a second
     assert stages["video"] == (False, 0)  # free
     assert body["remaining_credits"] == round(3 + 3 + 1.32 + 3 + 30, 2)
-    assert body["budget_credits"] == 60
+    assert body["budget_credits"] >= 2 * body["remaining_credits"]  # rule 3: twice all of it
 
     editor.post(f"/projects/{project}/breakdown")
     _run(app, db, FakeClaude(BREAKDOWN))  # one 5 s clip

@@ -5,12 +5,11 @@ from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import JSON, ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, object_session
 
 from app.db import Base, Entity
-from app.models.credits import BUDGET_MULTIPLIER
 
-PRE_BREAKDOWN_SECONDS = 15  # before any breakdown: a 30-credit budget for the Claude steps
+PRE_BREAKDOWN_SECONDS = 15  # before any breakdown: the length the budget plans for
 
 
 class ProjectStatus(StrEnum):
@@ -73,4 +72,7 @@ class Project(Entity, Base):
 
     @property
     def budget_credits(self) -> Decimal:
-        return self.estimate_credits * BUDGET_MULTIPLIER
+        """Twice its whole estimate, every step included (rule 3): `credits.budget`."""
+        from app.credits import budget
+
+        return budget(object_session(self), self)

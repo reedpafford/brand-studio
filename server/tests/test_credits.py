@@ -26,7 +26,7 @@ def ed(editor, db):
 
 @pytest.fixture
 def project(owner, editor, db):
-    """A fomo project an editor planned at 10 s: estimate 10 credits, budget 20."""
+    """A fomo project an editor planned at 10 s: its video estimate is 10 credits."""
     fomo = owner.get("/brands").json()[0]["id"]
     body = editor.post(
         "/projects", json={"brand_id": fomo, "name": "Launch", "planned_seconds": 10}
@@ -67,12 +67,17 @@ def test_kind_without_rate_is_allowed_at_one_credit_per_unit(ed, db):
     assert (job.status, job.credits) == ("queued", 4)
 
 
-def test_budget_is_twice_planned_length(project, editor, ed, db):
+def test_budget_is_twice_the_whole_estimate(project, editor, ed, db):
+    """Rule 3 with every step counted (QA-2: a 12 s video's breakdown, storyboard, clip
+    prompts, looks and still used 12.73 of a 24-credit budget, so its take was refused)."""
+    from app.credits import plan_cost
+
     body, model = project
     enqueue(db, ed, "video-480p", {"seconds": 15}, units=15, project=model)
     got = editor.get(f"/projects/{body['id']}").json()
-    assert (got["estimate_credits"], got["budget_credits"]) == (10, 20)
-    assert (got["credits_used"], got["budget_pct"]) == (15, 75)
+    whole = plan_cost(db, model.workspace_id, 10, None, 0)  # 10 s, no breakdown, no roles
+    assert got["estimate_credits"] == 10 and got["budget_credits"] == float(2 * whole) > 20
+    assert (got["credits_used"], got["budget_pct"]) == (15, round(15 / float(2 * whole) * 100, 1))
 
 
 def _held(db, ed, model, credits):
@@ -96,7 +101,7 @@ def test_over_budget_job_is_refused_and_one_already_held_waits_for_owner(
     from fastapi import HTTPException
 
     _, model = project
-    enqueue(db, ed, "video-480p", {}, units=15, project=model)
+    enqueue(db, ed, "video-480p", {}, units=model.budget_credits - 5, project=model)
     with pytest.raises(HTTPException) as refused:
         enqueue(db, ed, "video-480p", {}, units=10, project=model)
     assert (refused.value.status_code, refused.value.detail) == (
@@ -204,7 +209,7 @@ def _race(app, monkeypatch, make_job):
 
 def test_two_project_jobs_at_once_cannot_both_fit(app, project, ed, db, monkeypatch):
     _, model = project
-    enqueue(db, ed, "video-480p", {}, units=15, project=model)  # 15 of 20 used
+    enqueue(db, ed, "video-480p", {}, units=model.budget_credits - 5, project=model)  # 5 left
 
     def make(s):
         try:
@@ -277,7 +282,7 @@ def test_weekly_allowance_is_per_editor_and_owner_can_raise_it(app, owner, ed, d
 def test_approving_a_project_releases_its_held_jobs_within_budget(owner, editor, ed, db):
     _raise_video_cap(owner)
     fomo = owner.get("/brands").json()[0]["id"]
-    body = {"brand_id": fomo, "name": "Epic", "planned_seconds": 200}  # budget 400
+    body = {"brand_id": fomo, "name": "Epic", "planned_seconds": 200}
     created = editor.post("/projects", json=body).json()
     model = db.get(Project, created["id"])
     model.status = "needs_owner_approval"  # a project from before Reed dropped the length limit
@@ -286,11 +291,14 @@ def test_approving_a_project_releases_its_held_jobs_within_budget(owner, editor,
         enqueue(db, ed, "video-480p", {}, units=10, project=model)
     assert refused.value.detail == "This video's length isn't approved yet, so nothing can be made."
     assert "Reed" not in refused.value.detail  # editors are never sent to Reed (#397/#399)
-    jobs = [_held(db, ed, model, c) for c in (150, 200, 100)]  # held before that change
-    owner.post(f"/projects/{created['id']}/approve")
+    budget = model.budget_credits
+    jobs = [
+        _held(db, ed, model, budget * c) for c in (Decimal("0.4"), Decimal("0.5"), Decimal("0.3"))
+    ]
+    owner.post(f"/projects/{created['id']}/approve")  # held before that change
     for job in jobs:
         db.refresh(job)
-    assert [j.status for j in jobs] == ["queued", "queued", "needs_owner_approval"]  # 450 > 400
+    assert [j.status for j in jobs] == ["queued", "queued", "needs_owner_approval"]  # 1.2 > 1
 
 
 def test_per_video_cap_holds_for_everyone(owner, editor, ed, db):
@@ -380,16 +388,16 @@ def test_videos_from_an_editors_own_script_use_their_allowance(owner, editor, ed
         db.commit()
         return project
 
-    own = video(editor, 100)  # budget 200, but the allowance (145) is the limit
+    own = video(editor, 100)  # budget over 200, but the allowance (145) is the limit
     assert enqueue(db, ed, "video-480p", {}, units=100, project=own).status == "queued"
     with pytest.raises(HTTPException) as err:
         enqueue(db, ed, "video-480p", {}, units=50, project=own)
     assert err.value.status_code == 409
     with pytest.raises(HTTPException):
         enqueue(db, ed, "video-480p", {}, units=50)  # the same allowance as Quick clips
-    reeds = video(owner, 10)  # budget 20
+    reeds = video(owner, 10)
     with pytest.raises(HTTPException) as err:
-        enqueue(db, ed, "video-480p", {}, units=30, project=reeds)
+        enqueue(db, ed, "video-480p", {}, units=reeds.budget_credits + 1, project=reeds)
     assert err.value.detail == "That's more than this video's budget."  # #399: no Ask Reed
 
 
@@ -412,3 +420,27 @@ def test_one_rounding_for_every_price_shown():
     price, shown = credits_module.price, credits_module.shown
     assert [price(Decimal(x)) for x in ("0.2", "1", "3.01")] == [1, 1, 4]
     assert shown(Decimal("3.01"), Decimal("3.99")) == (4, 3)
+
+
+def test_a_short_video_with_two_new_looks_reaches_its_take(owner, editor, ed, db):
+    """QA-2's free walk: a 12 s fomo video with two roles to make looks for spent 12.73 on its
+    breakdown, storyboard, clip prompts, looks and still, and its 12-credit take was refused
+    as over budget. Every step is in the budget now, so the take goes through."""
+    from app.credits import get_limits
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+
+    fomo = owner.get("/brands").json()[0]["id"]
+    script = owner.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"}).json()
+    draft = db.query(ScriptDraft).filter_by(script_id=script["id"]).one()
+    made = editor.post("/projects", json={"brand_id": fomo, "name": "V", "planned_seconds": 12})
+    project = db.get(Project, made.json()["id"])
+    project.script_draft_id = draft.id
+    db.add_all([ScriptCastSlot(script_id=script["id"], role=r) for r in ("Girl", "Brad")])
+    for credits in ("3", "3", "3", "1.5", "1.5", "0.4", "0.33"):  # as charged on the live site
+        db.add(Job(workspace_id=ed.workspace_id, created_by_id=ed.id, kind="write-claude",
+                   provider="fake", input={}, project_id=project.id, credits=Decimal(credits),
+                   status="succeeded"))  # fmt: skip
+    db.commit()
+    take = enqueue(db, ed, "video-480p", {}, units=12, project=project)
+    assert take.status == "queued"  # not "That's more than this video's budget."
+    assert project.budget_credits <= get_limits(db, ed.workspace_id).per_video_max_credits
