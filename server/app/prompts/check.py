@@ -111,8 +111,7 @@ def breakdown(
     min_s: int,
     max_s: int,
     end_line: str = "",
-    brand: str = "",  # the brand's name: a near end line must still say it
-    approved: bool = False,  # Reed approved the words: the end line never blocks (advice)
+    brand: str = "",  # the brand's name: the closing call to action says it
     kinds: dict[str, set[str]] | None = None,  # each screen's type tags ("home"): moment_screen
     recent: list[str] = (),  # recent videos' payoff actions (montage variety, Reed 2026-10-27)
 ) -> list[str]:
@@ -121,15 +120,8 @@ def breakdown(
     problems = []
     said = [TAG.sub("", text) for text in lines if text.strip()]
     said = [text for text in said if not text.startswith(("SCENE", SCREEN_LINE, "["))]
-    ends = ends_on(end_line, said[-1] if said else "", brand, said[-2] if len(said) > 1 else "")
-    if ends == "no" and not approved:
-        problems.append("the script doesn't end on the brand's end line")
-    elif ends == "no":
-        problems.append(f"{ADVICE}the script doesn't end on the brand's end line")
-    elif ends == "near":
-        problems.append(
-            f"{ADVICE}the last line is close to the brand's end line but not word for word"
-        )
+    if end_line.strip() and not says_brand(said[-1] if said else "", brand):
+        problems.append(f"{ADVICE}{NO_CTA}")
     covered = {n for shot in shots for n in shot.script_lines}
     shown = {n for shot in shots if shot.screen_ids for n in shot.script_lines}
     for n, text in enumerate(lines, 1):
@@ -477,43 +469,24 @@ def _exact(text: str) -> str:
     return " ".join(text.split())
 
 
-NEAR = 0.5  # share of the end line's words a near match needs (Reed: never block a near one)
+NO_CTA = "the last line doesn't mention the brand or where to find it"
 
 
 def cta_screen(shots: list, end_line: str, brand: str = "") -> list[str]:
     """The end line's shot (the call to action) shows the brand's real screen, on the phone the
     hero holds up to the camera (Reed, 2026-10-27): its clip then attaches it (`clip_prompts`)."""
-    said = [
-        s for s in shots if end_line.strip() and s.line and ends_on(end_line, s.line, brand) != "no"
-    ]
+    said = [s for s in shots if end_line.strip() and s.line and says_brand(s.line, brand)]
     if said and not said[-1].screen_ids:
         return [f"{ADVICE}shot {said[-1].id}: the end line's shot shows no screen; show the "
                 "brand's real screen on the phone he holds up to the camera"]  # fmt: skip
     return []
 
 
-def ends_on(end_line: str, last: str, brand: str = "", before: str = "") -> str:
-    """Does the script's last spoken line say the brand's end line? "yes" ignoring case,
-    punctuation, curly quotes, spacing and the speaker's label (FOMO or fomo, a dropped
-    comma), also when it is split over the last two lines (`before`, then `last`). "near"
-    when at least half its words are there (advice, never a block) and it still names the
-    brand, else "no" (another app's name, or "the app", blocks). With no end line, always
-    "yes". Only the end line is matched this loosely; spoken lines elsewhere stay exact."""
-    if not end_line.strip():
-        return "yes"
-    want, got = _spoken(end_line), _spoken(last)
-    both = f"{_spoken(before)} {got}".strip()
-    if f" {want} " in f" {got} ":  # whole words
-        return "yes"
-    split = bool(before) and bool(got) and f" {got} " in f" {want} "  # last ends the end line
-    if split and f" {want} " in f" {both} ":
-        return "yes"
-    text = both if split else got
-    named = bool(_words(brand)) and f" {_words(brand)} " in f" {text} "
-    said = set(text.split())
-    if named and sum(w in said for w in want.split()) / len(want.split()) >= NEAR:
-        return "near"
-    return "no"
+def says_brand(line: str, brand: str) -> bool:
+    """Does a spoken line name the brand (whole words, any case: "Download FOMO…")? A video
+    ends on a call to action that names it; the saved end line is only the default wording,
+    so this is all the end check asks (Current rules 18, Reed 2026-10-28). Advice."""
+    return bool(_words(brand)) and f" {_words(brand)} " in f" {_spoken(line)} "
 
 
 SPEAKER = re.compile(r"^\s*[A-Z][A-Z .'-]*(?:\([^)]*\))?:")  # "NATE:" or "NATE (V.O.):"
@@ -543,7 +516,7 @@ def variations(
     never_say: list[str],
     count: int,
     cast: list[str] = (),
-    brand: str = "",  # the brand's name: a near end line must still say it
+    brand: str = "",  # the brand's name: the closing call to action says it
 ) -> list[str]:
     """Alternates of an approved script (workflow v2): the brand, the end line and the locked
     cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
@@ -558,13 +531,8 @@ def variations(
         name = f"variation {i}"
         lines = [line.strip() for line in script.splitlines() if line.strip()]
         said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
-        ends = ends_on(end_line, said[-1] if said else "", brand, said[-2] if len(said) > 1 else "")
-        if ends == "no":  # advice: variations come from an approved original (Reed)
-            problems.append(f"{ADVICE}{name} doesn't end on the brand's end line")
-        elif ends == "near":
-            problems.append(
-                f"{ADVICE}{name}'s last line is close to the brand's end line, not word for word"
-            )
+        if end_line.strip() and not says_brand(said[-1] if said else "", brand):
+            problems.append(f"{ADVICE}{name}: {NO_CTA}")
         for star in sorted(stars - _stars(script)):
             problems.append(f"{name} drops the ★ line for {star}; put it back where it fits")
         for phrase in never_say:
@@ -730,14 +698,12 @@ def reel_speakers(
 ) -> list[str]:
     """No invented speakers in a draft that adapts an imported reel: it has no more speaking
     characters than the reel (`speakers`, its kept shots' roles), not counting one who only
-    says the brand's end line. Names the reel or `cast` doesn't have are listed. Advice."""
+    says the closing call to action. Names the reel or `cast` doesn't have are listed. Advice."""
     said = {}
     for m in re.finditer(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:\s*(.*)$", script, re.M):
         said.setdefault(role_key(m.group(1)), []).append(m.group(2))
     if end_line:
-        said = {
-            k: v for k, v in said.items() if any(ends_on(end_line, x, brand) == "no" for x in v)
-        }
+        said = {k: v for k, v in said.items() if any(not says_brand(x, brand) for x in v)}
     reel = {role_key(x) for x in speakers if x.strip()}
     if len(said) <= len(reel):
         return []

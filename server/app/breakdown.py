@@ -136,8 +136,6 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
         extra["brand"] = brand.name
     if "kinds" in params:  # a moment takes any screen of the same kind (home)
         extra["kinds"] = check.kinds_of(shown)
-    if "approved" in params:  # a video from the library is made from an approved version
-        extra["approved"] = project.script_draft_id is not None
     if "recent" in params:  # montage variety: the brand's other videos' payoffs
         recent = recent_payoffs(db, project.brand_id, project.id, viewer=project.created_by_id)
         extra["recent"] = [a for _, actions in recent for a in actions]
@@ -184,9 +182,7 @@ def cta_screen(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdown,
     shots = [s for scene in bd.scenes for s in scene.shots]
     if check.cta_screen(shots, brand.end_line, brand.name) == []:
         return bd, []
-    shot = [
-        s for s in shots if s.line and check.ends_on(brand.end_line, s.line, brand.name) != "no"
-    ][-1]
+    shot = [s for s in shots if s.line and check.says_brand(s.line, brand.name)][-1]
     screens = project_screens(db, project)
     home = [s for s in screens if "home" in s.tags or "home" in screen_name(s).lower()]
     screen = next((s for s in screens if s.balance), None) or next(iter(home), None)
