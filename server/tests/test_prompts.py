@@ -1199,3 +1199,13 @@ def test_no_numeric_rhythm_rules_are_left():
         text = prompts.system(step)
         for gone in ("every 1–3 s", "about 2 s of the real brand element", "by about 5 s"):
             assert gone not in text, (step, gone)
+
+
+def test_the_story_agrees_with_the_real_balance_and_variations_take_a_length():
+    """QA-Live Run 3: the real Home screen's $348,920.15 at the CTA against a story that said
+    $14,800; and "about 45 s" in a variations note came out at 60 s."""
+    for step in ("script_draft", "breakdown", "variations"):
+        assert "climb toward that balance" in prompts.system(step), step
+    assert "never a different one the real screen would contradict" in prompts.system("breakdown")
+    v = prompts.system("variations")
+    assert "**Same size, unless asked.**" in v and "that length wins" in v
