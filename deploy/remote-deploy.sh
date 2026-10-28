@@ -35,6 +35,9 @@ main() {
   } > .env.new
   mv .env.new .env
 
+  # One deploy at a time on this server: live and the test site take turns building.
+  exec 9>/tmp/brand-studio-deploy.lock
+  flock 9
   # Shared with the test site (deploy/next/), so live's Caddy can forward port 8443 to it.
   docker network inspect brand-studio-edge >/dev/null 2>&1 || docker network create brand-studio-edge >/dev/null
   # The web server's config must parse before anything restarts: a bad one would take live down.

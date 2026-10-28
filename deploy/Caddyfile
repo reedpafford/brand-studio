@@ -40,7 +40,10 @@
 		X-Frame-Options DENY
 		-Server
 	}
-	reverse_proxy brand-studio-next-web:80
+	# Live's sign-in cookie never reaches the test site's code (cookies ignore ports).
+	reverse_proxy brand-studio-next-web:80 {
+		header_up Cookie "(^|;\s*)bs_session=[^;]*" ""
+	}
 }
 
 # Plain http always goes to the live site on 443 (stated, so the port-8443 site can't take it),
