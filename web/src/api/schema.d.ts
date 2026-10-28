@@ -3121,6 +3121,34 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Edit Role Text
+         * @description Update to match (or its Undo): `notes` go on this video's own look, which its steps,
+         *     sheets and redraws read. `role` and `description` put the script's role right for every
+         *     version: the owner's (or its author's before publishing), rule 31. The spoken words never
+         *     change, and a name keeps its words up to the first comma.
+         */
+        patch: operations["edit_role_text_projects__project_id__assets_slots__slot_id__patch"];
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/slots/{slot_id}/check-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Role Text
+         * @description Read the role's words against its approved look (Check, at the price shown): a look
+         *     approved before the check read them, like Biscuit's.
+         */
+        post: operations["check_role_text_projects__project_id__assets_slots__slot_id__check_text_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -3557,6 +3585,9 @@ export interface components {
             look_credits?: number | null;
             /** Look Usual Credits */
             look_usual_credits?: number | null;
+            text_fit?: components["schemas"]["TextFitOut"] | null;
+            /** Text Check Credits */
+            text_check_credits?: number | null;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -5702,6 +5733,15 @@ export interface components {
             /** Position */
             position?: number | null;
         };
+        /** SlotTextIn */
+        SlotTextIn: {
+            /** Notes */
+            notes?: string | null;
+            /** Role */
+            role?: string | null;
+            /** Description */
+            description?: string | null;
+        };
         /** SoftenOut */
         SoftenOut: {
             /** Before */
@@ -5784,6 +5824,26 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** TextFitOut */
+        TextFitOut: {
+            /** Seen */
+            seen: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Notes */
+            notes: string;
+            /** Update Look */
+            update_look: boolean;
+            /** Update Script */
+            update_script: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** UploadOut */
         UploadOut: {
@@ -12796,6 +12856,74 @@ export interface operations {
                 "application/json": components["schemas"]["SlotCastIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_role_text_projects__project_id__assets_slots__slot_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotTextIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_role_text_projects__project_id__assets_slots__slot_id__check_text_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

@@ -42,6 +42,10 @@ class LibraryItem(Entity, Base):
     # The look-fit check (prompts/look_fit.md) found the sheet doesn't read as its description:
     # {"seen": "girl of about 10", "problem": "draw an adult woman…"}; null when it fits.
     look_fit: Mapped[dict | None] = mapped_column(JSON)
+    # The same check read against the role's text (Biscuit: drawn a French bulldog, written a
+    # golden retriever): {"slot_id", "sheet_file_id", "role", "description" (what it read),
+    # "seen", "role_to", "description_to" ("" when it matches)}; null until it's read.
+    text_fit: Mapped[dict | None] = mapped_column(JSON)
     version: Mapped[int] = mapped_column(default=1)
     archived: Mapped[bool] = mapped_column(default=False)
     # A look made for one video (on Assets) or one script (its Cast step): it stays there, is
