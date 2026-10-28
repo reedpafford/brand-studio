@@ -204,9 +204,6 @@ class FakeMedia:
                 FakeMedia.video_failures -= 1
                 return Result("failed", error="ModelError: Failed to upload video (E001)")
             return Result("succeeded", output={"text": json.dumps(watch(self._jobs[ref]))})
-        style = self._jobs[ref].get("prompt", "") if self._jobs[ref]["kind"] == "music" else ""
-        if failed := next((e for marker, e in OUTCOMES.items() if marker in style), None):
-            return Result("failed", error=failed)
         return Result("succeeded", output={"url": f"fake://{ref}"}, files=[f"fake://{ref}"])
 
     def fetch(self, url: str) -> tuple[bytes, str]:
@@ -214,9 +211,32 @@ class FakeMedia:
         aspect = job.get("aspect_ratio", "9:16")
         if job["kind"] == "video":
             return mp4(aspect, int(job.get("duration", 5))), "video/mp4"
-        if job["kind"] == "music":
-            return song(job.get("prompt", "")), "audio/mpeg"
         return png(aspect), "image/png"
+
+
+class FakeSuno:
+    """Suno's place (app/music.py): each request gives 2 songs on its first check, or the
+    outcome a style-line marker asks for."""
+
+    name, paid = "suno", False
+
+    def __init__(self):
+        self._styles: dict[str, str] = {}
+        self._ids = itertools.count(1)
+
+    def submit(self, kind: str, input: dict) -> str:
+        ref = f"suno-{next(self._ids)}"
+        self._styles[ref] = input["input"]["style"]
+        return ref
+
+    def poll(self, ref: str) -> Result:
+        style = self._styles[ref]
+        if failed := next((e for marker, e in OUTCOMES.items() if marker in style), None):
+            return Result("failed", error=failed)
+        return Result("succeeded", files=[f"fake://{ref}/{n}" for n in (1, 2)])
+
+    def fetch(self, url: str) -> tuple[bytes, str]:
+        return song(self._styles[url.removeprefix("fake://").split("/")[0]]), "audio/mpeg"
 
 
 class FakeWriter:

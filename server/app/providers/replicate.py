@@ -14,11 +14,7 @@ from app.providers import NetworkError, NotStarted, Result, UsageItem
 
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 # Replicate metrics that report what was produced, by price unit.
-METRIC_FOR_UNIT = {
-    "second": "video_output_duration_seconds",
-    "image": "image_count",
-    "song": "audio_output_count",
-}
+METRIC_FOR_UNIT = {"second": "video_output_duration_seconds", "image": "image_count"}
 
 
 class ReplicateProvider:

@@ -19,14 +19,14 @@ class Duration(BaseModel):
 
 
 class Price(BaseModel):
-    unit: Literal["second", "image", "call", "song"]
+    unit: Literal["second", "image", "call"]
     usd: dict[str, Decimal]  # per resolution ("any" when it doesn't matter)
 
 
 class CatalogueModel(BaseModel):
     id: str
     name: str
-    kind: Literal["video", "image", "watch", "text", "music"]
+    kind: Literal["video", "image", "watch", "text"]
     provider_model: str
     provider_version: str
     default: bool = False

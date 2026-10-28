@@ -84,8 +84,10 @@ def _stop(db: Session, job: Job) -> bool:
 def _plain(job: Job, detail: str) -> str:
     """What everyone sees when a job fails; song steps say their own reason (rule 22)."""
     if job.kind == "music":
-        return music.failure(detail, (job.input.get("input") or {}).get("prompt", ""))
+        return music.failure(detail, (job.input.get("input") or {}).get("style", ""))
     if job.kind == "song_timing":  # a ValueError: the file itself (app/song_timing.py)
+        if detail.startswith("TooLong"):
+            return music.TIMING_TOO_LONG
         return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
     return FAILED
 
