@@ -48,7 +48,7 @@ function Advice({ song, brand, save }: { song: Song; brand?: { name: string; end
   if (!song.style_line.trim()) items.push({ text: "No style yet: the song will be upbeat pop by default." });
   if (styleWords.length > 25)
     items.push({
-      text: "Music models follow short styles better. Keep it under 25 words.",
+      text: "Suno follows short styles better. Keep it under 25 words.",
       fix: <Button variant="secondary" onClick={() => save({ ...song, style_line: styleWords.slice(0, 25).join(" ") }, "Style cut to 25 words.")}>Shorten it · free</Button>,
     });
   if (sung > 150) items.push({ text: `About ${Math.round(sung / SUNG_PER_SECOND)} s sung. That's a long ad: the video will be about that long too.` });

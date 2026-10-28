@@ -66,7 +66,7 @@ export function ScriptFlowPage() {
   if (!s) return <p className="p-6">That script doesn't exist.</p>;
   const takes = songs.data?.takes ?? [];
   // Only a Preferred take that sings the lyrics as they are now counts: after an edit the old Preferred one "Sings older words".
-  const song = s.kind === "song" ? { preferred: takes.some((t) => t.preferred && !t.out_of_date), takes: takes.filter((t) => !t.out_of_date).length } : undefined;
+  const song = s.kind === "song" ? { preferred: takes.some((t) => t.preferred && !t.out_of_date), takes: takes.filter((t) => !t.out_of_date).length, older: takes.filter((t) => t.out_of_date).length } : undefined;
   const step = stepFromParam(s, params.get("step"));
   if (lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
   const first = stepsFor(s)[0].id;

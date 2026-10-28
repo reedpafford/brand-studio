@@ -182,7 +182,7 @@ test("after the lyrics change, a Preferred take that sings the older words doesn
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("These takes sing older words.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Next: Cast" })).toBeDisabled();
-  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Make the song first");
+  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Make takes of the new lyrics first");
 });
 
 test("a refused take offers Edit lyrics or style, which opens the Song step's boxes at once", async () => {
