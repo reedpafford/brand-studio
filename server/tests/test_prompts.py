@@ -1205,6 +1205,15 @@ def test_no_numeric_rhythm_rules_are_left():
             assert gone not in text, (step, gone)
 
 
+def test_a_camera_swap_is_staged_as_one():
+    """Reed, QA-Live Run 3: the double CTA's camera swap read as a cut, not a flip."""
+    assert "a whip pan or a flip into a front-facing selfie angle" in prompts.system("breakdown")
+    clip = prompts.system("clip_prompts")
+    assert "Whip pan into a front-facing selfie angle" in clip
+    assert "never a plain cut to him holding the phone up" in clip
+    assert "the bag for a product brand" in prompts.system("breakdown")  # brand-generic
+
+
 def test_the_story_agrees_with_the_real_balance_and_variations_take_a_length():
     """QA-Live Run 3: the real Home screen's $348,920.15 at the CTA against a story that said
     $14,800; and "about 45 s" in a variations note came out at 60 s."""
