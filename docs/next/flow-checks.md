@@ -77,3 +77,4 @@ Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes 
 | 2026-10-28 | #743 at 395c6005 (flows.md, items 2–6) | ST, BR, VS, OR, layout on paper | FAIL: 4 blocking, 4 smaller |
 | 2026-10-28 | #742 at 4f9fbdf4 | S2, S3 on paper | PASS |
 | 2026-10-28 | #740 at 91f4b387 | S1–S7, V1–V6, V2a on paper | Rule 31 PASS; 3 dead ends still open, plus 1 new |
+| 2026-10-28 | #745 at 773c1de (style registry, prompts only) | House prompts unchanged; server tests | PASS: 15/15 renders identical, 691 tests pass |
