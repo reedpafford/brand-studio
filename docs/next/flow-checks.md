@@ -32,15 +32,12 @@ A state passes only if the person sees what's happening and has one press that m
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
-| Takes | A song too long for the 729-credit cap is Advice only, so it dead-ends at the editor | Next disabled with the reason; **Edit lyrics** | #737 plan |
-| Breakdown | "Timing failed" offers only Try again, which repeats | **Use Take 1** or **Make 2 more takes** | #737 plan |
-| Takes | A take that skips or repeats a lyric line has no state | "Line 4 isn't sung": **Make this Preferred** on the other take / **Make 2 more** | #737 plan |
-| Breakdown | No problem for a Sung shot without an approved singer, or one past the model's limit or crossing a scene | Assets link; **Split at a beat** | #737 plan |
-| Takes | Refused offers only Edit lyrics | add **Edit style** | #737 plan |
-| Takes | A server restart mid-song isn't named | reason + **Try again** | #737 plan |
-| Takes, Breakdown | Producer's rule-31 ruling (2026-10-28): lyrics are final at publish; Preferred take, Sung/B-roll, re-timing and new takes are the editor's, per video. #737 still has "Published: Preferred fixed, no Make" | Editor's video gets **Make this Preferred**, **Make 2 more**, flips, each marking only that video's later steps Out of date | #737 plan |
+| Takes, Breakdown, Clips | Producer's rule-31 ruling (2026-10-28): lyrics are final at publish; the Preferred take, Sung/B-roll, re-timing and new takes are the editor's, per video. #737 still locks them in S3 "Published", S5 "Who may flip" and S7 | The editor's video gets **Make this Preferred**, **Make 2 more**, flips, and **Make this B-roll instead**, each marking only that video's later steps Out of date | #737 plan |
+
+Fixed in #737 at 8271b0fd (on paper; re-checked on the built screens): cap block, timing fallback, unsung line, Sung problems, refusal by style, restart, take-delete guard, trim and hold, 390 takes layout, "up to N" pricing.
 
 ## Walks
 | Date | PR / commit | Flows | Result |
 |---|---|---|---|
 | 2026-10-28 | #737 (screen plan, docs) | S1–S8 on paper | FAIL: 7 open, see above |
+| 2026-10-28 | #737 at 8271b0fd | S1–S8 on paper | 13/13 fixed; rule-31 alignment still open |
