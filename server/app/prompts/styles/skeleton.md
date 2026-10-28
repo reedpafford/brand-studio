@@ -37,3 +37,4 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 - Open on a curiosity-gap question: "What happens if you ___ every day?", "What if you NEVER ___?", "How long can you ___?". Then 5 to 7 escalating rungs, each one line: by time (Day 1, Day 30, Day 365), by amount (1, 5, 25) or by stage. Then the payoff, a triumph (transformed, unstoppable) or a catastrophe for not using it, with the end line.
 - Second person, present tense, short punchy sentences, one concrete physical picture per line, each rung more intense than the last. Say what physically happens; never corporate words ("revolutionary", "seamless").
 - The narrator is the only voice: the script is a voiceover.
+- This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (the editor can make the narrator a role).

@@ -69,3 +69,13 @@ def test_an_unknown_style_is_refused():
         prompts.system("storyboard", "pixar")
     with pytest.raises(ValueError):
         prompts.sheet_prompt("character", "x", style_id="Disney Pixar")  # ids, not names
+
+
+def test_styles_borrow_a_studio_look_never_its_frame_and_never_rewrite_lines():
+    """Flow-QA: "a frame from a Pixar film" may be refused as a copy; "in the style of" is
+    safe. Next-Lead: a format's script notes never change an existing script's lines."""
+    for s in prompts.styles():
+        text = "\n".join(s["sections"].values())
+        assert "frame from a Pixar" not in text and "from an animated Pixar" not in text, s["id"]
+        if "script" in s["sections"] and s["id"] in ("zack-d", "skeleton"):
+            assert "word for word" in s["sections"]["script"], s["id"]

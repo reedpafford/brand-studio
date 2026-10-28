@@ -37,3 +37,4 @@ a friendly stylised 3D cartoon look with rounded forms
 
 ## script
 - One surprising thing, explained by a narrator in short, plain, factual sentences, the register of someone calmly explaining something odd, never ad copy. Every line must be something you can show: a concrete object, action or change. The first line gets the strongest picture.
+- This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (the editor can make the narrator a role).
