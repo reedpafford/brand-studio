@@ -47,7 +47,10 @@ class Writer:
         self.cut, self.asked = cut, []
 
     def __call__(self, request):
-        prompt = json.loads(request.content)["messages"][0]["content"]
+        content = json.loads(request.content)["messages"][0]["content"]
+        if isinstance(content, list):  # a part after the cached shared prompt
+            content = "\n".join(b["text"] for b in content if b.get("type") == "text")
+        prompt = content
         asked = re.findall(r'<write clips="([^"]+)">', prompt)  # none: every clip at once
         ids = asked[-1].split(", ") if asked else re.findall(r'"id": "(c\d+)"', prompt)
         self.asked.append(ids)

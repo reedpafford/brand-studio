@@ -66,19 +66,24 @@ def ask[T: BaseModel](
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "high",
     max_tokens: int = 16000,
     images: Sequence[str] = (),
+    shared: str = "",
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
     the cache mark on the last part caches them all together. `images` (data URLs) go
-    before the prompt, for a check that looks at a picture."""
+    before the prompt, for a check that looks at a picture. `shared` (a run's breakdown and
+    assets) goes first and is cached too, so a run's later parts read it."""
     blocks = [{"type": "text", "text": text} for text in system]
     content = [_image(url) for url in images] + [{"type": "text", "text": prompt}]
+    if shared:
+        cached = {"type": "text", "text": shared, "cache_control": {"type": "ephemeral"}}
+        content = [cached, *content]
     blocks[-1]["cache_control"] = {"type": "ephemeral"}
     # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
     with client.beta.messages.stream(
         model=MODEL,
         max_tokens=max_tokens,
         system=blocks,
-        messages=[{"role": "user", "content": content if images else prompt}],
+        messages=[{"role": "user", "content": content if images or shared else prompt}],
         thinking={"type": "adaptive"},
         output_config={"effort": effort},
         output_format=schema,
