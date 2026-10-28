@@ -58,6 +58,7 @@ The first step of a song script. Header, step picker, Back/Next as the Script st
 |---|---|---|
 | **Empty** (new) | Empty Lyrics and Style (Style pre-filled if the brand has one). Directions button. | Amber **Next: Takes** is disabled, reason "Write or pick the lyrics first". The press is paste lyrics → **Save lyrics**, or **Write 2 song directions for me**. |
 | **Typing, not saved** | "Not saved yet" in amber text, **Save lyrics** (primary inside the card), **Discard changes** (ghost). Leaving asks once, as the Script step does today; words kept for the tab. | **Save lyrics**. |
+| **Too long** | Over 3,500 characters (the music model's limit): the counter turns warning colour and says "Cut 120 characters"; **Save lyrics** is disabled with that reason. The words stay in the box (and in the tab's memory). | Cut the words, then **Save lyrics**. |
 | **Saved: locked** | Lyrics shown read-only with a **Locked · sung word for word** badge. Style shown with **Edit style** (ghost). **Edit lyrics** (secondary). | Amber **Next: Takes**. |
 | **Style missing** | Lyrics saved, Style empty. | Amber disabled, reason "Add a style line first", with the Style box focused one press away (**Add style**). |
 | **Editing lyrics after takes exist** | Pressing **Edit lyrics** asks: "Edit the lyrics? Your 2 takes will be out of date. They're kept, and you can make new ones." **Cancel** / **Edit lyrics**. | **Edit lyrics** opens the box; saving marks the takes Out of date (S3). |
@@ -77,6 +78,7 @@ The first step of a song script. Header, step picker, Back/Next as the Script st
 
 - Pressing **Use this one** copies its lyrics and style into the boxes, saves and locks them. Toast "Using 'Title'." with **Undo** (puts the boxes back as they were).
 - If lyrics are already saved, it asks first: "Replace your lyrics with these?" **Keep mine** / **Replace**. When takes exist it adds: "Your 2 takes will be out of date. They're kept, and you can make new ones."
+- A direction whose lyrics run over 3,500 characters (rare; Next-Server asks for less) opens in the box unsaved, with "Cut 120 characters" and **Save lyrics** disabled until it fits, so nothing is lost and nothing over the limit is sung.
 - The cards stay under the boxes (closed, "2 directions · Show") so the other can still be picked; **Write 2 more · 3 credits** under them.
 - Claims in a direction that aren't in the brand facts are marked "Not checked" next to the line (as Starpop labels them unverified). Advice only.
 
@@ -99,6 +101,8 @@ The first step of a song script. Header, step picker, Back/Next as the Script st
 | **Stopped by a restart** | "The song stopped when the server restarted. Nothing was charged." Any good takes from before stay above. | **Try again · 3 credits (or **· 2 credits** when only one take stopped)**. |
 | **Both made** | Two players. The first is **Preferred** unless Next-Server marks another. | Amber **Next: Cast**. **Make this Preferred** on the other; **Make 2 more · 3 credits** (secondary). |
 | **One made, one failed** | The good take plays and is Preferred. The failed card: "Take 2 didn't finish. Its credits were returned." **Try again · 2 credits** (one take, 1.46 rounded up). | Amber **Next: Cast** (one good take is enough). |
+| **Timing a take** (`timing`) | The take plays at once; its card says "Reading the timing… (free)". It can be made Preferred. | Amber **Next: Cast** (Breakdown waits for the Preferred take's timing and says so). |
+| **Timing failed on a take** (`timing_failed`) | The take still plays. Card: the server's reason, e.g. "We couldn't read this song's timing." | **Make this Preferred** on the other take when its timing is ready; else **Make 2 more · 3 credits**. **Try again** (free) is secondary and shows only when the server says a retry can help. |
 | **Both failed** | Banner: "The song didn't finish. Credits were returned." plus the reason in plain words when the provider gives one. **Try again · 3 credits**. Old good takes (if any) stay above, still Preferred. | **Try again**. |
 | **Refused by the music model** | Banner: "The music model wouldn't make this: {reason}. Nothing was charged." When the provider names the line (a lyric line, or a style line that names an artist), that line is quoted. | **Edit lyrics** or **Edit style**, whichever the reason names (both when it names neither); each opens S2 with that box open. |
 | **A line isn't sung** | The take drops or repeats a lyric line (found from the free word timing). On the card: "Line 4 isn't sung in this take." (or "Line 4 is sung twice"). Block or Advice is for flows.md; this plan treats it as Advice on that take. | **Make this Preferred** on the other take when it sings every line; else **Make 2 more · 3 credits**. |
