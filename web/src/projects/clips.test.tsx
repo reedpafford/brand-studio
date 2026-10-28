@@ -165,7 +165,7 @@ test("a take that has waited a while to start says why, in plain words", async (
   fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({ id: 2, clip_id: "c2" })]],
-    "GET /jobs": [200, [{ id: 21, kind: "video", step: "clip_take", status: "queued", credits: 24, project_id: 9, project_clip_id: 2, created_at: new Date().toISOString(), waiting: "This hasn't started yet: the service that makes it isn't taking work right now. Nothing is charged while it waits." }]],
+    "GET /jobs": [200, [{ id: 21, kind: "video", step: "clip_take", status: "queued", credits: 24, project_id: 9, project_clip_id: 2, created_at: new Date().toISOString(), waiting: "This hasn't started yet: the service that makes it isn't taking work right now. It's charged only if it runs." }]],
   });
   open();
   expect(await within(await screen.findByLabelText("Clip c2")).findByText(/isn't taking work right now/)).toBeInTheDocument();

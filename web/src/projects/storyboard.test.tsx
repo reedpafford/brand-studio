@@ -88,7 +88,7 @@ test("a still that has waited a while to start says why in place of Drawing…",
   fakeServer({
     ...base,
     "GET /projects/9/storyboard": [200, [frame({ drawing: true })]],
-    "GET /jobs": [200, [{ id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9, created_at: new Date().toISOString(), waiting: "This hasn't started yet: the service that makes it isn't taking work right now. Nothing is charged while it waits." }]],
+    "GET /jobs": [200, [{ id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9, created_at: new Date().toISOString(), waiting: "This hasn't started yet: the service that makes it isn't taking work right now. It's charged only if it runs." }]],
   });
   open();
   const card = await screen.findByLabelText("Frame c1");
