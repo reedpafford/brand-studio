@@ -18,7 +18,7 @@ A state passes only if the person sees what's happening and has one press that m
 | S5 | Cast: who sings | ⬜ | ⬜ | — |
 | S6 | Breakdown preview (owner) | ⬜ | ⬜ | — |
 | S7 | Publish | ⬜ | ⬜ | — |
-| — | The video's own song (editor: Change song, Make 2 more; rule 31) | ⬜ | ⬜ | — |
+| V2a | The video's own song (editor: Change song, Make 2 more; rule 31) | ⬜ | ⬜ | — |
 | V1 | Make this version | ⬜ | ⬜ | — |
 | V2 | Breakdown on the song (Sung / B-roll, split, join) | ⬜ | ⬜ | — |
 | V3–V4 | Assets, Storyboard (Sung stills as reference) | ⬜ | ⬜ | — |
@@ -50,7 +50,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
 
-| flows.md S4 / data.md | Rule 31 as merged (#739): Preferred take and new takes per video, but flows.md fixes them at publish and has no editor song step | An editor song step (#737 S3e); `projects.song_take_id`, `song_takes.project_id` | #740 |
+| V2a | An editor can pick a take whose video goes over the cap? | Greyed with the reason, or **Use the first 0:55** | #740 at 91f4b387 |
 | flows.md S4 | Timing failed offers only Try again (repeats) | **Make the other one preferred** / **Make 2 more** | #740 |
 | flows.md S5 → V2 | "Nobody on camera", then a flip to Sung, has no singer | "Who sings this shot?" picker, free, Undo | #740 |
 | flows.md S4 | Deleting the Preferred take when the other sings older words; deleting a take a video uses | Guard both, with the reason | #740 |
@@ -76,3 +76,4 @@ Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes 
 | 2026-10-28 | #740 at 78300b55 (flows.md, song ads) | S1–S7, V1–V6 on paper | FAIL: rule 31, 3 dead ends, 4 disagreements |
 | 2026-10-28 | #743 at 395c6005 (flows.md, items 2–6) | ST, BR, VS, OR, layout on paper | FAIL: 4 blocking, 4 smaller |
 | 2026-10-28 | #742 at 4f9fbdf4 | S2, S3 on paper | PASS |
+| 2026-10-28 | #740 at 91f4b387 | S1–S7, V1–V6, V2a on paper | Rule 31 PASS; 3 dead ends still open, plus 1 new |
