@@ -266,9 +266,10 @@ def edit_clip(
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, **body.model_dump())
     clip = clip_prompts.with_cast(db, project, clip, bd, trim=False)
+    refused = clip_prompts.refusal(row.problems, row.prompt, clip.prompt)
     row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
     row.prompt_ok = True
-    row.problems = clip_prompts.clip_problems(db, project, bd, clip)
+    row.problems = clip_prompts.clip_problems(db, project, bd, clip) + refused
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
