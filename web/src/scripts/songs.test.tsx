@@ -175,3 +175,20 @@ test("a press the server refuses says why on the Takes step (never silent)", asy
   await userEvent.click(await screen.findByRole("button", { name: "Make this Preferred" }));
   expect(await screen.findByText("This take sings older words. Make 2 takes of the lyrics as they are now.")).toBeInTheDocument();
 });
+
+test("after the lyrics change, a Preferred take that sings the older words doesn't open Cast", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true, out_of_date: true }), take({ id: 2, number: 2, out_of_date: true })])] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByText("These takes sing older words.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Cast" })).toBeDisabled();
+  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Make the song first");
+});
+
+test("a refused take offers Edit lyrics or style, which goes back to the Song step", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "The music service won't sing this: an artist's name in the style. Describe the sound instead." })])] });
+  open("/b/1/scripts/7?step=takes");
+  await userEvent.click(await screen.findByRole("link", { name: "Edit lyrics or style" }));
+  expect(await screen.findByRole("heading", { name: "Song", level: 2 })).toBeInTheDocument();
+});

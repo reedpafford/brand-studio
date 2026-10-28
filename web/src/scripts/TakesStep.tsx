@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Ellipsis, Music, RotateCcw, Trash2 } from "lucide-react";
-import { Badge, Banner, Button, Card, EmptyState, Menu, MenuItem, Skeleton } from "../components";
+import { Ellipsis, Music, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Badge, Banner, Button, Card, EmptyState, Menu, MenuItem, Skeleton, buttonClass } from "../components";
 import { serverTime } from "../time";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
@@ -83,8 +84,15 @@ function TakeCard({ t, a, requestPrice, readOnly, others, makeMore }: { t: SongT
       {t.status === "failed" && (
         <div className="space-y-2">
           <p role="alert" className={errorClass}>{t.failed_reason ?? "Didn't finish · nothing charged."}</p>
+          {/* A refusal comes back the same for the same words and style: the way out is changing them on the Song step. */}
+          {!readOnly && (
+            <Link to="?" className={buttonClass("secondary")}>
+              <Pencil size={20} strokeWidth={1.75} aria-hidden />
+              Edit lyrics or style
+            </Link>
+          )}
           {!readOnly && t.retry_helps && (
-            <Button variant="secondary" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+            <Button variant="ghost" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
               Try again
             </Button>
           )}
