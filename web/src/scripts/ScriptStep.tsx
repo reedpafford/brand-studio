@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Lock, Pencil, Sparkles, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
+import { useMe } from "../auth/useMe";
 import { useJobs } from "../clip/History";
 import { Badge, Banner, Button, Card, Dialog, Field, TextArea } from "../components";
 import { ScriptText } from "../projects/ScriptTab";
@@ -113,12 +114,14 @@ function ReelTitle({ script: s }: { script: Script }) {
   );
 }
 
-/** Title, what it's for, the reference reel and notes: closed until opened, and where Claude's script comes from. */
+/** Title, what it's for, the reference reel and notes: closed until opened, and where Claude's script comes from.
+ * Once published only the owner may still tidy the title, what it's for and the notes; everyone else reads them (Reed, 2026-10-28). */
 function About({ script: s }: { script: Script }) {
   const patch = usePatchScript(s.id);
   const toast = useToast();
+  const { data: me } = useMe();
   const [open, setOpen] = useState(false);
-  if (s.published) return null;
+  const readOnly = s.published && me?.role !== "owner";
   return (
     <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group max-w-[680px] rounded-lg border border-border bg-surface px-4">
       <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-2 font-medium">
@@ -129,14 +132,25 @@ function About({ script: s }: { script: Script }) {
         <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 group-open:hidden" />
         <ChevronDown size={20} strokeWidth={1.75} aria-hidden className="hidden shrink-0 group-open:block" />
       </summary>
-      {open && (
+      {open && readOnly && (
+        <dl className="max-w-[680px] space-y-3 pb-4 text-sm">
+          {[["Title", s.title], ["What it's for", s.description], ["Notes", s.notes]].map(([label, value]) => (
+            <div key={label}>
+              <dt className="font-medium">{label}</dt>
+              <dd className="whitespace-pre-wrap text-muted">{value || "None"}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {open && !readOnly && (
       <div className="pb-4">
         <DescriptionForm
           initial={{ title: s.title, description: s.description, notes: s.notes, reference_id: s.reference_id, reference_replace: s.reference_replace }}
           submitLabel="Save"
+          final={s.published}
           busy={patch.isPending}
           error={patch.isError ? patch.error.message : null}
-          onSubmit={(d) => patch.mutate(d, { onSuccess: () => toast("Saved.") })}
+          onSubmit={(d) => patch.mutate(s.published ? { title: d.title, description: d.description, notes: d.notes } : d, { onSuccess: () => toast("Saved.") })}
         />
       </div>
       )}

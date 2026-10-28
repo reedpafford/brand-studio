@@ -54,12 +54,39 @@ def test_write_approve_and_publish_a_script(owner):
     owner.delete(f"{url}/drafts/1")
     published = owner.post(f"{url}/publish").json()
     assert (published["status"], published["versions_left"]) == ("published", 1)
-    final = owner.patch(url, json={"title": "New"})
+    final = owner.patch(url, json={"new_lines": True})
     assert final.status_code == 409 and "Duplicate" in final.json()["detail"]
     copy = owner.post(f"{url}/duplicate").json()
     assert copy["title"] == "Dip (copy)" and not copy["published"]
     assert copy["versions"][0]["status"] == "draft" and copy["versions"][0]["text"] == SCRIPT
     assert owner.post("/scripts", json={**_body(owner), "reference_id": "nope"}).status_code == 404
+
+
+def test_only_the_owner_tidies_a_published_scripts_title_about_and_notes(owner, editor):
+    """Reed, 2026-10-28: once published, the owner may still edit the title, what it's for and
+    the notes; nothing else changes, and editors (its author included) can't edit it."""
+    made = _make(editor, text=SCRIPT)
+    url = f"/scripts/{made['id']}"
+    owner.post(f"{url}/drafts/0/approve")
+    assert owner.post(f"{url}/publish").status_code == 200
+    tidy = {"title": "Dip, final", "description": "Mom finds it", "notes": "Keep it warm"}
+    done = owner.patch(url, json=tidy)
+    assert done.status_code == 200, done.text
+    assert {k: done.json()[k] for k in tidy} == tidy
+    assert (
+        owner.patch(url, json={"title": "X", "reference_id": "fomo-DehudnaAmce"}).status_code == 409
+    )
+    assert owner.patch(url, json={"new_lines": True}).status_code == 409
+    assert editor.patch(url, json={"title": "Mine"}).status_code == 409  # its author: final
+    other = editor.patch(f"/scripts/{_published(owner)}", json={"title": "Mine"})
+    assert other.status_code == 403  # not its author
+
+
+def _published(owner) -> int:
+    made = _make(owner, text=SCRIPT)
+    owner.post(f"/scripts/{made['id']}/drafts/0/approve")
+    owner.post(f"/scripts/{made['id']}/publish")
+    return made["id"]
 
 
 def _body(client) -> dict:

@@ -433,8 +433,13 @@ def update_script(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    script = lib.editable(user, lib.get_script(db, user, script_id))
+    script = lib.get_script(db, user, script_id)
     values = body.model_dump(exclude_unset=True)
+    # Once published only the owner may still tidy its title, about and notes (Reed, 2026-10-28).
+    if not (
+        script.published and user.is_owner and values.keys() <= {"title", "description", "notes"}
+    ):
+        lib.editable(user, script)
     if "reference_id" in values:
         _check_reference(request, values["reference_id"])
     if values.get("new_lines") is not None and any(
