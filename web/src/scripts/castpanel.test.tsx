@@ -138,3 +138,22 @@ test("a first fact the server sends in lower case starts with a capital", async 
   open();
   expect(await screen.findByText("Late 20s")).toBeInTheDocument();
 });
+
+test("a script with no variations is approved right on the Cast step, with an Undo, and then Find roles opens", async () => {
+  setViewport(1440);
+  let approved = false;
+  const withStatus = (status: string) => ({ ...script, versions: [{ ...script.versions[0], status }] });
+  const routes = base({ "POST /scripts/7/drafts/0/approve": [200, withStatus("approved")], "DELETE /scripts/7/drafts/0/approve": [200, withStatus("draft")] });
+  Object.defineProperty(routes, "GET /scripts/7", { enumerable: true, get: () => [200, { ...script, versions: [{ ...script.versions[0], status: approved ? "approved" : "draft" }] }] });
+  const calls = fakeServer(routes);
+  open();
+  const find = () => screen.getByRole("button", { name: /^Find roles in the script/ });
+  await vi.waitFor(() => expect(find()).toBeDisabled());
+  approved = true;
+  await userEvent.click(await screen.findByRole("button", { name: "Approve the script" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/approve")).toBe(true));
+  expect(await screen.findByText("Script approved. Its words are final.")).toBeInTheDocument();
+  await vi.waitFor(() => expect(find()).toBeEnabled()); // Find roles is open now
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/approve")).toBe(true));
+});

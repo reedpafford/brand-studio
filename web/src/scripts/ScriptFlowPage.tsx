@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, Lock, Pencil } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, Lock, Pencil, Undo2 } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
+import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, Field, Skeleton, StepPicker, TextArea } from "../components";
 import { useReferences } from "../projects/BriefPickers";
@@ -167,7 +167,7 @@ export function ScriptFlowPage() {
       </div>
       {step === "description" && <DescriptionStep script={s} brandName={brandName} onEditing={setEditing} onDone={() => toast("Description saved.")} />}
       {step === "script" && <ScriptStep scriptId={id} script={s} brandName={brandName} onEditing={setEditing} />}
-      {step === "directions" && <DirectionsStep script={s} onEditing={setEditing} />}
+      {step === "directions" && <DirectionsStep script={s} onEditing={setEditing} onEditWords={() => go("script")} />}
       {step === "variations" && <VariationsStep script={s} own={mine} onPicked={setPicked} />}
       {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
       {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
@@ -262,6 +262,16 @@ function ScriptStep({ scriptId, script: s, brandName, onEditing }: { scriptId: n
     onEditing(v !== null);
   };
   const toast = useToast();
+  // Approved words can't change: Undo approval is right here, so the script is never stuck.
+  const queryClient = useQueryClient();
+  const undoApproval = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.DELETE("/scripts/{script_id}/drafts/{slot}/approve", { params: { path: { script_id: scriptId, slot: 0 } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => queryClient.setQueryData(["script-lib", scriptId], data),
+  });
   const save = (t: string) =>
     write.mutate(t, {
       onSuccess: () => {
@@ -298,7 +308,16 @@ function ScriptStep({ scriptId, script: s, brandName, onEditing }: { scriptId: n
       {fromReel && (marks.length > 0 || s.new_lines) && (
         <p className="text-sm text-muted">{s.new_lines ? "New lines, in the style of the reel." : `Marked lines were rewritten${brandName ? ` for ${brandName}` : ""}. Everything else is said as in the reel.`}</p>
       )}
-      {!s.published && (
+      {!s.published && original?.status === "approved" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge icon={Lock}>Words final</Badge>
+          <Button variant="secondary" icon={Undo2} busy={undoApproval.isPending} onClick={() => undoApproval.mutate()}>
+            Undo approval to edit
+          </Button>
+          {undoApproval.isError && <p role="alert" className={errorClass}>{undoApproval.error.message}</p>}
+        </div>
+      )}
+      {!s.published && original?.status !== "approved" && (
         <div>
           <Button variant="secondary" icon={Pencil} onClick={() => setEditing(text)}>
             Edit
