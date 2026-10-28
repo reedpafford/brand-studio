@@ -111,19 +111,19 @@ def _out(
     stale = _stale(db, project, frame)
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits")
-    change = frame.change or {}
-    if change.get("status") == "changing" and all(j.id != change.get("job_id") for j in waiting):
+    asked = frame.change or {}
+    if asked.get("status") == "changing" and all(j.id != asked.get("job_id") for j in waiting):
         # its rewrite ended without saving (failed, or stopped): never "Changing…" for ever
-        change = {**change, "status": "failed", "error": "The change didn't finish. Try again."}
+        asked = {**asked, "status": "failed", "error": change.UNFINISHED}
     return FrameOut(
         **{f: getattr(frame, f) for f in FrameOut.model_fields if f not in computed},
         approved=frame.approved and not stale,
         stale=stale,
-        change=change or None,
+        change=asked or None,
         drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
         still_credits=storyboard.still_price(db, project),
-        softened={"before": change["before"], "after": change["after"]}
-        if change.get("softened")
+        softened={"before": asked["before"], "after": asked["after"]}
+        if asked.get("softened")
         else None,
     )
 

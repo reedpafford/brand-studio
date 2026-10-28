@@ -289,3 +289,65 @@ def test_a_rewrite_with_a_problem_makes_no_take(app, db, editor, setup, clip):  
     assert not db.query(Job).filter_by(kind="video").count()  # no take queued, none charged
     assert shown["free_fix_used"] is False and shown["prompt"] == broken  # Fix it, free
     assert "word for word" in shown["change"]["error"]  # the spoken line, which code can't fix
+
+
+def test_a_change_that_runs_out_of_room_says_so_and_frees_the_clip(app, db, editor, setup, clip):  # noqa: E501, F811
+    """Reed's c5 (job 876): the rewrite ran out of room and the card said "Changing…" for ever.
+    Now it fails plainly, nothing charged, with the note kept for Try again."""
+    import httpx2 as httpx
+
+    from app.change import UNFINISHED
+    from tests.helpers import claude_stream
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    job = editor.post(f"{url}/change", json={"note": "Slower push in."}).json()
+    assert db.get(Job, job["id"]).input["max_tokens"] == 16000
+
+    def cut_off(request):
+        body = claude_stream('{"prompt": "Shot 1 | 0-2 s.', "max_tokens")
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    _run(app, db, cut_off)
+    db.expire_all()
+    failed = db.get(Job, job["id"])
+    assert (failed.status, failed.error) == (JobStatus.failed, UNFINISHED)
+    row = db.get(ProjectClip, clip["id"])
+    assert row.change["status"] == "failed" and row.change["error"] == UNFINISHED
+    assert row.change["note"] == "Slower push in." and row.change["job_id"] == job["id"]
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]["change"]
+    assert shown["status"] == "failed" and "Ask the owner" not in shown["error"]
+
+
+def test_a_clip_stuck_changing_on_a_failed_job_reads_as_failed(app, db, editor, setup, clip):  # noqa: F811
+    from app.change import UNFINISHED
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    job = editor.post(f"{url}/change", json={"note": "Slower push in."}).json()
+    clips = f"/projects/{setup['project']}/clips"
+    assert editor.get(clips).json()[0]["change"]["status"] == "changing"  # on its way
+    db.get(Job, job["id"]).status = JobStatus.failed  # failed before this fix: c5 as it is now
+    db.commit()
+    shown = editor.get(clips).json()[0]["change"]
+    assert (shown["status"], shown["error"]) == ("failed", UNFINISHED)
+    assert shown["note"] == "Slower push in."
+
+
+def test_a_change_that_cant_be_saved_fails_plainly(app, db, editor, setup, monkeypatch):  # noqa: F811
+    import app.change as change_module
+    from app.change import UNFINISHED
+
+    url, frame = _frame(app, db, editor, setup)
+    job = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."}).json()
+
+    def broken(db, job):
+        raise RuntimeError("saving broke")
+
+    monkeypatch.setattr(change_module, "save_changed", broken)
+    _run(app, db, FakeClaude({"prompt": f"{frame.prompt} Brighter."}))
+    db.expire_all()
+    failed = db.get(Job, job["id"])
+    assert (failed.status, failed.error) == (JobStatus.failed, UNFINISHED)
+    frame = db.get(StoryboardFrame, frame.id)
+    assert frame.change["status"] == "failed" and frame.change["note"] == "Brighter."
+    shown = editor.get(url).json()[0]["change"]
+    assert (shown["status"], shown["error"]) == ("failed", UNFINISHED)

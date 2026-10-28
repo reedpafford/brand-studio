@@ -11,13 +11,16 @@ log = logging.getLogger(__name__)
 
 def explain(db: Session, job: Job) -> None:
     """A failed clip-prompts run, take or still names its cause in plain words."""
+    from app.change import change_failed
     from app.clip_prompts import failed
     from app.clip_takes import refused
     from app.storyboard import still_refused
 
-    if (step := job.input.get("step")) in ("clip_prompts", "clip_take", "frame"):
+    said = {"clip_prompts": failed, "clip_take": refused, "frame": still_refused,
+            "change": change_failed}  # fmt: skip
+    if (step := job.input.get("step")) in said:
         try:
-            {"clip_prompts": failed, "clip_take": refused, "frame": still_refused}[step](db, job)
+            said[step](db, job)
         except Exception:  # never let the explanation break the worker
             log.exception("job %s: explaining the failure failed", job.id)
 
@@ -75,7 +78,7 @@ def save_step_result(db: Session, job: Job) -> None:
     except Exception:  # never lose the paid answer: it stays in job.output
         log.exception("job %s: saving the %s result failed", job.id, job.input["step"])
         saved = False
-        if job.input.get("step") == "clip_prompts":  # not charged, and says so
+        if job.input.get("step") in ("clip_prompts", "change"):  # not charged, and says so
             job.status, job.error = JobStatus.failed, "Its answer couldn't be saved."
             explain(db, job)
     if job.input.get("reel_step"):  # a step of reading an imported reel: queue the next

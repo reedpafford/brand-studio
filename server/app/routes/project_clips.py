@@ -99,8 +99,13 @@ _stale = clip_prompts.is_stale
 
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
-    computed = ("stale", "takes", "take_credits", "inserts", "take_warning")
+    computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change")
     project = db.get(Project, row.project_id)
+    asked = row.change or {}
+    if asked.get("status") == "changing":
+        rewrite = db.get(Job, asked.get("job_id") or 0)
+        if getattr(rewrite, "status", None) not in WAITING:  # ended without saving (failed,
+            asked = {**asked, "status": "failed", "error": change.UNFINISHED}  # or stopped)
     inserts = [InsertOut(**vars(i), use_real_image=i.on) for i in cut_in.inserts(db, project, row)]
     return ProjectClipOut(
         inserts=inserts,
@@ -112,6 +117,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
         take_warning=clip_takes.take_warning(db, row),
+        change=asked or None,
     )
 
 
