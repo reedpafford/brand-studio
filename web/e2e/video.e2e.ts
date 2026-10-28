@@ -104,6 +104,24 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("button", { name: /^Make clip/ }).first(),
     ).toBeDisabled();
+    if (width === 390) {
+      // A change that didn't finish (Reed's c5, job 876): a plain line, the words kept, Try again, nothing sideways.
+      await page.route(`**/api/projects/${id}/clips`, async (route) => {
+        const clips = await (await route.fetch()).json();
+        clips[0].change = { note: "Slower, warmer light", job_id: 1, status: "failed", error: "That change didn't finish. Nothing was charged." };
+        await route.fulfill({ json: clips });
+      });
+      await page.reload();
+      await expect(page.getByText("That change didn't finish. Nothing was charged.")).toBeVisible();
+      await expect(page.getByLabel("Change this… c1")).toHaveValue("Slower, warmer light");
+      const again = page.getByRole("button", { name: /^Try again/ });
+      expect((await again.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await expect(page.getByText(/Ask the owner/)).toHaveCount(0);
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(wide).toBeLessThanOrEqual(0);
+      await page.unroute(`**/api/projects/${id}/clips`);
+      await page.reload();
+    }
     await page
       .getByRole("button", { name: /^Prompt for c1 looks good$/ })
       .click();
