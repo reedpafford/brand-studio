@@ -47,7 +47,7 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 26. Code stays lean: no redundant or duplicate code, and delete what a change replaces. About 36,000 lines of app code (server/app plus web/src, without tests or generated files) is a guide, not a hard cap: the app can grow when a needed fix or feature needs it, as long as it isn't redundant. The Steward reports the count on every PR.
 27. A QA account is kept for live testing; its sign-in lives in the environment, never in chat or code.
 28. Only the Producer merges, and no agent touches the live server.
-29. A clip holds one scene: it ends wherever the place or time changes. Outside a montage a clip runs at most about 12 s and 12 shots, split at a natural cut; montages keep their quick cuts (Advice checks). (Producer, after QA-Live's run on video #16; Reed informed.)
+29. A clip holds one scene: it ends wherever the place or time changes. Outside a montage a clip runs up to about 15 s and 12 shots; short neighbouring clips in the same scene are merged, and a longer scene splits on a held reaction, never mid-exchange (Advice checks). Continuity (Reed, 2026-10-28): fast in the hook and montages, but exchanges play as held two-shots (about 4–8 s) and payoffs hold (about 3–6 s); each clip ends on a beat the next one picks up (a look, a sound, a matching pose, a white flash). Scripts are written the same way, for every brand.
 30. Real brand names (cars, sneakers and the like) are fine in scripts and prompts; Seedance doesn't refuse them (Reed).
 
 ## History (oldest first; one line each, with date)
@@ -163,3 +163,4 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-27 Reed (montage trading screens, QA-Live video #16: every phone showed the same STONK chart at $0.0366): montage and trading beats get the brand logo attached and an invented chart that follows the story; real screenshots only for the payoff/CTA brand moment; stills follow the same rule; montage arc and reaction lines as creative guidance (Current rules 14 and 17). QA-Live re-runs a fresh fomo script end to end once it's live (Reed approved the spend).
 - 2026-10-27 Reed: the line count can grow if needed; the point of the cap is no redundant or poorly written code, not a hard limit (Current rules 26).
 - 2026-10-28 Reed: CTAs are adapted per video; the saved end line is the default, not a required match. The end-line check is Advice only and never blocks (Current rules 18).
+- 2026-10-28 Reed (continuity): clips up to about 15 s in one scene, merge short same-scene neighbours, let exchanges and payoffs breathe, hand off between clips on purpose; the Writer and script prompts follow it, Iron Paws in its own terms (Current rules 29).
