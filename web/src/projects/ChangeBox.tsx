@@ -7,7 +7,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
 /** What the server keeps of the last note on a still or a clip. */
-export type ChangeState = { note: string; status: "changing" | "done" | "unchanged" | "failed"; before?: string; after?: string; unchanged?: boolean; error?: string } | null;
+export type ChangeState = { note: string; job_id?: number; status: "changing" | "done" | "unchanged" | "failed"; before?: string; after?: string; unchanged?: boolean; error?: string } | null;
 
 type Part = { text: string; kind: "same" | "gone" | "new" };
 
@@ -86,9 +86,25 @@ export function ChangeBox(props: {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [note, setNote] = useState("");
+  const [edited, setEdited] = useState(false);
   const [whole, setWhole] = useState(false);
   const was = useRef<number | null>(null); // what was picked when the note was sent
-  const changing = change?.status === "changing";
+  // "Changing…" never outlasts its rewrite: a job that failed, was stopped or is gone (or finished a while ago while the
+  // note still says changing, so its answer wasn't saved) reads as a change that didn't finish.
+  const lost = useQuery({
+    queryKey: ["job", change?.job_id],
+    enabled: change?.status === "changing" && change.job_id != null,
+    refetchInterval: 3000,
+    queryFn: async () => {
+      const { data, response } = await api.GET("/jobs/{job_id}", { params: { path: { job_id: change!.job_id! } } });
+      if (response.status === 404) return true;
+      if (!data) return false;
+      const ended = data.finished_at ? Date.now() - Date.parse(data.finished_at) : 0;
+      return data.status === "failed" || data.status === "cancelled" || (data.status === "succeeded" && ended > 15_000);
+    },
+  }).data === true && change?.status === "changing";
+  const changing = change?.status === "changing" && !lost;
+  const failed = change?.status === "failed" || lost;
   const price = useQuery({
     queryKey: ["change-price", kind, projectId, id],
     queryFn: async () =>
@@ -108,6 +124,7 @@ export function ChangeBox(props: {
     },
     onSuccess: () => {
       setNote("");
+      setEdited(false);
       void queryClient.invalidateQueries({ queryKey: ["jobs"] });
       void queryClient.invalidateQueries({ queryKey: [kind === "frame" ? "storyboard" : "project-clips", projectId] });
     },
@@ -121,16 +138,18 @@ export function ChangeBox(props: {
     }
     seen.current = change?.status;
   }, [change?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A change that didn't finish keeps its words in the box, ready to try again, until they're edited.
+  const text = failed && !edited ? change!.note : note;
 
-  const reason = changing ? null : !note.trim() ? "Say what should change" : props.hold ?? props.stopFor(credits);
+  const reason = changing ? null : !text.trim() ? "Say what should change" : props.hold ?? props.stopFor(credits);
   // The server says in its own words when a note touches what is said; the note stays so it can be edited.
   const said = press.error && (press.error as Error & { status?: number }).status === 422;
   const snippets = change && change.status === "done" && change.before !== undefined && change.after !== undefined ? changedSnippets(change.before, change.after) : [];
   return (
     <div className="space-y-2">
-      <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={changing ? change!.note : note} readOnly={changing} onChange={(e) => { setNote(e.target.value); press.reset(); }} aria-label={`Change this… ${props.label}`} />
-      <Button variant="secondary" icon={Wand2} busy={changing || press.isPending} price={changing ? undefined : credits} reason={reason} disabled={!changing && !!reason} onClick={() => { was.current = props.snapshot ?? null; press.mutate(note.trim()); }}>
-        {changing ? "Changing…" : "Change it"}
+      <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={changing ? change!.note : text} readOnly={changing} onChange={(e) => { setNote(e.target.value); setEdited(true); press.reset(); }} aria-label={`Change this… ${props.label}`} />
+      <Button variant="secondary" icon={Wand2} busy={changing || press.isPending} price={changing ? undefined : credits} reason={reason} disabled={!changing && !!reason} onClick={() => { was.current = props.snapshot ?? null; press.mutate(text.trim()); }}>
+        {changing ? "Changing…" : failed && text.trim() === change?.note ? "Try again" : "Change it"}
       </Button>
       {press.isError && (
         <p role="alert" className={said ? "text-sm text-warning" : errorClass}>
@@ -139,7 +158,7 @@ export function ChangeBox(props: {
         </p>
       )}
       {change?.status === "unchanged" && <p className="text-sm text-muted">Your note didn't change the prompt. Try saying it another way.</p>}
-      {change?.status === "failed" && <p role="alert" className={errorClass}>{change.error || "The change didn't finish. Credits for it were returned."}</p>}
+      {failed && <p role="alert" className={errorClass}>{(!lost && change?.error) || "That change didn't finish."}</p>}
       {snippets.length > 0 && (
         <div className="space-y-1 text-sm" aria-label="What your note changed">
           <p className="text-muted">What your note changed</p>
