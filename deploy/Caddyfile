@@ -29,3 +29,25 @@
 		file_server
 	}
 }
+
+# Brand Studio Next (the test site, branch `next`): the same address on port 8443. Its own stack
+# (deploy/next/) answers on the shared edge network; if it's down, only this port fails.
+{$DOMAIN}:8443 {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+	# Live's sign-in cookie never reaches the test site's code (cookies ignore ports).
+	reverse_proxy brand-studio-next-web:80 {
+		header_up Cookie "(^|;\s*)bs_session=[^;]*" ""
+	}
+}
+
+# Plain http always goes to the live site on 443 (stated, so the port-8443 site can't take it),
+# with the same 308 Caddy's own redirect sends.
+http://{$DOMAIN} {
+	redir https://{host}{uri} 308
+}
