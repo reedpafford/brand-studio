@@ -26,10 +26,4 @@ a stylised Pixar-like 3D look with large glossy eyes and sculpted hair
 - A sung shot's place (a stage, a rooftop) stays the same every time the lead sings there, so its stills share one framing and light.
 
 ## clip
-- The song is laid under the finished video. A B-roll clip is silent picture: its audio line is the no-one-speaks line with room sound only, and no one on screen sings or mouths words. The picture moves on the beat the breakdown gives (a cut, a turn, a hand landing on the beat).
-- A Sung clip lip-syncs only the song lines its shots hold, word for word, as `Name (singing, in English, how it's sung): "words"`, with the song slice attached as audio; nobody else in frame moves their mouth.
 - One move per shot, cut on the beat: a push in on the hook, a whip pan between places, a slow orbit on the last chorus.
-
-## breakdown
-- The song leads. When the breakdown input carries the song's sections and beats, every shot sits inside one section, starts and ends on a beat, and shows the lyric being sung at that moment; instrumental stretches get pictures too.
-- Shots are B-roll unless the script marks a line as sung on camera: the lead never sings by default.

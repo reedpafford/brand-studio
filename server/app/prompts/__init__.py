@@ -25,7 +25,10 @@ SCHEMAS = {
     "variations": schemas.Variations,
     "cast_slots": schemas.CastSlots,
     "look_fit": schemas.LookFit,
+    "song_directions": schemas.SongDirections,
+    "song_breakdown": schemas.SongBreakdown,
 }
+EXTENDS = {"song_breakdown": "breakdown"}  # a song's breakdown is the breakdown, plus its part
 NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
 
 
@@ -34,7 +37,7 @@ NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only 
 GUIDES = {
     "still": ["storyboard"],
     "clip": ["clip_prompts", "improve"],
-    "breakdown": ["breakdown"],
+    "breakdown": ["breakdown", "song_breakdown"],
     "script": ["script_draft", "enhance", "variations"],
 }
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
@@ -77,7 +80,8 @@ def _styled(text: str, style_id: str) -> str:
 @cache
 def system(step: str, style_id: str = "house") -> str:
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
-    parts.append(_styled((HERE / f"{step}.md").read_text(), style_id))
+    for name in filter(None, [EXTENDS.get(step), step]):
+        parts.append(_styled((HERE / f"{name}.md").read_text(), style_id))
     example = HERE / "examples" / f"{step}.json"
     if example.exists():
         ex = json.loads(example.read_text())
@@ -326,6 +330,37 @@ def sheet_prompt(
     if change.strip():
         out.append(parts["redo"].format(change=change.strip()))
     return " ".join(out)
+
+
+def song_directions_input(
+    brief: str, cast: list[str], music_style: str = "", seconds: int | None = None, note: str = ""
+) -> str:
+    """The user message for the song_directions step (with brand_block in the system prompt).
+    `music_style` is the brand's genre line; `seconds` only when the editor asked for a length."""
+    parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
+    if music_style:
+        parts.append(f"<music_style>{music_style}</music_style>")
+    if seconds:
+        parts.append(f"<length>{seconds} s (about {round(seconds * 2.5)} sung words)</length>")
+    if note:
+        parts.append(f"<note>{note}</note>")
+    return "\n".join(parts)
+
+
+def song_block(song: dict) -> str:
+    """The preferred song take, measured, for the song_breakdown step: {seconds, bpm, beats
+    [s], sections [{name, start, end}], lines [{start, end, text}]} (Whisper's times joined
+    into the sung lines). Sections may be empty: the lyrics' tags stand in."""
+    beats = " ".join(f"{b:.2f}" for b in song.get("beats", []))
+    lines = [f'<song seconds="{song["seconds"]:.2f}" bpm="{song.get("bpm") or "?"}">']
+    if song.get("sections"):
+        lines += ["Sections:"] + [
+            f"- {x['start']:.2f}–{x['end']:.2f} {x['name']}" for x in song["sections"]
+        ]
+    lines += [f"Beats: {beats}", "Sung lines:"]
+    lines += [f"{n}| {x['start']:.2f}–{x['end']:.2f} {x['text']}"
+              for n, x in enumerate(song.get("lines", []), 1)]  # fmt: skip
+    return "\n".join([*lines, "</song>"])
 
 
 def spoken_words(script: str) -> int:

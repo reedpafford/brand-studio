@@ -212,6 +212,51 @@ class Breakdown(BaseModel):
     clips: list[Clip]
 
 
+# --- Song ads (Reed, 2026-10-28): the song leads, the pictures follow its real timing ---
+
+
+class SongShot(Shot):
+    song_start: float = Field(description="Where it starts in the song, in seconds, on a beat.")
+    song_end: float = Field(
+        description="Where it ends, on a beat; the next shot starts here (no gaps)."
+    )
+    sung: bool = Field(
+        description="True only when the script marks this line or section [Lip-sync]: the lead "
+        "sings it on camera. Otherwise false: B-roll, silent picture under the song."
+    )
+
+
+class SongScene(Scene):
+    shots: list[SongShot]
+
+
+class SongBreakdown(Breakdown):
+    scenes: list[SongScene]
+
+
+class SongDirection(BaseModel):
+    title: str = Field(description="The song's title, usually its hook line.")
+    concept: str = Field(description="1–2 sentences: the song's vibe and the angle it sings.")
+    lyrics: str = Field(
+        description="The whole song, one sung line a line, with section tags on their own "
+        "lines ([Verse 1], [Chorus], [Bridge]); the last sung line names the brand."
+    )
+    style_line: str = Field(
+        description="Under 25 words: genre, vocal, tempo or BPM, mood, production; never an "
+        "artist or band name, e.g. 'indie pop, warm female lead, 104 BPM, playful, modern "
+        "polished'."
+    )
+    visual_concept: str = Field(
+        description="2–3 sentences: what's on screen at the key lyric moments, as animated "
+        "B-roll in the video's style."
+    )
+
+
+class SongDirections(BaseModel):
+    directions: list[SongDirection] = Field(description="Exactly 2, clearly different.")
+    recommended: Literal[1, 2] = Field(description="The direction you'd pick for this brief.")
+
+
 # --- Storyboard: one still per clip (or per shot) ---
 
 

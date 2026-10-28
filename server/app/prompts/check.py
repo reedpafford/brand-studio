@@ -15,6 +15,8 @@ from app.prompts.schemas import (
     EnhanceResult,
     ImprovedPrompt,
     ReelWatch,
+    SongBreakdown,
+    SongDirections,
     StoryboardFrames,
     Variations,
 )
@@ -29,8 +31,8 @@ HIS = re.compile(
 TAG = re.compile(r"^\[[A-Za-z ]+\] ")  # accepted Enhance lines: "[Camera] …", "[Brand screen] ★ …"
 SILENT = "Audio: no one speaks (no voices, narration or dialogue), only "
 AUDIO_LINE = re.compile(
-    r"^Audio: (only the spoken lines and|no one speaks \(no voices, narration or dialogue\), "
-    r"only) .+ No subtitles\.$"
+    r"^Audio: (only the spoken lines and|only the song from|no one speaks \(no voices, "
+    r"narration or dialogue\), only) .+ No subtitles\.$"
 )
 SAYS = re.compile(  # action that reads like a line; the model voices it (fomo montage, 2026-10-23)
     r"\b(says?|tells?|repl(y|ies)|answers?|shouts?|whispers?|yells?|refuses?"
@@ -841,3 +843,90 @@ def reel_note(note: str, said: list[str]) -> str:
     if REWORD.search(note) or any(_exact(q) not in spoken for q in quoted):
         return READ_AGAIN
     return ""
+
+
+# --- Song ads (Reed, 2026-10-28): the lyrics are the script, the measured song is the clock ---
+
+SECTION = re.compile(r"^\s*(\[[^\]]+\]\s*)+$")  # "[Chorus]", "[Chorus] [Lip-sync]"
+LIP_SYNC = re.compile(r"\[lip[- ]?sync\]", re.I)
+SUNG_RATE = 2.5  # words a second the music model sings (Starpop's measure)
+
+
+def sung_lines(lyrics: str) -> list[str]:
+    """The lines that are sung: no section tags, no [Lip-sync] marks."""
+    lines = [LIP_SYNC.sub("", x).strip() for x in lyrics.splitlines() if not SECTION.match(x)]
+    return [x for x in lines if x]
+
+
+def lip_synced(lyrics: str) -> set[int]:
+    """Line numbers (1-based) the script asks to be sung on camera: a line marked [Lip-sync],
+    or every line under a section tag that carries it."""
+    marked, on = set(), False
+    for n, line in enumerate(lyrics.splitlines(), 1):
+        if SECTION.match(line):
+            on = bool(LIP_SYNC.search(line))
+        elif line.strip() and (on or LIP_SYNC.search(line)):
+            marked.add(n)
+    return marked
+
+
+def song_directions(result: SongDirections, brand: str, seconds: int | None = None) -> list[str]:
+    problems = []
+    if len(result.directions) != 2:
+        problems.append(f"{len(result.directions)} directions; write exactly 2")
+    for n, d in enumerate(result.directions, 1):
+        sung = sung_lines(d.lyrics)
+        if not sung:
+            problems.append(f"direction {n} has no lyrics")
+            continue
+        if len(d.style_line.split()) > 25:
+            problems.append(f"{ADVICE}direction {n}: the style line is over 25 words")
+        if not says_brand(sung[-1], brand):
+            problems.append(f"{ADVICE}direction {n}: {NO_CTA}")
+        words = len(" ".join(sung).split())
+        if seconds and abs(words - seconds * SUNG_RATE) > seconds * SUNG_RATE * 0.25:
+            problems.append(
+                f"{ADVICE}direction {n}: {words} sung words is about {words / SUNG_RATE:.0f} s, "
+                f"not the {seconds} s asked; aim for about {round(seconds * SUNG_RATE)}"
+            )
+    return problems
+
+
+def song_breakdown(lyrics: str, bd: SongBreakdown, song: dict, *args, **kwargs) -> list[str]:
+    """`breakdown(...)`'s checks on the lyrics (tags left out), plus the song's: shots back to
+    back over the whole take (a fix: the slices are cut from them), B-roll silent, and edges on
+    beats, inside a section, lip-sync only where asked (advice). `song` is song_block's dict;
+    the other arguments are breakdown's."""
+    clean = "\n".join("" if SECTION.match(x) else LIP_SYNC.sub("", x).strip()
+                      for x in lyrics.splitlines())  # fmt: skip
+    problems = breakdown(clean, bd, *args, **kwargs)
+    shots = [shot for scene in bd.scenes for shot in scene.shots]
+    if not shots:
+        return problems
+    end, at = song["seconds"], 0.0
+    for shot in shots:
+        if abs(shot.song_start - at) > 0.1:
+            problems.append(
+                f"shot {shot.id}: starts at {shot.song_start:.2f} s, not {at:.2f} s; the shots "
+                "run back to back over the song"
+            )
+        at = shot.song_end
+        if shot.line and not shot.sung:
+            problems.append(f"shot {shot.id}: a B-roll shot has a line; B-roll is silent picture")
+    if abs(at - end) > 0.5:
+        problems.append(f"the shots end at {at:.2f} s, the song at {end:.2f} s")
+    beats = song.get("beats") or []
+    sections = song.get("sections") or []
+    asked = lip_synced(lyrics)
+    for shot in shots:
+        edges = [shot.song_start, shot.song_end]
+        if beats and any(min(abs(e - b) for b in beats) > 0.15 for e in edges if 0 < e < end):
+            problems.append(f"{ADVICE}shot {shot.id}: an edge is off the beat; cut on a beat")
+        if any(shot.song_start + 0.2 < x["start"] < shot.song_end - 0.2 for x in sections):
+            problems.append(f"{ADVICE}shot {shot.id}: runs across a section's edge")
+        if shot.sung and not asked & set(shot.script_lines):
+            problems.append(
+                f"{ADVICE}shot {shot.id}: sung on camera, but the script doesn't ask for "
+                "lip-sync there; make it B-roll or mark the line [Lip-sync]"
+            )
+    return problems
