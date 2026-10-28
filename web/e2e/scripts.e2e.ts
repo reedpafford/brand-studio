@@ -67,6 +67,21 @@ test("a script is made in the library: describe it, write its words, and it is l
   await expect(page.getByText("Published. 2 versions are ready to make.")).toBeVisible();
   await expect(page.getByText("A · Ready to make")).toBeVisible();
 
+  // Published is final, but Reed may still tidy its About (title, what it's for, notes), at 390 too.
+  await page.setViewportSize({ width: 390, height: 900 });
+  const library = new URL(page.url());
+  const href = await page.getByRole("link", { name: "Bo tries salmon", exact: true }).getAttribute("href");
+  await page.goto(href!.replace("step=publish", "step=script"));
+  await page.getByText("About this script").click();
+  await expect(page.getByText("Reference reel (optional)")).toHaveCount(0);
+  await page.getByLabel("Notes (optional)").fill("Warm light, slow pour.");
+  const save = page.getByRole("button", { name: "Save", exact: true });
+  expect((await save.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await save.click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await page.goto(library.pathname + library.search);
+
   // A ready version opens its panel; Make this version reserves it and opens the video at Breakdown.
   await page.getByRole("link", { name: "Version A, ready to make" }).click();
   const panel = page.getByRole("dialog", { name: "Bo tries salmon · Version A" });

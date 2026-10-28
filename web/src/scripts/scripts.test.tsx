@@ -168,6 +168,28 @@ test("a published script is final: a lock badge, and no rename or edit buttons",
   expect(screen.queryByRole("button", { name: "Edit description" })).not.toBeInTheDocument();
 });
 
+test("on a published script the owner can still edit the title, what it's for and the notes, and only those", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, full({ published: true, status: "published" })], "PATCH /scripts/7": [200, full({ published: true, status: "published", title: "Bo tries tuna" })] });
+  open("/b/1/scripts/7?step=script");
+  await userEvent.click(await screen.findByText("About this script"));
+  expect(screen.queryByText("Reference reel (optional)")).toBeNull(); // the reference stays final
+  await userEvent.clear(screen.getByLabelText("Title"));
+  await userEvent.type(screen.getByLabelText("Title"), "Bo tries tuna");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ title: "Bo tries tuna", description: "Show a picky dog.", notes: "Keep it warm." }));
+});
+
+test("an editor reads a published script's About, with nothing to edit", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts/7": [200, full({ published: true, status: "published", created_by_id: 2, created_by_name: "Sam" })] });
+  open("/b/1/scripts/7?step=script");
+  await userEvent.click(await screen.findByText("About this script"));
+  expect(screen.getByText("Keep it warm.")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Title")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+});
+
 test("the library has a New script button, and a draft's title opens its page", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts": [200, [script({ id: 7, published: false, status: "draft", versions: [v(0, "draft")] })]] });
