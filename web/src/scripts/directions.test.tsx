@@ -99,7 +99,7 @@ test("the words stay editable from Directions: Edit the script opens the Script 
   open();
   expect(await screen.findByText("Changing the words clears these suggestions; ask Claude again after.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Edit the script" }));
-  expect(await screen.findByRole("button", { name: "Edit" })).toBeInTheDocument(); // the Script step's editor
+  expect(await screen.findByLabelText("Your script")).toBeInTheDocument(); // the Script step's editor
 });
 
 test("no Edit the script on a published script", async () => {

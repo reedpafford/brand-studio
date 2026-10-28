@@ -17,10 +17,10 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   await expect(page.getByRole("heading", { name: "Script", exact: true, level: 2 })).toBeVisible();
   await expect(page.getByText("Draft · only you can see it")).toBeVisible();
-  await page.getByRole("button", { name: "Paste or write it yourself" }).click();
   await page.getByLabel("Your script").fill("BO: Salmon? Again?\nMIA: Try it.");
   await page.getByRole("button", { name: "Save script" }).click();
-  await expect(page.getByRole("list", { name: "Script text" })).toContainText("MIA: Try it.");
+  await expect(page.getByText("Saved.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next: Directions" })).toBeEnabled();
 
   // Back in the library it is listed as Writing.
   await page.getByRole("link", { name: "Scripts", exact: true }).first().click();
@@ -99,11 +99,9 @@ test("an empty script with a reel is written from the reference, at the price sh
   const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Altar again", description: "Remake the altar reel for this brand.", notes: "", reference_replace: "", reference_id: "fomo-DehudnaAmce", text: "" } });
   expect(made.ok()).toBeTruthy();
   await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=script`);
-  await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeVisible();
-  await expect(page.getByText("Includes finding the roles.")).toBeVisible();
-  await page.getByRole("button", { name: /^Write from the reference · \d+ credits?$/ }).click();
-  await expect(page.getByRole("list", { name: "Script text" })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole("heading", { name: "Write from the reference" })).toBeHidden();
+  await expect(page.getByText(/Includes finding the roles\./)).toBeVisible();
+  await page.getByRole("button", { name: /^Have Claude write it for me · \d+ credits?$/ }).click();
+  await expect(page.getByLabel("Your script")).not.toHaveValue("", { timeout: 60_000 });
   // The write also found the roles, so the Cast step already has them.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();
   await expect(page.getByText(/^\d+ roles? · 0 locked$/)).toBeVisible();
