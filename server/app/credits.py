@@ -41,6 +41,7 @@ CATALOGUE_RATES = [  # (rate kind, unit, catalogue model, resolution)
 OTHER_RATES = [
     ("write-claude", "call", Decimal(3)),  # Opus script/breakdown call, ~$0.30
     ("check-claude", "call", Decimal("0.2")),  # a low-effort look at one picture, ~$0.01-0.02
+    ("music", "call", Decimal(1)),  # a Suno request (2 songs): assumed until Suno prices it
 ]
 
 

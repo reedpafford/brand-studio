@@ -2,20 +2,17 @@
 step (no real or paid calls)."""
 
 import re
-from decimal import Decimal
 
-import httpx2 as httpx
 import pytest
 
 from app import music, song_timing
-from app.catalogue import get_model
 from app.models.accounts import User
 from app.models.files import StoredFile
 from app.models.jobs import JobStatus
 from app.providers import get_providers
 from app.providers.fake_local import SONG, hear_song, song
-from app.providers.replicate import ReplicateProvider
 from app.routes.jobs import enqueue
+from app.settings import Settings
 from app.worker import run_once
 
 LYRICS = """[Verse 1]
@@ -27,15 +24,10 @@ Iron Paws, my best ally
 [Drop]"""
 
 
-def test_lyrics_are_sent_word_for_word_with_auto_lyrics_off():
-    job = music.SERVICES[music.DEFAULT].job(LYRICS, "pop, female lead, 120 BPM")
-    sent = job["input"]
-    assert job["model"] == "minimax-music-2.6"
-    assert sent["lyrics_optimizer"] is False and sent["is_instrumental"] is False
-    # Numbered tags become MiniMax's own; a tag it doesn't know is dropped, never sung.
-    assert sent["lyrics"] == LYRICS.replace("[Verse 1]", "[Verse]").removesuffix("\n[Drop]")
-    assert music.clean(LYRICS).dropped == ["[Drop]"]
-    assert sent["prompt"] == "pop, female lead, 120 BPM"
+def test_lyrics_are_sent_word_for_word_never_suno_s_own():
+    job = music.job(LYRICS, " pop, female lead, 120 BPM ")
+    assert job == {"input": {"lyrics": LYRICS, "style": "pop, female lead, 120 BPM",
+                             "instrumental": False}}  # fmt: skip
 
 
 @pytest.mark.parametrize(
@@ -43,50 +35,25 @@ def test_lyrics_are_sent_word_for_word_with_auto_lyrics_off():
     [
         ("", "pop", music.NO_LYRICS),
         ("[Verse]\n[Chorus]", "pop", music.NO_LYRICS),
-        ("la " * 1200, "pop", music.TOO_LONG),
-        ("la la", "x" * 2001, music.STYLE_TOO_LONG),
+        ("la " * 1700, "pop", music.TOO_LONG),
+        ("la la", "x" * 1001, music.STYLE_TOO_LONG),
     ],
 )
 def test_a_song_that_cant_be_made_says_why(lyrics, style, said):
     with pytest.raises(music.NotReady, match=re.escape(said)):
-        music.SERVICES[music.DEFAULT].job(lyrics, style)
+        music.job(lyrics, style)
 
 
-def test_suno_stays_off_until_connected():
-    assert not music.SERVICES["suno"].on
-    with pytest.raises(music.NotReady, match="Suno isn't connected yet"):
-        music.SERVICES["suno"].job(LYRICS, "pop")
+def test_suno_stays_off_until_reed_has_access(app):
+    """No public Suno API yet: only the stand-ins make songs."""
+    assert music.PROVIDER not in get_providers(Settings())
 
 
-def test_a_refused_song_says_so_plainly():
+def test_a_refused_song_says_so_plainly_and_quotes_little():
     assert music.failure("Input flagged as sensitive (E005)") == music.REFUSED
     assert music.failure("Internal error") == music.FAILED
-
-
-def test_a_take_is_priced_at_replicates_real_cost():
-    model = get_model("minimax-music-2.6")
-    assert model.usd_per_unit() == Decimal("0.15")  # Replicate's page, per song file
-    assert model.credits_per_unit() == Decimal("1.46")
-
-    def handler(request):
-        return httpx.Response(200, json={
-            "id": "m1", "status": "succeeded", "version": model.provider_version,
-            "input": {"lyrics": "la"}, "metrics": {"audio_output_count": 1},
-            "output": "https://replicate.delivery/song.mp3",
-        })  # fmt: skip
-
-    provider = ReplicateProvider(
-        "https://r.test/v1", httpx.Client(transport=httpx.MockTransport(handler))
-    )
-    result = provider.poll("m1")
-    assert result.files == ["https://replicate.delivery/song.mp3"]
-    used = result.usage[0]
-    assert (used.unit, used.units, used.cost_usd, used.estimated) == (
-        "song",
-        1,
-        Decimal("0.15"),
-        False,
-    )
+    said = music.failure("Copyrighted artist", "warm pop " * 200)
+    assert len(said) < 300 and "…" in said
 
 
 @pytest.fixture(scope="module")
@@ -105,8 +72,8 @@ def test_the_stand_in_songs_beats_are_found(timing):
 
 def test_every_line_keeps_its_words_and_gets_its_time(timing):
     assert [(ln["section"], ln["text"], ln["start"]) for ln in timing["lines"]] == [
-        ("Verse", "Wake up hungry, bowl is bright", 2.25),
-        ("Verse", "Iron Paws, it feels so right", 5.25),
+        ("Verse 1", "Wake up hungry, bowl is bright", 2.25),
+        ("Verse 1", "Iron Paws, it feels so right", 5.25),
         ("Chorus", "Gut so happy, tail so high", 8.25),
         ("Chorus", "Iron Paws, my best ally", 11.25),
     ]
@@ -116,7 +83,7 @@ def test_every_line_keeps_its_words_and_gets_its_time(timing):
 def test_sections_start_on_bars_and_never_cut_a_word(timing):
     parts = timing["sections"]
     assert [(p["name"], p["start"], p["end"]) for p in parts] == [
-        ("Intro", 0, 2.25), ("Verse", 2.25, 8.25), ("Chorus", 8.25, 14.25),
+        ("Intro", 0, 2.25), ("Verse 1", 2.25, 8.25), ("Chorus", 8.25, 14.25),
         ("Outro", 14.25, timing["seconds"]),
     ]  # fmt: skip
     cuts = [c for p in parts for c in (p["start"], *p["cuts"])]
@@ -133,11 +100,22 @@ def test_lines_whisper_missed_sit_between_the_ones_it_heard():
     assert [(ln["start"], ln["end"]) for ln in sung[1:3]] == [(3.8, 6.4), (6.4, 9.0)]
 
 
-def test_a_take_and_its_timing_run_on_the_stand_ins(app, db, owner):
+def test_a_chorus_written_twice_and_sung_twice_is_no_repeat():
+    twice = LYRICS + "\n[Chorus]\nGut so happy, tail so high\nIron Paws, my best ally"
+    words = [w for line in music.sung(twice) for w in line.split()]
+    heard = [{"word": w, "start": k, "end": k + 0.5} for k, w in enumerate(words)]
+    assert [ln["times_sung"] for ln in song_timing.lines(twice, heard, 30)] == [1] * 6
+    heard += [{"word": w, "start": 30 + k, "end": 30.5 + k}
+              for k, w in enumerate("Iron Paws, my best ally".split())]  # fmt: skip
+    assert [ln["times_sung"] for ln in song_timing.lines(twice, heard, 40)][-1] == 2
+
+
+def test_a_request_gives_two_songs_and_its_timing_runs_free(app, db, owner):
     take, timed = _run(app, db, "pop")
-    assert take.status == JobStatus.succeeded and take.credits == Decimal("1.46")
-    mp3 = db.get(StoredFile, take.output["file_ids"][0])
-    assert mp3.content_type == "audio/mpeg" and mp3.filename.endswith(".mp3")
+    assert take.status == JobStatus.succeeded and take.credits == 1  # A4: assumed price
+    songs = [db.get(StoredFile, f) for f in take.output["file_ids"]]
+    assert len(songs) == music.TAKES
+    assert all(s.content_type == "audio/mpeg" and s.filename.endswith(".mp3") for s in songs)
     assert timed.status == JobStatus.succeeded and timed.credits == 0
     assert timed.output["timing"]["bpm"] == SONG["bpm"]
 
@@ -147,8 +125,7 @@ def _run(app, db, style):
     app.state.settings.fake_providers = True
     providers = get_providers(app.state.settings, app.state.storage)
     user = db.query(User).first()
-    service = music.SERVICES[music.DEFAULT]
-    take = enqueue(db, user, "music", service.job(LYRICS, style), provider=service.provider)
+    take = enqueue(db, user, "music", music.job(LYRICS, style), provider=music.PROVIDER)
     for _ in range(2):  # handed over, then collected
         run_once(db, providers, app.state.storage)
     db.refresh(take)
@@ -208,3 +185,12 @@ def test_a_failed_timing_says_whether_trying_again_can_help(app, db, owner, monk
         (JobStatus.failed, music.TIMING_UNREADABLE),
         (JobStatus.failed, music.TIMING_FAILED),
     ]
+
+
+def test_a_take_longer_than_any_ad_says_so(app, db, owner, monkeypatch):
+    def too_long(path):
+        raise song_timing.TooLong("Song length 950 s is over 900 s.")
+
+    monkeypatch.setattr(song_timing, "length", too_long)
+    _, timed = _run(app, db, "pop")
+    assert (timed.status, timed.error) == (JobStatus.failed, music.TIMING_TOO_LONG)
