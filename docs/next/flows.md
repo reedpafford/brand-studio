@@ -139,7 +139,8 @@ Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyr
 | Reading timing | After a take arrives, free, on the local lane: "Reading the song's timing…" on that take. The player already plays. | — |
 | Done | Two players. Each shows its length ("0:31") and **Preferred** on one: the first take whose timing is read, until the owner picks. | **Next: Cast**, or **Make this Preferred**, or **Make 2 more · N credits**. |
 | Timing still reading | That take's **Make this Preferred** is disabled with "Reading the song's timing…"; it turns on by itself when the timing is read. | — |
-| Timing failed | "Couldn't read this take's timing. Nothing was charged." Reading again gives the same answer for the same file, so the fixes don't depend on it. | **Use timing spread evenly** (free: the lines are spread over the take's length in order, each shot marked "Timing guessed"; the take can then be Preferred), or **Make this Preferred** on the other take. **Try again** (free) stays as a secondary press. |
+| Timing failed (the words couldn't be read; the length is known) | "We couldn't read this song's timing. It's free to try again." | **Try again** (free; a slow read may pass next time), or **Use timing spread evenly** (free: the lines are spread over the take's length in order, each shot marked "Timing guessed"; the take can then be Preferred), or **Make this Preferred** on the other take. |
+| Timing failed (the file can't be read) | "This take's file can't be read, so its timing can't be measured." Trying again won't help, so it isn't offered. | **Make this Preferred** on the other take, or **Make 2 more · N credits**. The take can be deleted (Undo). |
 | Advice: words off | Timing found lines the singer skipped or slurred: "The singer skips 'every single bowl' at 0:12." Advice only (rule 19 binds us, not the singer). | **Make 2 more**, or keep it. |
 | Advice: sung twice | A line is sung twice: "Line 4 is sung twice in this take." Advice only; the shots follow the first time it's sung and the repeat rides in the shot after it. | **Make 2 more**, or keep it. |
 | Advice: instrumental intro | Over 2 s before the first word: "This take starts with 4 s of music before the singing." Advice. At the stitch the head is trimmed to 0.5 s automatically (free). | — |
@@ -223,7 +224,7 @@ A strip above the shots: the video's song (a player and its length) and **Change
 
 ## V2. Breakdown on the song
 
-The shots are built from the preferred take's word timings. Each shot covers a stretch of the song, from one word boundary to another (never mid-word), and is marked **Sung** or **B-roll**. Default: the hook (first line or two) and the last chorus are Sung, everything else B-roll. Instrumental stretches get B-roll shots of their own ("Music · 0:12–0:16"). The shots cover the song from its first word to its end with no gaps.
+The shots are built from the preferred take's word timings. Each shot covers a stretch of the song, from one word boundary to another (never mid-word), and is marked **Sung** or **B-roll**. Default: every shot is B-roll (Reed: song ads are mostly B-roll; lip-sync is a rare extra). Sung is only where someone flips it. Instrumental stretches get B-roll shots of their own ("Music · 0:12–0:16"). The shots cover the song from its first word to its end with no gaps.
 
 Desktop: the song's waveform across the top, the shots as blocks under it, a play head. Phone: the waveform fits the width (no sideways scroll), and the shots are a list under it; tapping a shot plays its stretch.
 
@@ -236,7 +237,7 @@ Desktop: the song's waveform across the top, the shots as blocks under it, a pla
 | Flip, nobody sings | The script said "Nobody on camera", so this video has no Singer yet. Flipping a shot to Sung opens "Who sings in this video?" with the video's roles. | Pick one: it becomes this video's Singer (per video; the script is unchanged) and is added to the shot. A role with no look goes to Assets as usual (rule 8). |
 | Edit timing | No free dragging. A row has **Split here** (at a line or word gap the owner picks from the words) and **Join with next**. The times follow the song. | — |
 | Problems | As today ("Fix the N problems in Breakdown first"), each with its one-click fix. New ones: "This shot crosses a place change" (rule 29) with **Split at the change** (free); "A Sung shot is longer than one clip can be" with **Split it** (free). | The fix. |
-| Advice | "No shot is Sung" (when the Singer exists). "The last chorus isn't Sung." Advice only. | — |
+| Suggestion | When the video has a Singer and no shot is Sung, one closed line: "The Singer could sing the hook on camera." Never a problem. | **Sing the hook on camera** (free: flips the hook's shot to Sung, Undo). |
 | F | "The shots didn't finish. Nothing was charged." | **Try again**. |
 | X | Claude refuses: the reason, plus **Try again**. | — |
 | B | As today. | — |
