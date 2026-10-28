@@ -1303,3 +1303,30 @@ def test_a_summary_quoting_a_line_doesnt_count_it_twice():
     lines[at] += f' It ends on "{line}"'
     clip.prompt = "\n".join(lines)
     assert not [p for p in check.clip_prompts(logo_once(bd), cp, 30, 10) if "isn't there" in p]
+
+
+def test_a_person_in_bed_and_a_bodily_sound_in_one_clip_is_advice():
+    """Reed, Iron Paws #32 c4: refused 4 times as "sexual" (a woman startled out of sleep,
+    a wordless groan, a loud wet licking sound). Advice, never a block."""
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    assert check.clip_prompts(logo_once(bd), cp, 30, 10) == []
+    clip = cp.clips[0]
+    clip.prompt = clip.prompt.replace(
+        "Malik drops his head onto his arms",
+        "Malik, in bed, startled out of sleep, a wordless groan, a loud wet licking sound",
+    )
+    assert f"Advice: c2: {check.NOT_SEXUAL}" in check.clip_prompts(logo_once(bd), cp, 30, 10)
+
+    def flagged(text):
+        return bool(check.IN_BED.search(text) and check.BODILY.search(text))
+
+    # Reed's rewording (pyjamas, a sigh, the dog licking his own paw) still failed
+    assert flagged("Tasha in bed, in pyjamas, sighs; Biscuit licks his own front paw")
+    assert not flagged("Tasha in bed, in pyjamas, eyes open: a noise from the foot of the bed")
+    assert not flagged("Biscuit licks his own front paw on the rug, close on the paw")
+    assert not flagged("Tasha in bed, a sight she can't believe")
+    for step in ("clip_prompts", "storyboard"):
+        assert "pyjamas" in prompts.system(step), step
+    assert "**Never reads as sexual.**" in prompts.system("clip_prompts")
+    assert "a noise from the foot of the bed" in prompts.system("breakdown")

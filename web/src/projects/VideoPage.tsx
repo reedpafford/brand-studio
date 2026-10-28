@@ -51,6 +51,9 @@ export function VideoPage() {
   // An editor on their own script is billed to the week, not to a budget.
   const week = p?.own_script && allowance.data ? { used: allowance.data.quick_clip_credits_used, allowed: allowance.data.quick_clip_credits_allowed } : null;
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
+  // When this step was opened, the Assets list as it was then: a read since then is this step's own.
+  const [opened, setOpened] = useState(() => ({ step, at: assets.dataUpdatedAt }));
+  if (opened.step !== step) setOpened({ step, at: assets.dataUpdatedAt });
 
   if (project.isPending || loading || assets.isPending)
     return (
@@ -62,8 +65,10 @@ export function VideoPage() {
     );
   if (!p) return <p className="p-6">That video doesn't exist.</p>;
   const list = (assets.data ?? []).filter((a) => !notInShots(a)); // a role no shot uses is not counted
-  // Opening Assets reads its list again; until then (and until the brand's products are in) its counts and the flavour check wait.
-  const assetsLoading = (assets.isRefetching && !assets.data?.some((a) => a.sheet_status === "drawing")) || flavours.loading;
+  // Opening Assets reads its list again; until that read lands (and the brand's products are in) its counts and the flavour
+  // check wait. Later reads (after an Approve, say) keep showing the counts.
+  // A read that failed since then ends the wait too: the old counts show rather than "Loading assets…" for ever.
+  const assetsLoading = (opened.at > 0 && assets.dataUpdatedAt <= opened.at && assets.errorUpdatedAt <= opened.at) || flavours.loading;
   const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length } };
   // A link to a step that is locked lands on the step that blocks it (Storyboard when its frames are out of date, say).
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;

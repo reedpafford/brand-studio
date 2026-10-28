@@ -289,6 +289,8 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
+        if IN_BED.search(c.prompt) and BODILY.search(c.prompt):  # Iron Paws #32: "sexual"
+            problems.append(f"{ADVICE}{c.clip_id}: {NOT_SEXUAL}")
         if _montage(clip.shot_ids, shots):  # guests and crowds elsewhere are never cast
             problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
             problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _screens_climb(c.prompt)]
@@ -402,6 +404,22 @@ def _montage(ids: list[str], shots: dict) -> bool:
     """3+ quick wordless shots in a row (the breakdown check's montage run)."""
     quick = [not shots[i].line and shots[i].seconds <= 0.6 for i in ids]
     return any(all(quick[k : k + 3]) for k in range(len(quick) - 2))
+
+
+IN_BED = re.compile(  # a person in bed or undressed
+    r"\b(beds?|bedsheets?|under the (?:covers|sheets)|pillows?|duvet|asleep|undress\w*|naked|"
+    r"shirtless|topless|underwear|lingerie)\b",
+    re.I,
+)
+BODILY = re.compile(  # any bodily sound or action word
+    r"\b(lick\w*|slurp\w*|suck\w*|wet|moan\w*|groan\w*|pant(?:s|ing)|gasp\w*|sigh(?:s|ed|ing)?|tongues?)\b",
+    re.I,
+)
+NOT_SEXUAL = (
+    "a person in bed or undressed and a bodily sound or word (licking, wet, a groan, a sigh) in "
+    "one clip can be refused as sexual; give the animal's action its own clip, with no one in "
+    "bed, and call it only a noise from the foot of the bed"
+)
 
 
 def _cuts_name_someone(prompt: str) -> list[str]:
