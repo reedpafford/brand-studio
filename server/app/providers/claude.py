@@ -40,20 +40,25 @@ class ClaudeProvider:
         """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}, and for a
         check that looks at pictures, "files": {"reference_images": [file ids]}, sent as data
         URLs. With "parts" (e.g. clip prompts, a few clips each), each part is asked on its
-        own after the shared prompt, so no answer runs out of room, up to PARALLEL at once
-        (each sees only the shared prompt, never another part's answer), and their lists are
+        own after the shared prompt, so no answer runs out of room: the first alone (it writes
+        the shared prompt's cache), then the rest up to PARALLEL at once, reading it (each sees
+        only the shared prompt, never another part's answer), and their lists are
         joined in part order; a part that fails is listed in "failed_parts" ({part, error}) and
         the rest are kept. All of them failing fails the job."""
         parts = input.get("parts") or [""]
 
         def one(part: str):
             try:
-                return self._ask(input, f"{input['prompt']}\n{part}" if part else input["prompt"])
+                if not part:
+                    return self._ask(input, input["prompt"])
+                return self._ask(input, part, shared=input["prompt"])
             except (ClaudeError, NotStarted, NetworkError) as exc:
                 return exc
 
-        with ThreadPoolExecutor(max_workers=min(PARALLEL, len(parts))) as pool:
-            answers = list(pool.map(one, parts))  # in part order, whichever finished first
+        answers = [one(parts[0])]  # alone first: it writes the shared prompt's cache
+        if rest := parts[1:]:
+            with ThreadPoolExecutor(max_workers=min(PARALLEL, len(rest))) as pool:
+                answers += pool.map(one, rest)  # in part order, whichever finished first
         output: dict = {}
         failed, cost, unasked = [], Decimal(0), []
         for i, answer in enumerate(answers):
@@ -76,7 +81,7 @@ class ClaudeProvider:
             output["failed_parts"] = failed
         return Result("succeeded", output=output, usage=usage)
 
-    def _ask(self, input: dict, prompt: str):
+    def _ask(self, input: dict, prompt: str, shared: str = ""):
         client = self._client or make_client(self._key)
         try:
             return ask(
@@ -86,6 +91,7 @@ class ClaudeProvider:
                 schema=SCHEMAS[input["step"]],
                 effort=input.get("effort", "high"),
                 images=(input.get("input") or {}).get("reference_images", []),
+                shared=shared,
                 **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
         except (

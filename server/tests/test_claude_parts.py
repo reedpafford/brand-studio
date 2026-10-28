@@ -22,7 +22,7 @@ def _answer(clip: str, cost: str = "0.01"):
 
 def _provider(ask) -> ClaudeProvider:
     provider = ClaudeProvider("k", client=object())
-    provider._ask = lambda input, prompt: ask(prompt.rsplit("\n", 1)[-1])
+    provider._ask = lambda input, prompt, shared="": ask(prompt)
     return provider
 
 
@@ -88,3 +88,21 @@ def test_busy_or_lost_raise_only_when_nothing_was_answered_or_billed():
 
     result = _provider(some).run("write", INPUT | {"parts": ["c1", "c2"]})
     assert result.output["failed_parts"] == [{"part": 1, "error": "busy"}]
+
+
+def test_the_first_part_is_asked_alone_so_the_rest_read_its_cache():
+    """QA and the Producer: asked together, every part would write the shared prompt's
+    cache; the first part goes alone and finishes before the others start."""
+    times, lock = {}, threading.Lock()
+
+    def ask(part):
+        start = time.monotonic()
+        time.sleep(0.05)
+        with lock:
+            times[part] = (start, time.monotonic())
+        return _answer(part)
+
+    _provider(ask).run("write", INPUT | {"parts": ["c1", "c2", "c3"]})
+    first_end = times["c1"][1]
+    assert all(times[p][0] >= first_end for p in ("c2", "c3"))
+    assert times["c3"][0] < times["c2"][1]  # the rest still overlap

@@ -60,7 +60,9 @@ def test_clip_prompts_written_checked_and_edited(app, db, editor, setup):  # noq
     fake = FakeClaude(_answer(mom, setup["screen"], _prompt()))
     _run(app, db, fake)
     assert db.get(Job, job.json()["id"]).status == "succeeded"
-    message = fake.requests[0]["messages"][0]["content"]
+    blocks = fake.requests[0]["messages"][0]["content"]  # the cached shared prompt, then a part
+    message = "\n".join(b["text"] for b in blocks)
+    assert blocks[0]["cache_control"] == {"type": "ephemeral"}
     assert "<video_model>Seedance 2.5" in message and f"voice:{mom} | voice sample | Mom" in message
 
     clips = editor.get(url).json()
