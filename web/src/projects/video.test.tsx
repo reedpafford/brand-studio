@@ -408,6 +408,37 @@ test("Undo after a clip change goes back to the take that was picked when Change
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/takes/1/pick")).toBe(true));
 }, 20000);
 
+test("a clip change that didn't finish says the server's words, keeps the note in the box, and Try again sends it again", async () => {
+  setViewport(390);
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51, change: { note: "Slower, warmer light", job_id: 876, status: "failed", error: "That change didn't finish. Nothing was charged." } })]],
+    "GET /projects/9/clips/3/change": [200, { credits: 27 }],
+    "POST /projects/9/clips/3/change": [201, { id: 9, kind: "write-claude", status: "queued", credits: 27 }],
+  });
+  open("?step=clips");
+  expect(await screen.findByText("That change didn't finish. Nothing was charged.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Change this… c1")).toHaveValue("Slower, warmer light");
+  expect(screen.queryByText(/Ask the owner/)).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Try again · 27 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/change")?.body).toEqual({ note: "Slower, warmer light" }));
+});
+
+test("Changing… stops when its rewrite job has failed, even while the clip still says changing", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51, change: { note: "Slower", job_id: 876, status: "changing" } })]],
+    "GET /projects/9/clips/3/change": [200, { credits: 27 }],
+    "GET /jobs/876": [200, { id: 876, kind: "write-claude", project_id: 9, credits: 6, status: "failed", output: null, error: "Failed", created_at: "2026-10-28T10:00:00Z", finished_at: "2026-10-28T10:01:00Z" }],
+  });
+  open("?step=clips");
+  expect(await screen.findByText("That change didn't finish.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Changing…" })).toBeNull();
+  expect(screen.getByLabelText("Change this… c1")).not.toHaveAttribute("readonly");
+  expect(screen.getByRole("button", { name: "Try again · 27 credits" })).toBeEnabled();
+});
+
 const own = (o: object = {}) => asset({ ref: "slot:3", slot_id: 3, library_item_id: 12, own_look_id: 12, only_here: "video", role: "Coach", name: "Coach", sheet_status: "needs_approval", ...o });
 
 test("a look for this video only says so, is approved here with Undo, and is redrawn from a plain note at its price", async () => {

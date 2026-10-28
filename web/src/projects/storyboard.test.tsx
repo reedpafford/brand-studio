@@ -84,6 +84,18 @@ test("Make still and Make all stills queue the image jobs and say Drawing…", a
   expect(await within(screen.getByLabelText("Frame c2")).findByText("Drawing…")).toBeInTheDocument();
 });
 
+test("a still that has waited a while to start says why in place of Drawing…", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ drawing: true })]],
+    "GET /jobs": [200, [{ id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9, created_at: new Date().toISOString(), waiting: "This hasn't started yet: the service that makes it isn't taking work right now. It's charged only if it runs." }]],
+  });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(await within(card).findByText(/isn't taking work right now/)).toBeInTheDocument();
+  expect(within(card).queryByText("Drawing…")).toBeNull();
+});
+
 test("a still whose job never shows in the jobs list stops saying Drawing… and can be made again", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   fakeServer({
@@ -463,6 +475,16 @@ test("a word the image model may refuse is advice: Draw it as is draws the still
   await userEvent.click(screen.getByRole("button", { name: /^Draw it as is/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/render")).toBe(true));
   expect(calls.some((c) => c.key.endsWith("/soften") || c.key.startsWith("PUT"))).toBe(false); // the prompt is unchanged
+});
+
+test("a still the image model refused says so plainly, and Draw it as is stands in for Make still", async () => {
+  // QA-2 on #697: the refusal hid in the closed Advice list, and Make still showed beside Draw it as is.
+  const refused = "Advice: the image model refused to draw this still, so nothing was charged. It may refuse a word here: soften it, or change the prompt.";
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ prompt: "Mia holds a knife", problems: [refused] })]] });
+  open();
+  expect((await screen.findAllByText(/the image model refused to draw this still/i)).some((e) => e.tagName === "P")).toBe(true);
+  expect(screen.getByRole("button", { name: /^Draw it as is/ })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Make still/ })).toBeNull();
 });
 
 test("a frame problem that is not about a refused word has no Soften it", async () => {

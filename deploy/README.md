@@ -221,7 +221,7 @@ docker compose up -d
 ```
 
 **Handy commands** (Web console, from `~/brand-studio/deploy`): `docker compose ps` (what's
-running), `docker compose logs --tail 50 api worker reel-worker caddy` (recent messages),
+running), `docker compose logs --tail 50 api worker claude-worker reel-worker caddy` (recent messages),
 `docker compose restart`. Deploy by hand: `git pull && docker compose up -d --build`, then, if
 `assets/brands/*/screens/screens.json` changed, `docker compose exec -T api python -m app.seed refresh`.
 Never delete `deploy/.env` on the server: it holds the database password.

@@ -131,3 +131,23 @@ def test_only_people_who_speak_get_a_role_never_script_cues(db, owner):
     ])  # fmt: skip
     made = _make(owner, text=cues)
     assert _speakers(db, db.get(Script, made["id"])) == {"Mom": [0], "Nate": [0]}
+
+
+def test_a_read_after_variations_is_checked_against_the_versions_it_read(db, owner):
+    """QA-Live run 3: right after variations, B and C weren't approved yet, so every role
+    was stored with "version 1 doesn't exist"; and "The uncle" and "The bully" were "two
+    slots called The"."""
+    from app.script_cast_read import problems
+
+    made = _make(owner, text=SCRIPT)
+    owner.put(f"/scripts/{made['id']}/drafts/1", json={"text": SCRIPT})  # not approved
+    script = db.get(Script, made["id"])
+    row = {"description": "50s man, a teacher", "recurring": False, "kind": "Helper"}
+    job = Job(input={"step": "cast_slots", "script_id": script.id}, output={"slots": [
+        {**row, "role": "Nate", "appears_in": [0, 1]},
+        {**row, "role": "Mom", "appears_in": [0, 1]},
+        {**row, "role": "The uncle", "appears_in": [1]},
+        {**row, "role": "The bully", "appears_in": [1]},
+    ]})  # fmt: skip
+    found = problems(db, script, job)
+    assert not [p for p in found if "doesn't exist" in p or "called The" in p], found

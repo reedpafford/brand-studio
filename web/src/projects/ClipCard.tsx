@@ -56,7 +56,7 @@ export function ClipCard(props: {
   aspect: string;
   poster: number | null;
   projectName: string;
-  job: { status: string; created_at: string; error?: string | null } | undefined;
+  job: { status: string; created_at: string; error?: string | null; waiting?: string } | undefined;
   busy: boolean;
   blockers: Blocker[];
   toRead: boolean;
@@ -108,6 +108,7 @@ export function ClipCard(props: {
         </span>
       </div>
       {failed && props.job?.error && <p role="status" className="text-sm text-danger">{props.job.error}</p>}
+      {props.job?.waiting && <p role="status" className="text-sm text-muted">{props.job.waiting}</p>}
       {c.take_warning && !props.busy && <p role="status" className="text-sm text-warning">{c.take_warning}</p>}
       <div className="grid place-items-center overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: ratio(props.aspect), maxHeight: "24rem" }}>
         {c.file_id ? (

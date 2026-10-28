@@ -251,3 +251,46 @@ def test_a_job_waiting_a_while_to_start_says_why_plainly(db, user, owner):
     job.created_at -= timedelta(minutes=11)
     db.commit()
     assert owner.get(f"/jobs/{job.id}").json()["waiting"] == WAITING
+
+
+class SlowClaude:
+    """Claude's place: answers in the same call; records when it was asked."""
+
+    name, paid, sync = "claude", False, True
+
+    def __init__(self):
+        self.asked = []
+
+    def run(self, kind, input):
+        from app.providers import Result
+
+        self.asked.append(kind)
+        return Result("succeeded", output={})
+
+
+def test_long_claude_jobs_never_hold_up_a_still(db, user):
+    """Producer, 2026-10-28: Reed's 9 stills waited 6 minutes behind three Claude breakdowns,
+    because one worker ran every job in turn. Claude has its own worker lane, so the stills'
+    lane hands them to the image service at once, whatever Claude has queued."""
+    claude, images = SlowClaude(), FakeProvider(polls_until_done=10)
+    jobs = [enqueue(db, user, "write-claude", {}, provider="claude") for _ in range(2)]
+    still = enqueue(db, user, "image", {}, provider="replicate")
+    run_once(db, {"claude": claude, "replicate": images}, only={"replicate"})  # stills' lane
+    db.refresh(still)
+    assert still.status == JobStatus.running and images.submitted  # started at once
+    assert claude.asked == [] and all(db.get(type(j), j.id).status == "queued" for j in jobs)
+    run_once(db, {"claude": claude, "replicate": images}, only={"claude"})  # Claude's lane
+    assert claude.asked == ["write-claude", "write-claude"]
+
+
+def test_deploy_gives_claude_stills_and_reel_prep_a_worker_each():
+    """Each provider is taken by exactly one worker lane, and Claude's is its own."""
+    import json
+    import re
+
+    from app.settings import REPO_ROOT
+
+    compose = (REPO_ROOT / "deploy/docker-compose.yml").read_text()
+    lanes = [json.loads(m) for m in re.findall(r"BS_WORKER_PROVIDERS: '(\[.*?\])'", compose)]
+    taken = [p for lane in lanes for p in lane]
+    assert sorted(taken) == ["claude", "fake", "local", "replicate"] and ["claude"] in lanes

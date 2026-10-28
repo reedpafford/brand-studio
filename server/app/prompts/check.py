@@ -282,7 +282,9 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                     )
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
-            said = [_exact(q) for q in QUOTED.findall(c.prompt)]
+            # A Summary or Keep line quoting a line doesn't say it a second time (QA-Live run 3).
+            spoken = [x for x in c.prompt.splitlines() if not x.startswith(("Summary: ", "Keep: "))]
+            said = [_exact(q) for q in QUOTED.findall("\n".join(spoken))]
             line = _exact(shot.line or "")
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
@@ -505,13 +507,21 @@ STAR = re.compile(r"^★ .*?(?:screen|product): (.+?)(?: — .*)?$")  # "★ fom
 LOOSE = re.compile(r"^(#|\*\*|- |\* |Title:|Premise:|Variation )")  # markdown, not house format
 
 
+LENGTH = re.compile(  # "45 s", "45s", "30 seconds", "1.5 minutes"; never a decade ("a 90s style")
+    r"(\d+(?:\.\d+)?)\s*(?:(s|secs?|seconds)|(mins?|minutes?))\b"
+    r"(?!\s+(?:style|vibe|look|era|music|aesthetic|throwback)\b)",
+    re.I,
+)
+
+
 def asked_seconds(note: str) -> int | None:
-    """The length a variations note asks for, in seconds ("about 45 s", "1 minute"), or None."""
-    if m := re.search(r"(\d+)\s*(?:s|secs?|seconds)\b", note, re.I):
-        return int(m[1])
-    if m := re.search(r"(\d+)\s*(?:mins?|minutes?)\b", note, re.I):
-        return int(m[1]) * 60
-    return None
+    """The length a variations note asks for, in seconds: the last one it names ("keep the 10 s
+    montage but make it 30 seconds" is 30), or None."""
+    found = list(LENGTH.finditer(note))
+    if not found:
+        return None
+    m = found[-1]
+    return round(float(m[1]) * (60 if m[3] else 1))
 
 
 def variations(
@@ -621,7 +631,8 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
             problems.append(f"{ADVICE}{role}: the description doesn't say their {' or '.join(who)}")
         if BACKGROUND.search(role):
             problems.append(f"{ADVICE}{role}: sounds like background people, who are never cast")
-        name = re.split(r"[ ,(]", role.strip(), maxsplit=1)[0]
+        bare = re.sub(r"^(the|a|an)\s+", "", role.strip(), flags=re.I)  # "The uncle": uncle
+        name = re.split(r"[ ,(]", bare, maxsplit=1)[0]
         named = rf"\b{re.escape(name)}\b"
         part = re.sub(r"\([^)]*\)", "", role.split(",", 1)[-1]).split()  # "Nate's rich friend"
         noun = rf"\b{re.escape(part[-1])}\b" if "," in role and part else named
@@ -646,12 +657,15 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
 
 def reference_lines(script: str, reel: list[str], new_lines: bool = False) -> list[str]:
     """When a draft adapts a reference with new_lines off, every reel line stays word for word
-    (Reed, #271). Advice lists each one changed or missing, so the editor can see the swap."""
+    (Reed, #271). Advice lists each one changed or missing, so the editor can see the swap.
+    Words only: the reel's lines are its transcript's chunks, whose case and punctuation
+    rarely match the script's (QA-Live run 3: every line was flagged)."""
     if new_lines:
         return []
-    said = _plain("\n".join(re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M)))
+    spoken = re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M)
+    said = f" {_words(_straight(' '.join(spoken)))} "
     return [f"{ADVICE}the reel's line “{x}” is changed or missing"
-            for x in reel if _plain(x) not in said]  # fmt: skip
+            for x in reel if f" {_words(_straight(x))} " not in said]  # fmt: skip
 
 
 def _plain(text: str) -> str:

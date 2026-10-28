@@ -533,6 +533,11 @@ def test_an_adapted_draft_keeps_the_reels_lines_unless_new_lines_is_on():
     assert check.reference_lines(swapped, reel, new_lines=True) == []
     curly = "NATE: Sorry, I’m  fully booked."  # a phone's apostrophe and a double space
     assert check.reference_lines(curly, ["Sorry, I'm fully booked."]) == []
+    # QA-Live run 3: the reel's lines are transcript chunks, cut across the script's lines,
+    # in their own case and punctuation; kept words are never flagged.
+    script = "NATE: Bro, you trade? Teach me!\nKIMCHI: Download fomo."
+    assert check.reference_lines(script, ["bro you trade teach me", "Download fomo"]) == []
+    assert check.reference_lines(script, ["bro you sell"]) != []
 
 
 def test_a_redo_note_never_changes_what_is_said():
@@ -1208,6 +1213,15 @@ def test_no_numeric_rhythm_rules_are_left():
             assert gone not in text, (step, gone)
 
 
+def test_a_camera_swap_is_staged_as_one():
+    """Reed, QA-Live Run 3: the double CTA's camera swap read as a cut, not a flip."""
+    assert "a whip pan or a flip into a front-facing selfie angle" in prompts.system("breakdown")
+    clip = prompts.system("clip_prompts")
+    assert "Whip pan into a front-facing selfie angle" in clip
+    assert "never a plain cut to him holding the phone up" in clip
+    assert "the bag for a product brand" in prompts.system("breakdown")  # brand-generic
+
+
 def test_the_story_agrees_with_the_real_balance_and_variations_take_a_length():
     """QA-Live Run 3: the real Home screen's $348,920.15 at the CTA against a story that said
     $14,800; and "about 45 s" in a variations note came out at 60 s."""
@@ -1224,6 +1238,10 @@ def test_a_requested_length_is_what_the_variations_length_advice_checks():
     words = check.spoken_words(v.script)
     assert check.asked_seconds("Make it about 45 s, punchier") == 45
     assert check.asked_seconds("a 1 minute cut") == 60 and check.asked_seconds("funnier") is None
+    assert check.asked_seconds("about 1.5 minutes") == 90  # QA on #700
+    assert check.asked_seconds("a 90s style, funnier") is None
+    assert check.asked_seconds("keep the 10 s montage but make it 30 seconds") == 30
+    assert check.asked_seconds("make it 45s") == 45
     fits = round(words / 2)  # seconds this variation's words fit
     ok = check.variations(original, result, {}, end, [], 1, [], "fomo", note=f"about {fits} s")
     assert not [p for p in ok if "spoken words" in p or "words in all" in p]
@@ -1270,3 +1288,18 @@ def test_the_free_fix_never_drops_a_lip_sync_note():
     before = "\n".join([*lines[:-2], note, *lines[-2:]])
     back = _kept_voiceover(clip, before).prompt.splitlines()
     assert back[-3:] == [note, *lines[-2:]] and _kept_voiceover(clip, clip.prompt) == clip
+
+
+def test_a_summary_quoting_a_line_doesnt_count_it_twice():
+    """QA-Live run 3, clip 4: "Teach me!" was in its shot and quoted in the Summary line, so
+    "the line isn't there once" blocked a correct prompt."""
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    clip = cp.clips[0]
+    line = next(s.line for sc in bd.scenes for s in sc.shots if s.line and s.id in
+                next(c.shot_ids for c in bd.clips if c.id == clip.clip_id))  # fmt: skip
+    lines = clip.prompt.splitlines()
+    at = next(i for i, x in enumerate(lines) if x.startswith("Summary: "))
+    lines[at] += f' It ends on "{line}"'
+    clip.prompt = "\n".join(lines)
+    assert not [p for p in check.clip_prompts(logo_once(bd), cp, 30, 10) if "isn't there" in p]

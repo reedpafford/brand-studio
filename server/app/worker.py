@@ -6,7 +6,8 @@ Rules
   started (and charged for) the work, the job fails with a note and a person decides.
 - After a restart, running jobs with a provider reference are simply checked again.
 - `only` (BS_WORKER_PROVIDERS) splits the queue: a worker handles only those providers' jobs
-  and leaves the rest to another worker (e.g. slow local reel prep in a worker of its own).
+  and leaves the rest to another worker. Live, Claude (answers in the call, for minutes), the
+  image and video service (handed over, then checked on) and reel prep each have their own.
 """
 
 import base64
