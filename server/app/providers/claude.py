@@ -3,6 +3,7 @@
 errors are safe to retry; a dropped connection is treated as "unsure", like other paid work."""
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 
 import anthropic
@@ -11,6 +12,7 @@ from app.claude import ClaudeError, ask, make_client
 from app.prompts import SCHEMAS
 from app.providers import NetworkError, NotStarted, Result, UsageItem
 
+PARALLEL = 4  # parts asked at once (a clip prompt run's parts were asked one after another)
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")  # all but tab, newline, return
 
 
@@ -38,27 +40,35 @@ class ClaudeProvider:
         """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}, and for a
         check that looks at pictures, "files": {"reference_images": [file ids]}, sent as data
         URLs. With "parts" (e.g. clip prompts, a few clips each), each part is asked on its
-        own after the shared prompt, so no answer runs out of room, and their lists are
-        joined; a part that fails is listed in "failed_parts" ({part, error}) and the rest
-        are kept. All of them failing fails the job."""
+        own after the shared prompt, so no answer runs out of room, up to PARALLEL at once
+        (each sees only the shared prompt, never another part's answer), and their lists are
+        joined in part order; a part that fails is listed in "failed_parts" ({part, error}) and
+        the rest are kept. All of them failing fails the job."""
         parts = input.get("parts") or [""]
-        output: dict = {}
-        failed, cost = [], Decimal(0)
-        for i, part in enumerate(parts):
+
+        def one(part: str):
             try:
-                answer = self._ask(input, f"{input['prompt']}\n{part}" if part else input["prompt"])
-            except ClaudeError as exc:  # refused or cut off: still billed, so record the cost
-                failed.append({"part": i, "error": str(exc)})
-                cost += exc.cost_usd or 0
-                continue
-            except (NotStarted, NetworkError) as exc:
-                if not output and not failed:  # nothing asked yet: the worker's usual rules
-                    raise
-                failed.append({"part": i, "error": str(exc)})
-                continue
-            cost += answer.cost_usd
-            for key, value in clean(answer.parsed.model_dump()).items():
-                output[key] = output.get(key, []) + value if isinstance(value, list) else value
+                return self._ask(input, f"{input['prompt']}\n{part}" if part else input["prompt"])
+            except (ClaudeError, NotStarted, NetworkError) as exc:
+                return exc
+
+        with ThreadPoolExecutor(max_workers=min(PARALLEL, len(parts))) as pool:
+            answers = list(pool.map(one, parts))  # in part order, whichever finished first
+        output: dict = {}
+        failed, cost, unasked = [], Decimal(0), []
+        for i, answer in enumerate(answers):
+            if isinstance(answer, ClaudeError):  # refused or cut off: still billed
+                failed.append({"part": i, "error": str(answer)})
+                cost += answer.cost_usd or 0
+            elif isinstance(answer, (NotStarted, NetworkError)):
+                failed.append({"part": i, "error": str(answer)})
+                unasked.append(answer)
+            else:
+                cost += answer.cost_usd
+                for key, value in clean(answer.parsed.model_dump()).items():
+                    output[key] = output.get(key, []) + value if isinstance(value, list) else value
+        if len(unasked) == len(parts):  # nothing answered or billed: the worker's usual rules
+            raise next((e for e in unasked if isinstance(e, NetworkError)), unasked[0])
         usage = [UsageItem(Decimal(1), "call", cost)] if cost else []
         if len(failed) == len(parts):
             return Result("failed", error="; ".join(f["error"] for f in failed), usage=usage)
