@@ -477,6 +477,24 @@ test("Assets waits for its list and the brand's products: no 0 assets, no Not in
   expect(screen.queryByText("Loading assets…")).toBeNull();
 });
 
+test("after Approve, the Assets list read again keeps its counts: no Loading assets… flash", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ sheet_file_id: 71 })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach" })], "POST /library/character/12/sheet/approve": [200, {}] });
+  const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation()!;
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    if (new URL(req.url).pathname.endsWith("/projects/9/assets") && ++reads > 2) await new Promise(() => {}); // the read after Approve never lands
+    return inner(req.clone(), init);
+  }));
+  open();
+  expect(await screen.findByText("1 asset · 0 approved")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
+  await vi.waitFor(() => expect(reads).toBeGreaterThan(2));
+  expect(screen.getByText("1 asset · 0 approved")).toBeInTheDocument();
+  expect(screen.queryByText("Loading assets…")).toBeNull();
+});
+
 const own = (o: object = {}) => asset({ ref: "slot:3", slot_id: 3, library_item_id: 12, own_look_id: 12, only_here: "video", role: "Coach", name: "Coach", sheet_status: "needs_approval", ...o });
 
 test("a look for this video only says so, is approved here with Undo, and is redrawn from a plain note at its price", async () => {
