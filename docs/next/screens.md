@@ -48,8 +48,8 @@ A song script carries a **Song** badge everywhere it's listed (Library card, In 
 The first step of a song script. Header, step picker, Back/Next as the Script step today. Steps for a song: **Song · Takes · Cast · Breakdown · Publish**.
 
 ### What's on it
-- **Lyrics** box (Courier Prime, as scripts are). Helper: "Sung exactly as written. [Verse] and [Chorus] tags are fine." Counter "0 / 5,000".
-- **Style** one line. Helper: "Genre, voice, speed and feel, e.g. pop, female lead, 120 BPM, upbeat." Pre-filled from the brand's music style when it has one (brand setup, step 3); empty until then. Counter "0 / 200" (limit to agree with Next-Server).
+- **Lyrics** box (Courier Prime, as scripts are). Helper: "Sung exactly as written. [Verse] and [Chorus] tags are fine." Counter "0 / 3,500" (the music model's limit).
+- **Style** one line. Helper: "Genre, voice, speed and feel, e.g. pop, female lead, 120 BPM, upbeat." Pre-filled from the brand's music style when it has one (brand setup, step 3); empty until then. Counter "0 / 2,000"; the helper suggests keeping it to one line.
 - **Write 2 song directions for me · 3 credits** (secondary) with the line "From About and the brand. You pick one; nothing is sung yet."
 - **About this script** (closed), as today: title, what it's for, notes. Directions are written from it.
 
@@ -94,17 +94,17 @@ The first step of a song script. Header, step picker, Back/Next as the Script st
 ### States
 | State | What's on it | The one press |
 |---|---|---|
-| **No takes yet** | Empty card: "Make the song. You get 2 takes and pick one." plus the likely length. | Amber **Make 2 takes · up to N credits** (the price depends on the length; the meta line under it says "Usually M. Anything not used comes back.", and the charge never goes over N). Disabled with reason if lyrics or style are missing ("Write or pick the lyrics first", with **Back to Song**). |
+| **No takes yet** | Empty card: "Make the song. You get 2 takes and pick one." plus the likely length. | Amber **Make 2 takes · 3 credits** (a take has one price whatever its length: 1.46 credits, shown rounded up). Disabled with reason if lyrics or style are missing ("Write or pick the lyrics first", with **Back to Song**). |
 | **Making** | Two placeholder cards in the final layout with "Making the song… 0:42" (count-up). "You can leave this page; it carries on." Amber shows **Making…** (busy, not disabled-looking). | None needed. |
-| **Stopped by a restart** | "The song stopped when the server restarted. Nothing was charged." Any good takes from before stay above. | **Try again · up to N credits**. |
-| **Both made** | Two players. The first is **Preferred** unless Next-Server marks another. | Amber **Next: Cast**. **Make this Preferred** on the other; **Make 2 more · up to N credits** (secondary). |
-| **One made, one failed** | The good take plays and is Preferred. The failed card: "Take 2 didn't finish. Its credits were returned." **Try again · up to N credits** (if a single take can be made; else it rides **Make 2 more**). | Amber **Next: Cast** (one good take is enough). |
-| **Both failed** | Banner: "The song didn't finish. Credits were returned." plus the reason in plain words when the provider gives one. **Try again · up to N credits**. Old good takes (if any) stay above, still Preferred. | **Try again**. |
+| **Stopped by a restart** | "The song stopped when the server restarted. Nothing was charged." Any good takes from before stay above. | **Try again · N credits**. |
+| **Both made** | Two players. The first is **Preferred** unless Next-Server marks another. | Amber **Next: Cast**. **Make this Preferred** on the other; **Make 2 more · N credits** (secondary). |
+| **One made, one failed** | The good take plays and is Preferred. The failed card: "Take 2 didn't finish. Its credits were returned." **Try again · N credits** (if a single take can be made; else it rides **Make 2 more**). | Amber **Next: Cast** (one good take is enough). |
+| **Both failed** | Banner: "The song didn't finish. Credits were returned." plus the reason in plain words when the provider gives one. **Try again · N credits**. Old good takes (if any) stay above, still Preferred. | **Try again**. |
 | **Refused by the music model** | Banner: "The music model wouldn't make this: {reason}. Nothing was charged." When the provider names the line (a lyric line, or a style line that names an artist), that line is quoted. | **Edit lyrics** or **Edit style**, whichever the reason names (both when it names neither); each opens S2 with that box open. |
-| **A line isn't sung** | The take drops or repeats a lyric line (found from the free word timing). On the card: "Line 4 isn't sung in this take." (or "Line 4 is sung twice"). Block or Advice is for flows.md; this plan treats it as Advice on that take. | **Make this Preferred** on the other take when it sings every line; else **Make 2 more · up to N credits**. |
+| **A line isn't sung** | The take drops or repeats a lyric line (found from the free word timing). On the card: "Line 4 isn't sung in this take." (or "Line 4 is sung twice"). Block or Advice is for flows.md; this plan treats it as Advice on that take. | **Make this Preferred** on the other take when it sings every line; else **Make 2 more · N credits**. |
 | **Long, under the cap** | Advice under the card: "This take is 1:12, about 78 credits to make the video. Shorter lyrics make a shorter song." | Amber still **Next: Cast**. |
 | **Over the per-video cap** (rule 3) | The Preferred take would make a video over 729 credits: amber **Next: Cast** disabled, reason "This take makes a video of about 812 credits; the most is 729." A shorter take, if there is one, says "Fits". | **Edit lyrics** (shorter), or **Make this Preferred** on a take that fits. |
-| **Out of date** | After the lyrics or style changed: each old take has an **Out of date** badge (kept, still plays). | Amber **Make 2 takes for the new lyrics · up to N credits**. Next is disabled: "Make takes of the new lyrics first". |
+| **Out of date** | After the lyrics or style changed: each old take has an **Out of date** badge (kept, still plays). | Amber **Make 2 takes for the new lyrics · N credits**. Next is disabled: "Make takes of the new lyrics first". |
 | **Preferred switched after Breakdown** | Toast: "Take 2 is Preferred. The breakdown was timed to Take 1, so it's out of date." **Undo**. | Next: Cast; Breakdown then shows Out of date (S5). |
 | **Allowance** | Editor's own script over the week: amber **Make 2 takes** (or **Make 2 more**) disabled, reason "That's more than this week's 145 credits. It resets on Monday." Reed: plain button. | With takes already made: **Next: Cast** with the takes there. With none: **Back to Song** (the lyrics stay saved; the takes can be made from Monday). |
 | **Published** (the script) | Players only, no Make. The Preferred take here is the default each new video starts from. | **Next: Cast**. |
@@ -115,7 +115,7 @@ The first step of a song script. Header, step picker, Back/Next as the Script st
 Lyrics are final at publish. The Preferred take, Sung/B-roll, re-timing and new takes are the editor's choices **per video**; the script and other videos never change.
 - Where: a **Song** row at the top of the video's Breakdown: the Preferred take's player, "Take 2 · 0:31", and **Change song** (secondary). Desktop opens it as a side panel; 390 as a full-height sheet with a 44px **Close** at the top. Inside: the S3 take cards, without lyric editing.
 - **Make this Preferred** on another take: toast "Take 1 is this video's song now. The breakdown is out of date." with **Undo**. Only this video's Breakdown, Storyboard, Clips and Downloads go Out of date (old stills and takes are kept).
-- **Make 2 more · up to N credits**: charged to this video's budget (library version) or the editor's week (own script). Over either, the button is disabled with the reason, never "Ask Reed": "That's more than this video's budget." / "That's more than this week's 145 credits. It resets on Monday." The way on is the takes already there.
+- **Make 2 more · N credits**: charged to this video's budget (library version) or the editor's week (own script). Over either, the button is disabled with the reason, never "Ask Reed": "That's more than this video's budget." / "That's more than this week's 145 credits. It resets on Monday." The way on is the takes already there.
 - A new take whose video would go over the 729 cap shows "Too long for this video" and its **Make this Preferred** is disabled with that reason; the current take stays. Since lyrics can't change here, there's no Edit lyrics in a video.
 - Failures, restarts and refusals: as S3, but a refusal of a published song's lyrics offers only the other takes (lyrics are final) and says so.
 
@@ -146,7 +146,7 @@ As today. One difference: the cast is read from the lyrics plus the visual conce
 | **Problems** | As today ("Fix the 2 problems first"), each with its one-click fix. New ones:<br>• a shot that cuts mid-word ("Shot 4 ends in the middle of 'tonight'.") → **Move to the beat** (free);<br>• a shot that crosses a place or time change (rule 29) → **Split at the place change** (free);<br>• a Sung shot longer than the video model can lip-sync in one clip ("Shot 2 is sung for 14 s; one clip holds 10 s.") → **Split at a beat** (free);<br>• a Sung shot whose singer has no role with a look ("Shot 3 is Sung, but nobody sings in it.") → **Pick the singer** (choose a cast role, free) or **Make it B-roll** (free). The look's approval itself is checked at Assets and blocks Storyboard as today (rule 8), with its one-click way to Assets. | The fix button on each problem. |
 | **Advice** | Closed list, never blocks: "No Sung shot. The hero never sings." **Mark the hook Sung**; "The song doesn't end on the brand (rule 18)." | — |
 | **Out of date (song changed)** | Banner: "Timed to Take 1. Take 2 is Preferred now." Shots kept, dimmed badge **Out of date**. | Amber **Make it again for Take 2 · N credits**; secondary **Go back to Take 1** (free, sets Preferred back). |
-| **Timing failed** | "Couldn't read the song's timing. Nothing was charged." The timing gives the same answer for the same file, so a retry alone may not help. | **Use Take 1** (the other take, free) when there is one; else **Make 2 more takes · up to N credits**. **Try again** (free) stays as a secondary, for a failure the server marks as passing (a restart, say). |
+| **Timing failed** | "Couldn't read the song's timing. Nothing was charged." The timing gives the same answer for the same file, so a retry alone may not help. | **Use Take 1** (the other take, free) when there is one; else **Make 2 more takes · N credits**. **Try again** (free) stays as a secondary, for a failure the server marks as passing (a restart, say). |
 | **Making failed** | As today: "The shots didn't finish. Credits were returned." | **Try again · N credits**. |
 | **Read-only** (the published script's own preview) | Switches shown as text badges. Each video makes its own choices. | Next. |
 
@@ -207,17 +207,17 @@ The version panel gets the Preferred take's player and its length ("Song · 0:31
 | Where | Field | Used by |
 |---|---|---|
 | Script | `kind: "story" \| "song"` | S1, the Song badge, which steps show |
-| Script version | `style_line` (and its limit) | S2 |
+| Script version | `style_line` (up to 2,000); lyrics up to 3,500 | S2 |
 | Brand | `music_style` (may be empty) | S2 pre-fill |
 | Directions | job + 2 options: `title, concept, lyrics, style_line, visual_concept, recommended, unchecked_claims[]`; estimate | S2a |
-| Song takes | list per version: `id, number, file_id, seconds, made_at, preferred, out_of_date, status, failed_reason`; make (2) with estimate; make one; set preferred (with undo); delete (with undo) | S3 |
+| Song takes | list per version (and per video: `project_id`, null for the script's own): `id, number, file_id, seconds, made_at, preferred, out_of_date, status (making, timing, ready, failed, timing_failed), failed_reason, peaks`; make (2) with estimate; make one; set preferred (with undo); delete (with undo) | S3 |
 | Song take waveform | a small array of peaks (e.g. 200 numbers) so the strip draws without decoding the file on a phone | S3, S5 |
 | Breakdown shot | `start, end` (seconds in the song), `sung: bool`, `lyric` (the words sung in it), made-from take id | S5, S6, S7 |
 | Breakdown | `song_take_id` it was timed to, so "Out of date" is decided by the server | S5 |
 | Clip | `song_slice: {start, end} \| null` | S7 |
 | Video (project) | `song_take_id` (this video's Preferred, starts as the script's); takes made in a video belong to that video only; make/set-preferred routes on the video, charged to its budget or the editor's week | S3e, S9 |
 | Final video | `song_take_id` | S8 |
-| Jobs | step names for directions, song takes, timing; refusal reason in plain words | all waiting and failed states |
+| Jobs | steps `song_directions`, `song_take`, `song_timing`; refusal reason in plain words | all waiting and failed states |
 
 ## Questions for Next-Lead (answer in flows.md)
 1. Do Directions (camera suggestions) and Variations (B/C versions) show for a song? This plan hides both.
