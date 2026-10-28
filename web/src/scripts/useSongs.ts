@@ -6,7 +6,7 @@ import { useToast } from "../toast";
 export type SongTake = components["schemas"]["SongTakeOut"];
 const BUSY: SongTake["status"][] = ["making", "timing"];
 
-/** A song script version's takes (song ads, flows S4), asked again every 3 s while one is being made or timed. */
+/** A song script version's takes (song ads, flows S4; one request makes 2), asked again every 3 s while one is being made or timed. */
 export function useSongs(scriptId: number, enabled = true) {
   return useQuery({
     enabled,
@@ -33,7 +33,7 @@ export function useSongActions(scriptId: number) {
   const take = (id: number) => ({ params: { path: { take_id: id } } });
 
   const make = useMutation({
-    mutationFn: (count: 1 | 2 = 2) => ok(api.POST("/scripts/{script_id}/drafts/{slot}/songs", { params: { path: { script_id: scriptId, slot: 0 } }, body: { count } })),
+    mutationFn: () => ok(api.POST("/scripts/{script_id}/drafts/{slot}/songs", { params: { path: { script_id: scriptId, slot: 0 } } })),
     onSuccess: (data) => {
       queryClient.setQueryData(["songs", scriptId], data);
       return refresh();

@@ -16,7 +16,7 @@ const song = (o: object = {}, v: object = {}) => ({
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
 const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, ...o });
-const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, take_credits: 1.46, estimate_credits: 2.92, takes, ...o });
+const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, takes, ...o });
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
 
 function open(path: string) {
@@ -44,13 +44,13 @@ test("New script → Song makes a song draft that opens on its Song step: five s
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song" }));
   expect(await screen.findByLabelText("Lyrics")).toHaveValue("");
   const steps = screen.getByRole("list", { name: "Steps" });
-  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Song", "Takes", "Cast", "Breakdown", "Publish"]);
+  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Song", "Takes", "Cast", "Plan", "Publish"]);
   expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write or pick the lyrics first");
   expect(screen.getByRole("button", { name: "Next: Takes" })).toBeDisabled();
   expect(screen.getByLabelText("Style")).toHaveAttribute("placeholder", "pop, female lead, 120 BPM, upbeat, modern polished");
 });
 
-test("lyrics: the sung length counts words not tags; over 3,500 characters says how many to cut and keeps the words; Save sends lyrics and style", async () => {
+test("lyrics: the sung length counts words not tags; over 5,000 characters says how many to cut and keeps the words; Save sends lyrics and style", async () => {
   setViewport(1440);
   const empty = song({}, { text: "", style_line: "" });
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()], "PUT /scripts/7/drafts/0": [200, song()] });
@@ -59,10 +59,10 @@ test("lyrics: the sung length counts words not tags; over 3,500 characters says 
   await userEvent.click(box);
   await userEvent.paste("[Verse]\n" + "la ".repeat(25));
   expect(screen.getByText(/About 10 s sung · 25 words/)).toBeInTheDocument();
-  await userEvent.paste("x".repeat(3500));
+  await userEvent.paste("x".repeat(5000));
   expect(screen.getAllByText(/Cut \d+ characters/).length).toBeGreaterThan(0);
   expect(screen.getByRole("button", { name: "Save lyrics" })).toBeDisabled();
-  expect((box as HTMLTextAreaElement).value.length).toBeGreaterThan(3500); // the words stay
+  expect((box as HTMLTextAreaElement).value.length).toBeGreaterThan(5000); // the words stay
   await userEvent.clear(box);
   await userEvent.paste(LYRICS);
   await userEvent.type(screen.getByLabelText("Style"), "pop");
@@ -86,30 +86,38 @@ test("saved lyrics: Edit lyrics asks first when takes exist; Advice offers Sing 
   expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
 });
 
-test("Takes, empty: Make 2 takes shows its price and asks for 2; Cast stays locked until a take is Preferred", async () => {
+test("Takes, empty: Make 2 takes shows its price and makes one request; Cast stays locked until a take is Preferred", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs()], "POST /scripts/7/drafts/0/songs": [201, songs([take({ status: "making", file_id: null, seconds: null, made_at: null })])] });
   open("/b/1/scripts/7?step=takes");
   const steps = await screen.findByRole("list", { name: "Steps" });
   expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Make the song first");
-  await userEvent.click(screen.getByRole("button", { name: /Make 2 takes · 3 credits/ }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/songs")?.body).toEqual({ count: 2 }));
+  await userEvent.click(screen.getByRole("button", { name: /Make 2 takes · 1 credit/ }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /scripts/7/drafts/0/songs")).toHaveLength(1));
 });
 
-test("Takes: Preferred in words; one being made, one still being timed (can't be Preferred yet); a timing failure a retry won't fix offers the even spread and the other take", async () => {
+test("Takes: Preferred in words; one being made, one still being timed (can't be Preferred yet); a timing failure a retry won't fix offers the other take, not the even spread", async () => {
   setViewport(1440);
   const list = songs([take({ preferred: true }), take({ id: 2, number: 2, status: "timing" }), take({ id: 3, number: 3, status: "timing_failed", retry_helps: false, failed_reason: "This take's file can't be read, so its timing can't be measured." }), take({ id: 4, number: 4 }), take({ id: 5, number: 5, status: "making", file_id: null, seconds: null, made_at: null })]);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, list], "POST /songs/3/spread-timing": [200, take({ id: 3, number: 3, timing_guessed: true })] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, list] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("Preferred")).toBeInTheDocument();
-  expect(screen.getByText(/Making the song…/)).toBeInTheDocument();
+  expect(screen.getByText(/^Making…/)).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: "Make this Preferred" })[0]).toBeDisabled();
   expect(screen.getByText("This take's file can't be read, so its timing can't be measured.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
   expect(screen.getByRole("button", { name: "Make take 4 Preferred" })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Use timing spread evenly/ }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/3/spread-timing")).toBe(true));
+  expect(screen.queryByRole("button", { name: /Use timing spread evenly/ })).toBeNull(); // the file can't be read: spreading can't help
   expect(screen.getByRole("button", { name: "Next: Cast" })).toBeEnabled();
+});
+
+test("Takes: a timing failure a retry can help offers Use timing spread evenly (free) and Try again", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "timing_failed", failed_reason: "We couldn't read this song's timing. It's free to try again." })])], "POST /songs/1/spread-timing": [200, take({ timing_guessed: true })] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByRole("button", { name: /Try again · free/ })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Use timing spread evenly/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/1/spread-timing")).toBe(true));
 });
 
 test("Takes: the Preferred take can't be deleted and says why; another is deleted with Undo, which puts it back", async () => {
@@ -126,12 +134,12 @@ test("Takes: the Preferred take can't be deleted and says why; another is delete
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/2/restore")).toBe(true));
 });
 
-test("a failed take says why with Try again at one take's price; songs off says so instead of a Make button", async () => {
+test("a failed take says why with Try again at a request's price (both its takes are made again); songs off says so instead of a Make button", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "The music service wouldn't sing these lyrics. Nothing was charged." })], { songs_on: false })] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("The music service wouldn't sing these lyrics. Nothing was charged.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Try again · 2 credits/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Try again · 1 credit/ })).toBeInTheDocument();
   expect(screen.getByText("Songs aren't switched on here.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Make 2/ })).toBeNull();
 });

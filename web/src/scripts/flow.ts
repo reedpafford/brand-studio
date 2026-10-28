@@ -11,12 +11,12 @@ export const WRITING_STEPS = [
   { id: "publish", label: "Publish" },
 ] as const;
 
-/** A song script (song ads): the lyrics and style, the takes, then Cast, Breakdown and Publish as a story's. No Directions or Variations (flows S1–S7). */
+/** A song script (song ads): the lyrics and style, the takes, then Cast, Plan and Publish as a story's. No Directions or Variations (flows S1–S7). */
 export const SONG_STEPS = [
   { id: "song", label: "Song" },
   { id: "takes", label: "Takes" },
   { id: "cast", label: "Cast" },
-  { id: "breakdown", label: "Breakdown" },
+  { id: "breakdown", label: "Plan" }, // the owner's breakdown preview (flows, UX audit #749)
   { id: "publish", label: "Publish" },
 ] as const;
 

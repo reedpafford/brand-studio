@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Ellipsis, Music, RotateCcw, Trash2 } from "lucide-react";
 import { Badge, Banner, Button, Card, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { serverTime } from "../time";
@@ -22,13 +22,14 @@ function Making() {
   return (
     <div role="status" className="space-y-2">
       <Skeleton className="h-11" />
-      <p className="text-sm text-muted">Making the song…{n > 0 ? ` ${n} s` : ""}</p>
+      <p className="text-sm text-muted">Making…{n > 0 ? ` ${n} s` : ""}</p>
     </div>
   );
 }
 
 /** One take: its player, its state in words, and the press each state needs (flows S4). */
-function TakeCard({ t, a, prices, readOnly, others }: { t: SongTake; a: ReturnType<typeof useSongActions>; prices: { take: number }; readOnly: boolean; others: SongTake[] }) {
+/** A failed request is made again for both its takes, so Try again costs a whole request (`requestPrice`). */
+function TakeCard({ t, a, requestPrice, readOnly, others, makeMore }: { t: SongTake; a: ReturnType<typeof useSongActions>; requestPrice: number; readOnly: boolean; others: SongTake[]; makeMore: ReactNode }) {
   const label = `Take ${t.number}`;
   const otherReady = others.find((o) => o.status === "ready" && !o.out_of_date && !o.preferred);
   const preferBlock = t.status === "timing" ? "Reading the song's timing…" : t.out_of_date ? "This take sings older words." : null;
@@ -81,9 +82,9 @@ function TakeCard({ t, a, prices, readOnly, others }: { t: SongTake; a: ReturnTy
       {t.status === "timing" && <p role="status" className="text-sm text-muted">Reading the song's timing…</p>}
       {t.status === "failed" && (
         <div className="space-y-2">
-          <p role="alert" className={errorClass}>{t.failed_reason ?? "This take didn't finish. Credits were returned."}</p>
+          <p role="alert" className={errorClass}>{t.failed_reason ?? "Didn't finish · nothing charged."}</p>
           {!readOnly && t.retry_helps && (
-            <Button variant="secondary" icon={RotateCcw} price={prices.take} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+            <Button variant="secondary" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
               Try again
             </Button>
           )}
@@ -94,9 +95,13 @@ function TakeCard({ t, a, prices, readOnly, others }: { t: SongTake; a: ReturnTy
           <p role="alert" className={errorClass}>{t.failed_reason ?? "Couldn't read this take's timing. Nothing was charged."}</p>
           {!readOnly && (
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" busy={a.spread.isPending && a.spread.variables === t.id} onClick={() => a.spread.mutate(t.id)}>
-                Use timing spread evenly · free
-              </Button>
+              {/* Spread evenly and Try again work only when the file can be read; otherwise the other take, or more takes. */}
+              {t.retry_helps && (
+                <Button variant="secondary" busy={a.spread.isPending && a.spread.variables === t.id} onClick={() => a.spread.mutate(t.id)}>
+                  Use timing spread evenly · free
+                </Button>
+              )}
+              {!t.retry_helps && !otherReady && makeMore}
               {otherReady && (
                 <Button variant="secondary" onClick={() => a.prefer.mutate(otherReady.id)}>
                   Make take {otherReady.number} Preferred
@@ -154,7 +159,7 @@ export function TakesStep({ script: s }: { script: Script }) {
   const failed = a.make.isError && latest === a.make ? a.make.error.message : null;
   const make = (label: string, primary: boolean) => (
     <div className="space-y-1">
-      <Button variant={primary ? "primary" : "secondary"} icon={Music} price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={a.make.isPending} onClick={() => a.make.mutate(2)}>
+      <Button variant={primary ? "primary" : "secondary"} icon={Music} price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={a.make.isPending} onClick={() => a.make.mutate()}>
         {label}
       </Button>
       {failed && <p role="alert" className={errorClass}>{failed}</p>}
@@ -178,7 +183,7 @@ export function TakesStep({ script: s }: { script: Script }) {
           {!readOnly && takes.length > 0 && current.length === 0 && <Banner tone="warning" title="These takes sing older words.">Make 2 takes of the lyrics as they are now. The old ones stay playable.</Banner>}
           <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
             {takes.map((t) => (
-              <TakeCard key={t.id} t={t} a={a} prices={{ take: data.take_credits }} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} />
+              <TakeCard key={t.id} t={t} a={a} requestPrice={data.estimate_credits} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} makeMore={data.songs_on ? make("Make 2 more", false) : null} />
             ))}
           </div>
           {!readOnly && data.songs_on && make(current.length === 0 ? "Make 2 takes" : "Make 2 more", current.length === 0)}
