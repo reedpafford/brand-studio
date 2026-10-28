@@ -4,6 +4,15 @@ Every flow, step by step, with every state. Nothing on Next is built before its 
 
 Sources: the spec (`docs/research/starpop-2026-10-28/spec.md`), Reed's changes (`ops/NEXT.md`), the Current rules (`ops/DECISIONS.md`). Where this file decides something the spec left open, it says **Decided here** and the Producer can overturn it.
 
+## Names and words (from the UX audit, docs/next/ux-audit.md, #749)
+
+- **Owner, story:** Write → Cast → Plan → Publish. Directions sit in Write as a Suggestions panel, Variations as a Versions section, and "Approve the words" is in Write. Editing approved words asks first: "Edit version A? It goes back to draft. Approve the words again before Next. Roles already found are kept." (today's un-approve, said in advance).
+- **Owner, song:** Song → Takes → Cast → Plan → Publish, with no Suggestions or Versions panels.
+- **Editor:** Breakdown → Assets → Storyboard → Clips → Final cut. Clips has two lists on one step, **Prompts** (each prompt checked, "Prompt OK", rule 21) then **Takes** (make, pick, "Approve take"), with Approve all on both.
+- **One Video settings row** at the top of every video and on Make this version holds every per-video choice: shape, flavour, style, models, language, and for a song video the song ("Change song", V2a).
+- **State words, every step:** Waiting · Making… 0:42 · Ready to check · Approved · Didn't finish · nothing charged (or "credits returned" when they were held) · Refused, with its free fix (for a song: the style line or another take, never the words) · Out of date.
+- **Old links:** every old `/projects/…` address redirects to the same video in its new place, never a 404.
+
 ## How to read a step
 
 Each step has a table of states. Every state says **what the person sees** and **the one press that moves them on** (rule 22: never a dead end; editing a raw prompt is never the only way out). The states every step is checked for:
@@ -53,7 +62,7 @@ flowchart LR
     D --> L
     L --> M[S4 Takes: make the song, Preferred]
     M --> C[S5 Cast: who sings]
-    C --> BP[S6 Breakdown preview]
+    C --> BP[S6 Plan: breakdown preview]
     BP --> P[S7 Publish]
   end
   subgraph Editor["Editor: making the video"]
@@ -62,13 +71,13 @@ flowchart LR
     B --> A[V3 Assets]
     A --> SB[V4 Storyboard]
     SB --> CL[V5 Clips: Sung and B-roll]
-    CL --> DL[V6 Downloads: song underneath]
+    CL --> DL[V6 Final cut: song underneath]
   end
 ```
 
-Owner steps on a song script: **Song → Takes → Cast → Breakdown → Publish** (the names Next-Screens uses in docs/next/screens.md). "Write 2 song directions" is a button inside Song, not a step. Variations are not offered on a song script (they would rewrite the words); to try other lyrics, the owner duplicates the script. **Decided here.**
+Owner steps on a song script: **Song → Takes → Cast → Plan → Publish** (the names Next-Screens uses in docs/next/screens.md). "Write 2 song directions" is a button inside Song, not a step. Variations are not offered on a song script (they would rewrite the words); to try other lyrics, the owner duplicates the script. **Decided here.**
 
-Editor steps: the same five as a story video (**Breakdown → Assets → Storyboard → Clips → Downloads**).
+Editor steps: the same five as a story video (**Breakdown → Assets → Storyboard → Clips → Final cut**).
 
 ## S1. New script: choosing Song
 
@@ -178,7 +187,7 @@ As today's Cast step, with one addition: **the Singer**.
 | U | Changing the Singer after a breakdown preview marks it out of date (S6 S). | — |
 | P | As today. | — |
 
-## S6. Breakdown preview (owner, optional as today)
+## S6. Plan: breakdown preview (owner, optional as today)
 
 Same step as the editor's Breakdown (V2), made by the owner from the preferred take. If the owner skips it, it runs when the editor starts (as today), using the published preferred take.
 
@@ -210,9 +219,9 @@ As today. The price includes the song's Sung clips; the song is already paid.
 | B | "That's more than this week's N free credits…" (own script) or the video budget reason. | — |
 | Taken | "{name} is making this version." | — |
 
-## V2a. The song in this video (top of the editor's Breakdown)
+## V2a. The song in this video (in the Video settings row)
 
-A strip above the shots: the video's song (a player and its length) and **Change song**. The choice of take is the video's own (rule 31); the lyrics are not.
+In the video's settings row, shown again as a strip above the shots in Breakdown: the video's song (a player and its length) and **Change song**. The choice of take is the video's own (rule 31); the lyrics are not.
 
 | State | What they see | The one press |
 |---|---|---|
@@ -264,9 +273,9 @@ As today: one still per shot. For Sung shots the still is used as a reference pi
 | S | A shot flipped Sung ↔ B-roll after the still was made: the still is kept (it's the same picture), but its clip goes out of date (V5 S). | — |
 | Everything else | As today. | — |
 
-## V5. Clips
+## V5. Clips (Prompts, then Takes)
 
-As today (prompts reviewable, "Looks good", takes, pick, Approve all), plus:
+As today, under the audit's names: the **Prompts** list (each checked with "Prompt OK", Approve all) then the **Takes** list (make, pick, "Approve take", Approve all), plus:
 
 - A clip with a Sung shot shows "Lip-syncs 0:00–0:06" and a small player of that stretch.
 - B-roll clips are made with sound off, as today.
@@ -281,7 +290,7 @@ As today (prompts reviewable, "Looks good", takes, pick, Approve all), plus:
 | Sung keeps failing | A Sung clip whose takes fail or refuse: **Make this B-roll instead** (free: flips its Sung shots in this video's breakdown and rewrites the clip as B-roll; old takes kept; Undo). | — |
 | Everything else | As today. | — |
 
-## V6. Downloads: the song underneath
+## V6. Final cut: the song underneath
 
 The final video is stitched as today (free), and the preferred take's full song is laid underneath. The clips' own sound is dropped, so the song is the only sound: the lip-sync clips were made from the same song, so they match. The picture is trimmed to the song's length; if the picture is short, the last shot holds its final frame.
 
@@ -401,7 +410,7 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 
 # 4. Video settings (build fourth)
 
-A small **Video settings** row at the top of every video and on "Make this version": Style · Video model · Picture model · Language. Each shows its choice ("Auto" by default) and price.
+The **Video settings** row at the top of every video and on "Make this version" (the UX audit's one row for every per-video choice): Shape · Flavour · Style · Video model · Picture model · Language, and the Song on a song video (V2a). Each shows its choice ("Auto" by default) and price.
 
 ## VS1. Changing a setting
 
@@ -417,6 +426,8 @@ A small **Video settings** row at the top of every video and on "Make this versi
 | P | The row collapses to one line "Settings: House · Auto…"; tapping opens a sheet with the four pickers. | — |
 | U | Undo after a switch. Switching back makes the old takes current again (they were kept). | — |
 | S | Model or style switch: later stills or clips "Out of date". | — |
+| Flavour | Stays changeable after the video starts. The confirm names what changes: "Switch to Chicken? 4 stills and 2 clips that show the bag go out of date. To finish: about N credits (was M)." Not yet / Switch. Kept, with the usual redo; Undo. | **Switch**. |
+| Shape | Stays changeable (locking it would be new behaviour). Everything made is in the old shape, so the confirm gives the whole redo: "Change to 1:1? All 9 stills and 4 clips go out of date. To finish: about N credits (was M)." Over budget or the cap: Switch disabled with the reason. Undo; switching back makes the old ones current again. | **Switch**. |
 | Language (Reed, 2026-10-28) | A video follows its script's language, shown read only in Video settings: "Spanish (from the script)". The language is chosen when the script is written. To make another language, the owner presses **Make a copy in another language** on the script: a new, unpublished, translated script for the owner to review and publish (rule 19 holds: the published words never change). | — |
 
 **Language:** the script is written in the chosen language, every spoken line in a clip prompt says "in Spanish", and the English-only checks follow the language. Each language is switched on only after a sample test.
