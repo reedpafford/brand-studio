@@ -435,6 +435,29 @@ test("a look for this video only says so, is approved here with Undo, and is red
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/12/sheet/approve")).toBe(true));
 });
 
+test("a made but unapproved look for this video shows its sheet with Needs your approval and Approve", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ sheet_file_id: 71 })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach", sheet_file_id: null, sheet_status: "drawing" })] });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  // The picture follows the asset row, never an older copy of the look (Reed's Iron Paws card).
+  expect(within(card).getByRole("img", { name: "Look of Coach" })).toHaveAttribute("src", expect.stringContaining("71"));
+  expect(within(card).queryByText("No look yet")).toBeNull();
+  expect(within(card).getByText("Needs your approval")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Approve" })).toBeInTheDocument();
+});
+
+test("a look still being made says Making the look…, with no approval badge and no Approve", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ sheet_status: "drawing", sheet_file_id: null })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach", sheet_file_id: null, sheet_status: "drawing" })] });
+  open();
+  const card = await screen.findByLabelText("Coach");
+  expect(within(card).getByText("Making the look…")).toBeInTheDocument();
+  expect(within(card).queryByText("Needs your approval")).toBeNull();
+  expect(within(card).queryByText("No look yet")).toBeNull();
+  expect(within(card).queryByRole("button", { name: "Approve" })).toBeNull();
+});
+
 test("when the role has gone back to a Cast & places character, the video's own look is kept and offered again", async () => {
   setViewport(1440);
   const calls = fakeServer({

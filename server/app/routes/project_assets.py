@@ -55,6 +55,7 @@ class AssetOut(BaseModel):
     description: str = ""  # the slot's role, as the script describes it (e.g. "teen, shy")
     shots: int = 0  # how many of the breakdown's shots it is in ("In 3 shots")
     file_id: int | None = None  # a product's or screen's picture (the brand's; nothing to make)
+    sheet_file_id: int | None = None  # the look's sheet, read with sheet_status so the two agree
     only_here: Literal["video", "script"] | None = None  # "This video only" / "This script only"
     own_look_id: int | None = None  # the look made for this role here; "Not used" if swapped out
     facts: RoleFacts | None = None  # the role's age range, gender and job (a slot's row only)
@@ -86,6 +87,7 @@ def _row(
     kind: str, ref: str, role: str, item: LibraryItem | None, locked: bool, slot=None
 ) -> AssetOut:
     status = "missing" if item is None else ("approved" if locked else sheet_status(item))
+    sheet = None if item is None else slot.sheet_file_id if locked and slot else item.sheet_file_id
     only = None
     if item is not None and item.owner_project_id:
         only = "video"
@@ -100,6 +102,7 @@ def _row(
         name=item.name if item else "",
         locked=locked,
         sheet_status=status,
+        sheet_file_id=sheet,
         ready=status == "approved",
         slot_id=slot.id if slot else None,
         description=slot.description if slot else "",

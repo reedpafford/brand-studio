@@ -3535,6 +3535,8 @@ export interface components {
             shots: number;
             /** File Id */
             file_id?: number | null;
+            /** Sheet File Id */
+            sheet_file_id?: number | null;
             /** Only Here */
             only_here?: ("video" | "script") | null;
             /** Own Look Id */

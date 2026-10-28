@@ -217,10 +217,13 @@ def test_assets_makes_the_missing_looks_within_the_budget(owner, editor, db):
     assert rows.status_code == 200, rows.text
     row = _row(editor, pid, nate)
     assert (row["only_here"], row["sheet_status"], row["ready"]) == ("video", "drawing", False)
+    assert row["sheet_file_id"] is None  # the card says Making the look…
     assert editor.get(url).json()["slot_ids"] == []  # made once
     assert editor.post(make).status_code == 200 and db.query(Job).count() == jobs + 1
     _drawn(db, editor, row["own_look_id"])
-    assert _row(editor, pid, nate)["sheet_status"] == "needs_approval"  # the editor's review
+    row = _row(editor, pid, nate)
+    assert row["sheet_status"] == "needs_approval"  # the editor's review, with its sheet to see
+    assert row["sheet_file_id"] == db.get(LibraryItem, row["own_look_id"]).sheet_file_id
 
 
 def test_not_now_on_the_missing_looks_sticks(owner, editor, db):
