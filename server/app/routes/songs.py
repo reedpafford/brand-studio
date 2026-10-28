@@ -15,6 +15,7 @@ from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
+from app.routes.projects import get_project
 from app.routes.script_library import Slot
 from app.schemas import UtcTime
 
@@ -126,13 +127,17 @@ def make_songs(
 
 
 def _get_take(db: Session, user: User, take_id: int) -> tuple[SongTake, ScriptDraft]:
-    """A take of a script the caller may change, or 404/403."""
+    """A take the caller may change (a script's: its author or the owner, before it's
+    published; a video's own: anyone on the video), or 404/403."""
     take = db.get(SongTake, take_id)
     draft = db.get(ScriptDraft, take.draft_id) if take else None
     script = db.get(Script, draft.script_id) if draft else None
     if not script or script.workspace_id != user.workspace_id:
         raise HTTPException(404, "No such take.")
-    lib.editable(user, lib.get_script(db, user, script.id))
+    if take.project_id:
+        get_project(db, user, take.project_id)
+    else:
+        lib.editable(user, lib.get_script(db, user, script.id))
     return take, draft
 
 
@@ -178,3 +183,76 @@ def restore_take(take_id: int, user: User = Depends(current_user), db: Session =
     take, draft = _get_take(db, user, take_id)
     song_takes.restore(db, take)
     return _take_out(db, take, draft)
+
+
+class VideoSongsOut(SongsOut):
+    song_take_id: int | None  # the take this video is timed to
+
+
+class VideoSongIn(BaseModel):
+    take_id: int
+
+
+class VideoSongOut(BaseModel):
+    song_take_id: int
+    was_song_take_id: int | None  # Undo: use that one again
+
+
+def _song_video(db: Session, user: User, project_id: int):
+    project = get_project(db, user, project_id)
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if not draft or db.get(Script, draft.script_id).kind != "song":
+        raise HTTPException(409, NOT_A_SONG)
+    return project, draft
+
+
+def _video_songs(request: Request, db: Session, user: User, project, draft) -> VideoSongsOut:
+    return VideoSongsOut(
+        **_songs(request, db, user, draft).model_dump(exclude={"takes"}),
+        takes=[_take_out(db, t, draft) for t in song_takes.for_video(db, project)],
+        song_take_id=project.song_take_id,
+    )
+
+
+@router.get("/projects/{project_id}/songs", response_model=VideoSongsOut)
+def video_songs(
+    project_id: int,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """The takes this video can use (its version's, then its own) and the one it uses."""
+    project, draft = _song_video(db, user, project_id)
+    return _video_songs(request, db, user, project, draft)
+
+
+@router.post("/projects/{project_id}/songs", response_model=VideoSongsOut, status_code=201)
+def make_video_songs(
+    project_id: int,
+    body: SongMakeIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """More takes for this video only, charged to its budget (or the editor's week)."""
+    if not songs_on(request):
+        raise HTTPException(503, SONGS_OFF)
+    project, draft = _song_video(db, user, project_id)
+    song_takes.make(db, user, draft, body.count, project)
+    return _video_songs(request, db, user, project, draft)
+
+
+@router.put("/projects/{project_id}/song", response_model=VideoSongOut)
+def use_video_song(
+    project_id: int,
+    body: VideoSongIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Time this video to another take (Undo: put `was_song_take_id` back)."""
+    project, _ = _song_video(db, user, project_id)
+    take = db.get(SongTake, body.take_id)
+    if take is None:
+        raise HTTPException(404, "No such take for this video.")
+    was = song_takes.use_in_video(db, project, take)
+    return VideoSongOut(song_take_id=take.id, was_song_take_id=was)
