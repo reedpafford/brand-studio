@@ -6185,8 +6185,6 @@ export interface components {
             workspace_name: string;
             /** Invited By Name */
             invited_by_name: string;
-            /** Owner Name */
-            owner_name: string;
             /** Email */
             email: string;
             role: components["schemas"]["Role"];

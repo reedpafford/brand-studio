@@ -72,8 +72,7 @@ def test_invite_token_works_once(app, owner):
         info = c.post("/auth/invite", json={"token": token})  # no login needed
         assert info.json() == {
             "workspace_name": "Studio",
-            "invited_by_name": "Reed",
-            "owner_name": "Reed",
+            "invited_by_name": "",  # the owner invited them: never his name (rule 4)
             "email": "a@example.com",
             "role": "editor",
         }

@@ -114,7 +114,7 @@ export function InvitePage() {
       title={`Join ${studio}`}
       intro={
         <p className="text-sm text-muted">
-          {i.invited_by_name && i.invited_by_name !== i.owner_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}. Your email is {i.email}.
+          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}. Your email is {i.email}.
         </p>
       }
       submitLabel="Create my account"

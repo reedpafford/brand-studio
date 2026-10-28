@@ -131,8 +131,7 @@ class InviteLookupIn(BaseModel):
 
 class InviteOut(BaseModel):
     workspace_name: str
-    invited_by_name: str
-    owner_name: str  # "Join {owner}'s studio" when the studio's name looks like a slug
+    invited_by_name: str  # "" when the owner invited them (rule 4: never the owner's name)
     email: str
     role: Role
 
@@ -147,13 +146,7 @@ def read_invite(body: InviteLookupIn, db: Session = Depends(get_db)):
     inviter = db.get(User, invite.invited_by_id)
     return InviteOut(
         workspace_name=db.get(Workspace, invite.workspace_id).name,
-        invited_by_name=inviter.name if inviter else "",
-        owner_name=db.scalar(
-            select(User.name).where(
-                User.workspace_id == invite.workspace_id, User.role == Role.owner, User.active
-            )
-        )
-        or "",
+        invited_by_name=inviter.name if inviter and not inviter.is_owner else "",
         email=invite.email,
         role=invite.role,
     )
