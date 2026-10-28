@@ -100,7 +100,7 @@ Two boxes and one button.
 | Saved | The lyrics read only with "Sung word for word", and **Edit lyrics**. When takes exist, Edit lyrics asks first: "Edit the lyrics? Your 2 takes will be out of date. They're kept, and you can make new ones." | **Next: Takes**. |
 | Nothing to go on | About is empty and the brand has no facts: the directions button is disabled with "Say what it's for in About first". | **Open About**. |
 | Style empty | Never a block. Next stays allowed and the takes use the brand's music style, else the default; Advice under the box: "No style yet: the song will be upbeat pop by default." | **Next: Takes**. |
-| Advice: long style | Over 25 words: "Music models follow short styles better. Keep it under 25 words." Advice only. | **Shorten it** (free, cuts in code to the first 25 words, Undo). |
+| Advice: long style | Over 25 words: "Suno follows short styles better. Keep it under 25 words." Advice only. | **Shorten it** (free, cuts in code to the first 25 words, Undo). |
 | Advice: long song | Over about 150 words: "About 70 s sung. That's a long ad: the video will be about that long too." Advice only. | — |
 | Advice: no end line (rule 18) | The lyrics don't name the brand or where to find it: "The song doesn't say fomo or where to find it." Advice only. Two ways to meet it, either one: | **Sing the end line** (free: adds the brand's end line as a last `[Outro]` line; the owner can edit it; Undo), or **Speak it over the end** (free: the brand's end line, editable, is spoken over the song's last seconds with the music lowered under it; see V6). |
 | Spoken end line set | Under the boxes: "Spoken at the end: 'Download fomo through the link in my bio.'" with **Edit** and **Remove** (Undo). | — |
@@ -145,8 +145,9 @@ Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyr
 | Advice: sung twice | A line is sung twice: "Line 4 is sung twice in this take." Advice only; the shots follow the first time it's sung and the repeat rides in the shot after it. | **Make 2 more**, or keep it. |
 | Advice: instrumental intro | Over 2 s before the first word: "This take starts with 4 s of music before the singing." Advice. At the stitch the head is trimmed to 0.5 s automatically (free). | — |
 | Too long (after) | A take came out longer than the lyrics promised and a video of it would go over the cap: "This take is 1:12: a video of it would go over the limit." | **Use the first 0:55** (free: the take is trimmed at the last section end that fits, never mid-word, and the trimmed take becomes the one used; the full take is kept). |
-| F | Per take: "This take didn't finish. Credits returned." | **Try again** (makes that take again at its price). |
-| X | The music model refused: "The music model won't sing this: [reason]". The common one is an artist's name in the style line: "Music models refuse artists' names. Describe the sound instead." The fix is always in the style line or a retry, never in the lyrics (rule 19). | **Use the brand's style instead** (free, swaps the style line for the brand's music style or the default, Undo, then Make 2 takes again at its price). If the refusal is about the words themselves: "The music model won't sing these words: [reason]." The owner, on a draft, gets **Edit lyrics** (their own typing; the AI never rewords) and **Try again** (some refusals don't repeat). In a video (V2a), the lyrics are final, so the press is **Use this take** on another take, or **Try again**. |
+| F | Suno makes both takes in one request, so they fail together: "The song didn't finish. Credits returned." Older good takes stay above, still Preferred. | **Try again · N credits** (one new request, 2 takes). |
+| Slow | Suno sometimes stalls (Starpop saw over 5 minutes). Past 15 minutes the request stops: "The music service didn't finish this in time. Nothing was charged." | **Try again · N credits**. |
+| X | Suno refused: "Suno won't sing this: [reason]". The common one is an artist's or band's name in the style line: "Suno refuses artists' names. Describe the sound instead (genre, voice, tempo, mood)." The fix is always in the style line or a retry, never in the lyrics (rule 19). | **Use the brand's style instead** (free, swaps the style line for the brand's music style or the default, Undo, then Make 2 takes again at its price). If the refusal is about the words themselves: "Suno won't sing these words: [reason]." The owner, on a draft, gets **Edit lyrics** (their own typing; the AI never rewords) and **Try again** (some refusals don't repeat). In a video (V2a), the lyrics are final, so the press is **Use this take** on another take, or **Try again**. |
 | Songs off | No music service on this site (the test site without a music key, or the stand-ins off): "Songs aren't switched on here." in place of the button. Lyrics, style and directions still work. | — |
 | Too long (before) | The price line under the button covers the song and the clips it implies: "2 takes · N credits. A video this long: about M credits to make." Over the 729-credit cap: the button is replaced by the fix. | **Keep the first N lines** (free: cuts the lyrics at the last section that fits, shown before/after, Undo), then Make 2 takes. |
 | B | Owner: only the cap stops them. Editor's own script: the week. | Disabled button with the reason; the existing takes stay playable and pickable. |
@@ -159,7 +160,9 @@ Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyr
 
 **Decided here:** a take is tied to the exact lyrics and style it was made from. Only a take that sings the current lyrics can be Preferred. That keeps rule 19 true all the way to the final cut.
 
-Takes per press: always 2 (two calls to the music model, priced as two). One take can be remade alone with its own **Try again**.
+Takes per press: always 2, from one Suno request (Suno returns two songs per request, priced as one request). A failed request is retried whole.
+
+**How the lyrics reach Suno (Starpop's recipe, done in code, never changing a word):** the lyrics go in Suno's own lyrics field ("custom" mode, sung as written; never its write-the-lyrics mode), wrapped in `[Intro: vocals start immediately]` … `[End]`; the style line gets ", vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending" added after it, and "instrumental intro, instrumental break, long outro, spoken word" as styles to avoid. Suno's limits: lyrics up to 5,000 characters, style up to 1,000; over either, the box's counter says "Cut N characters" and saving waits until it fits.
 
 ## S5. Cast: who sings
 
@@ -473,6 +476,6 @@ The Designer draws it first (on the Screening room direction Reed picked); Reed 
 
 ## Open questions for the Producer
 
-1. **The music price.** The free price check of MiniMax Music comes first (spec step 0); until then the buttons show the model catalogue's price, and the test site runs on the free stand-in.
+1. **Music is Suno** (Reed, 2026-10-28; MiniMax dropped). Its price per request comes from the account Reed connects; until then the buttons show the catalogue's price, and the test site runs on the free stand-in (two takes per request, like Suno).
 2. **Lip-sync without a first frame** is the spec's biggest risk. The one paid 15-second test (spec step 0) decides whether Sung shots ship as designed, or fall back to "the Singer sings in B-roll style" (picture only, no lip-sync).
 3. **Reel import of song ads** is left out (S1). Say if Reed wants it in this item.
