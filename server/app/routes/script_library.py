@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, merge_roles, rewritten
+from app import advice, merge_roles, music, rewritten
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -34,6 +34,7 @@ from app.schemas import LongText, UtcTime
 router = APIRouter(prefix="/scripts", tags=["script library"])
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Slot = Annotated[int, Field(ge=0, le=lib.MAX_SLOT)]
+StyleLine = Annotated[str, StringConstraints(strip_whitespace=True, max_length=music.MAX_STYLE)]
 
 
 class ScriptIn(BaseModel):
@@ -45,6 +46,7 @@ class ScriptIn(BaseModel):
     reference_replace: LongText = ""
     new_lines: bool | None = None  # write new lines in the reel's style, not its own
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
+    kind: Literal["story", "song"] = "story"  # song: the text is lyrics (song ads)
 
 
 class BulkRow(ScriptIn):
@@ -75,6 +77,9 @@ class ScriptPatch(BaseModel):
 class DraftIn(BaseModel):
     text: ScriptText
     target_seconds: int | None = Field(None, gt=0, le=3600)  # null: the breakdown decides
+    style_line: StyleLine | None = None  # a song's music style; left out: kept as it is
+    singer: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
+    spoken_end_line: LongText | None = None  # rule 18: spoken over the song's last seconds
 
 
 class Person(BaseModel):
@@ -107,6 +112,10 @@ class VersionOut(VersionSummary):
     estimate_credits: float = 0  # to make it, every step included: estimate.version_cost
     clips: int = 0  # in the saved breakdown
     planned_by: Person | None = None  # who saved the breakdown
+    style_line: str = ""  # a song's music style
+    singer: str = ""  # the cast role seen singing ("": nobody on camera)
+    spoken_end_line: str = ""
+    song_directions: list[dict] = []  # the song directions offered (Director's fields)
 
 
 class ReelRow(BaseModel):
@@ -122,6 +131,7 @@ class ScriptRow(BaseModel):
     id: int
     brand_id: int
     title: str
+    kind: Literal["story", "song"]
     description: str
     reference_id: str | None
     published: bool
@@ -189,6 +199,10 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         estimate_credits=float(version_cost(db, draft)),
         clips=len((draft.breakdown or {}).get("clips", [])),
         planned_by=_person(db, draft.breakdown_by_id) if draft.breakdown else None,
+        style_line=draft.style_line,
+        singer=draft.singer,
+        spoken_end_line=draft.spoken_end_line,
+        song_directions=draft.song_directions or [],
     )
 
 
@@ -217,6 +231,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         id=script.id,
         brand_id=script.brand_id,
         title=script.title,
+        kind=script.kind,
         description=script.description,
         reference_id=script.reference_id,
         reel_imported=script.reference_breakdown is not None,
@@ -509,6 +524,9 @@ def write_draft(
     if draft.rewritten:  # the "Was:" marks follow their lines until approval
         draft.rewritten = rewritten.follow(draft.text or "", body.text, draft.rewritten)
     draft.text, draft.target_seconds = body.text, body.target_seconds
+    for song_field in ("style_line", "singer", "spoken_end_line"):  # song ads; None: as is
+        if (value := getattr(body, song_field)) is not None:
+            setattr(draft, song_field, value)
     db.commit()
     return _out(db, script)
 
@@ -672,6 +690,7 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
         workspace_id=user.workspace_id,
         brand_id=source.brand_id,
         title=f"{source.title} (copy)"[:200],
+        kind=source.kind,
         description=source.description,
         notes=source.notes,
         reference_id=source.reference_id,
@@ -688,6 +707,9 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
                 script_id=copy.id,
                 slot=d.slot,
                 text=d.text,
+                style_line=d.style_line,
+                singer=d.singer,
+                spoken_end_line=d.spoken_end_line,
                 target_seconds=d.target_seconds,
                 title=d.title,
                 premise=d.premise,
