@@ -70,7 +70,10 @@ def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -
     if brand.get("never_say"):
         lines.append("Never say: " + "; ".join(brand["never_say"]))
     if brand.get("end_line"):
-        lines.append(f"End line (every video ends on it, word for word): {brand['end_line']}")
+        lines.append(  # Current rules 18: the default wording, adapted to the story if needed
+            "End line (the default call to action every video ends on; it may be adapted to "
+            f"the story if it still names the brand and where to find it): {brand['end_line']}"
+        )
     if brand.get("legal_line"):
         lines.append(f"Legal line (added in post, don't write it): {brand['legal_line']}")
     needed = [s for s in screens if s.get("default_for")]

@@ -1,4 +1,4 @@
-as of df964ef · 2026-10-28 01:40 UTC
+as of 5178743 · 2026-10-28 03:45 UTC
 # Handoff (rewritten each refresh by the Scribe; under 60 lines)
 Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of ops/DECISIONS.md (#609: 30 numbered rules, newest wins; re-read before every task). Detail of what merged, when and why is in ops/LOG.md.
 
@@ -9,17 +9,17 @@ Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of o
 - Workflow v2: Script Library, owner/editor split, weekly allowances, reel import and Bulk create, In production view, Delete/Archive with Undo.
 - Live: https://srv2091584.hstgr.cloud, auto-deploys on every merge to main (needs the server secrets), generation on. Free stand-ins: `BS_FAKE_PROVIDERS`, `scripts/fake_run.py`.
 - Design: Screening room redesign docs in `docs/design/redesign/` (Reed picked direction B).
-- Latest merges (older ones are in LOG): #669 the grind shows the trading, phone beats play for drama; #670 the "opening the app" bridge is only for an app brand; #667 QA-Live video #17 fixes (a changed sheet refreshes prompts and flags old stills, long prompts editable, full price quoted); #665 after Change this... on a clip with no take, say what to press next; #664 cast backstop one request at a time; #666 fomo word spelled on invented screens; #668 service-busy take says to try again; #661 missed speaker added safely.
+- Latest merges (older ones are in LOG): #675 script flow: approve with no variations, Edit the script from Directions; #674 the closing line only has to name the brand, the end-line check is Advice (rule 18); #673 Reed: the end line is a default CTA, never a required match; #669/#670 montage grind and the app-only bridge; #667 QA-Live video #17 fixes; #665 clear next step after Change this... on a clip with no take.
 
 ## Where we are: stabilization pass (Reed, DECISIONS #602, rule 25)
 No new features until, in order: 1 faces (sheet rules #603/#604, cast fix #614, hotfix #628, one scene per clip #640 all merged; QA-Live 6 runs a fresh paid fomo script end to end (Reed approved) now that the montage trading-screen change (#654, #656) is merged; the run is under way), 2 failing clip prompts (#605, #617, #620, #643, #648 merged), 3 bloat clean-up by the Steward (line counts before and after; deletions merged: #612, #613, #618, #621, #622, #625, #626, #641, #649, #653), 4 QA-Live runs the full editor flow on the live site, including Kel's and Mary's broken videos.
 - Code stays lean (rule 26, changed by Reed 2026-10-27): about 36,000 lines of app code (server/app plus web/src, no tests or generated files) is a guide, not a hard cap; the app can grow when needed, but nothing redundant, and each change deletes what it replaces. The Steward reports the count on every PR.
 
 ## Open PRs (none, not counting the Scribe's own)
-- #665, #667, #669 and #670 merged; no other PR is open.
+- #674 and #675 merged; no other PR is open.
 
 ## Who is on what
-- Builder-Server-5, Builder-Server-6, Builder-Screens-3: nothing open (Builder-Server-6 standing by).
+- Builder-Server-5, Builder-Server-6, Builder-Screens-3: nothing open that I can see (Builder-Server-6 standing by). Who made #674 and #675 is not recorded here.
 - Director: #669 and #670 merged; Reed may start an Iron Paws video now that #670 is live.
 - Writer (Reed talks to it directly): turns Reed's ideas into ready-to-paste Script Library scripts; never touches the app, repo or live site; no paid calls.
 - Steward: line count on every PR (clip_prompts.py audit done, nothing safe to cut).

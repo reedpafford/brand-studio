@@ -46,6 +46,8 @@ def _bd(mom: int) -> dict:
 
 def test_the_end_lines_shot_shows_the_balance_screen_on_the_heros_phone(app, db, editor, setup):  # noqa: F811
     project, mom = _cast(editor, db, setup)
+    db.get(Brand, project.brand_id).name = "Dip"  # the closing line names the brand (rules 18)
+    db.commit()
     editor.post(f"/projects/{project.id}/breakdown")
     _run(app, db, FakeClaude(_bd(mom)))
     got = editor.get(f"/projects/{project.id}/breakdown").json()
