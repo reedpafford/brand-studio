@@ -11,7 +11,7 @@ import { useRail } from "../useMedia";
 import { BreakdownStep } from "./BreakdownStep";
 import { CastStep } from "./CastStep";
 import { DirectionsStep } from "./DirectionsStep";
-import { VariationsStep, variationsReason, writtenVariations } from "./VariationsStep";
+import { VariationsStep, variationsReason } from "./VariationsStep";
 import { ScriptStep } from "./ScriptStep";
 import { ReadReelButton, useReelImport } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
@@ -35,15 +35,15 @@ export function ScriptFlowPage() {
   const reel = useReelImport(id);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [asking, setAsking] = useState(false); // the Publish confirmation, opened from the Next slot
-  const [picked, setPicked] = useState(0); // variations chosen on that step, before any is written
-  const [editing, setEditing] = useState(false); // a form is open on this step (the Script step: unsaved words): its own button is the amber one
+  // Something on this step would be lost by leaving (unsaved words, accepted directions not added): Next and every other way out ask once, and Next still always goes on.
+  const [hold, setHold] = useState<{ title: string; body: string } | null>(null);
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
   useEffect(() => {
-    if (!editing) return;
+    if (!hold) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [editing]);
+  }, [hold]);
   const allowance = useQuery({
     enabled: me?.role !== undefined && me.role !== "owner",
     queryKey: ["allowance"],
@@ -63,12 +63,10 @@ export function ScriptFlowPage() {
   const step = stepFromParam(params.get("step"));
   if (lockReason(step, s) !== null) return <Navigate to="?" replace />;
   const move = (to: string) => {
-    setEditing(false);
-    setPicked(0);
+    setHold(null);
     setParams(to === "script" ? {} : { step: to });
   };
-  // Unsaved words on the Script step: leaving asks first.
-  const go = (to: string) => (step === "script" && editing ? setLeaving(() => () => move(to)) : move(to));
+  const go = (to: string) => (hold ? setLeaving(() => () => move(to)) : move(to));
   const at = WRITING_STEPS.findIndex((x) => x.id === step);
   const { prev, next } = around(step);
   const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : null;
@@ -82,7 +80,7 @@ export function ScriptFlowPage() {
   // A script from a reel isn't ready to move on until the reel is read: Read this reel is the one amber button until then.
   const unread = step === "script" && !!reel.data && reel.data.status !== "done";
   const reelReady = unread && !s.published && !rail && (reel.data?.status === "ready" || reel.data?.status === "failed") && reel.data?.failed_step !== "prepare";
-  const nextButton = reelReady ? <ReadReelButton scriptId={id} createdById={s.created_by_id} /> : publishButton || (next && !editing && !unread && !(step === "variations" && picked > 0 && writtenVariations(s).length === 0) && (
+  const nextButton = reelReady ? <ReadReelButton scriptId={id} createdById={s.created_by_id} /> : publishButton || (next && !unread && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
@@ -102,7 +100,7 @@ export function ScriptFlowPage() {
       <Link
         to={`/b/${brandId}/scripts`}
         onClick={(e) => {
-          if (step === "script" && editing) {
+          if (hold) {
             e.preventDefault();
             setLeaving(() => () => navigate(`/b/${brandId}/scripts`));
           }
@@ -161,8 +159,8 @@ export function ScriptFlowPage() {
       </div>
       {del.dialog}
       {leaving && (
-        <Dialog title="Leave without saving?" cancelLabel="Stay" actionLabel="Leave" danger onCancel={() => setLeaving(null)} onConfirm={() => { leaving(); setLeaving(null); }}>
-          The words you changed on the Script step are not saved.
+        <Dialog title={hold?.title ?? "Leave this step?"} cancelLabel="Stay" actionLabel="Leave" danger onCancel={() => setLeaving(null)} onConfirm={() => { leaving(); setLeaving(null); }}>
+          {hold?.body}
         </Dialog>
       )}
       <StepPicker steps={stepStates(step, s)} onPick={(to) => go(to)} />
@@ -182,9 +180,9 @@ export function ScriptFlowPage() {
           </ActionBar>
         )}
       </div>
-      {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={setEditing} />}
-      {step === "directions" && <DirectionsStep script={s} onEditing={setEditing} onEditWords={() => go("script")} />}
-      {step === "variations" && <VariationsStep script={s} own={mine} onPicked={setPicked} />}
+      {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
+      {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They are accepted but not in the script yet. Leaving drops them." } : null)} onEditWords={() => go("script")} />}
+      {step === "variations" && <VariationsStep script={s} own={mine} />}
       {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
       {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
       {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}

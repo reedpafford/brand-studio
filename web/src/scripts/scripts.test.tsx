@@ -343,15 +343,19 @@ test("the reference reels are compact rows with a search once there are more tha
   expect(within(list).getByLabelText("What to change")).toBeInTheDocument();
 });
 
-test("while words are unsaved, Save script is the one amber button, so Next steps aside", async () => {
+test("with unsaved words Next is still there; it asks before leaving and Stay keeps the words", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full({ versions: [{ ...full().versions[0], text: "BO: Salmon?", status: "draft" }] })] });
   open("/b/1/scripts/7");
   expect(await screen.findByRole("button", { name: "Next: Directions" })).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Your script"), " More.");
-  expect(screen.queryByRole("button", { name: "Next: Directions" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Next: Directions" }));
+  expect(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+  expect(screen.getByLabelText("Your script")).toHaveValue("BO: Salmon? More.");
   await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-  expect(screen.getByRole("button", { name: "Next: Directions" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Next: Directions" }));
+  expect(await screen.findByRole("button", { name: /^Suggest directions/ })).toBeInTheDocument(); // no question once nothing is unsaved
 });
 
 test("the draft badge says who can see it: you, you and the owner, or whose draft it is", async () => {
@@ -509,13 +513,13 @@ test("an editor past the week's allowance on their own script can't make it, and
   expect(await within(other).findByRole("button", { name: /Make this version.*3 credits/ })).toBeEnabled();
 });
 
-test("Variations: picking 1 or 2 makes Write the one amber button, and says A's words become final", async () => {
+test("Variations: picking 1 or 2 shows Write and says A's words become final; Next to Cast stays", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, approvedOriginal()], "GET /scripts/7/variations/estimate": [200, { credits: 6 }] });
   open("/b/1/scripts/7?step=variations");
   expect(await screen.findByRole("button", { name: "Next: Cast" })).toBeInTheDocument(); // None: Next is the amber one
   await userEvent.click(await screen.findByRole("radio", { name: "1" }));
-  expect(screen.queryByRole("button", { name: "Next: Cast" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Cast" })).toBeEnabled(); // Next always just goes on; Write is a separate button
   expect(screen.getByText("Writing variations makes A's words final.")).toBeInTheDocument();
 });
 

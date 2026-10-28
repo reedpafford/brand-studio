@@ -212,9 +212,9 @@ export function EnhanceBar({ e, stop }: { e: EnhanceState; stop?: string | null 
           </Button>
         )}
         {e.running && <span className="text-sm text-muted">{e.last?.status === "needs_owner_approval" ? "Not started" : <>Reading your script… <Elapsed since={e.last?.created_at ?? new Date().toISOString()} /></>}</span>}
-        {e.marks.length > 0 && (
+        {accepted > 0 && (
           <span className="ml-auto">
-            <Button disabled={accepted === 0 || e.apply.isPending} reason={accepted === 0 ? "Accept at least one suggestion" : undefined} busy={e.apply.isPending} onClick={() => e.apply.mutate()}>
+            <Button disabled={e.apply.isPending} busy={e.apply.isPending} onClick={() => e.apply.mutate()}>
               Add {accepted} direction{accepted === 1 ? "" : "s"}
             </Button>
           </span>

@@ -46,7 +46,7 @@ test("Directions opens with its card, the price on Suggest directions, and Next 
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/enhance")).toBe(true));
 });
 
-test("suggestions sit under their line with Accept and Reject; accepting turns the amber button into Add 1 direction, and Next steps aside", async () => {
+test("suggestions sit under their line with Accept and Reject; Add 1 direction shows only once one is accepted, and Next is still there", async () => {
   setViewport(1440);
   const calls = fakeServer(base({
     "GET /scripts/7/drafts/0/suggestions": [200, [mark(), mark({ id: 2, key: "b", kind: "reaction", line: 2, text: "Bo blinks twice.", status: "accepted" })]],
@@ -56,7 +56,7 @@ test("suggestions sit under their line with Accept and Reject; accepting turns t
   open();
   expect(await screen.findByText(/Slow push-in on Mia's face\./)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Add 1 direction" })).toBeEnabled();
-  expect(screen.queryByRole("button", { name: "Next: Variations" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Next: Variations" })).toBeEnabled();
   await userEvent.click(screen.getByRole("button", { name: "Accept: Slow push-in on Mia's face." }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/suggestions/1/accept")).toBe(true));
   await userEvent.click(screen.getByRole("button", { name: "Add 1 direction" }));
@@ -108,4 +108,28 @@ test("no Edit the script on a published script", async () => {
   open();
   await screen.findByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.");
   expect(screen.queryByRole("button", { name: "Edit the script" })).toBeNull();
+});
+
+test("with nothing accepted there is no Add button, and Next just goes on", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7/drafts/0/suggestions": [200, [mark()]] }));
+  open();
+  await screen.findByText(/Slow push-in on Mia's face\./);
+  expect(screen.queryByRole("button", { name: /^Add \d+ direction/ })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
+  expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument(); // the Variations step, no question asked
+});
+
+test("Next with accepted directions not added asks once, and Stay keeps you here; Leave goes on", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7/drafts/0/suggestions": [200, [mark({ status: "accepted" }), mark({ id: 2, key: "b", kind: "reaction", line: 2, text: "Bo blinks twice.", status: "accepted" })]] }));
+  open();
+  await screen.findByText(/Slow push-in on Mia's face\./);
+  await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
+  expect(await screen.findByRole("alertdialog", { name: "Leave without adding 2 directions?" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+  expect(screen.getByRole("button", { name: "Add 2 directions" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
+  await userEvent.click(screen.getByRole("button", { name: "Leave" }));
+  expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument();
 });

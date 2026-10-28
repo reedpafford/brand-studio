@@ -7,13 +7,14 @@ import { useDirections } from "./useDirections";
 import { useAllowanceStop, type Script } from "./useScript";
 
 /** Step 3: Claude suggests camera, movement, reaction and brand-screen lines for version A. The words never change; the step is optional. */
-export function DirectionsStep({ script: s, onEditing, onEditWords }: { script: Script; onEditing: (v: boolean) => void; onEditWords: () => void }) {
+export function DirectionsStep({ script: s, onAccepted, onEditWords }: { script: Script; onAccepted: (n: number) => void; onEditWords: () => void }) {
   const text = s.versions.find((v) => v.slot === 0)?.text ?? "";
   const e = useDirections(s.id, text);
   const stop = useAllowanceStop(s, e.cost);
-  const accepted = e.marks.some((m) => m.status === "accepted");
-  // Adding the accepted directions is this step's amber button, so Next steps aside while any are accepted.
-  useEffect(() => onEditing(accepted), [accepted]); // eslint-disable-line react-hooks/exhaustive-deps
+  const accepted = e.marks.filter((m) => m.status === "accepted").length;
+  // Accepted but not added: Next still goes on, but asks once before dropping them.
+  useEffect(() => onAccepted(accepted), [accepted]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => onAccepted(0), []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="space-y-3">
       <Card className="max-w-[680px]">

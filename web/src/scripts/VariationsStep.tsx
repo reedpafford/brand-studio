@@ -143,7 +143,7 @@ function useVariations(s: Script) {
 }
 
 /** Step 4: choose how many variations, write them at one price, then read them next to the original and approve each. */
-export function VariationsStep({ script: s, own, onPicked }: { script: Script; own: boolean; onPicked: (n: number) => void }) {
+export function VariationsStep({ script: s, own }: { script: Script; own: boolean }) {
   const rail = useRail();
   const { data: me } = useMe();
   const act = useVariations(s);
@@ -151,11 +151,7 @@ export function VariationsStep({ script: s, own, onPicked }: { script: Script; o
   const written = writtenVariations(s);
   const original = s.versions.find((v) => v.slot === 0)?.text ?? "";
   const price = useQuery({ queryKey: ["variations-estimate", s.id], queryFn: async () => (await api.GET("/scripts/{script_id}/variations/estimate", { params: { path: { script_id: s.id } } })).data?.credits });
-  const [count, setCountState] = useState<0 | 1 | 2>(0);
-  const setCount = (n: 0 | 1 | 2) => {
-    setCountState(n);
-    onPicked(n); // once Write is the amber button, Next steps aside
-  };
+  const [count, setCount] = useState<0 | 1 | 2>(0);
   const stop = useAllowanceStop(s, price.data);
   const [note, setNote] = useState("");
   const [shown, setShown] = useState(1);
