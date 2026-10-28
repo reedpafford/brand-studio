@@ -31,6 +31,9 @@ Slug = Annotated[str, AfterValidator(_tag)]
 Colour = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
 ShortText = Annotated[str, StringConstraints(max_length=200)]
 LongText = Annotated[str, StringConstraints(max_length=5000)]
+# A still's or clip's prompt: generated ones run past 5,000 (QA-Live, video #17's clip 1 was
+# 5,070), and a saved prompt must always be editable.
+PromptText = Annotated[str, StringConstraints(max_length=20_000)]
 
 
 def slugify(text: str) -> str:

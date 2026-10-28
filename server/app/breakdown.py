@@ -331,6 +331,7 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     Clips opens. One plain line per change."""
     from app import merge_roles
     from app.cast_roles import merge_shots, short
+    from app.credits import lock
     from app.models.clips import ProjectClip
     from app.models.script_library import CastMerge, Script, ScriptDraft
     from app.routes.scripts import latest
@@ -339,13 +340,22 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     script = db.get(Script, draft.script_id) if draft else None
     if script is None:
         return []
+    lock(db, Project, project.id)  # one at a time per video (QA-2: Assets' parallel requests
+    db.refresh(project)  # each merged Girl again); the next one sees what this one did
+    out, kept = [], set()
+    records = select(CastMerge).where(CastMerge.project_id == project.id).order_by(CastMerge.id)
+    for record in db.scalars(records):  # duplicates from before the lock: one note, one Undo
+        if (pair := tuple(record.data.get("auto") or ())) and pair in kept:
+            db.delete(record)
+            out.append(f"{project.name}: removed a repeated merge note")
+        kept.add(pair)
     row = db.scalar(
         select(BreakdownVersion)
         .where(BreakdownVersion.project_id == project.id)
         .order_by(BreakdownVersion.id.desc())
         .limit(1)
     )
-    out = [f"{script.title}: added {name} to the cast" for name in add_speakers(db, script)]
+    out += [f"{script.title}: added {name} to the cast" for name in add_speakers(db, script)]
     words = latest(db, project)
     if row is None or words is None:
         return out

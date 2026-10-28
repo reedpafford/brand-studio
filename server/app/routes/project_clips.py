@@ -26,7 +26,7 @@ from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
-from app.schemas import LongText, UtcTime
+from app.schemas import PromptText, UtcTime
 from app.sheets import require_looks
 from app.storyboard import assets as picture_assets
 
@@ -35,7 +35,7 @@ WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 class ProjectClipIn(BaseModel):
-    prompt: LongText
+    prompt: PromptText
     references: list[Reference] = Field(max_length=50)
 
 

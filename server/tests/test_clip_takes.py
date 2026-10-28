@@ -262,3 +262,30 @@ def test_a_copyright_refusal_says_what_to_do_and_warns_after_two(app, db, editor
     shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
     assert shown["take_warning"].startswith("The last two takes of this clip were refused")
     assert credits_used(db, db.get(Project, setup["project"])) == before  # refused takes: free
+
+
+class Busy(FakeSeedance):
+    """Seedance too busy to finish a take (Producer, 2026-10-27)."""
+
+    def __call__(self, request):
+        if request.method == "GET" and "/predictions/p" in str(request.url):
+            n = str(request.url).rsplit("p", 1)[1]
+            error = "Service is temporarily unavailable. Please try again later."
+            return httpx.Response(200, json={"id": f"p{n}", "status": "failed", "error": error})
+        return super().__call__(request)
+
+
+def test_a_busy_service_says_to_try_again_never_ask_the_owner(app, db, editor, setup, clip):  # noqa: F811
+    from app.credits import credits_used
+    from app.models.projects import Project
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    before = credits_used(db, db.get(Project, setup["project"]))
+    editor.post(f"{url}/generate")
+    _work(app, db, Busy([]))
+    jobs = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
+    assert jobs[0]["error"] == (
+        "The video service was busy and couldn't finish this. Nothing was charged; press "
+        "Make clip to try again."
+    )
+    assert credits_used(db, db.get(Project, setup["project"])) == before
