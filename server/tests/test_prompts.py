@@ -1190,3 +1190,11 @@ def test_pacing_is_by_purpose_and_scenes_hand_off():
     assert "**Scenes flow.**" in prompts.system("script_draft")
     assert "The hand-off" in schemas.Clip.model_fields["seam"].description
     assert not hasattr(check, "CLIP_S")
+
+
+def test_no_numeric_rhythm_rules_are_left():
+    """Rule 29 (Reed, 2026-10-28): rhythm is described by purpose (QA on #686)."""
+    for step in ("breakdown", "script_draft"):
+        text = prompts.system(step)
+        for gone in ("every 1–3 s", "about 2 s of the real brand element", "by about 5 s"):
+            assert gone not in text, (step, gone)
