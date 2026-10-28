@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.advice import names
 from app.breakdown import video_model
-from app.clip_prompts import assets
+from app.clip_prompts import MODERATED, assets
 from app.credits import estimate
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
@@ -95,6 +95,25 @@ BUSY = ("The video service was busy and couldn't finish this. Nothing was charge
 REFUSED = "The video model thinks this clip looks too much like someone else's character or video."
 
 
+SENSITIVE = ("The video model flagged this take as sensitive. Nothing was charged. Its check is "
+             "a little random, so making it again may pass; if it keeps failing, Reword it to "
+             "pass.")  # fmt: skip
+
+
+def moderated(detail: str) -> str:
+    """What the video model's content check read a take as: the prompt refused ("flagged for:
+    sexual", ContentModerationError), or "sensitive" for E005's "flagged as sensitive" (a
+    take, at random); "" when it didn't refuse it that way. Seedance's copyright E005 says
+    what to do itself."""
+    if "copyright" in detail.lower():
+        return ""
+    if said := re.search(r"flagged for:?\s*([a-z][a-z ,/-]*[a-z])", detail, re.I):
+        return said.group(1).lower()
+    if "ContentModeration" in detail:
+        return "unsafe content"
+    return "sensitive" if re.search(r"flagged as sensitive|E005", detail, re.I) else ""
+
+
 def refused(db: Session, job: Job) -> None:
     """Seedance's copyright refusal ("…may be related to copyright restrictions") in plain
     words with a next step (rules 4 and 22), never "Ask the owner". Refused takes aren't
@@ -104,6 +123,24 @@ def refused(db: Session, job: Job) -> None:
     if re.search(r"service is (temporarily|currently) unavailable", job.error_detail or "", re.I):
         took = row and db.scalar(select(ClipTake.id).where(ClipTake.clip_id == row.id).limit(1))
         job.error = BUSY.format("Make another take" if took else "Make clip")  # its button
+        return
+    if term := moderated(job.error_detail or ""):  # Reed's c4: "flagged for: sexual", 4 times
+        job.error = (
+            f"{MODERATED}{term}. Nothing was charged. Change the wording, then make it again."
+        )
+        if term == "sensitive":  # at random: make it again, or reword it once it keeps failing
+            job.error = SENSITIVE
+            videos = select(Job).where(Job.project_id == job.project_id, Job.kind == "video",
+                                       Job.id < job.id).order_by(Job.id.desc())  # fmt: skip
+            last = row and next((j for j in db.scalars(videos)
+                                 if j.input.get("project_clip_id") == row.id), None)  # fmt: skip
+            if not last or last.error != SENSITIVE:
+                return
+        if row and row.prompt == job.input.get("clip_prompt"):  # the prompt it was made from
+            said = (f"{MODERATED}{term}. Keep the story and the spoken lines; remove what "
+                    f"reads as {term}.")  # fmt: skip
+            row.problems = [p for p in row.problems or [] if not p.startswith(MODERATED)] + [said]
+            row.free_fix_used = False  # Fix this clip's prompt rewords it, free, once per refusal
         return
     if "copyright" not in (job.error_detail or "").lower():
         return

@@ -46,6 +46,14 @@ from app.storyboard import (
 from app.storyboard import assets as picture_assets
 
 log = logging.getLogger(__name__)
+MODERATED = "The video model refused this prompt: it read it as "  # clip_takes.refused
+
+
+def refusal(problems: list[str] | None, before: str, after: str) -> list[str]:
+    """The video model's refusal of a prompt stays until its words change (not a space)."""
+    same = " ".join(before.split()) == " ".join(after.split())
+    return [p for p in problems or [] if p.startswith(MODERATED)] if same else []
+
 
 # asset id -> (line for the prompt, kind for Seedance, its file ids)
 Assets = dict[str, tuple[str, str, list[int]]]
@@ -344,9 +352,11 @@ def repair(db: Session, project: Project) -> int:
         cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}  # none on a logo-only screen
         if cleared := bool((row.real_images or {}).keys() - cuts):
             row.real_images = {k: v for k, v in row.real_images.items() if k in cuts}
-        problems = clip_problems(db, project, bd, now) + [
-            p for p in row.problems or [] if p.startswith(LEFT_OUT)
-        ]  # what an earlier trim left out stays said
+        problems = (
+            clip_problems(db, project, bd, now)
+            + [p for p in row.problems or [] if p.startswith(LEFT_OUT)]
+            + refusal(row.problems, was.prompt, now.prompt)
+        )  # what a trim left out stays said
         if any(p.lower().startswith("more references than") for p in problems):
             now = repair_shape(_cap(with_cast(db, project, was, bd, known), known), bd)
             kept = {r.id for r in now.references}

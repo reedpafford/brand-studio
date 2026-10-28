@@ -488,7 +488,7 @@ REFUSED = ("Advice: the image model refused to draw this still, so nothing was c
 def still_refused(db: Session, job: Job) -> None:
     """The image model refusing a still ("sensitive", E005) says so plainly on its frame,
     with Soften it (Reed, 2026-10-28). Failed stills aren't counted (credits.COUNTED)."""
-    if not re.search(r"sensitive|E005", job.error_detail or "", re.I):
+    if not re.search(r"sensitive|E005|ContentModeration|flagged for", job.error_detail or "", re.I):
         return
     job.error = REFUSED.removeprefix("Advice: ").capitalize()
     frame = db.get(StoryboardFrame, job.input.get("frame_id") or 0)
