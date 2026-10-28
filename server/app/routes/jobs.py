@@ -30,9 +30,8 @@ from app.schemas import UtcTime
 router = APIRouter(tags=["jobs"])
 
 
-# Queued credits already count against the video's budget, so never "nothing is charged" (QA).
 WAITING = ("This hasn't started yet: the service that makes it isn't taking work right now. "
-           "It's only charged if it runs.")  # fmt: skip
+           "Nothing is charged while it waits.")  # fmt: skip
 
 
 class JobOut(BaseModel):
