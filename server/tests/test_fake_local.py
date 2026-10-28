@@ -29,7 +29,7 @@ def test_script_to_clip_take_with_stand_ins(app, db, editor, setup):  # noqa: F8
     assert editor.post(f"{url}/breakdown").status_code == 201
     _drain(app, db, providers)
     bd = editor.get(f"{url}/breakdown").json()
-    assert bd["breakdown"]["clips"] and not [p for p in bd["problems"] if "end line" not in p]
+    assert bd["breakdown"]["clips"] and not [p for p in bd["problems"] if "last line" not in p]
 
     assert editor.post(f"{url}/storyboard", json={"per_shot": False}).status_code == 201
     _drain(app, db, providers)

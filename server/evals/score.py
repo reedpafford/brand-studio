@@ -67,6 +67,7 @@ def score(out: Path, case: dict) -> list[str]:
     screens = required(brand["screens"], brand.get("product"))
     video = get_model("seedance-2.5")
     exp, problems, answers = case["expect"], [], {}
+    name = brand["brand"]["name"]
     for step in case["steps"]:
         path = out / f"{case['id']}.{step}.json"
         if not path.exists():
@@ -150,9 +151,10 @@ def score(out: Path, case: dict) -> list[str]:
             if speakers is not None:
                 names = [c.split(" ", 1)[1].split(",")[0] for c in case["cast"]]
                 problems += [f"draft {i}: {p}" for p in check.reel_speakers(
-                    draft.script, speakers, names, exp.get("end_line", ""))]  # fmt: skip
-            if (end := exp.get("end_line")) and end not in draft.script:
-                problems.append(f"draft {i}: doesn't end on the brand's end line")
+                    draft.script, speakers, names, exp.get("end_line", ""), name)]  # fmt: skip
+            spoken = [x for x in draft.script.splitlines() if check.SPEAKER.match(x)]
+            if exp.get("end_line") and not check.says_brand(spoken[-1] if spoken else "", name):
+                problems.append(f"draft {i}: {check.ADVICE}{check.NO_CTA}")
 
     if bd := answers.get("breakdown"):
         working = out / f"{case['id']}.script.txt"
@@ -164,7 +166,7 @@ def score(out: Path, case: dict) -> list[str]:
             problems.append(f"{len(bd.clips)} clips, expected {exp['clips']}")
         shots = [shot for scene in bd.scenes for shot in scene.shots]
         end = brand["brand"].get("end_line", "")
-        problems += check.cta_screen(shots, end, brand["brand"]["name"])
+        problems += check.cta_screen(shots, end, name)
         lines = script.splitlines()
         in_montage = {n for n, x in enumerate(lines, 1) if "montage" in x.lower()}
         montage = " ".join(s.action for s in shots if in_montage & set(s.script_lines))
@@ -199,7 +201,7 @@ def score(out: Path, case: dict) -> list[str]:
         never = brand["brand"].get("never_say", []) + case.get("never_say", [])
         names = [c.split(" ", 1)[1].split(",")[0].split(" (")[0] for c in case["cast"]]
         end = brand["brand"].get("end_line", "")
-        problems += check.variations(script, v, screens, end, never, case["count"], names)
+        problems += check.variations(script, v, screens, end, never, case["count"], names, name)
         for i, x in enumerate(v.variations, 1):
             problems += [f"variation {i}: {p}" for p in checks.echo_lines(x.script)]
             again = checks.repeated_payoffs(

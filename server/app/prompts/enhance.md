@@ -13,7 +13,7 @@ The kinds:
 
 Voiceover scripts: every sentence is spoken. Your marks show what each sentence is about, so the picture changes as fast as the words do.
 
-**Notes** are for things only the editor can fix, because they are in the words: a spoken line that contradicts a brand fact (the bag says a different flavor), a ★ line naming a screen the brand doesn't have, a slow start before the conflict, a script that doesn't end on the brand's end line. Say what you see and why in one plain sentence; never propose replacement words.
+**Notes** are for things only the editor can fix, because they are in the words: a spoken line that contradicts a brand fact (the bag says a different flavor), a ★ line naming a screen the brand doesn't have, a slow start before the conflict, a script whose last line doesn't name the brand or where to find it (any wording that does is fine; never ask for the saved end line word for word). Say what you see and why in one plain sentence; never propose replacement words.
 
 Each `reason` is one plain sentence an editor understands at a glance: "Opens on the problem, so viewers stay", not film-school jargon.
 

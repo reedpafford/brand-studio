@@ -1,3 +1,4 @@
+import inspect
 import json
 import re
 from decimal import Decimal
@@ -265,63 +266,32 @@ def _variation_case():
 def test_variations_example_passes_and_every_check_says_what_to_do():
     original, result, end = _variation_case()
     cast = ["Malik", "Tasha"]
-    assert check.variations(original, result, {}, end, ["can't lose"], 1, cast) == []
+    assert check.variations(original, result, {}, end, ["can't lose"], 1, cast, "fomo") == []
     v = result.variations[0]
     v.script = v.script.replace("★ fomo screen: Token chart down — on Malik's phone\n", "")
     v.script = v.script.rsplit("\n", 1)[0] + "\nMALIK: You can't lose. Live-action tag here."
-    assert check.variations(original, result, {}, end, ["can't lose"], 2, cast) == [
+    assert check.variations(original, result, {}, end, ["can't lose"], 2, cast, "fomo") == [
         "1 variations, 2 asked for; regenerate",
-        "Advice: variation 1 doesn't end on the brand's end line",  # made from approved words
+        "Advice: variation 1: the last line doesn't mention the brand or where to find it",
         "variation 1 drops the ★ line for Token chart down; put it back where it fits",
         "variation 1 says “can't lose”, which the brand never says",
         "variation 1 brings back live action; that slot is the end line",
     ]
 
 
-def test_variations_end_line_ignores_case_and_a_near_miss_is_advice():
-    original, result, end = _variation_case()
-    v = result.variations[0]
-    body = v.script.rsplit("\n", 1)[0]
-    v.script = body + "\nMALIK: WANT TO TRADE LIKE ME? DOWNLOAD FOMO THROUGH THE LINK IN MY BIO"
-
-    def ends(script):
-        v.script = script
-        found = check.variations(original, result, {}, end, [], 1, brand="fomo")
-        return [p for p in found if "end line" in p]
-
-    assert ends(v.script) == []
-    assert ends(body + "\nMALIK: Want to trade like me? Get FOMO through the link in my bio.") == [
-        "Advice: variation 1's last line is close to the brand's end line, not word for word"
-    ]
-    rival = "\nMALIK: Want to trade like me? Download Robinhood through the link in my bio."
-    assert ends(body + rival) == [  # from an approved original: advice, never a block
-        "Advice: variation 1 doesn't end on the brand's end line"
-    ]
-
-
-def test_on_approved_words_the_end_line_never_blocks():
-    """Reed: once he approved the script, the end line is advice at most, any wording."""
-    ex, bd = example("breakdown")
-    end = "Want to trade like me? Download fomo through the link in my bio."
-    script = script_of(ex).replace(f"MALIK: {end}", "MALIK: Get the app, link in bio.")
-    approved = check.breakdown(script, bd, FOMO, 4, 30, end_line=end, brand="fomo", approved=True)
-    draft = check.breakdown(script, bd, FOMO, 4, 30, end_line=end, brand="fomo")
-    assert "Advice: the script doesn't end on the brand's end line" in approved
-    assert "the script doesn't end on the brand's end line" not in approved
-    assert "the script doesn't end on the brand's end line" in draft  # still blocks a draft
-
-
 def test_variations_advice_covers_length_closeness_and_format():
     original, result, end = _variation_case()
     v = result.variations[0]
     v.script = original.replace("TASHA", "ROSE").replace("Tasha", "Rose")  # Tasha is gone
-    problems = check.variations(original, result, {}, end, [], 1, ["Malik", "Tasha", "Bruno"])
+    problems = check.variations(
+        original, result, {}, end, [], 1, ["Malik", "Tasha", "Bruno"], "fomo"
+    )
     assert problems == [
         "variation 1 drops Tasha, a locked character",  # Bruno isn't in the original: no flag
         "Advice: variation 1 is very close to the original; regenerate with a note",
     ]
     v.script = "# The sneakers\n" + "MALIK: Hi.\n" + end.join(["MALIK: ", ""])
-    assert check.variations(original, result, {}, end, [], 1, []) == [
+    assert check.variations(original, result, {}, end, [], 1, [], "fomo") == [
         "variation 1 drops the ★ line for Home (rich); put it back where it fits",
         "variation 1 drops the ★ line for Token chart down; put it back where it fits",
         "variation 1 drops the ★ line for Token chart up; put it back where it fits",
@@ -858,7 +828,7 @@ def test_reference_block_drops_live_action_and_brand_block_carries_the_end_line(
     assert "Shots 44–50 (42.67–45.02 s) are live action: always removed" in block
     assert "real creator" not in block.lower()
     end = "Want to trade like me? Download fomo through the link in my bio."
-    assert f"End line (every video ends on it, word for word): {end}" in prompts.brand_block(
+    assert f"names the brand and where to find it): {end}" in prompts.brand_block(
         {"name": "fomo", "end_line": end}, []
     )
 
@@ -881,71 +851,7 @@ def test_eval_scoring_checks_reference_words_and_the_end_line(tmp_path):
     assert score(tmp_path, case) == [
         "draft 2: 25 spoken words, expected 35–65",
         "draft 2: Advice: the reel's line “Sorry, I'm fully booked.” is changed or missing",
-        "draft 2: doesn't end on the brand's end line",
-    ]
-
-
-def test_breakdown_check_wants_the_script_to_end_on_the_brands_end_line():
-    ex, bd = example("breakdown")
-    script = script_of(ex)
-    end = "Want to trade like me? Download fomo through the link in my bio."
-    assert check.breakdown(script, bd, FOMO, 4, 30, end_line=end) == []
-    other = script.replace(f"MALIK: {end}", "MALIK: Get the app, link in bio.")
-    assert "the script doesn't end on the brand's end line" in check.breakdown(
-        other, bd, FOMO, 4, 30, end_line=end
-    )
-    cta = next(s for s in bd.scenes[2].shots if s.line == end)  # Reed, 2026-10-27
-    cta.screen_ids = []
-    assert (
-        "Advice: shot 3.6: the end line's shot shows no screen; show the brand's real screen "
-        "on the phone he holds up to the camera"
-    ) in check.breakdown(script, bd, FOMO, 4, 30, end_line=end)
-
-
-def test_the_end_line_ignores_case_and_punctuation_and_a_near_miss_is_advice():
-    """Reed: "Marriage Rejection" ends on fomo's end line with FOMO in caps; never blocked."""
-    end = "Want to trade like me? Download fomo through the link in my bio."
-    caps = "NATE: Want to trade like me?! Download FOMO through the link in my bio"
-    curly = "NATE: “Want to trade like me… download fomo, through the link in my bio!”"
-    near = "NATE: Want to trade like me? Get fomo through the link in my bio."
-    other = "NATE: Sorry, I'm fully booked."
-    assert [check.ends_on(end, x, "fomo") for x in (caps, curly, near, other)] == [
-        "yes", "yes", "near", "no"
-    ]  # fmt: skip
-    assert check.ends_on(end, "NATE: ... in my biology", "fomo") != "yes"  # whole words only
-    assert check.ends_on("", other) == "yes"  # a brand with no end line
-    # QA #393: a near miss must still name the brand, or it blocks as before
-    rival = "NATE: Want to trade like me? Download Robinhood through the link in my bio."
-    vague = "NATE: Want to trade like me? Download the app through the link in my bio."
-    assert check.ends_on(end, rival, "fomo") == check.ends_on(end, vague, "fomo") == "no"
-    assert check.ends_on(end, near, "") == "no"  # no brand name to check: blocks
-    # The end line split over the last two lines, its last part with FOMO in caps
-    split = ("NATE: Want to trade like me?", "NATE: Download FOMO through the link in my bio!")
-    assert check.ends_on(end, split[1], "fomo", before=split[0]) == "yes"
-    # Reed: a near match never blocks. Half the end line's words and the brand: Advice
-    assert check.ends_on(end, split[1], "fomo") == "near"
-    assert check.ends_on(end, split[1], "fomo", before="NATE: Sorry.") == "near"
-    assert check.ends_on(end, "NATE: Get FOMO in my bio.", "fomo") == "no"  # under half
-    assert check.ends_on(end, "BRIDE: Huh?!", "fomo", before=caps) == "no"  # not the last line
-
-    ex, bd = example("breakdown")
-    script = script_of(ex)
-
-    def ending(last):
-        found = script.replace(f"MALIK: {end}", last)
-        return check.breakdown(found, bd, FOMO, 4, 30, end_line=end, brand="fomo")
-
-    assert not [p for p in ending(caps) if "end line" in p]  # passes cleanly
-    assert not [p for p in ending(curly) if "end line" in p]
-    advice = [p for p in ending(near) if "end line" in p]
-    assert advice == [
-        "Advice: the last line is close to the brand's end line but not word for word"
-    ]
-    assert "the script doesn't end on the brand's end line" in ending(other)  # still blocks
-    assert "the script doesn't end on the brand's end line" in ending(rival)  # another app
-    assert not [p for p in ending("\n".join(split)) if "end line" in p]  # split, caps
-    assert [p for p in ending(split[1]) if "end line" in p] == [  # Reed's exact line, alone
-        "Advice: the last line is close to the brand's end line but not word for word"
+        "draft 2: Advice: the last line doesn't mention the brand or where to find it",
     ]
 
 
@@ -1050,10 +956,10 @@ def test_an_imported_reels_draft_brings_in_no_new_speakers():
     reel = ["groom", "bride", "groom"]
     end = "Want to trade like me? Download fomo through the link in my bio."
     draft = f"NATE: I do.\nBRIDE: HELL NO!\nBRIDE (V.O.): Forever with you.\nNATE: {end}"
-    assert check.reel_speakers(draft, reel, ["Nate"], end) == []
-    assert check.reel_speakers(draft + f"\nCREATOR: {end}", reel, ["Nate"], end) == []
+    assert check.reel_speakers(draft, reel, ["Nate"], end, "fomo") == []
+    assert check.reel_speakers(draft + f"\nCREATOR: {end}", reel, ["Nate"], end, "fomo") == []
     extra = draft + "\nPRIEST: You may kiss the bride."
-    assert check.reel_speakers(extra, reel, ["Nate"], end) == [
+    assert check.reel_speakers(extra, reel, ["Nate"], end, "fomo") == [
         "Advice: 3 people speak, the reel has 2; give Priest's lines back to who says them "
         "in the reel"
     ]
@@ -1224,3 +1130,33 @@ def test_the_app_bridge_is_only_for_an_app_brand():
         text = prompts.system(step)
         for at in [m.start() for m in re.finditer(r"opening the app|the app being opened", text)]:
             assert "app brand" in text[max(at - 160, 0) : at], step
+
+
+def test_the_closing_call_to_action_only_has_to_name_the_brand():
+    """Current rules 18 (Reed, 2026-10-28): the saved end line is the default wording; any
+    closing line that names the brand passes, and a miss is Advice, never a block."""
+    ex, bd = example("breakdown")
+    script = script_of(ex)
+    end = "Want to trade like me? Download fomo through the link in my bio."
+    note = "Advice: the last line doesn't mention the brand or where to find it"
+
+    def ending(last, brand="fomo"):
+        found = script.replace(f"MALIK: {end}", last)
+        return [p for p in check.breakdown(found, bd, FOMO, 4, 30, end, brand) if "last line" in p]
+
+    assert ending(f"MALIK: {end}") == []
+    assert ending("MALIK: Want to glow up like me? Get FOMO, link in my bio!") == []  # adapted
+    assert ending("MALIK: Download Robinhood, link in bio.") == [note]  # another app: advice
+    assert ending("MALIK: Get the app, link in bio.") == [note]
+    assert ending("MALIK: Sorry, I'm fully booked.", brand="") == [note]
+    assert not check.says_brand("NATE: My fomofriend.", "fomo")  # whole words only
+    assert ending("MALIK: Bye.") == [note]
+    other = script.replace(f"MALIK: {end}", "MALIK: Bye.")  # a brand with no end line: no note
+    assert not [p for p in check.breakdown(other, bd, FOMO, 4, 30) if "last line" in p]
+    cta = next(s for s in bd.scenes[2].shots if s.line == end)  # Reed, 2026-10-27
+    cta.screen_ids = []
+    assert (
+        "Advice: shot 3.6: the end line's shot shows no screen; show the brand's real screen "
+        "on the phone he holds up to the camera"
+    ) in check.breakdown(script, bd, FOMO, 4, 30, end, "fomo")
+    assert "approved" not in inspect.signature(check.breakdown).parameters
