@@ -255,7 +255,37 @@ def land(
                          "a role in this video.")  # fmt: skip
     bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
     bd, shown = cta_screen(db, project, bd)  # the end line's shot shows the brand's screen
-    return bd, notes + removed + shown
+    bd, bags = product_shots(db, project, bd)  # a shot that shows the product attaches it
+    return bd, notes + removed + shown + bags
+
+
+def products_of(db: Session, project: Project) -> list[dict]:
+    """The brand's product screens for check.product_shown: this video's chosen variants
+    first, then the others (a shot may name another flavour)."""
+    from app.enhance import screen_name, screens_of
+
+    chosen = {s.id for s in project_screens(db, project)}
+    every = [s for s in screens_of(db, db.get(Brand, project.brand_id)) if "product" in s.tags]
+    every.sort(key=lambda s: (s.id not in chosen, s.id))
+    return [{"id": f"screen:{s.id}", "name": screen_name(s), "product": s.product,
+             "variant": s.variant} for s in every]  # fmt: skip
+
+
+def product_shots(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdown, list[str]]:
+    """Any shot whose action shows the brand's product lists the real product screen, so the
+    still and the clip attach the real picture (Reed's #32 c9: an invented "Iron Paws" bag on
+    a shelf). Free, in code; said as advice. Doing it again changes nothing."""
+    products = products_of(db, project)
+    brand = db.get(Brand, project.brand_id)
+    ids = {p["id"]: p["name"] for p in products}
+    notes = []
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        if any(s in ids for s in shot.screen_ids):
+            continue
+        if found := check.product_shown(f"{shot.action} {shot.camera}", brand.name, products):
+            shot.screen_ids = [*shot.screen_ids, found]
+            notes.append(f"Advice: Shot {shot.id} now shows the real {ids[found]}.")
+    return bd, notes
 
 
 OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
