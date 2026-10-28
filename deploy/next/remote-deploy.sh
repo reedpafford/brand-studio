@@ -48,6 +48,9 @@ main() {
   } > .env.new
   mv .env.new .env
 
+  # One deploy at a time on this server: live and the test site take turns building.
+  exec 9>/tmp/brand-studio-deploy.lock
+  flock 9
   docker network inspect brand-studio-edge >/dev/null 2>&1 || docker network create brand-studio-edge >/dev/null
   compose() { docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml "$@"; }
   docker run --rm -v "$PWD/next/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 \
