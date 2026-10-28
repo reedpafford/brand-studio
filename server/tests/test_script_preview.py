@@ -88,11 +88,13 @@ def test_a_version_shows_its_estimate_clips_planner_and_original(owner, db):
     owner.put(f"{base}/drafts/1", json={"text": SCRIPT + "\nNATE: Fine."})
     first, second = owner.get(base).json()["versions"]
     assert (first["variation_of"], second["variation_of"]) == (None, "A")
-    assert (first["estimate_credits"], first["clips"], first["planned_by"]) == (40, 0, None)
+    assert (first["clips"], first["planned_by"]) == (0, None)
+    # Every step, not only its 40 s of video (QA-Live, video #17: "About 55", 99 charged).
+    assert 1.2 * 40 < first["estimate_credits"] < 1.6 * 40
     owner.put(f"{base}/drafts/0/breakdown", json=BREAKDOWN)
     first = owner.get(base).json()["versions"][0]
     assert first["clips"] == len(BREAKDOWN["clips"]) and first["planned_by"]["name"] == "Reed"
-    assert first["estimate_credits"] == sum(c["seconds"] for c in BREAKDOWN["clips"])
+    assert first["estimate_credits"] > sum(c["seconds"] for c in BREAKDOWN["clips"])
 
 
 def test_a_plan_goes_stale_when_the_words_change_and_its_advice_can_be_kept(owner, db):

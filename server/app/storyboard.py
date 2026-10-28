@@ -11,14 +11,15 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.advice import names, plain
-from app.cast_roles import cast_roles, pick, plays, video_slots
+from app.cast_roles import bare, cast_roles, pick, plays, video_slots
 from app.cast_roles import ref as role_ref
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, logo_only, project_context, project_screens, screen_name
 from app.images import image_job_input, image_model_block
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
-from app.models.jobs import Job
+from app.models.files import StoredFile
+from app.models.jobs import Job, JobStatus
 from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
@@ -209,6 +210,33 @@ def logo_still(n: int, who: str) -> str:
             "invented with the chart this beat needs.")  # fmt: skip
 
 
+OLDER = "Advice: Drawn from an older look of "
+
+
+def older_looks(db: Session, known: dict, frame: StoryboardFrame) -> list[str]:
+    """Who in a frame's still was drawn from an earlier sheet than their approved one now
+    (QA-Live, video #17: 5 stills kept Goth GF 2's old look): the still's job sent other
+    pictures. None when its job isn't known (a still picked back, or from before)."""
+    jobs = db.scalars(select(Job).where(Job.project_id == frame.project_id, Job.kind == "image",
+                                        Job.status == JobStatus.succeeded))  # fmt: skip
+    drew = [j for j in jobs if j.input.get("frame_id") == frame.id
+            and ((j.output or {}).get("file_ids") or [None])[0] == frame.file_id]  # fmt: skip
+    if not frame.file_id or not drew:
+        return []
+    sent = set(drew[-1].input.get("files", {}).get("image_input", []))
+    sheets = {r: known.get(r, ("", []))[-1][:1] for r in frame.reference_ids if r.startswith(CHAR)}
+    return [_name(known, r) for r, f in sheets.items() if f and f[0] not in sent]
+
+
+def newer_sheets(db: Session, known: dict, refs: list[str], job_id: int | None) -> list[str]:
+    """The people among `refs` whose approved sheet was made after the call that wrote the
+    prompt: its look words may be the old look's (QA-Live, video #17)."""
+    job = db.get(Job, job_id) if job_id else None
+    files = {r: known.get(r, ("", []))[-1][:1] for r in refs if r.startswith(CHAR)}
+    return [r for r, f in files.items()
+            if job and f and db.get(StoredFile, f[0]).created_at > job.created_at]  # fmt: skip
+
+
 def say_logo(known: dict, prompt: str, ids: list[str], clip: bool = False) -> str:
     """Old words for each logo-only screen among `ids` (a clip's images, or a frame's) say the
     logo: run by the free repair and before every paid still or take, so no logo goes out
@@ -381,6 +409,8 @@ def repair(db: Session, project: Project) -> int:
                     reference_ids=row.reference_ids)  # fmt: skip
         now = with_cast(db, project, was, breakdowns[row.breakdown_id], known, trim=False)
         now = now.model_copy(update={"prompt": say_logo(known, now.prompt, now.reference_ids)})
+        for r in newer_sheets(db, known, now.reference_ids, row.job_id):  # the sheet sets it
+            now = now.model_copy(update={"prompt": bare(now.prompt, _name(known, r))})
         problems = frame_problems(db, project, now, row.breakdown_id) + [
             p for p in row.problems or [] if p.startswith(LEFT_OUT)
         ]  # what an earlier trim left out stays said
@@ -390,6 +420,10 @@ def repair(db: Session, project: Project) -> int:
                 [_name(known, r) for r in was.reference_ids if r not in now.reference_ids],
                 image_model().max_reference_images,
             )
+        if older := older_looks(db, known, row):  # flagged once: an approval after it stays
+            problems.append(f"{OLDER}{', '.join(older)}. Redraw it to show the new look.")
+            if not any(p.startswith(OLDER) for p in row.problems or []):
+                row.still_stale, row.approved = True, False  # "Out of date", one-click redraw
         if now == was and problems == (row.problems or []):
             continue
         row.prompt, row.reference_ids, row.problems = now.prompt, now.reference_ids, problems

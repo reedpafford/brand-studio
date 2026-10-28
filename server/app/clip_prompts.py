@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app import cut_in
 from app.advice import names, plain
 from app.breakdown import video_model, video_model_block
+from app.cast_roles import bare
 from app.enhance import escape, project_context
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
@@ -36,6 +37,8 @@ from app.storyboard import (
     is_logo,
     left_out,
     nearest_first,
+    newer_sheets,
+    older_looks,
     one_logo,
     say_logo,
 )
@@ -179,6 +182,21 @@ def _screens(bd: Breakdown, clip_id: str) -> list[str]:
     return out
 
 
+def _sheet_words(prompt: str, n: int, who: str) -> str:
+    """After a sheet change (QA-Live, video #17: Goth GF 2's removed streak came back): the
+    person's References sentence and Keep clause as the code writes them, and no look words in
+    brackets after their name. The new sheet sets the look. Free; again changes nothing."""
+    tag, lines = rf"\[Image{n}\]", []
+    for line in bare(prompt, who).splitlines():
+        if line.startswith("References: "):
+            line = re.sub(rf"{tag} is [^.]*\.", f"[Image{n}] is {who}.", line)
+        elif line.startswith("Keep: "):
+            same = f"{who} as in [Image{n}], the same look as on their sheet"
+            line = re.sub(rf"{re.escape(who)} as in {tag}[^;.]*", same, line)
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def _add(prompt: str, start: str, text: str) -> str:
     lines = prompt.splitlines()
     for i, line in enumerate(lines):
@@ -268,6 +286,13 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
             continue
         if not any(_same(pics, c, r.id) for r in clip.references):
             problems.append(f"{_name(pics, c)} has no approved look yet. Approve one in Assets.")
+    frame = db.scalar(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id,
+                      StoryboardFrame.clip_id == clip.clip_id, StoryboardFrame.file_id.is_not(None))
+                      .order_by(StoryboardFrame.id))  # fmt: skip  # the one `assets` attaches
+    first = any(r.id == f"frame:{clip.clip_id}" for r in clip.references)
+    if frame and first and (older := older_looks(db, known, frame)):
+        problems.append(f"Advice: Its first frame was drawn from an older look of "
+                        f"{', '.join(older)}. Redraw that still on Storyboard.")  # fmt: skip
     for ref in clip.references:
         if ref.id not in known:
             problems.append(f"{clip.clip_id}: unknown reference {ref.id}")
@@ -310,6 +335,9 @@ def repair(db: Session, project: Project) -> int:
         now = repair_shape(with_cast(db, project, was, bd, known, trim=False), bd)
         images = [r.id for r in now.references if r.kind == "image"]
         now = now.model_copy(update={"prompt": say_logo(known, now.prompt, images, clip=True)})
+        newer = newer_sheets(db, known, images, row.job_id)  # a sheet changed since it was written
+        for n, r in ((n, r) for n, r in enumerate(images, 1) if r in newer):
+            now = now.model_copy(update={"prompt": _sheet_words(now.prompt, n, _name(known, r))})
         cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}  # none on a logo-only screen
         if cleared := bool((row.real_images or {}).keys() - cuts):
             row.real_images = {k: v for k, v in row.real_images.items() if k in cuts}
