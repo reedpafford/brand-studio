@@ -533,6 +533,11 @@ def test_an_adapted_draft_keeps_the_reels_lines_unless_new_lines_is_on():
     assert check.reference_lines(swapped, reel, new_lines=True) == []
     curly = "NATE: Sorry, I’m  fully booked."  # a phone's apostrophe and a double space
     assert check.reference_lines(curly, ["Sorry, I'm fully booked."]) == []
+    # QA-Live run 3: the reel's lines are transcript chunks, cut across the script's lines,
+    # in their own case and punctuation; kept words are never flagged.
+    script = "NATE: Bro, you trade? Teach me!\nKIMCHI: Download fomo."
+    assert check.reference_lines(script, ["bro you trade teach me", "Download fomo"]) == []
+    assert check.reference_lines(script, ["bro you sell"]) != []
 
 
 def test_a_redo_note_never_changes_what_is_said():
@@ -1199,3 +1204,18 @@ def test_no_numeric_rhythm_rules_are_left():
         text = prompts.system(step)
         for gone in ("every 1–3 s", "about 2 s of the real brand element", "by about 5 s"):
             assert gone not in text, (step, gone)
+
+
+def test_a_summary_quoting_a_line_doesnt_count_it_twice():
+    """QA-Live run 3, clip 4: "Teach me!" was in its shot and quoted in the Summary line, so
+    "the line isn't there once" blocked a correct prompt."""
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    clip = cp.clips[0]
+    line = next(s.line for sc in bd.scenes for s in sc.shots if s.line and s.id in
+                next(c.shot_ids for c in bd.clips if c.id == clip.clip_id))  # fmt: skip
+    lines = clip.prompt.splitlines()
+    at = next(i for i, x in enumerate(lines) if x.startswith("Summary: "))
+    lines[at] += f' It ends on "{line}"'
+    clip.prompt = "\n".join(lines)
+    assert not [p for p in check.clip_prompts(logo_once(bd), cp, 30, 10) if "isn't there" in p]

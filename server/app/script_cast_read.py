@@ -86,9 +86,12 @@ def after(db: Session, job: Job) -> None:
 
 
 def problems(db: Session, script: Script, job: Job) -> list[str]:
+    """Checked against the versions it read: every one written so far, approved or not (QA-Live
+    run 3: after variations, B and C weren't approved yet, so "version 1 doesn't exist")."""
     result = CastSlots.model_validate(job.output)
     names = [name for _, name in _cast(db, script)]
-    return check.cast_slots(_versions(db, script), result, cast=names)
+    drafts = db.scalars(select(ScriptDraft).where(ScriptDraft.script_id == script.id))
+    return check.cast_slots({d.slot: d.text for d in drafts if d.text.strip()}, result, names)
 
 
 # Script cues that look like "NAME:" but are nobody (QA on #565): each would auto-make a look.

@@ -193,6 +193,19 @@ def test_a_role_this_video_never_shows_needs_no_look_here(owner, editor, db):
     assert "Rival" not in missing and set(missing) == {"Bride", "Nate"}
 
 
+def test_another_versions_role_is_not_listed_on_this_videos_assets(owner, editor, db):
+    """QA-Live run 3: video A (classroom) listed B's gym bro and C's uncle as missing, and
+    Approve all listed them as skipped."""
+    _, pid, _ = _video(owner, editor)
+    draft = db.get(ScriptDraft, db.get(Project, pid).script_draft_id)
+    db.add(ScriptCastSlot(script_id=draft.script_id, role="Gym bro", position=9, appears_in=[1]))
+    db.add(ScriptCastSlot(script_id=draft.script_id, role="Teacher", position=10,
+                          appears_in=[draft.slot]))  # fmt: skip
+    db.commit()
+    roles = [r["role"] for r in editor.get(f"/projects/{pid}/assets").json() if r["slot_id"]]
+    assert "Gym bro" not in roles and "Teacher" in roles  # this version's, even with no shot
+
+
 def test_script_twos_versions_flag_both_pairs_and_a_one_version_echo_flags_none(owner, db):
     """QA on #628, script 2's shape: A says GROOM/BRIDE, B NOAH/GIRLFRIEND, C BRIDE/NOAH, and
     no line is said word for word twice. BRIDE in A and C talks to GROOM and to NOAH; NOAH in
