@@ -214,7 +214,7 @@ The version panel gets the Preferred take's player and its length ("Song · 0:31
 | Script version | `style_line` (up to 2,000); lyrics up to 3,500 | S2 |
 | Brand | `music_style` (may be empty) | S2 pre-fill |
 | Directions | job + 2 options: `title, concept, lyrics, style_line, visual_concept, recommended, unchecked_claims[]`; estimate | S2a |
-| Song takes | list per version (and per video: `project_id`, null for the script's own): `id, number, file_id, seconds, made_at, preferred, out_of_date, status (making, timing, ready, failed, timing_failed), failed_reason, peaks`; make (2) with estimate; make one; set preferred (with undo); delete (with undo) | S3 |
+| Song takes | list per version (and per video: `project_id`, null for the script's own): `id, number, file_id, seconds, made_at, preferred, out_of_date, status (making, timing, ready, failed, timing_failed), failed_reason, retry_helps, peaks` (`retry_helps` false when the file can't be read: then the card leads with the other take or **Make 2 more**, and no Try again shows); make (2) with estimate; make one; set preferred (with undo); delete (with undo) | S3 |
 | Song take waveform | a small array of peaks (e.g. 200 numbers) so the strip draws without decoding the file on a phone | S3, S5 |
 | Breakdown shot | `start, end` (seconds in the song), `sung: bool`, `lyric` (the words sung in it), made-from take id | S5, S6, S7 |
 | Breakdown | `song_take_id` it was timed to, so "Out of date" is decided by the server | S5 |
