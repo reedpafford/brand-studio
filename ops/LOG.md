@@ -1,4 +1,9 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 05:41 · #681 Budget stops at the per-video cap and never drops for a shorter plan; opt-in editor walk e2e merged
+- 2026-10-28 05:36 · #680 The credits meter follows the video's jobs; the leave question says leaving doesn't add the directions merged
+- 2026-10-28 05:23 · #679 The project budget is twice the video's whole estimate, so short videos aren't refused at Clips merged
+- 2026-10-28 05:04 · #677, #678 Script screen merges Description; Next always goes on; Add N directions is its own button, merged
+- 2026-10-28 03:40 · #676 ops: HANDOFF/LOG refresh as of 5178743 merged (by the Producer)
 - 2026-10-28 03:35 · #675 Script flow: approve with no variations; Edit the script from Directions merged
 - 2026-10-28 03:23 · #674 The closing line only has to name the brand; the end-line check is Advice (Current rules 18) merged
 - 2026-10-28 02:52 · Decision (#673, Reed): CTAs are adapted per video; the brand's saved end line is the default wording, not a required match, and the check is Advice only (Current rules 18) merged
