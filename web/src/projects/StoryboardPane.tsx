@@ -187,7 +187,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     ready: rows.filter((f) => f.file_id !== null && !f.approved && !f.stale && !f.still_stale && blocking(f.problems).length === 0).length,
     waiting: rows.filter((f) => !f.approved).length,
   });
-  if (frames.isPending) return <p className="text-muted">Loading…</p>;
+  if (frames.isPending || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const list = frames.data;
   // After a cast change the stills that show the old cast are redrawn by themselves when the video can pay for it; otherwise they say "Out of date".

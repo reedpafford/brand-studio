@@ -23,7 +23,7 @@ export function useBriefChoices(brandId: number, picks: Record<string, string>) 
   // A flavour has to be chosen; a product with only one is chosen for you.
   const chosen = (product: string) => picks[product] ?? (products.get(product)?.length === 1 ? products.get(product)![0].variant : undefined);
   const unchosen = [...products.keys()].find((p) => !chosen(p));
-  return { characters, products, chosen, unchosen };
+  return { characters, products, chosen, unchosen, loading: screens.isPending };
 }
 
 export function useReferences() {
