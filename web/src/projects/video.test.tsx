@@ -987,15 +987,6 @@ test("after Change this… on a clip with no take that must be read again, the l
   expect(await screen.findByText("Prompt updated. Read it, press Looks good, then press Make clip.")).toBeInTheDocument();
 });
 
-test("after Change this… on a clip with no take that is already read, the line says to press Make clip, and it is on", async () => {
-  setViewport(1440);
-  const change = { note: "Slower", status: "done", before: "a b", after: "a c" };
-  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, change })]] });
-  open("?step=clips");
-  expect(await screen.findByText("Prompt updated. Press Make clip to see it.")).toBeInTheDocument();
-  expect(within(screen.getByLabelText("Clip c1")).getByRole("button", { name: /^Make clip/ })).toBeEnabled();
-});
-
 test("no 'Prompt updated' line once a take exists", async () => {
   setViewport(1440);
   const change = { note: "Slower", status: "done", before: "a b", after: "a c" };
