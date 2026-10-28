@@ -885,7 +885,7 @@ def test_sheet_prompts_are_house_style_with_no_names_or_text():
     )
     photo = prompts.sheet_prompt("character", from_photo=True, change="make the beanie navy")
     assert "Image 1 is a photo of a real person. Keep their likeness" in photo
-    assert photo.endswith("except this change from the last sheet: make the beanie navy")
+    assert photo.endswith("change only this from the last sheet: make the beanie navy")
     place = prompts.sheet_prompt("place", "a small bedroom with a desk and one window")
     assert "no people" in place and "{" not in place + photo and "9:16" not in place + sheet
 
