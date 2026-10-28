@@ -107,9 +107,17 @@ The first step of a song script. Header, step picker, Back/Next as the Script st
 | **Out of date** | After the lyrics or style changed: each old take has an **Out of date** badge (kept, still plays). | Amber **Make 2 takes for the new lyrics · N credits**. Next is disabled: "Make takes of the new lyrics first". |
 | **Preferred switched after Breakdown** | Toast: "Take 2 is Preferred. The breakdown was timed to Take 1, so it's out of date." **Undo**. | Next: Cast; Breakdown then shows Out of date (S5). |
 | **Allowance** | Editor's own script over the week: amber disabled with the week's reason. Reed: plain button. | — |
-| **Published** | Players only, Preferred fixed, no Make. | **Next: Cast**. |
+| **Published** (the script) | Players only, no Make. The Preferred take here is the default each new video starts from. | **Next: Cast**. |
 
 - Deleting a take: in the card's "…" menu, **Delete take**, with Undo. The Preferred one can't be deleted while it's Preferred ("Make another take Preferred first"), nor can the take a breakdown was timed to ("The breakdown is timed to this take. Make the breakdown again first."), so S5's **Go back to Take 1** always works.
+
+### S3e. The song inside an editor's video (Producer's rule-31 ruling)
+Lyrics are final at publish. The Preferred take, Sung/B-roll, re-timing and new takes are the editor's choices **per video**; the script and other videos never change.
+- Where: a **Song** row at the top of the video's Breakdown: the Preferred take's player, "Take 2 · 0:31", and **Change song** (secondary). Desktop opens it as a side panel; 390 as a full-height sheet. Inside: the S3 take cards, without lyric editing.
+- **Make this Preferred** on another take: toast "Take 1 is this video's song now. The breakdown is out of date." with **Undo**. Only this video's Breakdown, Storyboard, Clips and Downloads go Out of date (old stills and takes are kept).
+- **Make 2 more · up to N credits**: charged to this video's budget (library version) or the editor's week (own script). Over either, the button is disabled with the reason, never "Ask Reed": "That's more than this video's budget." / "That's more than this week's 145 credits. It resets on Monday." The way on is the takes already there.
+- A new take whose video would go over the 729 cap shows "Too long for this video" and its **Make this Preferred** is disabled with that reason; the current take stays. Since lyrics can't change here, there's no Edit lyrics in a video.
+- Failures, restarts and refusals: as S3, but a refusal of a published song's lyrics offers only the other takes (lyrics are final) and says so.
 
 ---
 
@@ -140,9 +148,9 @@ As today. One difference: the cast is read from the lyrics plus the visual conce
 | **Out of date (song changed)** | Banner: "Timed to Take 1. Take 2 is Preferred now." Shots kept, dimmed badge **Out of date**. | Amber **Make it again for Take 2 · N credits**; secondary **Go back to Take 1** (free, sets Preferred back). |
 | **Timing failed** | "Couldn't read the song's timing. Nothing was charged." The timing gives the same answer for the same file, so a retry alone may not help. | **Use Take 1** (the other take, free) when there is one; else **Make 2 more takes · up to N credits**. **Try again** (free) stays as a secondary, for a failure the server marks as passing (a restart, say). |
 | **Making failed** | As today: "The shots didn't finish. Credits were returned." | **Try again · N credits**. |
-| **Read-only (published, or editor where the flows say so)** | Switches shown as text badges. | Next. |
+| **Read-only** (the published script's own preview) | Switches shown as text badges. Each video makes its own choices. | Next. |
 
-- Who may flip: the owner in the writing preview. In an editor's video this waits on Question 2 (rule 31); until flows.md says yes, the switches are read-only text badges there.
+- Who may flip: the owner in the writing preview, and the editor in their own video (Producer's ruling on rule 31). A flip in a video changes only that video.
 - Flipping Sung/B-roll saves at once (no Save button for a flip), shows "Shot 3 is Sung now." with **Undo**, and marks later steps Out of date if they exist.
 - Unsaved shot edits keep the existing "Save your changes first." rule.
 
@@ -169,7 +177,7 @@ As today, plus on each clip card:
 |---|---|---|
 | **Sung take refused / failed** | As today (#728 pattern): what happened, credits returned. | **Make another take** or the free reword. |
 | **Lip-sync doesn't match** | No automatic check (rule 11). | **Make another take · N credits** or **Change this…**. |
-| **Make this B-roll instead** | Held until flows.md answers Question 2 (rule 31: a published breakdown is final). If allowed: on a Sung clip whose takes keep failing, a secondary button, free; the clip's prompt is rewritten as B-roll and its old takes kept. | — |
+| **Make this B-roll instead** | On a Sung clip whose takes keep failing: secondary button, free (allowed per video by the Producer's ruling). The clip's prompt is rewritten as B-roll and its old takes kept, with **Undo**. | — |
 
 ---
 
@@ -190,7 +198,7 @@ As today, plus:
 
 ## S9. Make this version (editor, Script Library)
 
-The version panel gets the Preferred take's player and its length ("Song · 0:31") above the words. The estimate says "About N credits" (the song is already made, so it costs the editor nothing). **Make this version** is unchanged.
+The version panel gets the Preferred take's player and its length ("Song · 0:31") above the words. If that take would make a video over the 729 cap (it can't be published that way, but a cap change could cause it), **Make this version** is disabled with the reason and one free press before any spend: **Start with Take 1** (a take that fits) when there is one. The estimate says "About N credits" (the song is already made, so it costs the editor nothing). **Make this version** is unchanged.
 
 ---
 
@@ -207,12 +215,13 @@ The version panel gets the Preferred take's player and its length ("Song · 0:31
 | Breakdown shot | `start, end` (seconds in the song), `sung: bool`, `lyric` (the words sung in it), made-from take id | S5, S6, S7 |
 | Breakdown | `song_take_id` it was timed to, so "Out of date" is decided by the server | S5 |
 | Clip | `song_slice: {start, end} \| null` | S7 |
+| Video (project) | `song_take_id` (this video's Preferred, starts as the script's); takes made in a video belong to that video only; make/set-preferred routes on the video, charged to its budget or the editor's week | S3e, S9 |
 | Final video | `song_take_id` | S8 |
 | Jobs | step names for directions, song takes, timing; refusal reason in plain words | all waiting and failed states |
 
 ## Questions for Next-Lead (answer in flows.md)
 1. Do Directions (camera suggestions) and Variations (B/C versions) show for a song? This plan hides both.
-2. Can an editor flip Sung/B-roll in their video's Breakdown, or is that final once published (rule 31)?
+2. ~~Can an editor flip Sung/B-roll?~~ Answered by the Producer: lyrics final at publish; Preferred take, Sung/B-roll, re-timing and new takes are per-video editor choices (S3e).
 3. Is the singer always a cast role, and who adds "Singer" when the lyrics name nobody?
 4. One take or always two per press? (MiniMax may return one; Suno returns two.)
 5. Song length: this plan blocks Next over the per-video cap (rule 3) and gives Advice below it. Is 2x the budget also a block?
