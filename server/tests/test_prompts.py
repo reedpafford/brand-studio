@@ -706,7 +706,7 @@ def test_storyboard_check_warns_on_words_the_image_model_refuses():
 
     refused = "His chin on her lap, in black leggings, crusty eyes and a bloody paw."
     assert check.storyboard(frames(refused), 14, 4) == [
-        "c1: the image model may refuse “bloody, leggings”; say it gently"
+        "Advice: c1: the image model may refuse “bloody, leggings”; soften it or draw it as is"
     ]
     fine = "Crusty eyes, his chin on her lap; she pours the bowl, he laps it up, a pie crust."
     assert check.storyboard(frames(fine), 14, 4) == []

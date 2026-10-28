@@ -3535,6 +3535,8 @@ export interface components {
             shots: number;
             /** File Id */
             file_id?: number | null;
+            /** Sheet File Id */
+            sheet_file_id?: number | null;
             /** Only Here */
             only_here?: ("video" | "script") | null;
             /** Own Look Id */
@@ -4486,6 +4488,11 @@ export interface components {
              * @default
              */
             created_by_name: string;
+            /**
+             * Waiting
+             * @default
+             */
+            waiting: string;
             /** Approved By Id */
             approved_by_id: number | null;
             /** Provider */
@@ -4558,6 +4565,11 @@ export interface components {
              * @default
              */
             created_by_name: string;
+            /**
+             * Waiting
+             * @default
+             */
+            waiting: string;
         };
         /**
          * JobStatus

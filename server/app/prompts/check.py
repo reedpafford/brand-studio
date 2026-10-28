@@ -328,8 +328,9 @@ def storyboard(
             problems.append(f"{f.clip_id}: {', '.join(missing)} in the shot without a sheet")
         flagged = sorted({w.lower() for w in FLAGGED.findall(f.prompt)})
         if flagged:
-            problems.append(
-                f"{f.clip_id}: the image model may refuse “{', '.join(flagged)}”; say it gently"
+            problems.append(  # Advice: the editor can draw it as is (Reed, 2026-10-28)
+                f"{ADVICE}{f.clip_id}: the image model may refuse “{', '.join(flagged)}”; "
+                "soften it or draw it as is"
             )
     return problems
 

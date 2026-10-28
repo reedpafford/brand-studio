@@ -120,13 +120,21 @@ export function FrameCard(props: {
             <li key={p}>
               {props.words(p)}
               {props.fix(p)}
-              {/may refuse/.test(p) && <SoftenIt busy={props.softening} onSoften={props.onSoften} />}
             </li>
           ))}
         </ul>
       )}
       {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.undoing} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
       <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${f.clip_id}`} />
+      {/* A word the image model may refuse is advice: soften it, or draw it as is (Reed, 2026-10-28). */}
+      {f.file_id === null && f.problems.some((p) => /may refuse/.test(p)) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <SoftenIt busy={props.softening} onSoften={props.onSoften} />
+          <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
+            Draw it as is{price}
+          </button>
+        </div>
+      )}
       {editing !== null ? (
         <div className="space-y-2">
           <textarea className={input} rows={5} aria-label={`Prompt for clip ${f.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />

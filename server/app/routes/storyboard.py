@@ -248,6 +248,7 @@ def render(
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("frame_id") == frame.id for j in pending):
         raise HTTPException(409, "This frame's still is already being made.")
+    frame.problems = [p for p in frame.problems or [] if p != storyboard.REFUSED]  # trying again
     return enqueue(
         db,
         user,

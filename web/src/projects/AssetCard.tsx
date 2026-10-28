@@ -18,7 +18,7 @@ const STATUS: Record<
 > = {
   approved: { tone: "success", text: "Approved" },
   needs_approval: { tone: "warning", text: "Needs your approval" },
-  drawing: { tone: "neutral", text: "Drawing…" },
+  drawing: { tone: "neutral", text: "Making the look…" },
   waiting_for_owner: { tone: "neutral", text: "Not started" },
   none: { tone: "warning", text: "Needs a look" },
   missing: { tone: "warning", text: "Needs a look" },
@@ -60,9 +60,13 @@ export function AssetCard({
   const [pick, setPick] = useState("");
   const [swapping, setSwapping] = useState(false);
   const id = asset.library_item_id;
+  // A look made here: its Change this… prices. The picture and status come from the asset row, so they always agree.
+  const own = asset.only_here != null;
+  const using = own && asset.own_look_id === asset.library_item_id;
+  const notUsed = own && !using;
   const item = useQuery({
     queryKey: ["library", kind, "item", id],
-    enabled: id !== null,
+    enabled: using,
     queryFn: async () =>
       (
         await api.GET("/library/{kind}/{item_id}", {
@@ -122,9 +126,6 @@ export function AssetCard({
     onSuccess: refresh,
   });
   // A look made for this video (or script) has its own sheet buttons here: Approve, and Change this…
-  const own = asset.only_here != null;
-  const using = own && asset.own_look_id === asset.library_item_id;
-  const notUsed = own && !using;
   const [change, setChange] = useState("");
   const changeBox = useRef<HTMLTextAreaElement>(null);
   const approve = useMutation({
@@ -175,7 +176,7 @@ export function AssetCard({
   const changeDecline = stopFor(changeUpTo ?? price);
   const changeReason = !change.trim() ? "Say what should change" : drawingNow ? "This one is still being made" : changeDecline;
   const status = STATUS[asset.sheet_status] ?? STATUS.none;
-  const sheet = item.data?.sheet_file_id;
+  const sheet = asset.sheet_file_id;
   const ratio = kind === "place" ? "16 / 9" : "9 / 16";
   const title = asset.role || asset.name;
   // Its Cast & places character was deleted: the slot is stuck until a look is made or another character is picked.
@@ -196,17 +197,12 @@ export function AssetCard({
               className="w-full rounded-md bg-surface-2 object-cover"
               style={{ aspectRatio: ratio }}
             />
-          ) : id !== null && item.isPending ? (
-            <div
-              className="w-full animate-pulse rounded-md bg-surface-2"
-              style={{ aspectRatio: ratio }}
-            />
           ) : (
             <div
-              className="grid w-full place-items-center rounded-md bg-surface-2 text-sm text-muted"
+              className={`grid w-full place-items-center rounded-md bg-surface-2 text-sm text-muted ${drawingNow ? "animate-pulse" : ""}`}
               style={{ aspectRatio: ratio }}
             >
-              No look yet
+              {!drawingNow && "No look yet"}
             </div>
           )}
         </div>
