@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import advice, merge_roles, rewritten
 from app import script_library as lib
 from app.advice import Said
-from app.auth import current_user, shown_name, user_name
+from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.files import StoredFile
@@ -153,7 +153,7 @@ class ScriptOut(ScriptRow):
 
 def _person(db: Session, user_id: int | None) -> Person | None:
     user = db.get(User, user_id) if user_id else None
-    return Person(id=user.id, name=shown_name(user)) if user else None
+    return Person(id=user.id, name=user.name) if user else None
 
 
 def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | VersionOut:
