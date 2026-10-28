@@ -56,7 +56,7 @@ export function ClipCard(props: {
   aspect: string;
   poster: number | null;
   projectName: string;
-  job: { status: string; created_at: string; error?: string | null; waiting?: string } | undefined;
+  job: { id: number; status: string; created_at: string; error?: string | null; waiting?: string } | undefined;
   busy: boolean;
   blockers: Blocker[];
   toRead: boolean;
@@ -85,13 +85,15 @@ export function ClipCard(props: {
   const keep = useKeep(props.projectId, { of: "clip", id: c.id });
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const failed = props.job?.status === "failed";
+  const lastChange = c.change as ChangeState;
+  // A take that failed before the prompt was changed is about the old prompt: it no longer marks the clip as failed.
+  const failedBefore = props.job?.status === "failed" && lastChange?.status === "done" && (lastChange.job_id ?? 0) > props.job.id;
+  const failed = props.job?.status === "failed" && !failedBefore;
   const status = c.approved ? "Approved" : props.busy ? null : failed ? "Failed · credits returned" : c.stale ? "Made for an older breakdown" : c.file_id ? "Ready" : "Not made";
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
   const price = props.cost === undefined ? "" : ` · ${Math.round(props.cost)} credits`;
   const picked = c.takes.find((t) => t.id === c.picked_take_id);
   // "Change this…" on a clip with no take only rewrites the prompt (no surprise paid take): say what to press next.
-  const lastChange = c.change as ChangeState;
   // A change always clears "Looks good" (the prompt must be read again), so the line only shows while it is waiting to be read.
   const updated = props.review && props.toRead && c.takes.length === 0 && lastChange?.status === "done" && lastChange.note !== FIX_NOTE;
   return (
@@ -107,7 +109,13 @@ export function ClipCard(props: {
           )}
         </span>
       </div>
-      {failed && props.job?.error && <p role="status" className="text-sm text-danger">{props.job.error}</p>}
+      {failed && props.job?.error && (
+        <p role="status" className="text-sm text-danger">
+          {c.takes.length > 0 && "The newest take failed; your other takes are below. "}
+          {props.job.error}
+        </p>
+      )}
+      {failedBefore && <p role="status" className="text-sm text-muted">The last take, before your change, failed.</p>}
       {props.job?.waiting && <p role="status" className="text-sm text-muted">{props.job.waiting}</p>}
       {c.take_warning && !props.busy && <p role="status" className="text-sm text-warning">{c.take_warning}</p>}
       <div className="grid place-items-center overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: ratio(props.aspect), maxHeight: "24rem" }}>
@@ -200,7 +208,8 @@ export function ClipCard(props: {
           projectId={props.projectId}
           id={c.id}
           label={c.clip_id}
-          change={c.change as ChangeState}
+          change={lastChange}
+          action={c.takes.length > 0 ? "Change it and make a new take" : "Change the prompt"}
           hold={props.busy ? "This one is still being made" : null}
           stopFor={props.stopFor}
           snapshot={c.picked_take_id}
