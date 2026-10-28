@@ -35,7 +35,7 @@ function postUpload(path: "/scripts/import/upload", form: Record<string, string>
   });
 }
 
-/** New script, Import a reel: a link or a video file. Getting it is free; the script is made at once and opens at its Description while the reel is prepared. */
+/** New script, Import a reel: a link or a video file. Getting it is free; the script is made at once and opens at its Script while the reel is prepared. */
 export function ReelPicker({ brandId }: { brandId: number }) {
   const [url, setUrl] = useState("");
   const [bad, setBad] = useState<string | null>(null);
@@ -249,7 +249,7 @@ function FillAgain({ scriptId }: { scriptId: number }) {
   );
 }
 
-/** On the Description step: getting the reel, the price to read it, the read's progress, and what came of it. */
+/** On the Script step: getting the reel, the price to read it, the read's progress, and what came of it. */
 export function ReelBlock({ scriptId, published, createdById }: { scriptId: number; published: boolean; createdById: number | null }) {
   const reel = useReelImport(scriptId);
   const file = useRef<HTMLInputElement>(null);

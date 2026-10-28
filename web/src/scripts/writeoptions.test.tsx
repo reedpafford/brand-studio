@@ -33,7 +33,10 @@ function open() {
     </QueryClientProvider>,
   );
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
+});
 
 test("the script editor is open on an empty script, with Have Claude write it for me at its price under it", async () => {
   setViewport(1440);
@@ -106,8 +109,38 @@ test("an imported reel that isn't read yet offers Read this reel, never Have Cla
   fakeServer(base({ "GET /scripts/7": [200, script({ reel_imported: true })], "GET /scripts/7/import": [200, reel] }));
   open();
   expect((await screen.findAllByRole("button", { name: "Read this reel · 7 credits" })).length).toBeGreaterThan(0);
+  expect(screen.queryByText(/Have Claude write it/)).toBeNull();
   expect(screen.queryByRole("button", { name: /^Have Claude write it/ })).toBeNull();
   expect(screen.getByLabelText("Your script")).toBeInTheDocument();
+});
+
+test("a script with a reel that is not read yet (reel_imported still false) shows only Read this reel, never a second paid path", async () => {
+  setViewport(1440);
+  const reel = { steps_done: [], script_id: 7, status: "ready", source: "link", url: "https://www.instagram.com/reel/Abc123/", seconds: 45, shots: 50, transcript: [], video_file_id: 3, contact_file_id: 4, problem: "", problem_code: null, estimate: { credits: 7, credits_left: null } };
+  fakeServer(base({ "GET /scripts/7/import": [200, reel] }));
+  open();
+  expect((await screen.findAllByRole("button", { name: "Read this reel · 7 credits" })).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", { name: /Have Claude write it/ })).toBeNull();
+});
+
+test("unsaved words come back when the editor returns, so no way out of the page loses them", async () => {
+  setViewport(1440);
+  sessionStorage.clear();
+  fakeServer(base({ "GET /scripts/7": [200, script({ versions: [{ ...script().versions[0], text: "BO: Salmon?" }] })] }));
+  const first = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/scripts/7?step=script"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await userEvent.type(await screen.findByLabelText("Your script"), " More.");
+  first.unmount(); // left through the tab bar, say
+  open();
+  expect(await screen.findByLabelText("Your script")).toHaveValue("BO: Salmon? More.");
+  expect(screen.getByText("Not saved yet")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+  expect(screen.getByLabelText("Your script")).toHaveValue("BO: Salmon?");
 });
 
 test("Save script is off until the words change; unsaved words say so, leaving asks first, and Save keeps them", async () => {

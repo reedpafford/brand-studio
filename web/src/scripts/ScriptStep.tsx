@@ -151,7 +151,25 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
   const original = s.versions.find((v) => v.slot === 0);
   const text = original?.text ?? "";
   const approved = original?.status === "approved";
-  const [draft, setDraft] = useState<string | null>(null); // the editor's words once changed; null follows the saved ones
+  // The editor's words once changed; null follows the saved ones. Kept for this tab, so no way out of the page (a tab, the brand menu, a reload) loses them.
+  const memory = `script-words-${s.id}`;
+  const [draft, setDraftNow] = useState<string | null>(() => {
+    try {
+      const kept = sessionStorage.getItem(memory);
+      return kept !== null && kept !== text ? kept : null;
+    } catch {
+      return null;
+    }
+  });
+  const setDraft = (words: string | null) => {
+    setDraftNow(words);
+    try {
+      if (words === null || words === text) sessionStorage.removeItem(memory);
+      else sessionStorage.setItem(memory, words);
+    } catch {
+      /* private window: they just won't be kept */
+    }
+  };
   const dirty = draft !== null && draft !== text;
   useEffect(() => onDirty(dirty), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onDirty(false), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -232,7 +250,7 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
           </div>
         </Card>
       )}
-      {!s.published && !approved && !fromReel && (
+      {!s.published && !approved && !reel.data && (
         <Card className="max-w-[680px]">
           <WriteWithClaude script={s} text={text} hasUnsaved={dirty} onWritten={() => setDraft(null)} />
         </Card>
