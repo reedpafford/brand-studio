@@ -278,11 +278,18 @@ def product_shots(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdo
     products = products_of(db, project)
     brand = db.get(Brand, project.brand_id)
     ids = {p["id"]: p["name"] for p in products}
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    clip_of = {sid: c for c in bd.clips for sid in c.shot_ids}
+
+    def shown(clip) -> set[str]:  # a clip keeps to 3 screens (check.breakdown blocks a 4th)
+        return {x for sid in (clip.shot_ids if clip else []) for x in shots[sid].screen_ids}
+
     notes = []
-    for shot in (s for scene in bd.scenes for s in scene.shots):
+    for shot in shots.values():
         if any(s in ids for s in shot.screen_ids):
             continue
-        if found := check.product_shown(f"{shot.action} {shot.camera}", brand.name, products):
+        found = check.product_shown(f"{shot.action} {shot.camera}", brand.name, products)
+        if found and len(shown(clip_of.get(shot.id)) | {found}) <= 3:
             shot.screen_ids = [*shot.screen_ids, found]
             notes.append(f"Advice: Shot {shot.id} now shows the real {ids[found]}.")
     return bd, notes

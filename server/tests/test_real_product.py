@@ -56,3 +56,23 @@ def test_a_breakdown_shot_showing_the_bag_gets_the_real_one(app, db, editor, own
     assert ids["Peanut butter"] in saved[0]["screen_ids"]  # the video's flavour
     assert ids["Chicken"] in saved[1]["screen_ids"]  # the one the shot names
     assert "Advice: Shot 1.1 now shows the real Peanut butter bag." in got["problems"]
+
+
+def test_the_bag_never_makes_a_fourth_screen_in_a_clip(app, db, editor, owner, setup):  # noqa: F811
+    """QA: "N screens; keep the 3" blocks with no one-click fix, so the repair stays out."""
+    from app.breakdown import product_shots
+    from app.prompts.schemas import Breakdown
+
+    files = [upload(owner)]
+    project = db.get(Project, setup["project"])
+    brand = db.get(Brand, project.brand_id)
+    brand.name = "Iron Paws"
+    db.add(BrandScreen(brand_id=brand.id, name="Peanut butter bag", file_id=files[0],
+                       tags=["product"], product="bag", variant="Peanut butter"))  # fmt: skip
+    db.commit()
+    data = copy.deepcopy(BREAKDOWN)
+    shots = data["scenes"][0]["shots"]
+    shots[0]["screen_ids"] = ["screen:901", "screen:902", "screen:903"]  # already 3
+    shots[1]["action"] = "An Iron Paws bag sits on the counter."
+    bd, notes = product_shots(db, project, Breakdown.model_validate(data))
+    assert bd.scenes[0].shots[1].screen_ids == [] and notes == []
