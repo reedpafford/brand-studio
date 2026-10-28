@@ -1,6 +1,7 @@
 """Generating a project's clips (Seedance, one take per run) and stitching the picked takes
 into the finished video (ffmpeg, free)."""
 
+import re
 import subprocess
 import tempfile
 from decimal import Decimal
@@ -89,16 +90,23 @@ def in_english(prompt: str) -> str:
     return "\n".join([*lines[: at + 1], ENGLISH, *lines[at + 1 :]])
 
 
+BUSY = ("The video service was busy and couldn't finish this. Nothing was charged; press {} "
+        "to try again.")  # fmt: skip
 REFUSED = "The video model thinks this clip looks too much like someone else's character or video."
 
 
 def refused(db: Session, job: Job) -> None:
     """Seedance's copyright refusal ("…may be related to copyright restrictions") in plain
     words with a next step (rules 4 and 22), never "Ask the owner". Refused takes aren't
-    counted (credits.COUNTED), so nothing is charged."""
+    counted (credits.COUNTED), so nothing is charged. A busy service ("Service is temporarily
+    unavailable") says to try again (Producer, rule 22)."""
+    row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+    if re.search(r"service is (temporarily|currently) unavailable", job.error_detail or "", re.I):
+        took = row and db.scalar(select(ClipTake.id).where(ClipTake.clip_id == row.id).limit(1))
+        job.error = BUSY.format("Make another take" if took else "Make clip")  # its button
+        return
     if "copyright" not in (job.error_detail or "").lower():
         return
-    row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
     char = next((r["id"] for r in (row.references if row else None) or []
                  if r["id"].startswith("char:")), None)  # fmt: skip
     item = db.get(LibraryItem, int(char.split(":")[1])) if char else None
