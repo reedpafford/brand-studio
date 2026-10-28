@@ -50,28 +50,37 @@ def test_an_approved_look_puts_its_roles_words_right(app, owner, editor, db):
     assert _row(editor, pid, slot)["text_fit"] is None  # not until the look is approved
     editor.post(f"/library/character/{look}/sheet/approve")
     row = _row(editor, pid, slot)
-    assert row["text_fit"] == {"seen": "The approved look shows a French bulldog.",
-                               "name": "Biscuit, the French bulldog",
-                               "description": BULLDOG["role_description"]}  # fmt: skip
+    assert row["text_fit"] == {
+        "seen": "The approved look shows a French bulldog.",
+        "name": "Biscuit, the French bulldog", "description": BULLDOG["role_description"],
+        "notes": GOLDEN, "update_look": True, "update_script": False,
+        "note": "The script's role still describes the earlier look; this video follows the look.",
+    }  # fmt: skip
     assert row["text_check_credits"] is None
 
     url = f"/projects/{pid}/assets/slots/{slot}"
-    put_right = {"role": row["text_fit"]["name"], "description": row["text_fit"]["description"]}
-    out = next(r for r in editor.patch(url, json=put_right).json() if r["slot_id"] == slot)
-    assert (out["role"], out["description"]) == (put_right["role"], put_right["description"])
-    assert out["text_fit"] is None and out["text_check_credits"] is None  # nothing to Check
-    assert db.get(ScriptCastSlot, slot).guessed == []
-    assert db.get(LibraryItem, look).notes == put_right["description"]  # redraws follow too
+    fixed = {"notes": BULLDOG["role_description"]}  # Update to match: this video's own look
+    out = next(r for r in editor.patch(url, json=fixed).json() if r["slot_id"] == slot)
+    assert db.get(LibraryItem, look).notes == BULLDOG["role_description"]
+    assert out["text_fit"]["update_look"] is False and out["text_fit"]["note"]  # just says so
+    words = {"role": "Biscuit, the French bulldog", "description": BULLDOG["role_description"]}
+    assert editor.patch(url, json=words).status_code == 403  # the script's role: rule 31
+    assert db.get(ScriptCastSlot, slot).description == GOLDEN
+    out = next(r for r in editor.patch(url, json={"notes": GOLDEN}).json() if r["slot_id"] == slot)
+    assert out["text_fit"]["update_look"] is True  # Undo: offered again
 
-    undo = {"role": "Biscuit, the golden dog", "description": GOLDEN}  # the toast's Undo
-    out = next(r for r in editor.patch(url, json=undo).json() if r["slot_id"] == slot)
-    assert out["text_fit"]["name"] == "Biscuit, the French bulldog"  # offered again
-
-    renamed = editor.patch(url, json={"role": "Rex, the French bulldog"})
+    mine = _row(owner, pid, slot)["text_fit"]  # the owner may put the script's role right too
+    assert (mine["update_script"], mine["note"]) == (True, "")
+    renamed = owner.patch(url, json={"role": "Rex, the French bulldog"})
     assert renamed.status_code == 422 and "Keep the name Biscuit" in renamed.json()["detail"]
-    mine = editor.patch(url, json={"description": "a small dog"}).json()  # their own words
-    out = next(r for r in mine if r["slot_id"] == slot)
-    assert out["text_fit"] is None and out["text_check_credits"] >= 1  # unread: Check
+    owner.patch(url, json=words)
+    assert db.get(ScriptCastSlot, slot).role == "Biscuit, the French bulldog"
+    assert _row(owner, pid, slot)["text_fit"]["update_look"] is True  # the look's notes: next
+    owner.patch(url, json=fixed)
+    assert _row(owner, pid, slot)["text_fit"] is None
+    assert _row(editor, pid, slot)["text_fit"] is None  # nothing differs for anyone now
+    owner.patch(url, json={"description": "a small dog"})  # their own words, unread: Check
+    assert _row(owner, pid, slot)["text_check_credits"] >= 1
 
 
 def test_a_look_approved_before_the_words_were_read_can_be_checked(app, owner, editor, db):

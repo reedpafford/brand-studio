@@ -3123,9 +3123,10 @@ export interface paths {
         head?: never;
         /**
          * Edit Role Text
-         * @description Put the role's name or description right (to match its approved look, or Undo that).
-         *     It's the script's role, so every version reads it; the spoken words never change, and a
-         *     name keeps its words up to the first comma so the script still labels it the same.
+         * @description Update to match (or its Undo): `notes` go on this video's own look, which its steps,
+         *     sheets and redraws read. `role` and `description` put the script's role right for every
+         *     version: the owner's (or its author's before publishing), rule 31. The spoken words never
+         *     change, and a name keeps its words up to the first comma.
          */
         patch: operations["edit_role_text_projects__project_id__assets_slots__slot_id__patch"];
         trace?: never;
@@ -5734,6 +5735,8 @@ export interface components {
         };
         /** SlotTextIn */
         SlotTextIn: {
+            /** Notes */
+            notes?: string | null;
             /** Role */
             role?: string | null;
             /** Description */
@@ -5830,6 +5833,17 @@ export interface components {
             name: string;
             /** Description */
             description: string;
+            /** Notes */
+            notes: string;
+            /** Update Look */
+            update_look: boolean;
+            /** Update Script */
+            update_script: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** UploadOut */
         UploadOut: {

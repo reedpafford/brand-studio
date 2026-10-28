@@ -49,6 +49,10 @@ class TextFitOut(BaseModel):
     seen: advice.SaidText  # "The approved look shows a French bulldog."
     name: str  # the role's name put right, "" when it fits
     description: str  # the description put right, "" when it fits
+    notes: str  # this video's look's notes now (Undo puts them back)
+    update_look: bool  # Update to match: this video's own look's notes (any editor)
+    update_script: bool  # Update the script's role too (the owner, or its author unpublished)
+    note: advice.SaidText = ""  # the script's role still differs; this video follows the look
 
 
 class AssetOut(BaseModel):
@@ -80,7 +84,8 @@ class AssetOut(BaseModel):
 
 
 class SlotTextIn(BaseModel):
-    role: Role | None = None
+    notes: LongText | None = None  # this video's own look
+    role: Role | None = None  # the script's role (rule 31)
     description: LongText | None = None
 
 
@@ -126,15 +131,18 @@ def _row(
         description=slot.description if slot else "",
         facts=role_facts(slot.description, slot.guessed or []) if slot else None,
         look_fit=item.look_fit if item else None,
-        **(_text(slot, item, status) if slot and item and not locked else {}),
     )
 
 
-def _text(slot: ScriptCastSlot, item: LibraryItem, status: str) -> dict:
-    """An approved look's role words: put right where its check found them contradicting the
-    sheet, or Check them for a look approved before they were read (a small Claude call)."""
-    if status != "approved" or not is_checked(item) or not (slot.description or "," in slot.role):
-        return {}
+def _text(row: AssetOut, slot, item, project: Project, user: User) -> None:
+    """An approved look's role words (Biscuit: a French bulldog written as a golden retriever),
+    as its check rewrote them: Update to match saves them into this video's own look; the
+    owner (or the author before publishing) can put the script's role right too (rule 31).
+    A look approved before the check read them can be Checked, at its price."""
+    if row.locked or row.sheet_status != "approved" or not is_checked(item):
+        return
+    if not (slot.description or "," in slot.role):
+        return
     read = item.text_fit or {}
     to = {}  # each of the role's words: as read (offer what it was put right to), or put right
     for key, now in (("role", slot.role), ("description", slot.description)):
@@ -145,12 +153,28 @@ def _text(slot: ScriptCastSlot, item: LibraryItem, status: str) -> dict:
             to[key] = ""
     same = (read.get("slot_id"), read.get("sheet_file_id")) == (slot.id, item.sheet_file_id)
     if not same or len(to) < 2:  # not read against this sheet and these words yet: Check
-        db = object_session(item)
-        return {"text_check_credits": price(check_price(db, item.workspace_id))}
-    if not any(to.values()):
-        return {}
-    said = f"The approved look shows {read['seen'].strip().rstrip('.')}."
-    return {"text_fit": TextFitOut(seen=said, name=to["role"], description=to["description"])}
+        row.text_check_credits = price(check_price(object_session(item), item.workspace_id))
+        return
+    look = bool(read["description_to"]) and item.owner_project_id == project.id
+    look = look and item.notes.strip() != read["description_to"]
+    script = any(to.values()) and _script_words(object_session(item), slot, user)
+    note = (
+        ""
+        if script or not any(to.values())
+        else ("The script's role still describes the earlier look; this video follows the look.")
+    )
+    if look or script or note:
+        row.text_fit = TextFitOut(
+            seen=f"The approved look shows {read['seen'].strip().rstrip('.')}.",
+            name=read["role_to"], description=read["description_to"], notes=item.notes,
+            update_look=look, update_script=script, note=note)  # fmt: skip
+
+
+def _script_words(db: Session, slot, user: User) -> bool:
+    """Rule 31: a published script's role words are the owner's to change; before
+    publishing, its author's too."""
+    script = db.get(Script, slot.script_id)
+    return user.is_owner or (script.created_by_id == user.id and not script.published)
 
 
 @router.get("", response_model=list[AssetOut])
@@ -183,6 +207,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         gone = db.get(LibraryItem, item_id) if item_id else None
         out[-1].library_deleted = bool(item_id and (gone is None or gone.archived))
         seen.add(f"char:{item_id}")
+        if item:
+            _text(out[-1], slot, item, project, user)
     for ref in used:
         if ref in seen or not ref.startswith("char:"):
             continue
@@ -222,13 +248,22 @@ def edit_role_text(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Put the role's name or description right (to match its approved look, or Undo that).
-    It's the script's role, so every version reads it; the spoken words never change, and a
-    name keeps its words up to the first comma so the script still labels it the same."""
+    """Update to match (or its Undo): `notes` go on this video's own look, which its steps,
+    sheets and redraws read. `role` and `description` put the script's role right for every
+    version: the owner's (or its author's before publishing), rule 31. The spoken words never
+    change, and a name keeps its words up to the first comma."""
     project = get_project(db, user, project_id)
     slot = next((s for s in _slots(db, project) if s.id == slot_id), None)
     if not slot:
         raise HTTPException(404, "No such cast slot in this video.")
+    if body.notes is not None:
+        item = db.get(LibraryItem, cast_roles.pick(db, project, slot) or 0)
+        if not item or item.owner_project_id != project.id:
+            raise HTTPException(409, "This look is shared with other videos, so its notes stay.")
+        item.notes = body.notes.strip()
+    if (body.role, body.description) != (None, None) and not _script_words(db, slot, user):
+        raise HTTPException(403, "The script's roles are final once it's published; this video "
+                                 "follows its look.")  # fmt: skip
     if body.role is not None:
         if cast_roles.short(body.role) != cast_roles.short(slot.role):
             raise HTTPException(422, f"Keep the name {cast_roles.short(slot.role)}; change "
@@ -236,9 +271,6 @@ def edit_role_text(
         _unique(db, db.get(Script, slot.script_id), body.role.strip(), slot.id)
         slot.role = body.role.strip()
     if body.description is not None:
-        own = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
-        if own and own.notes == slot.description:  # its look's notes were the role's: follow
-            own.notes = body.description.strip()
         slot.description, slot.guessed = body.description.strip(), []
     db.commit()
     return list_assets(project_id, user, db)
@@ -253,7 +285,8 @@ def check_role_text(
     project = get_project(db, user, project_id)
     slot = _open_slot(db, project, slot_id)
     item = db.get(LibraryItem, cast_roles.pick(db, project, slot) or 0)
-    if not item or not _text(slot, item, sheet_status(item)).get("text_check_credits"):
+    row = next((r for r in list_assets(project_id, user, db) if r.slot_id == slot.id), None)
+    if not item or not row or not row.text_check_credits:
         raise HTTPException(409, "There's nothing to check: its words were read already.")
     check_fit(db, user, item, redo=False, slot=slot, pressed=True)
     return list_assets(project_id, user, db)
