@@ -1,4 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 03:35 · #675 Script flow: approve with no variations; Edit the script from Directions merged
+- 2026-10-28 03:23 · #674 The closing line only has to name the brand; the end-line check is Advice (Current rules 18) merged
+- 2026-10-28 02:52 · Decision (#673, Reed): CTAs are adapted per video; the brand's saved end line is the default wording, not a required match, and the check is Advice only (Current rules 18) merged
+- 2026-10-28 01:37 · #672 ops: HANDOFF/LOG refresh as of df964ef merged (by the Producer)
 - 2026-10-28 01:00 · #669 Director: the grind shows the trading; phone beats play for drama merged
 - 2026-10-28 00:53 · #665 Clips: after Change this… on a clip with no take, say what to press next merged
 - 2026-10-28 00:37 · #667, #670 QA-Live video #17: a changed sheet refreshes prompts and flags old stills, long prompts editable, full price quoted; the "opening the app" bridge is only for an app brand, merged
