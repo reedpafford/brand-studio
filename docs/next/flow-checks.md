@@ -30,8 +30,17 @@ A state passes only if the person sees what's happening and has one press that m
 | Style line edited | song takes | lyrics | — |
 
 ## Open failures
-None yet: no PRs into `next` so far.
+| Where | State that fails | Fix expected | Found in |
+|---|---|---|---|
+| Takes | A song too long for the 729-credit cap is Advice only, so it dead-ends at the editor | Next disabled with the reason; **Edit lyrics** | #737 plan |
+| Breakdown | "Timing failed" offers only Try again, which repeats | **Use Take 1** or **Make 2 more takes** | #737 plan |
+| Takes | A take that skips or repeats a lyric line has no state | "Line 4 isn't sung": **Make this Preferred** on the other take / **Make 2 more** | #737 plan |
+| Breakdown | No problem for a Sung shot without an approved singer, or one past the model's limit or crossing a scene | Assets link; **Split at a beat** | #737 plan |
+| Takes | Refused offers only Edit lyrics | add **Edit style** | #737 plan |
+| Takes | A server restart mid-song isn't named | reason + **Try again** | #737 plan |
+| Breakdown, Clips | Editor Sung/B-roll flips vs rule 31 | waits on flows.md | #737 plan |
 
 ## Walks
 | Date | PR / commit | Flows | Result |
 |---|---|---|---|
+| 2026-10-28 | #737 (screen plan, docs) | S1–S8 on paper | FAIL: 7 open, see above |
