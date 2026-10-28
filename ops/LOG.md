@@ -1,4 +1,9 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 00:27 · #664 The cast backstop runs one request at a time per video merged
+- 2026-10-28 00:25 · #668 A take the video service was too busy to finish says to try again merged
+- 2026-10-28 00:15 · #666 Spell the fomo word on invented screens; never recreate a famous scene merged
+- 2026-10-27 23:36 · #661 Adding a missed speaker is safe when two requests do it at once merged
+- 2026-10-27 23:33 · #663 ops: HANDOFF/LOG refresh as of 5b0e3c9 merged (by the Producer)
 - 2026-10-27 23:26 · Agents (#662): the Writer (Reed's scripts) and Builder-Server-6 added to ops/AGENTS.md; the size budget follows rule 26 merged
 - 2026-10-27 23:20 · Decision (#660, Reed): the line count can grow if needed; the cap is a guide against redundant or poorly written code, not a hard limit (Current rules 26) merged
 - 2026-10-27 23:14 · #659 Flagged roles get no look by themselves and never hold Assets up; an automatic merge's Undo always stays merged
