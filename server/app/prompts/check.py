@@ -38,8 +38,9 @@ SAYS = re.compile(  # action that reads like a line; the model voices it (fomo m
     re.I,
 )
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
-FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23
-    r"\b(leggings|laps?|thighs?|cleavage|crust\w*|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
+FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23;
+    # not everyday words that over-flag: a dog's "crusty eyes", "her lap" (Reed's frame, 10-28)
+    r"\b(leggings|thighs?|cleavage|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
     re.I,
 )
 MONEY = re.compile(r"[+\-−]?\$\d+(?:,\d{3})*(?:\.\d+)?(?:\s?[kKmM]\b)?")  # "+$42", "−$80", "$348k"
