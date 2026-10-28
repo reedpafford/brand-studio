@@ -7,7 +7,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import advice, breakdown, change, clip_prompts, clip_takes, credits, cut_in
@@ -222,8 +222,10 @@ def fix_clip(
         row.same_fix = True  # the free fix's own change: its free rewrite stays counted
         row.prompt, row.seconds, row.problems = now.prompt, now.seconds, problems
         row.prompt_ok, row.approved = False, False
+        # No job of its own: the project's newest job orders it after a take that failed before.
+        newest_job = db.scalar(select(func.max(Job.id)).where(Job.project_id == project.id))
         row.change = {"note": "Fix this clip's prompt", "status": "done", "before": was.prompt,
-                      "after": now.prompt, "unchanged": False}  # fmt: skip
+                      "after": now.prompt, "unchanged": False, "job_id": newest_job}  # fmt: skip
         db.commit()
     if not advice.stops(row):
         return FixOut(fixed=True, before=was.prompt, after=now.prompt,

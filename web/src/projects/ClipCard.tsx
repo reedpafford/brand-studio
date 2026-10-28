@@ -86,8 +86,9 @@ export function ClipCard(props: {
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const lastChange = c.change as ChangeState;
-  // A take that failed before the prompt was changed is about the old prompt: it no longer marks the clip as failed.
-  const failedBefore = props.job?.status === "failed" && lastChange?.status === "done" && (lastChange.job_id ?? 0) > props.job.id;
+  // A take that failed before the prompt was changed (Change it, or the free fix) is about the old prompt: it no longer
+  // marks the clip as failed. The change's job_id is its rewrite's, or for a fix in code the project's newest job then.
+  const failedBefore = props.job?.status === "failed" && lastChange?.status === "done" && (lastChange.job_id ?? 0) >= props.job.id;
   const failed = props.job?.status === "failed" && !failedBefore;
   const status = c.approved ? "Approved" : props.busy ? null : failed ? "Failed · credits returned" : c.stale ? "Made for an older breakdown" : c.file_id ? "Ready" : "Not made";
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";

@@ -419,7 +419,8 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         if job.input.get("fix"):  # Fix this clip's prompt: its Before and After
             before = job.input.get("before") or ""
             row.change = {"note": "Fix this clip's prompt", "status": "done", "before": before,
-                          "after": c.prompt, "unchanged": before == c.prompt}  # fmt: skip
+                          "after": c.prompt, "unchanged": before == c.prompt,
+                          "job_id": job.id}  # newer than a take that failed before it  # fmt: skip
     for clip in bd.clips:  # never a dead end: a clip left unwritten gets a free one-click fix
         if clip.id in written or (only is not None and clip.id not in only):
             continue

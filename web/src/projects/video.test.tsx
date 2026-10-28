@@ -425,6 +425,21 @@ test("a take that failed before the prompt was changed no longer reads as failin
   expect(within(card).getByRole("button", { name: "Change the prompt · 3 credits" })).toBeInTheDocument(); // no take yet: only the prompt
 });
 
+test("after Reword it to pass (a free fix in code), the refused take reads as before the change", async () => {
+  setViewport(390);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: false, change: { note: "Fix this clip's prompt", job_id: 30, status: "done", before: "a b", after: "a c", unchanged: false } })]],
+    "GET /projects/9/clips/3/change": [200, { credits: 3 }],
+    "GET /jobs": [200, [{ id: 30, kind: "video", step: "clip_take", status: "failed", error: "The video model refused this prompt. Change the wording, then make it again.", credits: 19, project_id: 9, project_clip_id: 3, created_at: "2026-10-28T10:00:00Z" }]],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(await within(card).findByText("The last take, before your change, failed.")).toBeInTheDocument();
+  expect(within(card).queryByText(/Change the wording, then make it again/)).toBeNull();
+  expect(within(card).queryByText("Failed · credits returned")).toBeNull();
+});
+
 test("when the newest take failed but others are good, the line says the others are there", async () => {
   setViewport(1440);
   fakeServer({
