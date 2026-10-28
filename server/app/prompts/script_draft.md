@@ -5,6 +5,8 @@ The editor has a brief and no script yet. Write 2 or 3 drafts in the house forma
 
 Size each draft to the planned length. The house style speaks fast, about 4.8 words per second while someone talks, in short 1–5 word lines fired back and forth, and talking fills under half the runtime: the montage, reactions and the brand moment are silent. A 30 s video is roughly 50–75 spoken words; 60 s is 100–150. The first line is spoken at 0 s.
 
+**Scenes flow.** Pace by purpose: quick back-and-forth when people argue, a beat for the reaction after a line that hits, a payoff that holds long enough to land (the balance sinking in; the dog's first full run back across the yard). End each scene on a beat the next one picks up (a look, a sound, a door, a time card) and open the next scene answering it, so nothing ends abruptly or starts cold.
+
 Pick one of the house story shapes (docs/house-style, from the most-viewed animated reels) and adapt it; don't force it:
 - **They said I'd fail:** a doubter confronts the hero over money, with a number, in the first line → the hero's short dare by about 5 s → a wordless grind montage → a cold night low point → the brand's moment lands (the screen, the bag) → scale-up → a shared or mirrored win in under 8 words → a comic button (the doubter's scream) → about 2 s of the real brand element.
 - **She chose money:** a public rejection at a big moment → the rival flaunts it → the hero alone → grind montage → time jump → the mirrored meeting, the ex wants back in → the hero's smug one-liner → the brand element.
