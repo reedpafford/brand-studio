@@ -35,6 +35,7 @@ from app.storyboard import (
     _same,
     hero,
     is_logo,
+    is_product,
     left_out,
     logo_clip,
     nearest_first,
@@ -42,6 +43,8 @@ from app.storyboard import (
     older_looks,
     one_logo,
     say_logo,
+    shown_product,
+    weakest,
 )
 from app.storyboard import assets as picture_assets
 
@@ -191,6 +194,15 @@ def _screens(bd: Breakdown, clip_id: str) -> list[str]:
     return out
 
 
+def _words(bd: Breakdown, clip: ClipPrompt, note: str = "") -> str:
+    """What the clip shows in words: its shots' action and camera, its prompt, a note."""
+    planned = next((c for c in bd.clips if c.id == clip.clip_id), None)
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    said = [f"{shots[i].action} {shots[i].camera}" for i in (planned.shot_ids if planned else [])
+            if i in shots]  # fmt: skip
+    return " ".join([*said, clip.prompt, note])
+
+
 def _sheet_words(prompt: str, n: int, who: str) -> str:
     """After a sheet change (QA-Live, video #17: Goth GF 2's removed streak came back): the
     person's References sentence and Keep clause as the code writes them, and no look words in
@@ -216,7 +228,13 @@ def _add(prompt: str, start: str, text: str) -> str:
 
 
 def with_cast(
-    db: Session, project: Project, clip: ClipPrompt, bd: Breakdown, known=None, trim=True
+    db: Session,
+    project: Project,
+    clip: ClipPrompt,
+    bd: Breakdown,
+    known=None,
+    trim=True,
+    note: str = "",
 ) -> ClipPrompt:
     """The clip twin of `storyboard.with_cast` (Reed, 2026-10-26): whatever the AI picked, the
     server attaches the approved sheet of every character in the clip's shots, in the order
@@ -255,10 +273,23 @@ def with_cast(
         people = sorted(people + added, key=rank)
     new = first + people + objects
     want = [one_logo(pics, s) for s in _screens(bd, clip.clip_id)]
+    # The real product the clip's words show (a Change it note's too), as if its shots listed
+    # it, making room if it must (Reed's #32 c9: an invented "Iron Paws" bag on a shelf).
+    product = shown_product(
+        db, project, _words(bd, clip, note), known, [*want, *(r.id for r in new)]
+    )
+    limit = video_model().max_reference_images
+    if product and limit and len(new) >= limit:
+        drop = weakest([r.id for r in new], known)
+        new = [r for r in new if r.id in drop]
     want = [s for s in dict.fromkeys(want) if s not in {r.id for r in new} and s in pics]
-    if limit := video_model().max_reference_images:  # people first; the payoff screen kept
+    if limit:  # people first; the payoff screen kept, and the product
         room = max(limit - len(new), 0)
         want = want[-room:] if room else []
+        if product and room and product not in want:
+            want = [product, *want[1:]] if len(want) == room else [product, *want]
+    elif product:
+        want = [product, *want]
     new += [Reference(kind="image", id=s, role=_name(pics, s) + " screen" * (not is_logo(pics, s)))
             for s in want]  # fmt: skip
     was = [r for r in clip.references if r.kind == "image"]
@@ -272,6 +303,8 @@ def with_cast(
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
         if r.id in want:  # rule 14: a logo is only the logo, the trading screen is invented
             n, real = new.index(r) + 1, f"{tag} is the {who} screen, exactly as it is."
+            if is_product(pics, r.id):
+                real = f"{tag} is the real {who}; show it exactly as it is."
             prompt = _add(
                 prompt, "References: ", logo_clip(n, who) if is_logo(pics, r.id) else real
             )

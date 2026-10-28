@@ -302,8 +302,37 @@ def _renumber(
     return pattern.sub(fix, prompt)
 
 
+def is_product(known: dict, ref: str) -> bool:
+    return " | product | " in known.get(ref, ("", []))[0]
+
+
+def shown_product(db: Session, project: Project, text: str, known: dict, have) -> str | None:
+    """The real product a shot's words show ("an Iron Paws bag on a shelf", Reed's #32 c9: it
+    was drawn invented), as if the breakdown listed it: the video's flavour, or the one
+    named; only one of the video's own pictures, and none when a product is attached."""
+    from app.breakdown import products_of
+
+    products = products_of(db, project)
+    if any(is_product(known, r) or r in {p["id"] for p in products} for r in have):
+        return None
+    found = check.product_shown(text, db.get(Brand, project.brand_id).name, products)
+    return found if found in known else None
+
+
+def weakest(refs: list[str], known: dict) -> list[str]:
+    """Room for the real product when the pictures are full: the last place or prop goes."""
+    drop = next((r for r in reversed(refs) if r.split(":")[0] in ("place", "prop")), None)
+    return [r for r in refs if r != drop]
+
+
 def with_cast(
-    db: Session, project: Project, frame: Frame, bd: Breakdown, known=None, trim: bool = True
+    db: Session,
+    project: Project,
+    frame: Frame,
+    bd: Breakdown,
+    known=None,
+    trim: bool = True,
+    note: str = "",
 ) -> Frame:
     """Every character in the frame's shot gets their approved sheet, whatever the storyboard
     picked (Reed's live test: a frame without Mia's sheet couldn't be made). People come first,
@@ -338,8 +367,14 @@ def with_cast(
         missing = missing[: max(room - len(people), 0)]
         picked, people = people, sorted(people + missing, key=rank)
     new = people + objects
-    # The shot's screens too, after everything else, while there's room (the Director, #556).
-    screens = [s for s in dict.fromkeys(one_logo(known, s) for s in shot.screen_ids)
+    # The shot's screens too, after everything else, while there's room (the Director, #556),
+    # and the real product its words show (a Change it note's too), making room if it must.
+    words = f"{shot.action} {shot.camera} {frame.prompt} {note}"
+    product = shown_product(db, project, words, known, [*shot.screen_ids, *new])
+    if product and m.max_reference_images and len(new) >= m.max_reference_images:
+        new = weakest(new, known)
+    wanted = [*([product] if product else []), *shot.screen_ids]  # the product first
+    screens = [s for s in dict.fromkeys(one_logo(known, s) for s in wanted)
                if s in known and s not in new]  # fmt: skip
     if m.max_reference_images:
         screens = screens[: max(m.max_reference_images - len(new), 0)]
@@ -355,6 +390,8 @@ def with_cast(
     for r in new:
         if r in screens and is_logo(known, r):
             prompt += " " + logo_still(new.index(r) + 1, _name(known, r))
+        elif r in screens and is_product(known, r):
+            prompt += f" Show the real {_name(known, r)} from image {new.index(r) + 1} as it is."
         elif r in screens:
             prompt += f" Show the {_name(known, r)} screen from image {new.index(r) + 1} as it is."
         elif r not in was:
