@@ -1209,3 +1209,18 @@ def test_the_story_agrees_with_the_real_balance_and_variations_take_a_length():
     assert "never a different one the real screen would contradict" in prompts.system("breakdown")
     v = prompts.system("variations")
     assert "**Same size, unless asked.**" in v and "that length wins" in v
+
+
+def test_a_requested_length_is_what_the_variations_length_advice_checks():
+    original, result, end = _variation_case()
+    v = result.variations[0]
+    words = check.spoken_words(v.script)
+    assert check.asked_seconds("Make it about 45 s, punchier") == 45
+    assert check.asked_seconds("a 1 minute cut") == 60 and check.asked_seconds("funnier") is None
+    fits = round(words / 2)  # seconds this variation's words fit
+    ok = check.variations(original, result, {}, end, [], 1, [], "fomo", note=f"about {fits} s")
+    assert not [p for p in ok if "spoken words" in p or "words in all" in p]
+    short = check.variations(original, result, {}, end, [], 1, [], "fomo", note="about 10 s")
+    assert f"Advice: variation 1 has {words} spoken words; about 17–25 fit the 10 s asked for" in (
+        short
+    )
