@@ -1334,3 +1334,17 @@ test("Read it again is disabled past an editor's week, with the plain reason, an
 test("a week with one free credit says so in the singular, as the server does", () => {
   expect(weekStop({ quick_clip_credits_used: 0.4, quick_clip_credits_allowed: 1 }, 2)).toBe("That's more than this week's 1 free credit (0 used). It resets on Monday.");
 });
+
+test("approved words can't be edited, so the Script step shows Words final with Undo approval to edit (never a dead Edit)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, approvedOriginal()],
+    "DELETE /scripts/7/drafts/0/approve": [200, withWords()],
+  });
+  open("/b/1/scripts/7?step=script");
+  expect(await screen.findByText("Words final")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Undo approval to edit" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/approve")).toBe(true));
+});
