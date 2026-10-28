@@ -30,7 +30,12 @@ A state passes only if the person sees what's happening and has one press that m
 | Style line edited | song takes | lyrics | — |
 
 ## Open failures
-None open. The #737 screen plan passes on paper; the questions left are Next-Lead's, in flows.md.
+| Where | State that fails | Fix expected | Found in |
+|---|---|---|---|
+| Song | Lyrics over the 3,500 limit (pasted, or from a direction) have no state | Counter red; **Save lyrics** disabled with "cut N characters"; the words stay | #742 plan |
+| Takes | Take statuses `timing` and `timing_failed` have no state | `timing`: plays, Next waits with the reason; `timing_failed`: **Make this Preferred** on the other take / **Make 2 more** | #742 plan |
+
+The #737 screen plan passes on paper; the questions left are Next-Lead's, in flows.md.
 
 Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes and flips), 8068f911 (take-delete guard for videos) and 86dc2dd9 (no take fits the cap) (on paper; re-checked on the built screens): cap block, timing fallback, unsung line, Sung problems, refusal by style, restart, take-delete guard, trim and hold, 390 takes layout, "up to N" pricing. To re-check on the built screens.
 
@@ -42,3 +47,4 @@ Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes 
 | 2026-10-28 | #737 at 6af52e4e | S1–S9 on paper | PASS on rule 31; 2 small open |
 | 2026-10-28 | next at 4b89a38 (baseline, before Next work) | all existing browser tests, 390 and desktop, free stand-ins | PASS: 52 passed, 1 skipped (3.8 min) |
 | 2026-10-28 | #737 at 97c4f14e | S1–S9 on paper | PASS |
+| 2026-10-28 | #742 at 972a31fd (song fields) | S2, S3 on paper | FAIL: 2 open |
