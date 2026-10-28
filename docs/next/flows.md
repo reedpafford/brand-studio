@@ -271,8 +271,168 @@ What happens to later steps when an earlier one changes. "Out of date" items are
 | Look changed at Assets | — | — | Redrawn as today | Out of date as today | Out of date |
 | New take picked in Clips | — | — | — | — | Out of date ("Make it again", free) |
 
+---
+
+# 2. Style registry (build second)
+
+**The idea.** A style is a config file, not code. The **House style** (our current look) is the default and stays on. Starpop's styles are added as entries, in Reed's order: **Disney Pixar, Song, Zack D, Skeleton**, then the rest. Each entry is either a **look** (how pictures are drawn: works with any script) or a **format** (it changes the flow: Song, and later voiceover-led ones). An entry is **On** (editors can pick it) only after Reed has approved a sample.
+
+## ST1. Picking a style (on a script)
+
+Where: the script's header, next to the title ("Style: House ▾"). Story and Song scripts both have it. It defaults to the brand's default style (item 3), else House.
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "Style: House" (the default). | Tap → the picker. |
+| L | The picker's cards as grey tiles. | — |
+| Picker | Cards with one sample still each, name, one line ("Soft 3D feature-film look"). House first, then Reed's order. Off entries show **Off** for editors and are greyed: "Not switched on yet". | **Use this style** on a card. |
+| Owner sees Off entries | Owner can pick an Off entry on their own draft to try it, labelled "Off for editors: only you can use it". | **Use this style**, or **Switch on for editors** (only once a sample is approved, ST3). |
+| Format entry | "Song" is a format: on a Story script its card says "Song is a kind of script: start a new song script". | **Start a song script** (opens S1 with Song picked). |
+| Format not built | A voiceover-led entry (e.g. Zack D, Skeleton if voiceover is needed): "Needs its own steps: not built yet". Not pickable. | — |
+| Change after looks exist | Confirm: "Change to Claymation? Character looks are per style: 3 roles need a new look (about N credits, made at Assets)." Not yet / Change. | **Change**. |
+| B | The estimate updates before the confirm; an editor over budget sees the reason and the picker stays on the current style. | — |
+| P | Cards in one column, sample still full width, the button under each. | — |
+| U | Undo in the toast after a change; changing back is free and the earlier looks come back (they're kept per style). | — |
+| Published | Read only on the script; the video's own style can still be set in Video settings (item 4). | — |
+
+## ST2. What a style changes downstream
+
+| Step | Effect |
+|---|---|
+| Assets | A look is per style. A library character with no sheet in this style gets "Make a {style} sheet · N credits" (a new version on the item; the House one is kept). A per-video look is made in the style automatically, as today. |
+| Storyboard | Stills use the style's paragraphs (look, character when people are in frame, camera) and its default picture model. |
+| Clips | Prompts open with the style's motion line. Banned words from the style are repaired in code (free), never a block. |
+| Refusals | The style's failure/fix list drives the free fix offered on a refused or broken still ("Make another" before rewording, per the entry). |
+
+## ST3. Switching a style on (owner)
+
+| State | What they see | The one press |
+|---|---|---|
+| E | On the Styles page (owner): each Off entry has "Make a sample · N credits" (one still and one 5 s clip of the brand's hero). | **Make a sample**. |
+| R/F/X | As Storyboard and Clips today. | Try again / the free fix. |
+| Sample ready | The still and clip. | **Switch on for editors**, or **Not yet**. |
+| On | "On · editors can pick it". | **Switch off** (Undo). Videos already using it keep it. |
+
+**Out of date (ST):** changing a video's style marks its stills and clips "Out of date" (kept, with the usual redo press), exactly like a look change.
+
+---
+
+# 3. Brand setup (build third)
+
+One Brand page with sections, each saying where it's used ("Used in: script, stills, clips"). Owner edits; editors read.
+
+## BR1. The Brand page
+
+| Section | Edit | States |
+|---|---|---|
+| Logo, colours, fonts, style board | As today. | — |
+| Products and bags | As today, plus a short description and the main claim per product. | Empty claim: Advice "Scripts won't mention a claim for this product." |
+| App screens | As today. | — |
+| Voice and tone | Audience; how the brand talks; **Do** list; **Don't** list (today's "never say" moves here, nothing lost). | — |
+| CTA lines | Several lines, one marked **Default**. | Deleting the default: the next line becomes default (toast, Undo). Deleting the last: Advice "Videos will end without a saved call to action" (rule 18 stays Advice). |
+| Default cast | Pick library characters. | A picked character later deleted: shows "Deleted: pick another" with **Pick another** / **Remove**. |
+| Music style | One line (feeds S2). | — |
+| Default style and language | Pickers (ST1, item 4). | Picking an Off style: "Off for editors: new scripts will start on House until it's on." |
+
+| State | What they see | The one press |
+|---|---|---|
+| L | Section outlines. | — |
+| Typing | "Saved" per section after a pause. Leaving unsaved: "Leave without saving?" | Stay / Leave. |
+| Editor | Read only, with "Only the owner changes the brand." | — |
+| P | Sections stacked, each collapsible; lists edited one row at a time. | — |
+| U | Every delete has Undo. | — |
+| S | Brand changes never touch published scripts or videos already made. New scripts, and steps not yet run, read the new setup. Said under the page title: "Changes apply to new work, not to videos already made." | — |
+
+## BR2. Import from website (nice-to-have, last)
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "Paste the brand's website" box. | **Read the site · about 3 credits** (owner only). |
+| R | "Reading the site…" | — |
+| Done | A review screen: each found item (logo, colours, description, products) with a tick, nothing saved yet. | **Save the ticked ones**, or **Cancel**. |
+| F | "Couldn't read that site. Nothing was charged." | **Try again**, or fill it in by hand. |
+| Nothing found | "Nothing useful on that page. Try the home page." | — |
+
+**Effects:** one brand summary built in code from these fields feeds every writing and prompting step. It replaces the per-prompt copies (rule 26).
+
+---
+
+# 4. Video settings (build fourth)
+
+A small **Video settings** row at the top of every video and on "Make this version": Style · Video model · Picture model · Language. Each shows its choice ("Auto" by default) and price.
+
+## VS1. Changing a setting
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "House · Auto · Auto · English". | Tap a setting → its picker. |
+| Picker | Each choice with its price in credits ("Seedance 2.5 · 1 credit a second", "Nano Banana Pro · 1.2 credits a still"). Off choices (an untested language) are hidden from editors. | Pick → confirm. |
+| Confirm | "Switch to Seedance 2.0? To finish: about N credits (was M). Clips already made stay as they are and show Out of date." Not yet / Switch. | **Switch**. |
+| B | The confirm shows "That's more than this video's budget" and Switch is disabled; the picker stays open. | Pick a cheaper choice. |
+| Cap | A choice that would push the video over 729 credits is greyed: "Over the video limit". | — |
+| O/Ed | Editors see credits only. The owner picks for any video; an editor for their videos. | — |
+| P | The row collapses to one line "Settings: House · Auto…"; tapping opens a sheet with the four pickers. | — |
+| U | Undo after a switch. Switching back makes the old takes current again (they were kept). | — |
+| S | Model or style switch: later stills or clips "Out of date". Language switch: the script is the same words in one language only. A Story or Song script written in English stays English; the language setting is for new scripts and for spoken-line instructions. Mixing would break rule 19, so a video's language can't differ from its script's: the picker shows the script's language, read only. | — |
+
+**Language:** the script is written in the chosen language, every spoken line in a clip prompt says "in Spanish", and the English-only checks follow the language. Each language is switched on only after a sample test.
+
+---
+
+# 5. Organization (build fifth)
+
+## OR1. Projects (folders)
+
+A brand holds projects ("November launch"). A project holds scripts, videos and quick clips. "No project" is always there. Internally the table has another name (the database already calls a video a project); people only see "Project".
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "No projects yet. Everything works without one." | **New project**. |
+| Moving | On any script, video or clip: "Project: none ▾". | Pick → moved (toast, Undo). |
+| Delete project | "Delete November launch? Its 6 items move to No project." | **Delete** (Undo). Nothing inside is deleted. |
+| Editor | Can file their own items; the owner files anything. | — |
+| P | Projects are a list in the left tab (item 6). | — |
+
+## OR2. Media
+
+One page with every still, sheet, take, song and final video. Filters: brand, project, kind, who made it.
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "Nothing made yet in {brand}." | **Make a quick clip**. |
+| L | Grey tiles. | — |
+| Item | Thumbnail, kind, when, who. | **Open in {step}** (e.g. "Open in Clips"), or **Download**. |
+| Deleted video | Its media is listed as "From a deleted video" until it's purged. | **Restore the video** (owner). |
+| P | Two-column grid, filters in a sheet. | — |
+
+## OR3. Preferred and going back
+
+- **Preferred** (already on takes and song takes) also goes on stills and looks. Later steps use the preferred one. Moving Preferred marks later steps "Out of date" (kept, with the usual redo).
+- **Versions** on storyboards and clip prompts, as breakdowns have. "Versions" lists them with **Go back to this** (Undo). Going back to an older breakdown marks later steps out of date: never a dead end (rule 22).
+
+## OR4. Cost log
+
+Usage adds per-project and per-video rows: dollars for the owner, credits for editors (who only see their own videos).
+
+---
+
+# 6. Cleaner layout (designed alongside, built last)
+
+Three columns everywhere: **left** brands → projects → scripts and videos with a status ("Making", "Needs you"); **centre** the work; **right** this video's media. One bottom **cost bar** says what's about to run and its price before any paid press.
+
+| State | What they see |
+|---|---|
+| Phone 390 | Left and right columns become tabs ("Browse · Work · Media"); the cost bar sits above the bottom tabs and holds the one amber button. No sideways scroll; controls 44px. |
+| Nothing to pay | The cost bar shows the budget only ("412 / 660 credits"). |
+| Over budget | The cost bar's button is disabled with the reason; free presses stay in the centre. |
+| "Needs you" | A status in the left column means a step is waiting for this person (an approval, a pick); tapping it opens that step. |
+
+The Designer draws it first (on the Screening room direction Reed picked); Reed approves; each page's PR deletes the old layout it replaces. Every flow above keeps its states and presses: the layout moves them, it never removes one.
+
 ## Open questions for the Producer
 
 1. **The music price.** The free price check of MiniMax Music comes first (spec step 0); until then the buttons show the model catalogue's price, and the test site runs on the free stand-in.
 2. **Lip-sync without a first frame** is the spec's biggest risk. The one paid 15-second test (spec step 0) decides whether Sung shots ship as designed, or fall back to "the Singer sings in B-roll style" (picture only, no lip-sync).
 3. **Reel import of song ads** is left out (S1). Say if Reed wants it in this item.
+4. **Zack D and Skeleton** are narrated (voiceover-led) in Starpop's files. We have no voiceover step, so as looks they work on Story scripts, and their narrated formats wait for a voiceover item. Reed should confirm that reading.
+5. **Language vs rule 19** (VS1): a video's language follows its script, because translating would change the words. Confirm.
