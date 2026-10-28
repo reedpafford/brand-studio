@@ -1194,3 +1194,11 @@ def test_a_role_says_its_age_gender_and_job_and_its_sheet_fits_the_part():
     assert "starts with who they are: an age range, a gender and a role or job" in (
         prompts.system("cast_slots")
     )
+
+
+def test_the_app_bridge_is_only_for_an_app_brand():
+    # Producer, before Reed's Iron Paws video: no "opening the app" beat for a bag brand
+    for step in ("breakdown", "script_draft", "variations"):
+        text = prompts.system(step)
+        for at in [m.start() for m in re.finditer(r"opening the app|the app being opened", text)]:
+            assert "app brand" in text[max(at - 160, 0) : at], step
