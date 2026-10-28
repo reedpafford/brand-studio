@@ -892,11 +892,14 @@ def song_directions(result: SongDirections, brand: str, seconds: int | None = No
     return problems
 
 
-def song_breakdown(lyrics: str, bd: SongBreakdown, song: dict, *args, **kwargs) -> list[str]:
+def song_breakdown(
+    lyrics: str, bd: SongBreakdown, song: dict, *args, written: bool = True, **kwargs
+) -> list[str]:
     """`breakdown(...)`'s checks on the lyrics (tags left out), plus the song's: shots back to
     back over the whole take (a fix: the slices are cut from them), B-roll silent, and edges on
-    beats, inside a section, lip-sync only where asked (advice). `song` is song_block's dict;
-    the other arguments are breakdown's."""
+    beats, inside a section (advice). Only on a breakdown the AI `written`: a Sung shot the
+    script didn't ask for (advice); an editor's own Sung flips are theirs (rule 31), and the
+    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's."""
     clean = "\n".join("" if SECTION.match(x) else LIP_SYNC.sub("", x).strip()
                       for x in lyrics.splitlines())  # fmt: skip
     problems = breakdown(clean, bd, *args, **kwargs)
@@ -924,9 +927,9 @@ def song_breakdown(lyrics: str, bd: SongBreakdown, song: dict, *args, **kwargs) 
             problems.append(f"{ADVICE}shot {shot.id}: an edge is off the beat; cut on a beat")
         if any(shot.song_start + 0.2 < x["start"] < shot.song_end - 0.2 for x in sections):
             problems.append(f"{ADVICE}shot {shot.id}: runs across a section's edge")
-        if shot.sung and not asked & set(shot.script_lines):
+        if written and shot.sung and not asked & set(shot.script_lines):
             problems.append(
-                f"{ADVICE}shot {shot.id}: sung on camera, but the script doesn't ask for "
-                "lip-sync there; make it B-roll or mark the line [Lip-sync]"
+                f"{ADVICE}Shot {shot.id} is Sung, but nobody asked for lip-sync there. "
+                "Make it B-roll?"
             )
     return problems

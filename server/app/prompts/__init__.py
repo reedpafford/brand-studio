@@ -27,8 +27,10 @@ SCHEMAS = {
     "look_fit": schemas.LookFit,
     "song_directions": schemas.SongDirections,
     "song_breakdown": schemas.SongBreakdown,
+    "song_clip_prompts": schemas.ClipPrompts,
 }
-EXTENDS = {"song_breakdown": "breakdown"}  # a song's breakdown is the breakdown, plus its part
+# A song video's step is the story step plus its own part (story prompts stay as they were).
+EXTENDS = {"song_breakdown": "breakdown", "song_clip_prompts": "clip_prompts"}
 NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
 
 
@@ -36,7 +38,7 @@ NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only 
 # the {{tokens}} in the step files instead.
 GUIDES = {
     "still": ["storyboard"],
-    "clip": ["clip_prompts", "improve"],
+    "clip": ["clip_prompts", "song_clip_prompts", "improve"],
     "breakdown": ["breakdown", "song_breakdown"],
     "script": ["script_draft", "enhance", "variations"],
 }

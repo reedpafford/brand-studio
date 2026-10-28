@@ -115,7 +115,12 @@ def test_gaps_and_a_speaking_b_roll_shot_need_a_fix_and_the_rest_is_advice():
     assert "the shots end at 5.00 s, the song at 6.00 s" in problems
     assert "Advice: shot 1.1: an edge is off the beat; cut on a beat" in problems
     assert "Advice: shot 1.2: runs across a section's edge" in problems
-    assert any(p.startswith("Advice: shot 1.2: sung on camera, but") for p in problems)
+    assert (
+        "Advice: Shot 1.2 is Sung, but nobody asked for lip-sync there. Make it B-roll?" in problems
+    )
+    edited = check.song_breakdown(LYRICS, _breakdown(shots), SONG, {}, 4, 15, written=False)
+    assert not [p for p in edited if "nobody asked" in p]  # the editor's own flip (rule 31)
+    assert not [p for p in problems if "[Lip-sync]" in p]  # never asks to change the lyrics
 
 
 def test_lip_sync_is_asked_by_a_line_or_its_section():
@@ -129,8 +134,10 @@ def test_a_sung_clip_binds_the_song_and_its_audio_line_passes():
     line = ("Audio: only the song from [Audio1], sung by Tasha, and kitchen hum. No other "
             "music, voices or narration. No subtitles.")  # fmt: skip
     assert check.AUDIO_LINE.match(line)
-    text = prompts.system("clip_prompts")
+    text = prompts.system("song_clip_prompts")
+    assert text.startswith(prompts.system("clip_prompts").split("## Worked example")[0].strip())
     assert "**Songs.**" in text and "audio:song:<clip id>" in text
+    assert "**Songs.**" not in prompts.system("clip_prompts")  # story videos stay as they were
 
 
 def test_suno_gets_the_lyrics_word_for_word_without_our_marks():
