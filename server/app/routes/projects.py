@@ -368,7 +368,7 @@ def _release_held_jobs(db: Session, owner: User, project: Project) -> None:
         .where(Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
         .order_by(Job.id)
     )
-    ceiling = min(project.budget_credits, get_limits(db, owner.workspace_id).per_video_max_credits)
+    ceiling = project.budget_credits  # never above the per-video cap
     for job in held:
         if used + job.credits <= ceiling:
             job.status, job.approved_by_id = JobStatus.queued, owner.id

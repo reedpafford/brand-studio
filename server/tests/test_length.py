@@ -22,3 +22,15 @@ def test_a_project_can_start_without_a_length(editor):
     made = editor.post("/projects", json={"brand_id": fomo, "name": "Long ad"})
     assert made.status_code == 201, made.text
     assert made.json()["planned_seconds"] is None and made.json()["budget_credits"] > 30
+
+
+def test_the_budget_never_drops_for_a_plan_with_fewer_clips_and_stops_at_the_cap(editor, setup):  # noqa: F811
+    """QA on #679: a breakdown with fewer clips than guessed lowered the budget a little, and a
+    360 s video showed 851.7 though the per-video cap stops it at 729."""
+    url = f"/projects/{setup['project']}"
+    editor.patch(url, json={"planned_seconds": 40})  # guessed at 5 clips
+    guessed = editor.get(url).json()["budget_credits"]
+    editor.put(f"{url}/breakdown", json=BREAKDOWN)  # the plan has 1 clip
+    assert editor.get(url).json()["budget_credits"] == guessed
+    editor.patch(url, json={"planned_seconds": 360})
+    assert editor.get(url).json()["budget_credits"] == 729  # the $75 cap
