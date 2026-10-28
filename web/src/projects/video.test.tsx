@@ -454,6 +454,28 @@ test("when the newest take failed but others are good, the line says the others 
   expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
 });
 
+test("once a clip has a take, Change it shows the full price (rewrite and take), not the rewrite-only price read before", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 19, project_id: 9 }] });
+  const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation()!;
+  let made = false; // the clip's first take, once Make clip is pressed
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    const path = new URL(req.url).pathname;
+    if (req.method === "GET" && path.endsWith("/projects/9/clips")) return json([made ? clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 }) : clip({ prompt_ok: true })]);
+    if (req.method === "GET" && path.endsWith("/clips/3/change")) return json({ credits: made ? 22 : 3 });
+    if (req.method === "GET" && path === "/api/jobs" && made) return json([{ id: 21, kind: "video", step: "clip_take", status: "running", credits: 19, project_id: 9, project_clip_id: 3, created_at: new Date().toISOString() }]); // keeps the clips polled
+    if (req.method === "POST" && path.endsWith("/clips/3/generate")) made = true;
+    return inner(req.clone(), init);
+  }));
+  open("?step=clips");
+  await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
+  expect(await screen.findByRole("button", { name: "Change the prompt · 3 credits" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Make clip/ }));
+  expect(await screen.findByRole("button", { name: "Change it and make a new take · 22 credits" }, { timeout: 9000 })).toBeInTheDocument();
+}, 15000);
+
 test("a clip change that didn't finish says the server's words, keeps the note in the box, and Try again sends it again", async () => {
   setViewport(390);
   const calls = fakeServer({
