@@ -17,6 +17,7 @@ class SongTake(Entity, Base):
     # A video's own take (rule 31: its script is final); null for the script's own.
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
     number: Mapped[int]  # Take 1, 2, … within its version (or video)
+    track: Mapped[int] = mapped_column(default=0)  # which of its request's 2 songs
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))  # the song (the latest try)
     # What it sings: only a take of the version's current words can be Preferred
     lyrics: Mapped[str] = mapped_column(Text)

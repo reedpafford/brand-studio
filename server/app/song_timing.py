@@ -19,7 +19,7 @@ from array import array
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from app.music import TAG, clean
+from app.music import TAG
 
 RATE = 8000  # Hz: enough to hear where the beats land
 HOP = 0.01  # s per energy frame
@@ -30,6 +30,10 @@ MAX_SECONDS = 900  # far longer than any ad (the stand-ins make one past the cap
 PEAKS = 200  # waveform points for the screens
 
 
+class TooLong(ValueError):
+    """A take longer than any ad (trying again won't help either)."""
+
+
 def _run(args: list[str], timeout: int = TIMEOUT) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, timeout=timeout)  # noqa: S603
 
@@ -38,7 +42,9 @@ def length(path: Path) -> float:
     done = _run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json",
                  str(path)], 30)  # fmt: skip
     seconds = float(json.loads(done.stdout or "{}").get("format", {}).get("duration") or 0)
-    if not 0 < seconds <= MAX_SECONDS:
+    if seconds > MAX_SECONDS:
+        raise TooLong(f"Song length {seconds} s is over {MAX_SECONDS} s.")
+    if not seconds > 0:
         raise ValueError(f"Song length {seconds!r} s can't be measured.")
     return round(seconds, 2)
 
@@ -124,9 +130,11 @@ def _norm(word: str) -> str:
 def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0) -> list[dict]:
     """Each lyric line, word for word, with when it's sung: [{section, text, start, end,
     heard, times_sung}]. `heard` is the share of its words Whisper caught; lines it missed
-    get times between their neighbours, so the order and the words never change."""
+    get times between their neighbours, so the order and the words never change.
+    `times_sung` is 1 for a line sung as often as it's written (a chorus written twice and
+    sung twice), 2 when the song sings it once more than written, and so on."""
     out, section = [], ""
-    for raw in clean(lyrics).text.splitlines():
+    for raw in lyrics.strip().splitlines():
         if tag := TAG.match(raw):
             section = tag.group(1)
         elif raw.strip():
@@ -142,9 +150,11 @@ def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0) ->
     for i, line in enumerate(out):
         found = times.get(i, [])
         mine = [_norm(w) for w in line["words"]]
-        line["times_sung"] = sum(  # 2 or more: the song repeats a line the lyrics have once
+        heard_times = sum(
             theirs[k : k + len(mine)] == mine for k in range(len(theirs) - len(mine) + 1)
         )
+        written = sum(other["text"] == line["text"] for other in out)
+        line["times_sung"] = max(heard_times - written + 1, 0) if heard_times else 0
         line["heard"] = round(len(found) / len(line.pop("words")), 2)
         line["start"] = min((a for a, _ in found), default=None)
         line["end"] = max((b for _, b in found), default=None)
@@ -216,7 +226,7 @@ def measure(path: Path, lyrics: str, hear=words) -> dict:
     seconds = length(path)
     samples = _samples(path)
     bpm, beat_times = beats(samples, seconds)
-    heard = hear(path, clean(lyrics).text)
+    heard = hear(path, lyrics.strip())
     sung = lines(lyrics, heard, seconds, start=beat_times[0] if beat_times else 0.0)
     return {
         "seconds": seconds,

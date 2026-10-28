@@ -1,10 +1,10 @@
-"""Song takes (song ads): making them, their state, Try again, Preferred and delete.
+"""Song takes (song ads): making them, their state, Try again, Preferred and remove.
 
-A take is one music job (paid, about 1.5 credits), then a free timing read on our server
-(app/song_timing.py). Takes belong to a script version, or to one video when it makes its own
-(rule 31: a published script stays as it is). In each, one take is Preferred: the first one
-ready, until someone picks another. Every failure says why and offers the press that helps
-(rule 22); nothing failed is charged."""
+One request to the music service (one paid job) makes 2 takes (app/music.py, A2); each take
+then gets a free timing read on our server (app/song_timing.py). Takes belong to a script
+version, or to one video when it makes its own (rule 31: a published script stays as it
+is). In each, one take is Preferred: the first one ready, until someone picks another. Every
+failure says why and offers the press that helps (rule 22); nothing failed is charged."""
 
 from decimal import Decimal
 
@@ -26,9 +26,9 @@ GUESSED = "Timing guessed: the lines are spread evenly over the song, so check t
 OLDER_WORDS = "This take sings older words. Make 2 takes of the lyrics as they are now."
 
 
-def price(db: Session, user: User, count: int) -> Decimal:
-    job = music.SERVICES[music.DEFAULT].job("la", "")  # the price doesn't depend on the words
-    return estimate(db, user.workspace_id, "music", Decimal(count), job)
+def price(db: Session, user: User) -> Decimal:
+    """One request (2 takes)."""
+    return estimate(db, user.workspace_id, "music", Decimal(1))
 
 
 def takes(db: Session, draft: ScriptDraft, project: Project | None = None) -> list[SongTake]:
@@ -46,52 +46,54 @@ def takes(db: Session, draft: ScriptDraft, project: Project | None = None) -> li
     )
 
 
-def make(
-    db: Session, user: User, draft: ScriptDraft, count: int, project: Project | None = None
-) -> list[SongTake]:
-    """Queue `count` takes of the version's lyrics and style line. A request that can't be
+def _request(db: Session, user: User, draft: ScriptDraft, project: Project | None) -> Job:
+    """One request for 2 songs of the version's words as they are now. One that can't be
     made says why (422); past an allowance or budget, enqueue declines with the reason."""
     from app.routes.jobs import enqueue
 
-    service = music.SERVICES[music.DEFAULT]
     try:
-        job_input = service.job(draft.text, draft.style_line)
+        job_input = music.job(draft.text, draft.style_line)
     except music.NotReady as no:
         raise HTTPException(422, str(no)) from None
-    each = price(db, user, 1)
+    return enqueue(db, user, "music", {**job_input, "step": "song_take"}, project=project,
+                   provider=music.PROVIDER)  # fmt: skip
+
+
+def make(
+    db: Session, user: User, draft: ScriptDraft, project: Project | None = None
+) -> list[SongTake]:
+    """Make 2 takes (one request) of the version's lyrics and style line."""
+    job = _request(db, user, draft, project)
     numbered = select(func.max(SongTake.number)).where(
         SongTake.draft_id == draft.id, SongTake.project_id == (project.id if project else None)
     )
     number = db.scalar(numbered) or 0
-    made = []
-    for k in range(count):  # the later takes are checked together with the first
-        job = enqueue(db, user, "music", {**job_input, "step": "song_take"},
-                      project=project, provider=service.provider,
-                      hold=each * (count - k - 1))  # fmt: skip
-        take = SongTake(draft_id=draft.id, project_id=project.id if project else None,
-                        number=number + k + 1, job_id=job.id, created_by_id=user.id,
-                        **_sings(job_input))  # fmt: skip
-        db.add(take)
-        db.commit()
-        made.append(take)
+    made = [
+        SongTake(draft_id=draft.id, project_id=project.id if project else None,
+                 number=number + k + 1, track=k, job_id=job.id, created_by_id=user.id,
+                 **_sings(job.input))
+        for k in range(music.TAKES)
+    ]  # fmt: skip
+    db.add_all(made)
+    db.commit()
     return made
 
 
 def _sings(job_input: dict) -> dict:
-    return {"lyrics": job_input["input"]["lyrics"], "style_line": job_input["input"]["prompt"]}
+    return {"lyrics": job_input["input"]["lyrics"], "style_line": job_input["input"]["style"]}
 
 
-def _by_job(db: Session, column, job: Job) -> SongTake | None:
-    return db.scalar(select(SongTake).where(column == job.id))
+def _by_job(db: Session, column, job: Job) -> list[SongTake]:
+    return list(db.scalars(select(SongTake).where(column == job.id)))
 
 
 def save_take(db: Session, job: Job) -> None:
-    """A song arrived: keep its file and read its timing (free, on our server)."""
-    take = _by_job(db, SongTake.job_id, job)
-    if take is None:
-        return
-    take.file_id = job.output["file_ids"][0]
-    _time(db, take, db.get(User, job.created_by_id))
+    """The songs arrived: each take keeps its file and has its timing read (free)."""
+    files = job.output["file_ids"]
+    for take in _by_job(db, SongTake.job_id, job):
+        if take.track < len(files):  # a song the service didn't give stays failed
+            take.file_id = files[take.track]
+            _time(db, take, db.get(User, job.created_by_id))
 
 
 def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None:
@@ -111,9 +113,10 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
 
 def save_timing(db: Session, job: Job) -> None:
     """The take's timing is read: it's ready, and Preferred if its group has none yet."""
-    take = _by_job(db, SongTake.timing_job_id, job)
-    if take is None:
+    found = _by_job(db, SongTake.timing_job_id, job)
+    if not found:
         return
+    take = found[0]
     timing = job.output["timing"]
     take.timing, take.seconds = timing, timing["seconds"]
     take.timing_guessed = bool(job.input.get("spread"))
@@ -144,7 +147,7 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
     song = db.get(Job, take.job_id)
     if song.status in WAITING:
         return "making", None, False
-    if song.status != JobStatus.succeeded:
+    if song.status != JobStatus.succeeded or take.file_id is None:
         reason = song.error or music.FAILED
         if take.project_id and reason == music.REFUSED:  # a video can't change the words
             reason = music.REFUSED_IN_VIDEO
@@ -160,16 +163,14 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
 
 def out_of_date(take: SongTake, draft: ScriptDraft) -> bool:
     """Sings other words, or in another style line, than the version has now."""
-    now = (music.clean(draft.text).text, draft.style_line.strip())
+    now = (draft.text.strip(), draft.style_line.strip())
     return (take.lyrics, take.style_line) != now
 
 
 def try_again(db: Session, user: User, take: SongTake) -> None:
-    """A failed song is asked for again with the version's lyrics and style line as they are
-    now (a refusal says to change them first); charged only if it's made. A failed timing is
-    read again (free)."""
-    from app.routes.jobs import enqueue
-
+    """A failed request is made again for both its takes, with the version's lyrics and
+    style line as they are now (a refusal says to change them first); charged only if it's
+    made. A failed timing is read again (free)."""
     status, _, helps = state(db, take)
     if status == "timing_failed" and helps:
         _time(db, take, user)
@@ -177,16 +178,12 @@ def try_again(db: Session, user: User, take: SongTake) -> None:
     if status != "failed":
         raise HTTPException(409, "This take isn't failed, so there's nothing to try again.")
     draft = db.get(ScriptDraft, take.draft_id)
-    service = music.SERVICES[music.DEFAULT]
-    try:
-        job_input = service.job(draft.text, draft.style_line)
-    except music.NotReady as no:
-        raise HTTPException(422, str(no)) from None
     project = db.get(Project, take.project_id) if take.project_id else None
-    job = enqueue(db, user, "music", {**job_input, "step": "song_take"}, project=project,
-                  provider=service.provider)  # fmt: skip
-    take.job_id = job.id
-    take.lyrics, take.style_line = _sings(job_input).values()
+    old = db.get(Job, take.job_id)
+    job = _request(db, user, draft, project)
+    for pair in _by_job(db, SongTake.job_id, old):
+        pair.job_id, pair.file_id = job.id, None
+        pair.lyrics, pair.style_line = _sings(job.input).values()
     db.commit()
 
 
@@ -241,32 +238,22 @@ def use_in_video(db: Session, project: Project, take: SongTake) -> int | None:
 
 
 IN_USE = "This take is the video's song. Pick another take for the video first."
+PREFERRED = "This is the Preferred take. Make another take Preferred first, then remove this one."
 
 
 def remove(db: Session, take: SongTake) -> None:
-    """Remove a take (Undo brings it back). A removed Preferred hands the mark to the newest
-    other finished take, so a video always has one to time to when there is one."""
+    """Remove a take (Undo brings it back). Never the Preferred one (flows S4)."""
     if state(db, take)[0] in ("making", "timing"):
         raise HTTPException(409, "This take is still being made. Remove it once it's done.")
     if db.scalar(select(Project.id).where(Project.song_take_id == take.id)):
         raise HTTPException(409, IN_USE)
-    take.deleted_at = utcnow()
     if take.preferred:
-        draft = db.get(ScriptDraft, take.draft_id)
-        project = db.get(Project, take.project_id) if take.project_id else None
-        ready = [t for t in takes(db, draft, project)
-                 if t.id != take.id and t.timing and not out_of_date(t, draft)]  # fmt: skip
-        if ready:
-            ready[-1].preferred = True
+        raise HTTPException(409, PREFERRED)
+    take.deleted_at = utcnow()
     db.commit()
 
 
 def restore(db: Session, take: SongTake) -> None:
-    """Undo a remove; if it was Preferred, it is again."""
-    draft = db.get(ScriptDraft, take.draft_id)
-    project = db.get(Project, take.project_id) if take.project_id else None
+    """Undo a remove."""
     take.deleted_at = None
-    if take.preferred:
-        for t in takes(db, draft, project):
-            t.preferred = t.id == take.id
     db.commit()

@@ -523,6 +523,8 @@ def write_draft(
     lib.keep_text(db, draft, body.text, "edit", user.id)
     if draft.rewritten:  # the "Was:" marks follow their lines until approval
         draft.rewritten = rewritten.follow(draft.text or "", body.text, draft.rewritten)
+    if script.kind == "song" and len(body.text) > music.MAX_LYRICS:
+        raise HTTPException(422, music.TOO_LONG)
     draft.text, draft.target_seconds = body.text, body.target_seconds
     for song_field in ("style_line", "singer", "spoken_end_line"):  # song ads; None: as is
         if (value := getattr(body, song_field)) is not None:

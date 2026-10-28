@@ -42,6 +42,7 @@ def upgrade() -> None:
         ),
         sa.Column("project_id", sa.Integer(), sa.ForeignKey("projects.id"), nullable=True),
         sa.Column("number", sa.Integer(), nullable=False),
+        sa.Column("track", sa.Integer(), nullable=False),
         sa.Column("job_id", sa.Integer(), sa.ForeignKey("jobs.id"), nullable=False),
         sa.Column("file_id", sa.Integer(), sa.ForeignKey("files.id"), nullable=True),
         sa.Column("lyrics", sa.Text(), nullable=False),

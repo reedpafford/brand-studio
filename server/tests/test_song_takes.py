@@ -41,7 +41,7 @@ def test_two_takes_are_made_timed_and_one_is_preferred(app, db, owner, song):
     made = owner.post(f"{song}/songs", json={})
     assert made.status_code == 201, made.text
     body = made.json()
-    assert body["songs_on"] and body["take_credits"] == 1.46 and body["estimate_credits"] == 2.92
+    assert body["songs_on"] and body["estimate_credits"] == 1  # one request (2 songs)
     assert [(t["number"], t["status"]) for t in body["takes"]] == [(1, "making"), (2, "making")]
     _work(app, db)
     takes = owner.get(f"{song}/songs").json()["takes"]
@@ -62,11 +62,11 @@ def test_two_takes_are_made_timed_and_one_is_preferred(app, db, owner, song):
 
 def test_a_skipped_or_repeated_line_is_advice_never_a_block(app, db, owner, song):
     _style(owner, song, "pop fake:drop-line")
-    owner.post(f"{song}/songs", json={"count": 1})
+    owner.post(f"{song}/songs", json={})
     _style(owner, song, "pop fake:repeat-line")
-    owner.post(f"{song}/songs", json={"count": 1})
+    owner.post(f"{song}/songs", json={})
     _work(app, db)
-    dropped, repeated = owner.get(f"{song}/songs").json()["takes"]
+    dropped, _, repeated, _ = owner.get(f"{song}/songs").json()["takes"]
     assert dropped["status"] == "ready" and dropped["advice"] == [
         "Timing guessed: line 4 (“Iron Paws, my best ally”) wasn't heard in this take."
     ]
@@ -77,35 +77,42 @@ def test_a_skipped_or_repeated_line_is_advice_never_a_block(app, db, owner, song
 
 def test_a_failed_take_says_why_and_try_again_makes_it(app, db, owner, song):
     _style(owner, song, "pop fake:refuse")
-    owner.post(f"{song}/songs", json={"count": 1})
+    owner.post(f"{song}/songs", json={})
     _work(app, db)
-    take = owner.get(f"{song}/songs").json()["takes"][0]
-    assert (take["status"], take["failed_reason"], take["retry_helps"]) == (
-        "failed", music.REFUSED, True
-    )  # fmt: skip
+    takes = owner.get(f"{song}/songs").json()["takes"]
+    assert [(t["status"], t["failed_reason"], t["retry_helps"]) for t in takes] == [
+        ("failed", music.REFUSED, True)
+    ] * 2  # fmt: skip
+    take = takes[0]
     assert "E005" not in owner.get(f"{song}/songs").text  # the raw reason is owner-only
     _style(owner, song, "pop")  # the words are changed, as the reason says
     again = owner.post(f"/songs/{take['id']}/try-again")
     assert again.status_code == 200 and again.json()["status"] == "making"
     _work(app, db)
-    take = owner.get(f"{song}/songs").json()["takes"][0]
-    assert (take["status"], take["preferred"], take["out_of_date"]) == ("ready", True, False)
+    takes = owner.get(f"{song}/songs").json()["takes"]
+    assert [(t["status"], t["out_of_date"]) for t in takes] == [("ready", False)] * 2
+    take = takes[0]
+    assert take["preferred"]  # both of the request's takes came back on one Try again
     r = owner.post(f"/songs/{take['id']}/try-again")
     assert r.status_code == 409  # nothing failed: nothing to try again
 
 
-def test_removing_the_preferred_take_hands_the_mark_on_and_undo_brings_it_back(
-    app, db, owner, song
-):
+def test_the_preferred_take_cant_be_removed_others_can_with_undo(app, db, owner, song):
     _style(owner, song, "pop")
     owner.post(f"{song}/songs", json={})
     _work(app, db)
     first, second = owner.get(f"{song}/songs").json()["takes"]
-    assert owner.delete(f"/songs/{first['id']}").status_code == 204
-    left = owner.get(f"{song}/songs").json()["takes"]
-    assert [(t["id"], t["preferred"]) for t in left] == [(second["id"], True)]
-    assert owner.post(f"/songs/{first['id']}/restore").json()["preferred"]
-    assert [t["preferred"] for t in owner.get(f"{song}/songs").json()["takes"]] == [True, False]
+    r = owner.delete(f"/songs/{first['id']}")
+    assert (r.status_code, r.json()["detail"]) == (409, song_takes.PREFERRED)
+    assert owner.delete(f"/songs/{second['id']}").status_code == 204
+    assert [t["id"] for t in owner.get(f"{song}/songs").json()["takes"]] == [first["id"]]
+    assert owner.post(f"/songs/{second['id']}/restore").status_code == 200  # Undo
+    assert len(owner.get(f"{song}/songs").json()["takes"]) == 2
+
+
+def test_lyrics_past_sunos_limit_are_refused_when_saved(owner, song):
+    r = owner.put(song, json={"text": "la " * 1700})
+    assert (r.status_code, r.json()["detail"]) == (422, music.TOO_LONG)
 
 
 def test_a_song_needs_lyrics_and_a_song_script(app, owner, song):
@@ -120,8 +127,7 @@ def test_a_song_needs_lyrics_and_a_song_script(app, owner, song):
 
 
 def test_songs_off_here_says_so_instead_of_failing(app, owner, song):
-    app.state.settings.fake_providers = False
-    app.state.settings.generation_enabled = False
+    app.state.settings.fake_providers = False  # no Suno access yet: no songs on a real server
     assert owner.get(f"{song}/songs").json()["songs_on"] is False
     r = owner.post(f"{song}/songs", json={})
     assert (r.status_code, r.json()["detail"]) == (503, "Songs aren't switched on here.")
@@ -136,14 +142,14 @@ def test_editors_make_their_own_songs_in_credits_but_cant_touch_others(app, db, 
     url = f"/scripts/{mine['id']}/drafts/0"
     _style(editor, url, "pop")
     made = editor.post(f"{url}/songs", json={})
-    assert made.status_code == 201 and made.json()["estimate_credits"] == 2.92
+    assert made.status_code == 201 and made.json()["estimate_credits"] == 1
     _work(app, db)
     assert_no_dollars(editor, [f"{url}/songs"])
 
 
 def test_a_timing_that_cant_be_heard_can_be_spread_evenly(app, db, owner, song, monkeypatch):
     _style(owner, song, "pop")
-    owner.post(f"{song}/songs", json={"count": 1})
+    owner.post(f"{song}/songs", json={})
     providers = get_providers(app.state.settings, app.state.storage)
 
     def slow(path, lyrics):
@@ -194,12 +200,12 @@ def test_a_video_starts_on_the_preferred_take_and_can_switch_with_undo(
 
 def test_a_video_makes_its_own_takes_on_its_budget(app, db, owner, editor, song):
     video = _video(app, db, owner, editor, song)
-    made = editor.post(f"{video}/songs", json={"count": 1})
+    made = editor.post(f"{video}/songs", json={})
     assert made.status_code == 201, made.text
     _work(app, db)
     takes = editor.get(f"{video}/songs").json()["takes"]
-    own = takes[-1]
-    assert len(takes) == 3 and own["status"] == "ready" and own["number"] == 1
+    own = takes[-1]  # the video's second take (the first is Preferred among its own)
+    assert len(takes) == 4 and own["status"] == "ready" and own["number"] == 2
     job = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
     assert job.project_id == int(video.rsplit("/", 1)[1])  # charged to the video
     editor.put(f"{video}/song", json={"take_id": own["id"]})
@@ -215,7 +221,7 @@ def test_a_refused_take_in_a_video_doesnt_ask_to_change_final_lyrics(app, db, ow
     draft = db.get(ScriptDraft, project.script_draft_id)
     draft.style_line = "pop fake:refuse"  # only to reach the refusal on the stand-in
     db.commit()
-    editor.post(f"{video}/songs", json={"count": 1})
+    editor.post(f"{video}/songs", json={})
     _work(app, db)
     own = editor.get(f"{video}/songs").json()["takes"][-1]
     assert (own["status"], own["failed_reason"]) == ("failed", music.REFUSED_IN_VIDEO)
