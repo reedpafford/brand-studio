@@ -32,12 +32,14 @@ A state passes only if the person sees what's happening and has one press that m
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
-| Takes, Breakdown, Clips | Producer's rule-31 ruling (2026-10-28): lyrics are final at publish; the Preferred take, Sung/B-roll, re-timing and new takes are the editor's, per video. #737 still locks them in S3 "Published", S5 "Who may flip" and S7 | The editor's video gets **Make this Preferred**, **Make 2 more**, flips, and **Make this B-roll instead**, each marking only that video's later steps Out of date | #737 plan |
+| Takes | Deleting a take that a video uses (owner after publish, or an editor's own take in a video) isn't guarded | Disabled with the reason "A video uses this take" | #737 plan |
+| Make this version | When no take fits the cap, there's no way on | "This song is too long for a video" + **Back to the Library** | #737 plan |
 
-Fixed in #737 at 8271b0fd (on paper; re-checked on the built screens): cap block, timing fallback, unsung line, Sung problems, refusal by style, restart, take-delete guard, trim and hold, 390 takes layout, "up to N" pricing.
+Fixed in #737 at 8271b0fd and 6af52e4e (rule-31 ruling: per-video Preferred, takes and flips) (on paper; re-checked on the built screens): cap block, timing fallback, unsung line, Sung problems, refusal by style, restart, take-delete guard, trim and hold, 390 takes layout, "up to N" pricing.
 
 ## Walks
 | Date | PR / commit | Flows | Result |
 |---|---|---|---|
 | 2026-10-28 | #737 (screen plan, docs) | S1–S8 on paper | FAIL: 7 open, see above |
 | 2026-10-28 | #737 at 8271b0fd | S1–S8 on paper | 13/13 fixed; rule-31 alignment still open |
+| 2026-10-28 | #737 at 6af52e4e | S1–S9 on paper | PASS on rule 31; 2 small open |
