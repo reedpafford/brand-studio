@@ -67,7 +67,8 @@ export function VideoPage() {
   const list = (assets.data ?? []).filter((a) => !notInShots(a)); // a role no shot uses is not counted
   // Opening Assets reads its list again; until that read lands (and the brand's products are in) its counts and the flavour
   // check wait. Later reads (after an Approve, say) keep showing the counts.
-  const assetsLoading = (opened.at > 0 && assets.dataUpdatedAt <= opened.at) || flavours.loading;
+  // A read that failed since then ends the wait too: the old counts show rather than "Loading assets…" for ever.
+  const assetsLoading = (opened.at > 0 && assets.dataUpdatedAt <= opened.at && assets.errorUpdatedAt <= opened.at) || flavours.loading;
   const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length } };
   // A link to a step that is locked lands on the step that blocks it (Storyboard when its frames are out of date, say).
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
