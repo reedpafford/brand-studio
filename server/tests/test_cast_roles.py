@@ -328,3 +328,10 @@ def test_an_approved_sheet_beats_the_role_text_in_stills_and_clips(owner, editor
     assert assets(db, db.get(Project, pid))[f"char:{kid}"][0].endswith("plays Nate")  # no sheet
     assert "is a French bulldog" in prompts.system("storyboard")
     assert 'never "golden coat"' in prompts.system("clip_prompts")
+    redo = prompts.sheet_prompt(  # a redraw keeps the sheet's dog, whatever the role says
+        "character",
+        "Golden retriever, thick golden coat",
+        change="Bigger ears.",
+        role="Biscuit, the golden dog",
+    )
+    assert "even where the words above describe them differently" in redo
