@@ -6,7 +6,7 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 1. A newer decision overrides an older one on the same topic; if it's unclear, ask Reed.
 
 **Costs**
-2. 1 credit = $0.1028 = 1 second of 480p video. Videos stay at 480p.
+2. 1 credit = $0.1028 = 1 second of 480p video. Videos stay at 480p by default; other models are priced in credits at their real Replicate cost (Reed, 2026-10-28).
 3. The per-video cap is $75 (729 credits). The project budget is twice the 480p estimate; going over needs Reed.
 4. Editors see credits and % of budget, never dollars. Editors may see Reed's name (Reed, 2026-10-28). Past an allowance they're declined with the reason, never "Ask Reed".
 5. Editor allowances: Quick clips 150 credits a week; own scripts about 145 credits ($15) a week.
@@ -34,7 +34,7 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 
 **Script and prompts**
 19. The script's words never change in Enhance, breakdown, clips or notes. An adapted reference keeps its dialogue word for word, except for the brand swap.
-20. Prompting follows only the official Seedance and Nano Banana docs (docs/prompting).
+20. Prompting follows the providers' official docs (docs/prompting). For styles, the guidance studied from Starpop (docs/research/starpop-2026-10-28) may be used too; our current look is the House style and stays the default (Reed, 2026-10-28).
 
 **Approvals and blockers**
 21. Clip prompts are reviewable before takes are paid for. "Approve all" (ready items only, skipped ones listed with the reason, Undo) is on every per-item approval list.
@@ -170,3 +170,4 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-28 Reed: after publishing, only he can edit a script's title, about and notes; everything else stays final (Current rules 31).
 - 2026-10-28 Producer: a look/role mismatch is fixed per video in the video's own look by any editor; only the owner changes the script's role words (Current rules 31).
 - 2026-10-28 Reed: study Starpop and build a combined, best-of-both studio as a separate test site on the same machine (own database, no shared live data), in three phases with Reed's check-in after each: findings, spec (Disney Pixar first; other styles, song-style ad included, as config stubs), build. It's a separate site, so rule 25 doesn't block it. Reed says Starpop allowed copying their workflows, UX, assets and prompt text. Starpop test budget: up to 75% of the credit balance at the start.
+- 2026-10-28 Reed approved the Phase 2 spec with changes: House style plus styles (Disney, Song, Zack D, Skeleton first); other models at real Replicate cost; music behind one interface (MiniMax first, Suno if real access); song ads are B-roll timed to the track; a separate test site (Brand Studio Next, branch `next`), see ops/NEXT.md (Current rules 2, 20).
