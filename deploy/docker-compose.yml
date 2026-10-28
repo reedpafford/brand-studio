@@ -108,6 +108,8 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+      - "8443:8443"  # the test site (deploy/next/README.md)
+    networks: [default, edge]
     volumes:
       - caddy_data:/data
       - caddy_config:/config
@@ -118,6 +120,11 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+networks:
+  edge:
+    name: brand-studio-edge
+    external: true  # made by deploy/remote-deploy.sh; the test site's web server joins it
 
 volumes:
   db:
