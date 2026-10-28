@@ -48,10 +48,10 @@ Shared behaviour (as today, so not repeated in every table):
 ```mermaid
 flowchart LR
   subgraph Owner["Owner: writing a song script"]
-    N[S1 New script: Song] --> L[S2 Lyrics + style]
+    N[S1 New script: Song] --> L[S2 Song: lyrics + style]
     L -. optional .-> D[S3 Write 2 song directions]
     D --> L
-    L --> M[S4 Make the song: takes, Preferred]
+    L --> M[S4 Takes: make the song, Preferred]
     M --> C[S5 Cast: who sings]
     C --> BP[S6 Breakdown preview]
     BP --> P[S7 Publish]
@@ -66,7 +66,7 @@ flowchart LR
   end
 ```
 
-Owner steps on a song script: **Lyrics → Song → Cast → Breakdown → Publish**. Directions are inside Lyrics (a button, not a step). Variations are not offered on a song script (they would rewrite the words); to try other lyrics, the owner duplicates the script. **Decided here.**
+Owner steps on a song script: **Song → Takes → Cast → Breakdown → Publish** (the names Next-Screens uses in docs/next/screens.md). "Write 2 song directions" is a button inside Song, not a step. Variations are not offered on a song script (they would rewrite the words); to try other lyrics, the owner duplicates the script. **Decided here.**
 
 Editor steps: the same five as a story video (**Breakdown → Assets → Storyboard → Clips → Downloads**).
 
@@ -76,7 +76,7 @@ Where: Script Library → **New script**.
 
 | State | What they see | The one press |
 |---|---|---|
-| E | Two choices: **Story** (as today) and **Song** ("Your lyrics, sung word for word over a music video"). | **Song** → a new draft opens on Lyrics. |
+| E | Two choices: **Story** (as today) and **Song** ("Your lyrics, sung word for word over a music video"). | **Song** → a new draft opens on its Song step. |
 | O/Ed | Both roles see it. An editor's song script is their own script: everything paid on it counts against their week (rule 5). | — |
 | P | The two choices stacked, full width. | — |
 | U | Back leaves an untouched draft behind? No: an empty draft is not saved until the first word is typed (as today). | Browser back returns to the Library. |
@@ -84,7 +84,7 @@ Where: Script Library → **New script**.
 
 Out for now: Bulk create and reel import make Story scripts only. A pasted reel that is a song ad is imported as a Story (its words become the script). **Decided here**; reel-to-song is a later item.
 
-## S2. Lyrics and style
+## S2. Song: lyrics and style
 
 Two boxes and one button.
 
@@ -94,10 +94,12 @@ Two boxes and one button.
 
 | State | What they see | The one press |
 |---|---|---|
-| E | Both boxes empty; Next is disabled with "Paste your lyrics or pick a direction first". | Type, or **Write 2 song directions for me**. |
+| E | Both boxes empty; Next is disabled with "Write or pick the lyrics first". | Type, or **Write 2 song directions for me**. |
 | L | The boxes with placeholders. | — |
-| Typing | "Saved" after each pause, as on the Story script step. Leaving with unsaved words: "Leave without saving? The lyrics you changed are not saved." Stay / Leave. | **Next** (Song). |
-| Style empty | Next stays allowed. The song step will use the placeholder style; Advice under the box: "No style yet: the song will be pop by default." | — |
+| Typing | "Not saved yet" with **Save lyrics** (and **Discard changes**). Leaving with unsaved words: "Leave without saving? The lyrics you changed are not saved." Stay / Leave. | **Save lyrics**, then **Next: Takes**. |
+| Saved | The lyrics read only with "Sung word for word", and **Edit lyrics**. When takes exist, Edit lyrics asks first: "Edit the lyrics? Your 2 takes will be out of date. They're kept, and you can make new ones." | **Next: Takes**. |
+| Nothing to go on | About is empty and the brand has no facts: the directions button is disabled with "Say what it's for in About first". | **Open About**. |
+| Style empty | Never a block. Next stays allowed and the takes use the brand's music style, else the default; Advice under the box: "No style yet: the song will be upbeat pop by default." | **Next: Takes**. |
 | Advice: long style | Over 25 words: "Music models follow short styles better. Keep it under 25 words." Advice only. | **Shorten it** (free, cuts in code to the first 25 words, Undo). |
 | Advice: long song | Over about 150 words: "About 70 s sung. That's a long ad: the video will be about that long too." Advice only. | — |
 | Advice: no end line (rule 18) | The lyrics don't name the brand or where to find it: "The song doesn't say fomo or where to find it." Advice only. Two ways to meet it, either one: | **Sing the end line** (free: adds the brand's end line as a last `[Outro]` line; the owner can edit it; Undo), or **Speak it over the end** (free: the brand's end line, editable, is spoken over the song's last seconds with the music lowered under it; see V6). |
@@ -127,11 +129,11 @@ Pressed on S2. Uses the brand, the product and anything already typed (as a brie
 
 Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyrics without **Use this one**, and once in, only the owner changes them.
 
-## S4. Make the song
+## S4. Takes: make the song
 
 | State | What they see | The one press |
 |---|---|---|
-| Locked | Step label: "Write the lyrics first". | Goes to Lyrics. |
+| Locked | Step label: "Write or pick the lyrics first". | Goes to Song. |
 | E | "Make 2 takes · N credits". Under it: "Each take is a full song. The song sets the video's length." | **Make 2 takes**. |
 | Q/R | Two player placeholders: "Making the song…" with a timer. | Cancel (before it starts). |
 | Reading timing | After a take arrives, free, on the local lane: "Reading the song's timing…" on that take. The player already plays. | — |
@@ -147,7 +149,7 @@ Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyr
 | B | Owner: only the cap stops them. Editor's own script: the week. | Disabled button with the reason; the existing takes stay playable and pickable. |
 | O/Ed | The same; dollars never shown. | — |
 | P | Players stacked, full width; each has a 44px play button and its Preferred toggle as a full-width row under it. | — |
-| U: delete a take | **Delete** on a take; Undo. Deleting the preferred take makes the other the preferred one (said in the toast). Deleting the last take returns to E. | — |
+| U: delete a take | **Delete take** in the take's menu; Undo. The Preferred take can't be deleted while it's Preferred: "Make another take Preferred first" (the other take's **Make this Preferred** is right there). | — |
 | U: change Preferred | Moves Preferred; a breakdown preview made on the other take goes out of date (S). | — |
 | S | A take made before the lyrics or style changed: grey label "Sings older words" (or "Older style"). It can't be Preferred. | **Make 2 takes** for the new words. The old ones stay playable, and deletable. |
 | Published | Read only for the owner. The preferred take becomes each new video's starting song; every published take is offered to editors in their video (V2a), where the choice is theirs (rule 31). | — |
@@ -162,7 +164,7 @@ As today's Cast step, with one addition: **the Singer**.
 
 | State | What they see | The one press |
 |---|---|---|
-| Locked | "Make the song first" (no preferred take yet). | Goes to Song. |
+| Locked | "Make the song first" (no preferred take yet). | Goes to Takes. |
 | E / reading | The cast read runs on the lyrics and the visual concept (free reading as today). Roles named in the lyrics or concept appear. | — |
 | Singer | A card on top: "Who sings on camera?" with the roles, the brand's default cast, or **Nobody on camera** (all shots B-roll). The Singer is always a cast role. Pre-picked: the hero from the visual concept, else the brand's default cast's first character. When the lyrics and concept name nobody, the cast read adds a role named **Singer** automatically (its look is made per video at Assets, rule 7). | Pick, then **Next**. |
 | Nobody on camera | Advice: "No shot will lip-sync. The song plays over B-roll only." | — |
@@ -176,17 +178,18 @@ Same step as the editor's Breakdown (V2), made by the owner from the preferred t
 
 | State | What they see | The one press |
 |---|---|---|
-| Locked | "Make the song first". | Goes to Song. |
-| S | The lyrics, style, preferred take or Singer changed after it was made: "Out of date: the song changed." | **Make it again · N credits** (as today). |
+| Locked | "Make the song first". | Goes to Takes. |
+| Take changed | Preferred moved to another take of the same lyrics: the times re-flow to it in code, free, with Undo (as V2a). Nothing to press. | — |
+| S | The lyrics, style or Singer changed after it was made: "Out of date: the song changed." | **Make it again · N credits** (as today). |
 | Everything else | As V2. | — |
 
 ## S7. Publish
 
 | State | What they see | The one press |
 |---|---|---|
-| Locked | "Make the song first" / "Pick the preferred take first" (a take exists, none singing the current words). | Goes to Song. |
-| Ready | The version card lists: Lyrics, Style, **Song: take 2 · 0:31** (a small player), Singer, Cast, Breakdown. Note: "Publishing makes this ready to make. After that the lyrics and song can't change. To change them, duplicate the script." | **Publish**. |
-| Confirm | "Publish {title}? Its lyrics and song become final." Not yet / Publish. | **Publish**. |
+| Locked | "Make the song first" / "Pick the preferred take first" (a take exists, none singing the current words). | Goes to Takes. |
+| Ready | The version card lists: Lyrics, Style, **Song: take 2 · 0:31** (a small player), Singer, Cast, Breakdown. Note: "Publishing makes this ready to make. After that the lyrics can't change (each video still picks its own take). To change the lyrics, duplicate the script." | **Publish**. |
+| Confirm | "Publish {title}? Its lyrics become final." Not yet / Publish. | **Publish**. |
 | Published | "Published · final". Only **Duplicate script** (copies lyrics, style and all takes, Preferred kept). The owner can still edit title, about and notes (rule 31). | — |
 
 Not on song scripts: the Story flow's **Directions** (camera suggestions) and **Variations** steps are hidden. "Write 2 song directions" (S3) is the only writing help.
@@ -266,6 +269,7 @@ As today (prompts reviewable, "Looks good", takes, pick, Approve all), plus:
 | Advice: lip-sync drift | Not checked automatically (rule 11). The editor watches. | **Make another take**, or **Change this…**. |
 | X | As today's refusal messages, naming the character (rule 23), with the free reword (#728). | **Reword and try again** (free). |
 | S | The shot flipped Sung ↔ B-roll, or split/joined: "Made for an older breakdown". | **Rewrite clip prompts · N credits** (as today); old takes kept. |
+| Sung keeps failing | A Sung clip whose takes fail or refuse: **Make this B-roll instead** (free: flips its Sung shots in this video's breakdown and rewrites the clip as B-roll; old takes kept; Undo). | — |
 | Everything else | As today. | — |
 
 ## V6. Downloads: the song underneath
@@ -274,7 +278,7 @@ The final video is stitched as today (free), and the preferred take's full song 
 
 | State | What they see | The one press |
 |---|---|---|
-| Done | The player, **Download MP4**, **Download all clips (.zip)** (the zip also holds the song file). | — |
+| Done | The player, "Song: take 2, laid under the whole video", **Download MP4**, **Download the song**, **Download all clips (.zip)**. | — |
 | F | "The video couldn't be put together. Nothing was charged." | **Try again**. |
 | S | As today ("A clip changed since this video was made. It's free."), and also when the video's take or spoken end line changed. | **Make it again**. |
 | Spoken end line | When set (S2), it's spoken over the song's last seconds with the music lowered under it (free, in the stitch). | — |
@@ -288,7 +292,7 @@ What happens to later steps when an earlier one changes. "Out of date" items are
 |---|---|---|---|---|---|
 | Lyrics edited (owner, draft) | Takes singing the old words: "Sings older words", can't be Preferred | Preview out of date | — | — | — |
 | Style edited | "Older style" (still playable, can't be Preferred) | Preview out of date | — | — | — |
-| Preferred take changed (owner, draft) | — | Preview out of date | — | — | — |
+| Preferred take changed (owner, draft) | — | Times re-flow, free, Undo | — | — | — |
 | Video's take changed (editor, V2a) | — | Times re-flow, free, Undo | Kept | Clips out of date | Out of date |
 | Singer changed | — | Preview out of date | — | — | — |
 | Published | The lyrics are fixed; takes become each video's choice | The published preview is each new video's start | — | — | — |
