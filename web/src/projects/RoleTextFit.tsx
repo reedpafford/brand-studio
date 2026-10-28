@@ -46,7 +46,7 @@ export function RoleTextFit({ asset, projectId, stopFor, onDone }: { asset: Asse
   if (fit) {
     const script = { ...(fit.name ? { role: fit.name } : {}), ...(fit.description ? { description: fit.description } : {}) };
     return (
-      <div className="space-y-2 rounded-md bg-warning-soft p-2 text-sm" role="note" aria-label={`Role words for ${title}`}>
+      <div className="w-full space-y-2 rounded-md bg-warning-soft p-2 text-sm" role="note" aria-label={`Role words for ${title}`}>
         <p>{fit.seen}</p>
         {fit.update_look && (
           <>
@@ -69,7 +69,7 @@ export function RoleTextFit({ asset, projectId, stopFor, onDone }: { asset: Asse
   if (asset.text_check_credits == null) return null;
   const decline = stopFor(asset.text_check_credits);
   return (
-    <div className="space-y-1">
+    <div className="w-full space-y-1">
       <Button variant="ghost" busy={check.isPending} price={asset.text_check_credits} reason={decline} disabled={!!decline} onClick={() => check.mutate()}>
         Check the description against the look
       </Button>
