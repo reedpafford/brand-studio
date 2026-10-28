@@ -118,7 +118,7 @@ test("New script makes an untitled draft at once and opens the Script screen, wi
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })] });
   open("/b/1/scripts");
-  await userEvent.click(await screen.findByRole("button", { name: "New script" }));
+  await userEvent.dblClick(await screen.findByRole("button", { name: "New script" })); // a fast double tap
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "" }));
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
   expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
@@ -1365,4 +1365,21 @@ test("About saves with only a title: what it's for is optional (a new draft star
   expect(save).toBeEnabled();
   await userEvent.click(save);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toMatchObject({ title: "Bo tries tuna", description: "" }));
+});
+
+test("the header rename field takes the whole row, so the title is readable on a phone", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /scripts/7": [200, full({ title: "Untitled script" })] });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Rename Untitled script" }));
+  const form = screen.getByRole("textbox", { name: "Title" }).closest("form")!;
+  expect(form.className).toContain("basis-full");
+  expect(form.className).toContain("w-full");
+});
+
+test("an old /scripts/new link goes to the Scripts list", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts/new");
+  expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
 });

@@ -128,13 +128,13 @@ export function ScriptFlowPage() {
           </h1>
         ) : (
           <form
-            className="flex min-w-0 flex-1 flex-wrap items-end gap-2"
+            className="flex w-full min-w-0 basis-full flex-wrap items-end gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               if (renaming.trim()) patch.mutate({ title: renaming.trim() }, { onSuccess: () => setRenaming(null) });
             }}
           >
-            <div className="min-w-0 flex-1">
+            <div className="min-w-48 flex-1">
               <Field label="Title" value={renaming} onChange={(e) => setRenaming(e.target.value)} error={patch.isError ? patch.error.message : null} maxLength={200} autoFocus />
             </div>
             <Button type="submit" busy={patch.isPending} disabled={!renaming.trim()}>

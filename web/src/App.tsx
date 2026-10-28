@@ -34,6 +34,7 @@ export function App() {
           <Route path="b/:brandId" element={<BrandHome />} />
           <Route path="b/:brandId/scripts" element={<ScriptsRoute />} />
           <Route path="b/:brandId/scripts/import" element={<ImportReelPage />} />
+          <Route path="b/:brandId/scripts/new" element={<Navigate to=".." relative="path" replace />} />
           <Route path="b/:brandId/scripts/:scriptId" element={<ScriptFlowPage />} />
           <Route path="b/:brandId/scripts/:scriptId/reel" element={<ReelReviewPage />} />
           <Route path="b/:brandId/projects" element={<ProjectsPage />} />
