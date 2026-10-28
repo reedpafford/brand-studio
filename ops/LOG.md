@@ -1,4 +1,7 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 17:24 · #697 A word the image model may refuse is Advice: Draw it as is, or Soften it merged
+- 2026-10-28 17:14 · #694 Assets: a role card shows its look whenever it has one merged
+- 2026-10-28 16:35 · #692 ops: HANDOFF/LOG refresh as of ba53099 merged (by the Producer)
 - 2026-10-28 16:23 · Decision (#691, Reed): editors may see his name; the owner-name masking is removed to simplify (Current rules 4). Dollars stay hidden and editors are never told "Ask Reed" merged
 - 2026-10-28 16:07 · #687 New script: one press makes a draft and opens the Script screen merged
 - 2026-10-28 16:06 · #689 Rhythm by purpose: the last three numeric timings reworded (QA on #686) merged
