@@ -8,6 +8,7 @@ Each step's output schema is `SCHEMAS[step]`."""
 import json
 import re
 from functools import cache
+from html import escape
 from pathlib import Path
 
 from app.prompts import schemas
@@ -325,13 +326,17 @@ def cast_slots_input(
     return "\n".join(parts)
 
 
-def look_fit_input(description: str, role: str = "") -> str:
+def look_fit_input(description: str, role: str = "", role_text: str | None = None) -> str:
     """The user message for the look_fit check; the sheet image goes before it. `role` is
-    the cast slot's role ("Omar, the boyfriend"); its name is left out."""
+    the cast slot's role ("Omar, the boyfriend"); its name is left out of <role>. With
+    `role_text` (the slot's description) the role's own words are read against the sheet."""
     part = role.split(",", 1)[-1].strip()
     lines = [f"<character>{description.strip()}</character>"]
     if part:
         lines.append(f"<role>{part}</role>")
+    if role_text is not None:
+        lines.append(f'<role_text name="{escape(role, quote=True)}">{escape(role_text.strip())}'
+                     "</role_text>")  # fmt: skip
     return "\n".join(lines)
 
 

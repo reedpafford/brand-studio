@@ -285,6 +285,18 @@ class LookFit(BaseModel):
         description="When fits is false, what to change, as a plain instruction for redrawing "
         "('draw an adult woman in her 40s, not a child'); '' when it fits."
     )
+    role_name: str = Field(
+        default="",
+        description="Only when <role_text>'s name says something the sheet plainly contradicts "
+        "('Biscuit, the golden dog' for a French bulldog): the name rewritten to match, word "
+        "for word up to its first comma ('Biscuit, the French bulldog'). Empty otherwise.",
+    )
+    role_description: str = Field(
+        default="",
+        description="Only when <role_text> says something the sheet plainly contradicts "
+        "(species, breed, colouring, hair, age range, gender): the whole text rewritten to "
+        "match the sheet, changing only what contradicts it. Empty otherwise.",
+    )
 
 
 # --- Reel watch: Gemini reads an imported reel (reel import, Reed #270). Not a Claude step:

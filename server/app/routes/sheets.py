@@ -126,9 +126,24 @@ def _on_week(db: Session, project: Project | None, user: User, data: dict, held)
         data["then_credits"] = str(held)
 
 
+def text_to(read: dict, fit: LookFit) -> dict:
+    """The role's words rewritten to match its sheet, "" for each that already fits. A name
+    keeps its words up to the first comma, so the script still labels it the same."""
+    name, said = fit.role_name.strip(), fit.role_description.strip()
+    same = name.split(",")[0].strip() == read["role"].split(",")[0].strip()
+    return {"role_to": name if same and name != read["role"] else "",
+            "description_to": said if said != read["description"].strip() else ""}  # fmt: skip
+
+
 def role_for(db: Session, item: LibraryItem) -> str:
     """The script's role a look was made for ("Omar, the boyfriend"), so every sheet of it,
     a redo too, knows the part; "" for a Cast & places look."""
+    slot = slot_for(db, item)
+    return slot.role if slot else ""
+
+
+def slot_for(db: Session, item: LibraryItem):
+    """The script's cast slot a look was made for, or None."""
     from sqlalchemy import select
 
     from app.models.script_library import ScriptCastSlot
@@ -145,8 +160,7 @@ def role_for(db: Session, item: LibraryItem) -> str:
                 ScriptCastSlot.library_item_id == item.id,
             )
         )
-    slot = db.get(ScriptCastSlot, slot_id) if slot_id else None
-    return slot.role if slot else ""
+    return db.get(ScriptCastSlot, slot_id) if slot_id else None
 
 
 def save_sheet(db: Session, job: Job) -> None:
@@ -165,7 +179,14 @@ def save_sheet(db: Session, job: Job) -> None:
 
 
 def check_fit(
-    db: Session, user: User, item: LibraryItem, redo: bool, after=Decimal(0), auto=False
+    db: Session,
+    user: User,
+    item: LibraryItem,
+    redo: bool,
+    after=Decimal(0),
+    auto=False,
+    slot=None,
+    pressed=False,
 ) -> None:
     """Does the new sheet read as its description (age, gender, job)? One cheap Claude look
     (prompts/look_fit.md, effort low), paid like the sheet; the sheet shows as still being
@@ -173,25 +194,33 @@ def check_fit(
     truth. It was held at the press (prepaid); `after` (the redo and its check) stays held
     until it's queued or the look fits. If it's refused anyway (the per-video limit), the
     check is skipped and the look shown, never held."""
+    slot = slot or slot_for(db, item)  # its role's words are read against the sheet too
     data = {
         "step": "look_fit",
         "library_item_id": item.id,
         "redo": redo,  # one automatic redo; never after a person's own change
         "system": [prompts.system("look_fit")],
-        "prompt": prompts.look_fit_input(item.notes, role_for(db, item)),
+        "prompt": prompts.look_fit_input(
+            item.notes, slot.role if slot else "", slot.description if slot else None
+        ),  # fmt: skip
         "effort": "low",
         "max_tokens": 2000,
         "files": {"reference_images": [item.sheet_file_id]},
         "fit_images_to": 1024,
         "auto_made": auto,
     }
+    if slot:
+        data["text_for"] = {"slot_id": slot.id, "sheet_file_id": item.sheet_file_id,
+                            "role": slot.role, "description": slot.description}  # fmt: skip
     project = db.get(Project, item.owner_project_id) if item.owner_project_id else None
     _on_week(db, project, user, data, after if redo else Decimal(0))
     db.commit()  # a refusal rolls back: never take the landed sheet with it
-    try:
+    try:  # `pressed`: Check on Assets, paid at its own price; a refusal says why
         enqueue(db, user, "check-claude", data, project=project, provider="claude",
-                prepaid=True, hold=after if redo else Decimal(0))  # fmt: skip
+                prepaid=not pressed, hold=after if redo else Decimal(0))  # fmt: skip
     except HTTPException:
+        if pressed:
+            raise
         log.info("look %s: the fit check doesn't fit the budget; shown unchecked", item.id)
 
 
@@ -203,6 +232,8 @@ def save_fit(db: Session, job: Job) -> None:
     if not item or item.archived:
         return
     fit = LookFit.model_validate(job.output)
+    if read := job.input.get("text_for"):
+        item.text_fit = {**read, "seen": fit.seen, **text_to(read, fit)}
     if fit.fits:
         item.look_fit = None
         return

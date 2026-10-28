@@ -10,7 +10,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app import advice, breakdown, cast_roles, clip_prompts, merge_roles
 from app.auth import current_user
@@ -30,16 +30,25 @@ from app.routes.projects import get_project
 from app.routes.script_cast import (
     MergePreview,
     PairIn,
+    Role,
     RoleFacts,
     SamePair,
     UndoIn,
+    _unique,
     role_facts,
 )
 from app.routes.scripts import latest
-from app.routes.sheets import SheetIn, queue_sheet
-from app.sheets import look_price, look_usual
+from app.routes.sheets import SheetIn, check_fit, queue_sheet
+from app.schemas import LongText
+from app.sheets import check_price, is_checked, look_price, look_usual
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
+
+
+class TextFitOut(BaseModel):
+    seen: advice.SaidText  # "The approved look shows a French bulldog."
+    name: str  # the role's name put right, "" when it fits
+    description: str  # the description put right, "" when it fits
 
 
 class AssetOut(BaseModel):
@@ -64,6 +73,15 @@ class AssetOut(BaseModel):
     library_deleted: bool = False  # its Cast & places character was deleted: Make or Pick
     look_credits: int | None = None  # Make a look on a role: "up to" (held at the press)
     look_usual_credits: int | None = None  # "Usually N": its sheet and check, no redo
+    # The approved look contradicts the role's words (Biscuit: a French bulldog written as a
+    # golden retriever): what it shows, and the role's name and description put right.
+    text_fit: TextFitOut | None = None
+    text_check_credits: int | None = None  # its words not yet read against this sheet: Check
+
+
+class SlotTextIn(BaseModel):
+    role: Role | None = None
+    description: LongText | None = None
 
 
 class SlotCastIn(BaseModel):
@@ -108,7 +126,31 @@ def _row(
         description=slot.description if slot else "",
         facts=role_facts(slot.description, slot.guessed or []) if slot else None,
         look_fit=item.look_fit if item else None,
+        **(_text(slot, item, status) if slot and item and not locked else {}),
     )
+
+
+def _text(slot: ScriptCastSlot, item: LibraryItem, status: str) -> dict:
+    """An approved look's role words: put right where its check found them contradicting the
+    sheet, or Check them for a look approved before they were read (a small Claude call)."""
+    if status != "approved" or not is_checked(item) or not (slot.description or "," in slot.role):
+        return {}
+    read = item.text_fit or {}
+    to = {}  # each of the role's words: as read (offer what it was put right to), or put right
+    for key, now in (("role", slot.role), ("description", slot.description)):
+        fixed = read.get(f"{key}_to")
+        if now == read.get(key):
+            to[key] = fixed or ""
+        elif fixed and now == fixed:
+            to[key] = ""
+    same = (read.get("slot_id"), read.get("sheet_file_id")) == (slot.id, item.sheet_file_id)
+    if not same or len(to) < 2:  # not read against this sheet and these words yet: Check
+        db = object_session(item)
+        return {"text_check_credits": price(check_price(db, item.workspace_id))}
+    if not any(to.values()):
+        return {}
+    said = f"The approved look shows {read['seen'].strip().rstrip('.')}."
+    return {"text_fit": TextFitOut(seen=said, name=to["role"], description=to["description"])}
 
 
 @router.get("", response_model=list[AssetOut])
@@ -170,6 +212,51 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
             if slot.appears_in and version not in slot.appears_in:
                 other.add(row.slot_id)  # another version's role (QA-Live run 3: the gym bro)
     return [row for row in out if row.slot_id not in other]
+
+
+@router.patch("/slots/{slot_id}", response_model=list[AssetOut])
+def edit_role_text(
+    project_id: int,
+    slot_id: int,
+    body: SlotTextIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Put the role's name or description right (to match its approved look, or Undo that).
+    It's the script's role, so every version reads it; the spoken words never change, and a
+    name keeps its words up to the first comma so the script still labels it the same."""
+    project = get_project(db, user, project_id)
+    slot = next((s for s in _slots(db, project) if s.id == slot_id), None)
+    if not slot:
+        raise HTTPException(404, "No such cast slot in this video.")
+    if body.role is not None:
+        if cast_roles.short(body.role) != cast_roles.short(slot.role):
+            raise HTTPException(422, f"Keep the name {cast_roles.short(slot.role)}; change "
+                                     "only what follows the comma.")  # fmt: skip
+        _unique(db, db.get(Script, slot.script_id), body.role.strip(), slot.id)
+        slot.role = body.role.strip()
+    if body.description is not None:
+        own = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
+        if own and own.notes == slot.description:  # its look's notes were the role's: follow
+            own.notes = body.description.strip()
+        slot.description, slot.guessed = body.description.strip(), []
+    db.commit()
+    return list_assets(project_id, user, db)
+
+
+@router.post("/slots/{slot_id}/check-text", response_model=list[AssetOut])
+def check_role_text(
+    project_id: int, slot_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Read the role's words against its approved look (Check, at the price shown): a look
+    approved before the check read them, like Biscuit's."""
+    project = get_project(db, user, project_id)
+    slot = _open_slot(db, project, slot_id)
+    item = db.get(LibraryItem, cast_roles.pick(db, project, slot) or 0)
+    if not item or not _text(slot, item, sheet_status(item)).get("text_check_credits"):
+        raise HTTPException(409, "There's nothing to check: its words were read already.")
+    check_fit(db, user, item, redo=False, slot=slot, pressed=True)
+    return list_assets(project_id, user, db)
 
 
 @router.put("/slots/{slot_id}", response_model=list[AssetOut])
