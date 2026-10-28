@@ -50,6 +50,9 @@ main() {
 
   docker network inspect brand-studio-edge >/dev/null 2>&1 || docker network create brand-studio-edge >/dev/null
   compose() { docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml "$@"; }
+  docker run --rm -v "$PWD/next/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 \
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null \
+    || { echo "::error::deploy/next/Caddyfile doesn't validate. The test site was left as it was."; exit 1; }
   compose up -d --build --remove-orphans
 
   for _ in $(seq 1 60); do
