@@ -9,7 +9,7 @@ import { SheetWarning, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
-import { FIX_NOTE, FixedNote, FixThisPrompt } from "./FixClip";
+import { FIX_NOTE, FixedNote, FixThisPrompt, refused } from "./FixClip";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -150,8 +150,8 @@ export function ClipCard(props: {
           ))}
         </ul>
       )}
-      {blocking(c.problems, c.kept).length > 0 && !c.stale && !props.fixBusy && !c.free_fix_used && <FixThisPrompt busy={false} onFix={props.onFix} />}
-      {props.fixBusy && <FixThisPrompt busy onFix={props.onFix} />}
+      {blocking(c.problems, c.kept).length > 0 && !c.stale && !props.fixBusy && !c.free_fix_used && <FixThisPrompt busy={false} onFix={props.onFix} moderated={refused(c.problems)} />}
+      {props.fixBusy && <FixThisPrompt busy onFix={props.onFix} moderated={refused(c.problems)} />}
       {blocking(c.problems, c.kept).length > 0 && !c.stale && !props.fixBusy && (props.fixSaid ?? (c.free_fix_used ? "We couldn't fix this one automatically." : null)) && (
         <p role="status" className="flex items-start gap-2 text-sm text-warning">
           <TriangleAlert size={16} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />

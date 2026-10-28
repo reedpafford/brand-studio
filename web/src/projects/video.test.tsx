@@ -1070,6 +1070,19 @@ const fixRoutes = {
   "GET /projects/9/clips/prompts/price?clip_id=c1": [200, { clip_ids: ["c1"], credits: 3 }] as [number, unknown],
 };
 
+test("a prompt the video model refused offers Reword it to pass · free, the same free fix", async () => {
+  setViewport(390);
+  const calls = fakeServer({
+    ...fixRoutes,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: false, problems: ["c1: The video model refused this prompt: it read it as violent. Reword it to pass."] })]],
+    "POST /projects/9/clips/3/fix": [200, { fixed: true, before: "a", after: "b", reason: "", clip: clip({}) }],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  await userEvent.click(await within(card).findByRole("button", { name: "Reword it to pass · free" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/fix")).toBe(true));
+});
+
 test("a clip with a blocking problem has a free Fix this clip's prompt; it shows what changed, with Undo, and never makes a take", async () => {
   setViewport(1440);
   const routes: Record<string, [number, unknown]> = {
