@@ -98,7 +98,7 @@ The first step of a song script. Header, step picker, Back/Next as the Script st
 |---|---|---|
 | **No takes yet** | Empty card: "Make the song. You get 2 takes and pick one." plus the likely length. | Amber **Make 2 takes · 3 credits** (a take has one price whatever its length: 1.46 credits, shown rounded up). Disabled with reason if lyrics or style are missing ("Write or pick the lyrics first", with **Back to Song**). |
 | **Making** | Two placeholder cards in the final layout with "Making the song… 0:42" (count-up). "You can leave this page; it carries on." Amber shows **Making…** (busy, not disabled-looking). | None needed. |
-| **Stopped by a restart** | "The song stopped when the server restarted. Nothing was charged." Any good takes from before stay above. | **Try again · 3 credits (or **· 2 credits** when only one take stopped)**. |
+| **Stopped by a restart** | "The song stopped when the server restarted. Nothing was charged." Any good takes from before stay above. | **Try again · 3 credits** (or **Try again · 2 credits** when only one take stopped). |
 | **Both made** | Two players. The first is **Preferred** unless Next-Server marks another. | Amber **Next: Cast**. **Make this Preferred** on the other; **Make 2 more · 3 credits** (secondary). |
 | **One made, one failed** | The good take plays and is Preferred. The failed card: "Take 2 didn't finish. Its credits were returned." **Try again · 2 credits** (one take, 1.46 rounded up). | Amber **Next: Cast** (one good take is enough). |
 | **Timing a take** (`timing`) | The take plays at once; its card says "Reading the timing… (free)". It can be made Preferred. | Amber **Next: Cast** (Breakdown waits for the Preferred take's timing and says so). |
