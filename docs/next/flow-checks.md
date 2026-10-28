@@ -49,15 +49,13 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
-| Song | Lyrics over the 3,500 limit (pasted, or from a direction) have no state | Counter red; **Save lyrics** disabled with "cut N characters"; the words stay | #742 plan |
-| Takes | Take statuses `timing` and `timing_failed` have no state | `timing`: plays, Next waits with the reason; `timing_failed`: **Make this Preferred** on the other take / **Make 2 more** | #742 plan |
 
 | flows.md S4 / data.md | Rule 31 as merged (#739): Preferred take and new takes per video, but flows.md fixes them at publish and has no editor song step | An editor song step (#737 S3e); `projects.song_take_id`, `song_takes.project_id` | #740 |
 | flows.md S4 | Timing failed offers only Try again (repeats) | **Make the other one preferred** / **Make 2 more** | #740 |
 | flows.md S5 → V2 | "Nobody on camera", then a flip to Sung, has no singer | "Who sings this shot?" picker, free, Undo | #740 |
 | flows.md S4 | Deleting the Preferred take when the other sings older words; deleting a take a video uses | Guard both, with the reason | #740 |
-| flows.md vs #737 | Step names, empty style (Advice vs block), the press for an unsafe refusal, sung-twice | Pick one in flows.md; the screens follow | #740 |
-| ST2 | Per-style sheet on a library character (rule 12); editor dead end | Per-video look for editors | #743 |
+| flows.md vs #737/#742 | Step names, empty style (Advice vs block), the press for an unsafe refusal, sung-twice, Preferred while timing runs | Pick one in flows.md; the screens follow | #740 |
+| ST2 | Per-style sheet on a library character (rule 12); editor dead end. Producer ruled: per-video look for editors, library sheet owner only | flows.md to write it in | #743 |
 | ST1 | Publishing on an Off style | **Switch to House** at Publish | #743 |
 | VS1 | A non-audio video model on a song video leaves Sung clips unmakeable | Grey them out, or Sung → B-roll with Undo | #743 |
 | ST3 | Sample needs the brand's hero; no default cast yet | Stock character, or a picker | #743 |
@@ -77,3 +75,4 @@ Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes 
 | 2026-10-28 | #742 at 972a31fd (song fields) | S2, S3 on paper | FAIL: 2 open |
 | 2026-10-28 | #740 at 78300b55 (flows.md, song ads) | S1–S7, V1–V6 on paper | FAIL: rule 31, 3 dead ends, 4 disagreements |
 | 2026-10-28 | #743 at 395c6005 (flows.md, items 2–6) | ST, BR, VS, OR, layout on paper | FAIL: 4 blocking, 4 smaller |
+| 2026-10-28 | #742 at 4f9fbdf4 | S2, S3 on paper | PASS |
