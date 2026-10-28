@@ -489,6 +489,61 @@ test("a look still being made says Making the look…, with no approval badge an
   expect(within(card).queryByRole("button", { name: "Approve" })).toBeNull();
 });
 
+test("an approved look that contradicts the role's words: Update to match saves to this video's look, the owner can put the script right too, each with Undo", async () => {
+  setViewport(390);
+  const fit = { seen: "The approved look is a French bulldog.", name: "Biscuit, the French bulldog", description: "A stocky French bulldog, the narrator", notes: "A golden retriever, the narrator", update_look: true, update_script: true, note: "" };
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({ role: "Biscuit, the golden retriever", description: "A golden retriever, the narrator", sheet_status: "approved", ready: true, sheet_file_id: 71, text_fit: fit })]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Biscuit", sheet_status: "approved" })],
+    "PATCH /projects/9/assets/slots/3": [200, []],
+  });
+  open();
+  const note = await screen.findByRole("note", { name: "Role words for Biscuit, the golden retriever" });
+  expect(within(note).getByText("The approved look is a French bulldog.")).toBeInTheDocument();
+  const box = within(note).getByLabelText("How this video describes them");
+  expect(box).toHaveValue("A stocky French bulldog, the narrator");
+  await userEvent.type(box, " who loves salmon");
+  await userEvent.click(within(note).getByRole("button", { name: "Update to match" }));
+  const patches = () => calls.filter((c) => c.key === "PATCH /projects/9/assets/slots/3").map((c) => c.body);
+  await vi.waitFor(() => expect(patches()).toEqual([{ notes: "A stocky French bulldog, the narrator who loves salmon" }]));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(patches().at(-1)).toEqual({ notes: "A golden retriever, the narrator" }));
+  await userEvent.click(within(note).getByRole("button", { name: "Update the script's role too" }));
+  await vi.waitFor(() => expect(patches().at(-1)).toEqual({ role: "Biscuit, the French bulldog", description: "A stocky French bulldog, the narrator" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(patches().at(-1)).toEqual({ role: "Biscuit, the golden retriever", description: "A golden retriever, the narrator" }));
+});
+
+test("someone who can't change the script's role sees why in plain words, with no button for it", async () => {
+  setViewport(1440);
+  const fit = { seen: "The approved look is a French bulldog.", name: "", description: "A stocky French bulldog", notes: "", update_look: false, update_script: false, note: "The script's role still describes the earlier look; this video follows the look." };
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({ role: "Biscuit", sheet_status: "approved", ready: true, sheet_file_id: 71, text_fit: fit })]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Biscuit", sheet_status: "approved" })],
+  });
+  open();
+  const note = await screen.findByRole("note", { name: "Role words for Biscuit" });
+  expect(within(note).getByText(/this video follows the look/)).toBeInTheDocument();
+  expect(within(note).queryByRole("button")).toBeNull();
+});
+
+test("a look approved before the words were checked offers the check at its price", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({ role: "Biscuit", sheet_status: "approved", ready: true, sheet_file_id: 71, text_check_credits: 1 })]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Biscuit", sheet_status: "approved" })],
+    "POST /projects/9/assets/slots/3/check-text": [200, []],
+  });
+  open();
+  const card = await screen.findByLabelText("Biscuit");
+  expect(within(card).queryByRole("note", { name: /Role words/ })).toBeNull();
+  await userEvent.click(within(card).getByRole("button", { name: /^Check the description against the look · 1 credit/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/check-text")).toBe(true));
+});
+
 test("when the role has gone back to a Cast & places character, the video's own look is kept and offered again", async () => {
   setViewport(1440);
   const calls = fakeServer({
