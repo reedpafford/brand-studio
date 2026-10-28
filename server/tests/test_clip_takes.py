@@ -340,7 +340,9 @@ def test_a_moderation_refusal_says_why_and_offers_a_free_reword(app, db, editor,
     assert "remove what reads as sexual" in queued.input["prompt"] and fix["job"]["credits"] == 0
     assert credits_used(db, db.get(Project, setup["project"])) == before
 
-    body = {"prompt": shown["prompt"] + " ", "references": shown["references"]}  # their own edit
+    body = {"prompt": shown["prompt"] + " ", "references": shown["references"]}
+    assert editor.put(url, json=body).json()["problems"] == shown["problems"]  # a space: stays
+    body["prompt"] = shown["prompt"].replace("Close-up, push in.", "Close-up.")  # their words
     assert editor.put(url, json=body).json()["problems"] == []  # new words: the refusal goes
 
 
