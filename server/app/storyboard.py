@@ -11,7 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.advice import names, plain
-from app.cast_roles import bare, cast_roles, pick, plays, video_slots
+from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, logo_only, project_context, project_screens, screen_name
@@ -50,6 +50,11 @@ def cast_looks(db: Session, project: Project) -> list[LibraryItem]:
     return sorted(items, key=lambda i: project.cast_ids.index(i.id))
 
 
+SHEET_SETS = (  # no role text or notes beside a sheet: "the golden dog" drew a Frenchie golden
+    "looks exactly as their sheet; never describe their face, breed, coat, skin, hair or colouring"
+)
+
+
 def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     """Every picture a frame may use: asset id -> (its line for the prompt, its file ids).
     The cast (each look with the roles it plays), the script's cast slots (a filled slot:N is
@@ -70,6 +75,9 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
         parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)
+        if item.kind == Kind.character and usable_files(item):  # rule 10: the sheet wins
+            them = "; ".join(f"plays {short(s.role)}" for s in roles.get(item.id, []))
+            parts = (key, item.kind, item.name, them, SHEET_SETS)
         out[key] = (" | ".join(x for x in parts if x), usable_files(item))
     for slot in video_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
