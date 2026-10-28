@@ -1,4 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 01:00 · #669 Director: the grind shows the trading; phone beats play for drama merged
+- 2026-10-28 00:53 · #665 Clips: after Change this… on a clip with no take, say what to press next merged
+- 2026-10-28 00:37 · #667, #670 QA-Live video #17: a changed sheet refreshes prompts and flags old stills, long prompts editable, full price quoted; the "opening the app" bridge is only for an app brand, merged
+- 2026-10-28 00:34 · #671 ops: HANDOFF/LOG refresh as of 7e078ad merged (by the Producer)
 - 2026-10-28 00:27 · #664 The cast backstop runs one request at a time per video merged
 - 2026-10-28 00:25 · #668 A take the video service was too busy to finish says to try again merged
 - 2026-10-28 00:15 · #666 Spell the fomo word on invented screens; never recreate a famous scene merged
