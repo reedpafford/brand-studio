@@ -49,6 +49,9 @@ export function FrameCard(props: {
   const [redo, setRedo] = useState<string | null>(null);
   const phone = useMedia("(max-width: 639px)");
   const verb = f.file_id === null ? "Make still" : "Redo";
+  // A word the image model may refuse: Soften it or Draw it as is, in place of Make still; a refusal said plainly (QA-2).
+  const refusable = f.file_id === null && f.problems.some((p) => /may refuse/.test(p));
+  const refused = f.problems.find((p) => /refused to draw/.test(p));
   const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
   const price = props.cost !== undefined ? ` · ${creditsLabel(props.cost)}` : "";
   const redoForm = (
@@ -127,8 +130,9 @@ export function FrameCard(props: {
       {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.undoing} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
       <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${f.clip_id}`} />
       {/* A word the image model may refuse is advice: soften it, or draw it as is (Reed, 2026-10-28). */}
-      {f.file_id === null && f.problems.some((p) => /may refuse/.test(p)) && (
+      {refusable && (
         <div className="flex flex-wrap items-center gap-2">
+          {refused && <p className="w-full text-sm text-danger">{props.words(refused)}</p>}
           <SoftenIt busy={props.softening} onSoften={props.onSoften} />
           <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
             Draw it as is{price}
@@ -151,7 +155,7 @@ export function FrameCard(props: {
       ) : (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            {f.file_id === null ? (
+            {refusable ? null : f.file_id === null ? (
               <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
                 {verb}
                 {price}

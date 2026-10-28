@@ -465,6 +465,16 @@ test("a word the image model may refuse is advice: Draw it as is draws the still
   expect(calls.some((c) => c.key.endsWith("/soften") || c.key.startsWith("PUT"))).toBe(false); // the prompt is unchanged
 });
 
+test("a still the image model refused says so plainly, and Draw it as is stands in for Make still", async () => {
+  // QA-2 on #697: the refusal hid in the closed Advice list, and Make still showed beside Draw it as is.
+  const refused = "Advice: the image model refused to draw this still, so nothing was charged. It may refuse a word here: soften it, or change the prompt.";
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ prompt: "Mia holds a knife", problems: [refused] })]] });
+  open();
+  expect((await screen.findAllByText(/the image model refused to draw this still/i)).some((e) => e.tagName === "P")).toBe(true);
+  expect(screen.getByRole("button", { name: /^Draw it as is/ })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Make still/ })).toBeNull();
+});
+
 test("a frame problem that is not about a refused word has no Soften it", async () => {
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ problems: ["c1: more references than the image model keeps"] })]] });
   open();
