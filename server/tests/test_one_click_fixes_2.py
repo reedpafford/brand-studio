@@ -74,6 +74,8 @@ def test_fix_this_clips_prompt_puts_its_shape_right_in_code(app, db, editor, set
     assert "Keep: Mom as in [Image1], the same look in every shot." in out["after"]
     assert out["after"].splitlines()[-2].startswith("Keep: ")
     assert out["clip"]["change"]["before"] == no_keep
+    newest = max(j.id for j in db.query(Job).filter_by(project_id=setup["project"]))
+    assert out["clip"]["change"]["job_id"] == newest  # after a take that failed before it
     assert db.query(Job).count() == jobs  # no model call
     again = editor.post(f"/projects/{setup['project']}/clips/{row.id}/fix")
     assert again.status_code == 409
@@ -98,6 +100,7 @@ def test_what_code_cant_fix_claude_rewrites_free(app, db, owner, editor, setup):
     db.expire_all()
     fixed = db.get(ProjectClip, row.id)
     assert fixed.prompt == _prompt() and fixed.change["before"] == wrong
+    assert fixed.change["job_id"] == job.id  # the card reads an earlier failed take as before it
     assert db.get(Job, job.id).credits == 0 and ed.id == job.created_by_id  # free to them
 
 
