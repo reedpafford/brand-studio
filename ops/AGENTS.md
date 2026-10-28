@@ -37,7 +37,11 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Builder-Server-5 (replaced Builder-Server-3 and -4 on 2026-10-27, context hygiene; montage trading screens) | session_01FRDAYJJv6AhprHx2GkXuCr |
 | Builder-Server-6 (role matching, duplicate roles) | session_01FRDAYJUwbJh3yTNjVjfofU |
 | Writer (Reed talks to it directly) | session_01FRDAYF8xUEnyc2USaQdPNF |
-| Researcher (Starpop, Phase 1) | session_01FRDAYGsMfXmbBgso61qMqh |
+| Researcher (Starpop, Phases 1–2, done) | session_01FRDAYGsMfXmbBgso61qMqh |
+| Next-Lead (branch `next`, ops/NEXT.md) | session_01FRDAYGxkc3gPaKGXtreXsy |
+| Next-Server | session_01FRDAYHAqt6VpjWXU1MbtNR |
+| Next-Screens | session_01FRDAYFB7SvzZ39XgExCxPt |
+| Flow-QA | session_01FRDAYFWiQrAfCDjT614hkp |
 | Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
 | Builder-Screens-3 (editor video flow; replaced Builder-Screens-2 on 2026-10-26) | session_01RY7gQZ2FyTVwVAYrbX5MXu |
 | QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
