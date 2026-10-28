@@ -113,7 +113,13 @@ export function ScriptFlowPage() {
       <div className="flex flex-wrap items-center gap-3">
         {renaming === null ? (
           <h1 className="flex min-w-0 items-center gap-2 type-page">
-            <span className="min-w-0 break-words">{s.title}</span>
+            {published ? (
+              <span className="min-w-0 break-words">{s.title}</span>
+            ) : (
+              <button type="button" aria-label={`Rename ${s.title}`} onClick={() => setRenaming(s.title)} className="min-w-0 break-words text-left hover:underline">
+                {s.title}
+              </button>
+            )}
             {!published && (
               <button type="button" aria-label="Rename" onClick={() => setRenaming(s.title)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
                 <Pencil size={20} strokeWidth={1.75} aria-hidden />
@@ -122,13 +128,13 @@ export function ScriptFlowPage() {
           </h1>
         ) : (
           <form
-            className="flex min-w-0 flex-1 flex-wrap items-end gap-2"
+            className="flex w-full min-w-0 basis-full flex-wrap items-end gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               if (renaming.trim()) patch.mutate({ title: renaming.trim() }, { onSuccess: () => setRenaming(null) });
             }}
           >
-            <div className="min-w-0 flex-1">
+            <div className="min-w-48 flex-1">
               <Field label="Title" value={renaming} onChange={(e) => setRenaming(e.target.value)} error={patch.isError ? patch.error.message : null} maxLength={200} autoFocus />
             </div>
             <Button type="submit" busy={patch.isPending} disabled={!renaming.trim()}>
