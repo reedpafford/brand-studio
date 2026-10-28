@@ -301,7 +301,7 @@ def test_a_word_the_image_model_may_refuse_never_blocks_and_a_refusal_says_so(
     editor.post(url, json={})
     _run(app, db, FakeClaude(_frames(f"char:{mom['id']}", f"screen:{setup['screen']}")))
     frame = editor.get(url).json()[0]
-    edited = {"prompt": frame["prompt"] + " Mom's dog has crusty eyes.",
+    edited = {"prompt": frame["prompt"] + " Mom's dog has a bloody paw.",
               "reference_ids": frame["reference_ids"]}  # fmt: skip
     problems = editor.put(f"{url}/frames/{frame['id']}", json=edited).json()["problems"]
     assert any(p.startswith("Advice: ") and "may refuse" in p for p in problems)

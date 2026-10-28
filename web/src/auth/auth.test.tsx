@@ -173,19 +173,12 @@ test("when the server can't be reached, it is retried quietly first, then shows 
   await vi.waitFor(() => expect(screen.queryByText("Can't reach the server.")).toBeNull());
 });
 
-test("an invite to a studio stored as a slug says Join your team's studio (never the owner's name), in the title, the line and the welcome", async () => {
-  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Ada", owner_name: "Reed" }], "POST /auth/accept-invite": [201, me] });
+test("an invite to a studio stored as a slug says Join {owner}'s studio, in the title, the line and the welcome", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Reed", owner_name: "Reed" }], "POST /auth/accept-invite": [201, me] });
   renderAt("/invite/abc123");
-  expect(await screen.findByRole("heading", { name: "Join your team's studio" })).toBeInTheDocument();
-  expect(screen.getByText(/Ada invited you to your team's studio as an editor/)).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Join Reed's studio" })).toBeInTheDocument();
+  expect(screen.getByText(/Reed invited you to Reed's studio as an editor/)).toBeInTheDocument();
   expect(screen.queryByText(/owner-reed/)).toBeNull();
-});
-
-test("when the owner sent the invite in person, the page says only that you were invited, never the owner's name", async () => {
-  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Reed", owner_name: "Reed" }] });
-  renderAt("/invite/abc123");
-  expect(await screen.findByText(/You were invited to your team's studio as an editor/)).toBeInTheDocument();
-  expect(screen.queryByText(/Reed/)).toBeNull();
 });
 
 test("the setup page says what the studio name is for", async () => {

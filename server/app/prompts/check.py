@@ -38,8 +38,9 @@ SAYS = re.compile(  # action that reads like a line; the model voices it (fomo m
     re.I,
 )
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
-FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23
-    r"\b(leggings|laps?|thighs?|cleavage|crust\w*|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
+FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23;
+    # not everyday words that over-flag: a dog's "crusty eyes", "her lap" (Reed's frame, 10-28)
+    r"\b(leggings|thighs?|cleavage|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
     re.I,
 )
 MONEY = re.compile(r"[+\-−]?\$\d+(?:,\d{3})*(?:\.\d+)?(?:\s?[kKmM]\b)?")  # "+$42", "−$80", "$348k"
@@ -500,6 +501,15 @@ STAR = re.compile(r"^★ .*?(?:screen|product): (.+?)(?: — .*)?$")  # "★ fom
 LOOSE = re.compile(r"^(#|\*\*|- |\* |Title:|Premise:|Variation )")  # markdown, not house format
 
 
+def asked_seconds(note: str) -> int | None:
+    """The length a variations note asks for, in seconds ("about 45 s", "1 minute"), or None."""
+    if m := re.search(r"(\d+)\s*(?:s|secs?|seconds)\b", note, re.I):
+        return int(m[1])
+    if m := re.search(r"(\d+)\s*(?:mins?|minutes?)\b", note, re.I):
+        return int(m[1]) * 60
+    return None
+
+
 def variations(
     original: str,
     result: Variations,
@@ -509,10 +519,12 @@ def variations(
     count: int,
     cast: list[str] = (),
     brand: str = "",  # the brand's name: the closing call to action says it
+    note: str = "",  # the author's note: a length it asks for ("about 45 s") is the target
 ) -> list[str]:
     """Alternates of an approved script (workflow v2): the brand, the end line and the locked
     cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
     characters' names. `screens` is accepted for the server's call; ★ lines are matched by name."""
+    asked = asked_seconds(note)
     problems = []
     if len(result.variations) != count:
         problems.append(f"{len(result.variations)} variations, {count} asked for; regenerate")
@@ -536,12 +548,16 @@ def variations(
             named = rf"\b{re.escape(who)}\b"
             if re.search(named, original, re.I) and not re.search(named, script, re.I):
                 problems.append(f"{name} drops {who}, a locked character")
-        if words and abs(spoken_words(script) - words) > 0.3 * words:
-            problems.append(
-                f"{ADVICE}{name} has {spoken_words(script)} spoken words, the original {words}"
-            )
+        n = spoken_words(script)
+        if asked:  # the house guide: 30 s is about 50-75 spoken words
+            low, high = round(asked * 5 / 3), round(asked * 5 / 2)
+            if not low <= n <= high:
+                problems.append(f"{ADVICE}{name} has {n} spoken words; about {low}–{high} fit "
+                                f"the {asked} s asked for")  # fmt: skip
+        elif words and abs(n - words) > 0.3 * words:
+            problems.append(f"{ADVICE}{name} has {n} spoken words, the original {words}")
         total, was = len(script.split()), len(original.split())
-        if was and abs(total - was) > 0.3 * was:
+        if not asked and was and abs(total - was) > 0.3 * was:
             problems.append(f"{ADVICE}{name} runs {total} words in all, the original {was}")
         if _close(script, original):
             problems.append(f"{ADVICE}{name} is very close to the original; regenerate with a note")
