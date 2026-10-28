@@ -37,6 +37,10 @@ main() {
 
   # Shared with the test site (deploy/next/), so live's Caddy can forward port 8443 to it.
   docker network inspect brand-studio-edge >/dev/null 2>&1 || docker network create brand-studio-edge >/dev/null
+  # Port 8443 must be free (or already ours), or Caddy wouldn't start and live would go down.
+  if ss -ltnH '( sport = :8443 )' 2>/dev/null | grep -q . && ! docker compose port caddy 8443 >/dev/null 2>&1; then
+    echo "::error::Port 8443 is taken by something else on the server. Live was left as it was."; exit 1
+  fi
   docker compose up -d --build --remove-orphans
 
   for _ in $(seq 1 60); do
