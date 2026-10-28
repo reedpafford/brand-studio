@@ -92,3 +92,20 @@ test("Directions waits for the script's words", async () => {
   await screen.findByRole("heading", { name: "Bo tries salmon", level: 1 });
   expect(screen.queryByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.")).toBeNull();
 });
+
+test("the words stay editable from Directions: Edit the script opens the Script step, with a note once suggestions exist", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7/drafts/0/suggestions": [200, [mark()]] }));
+  open();
+  expect(await screen.findByText("Changing the words clears these suggestions; ask Claude again after.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Edit the script" }));
+  expect(await screen.findByRole("button", { name: "Edit" })).toBeInTheDocument(); // the Script step's editor
+});
+
+test("no Edit the script on a published script", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7": [200, script({ published: true })] }));
+  open();
+  await screen.findByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.");
+  expect(screen.queryByRole("button", { name: "Edit the script" })).toBeNull();
+});

@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { RotateCcw, Sparkles } from "lucide-react";
-import { Button, Card, Dialog, Skeleton } from "../components";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Check, RotateCcw, Sparkles } from "lucide-react";
+import { api, errorText } from "../api/client";
+import { Button, Card, Dialog, Skeleton, useToast } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useFindRoles } from "./useCast";
 import { useAllowanceStop, type Script } from "./useScript";
@@ -12,6 +14,31 @@ export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: bool
   const stop = useAllowanceStop(script, find.price);
   const approved = script.versions.find((v) => v.slot === 0)?.status === "approved";
   const reason = !approved ? "Approve the script first" : stop;
+  // The roles are read from the approved words. A script with no variations is approved here: it is the only version.
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const setApproval = useMutation({
+    mutationFn: async (yes: boolean) => {
+      const args = { params: { path: { script_id: scriptId, slot: 0 } } };
+      const { data, error } = yes ? await api.POST("/scripts/{script_id}/drafts/{slot}/approve", args) : await api.DELETE("/scripts/{script_id}/drafts/{slot}/approve", args);
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data, yes) => {
+      queryClient.setQueryData(["script-lib", scriptId], data);
+      void queryClient.invalidateQueries({ queryKey: ["scripts"] });
+      if (yes) toast("Script approved. Its words are final.", () => setApproval.mutate(false));
+    },
+  });
+  const approveIt = !approved && (
+    <div className="space-y-1">
+      <p className="text-sm text-muted">Claude reads the roles from the approved words. Approving makes them final; you can undo it.</p>
+      <Button variant="secondary" icon={Check} busy={setApproval.isPending} onClick={() => setApproval.mutate(true)}>
+        Approve the script
+      </Button>
+      {setApproval.isError && <p role="alert" className={errorClass}>{setApproval.error.message}</p>}
+    </div>
+  );
   const [asking, setAsking] = useState(false);
   // A refused start says why; "weren't found" is only for a read that ran and found nothing.
   const refused = !find.running && find.start.isError ? find.start.error.message : null;
@@ -32,6 +59,7 @@ export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: bool
   if (hasRoles)
     return (
       <>
+        {approveIt}
         {button(true)}
         {asking && (
           <Dialog title="Find the roles again?" cancelLabel="Not now" actionLabel="Find roles" busy={find.start.isPending} onCancel={() => setAsking(false)} onConfirm={() => find.start.mutate(undefined, { onSettled: () => setAsking(false) })}>
@@ -44,6 +72,7 @@ export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: bool
   return (
     <Card className="max-w-[680px] space-y-3">
       <p>Claude can find the roles in your script.</p>
+      {approveIt}
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
       {failed && <p role="alert" className={errorClass}>The roles weren't found. Nothing was charged.</p>}
       {button(false)}
