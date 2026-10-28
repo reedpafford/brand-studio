@@ -117,3 +117,18 @@ def test_long_answers_are_allowed(monkeypatch):
     client = _client(_reply(), seen)
     answer = ask(client, system=["Base."], prompt="p", schema=EnhanceResult, max_tokens=32000)
     assert answer.parsed and json.loads(seen[0].content)["max_tokens"] == 32000
+
+
+def test_a_shared_prompt_is_cached_before_the_part():
+    """A run's breakdown and assets are cached so its later parts read them (QA on #716)."""
+    seen = []
+    ask(
+        _client(_reply(), seen),
+        system=["Rules.", "Brand: fomo."],
+        prompt='<write clips="c2">',
+        schema=EnhanceResult,
+        shared="<breakdown>…</breakdown>",
+    )
+    content = json.loads(seen[0].content)["messages"][0]["content"]
+    assert [b["text"] for b in content] == ["<breakdown>…</breakdown>", '<write clips="c2">']
+    assert [b.get("cache_control") for b in content] == [{"type": "ephemeral"}, None]
