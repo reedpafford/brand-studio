@@ -31,7 +31,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 
 Code notes for Next-Server (not tables):
 - **Whisper keeps word timings.** `server/app/whisper.py` computes them but returns lines only. Song takes need the words; the reel import keeps using lines.
-- **Music provider interface.** One `music` kind behind the provider registry: MiniMax Music on Replicate first, a slot for Suno, and a free stand-in under `BS_FAKE_PROVIDERS` that returns a short tone track with a fixed fake word timing, so every flow above can be walked for free.
+- **Music provider interface.** One `music` kind behind the provider registry: **Suno** (Reed, 2026-10-28: the same service we'd use live; MiniMax dropped), its key in the server's environment through the deploy secrets only, and a free stand-in under `BS_FAKE_PROVIDERS` that, like Suno, returns two takes per request with known word timings, so every flow can be walked for free. One request makes both takes, so `song_takes.batch` is the request.
 - **Credit rate** for a song take comes from the catalogue at its real Replicate cost (rule 2), seeded like the other rates.
 
 ## 2–6. Later items
