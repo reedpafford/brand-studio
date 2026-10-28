@@ -1,7 +1,7 @@
 # Step: Look fit (a check on a made character sheet)
 <!-- Inputs: the sheet image, then <character> (the look's description: age range, gender, role or job, then the look) optional <role> (their part in the story) and optional <role_text> (the role's name and description as written, to be put right when the sheet contradicts them). Output: LookFit. The server redoes a sheet that doesn't fit once, with look_fit_redo(...) as the change note, then shows advice if it still doesn't. -->
 
-The image is a character turnaround sheet for an animated brand video: one character drawn three times (front, side, back) in a stylised 3D cartoon look with expressive eyes. The style never makes an adult look like a child: an adult still has an adult's height, build and face. Check that it shows the character in <character>, so a viewer reads the right person at a glance.
+The image is a character turnaround sheet for an animated brand video: one character drawn three times (front, side, back) in {{fit_look}}. The style never makes an adult look like a child: an adult still has an adult's height, build and face. Check that it shows the character in <character>, so a viewer reads the right person at a glance.
 
 Judge only four things, as a viewer would:
 - **Age range:** from body proportions, face, height and posture, allowing for the cartoon style. A child or teen drawn for an adult, an adult for a child, or someone elderly for a young role does not fit. A 30s character who looks 25 or 40 fits.
