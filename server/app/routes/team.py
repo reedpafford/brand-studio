@@ -52,8 +52,9 @@ def members(
     if removed and not user.is_owner:
         raise HTTPException(403, "Only the owner can do that.")
     found = select(User).where(User.workspace_id == user.workspace_id, User.active.is_(not removed))
-    return [MemberOut(id=u.id, email=u.email, name=u.name, role=u.role)
-            for u in db.scalars(found.order_by(User.id))]  # fmt: skip
+    hide = not user.is_owner  # editors see Reed's name, not his email (Producer's default)
+    return [MemberOut(id=u.id, email="" if hide and u.is_owner else u.email, name=u.name,
+                      role=u.role) for u in db.scalars(found.order_by(User.id))]  # fmt: skip
 
 
 def _member(db: Session, owner: User, member_id: int, active: bool = True) -> User:
