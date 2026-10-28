@@ -581,7 +581,7 @@ stateDiagram-v2
 | S19 | Cast & places says at the top: "Reed's reusable characters. Looks made for a video stay with that video." | H3, SV5 | S |
 | S20 | Final-cut safety: saving a breakdown, a look or the flavour on a finished video warns first with what goes out of date, and the final cut stays downloadable (with M14). Lists say "Out of date" rather than "Video done" while a finished video has out-of-date steps. | LW1, LW2 | S |
 | S21 | One price line in the version panel ("Starting costs 3 · the whole video about 21"); Variations and Publish say the same about unapproved variations; the end-line placeholder uses the brand's name; toasts sit above the action bar at 390; Quick clip's grey buttons say why. | LW5, LW7, LW10, LW11, LW12 | S |
-| M16 | "Redo this frame · N" on an out-of-date frame card (to agree with Next-Lead). | LW3 | S/M |
+| M16 | "Redo this frame · N" on an out-of-date frame card (agreed with Next-Lead). | LW3 | S/M |
 | M11 | **Script ⇄ video links**: the version row shows who's making it and at which step, and opens the video; the video's header shows "From: {script} · {version}", linked. | H1, HO5, HO6 | M |
 | M12 | **The version card** at Publish and Make this version, with Settings (shape, platform, flavour) confirmed before the first paid press, plus notes from Reed. Needs N5 for flavour and live notes. | HO1, HO3, HO4 | M |
 | M13 | **Earlier (N)** on stills, per-video looks and the breakdown, with "Use this one" (free). The breakdown part may need N5b. | SV2, SV3 | M |
@@ -813,3 +813,9 @@ Owner and editor differ by rule 4 only in money (Reed sees $ in Approvals and Us
 - **M14:** an out-of-date step that already has work opens read-only, with a banner, and its paid presses are disabled with the reason. "Update everything after this · N credits" runs today's redraw and rewrite presses in order, priced first. It stops at the first step that's over budget or fails, names it, and offers that step's own press. A step with nothing made yet still redirects to the blocking step.
 - **M12/N5:** the owner picks a flavour per product at Publish (`script_drafts.flavours`, n03). It's each new video's default and stays changeable per video in Video settings. A video reads its script's notes live.
 - **M15:** Edit shot opens in a panel from a frame or clip card, editing this video's breakdown with the usual effects and Undo. Song split and join stay in Breakdown.
+
+**Agreed with Next-Lead (local walk), in flows.md on #743:**
+- **LW1 / S20:** saving a breakdown, look or flavour change on a finished video warns first, and the confirm says the current cut stays downloadable. Afterwards Final cut opens read-only, with the old cut and Download MP4 labelled "Older cut: made before the breakdown changed".
+- **LW2:** a new state, **Finished · changes waiting**, in lists and In production; Open goes to the first out-of-date step.
+- **LW3 / M16:** "Redo this frame · N credits" on an out-of-date frame card redraws that frame only, keeps the earlier one, and has Undo. "Redo storyboard" stays, and its confirm says it redoes every still.
+- **N7** goes to Next-Server through Next-Lead.
