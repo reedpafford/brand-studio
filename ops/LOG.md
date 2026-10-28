@@ -1,4 +1,9 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 16:23 · Decision (#691, Reed): editors may see his name; the owner-name masking is removed to simplify (Current rules 4). Dollars stay hidden and editors are never told "Ask Reed" merged
+- 2026-10-28 16:07 · #687 New script: one press makes a draft and opens the Script screen merged
+- 2026-10-28 16:06 · #689 Rhythm by purpose: the last three numeric timings reworded (QA on #686) merged
+- 2026-10-28 15:49 · #686 Clips split by scene or action; pacing by purpose; scene endings flow (rule 29) merged
+- 2026-10-28 15:34 · #688 ops: HANDOFF/LOG refresh as of 901728d merged (by the Producer)
 - 2026-10-28 15:28 · #685 ops: the old clip-length decisions marked superseded (rule 29) merged
 - 2026-10-28 15:25 · Decision (#684, Reed): correction to rule 29: clips split by scene or action, no rigid timings, quick dialogue cuts stay, no abrupt scene endings merged
 - 2026-10-28 15:20 · Decision (#683, Reed): continuity tweaks to rule 29 (clips up to about 15 s per scene, held exchanges and payoffs, hand-offs between clips); superseded by #684 on timings, merged
