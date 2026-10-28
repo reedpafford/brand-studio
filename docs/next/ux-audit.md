@@ -26,7 +26,13 @@ So this is a **re-layout and re-wording**, not new logic. Every rule stays as it
    - Writing: six steps become four: **Write → Cast → Plan → Publish**. Directions and Variations move inside Write.
    - Video: the five steps stay, but Downloads is called **Final cut**, and Clips shows two clear phases (**Prompts**, then **Takes**).
    - Navigation: **Videos** gets its own place in the menu. Today an editor's videos hide behind a switch inside Scripts.
-6. **Fastest wins:**
+6. **Reed's wider ask** (Part 5): the hierarchy, the script → editor handoff, saving, editing ease, and how much each step shows. The biggest gaps:
+   - the script never says the flavour, so every editor is stopped to pick it again;
+   - a script and its videos don't link to each other;
+   - "kept in History" has no History to open;
+   - a late breakdown fix locks the editor out of their own takes;
+   - clip cards show the prompt but not the lines they cover.
+7. **Fastest wins:**
    - every disabled button says why;
    - rename the two different "Looks good" buttons;
    - one word for the breakdown;
@@ -542,14 +548,226 @@ stateDiagram-v2
 | N3 | The copyright refusal names the shot, not only a guessed character (r2 #5). | G9 |
 | N4 | The 5,000-character limit on a saved prompt accepts an unchanged saved prompt (r2 #4). | V21 |
 
+### Added after Reed's wider ask (Part 5)
+
+| # | Change | Fixes | Size |
+|---|---|---|---|
+| S15 | Clip and frame cards show the script lines they cover and who's in them (from the breakdown already loaded); the prompt collapses to its Summary line with "Read the prompt". | I1, I2 | S |
+| S16 | Cast: an unlocked role says "Not locked: each video makes its own look (about N credits each)." | HO2 | S |
+| S17 | The Breakdown dirty bar says "Edits wait for Save. Fixes and flips save at once." | SV1 | S |
+| S18 | "The words are final. Reed can change them in a new script." where a note touches words and on the Script panel of a video. | §5.4 | S |
+| S19 | Cast & places says at the top: "Reed's reusable characters. Looks made for a video stay with that video." | H3, SV5 | S |
+| M11 | **Script ⇄ video links**: the version row shows who's making it and at which step, and opens the video; the video's header shows "From: {script} · {version}", linked. | H1, HO5, HO6 | M |
+| M12 | **The version card** at Publish and Make this version, with Settings (shape, platform, flavour) confirmed before the first paid press, plus notes from Reed. Needs N5 for flavour and live notes. | HO1, HO3, HO4 | M |
+| M13 | **Earlier (N)** on stills, per-video looks and the breakdown, with "Use this one" (free). The breakdown part may need N5b. | SV2, SV3 | M |
+| M14 | **Out-of-date steps stay open read-only**, and an "Update everything after this · N" press in the cost bar runs the existing redraw and rewrite presses in order. *Navigation change: agree with Next-Lead and Flow-QA.* | E1, E2 | M |
+| M15 | **Edit shot from a frame or clip card**, in a panel, without leaving the step; and fixing a library sheet in a panel over the video. | E3, H5 | M |
+
+**For Next-Server (Part 5):**
+
+| # | What | Why |
+|---|---|---|
+| N5 | A **flavour per product on the script version**, set by Reed at Publish (default for the video, still changeable per video), and the video reading **notes** live from its script. | HO1, HO3, rule 16 |
+| N5b | A read route for a video's earlier breakdowns (if none exists), for "Earlier (N)". | SV2 |
+| N6 | When a Cast & places sheet changes, the stills and clip prompts that use it go Out of date, as a cast swap already does. | SV4 (QA r2 #3) |
+
 ### Suggested build order
 
 1. S1–S14, in any order (each touches one or two files).
 2. Then M1 (cost bar) and M2 (states): every later item builds on them.
 3. Then M3–M10.
-4. L1 last, as the spec says.
+4. Then S15–S19 and M11–M15 from Part 5, alongside M3–M10 (M12 waits for N5).
+5. L1 last, as the spec says.
 
 This sits beside Next's feature order: song ads first, then styles, brand setup, video settings, organization, layout. M5 is where spec item 4's settings land. L1 is spec item 6.
+
+---
+
+# Part 5. Site hierarchy, the handoff, saving, editing ease and information per step
+
+Added at Reed's request (2026-10-28): *"overall site hierarchy. Does script writing flow → editor handoff make sense, are things stored and saved in a meaningful way, are the flows laid out in a way that makes editing easy, is proper information shown (or too much shown) at each step?"* Same format as above: findings with severity and evidence, then proposals. The new changes are added to Part 4 as S15–S19, M11–M15 and N5–N6.
+
+## 5.1 Site hierarchy and navigation
+
+**What's there today:**
+
+```mermaid
+flowchart TD
+  W[Workspace] --> B[Brand · switcher]
+  B --> SL[Scripts library]
+  SL --> SC[A script]
+  SC --> VA[Version A · B · C]
+  VA -- Make this version --> V[A video · 5 steps]
+  SL -. view switch .-> VL[Videos list]
+  VL --> V
+  B --> QC[Quick clip + History]
+  B --> CP[Cast & places · characters, places, props]
+  B --> BK[Brand · look, products, app screens]
+  W --> ST[Studio, owner: Approvals · In production · Usage · Team]
+  V -. looks made here stay here .-> V
+```
+
+**How Reed and editors think about it:** Reed thinks *brand → script → its versions → the videos made from them*. An editor thinks *my videos → the one I'm on → the step I'm at*. The site is built around Reed's view only.
+
+| Id | Finding | Sev | Evidence |
+|---|---|---|---|
+| **H1** | **A version and a video are one thing with two names,** and the site never shows the link. A script has versions A–C, and each version makes exactly one video (`script_produce.py:56`). But the video is titled "{script} — {version title}", its back link goes to Scripts (not to its script), and the script page doesn't link to its videos. From a video you can't get to the script it came from; from a script you can't get to its videos, except through the library's version chips. | Major | `server/app/routes/script_produce.py:57, 59`; `VideoPage.tsx:100–105`; `ScriptsPage.tsx:451–475`. |
+| **H2** | **Editors have no home.** Their videos sit behind a view switch inside Scripts (L1). Quick clip has its own History, and the two never meet. | Major | `videos/ViewSwitch.tsx`; `clip/ClipPage.tsx:280`. |
+| **H3** | **People look for a video's looks in the wrong place.** Looks made for a video live only in that video (rule 12, "This video only"). Cast & places holds only Reed's library characters. An editor who wants "the boss from yesterday's video" looks in Cast & places and finds nothing. There's no place that lists the looks, stills and takes across videos. That's Starpop's Media page, spec item 5. | Minor | `AssetCard.tsx` badge "This video only"; spec §5 "Media". |
+| **H4** | **Owner and editor screens share one menu but not one map.** Reed's Studio group (Approvals, In production, Usage, Team) sits under the brand sections, but its pages are cross-brand. On a phone they're only in the account menu. | Minor | `Shell.tsx:325–350`. |
+| **H5** | **Cast & places mixes a library with a workshop.** It's both where Reed makes reusable characters and where an editor is sent ("Make its look in Cast & places", "Open Mia") to fix a library character's sheet in the middle of a video. That second trip leaves the video. | Major | `AssetCard.tsx:370`; `sheetBlocks.tsx:41–60`. |
+
+**The proposed map.** It's the same pages, placed where each person looks for them.
+
+```mermaid
+flowchart TD
+  B[Brand ▾] --> VID[Videos · Needs you · Making · Done]
+  B --> SCR[Scripts · drafts · published · versions]
+  B --> QC[Quick clip]
+  B --> LIB[Cast & places · Reed's reusable characters and places]
+  B --> KIT[Brand · look, voice, end line, products, screens]
+  B -. later, spec 5 .-> PRJ[Projects: a filter and breadcrumb over Videos and Scripts]
+  SCR --> S[A script] -->|"Versions: A ▸ video, B ▸ video, C ▸ ready"| VID
+  VID --> V[A video] -->|"From: script ‹title›, version B"| S
+  ST[Studio, owner, cross-brand] --> AP[Approvals] & IP[In production] & US[Usage] & TM[Team]
+```
+
+- **Script ⇄ video links both ways:** a script's version row says "B · being made by Kel · Clips" and opens that video; a video's header says "From: The altar reel · version B", linked (fixes H1).
+- **Videos is its own section** (M6) and includes the editor's quick clips as a filter ("Quick clips"), so all their own work is in one list (H2). The data stays where it is.
+- **A video's own looks show in its Media column** (L1). Cast & places says once, at the top: "Reed's reusable characters. Looks made for a video stay with that video." (H3)
+- **Fixing a library sheet from inside a video opens a side panel** (a sheet on a phone) over the video, using the same Cast & places page in a panel, so the editor never leaves the step (H5).
+
+## 5.2 The script → editor handoff
+
+**What happens today, from the code:**
+
+| What | Reed sets it in | The editor gets it | Notes |
+|---|---|---|---|
+| Words | Write (per version) | Yes: the video's script, read-only in the Script panel | Final (rules 19, 31) |
+| Title, About, notes | Write | About becomes the video's "goal"; **notes don't show** on the video | `script_produce.py:61` |
+| Reference reel | Write | Yes (`reference_breakdown`, `reference_replace`) | |
+| Locked roles | Cast | Yes: they arrive as Locked looks at Assets | `cast_ids` |
+| Unlocked roles | Cast | A per-video look is made at Assets for each version separately | rule 7 |
+| Breakdown preview | Plan | Yes, free, when saved; otherwise paid at start | `script_produce.py:81–103` |
+| Planned length | Plan / version | Yes (`target_seconds`) | |
+| Brand kit, end line, screens | Brand | Yes, read by every prompt | |
+| **Shape and platform** | — (nowhere) | **Defaults (9:16, no platform);** asked on Breakdown | `models/projects.py:56–57` |
+| **Product flavour** | — (nowhere) | **Asked at Assets, and blocks Next** | `models/projects.py:62`; MISSION: "the project picks the flavour; Pitbull 1 says peanut butter" |
+| Price | — | "About N credits to make" on the version panel | |
+
+| Id | Finding | Sev | Evidence |
+|---|---|---|---|
+| **HO1** | **The flavour is re-asked, though the script already decides it.** Reed's Pitbull 1 says peanut butter, but the script has nowhere to store it, so every editor is stopped at Assets to pick it again, and could pick wrong (rule 16: the right bag exactly). | **Major** | as above. Fixing it needs a field on the version: **Next-Server item N5**. |
+| **HO2** | **Unlocked roles look different in each version.** Each of A, B and C makes its own look for "the boss" (rule 7), so the same script's three videos have three bosses, each paid for separately. That's by the rules, but nothing on Cast says so when Reed leaves a role unlocked. | Minor | rule 7, rule 12; `CastStep.tsx:115` ("Made at Assets"). |
+| **HO3** | **Reed's notes for the editor don't reach the editor.** The script's notes field isn't shown on the video. About becomes the video's goal, but it's not shown either; only the Script panel shows the words. | Minor | `script_produce.py:61`; `ScriptPanel.tsx`. |
+| **HO4** | **"Make this version" starts spending before the editor has seen the video's settings.** With no saved breakdown, the press runs a paid breakdown at once. Shape and flavour come later, and a shape change later redraws stills. | Minor | `VersionPanel.tsx:31–40, 85–99`. |
+| **HO5** | **Release and Archive hide in a "…" next to the title,** and the version panel doesn't say what Release does to the editor's work ("This video and its clips are archived, not deleted" is only in the confirm). It's fine as a rare action, but the version row in the library should show who has it. | Minor | `ReleaseVideo.tsx:57–67`. |
+| **HO6** | **The owner can't see the editor's side from the script.** Reed sees videos in In production, but the script page doesn't show "B · Kel · at Clips · 62% of budget". | Minor | `ProductionPage.tsx` vs `ScriptFlowPage.tsx`. |
+
+**Proposal: one clean handoff, the "version card".** One card, written by Reed at Publish and read by the editor at Make this version, holds everything the editor needs:
+
+```
+┌ The altar reel · Version B ──────────────── Published · final ┐
+│ Words (6 lines) · Show all           Reel: DeiD2HlPrBt          │
+│ Cast: Lexi = Goth GF (locked) · The Boss (made per video)      │
+│ Plan: 9 clips · 54 s (saved, free to start)                    │
+│ Settings: 9:16 · Reels · Peanut butter       [ Change ]        │
+│ Notes from Reed: "Keep the ring throw in slow motion."         │
+│ About 86 credits to make · 2× budget 172                       │
+│                                       [ Make this version ]    │
+└────────────────────────────────────────────────────────────────┘
+```
+
+- Reed sets the defaults at Publish; the editor confirms or changes them before the first paid press (fixes HO1, HO4). Flavour needs N5; shape and platform already exist on the video and are only moved forward.
+- The video's header keeps a one-line "From: The altar reel · B · Notes from Reed ▸" (HO3).
+- Cast says under an unlocked role: "Not locked: each video makes its own look (about 2 credits each)." (HO2).
+- The library's version row says who's making it and where they are (HO5, HO6). In production already has the data.
+
+## 5.3 Storage and saving
+
+**Where things live:**
+
+| Thing | Lives with | Shared with | Saved how | Versions / Undo |
+|---|---|---|---|---|
+| Script words | the script version | its videos (copied at start) | **a press**: "Save script" ("Not saved yet"; leaving asks) | Earlier texts in Variations; editing un-approves |
+| About, title, notes | the script | — | a press ("Save") | — |
+| Directions | the script | — | Accept, then "Add to script" | Cleared when the words change |
+| Cast roles | the script | its videos | at once (each lock or merge) | Undo toast (merge, remove) |
+| Breakdown preview | the script version | the video made from it | a press ("Save changes") | "Make it again" asks; Remove has Undo |
+| A video's breakdown | the video | — | a press ("Save changes"); **free fixes save at once** | "Your edits are kept in History", **but the video page has no History** |
+| A per-video look | the video | — (rule 12) | at once | Delete with Undo; Change it keeps no visible earlier sheets |
+| A library character | the brand's Cast & places | every script and video that uses it | a press | History with "Restore v3" (`ItemPage.tsx:167–199`) |
+| A still | the video | — | at once (Change it) | "The earlier one is kept", **but only an 8 s Undo toast brings it back** |
+| A take | the video | — | at once | Every take listed and pickable; downloadable at Final cut |
+| Approvals (look, frame, prompt OK, take) | the video | — | at once | Undo toast; "Undo approval" |
+| Shape, platform, flavour | the video | — | at once (on change) | — |
+| Brand kit | the brand | everything | a press ("Save changes", with Undo) | Undo toast |
+
+| Id | Finding | Sev | Evidence |
+|---|---|---|---|
+| **SV1** | **Two saving styles on one page.** Breakdown edits wait for "Save changes", but a free fix on the same page saves at once, and so do Sung/B-roll flips (song ads). The dirty bar says "You have unsaved changes" while the fix button beside it has already saved. It's predictable once learned, but not said. | Minor | `BreakdownView.tsx:156–175` (bar), `BreakdownFixes.tsx` (fixes save at once), `removeRef` ("Save your changes first.") |
+| **SV2** | **"Kept" without a place to find it.** These say "Your edits are kept in History", "The earlier one is kept" and "Earlier takes are kept", but only takes can be seen again. Breakdown history and earlier stills have no screen on the new video page; after 8 s they can't be reached. | **Major** | `BreakdownView.tsx:221`; `ChangeBox.tsx:138`; `FrameCard.tsx:193` (only the last earlier still, only via the toast). |
+| **SV3** | **A look's change history is missing for per-video looks.** Library characters have History with Restore, but a per-video look changed with "Change it" loses its earlier sheet from view, though the server keeps the sheet versions. | Minor | `ItemPage.tsx:167` vs `AssetCard.tsx` |
+| **SV4** | **A library change doesn't mark what uses it.** Changing a Cast & places sheet didn't mark the stills or clip prompts that use it as out of date (QA r2 #3); 8 prompts and 5 stills were updated by hand. | Major | QA r2 #3. Server: **N6**. |
+| **SV5** | **What's per video vs shared is said only by a small badge.** "This video only" or "This script only" is the only signal. That's right by rule 12, but easy to miss. | Minor | `AssetCard.tsx` |
+| **SV6** | **The words are copied into the video at start,** so the owner's later edits to title, about and notes (rule 31) don't reach a running video. That's correct for words, but for notes it means a note added after start never reaches the editor. | Minor | `script_produce.py:77–79` |
+
+**Proposals:**
+- **"Versions" on every card that keeps earlier ones** (stills, per-video looks, the breakdown): a small "Earlier (3)" link on the card opens a strip of the earlier ones, with **Use this one** (free). This is spec item 5's "Go back"; the data is already kept for stills and sheets. The breakdown history needs a read route if there isn't one (**N5b**, to check with Next-Server). (SV2, SV3)
+- **One saving rule, said once:** on Breakdown, the dirty bar says "Edits wait for Save. Fixes and flips save at once." (SV1)
+- **A legend in the Media column:** "This video's looks and stills stay with this video. Reed's characters come from Cast & places." (SV5)
+- **Notes from Reed** are read live from the script, not copied (HO3, SV6). Notes are not final under rule 31, so this keeps the rules. It's a server read: N5.
+
+## 5.4 Editing ease: presses for common changes
+
+Counted from the code. A "press" is a click or tap; typing a note counts as one.
+
+| Common change | Where you are | Presses today | Forced backwards? | Proposed |
+|---|---|---|---|---|
+| Redo one clip with a note | Clips | 3 (type, Change it and make a new take, Approve take) | No | 3, the same |
+| Make another take | Clips | 2 (Make another take, Approve take) | No | 2 |
+| Redo one still | Storyboard | 3 (type, Change it, Approve) | No | 3 |
+| Swap a role to a library character | Assets | 4 (Use a different character, choose, Use this character, Approve) + Storyboard redraws by itself + Clips "Rewrite clip prompts" (1) + Prompt OK (1 per clip) | Partly | 4 + 1 + "Prompt OK for all" (1) |
+| Fix a shot's cast after the storyboard | Clips | Back to Breakdown (1 + 1), Edit (1), chips (1–3), Save changes (1), Assets (it may stay approved), Storyboard: Redraw (1) + Approve all (1), Clips: Rewrite (1) + Prompt OK × N + Make takes (1) + Approve × N ≈ **12–20** | **Yes**: Clips is locked until the frames are redrawn, so the existing takes can't even be seen | **≈ 9**: see below |
+| Change a spoken line | Clips (editor) | **Not possible** in a video (rules 19, 31). The screen doesn't say so; a note that touches words is refused with "To change the words, edit the script." | — | Say it where the editor looks: "The words are final. Reed can change them in a new script." No dead end, since the note still changes everything else. |
+| Change the flavour after stills | Assets | 1 (pick); stills with the bag go out of date with no warning | No | 2 (pick, confirm with what goes out of date) |
+| Change the shape after stills | Breakdown | 2 (shape, browser OK); price not said | No | 2, with the price said |
+
+| Id | Finding | Sev | Evidence |
+|---|---|---|---|
+| **E1** | **A breakdown fix late in the video locks you out of later steps.** After any breakdown change, the step locks send a link to Clips back to Storyboard ("Redo the out of date frames first"), so the editor can't see their own takes while fixing. They walk forward again step by step. | **Major** | `videoSteps.ts:20–28, 31–35`; `steps.ts:33–36`. |
+| **E2** | **Common changes are spread over steps:** a cast fix means Breakdown, then Storyboard, then Clips, each with its own amber and its own "approve all". | Major | as above |
+| **E3** | **Edits in Breakdown are hidden behind Edit per shot,** with a Sheet on a phone; there's no "edit this shot" from the Storyboard frame or the clip that shows it. | Minor | `BreakdownView.tsx`; `FrameCard.tsx` |
+
+**Proposals:**
+- **Out-of-date steps stay open to look at** (read-only, with the Out of date badge), and the step picker says "Clips · out of date" instead of locking. Paid presses stay disabled with their reason until the earlier step is redone, so nothing new runs on old work. *This changes navigation, not the server: to agree with Next-Lead and Flow-QA (rule 22).* (E1)
+- **"Fix this shot" from where you see it:** each frame and clip card gets "Edit shot 3.2" in its "…" menu. It opens the shot editor in a panel and saves the breakdown, without leaving the step. The usual out-of-date marks follow. (E2, E3)
+- **One "Update everything after this" press:** after a breakdown or cast change, the cost bar offers "Update 3 stills and 2 clip prompts · 4 credits". It runs today's Redraw and Rewrite presses in order, then the editor approves as usual. It's a client sequence of existing presses. (E2)
+
+## 5.5 Information on each step: essential, missing, noise
+
+| Step | Essential (keep, make bigger) | Missing | Noise, or too much (hide or move) |
+|---|---|---|---|
+| Library | Title, status, versions left, who's making what | Who's making each version and where they are (HO6) | Seven filters open on a phone; reference thumbnails on every card |
+| Write | The words, Approve, the reel's kept/rewritten count | "Approving makes the words final" said on the button | About fields under the words; directions on their own step |
+| Cast | Roles, locked or made per video, age/gender/job | What "made per video" costs, and that it differs per version (HO2) | "Find roles again" as a peer of the main press |
+| Plan | Length, clips, problems | — | Seam and scene-look lines for every clip |
+| Make this version | Words, cast, plan, price | Settings, notes from Reed (§5.2) | — |
+| Breakdown (editor) | Problems with their fix; counts; the shots' lines | The script line each shot covers, shown next to it (today it's a "Lines 3–4" button) | Camera, reaction and seam on every shot (show on Edit); Shape row (move to Settings) |
+| Assets | Each look, Approve, In N shots | The look's earlier sheets (SV3) | Role facts + description + role-words box all open on every card; unused roles listed |
+| Storyboard | The still, its shot's line, Approve | The spoken line under each still | The prompt (fine in the lightbox only) |
+| Clips | The take, the spoken lines it covers, who's in it, Approve | **The script lines and the characters** on each clip card (today only the prompt shows) | **The full prompt** (5 lines of Courier with picture chips) is shown before every take. Rule 21 needs it reviewable, so it stays, but collapsed to its Summary line with "Read the prompt"; "Use the real image" switches go in "…" |
+| Final cut | The MP4, Download | How long it is and what it cost (Reed: dollars in Usage; editors: credits) | Every older take open at once |
+| Approvals (owner) | What, which video, credits and $ | — | Internal kind names (O1) |
+
+Owner and editor differ by rule 4 only in money (Reed sees $ in Approvals and Usage). On screens the owner also sees edit controls on published scripts (title, about and notes, rule 31); nothing else needs to differ.
+
+| Id | Finding | Sev | Evidence |
+|---|---|---|---|
+| **I1** | **Clip cards show the prompt but not the script lines or the characters,** so to check "does this clip say the right line?" the editor opens the Script panel and matches clip ids by eye. | **Major** | `ClipCard.tsx:18–48, 132–137` (PromptText only); `ScriptPanel.tsx` |
+| **I2** | **Long prompts shown in full by default to editors** (5 lines, Show all) before every take. They're needed for review (rule 21), but too much on a phone. | Minor | `ClipCard.tsx:33` (`line-clamp-5`) |
+| **I3** | **Every shot shows its camera, reaction, seam and scene look,** where the essential lines are hidden behind a "Lines 3–4" button. | Minor | `BreakdownView.tsx:330–386` |
+| **I4** | **Assets cards open everything at once** (facts, description, role words, notes box). | Minor | `AssetCard.tsx`; `RoleTextFit.tsx` |
 
 ---
 
