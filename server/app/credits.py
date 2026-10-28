@@ -117,7 +117,9 @@ def budget(db: Session, project: Project) -> Decimal:
     """Twice the video's whole estimate (rule 3): every step at its plan, so the steps before
     its takes never use up the budget (QA-2: a 12 s video's fixed steps came to 12.73 of a
     24-credit budget, and its 12-credit take was refused). A look for each role its script
-    doesn't lock, made or not, so the budget never drops as Assets makes them."""
+    doesn't lock, made or not, so the budget never drops as Assets makes them, and never below
+    its guess before a breakdown (a plan with fewer clips than guessed). Never above the
+    per-video cap, so editors are never shown more than can be spent (QA on #679)."""
     from app import clip_prompts
     from app.cast_roles import all_slots
     from app.prompts.schemas import Breakdown
@@ -125,8 +127,9 @@ def budget(db: Session, project: Project) -> Decimal:
     row = clip_prompts.newest(db, project)
     bd = Breakdown.model_validate(row.data) if row else None
     roles = sum(s.library_item_id is None for s in all_slots(db, project))
-    cost = plan_cost(db, project.workspace_id, int(project.estimate_credits), bd, roles)
-    return cost * BUDGET_MULTIPLIER
+    ws, seconds = project.workspace_id, int(project.estimate_credits)
+    cost = max(plan_cost(db, ws, seconds, bd, roles), plan_cost(db, ws, seconds, None, roles))
+    return min(cost * BUDGET_MULTIPLIER, Decimal(get_limits(db, ws).per_video_max_credits))
 
 
 def usd_to_credits(usd: Decimal) -> Decimal:
