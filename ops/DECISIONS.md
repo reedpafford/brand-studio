@@ -49,6 +49,7 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 28. Only the Producer merges, and no agent touches the live server.
 29. A clip holds one scene or one continuous action, as long as it needs (up to the video model's own limit); it never crosses a place or time change. No rigid timings in the creative rules. Dialogue cuts quickly to whoever is talking; a reaction or action moment can go wide. Continuity (Reed, 2026-10-28): a scene never ends abruptly on its last line; the reaction gets room to land, the scene ends on a beat the next one picks up (a look, a sound, a matching action), and the next scene opens continuing from it. Scripts are written the same way, for every brand.
 30. Real brand names (cars, sneakers and the like) are fine in scripts and prompts; Seedance doesn't refuse them (Reed).
+31. A published script's lines, cast and breakdown are final; only Reed (the owner) may still edit its title, about and notes (Reed, 2026-10-28), and its role words to match an approved look. An editor brings a video in line by updating that video's own look; the script stays as it is.
 
 ## History (oldest first; one line each, with date)
 - 2026-10-23 (Reed) App screens (fomo) don't need to be pixel-exact: the logo and UI must be right; balances, prices and other numbers can be invented. The "Use the real image" cut-in is optional for screens too (default off). (Superseded: Current rules 14.)
@@ -166,3 +167,5 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-28 Reed (continuity): clips up to about 15 s in one scene, merge short same-scene neighbours, let exchanges and payoffs breathe, hand off between clips on purpose; the Writer and script prompts follow it, Iron Paws in its own terms (Current rules 29). (Superseded by the correction below: no time caps or held-shot timings.)
 - 2026-10-28 Reed (continuity, correcting the line above): clips split by scene or action, not by time; no rigid timings; quick dialogue cuts stay; the fix is no abrupt scene endings and deliberate hand-offs (Current rules 29).
 - 2026-10-28 Reed: editors may see his name; the owner-name masking is removed to simplify (Current rules 4). Dollars stay hidden and editors are never told "Ask Reed".
+- 2026-10-28 Reed: after publishing, only he can edit a script's title, about and notes; everything else stays final (Current rules 31).
+- 2026-10-28 Producer: a look/role mismatch is fixed per video in the video's own look by any editor; only the owner changes the script's role words (Current rules 31).

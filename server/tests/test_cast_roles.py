@@ -306,3 +306,32 @@ def test_a_new_version_saved_for_the_editor_keeps_what_they_kept_anyway():
         "Check the cast: shot 1.12: the script has Boss here, but the shot shows Lexi (Lexi)",
     ]
     assert carry_kept(kept, problems) == problems[:2]
+
+
+def test_an_approved_sheet_beats_the_role_text_in_stills_and_clips(owner, editor, db):
+    """Reed, Iron Paws "Pitbull 1 POV": Biscuit's approved sheet is a French bulldog, but the
+    role says "Biscuit, the golden dog" and the look's notes a golden retriever; stills and
+    clips drew golden. Beside a sheet, no role description and no notes reach the prompts."""
+    from app import prompts
+    from app.models.library import LibraryItem
+    from app.models.script_library import ScriptCastSlot
+    from app.storyboard import SHEET_SETS, assets
+
+    pid, mia, kid = _video(owner, editor, db)
+    db.get(LibraryItem, mia).notes = "Golden retriever, thick golden coat, friendly face"
+    slot = db.query(ScriptCastSlot).filter_by(library_item_id=mia).one()
+    slot.role = "Biscuit, the golden dog"
+    db.commit()
+    line = assets(db, db.get(Project, pid))[f"char:{mia}"][0]
+    assert line == f"char:{mia} | character | Mia | plays Biscuit | {SHEET_SETS}"
+    assert "golden" not in line.lower()
+    assert assets(db, db.get(Project, pid))[f"char:{kid}"][0].endswith("plays Nate")  # no sheet
+    assert "is a French bulldog" in prompts.system("storyboard")
+    assert 'never "golden coat"' in prompts.system("clip_prompts")
+    redo = prompts.sheet_prompt(  # a redraw keeps the sheet's dog, whatever the role says
+        "character",
+        "Golden retriever, thick golden coat",
+        change="Bigger ears.",
+        role="Biscuit, the golden dog",
+    )
+    assert "even where the words above describe them differently" in redo

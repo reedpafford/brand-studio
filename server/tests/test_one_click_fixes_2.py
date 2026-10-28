@@ -3,6 +3,8 @@ may refuse is softened (by itself when it's made, or with Soften it), and Fix th
 prompt is free: its shape is put right in code, and what code can't fix Claude rewrites for
 that clip only, charged to no budget or week."""
 
+import re
+
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.jobs import Job
@@ -198,3 +200,22 @@ def test_a_free_fix_that_fails_is_not_free_again(app, db, editor, setup):  # noq
     assert db.get(Job, job["id"]).status == "failed"
     assert editor.get(f"/projects/{setup['project']}/clips").json()[0]["free_fix_used"] is True
     assert editor.post(f"{url}/fix").json()["detail"] == "We couldn't fix this one automatically."
+
+
+def test_c4s_format_problems_are_fixed_in_code_with_no_claude_call(app, db, editor, setup):  # noqa: F811
+    """Reed's Iron Paws c4: a shot written "18-23 s" with no full stop (overlapping the one
+    before) and a closing audio line that didn't match. Fix this clip's prompt repairs both
+    in code, free, every other word kept, even while other clip prompts are being written."""
+    mom = _mom(editor, db, setup)
+    _with_breakdown(app, db, editor, setup)
+    lines = _prompt().splitlines()
+    lines = [re.sub(r"^(Shot 2 \| )2–5 s\.", r"\g<1>1–5 s", x) for x in lines]  # no full stop
+    lines[-1] = lines[0].replace("No subtitles.", "Calm. No subtitles.")
+    row = _clip(db, setup, "\n".join(lines), mom=mom)
+    jobs = db.query(Job).count()
+    out = editor.post(f"/projects/{setup['project']}/clips/{row.id}/fix").json()
+    assert out["fixed"] is True and db.query(Job).count() == jobs  # no Claude call
+    after = out["after"].splitlines()
+    assert after[-1] == after[0] == lines[0] and "Shot 2 | 2-5 s. " in out["after"]
+    assert [x for x in after if not x.startswith("Shot 2")] == [
+        x for x in lines[:-1] if not x.startswith("Shot 2")] + [lines[0]]  # fmt: skip
