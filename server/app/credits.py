@@ -17,6 +17,7 @@ from app.catalogue import get_model
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.credits import (
+    BUDGET_MULTIPLIER,
     DEFAULT_PER_VIDEO_MAX_CREDITS,
     DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
     USD_PER_CREDIT,
@@ -88,6 +89,44 @@ def estimate(
     if not rate:
         log.warning("No credit rate for %s; estimating %s credit per unit.", kind, FALLBACK_RATE)
     return Decimal(units) * (rate.credits_per_unit if rate else FALLBACK_RATE)
+
+
+CLIP_SECONDS_GUESS = 8  # before a breakdown exists: about this many seconds per clip
+
+
+def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True) -> Decimal:
+    """What making a video costs, every step, not just its seconds (QA-Live, video #17:
+    "About 55" quoted, 99 charged): the breakdown (`breakdown`), the frame prompts, a still
+    per clip, the clip prompts (a Claude call per few clips), a look per role (`roles`) and
+    its seconds of video. `bd` is its Breakdown, if it has one. Redos aren't counted."""
+    from app import clip_prompts
+    from app.breakdown import video_model
+    from app.sheets import look_usual
+    from app.storyboard import image_model
+
+    clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
+    calls = len(clip_prompts.batches(bd)) if bd else math.ceil(clips / clip_prompts.BATCH_CLIPS)
+    claude = estimate(db, ws, "write-claude", Decimal(1)) * (int(breakdown) + 1 + calls)
+    still = {"model": image_model().id, "input": {"resolution": "1K"}}
+    video = {"model": video_model().id, "input": {"resolution": "480p"}}
+    return (claude + estimate(db, ws, "image", Decimal(clips), still) + look_usual(db, ws) * roles
+            + estimate(db, ws, "video", Decimal(seconds), video))  # fmt: skip
+
+
+def budget(db: Session, project: Project) -> Decimal:
+    """Twice the video's whole estimate (rule 3): every step at its plan, so the steps before
+    its takes never use up the budget (QA-2: a 12 s video's fixed steps came to 12.73 of a
+    24-credit budget, and its 12-credit take was refused). A look for each role its script
+    doesn't lock, made or not, so the budget never drops as Assets makes them."""
+    from app import clip_prompts
+    from app.cast_roles import all_slots
+    from app.prompts.schemas import Breakdown
+
+    row = clip_prompts.newest(db, project)
+    bd = Breakdown.model_validate(row.data) if row else None
+    roles = sum(s.library_item_id is None for s in all_slots(db, project))
+    cost = plan_cost(db, project.workspace_id, int(project.estimate_credits), bd, roles)
+    return cost * BUDGET_MULTIPLIER
 
 
 def usd_to_credits(usd: Decimal) -> Decimal:

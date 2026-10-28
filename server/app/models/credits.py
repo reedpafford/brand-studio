@@ -2,7 +2,7 @@
 
 1 credit = $0.1028 of real cost = 1 second of 480p video. Rates per job kind give the
 estimate when a job is queued; when it finishes, its real dollar cost is converted back to
-credits. A project's budget is 2x the 480p estimate of its planned length."""
+credits. A project's budget is 2x its whole 480p estimate, every step included (credits.budget)."""
 
 from decimal import Decimal
 
