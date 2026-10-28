@@ -8,7 +8,7 @@ Shape (plain text, these lines, nothing else; the first and last lines are the s
 Audio: only the spoken lines and <room sound>. No music, background music, BGM, score, instrumental, melody, synth effects, ambient pad, drone, swelling tone or stinger. No subtitles.
 References: <the reference lines, copied exactly>
 Summary: <the idea in one sentence: who does what, where; add nothing that isn't in the idea>.
-Style: <Pixar-style 3D animation, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions; plus a few words for the direction>.
+Style: <{{clip_style}}; plus a few words for the direction>.
 Setting: <the look: palette, visible light, depth, background people>.
 Shots (hard cuts):
 Shot 1 | 0-2 s. <size, angle, one camera move>. <what happens, big and readable>. <Name (in English, how it's said): "words">

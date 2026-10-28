@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     session_days: int = 30
     invite_days: int = 7
     cookie_secure: bool = True  # set BS_COOKIE_SECURE=false only for local http
+    # The test site shares live's address on another port, and cookies ignore ports.
+    cookie_name: str = "bs_session"
     # Uploaded files (local disk for now; S3-compatible later)
     storage_dir: str = "./storage"
     max_upload_mb: int = 200
@@ -60,8 +62,9 @@ def get_settings() -> Settings:
 
 
 def check_production(settings: Settings) -> None:
-    """Refuse to start a live server that still has example secrets from deploy/.env.example."""
-    if settings.env != "production":
+    """Refuse to start a live server (or the test site, env "next") that still has example
+    secrets from deploy/.env.example. Only the test site may run on the free stand-ins."""
+    if settings.env not in ("production", "next"):
         return
     problems = []
     token = settings.setup_token
@@ -72,7 +75,7 @@ def check_production(settings: Settings) -> None:
         )
     if make_url(settings.database_url).password == PLACEHOLDER:
         problems.append("POSTGRES_PASSWORD is the example value: use `openssl rand -hex 24`.")
-    if settings.fake_providers:
+    if settings.fake_providers and settings.env == "production":
         problems.append("BS_FAKE_PROVIDERS is on: it's for local runs only, remove the line.")
     if problems:
         raise RuntimeError("Not starting. Fix deploy/.env: " + " ".join(problems))

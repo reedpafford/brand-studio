@@ -6,13 +6,17 @@ import { BeforeAfter } from "./BeforeAfter";
 export const FIX_NOTE = "Fix this clip's prompt";
 
 /** "Fix this clip's prompt": free for everyone (an editor past their week too), and it never makes a take. */
-export function FixThisPrompt({ busy, onFix }: { busy: boolean; onFix: () => void }) {
+/** The video model refused the prompt (the server's clip_prompts.MODERATED): the same free fix rewords it to pass. */
+const MODERATED = "The video model refused this prompt: it read it as ";
+export const refused = (problems: string[]) => problems.some((p) => p.includes(MODERATED));
+
+export function FixThisPrompt({ busy, onFix, moderated }: { busy: boolean; onFix: () => void; moderated?: boolean }) {
   return (
     <span className="mt-1 flex flex-wrap items-center gap-2 text-base">
       <Button variant="secondary" dense icon={Wand2} busy={busy} onClick={onFix}>
-        {busy ? "Fixing…" : "Fix this clip's prompt"}
+        {busy ? "Fixing…" : moderated ? "Reword it to pass · free" : "Fix this clip's prompt"}
       </Button>
-      <span className="text-sm text-muted">Free</span>
+      {!moderated && <span className="text-sm text-muted">Free</span>}
     </span>
   );
 }

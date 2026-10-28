@@ -29,10 +29,55 @@ SCHEMAS = {
 NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
 
 
+# A style's extra guidance, by the steps it's added to (styles/*.md); its look sections fill
+# the {{tokens}} in the step files instead.
+GUIDES = {
+    "still": ["storyboard"],
+    "clip": ["clip_prompts", "improve"],
+    "breakdown": ["breakdown"],
+    "script": ["script_draft", "enhance", "variations"],
+}
+TOKEN = re.compile(r"\{\{(\w+)\}\}")
+
+
 @cache
-def system(step: str) -> str:
+def styles() -> list[dict]:
+    """The style registry, in Reed's order: one styles/<id>.md each (Reed, 2026-10-28). Each is
+    {id, name, kind ("look" or "format"), order, on, image_model, blurb, sections}. `on` is
+    only the starting switch (House alone); the server keeps Reed's own."""
+    out = []
+    for path in (HERE / "styles").glob("*.md"):
+        head, *sections = path.read_text().split("\n## ")
+        meta = dict(m.groups() for m in re.finditer(r"^(\w+): (.+)$", head, re.M))
+        out.append({
+            "id": path.stem,
+            "name": head.splitlines()[0].removeprefix("# "),
+            "kind": meta["kind"],
+            "order": int(meta["order"]),
+            "on": meta["on"] == "yes",
+            "image_model": meta["image_model"],
+            "blurb": meta["blurb"],
+            "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},
+        })  # fmt: skip
+    return sorted(out, key=lambda s: s["order"])
+
+
+def style(style_id: str) -> dict:
+    found = [s for s in styles() if s["id"] == style_id]
+    if not found:
+        raise ValueError(f"unknown style: {style_id}")
+    return found[0]
+
+
+def _styled(text: str, style_id: str) -> str:
+    looks = style(style_id)["sections"]
+    return TOKEN.sub(lambda m: looks[m.group(1)], text)
+
+
+@cache
+def system(step: str, style_id: str = "house") -> str:
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
-    parts.append((HERE / f"{step}.md").read_text())
+    parts.append(_styled((HERE / f"{step}.md").read_text(), style_id))
     example = HERE / "examples" / f"{step}.json"
     if example.exists():
         ex = json.loads(example.read_text())
@@ -40,6 +85,15 @@ def system(step: str) -> str:
             f"## Worked example ({ex['source']})\n{ex['note']}\n\n"
             f"<example_input>\n{ex['input']}\n</example_input>\n\n"
             f"<example_output>\n{json.dumps(ex['output'], indent=1)}\n</example_output>"
+        )
+    chosen = style(style_id)
+    guide = [chosen["sections"][k] for k, steps in GUIDES.items()
+             if step in steps and k in chosen["sections"]]  # fmt: skip
+    if guide:
+        parts.append(
+            f"## Style: {chosen['name']}\nThis video is in the {chosen['name']} style. Where "
+            "this section and anything above (the worked example included, which is in the "
+            "House style) differ, this section wins.\n\n" + "\n\n".join(guide)
         )
     return "\n\n".join(parts)
 
@@ -246,15 +300,21 @@ def reference_lines(refs: list[dict]) -> str:
 
 
 def sheet_prompt(
-    kind: str, description: str = "", from_photo: bool = False, change: str = "", role: str = ""
+    kind: str,
+    description: str = "",
+    from_photo: bool = False,
+    change: str = "",
+    role: str = "",
+    style_id: str = "house",
 ) -> str:
     """The Nano Banana prompt for a library item's reference picture. kind "character": a front
     / side / back turnaround sheet, from a description or (from_photo) an uploaded photo of a
     real person as image 1; "place": an empty establishing still. `change` is the editor's note
     when redoing a sheet (the last sheet goes in as the final image). `description` is the
     item's notes; `role` is the script's part for a look made from a cast slot ("Omar, the
-    boyfriend"), given without its name. Names stay out so none is drawn."""
-    sections = (HERE / "sheet.md").read_text().split("\n## ")[1:]
+    boyfriend"), given without its name. Names stay out so none is drawn. `style_id` is the
+    style the sheet is drawn in (a sheet is per style)."""
+    sections = _styled((HERE / "sheet.md").read_text(), style_id).split("\n## ")[1:]
     parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
     out = [parts[kind]]
     if kind == "character" and from_photo:
