@@ -81,6 +81,8 @@ export function ChangeBox(props: {
   /** Puts the earlier still or take back (with its prompt). Free. */
   onUndo?: (was: number | null) => void;
   label: string;
+  /** What the button says (a clip with a take: "Change it and make a new take"; with none: "Change the prompt"). */
+  action?: string;
 }) {
   const { kind, projectId, id, change } = props;
   const queryClient = useQueryClient();
@@ -149,7 +151,7 @@ export function ChangeBox(props: {
     <div className="space-y-2">
       <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={changing ? change!.note : text} readOnly={changing} onChange={(e) => { setNote(e.target.value); setEdited(true); press.reset(); }} aria-label={`Change this… ${props.label}`} />
       <Button variant="secondary" icon={Wand2} busy={changing || press.isPending} price={changing ? undefined : credits} reason={reason} disabled={!changing && !!reason} onClick={() => { was.current = props.snapshot ?? null; press.mutate(text.trim()); }}>
-        {changing ? "Changing…" : failed && text.trim() === change?.note ? "Try again" : "Change it"}
+        {changing ? "Changing…" : failed && text.trim() === change?.note ? "Try again" : props.action ?? "Change it"}
       </Button>
       {press.isError && (
         <p role="alert" className={said ? "text-sm text-warning" : errorClass}>

@@ -367,7 +367,7 @@ test("Change this… on a clip has the clip's price, and an editor past the budg
   });
   open("?step=clips");
   await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
-  const button = await screen.findByRole("button", { name: "Change it · 27 credits" });
+  const button = await screen.findByRole("button", { name: "Change it and make a new take · 27 credits" });
   expect(button).toBeDisabled();
   expect(button).toHaveAccessibleDescription("That's more than this video's budget.");
 });
@@ -403,10 +403,56 @@ test("Undo after a clip change goes back to the take that was picked when Change
   }));
   open("?step=clips");
   await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
-  await userEvent.click(await screen.findByRole("button", { name: "Change it · 27 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Change it and make a new take · 27 credits" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }, { timeout: 9000 }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/takes/1/pick")).toBe(true));
 }, 20000);
+
+test("a take that failed before the prompt was changed no longer reads as failing: a quiet line, and what to press next", async () => {
+  setViewport(390);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: false, change: { note: "Slower", job_id: 31, status: "done", before: "a b", after: "a c" } })]],
+    "GET /projects/9/clips/3/change": [200, { credits: 3 }],
+    "GET /jobs": [200, [{ id: 30, kind: "video", step: "clip_take", status: "failed", error: "The service couldn't finish this. Try again.", credits: 19, project_id: 9, project_clip_id: 3, created_at: "2026-10-28T10:00:00Z" }]],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(await within(card).findByText("The last take, before your change, failed.")).toBeInTheDocument();
+  expect(within(card).queryByText(/couldn't finish this/)).toBeNull();
+  expect(within(card).queryByText("Failed · credits returned")).toBeNull();
+  expect(within(card).getByText(/Prompt updated\. Read it, press Looks good, then press Make clip/)).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Change the prompt · 3 credits" })).toBeInTheDocument(); // no take yet: only the prompt
+});
+
+test("after Reword it to pass (a free fix in code), the refused take reads as before the change", async () => {
+  setViewport(390);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: false, change: { note: "Fix this clip's prompt", job_id: 30, status: "done", before: "a b", after: "a c", unchanged: false } })]],
+    "GET /projects/9/clips/3/change": [200, { credits: 3 }],
+    "GET /jobs": [200, [{ id: 30, kind: "video", step: "clip_take", status: "failed", error: "The video model refused this prompt. Change the wording, then make it again.", credits: 19, project_id: 9, project_clip_id: 3, created_at: "2026-10-28T10:00:00Z" }]],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(await within(card).findByText("The last take, before your change, failed.")).toBeInTheDocument();
+  expect(within(card).queryByText(/Change the wording, then make it again/)).toBeNull();
+  expect(within(card).queryByText("Failed · credits returned")).toBeNull();
+});
+
+test("when the newest take failed but others are good, the line says the others are there", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]],
+    "GET /projects/9/clips/3/change": [200, { credits: 22 }],
+    "GET /jobs": [200, [{ id: 30, kind: "video", step: "clip_take", status: "failed", error: "The service couldn't finish this. Try again.", credits: 19, project_id: 9, project_clip_id: 3, created_at: "2026-10-28T10:00:00Z" }]],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(await within(card).findByText(/The newest take failed; your other takes are below\./)).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
+});
 
 test("a clip change that didn't finish says the server's words, keeps the note in the box, and Try again sends it again", async () => {
   setViewport(390);
@@ -1072,6 +1118,19 @@ const fixRoutes = {
   ...toClips,
   "GET /projects/9/clips/prompts/price?clip_id=c1": [200, { clip_ids: ["c1"], credits: 3 }] as [number, unknown],
 };
+
+test("a prompt the video model refused offers Reword it to pass · free, the same free fix", async () => {
+  setViewport(390);
+  const calls = fakeServer({
+    ...fixRoutes,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: false, problems: ["c1: The video model refused this prompt: it read it as violent. Reword it to pass."] })]],
+    "POST /projects/9/clips/3/fix": [200, { fixed: true, before: "a", after: "b", reason: "", clip: clip({}) }],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  await userEvent.click(await within(card).findByRole("button", { name: "Reword it to pass · free" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/fix")).toBe(true));
+});
 
 test("a clip with a blocking problem has a free Fix this clip's prompt; it shows what changed, with Undo, and never makes a take", async () => {
   setViewport(1440);
