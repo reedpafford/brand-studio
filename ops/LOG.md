@@ -1,4 +1,12 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 18:34 · #705 Draw it as is follow-ups and an accurate waiting reason merged
+- 2026-10-28 18:29 · #699 Claude gets its own worker lane, so stills never wait behind it merged
+- 2026-10-28 18:24 · #702 Storyboard and Clips: a job that hasn't started says why merged
+- 2026-10-28 18:15 · #693 Names show plainly to everyone: owner-name masking removed; the owner's email stays hidden from editors until Reed says otherwise (Producer) merged
+- 2026-10-28 18:02 · #696, #700 Director: image-model word list drops "crust" and "lap"; the story agrees with the real payoff balance and variations take a requested length, merged
+- 2026-10-28 17:50 · #695 Storyboard: a still whose job is lost stops saying Drawing… merged
+- 2026-10-28 17:39 · #698 A job running past its time limit fails plainly; a waiting one says why merged
+- 2026-10-28 17:37 · #701 ops: HANDOFF/LOG refresh as of b5ec3fb merged (by the Producer)
 - 2026-10-28 17:24 · #697 A word the image model may refuse is Advice: Draw it as is, or Soften it merged
 - 2026-10-28 17:14 · #694 Assets: a role card shows its look whenever it has one merged
 - 2026-10-28 16:35 · #692 ops: HANDOFF/LOG refresh as of ba53099 merged (by the Producer)

@@ -216,9 +216,12 @@ def caption(folder: Path) -> str:
 
 def name_for(caption_text: str, transcript: list[dict], limit: int = 60) -> str:
     """A script's name from an imported reel: its caption's first line, else its first spoken
-    line, cut at a word to fit ("" if neither has words)."""
+    line, without hashtags or mentions (QA-Live run 3: "Based on a True Story #business"), cut
+    at a word to fit ("" if neither has words)."""
     lines = [caption_text, *(t.get("text", "") for t in transcript)]
-    first = next((line.strip().splitlines()[0] for line in lines if line.strip()), "")
+    tags = re.compile(r"(?<!\w)[#@][\w.]+")
+    bare = (" ".join(tags.sub(" ", x.strip().splitlines()[0]).split()) for x in lines if x.strip())
+    first = next((line for line in bare if line), "")
     first = first.strip(" \"'“”")
     if len(first) <= limit:
         return first

@@ -93,6 +93,9 @@ def test_an_imported_reel_is_named_from_its_caption_else_its_first_line(tmp_path
         "POV: he proposed in Paris 🇫🇷"
     )
     assert reel.name_for("", words) == "Will you marry me?"
+    tagged = "Based on a True Story #business #daytrading @nateassets"  # QA-Live run 3
+    assert reel.name_for(tagged, words) == "Based on a True Story"
+    assert reel.name_for("#fomo #money\nmore", words) == "Will you marry me?"  # only tags
     assert reel.name_for("", []) == ""  # stays "Untitled reel"
     long = "When the rich older man showed up at the proposal and everyone turned to look at him"
     assert reel.name_for(long, []) == "When the rich older man showed up at the proposal and…"
