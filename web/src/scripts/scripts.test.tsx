@@ -1353,3 +1353,16 @@ test("approved words can't be edited, so the Script step shows Words final with 
   await userEvent.click(screen.getByRole("button", { name: "Undo approval to edit" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/approve")).toBe(true));
 });
+
+test("About saves with only a title: what it's for is optional (a new draft starts without it)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, full({ title: "Untitled script", description: "" })], "PATCH /scripts/7": [200, full({ title: "Bo tries tuna", description: "" })] });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByText("About this script"));
+  await userEvent.clear(screen.getByLabelText("Title"));
+  await userEvent.type(screen.getByLabelText("Title"), "Bo tries tuna");
+  const save = screen.getByRole("button", { name: "Save" });
+  expect(save).toBeEnabled();
+  await userEvent.click(save);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toMatchObject({ title: "Bo tries tuna", description: "" }));
+});
