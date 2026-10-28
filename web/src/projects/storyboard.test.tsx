@@ -84,6 +84,18 @@ test("Make still and Make all stills queue the image jobs and say Drawing…", a
   expect(await within(screen.getByLabelText("Frame c2")).findByText("Drawing…")).toBeInTheDocument();
 });
 
+test("a still that has waited a while to start says why in place of Drawing…", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ drawing: true })]],
+    "GET /jobs": [200, [{ id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9, created_at: new Date().toISOString(), waiting: "This hasn't started yet: the service that makes it isn't taking work right now. It's charged only if it runs." }]],
+  });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(await within(card).findByText(/isn't taking work right now/)).toBeInTheDocument();
+  expect(within(card).queryByText("Drawing…")).toBeNull();
+});
+
 test("a still whose job never shows in the jobs list stops saying Drawing… and can be made again", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   fakeServer({

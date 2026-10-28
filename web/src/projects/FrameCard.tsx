@@ -20,6 +20,8 @@ export function FrameCard(props: {
   projectId: number;
   aspect: string;
   busy: boolean;
+  /** Why its still hasn't started yet, once it has waited a while (the server's plain sentence). */
+  waiting?: string;
   error: string | null;
   failed: boolean;
   blockers: Blocker[];
@@ -85,7 +87,7 @@ export function FrameCard(props: {
           </span>
         )}
         {props.busy ? (
-          <span className="text-muted">Drawing…</span>
+          <span className="p-2 text-center text-muted">{props.waiting || "Drawing…"}</span>
         ) : f.file_id !== null && (f.change as ChangeState)?.status === "changing" ? (
           <>
             <img src={fileUrl(f.file_id)} alt={`Still for clip ${f.clip_id}`} className="h-full w-full object-cover opacity-50" />

@@ -313,6 +313,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
               projectId={projectId}
               aspect={props.aspect}
               busy={busy || f.drawing}
+              waiting={frameJobs.find((j) => j.waiting)?.waiting}
               error={errorFor(f.id)}
               failed={job?.status === "failed"}
               blockers={blocks.forShot(f.shot_id)}

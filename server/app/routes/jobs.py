@@ -31,7 +31,7 @@ router = APIRouter(tags=["jobs"])
 
 
 WAITING = ("This hasn't started yet: the service that makes it isn't taking work right now. "
-           "Nothing is charged while it waits.")  # fmt: skip
+           "It's charged only if it runs.")  # fmt: skip
 
 
 class JobOut(BaseModel):
