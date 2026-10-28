@@ -130,3 +130,46 @@ def test_a_short_name_is_the_role_and_never_a_second_one(owner, editor, db):
 
     assert labels("GF", "Girlfriend") and labels("BF", "Mogging BF")
     assert not labels("GIRL", "Girlfriend")
+
+
+def test_two_opens_at_once_record_one_automatic_merge(owner, editor, db):
+    """QA-2 on #661: Assets' parallel requests each merged Girl, so her note showed three
+    times. The backstop runs one at a time per video, and the second request, which loaded
+    the video before the first one finished, sees what it did and records nothing."""
+    from sqlalchemy.orm import Session
+
+    from app import breakdown
+    from app.models.script_library import CastMerge
+
+    _, pid, _ = _video(owner, editor, db, "INT. DINER — NIGHT\nGIRLFRIEND: Sorry I'm late, babe.")
+    other = Session(bind=db.get_bind())
+    late = other.get(Project, pid)  # loaded before the first request is done
+    assert breakdown.complete_cast(db, db.get(Project, pid))
+    db.commit()
+    breakdown.complete_cast(other, late)
+    other.commit()
+    other.close()
+    assert db.query(CastMerge).filter_by(project_id=pid).count() == 1
+
+
+def test_repeated_merge_notes_on_live_collapse_into_one_whose_undo_undoes_it(owner, editor, db):
+    """What #661 left on live: three records of one automatic merge. Opening Assets keeps the
+    first, and its Undo puts Girl back for good."""
+    from app.models.script_library import CastMerge
+
+    _, pid, ids = _video(owner, editor, db, "INT. DINER — NIGHT\nGIRLFRIEND: Sorry I'm late, babe.")
+    url = f"/projects/{pid}/assets"
+    editor.get(url)
+    (first,) = db.query(CastMerge).filter_by(project_id=pid).all()
+    for _ in range(2):
+        db.add(CastMerge(workspace_id=first.workspace_id, script_id=first.script_id,
+                         project_id=pid, data=dict(first.data)))  # fmt: skip
+    db.commit()
+    editor.get(url)
+    notes = [t for (_, _, t) in _pairs(editor, pid) if t]
+    assert notes == [first.id]
+    assert editor.post(f"{url}/merge/undo", json={"token": first.id}).status_code == 200
+    db.expire_all()
+    assert not db.get(Project, pid).slot_merged
+    assert "Girl" in [r["role"] for r in editor.get(url).json()]  # and stays undone
+    assert not [t for (_, _, t) in _pairs(editor, pid) if t]
