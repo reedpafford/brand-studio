@@ -309,26 +309,32 @@ test("the picker locks Characters and Publish until the script has words", async
   expect(within(steps).getByRole("button", { name: "Publish" })).toHaveAccessibleDescription("Write the script first");
 });
 
-test("Publish: a card for the version, then Publish asks, approves the words and publishes", async () => {
-  setViewport(1440);
+test("Publish waits for every version to be approved, as Variations says; its card approves it in one press, then Publish asks and publishes", async () => {
+  setViewport(390);
+  const approved = withWords({ versions: [{ ...withWords().versions[0], status: "approved" }] });
   const calls = fakeServer({
     ...base,
     "GET /scripts/7": [200, withWords()],
     "GET /scripts/7/cast": [200, [slot({ locked: true, library_item_id: 4, sheet_file_id: 11 })]],
     "GET /scripts": [200, []],
-    "POST /scripts/7/drafts/0/approve": [200, withWords()],
+    "POST /scripts/7/drafts/0/approve": [200, approved],
     "POST /scripts/7/publish": [200, withWords({ published: true, status: "published" })],
   });
   open("/b/1/scripts/7?step=publish");
   const card = await screen.findByLabelText("Version A");
   expect(within(card).getByText("MIA: Hell no!")).toBeInTheDocument();
-  expect(within(card).getByText("Runs when an editor starts")).toBeInTheDocument();
+  expect(within(card).getByText("Not approved yet")).toBeInTheDocument();
+  const publish = screen.getByRole("button", { name: "Publish 1 version" });
+  expect(publish).toBeDisabled();
+  expect(publish).toHaveAccessibleDescription("Approve every version first (1 left)");
+  await userEvent.click(within(card).getByRole("button", { name: "Approve version A" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/approve")).toBe(true));
+  expect(await within(card).findByText("Approved")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Publish 1 version" }));
   const ask = await screen.findByRole("alertdialog", { name: "Publish 1 version of Bo tries salmon?" });
-  expect(calls.some((c) => c.key === "POST /scripts/7/publish")).toBe(false);
   await userEvent.click(within(ask).getByRole("button", { name: "Publish" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/publish")).toBe(true));
-  expect(calls.findIndex((c) => c.key === "POST /scripts/7/drafts/0/approve")).toBeLessThan(calls.findIndex((c) => c.key === "POST /scripts/7/publish"));
+  expect(calls.filter((c) => c.key === "POST /scripts/7/drafts/0/approve")).toHaveLength(1); // Publish itself approves nothing
   expect(await screen.findByText("Published. 1 version is ready to make.")).toBeInTheDocument();
 });
 

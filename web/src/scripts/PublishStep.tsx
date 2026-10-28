@@ -20,13 +20,17 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
   const queryClient = useQueryClient();
   const versions = s.versions.filter((v) => v.text.trim() !== "");
   const slots = cast.data ?? [];
+  // Every version is approved before it is published, here as on Variations: one press on its card (#749 LW7).
+  const approve = useMutation({
+    mutationFn: async (slot: number) => {
+      const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/approve", { params: { path: { script_id: s.id, slot } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => queryClient.setQueryData(["script-lib", s.id], data),
+  });
   const publish = useMutation({
     mutationFn: async () => {
-      // Every version's words are approved first; then it goes to the library.
-      for (const v of s.versions.filter((x) => x.status === "draft" && x.text.trim() !== "")) {
-        const { error, response } = await api.POST("/scripts/{script_id}/drafts/{slot}/approve", { params: { path: { script_id: s.id, slot: v.slot } } });
-        if (!response.ok) throw new Error(errorText(error));
-      }
       const { data, error } = await api.POST("/scripts/{script_id}/publish", { params: { path: { script_id: s.id } } });
       if (!data) throw new Error(errorText(error));
       return data;
@@ -66,7 +70,7 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
           Publishing makes these versions ready to make. After that their words can't change. To change one, duplicate the script.
         </p>
       )}
-      {(publish.isError || duplicate.isError) && <p role="alert" className={errorClass}>{(publish.error ?? duplicate.error)?.message}</p>}
+      {(publish.isError || duplicate.isError || approve.isError) && <p role="alert" className={errorClass}>{(publish.error ?? duplicate.error ?? approve.error)?.message}</p>}
       <ul className="grid gap-4 lg:grid-cols-3">
         {versions.map((v) => (
           <li key={v.slot} aria-label={`Version ${LETTER[v.slot]}`}>
@@ -78,9 +82,14 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
               <dl className="space-y-2">
                 <div>
                   <dt className="font-medium text-muted">Words</dt>
-                  <dd className="flex items-center gap-1">
+                  <dd className="flex flex-wrap items-center gap-2">
                     {v.status !== "draft" && <Check size={16} strokeWidth={1.75} aria-hidden className="text-success" />}
-                    {v.status === "draft" ? "When you publish" : "Approved"}
+                    {v.status === "draft" ? "Not approved yet" : "Approved"}
+                    {v.status === "draft" && !s.published && (
+                      <Button variant="secondary" dense icon={Check} busy={approve.isPending && approve.variables === v.slot} aria-label={`Approve version ${LETTER[v.slot]}`} onClick={() => approve.mutate(v.slot)}>
+                        Approve
+                      </Button>
+                    )}
                   </dd>
                 </div>
                 <div>
