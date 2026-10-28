@@ -20,7 +20,9 @@ function WriteWithClaude({ script: s, text, hasUnsaved, onWritten }: { script: S
   const hasReference = !!s.reference_id;
   const estimate = useQuery({ queryKey: ["write-estimate", s.id], queryFn: async () => (await api.GET("/scripts/{script_id}/write/estimate", { params: { path: { script_id: s.id } } })).data ?? null });
   const credits = estimate.data?.credits;
-  const stop = useAllowanceStop(s, credits);
+  const allowance = useAllowanceStop(s, credits);
+  // Claude writes from the About fields: with nothing there it has nothing to go on.
+  const stop = !s.description.trim() && !s.reference_id ? "Say what it's for in About first" : allowance;
   const patch = usePatchScript(s.id);
   const put = useWriteWords(s.id);
   const jobs = useJobs();
@@ -230,7 +232,7 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
         </div>
       ) : (
         <Card className="max-w-[680px] space-y-3">
-          <TextArea label="Your script" rows={14} maxLength={50000} placeholder="Paste or write the script here" value={draft ?? text} onChange={(e) => setDraft(e.target.value)} />
+          <TextArea label="Paste or write your script" rows={14} maxLength={50000} placeholder="Paste or write the script here" value={draft ?? text} onChange={(e) => setDraft(e.target.value)} />
           {write.isError && <p role="alert" className={errorClass}>{write.error.message}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <Button

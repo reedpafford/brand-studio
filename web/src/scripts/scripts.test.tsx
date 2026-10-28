@@ -114,18 +114,18 @@ const full = (o: object = {}) => ({
   notes: "Keep it warm.", reference_replace: "", cast: [], versions: [{ slot: 0, status: "draft", title: "Bo tries salmon", seconds: 0, project_id: null, text: "", words: 0, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }], ...o,
 });
 
-test("New script asks for a title and what it's for, then makes the draft and opens the script step", async () => {
-  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full()], "GET /scripts/7": [200, full()] });
-  open("/b/1/scripts/new");
-  const button = await screen.findByRole("button", { name: "Create script" });
-  expect(button).toBeDisabled();
-  expect(button).toHaveAccessibleDescription("Add a title first");
-  await userEvent.type(screen.getByLabelText("Title"), "Bo tries salmon");
-  expect(screen.getByRole("button", { name: "Create script" })).toHaveAccessibleDescription("Say what it's for first");
-  await userEvent.type(screen.getByLabelText("What it's for"), "Show a picky dog.");
-  await userEvent.click(screen.getByRole("button", { name: "Create script" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog.", text: "" }));
+test("New script makes an untitled draft at once and opens the Script screen, with the editor first", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })] });
+  open("/b/1/scripts");
+  await userEvent.click(await screen.findByRole("button", { name: "New script" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "" }));
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
+  expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
+  // The title is one tap away in the header.
+  await userEvent.click(screen.getByRole("button", { name: "Rename Untitled script" }));
+  expect(screen.getByLabelText("Title")).toHaveValue("Untitled script");
 });
 
 test("a draft script's page: title, a draft badge, six steps, and About this script closed but there to edit", async () => {
@@ -154,7 +154,7 @@ test("the script step saves the words as the original; Next needs them", async (
   open("/b/1/scripts/7?step=script");
   const next = await screen.findByRole("button", { name: "Next: Directions" });
   expect(next).toBeDisabled();
-  await userEvent.type(screen.getByLabelText("Your script"), "BO: Salmon?");
+  await userEvent.type(screen.getByLabelText("Paste or write your script"), "BO: Salmon?");
   await userEvent.click(screen.getByRole("button", { name: "Save script" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "BO: Salmon?" }));
 });
@@ -172,7 +172,8 @@ test("the library has a New script button, and a draft's title opens its page", 
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts": [200, [script({ id: 7, published: false, status: "draft", versions: [v(0, "draft")] })]] });
   open();
-  expect(await screen.findByRole("link", { name: "New script" })).toHaveAttribute("href", "/b/1/scripts/new");
+  expect(await screen.findByRole("button", { name: "New script" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Import a reel" })).toHaveAttribute("href", "/b/1/scripts/import");
   expect(await screen.findByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7");
 });
 
@@ -331,8 +332,9 @@ const reel = (n: number) => ({ id: `r${n}`, name: `Reel ${n}`, logline: n === 1 
 
 test("the reference reels are compact rows with a search once there are more than 6; picking one asks what to change", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /references": [200, [1, 2, 3, 4, 5, 6, 7].map(reel)] });
-  open("/b/1/scripts/new");
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /references": [200, [1, 2, 3, 4, 5, 6, 7].map(reel)] });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByText("About this script"));
   const list = (await screen.findByText("Reference reel (optional)")).closest("fieldset")!;
   expect(within(list).getAllByRole("button", { pressed: false })).toHaveLength(7);
   expect(within(list).queryByText("Reel 1 is about a groom.")).not.toBeInTheDocument(); // only repeats the name
@@ -348,11 +350,11 @@ test("with unsaved words Next is still there; it asks before leaving and Stay ke
   fakeServer({ ...base, "GET /scripts/7": [200, full({ versions: [{ ...full().versions[0], text: "BO: Salmon?", status: "draft" }] })] });
   open("/b/1/scripts/7");
   expect(await screen.findByRole("button", { name: "Next: Directions" })).toBeInTheDocument();
-  await userEvent.type(screen.getByLabelText("Your script"), " More.");
+  await userEvent.type(screen.getByLabelText("Paste or write your script"), " More.");
   await userEvent.click(screen.getByRole("button", { name: "Next: Directions" }));
   expect(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Stay" }));
-  expect(screen.getByLabelText("Your script")).toHaveValue("BO: Salmon? More.");
+  expect(screen.getByLabelText("Paste or write your script")).toHaveValue("BO: Salmon? More.");
   await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
   await userEvent.click(screen.getByRole("button", { name: "Next: Directions" }));
   expect(await screen.findByRole("button", { name: /^Suggest directions/ })).toBeInTheDocument(); // no question once nothing is unsaved
@@ -883,9 +885,8 @@ const reelOut = (o: object = {}) => ({ script_id: 7, status: "ready", source: "l
 test("New script: Import a reel takes a reel link or a video, checks the link first, and makes the script at once", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "POST /scripts/import/link": [201, reelOut({ status: "preparing" })], "GET /scripts/7": [200, full({ id: 7 })], "GET /scripts/7/import": [200, reelOut({ status: "preparing" })] });
-  open("/b/1/scripts/new");
-  await userEvent.click(await screen.findByRole("radio", { name: "Import a reel" }));
-  await userEvent.type(screen.getByLabelText("Paste an Instagram reel link"), "https://example.com/video");
+  open("/b/1/scripts/import");
+  await userEvent.type(await screen.findByLabelText("Paste an Instagram reel link"), "https://example.com/video");
   await userEvent.click(screen.getByRole("button", { name: "Get the reel" }));
   expect(await screen.findByText("That isn't an Instagram reel link.")).toBeInTheDocument();
   expect(calls.some((c) => c.key === "POST /scripts/import/link")).toBe(false);

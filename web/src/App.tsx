@@ -7,7 +7,7 @@ import { ProductionPage } from "./production/ProductionPage";
 import { ProjectPage } from "./projects/ProjectPage";
 import { VideoPage } from "./projects/VideoPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
-import { NewScriptPage } from "./scripts/NewScriptPage";
+import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
 import { ScriptsRoute } from "./videos/ScriptsRoute";
 import { ClipPage } from "./clip/ClipPage";
@@ -33,7 +33,7 @@ export function App() {
           <Route index element={<GoToBrand />} />
           <Route path="b/:brandId" element={<BrandHome />} />
           <Route path="b/:brandId/scripts" element={<ScriptsRoute />} />
-          <Route path="b/:brandId/scripts/new" element={<NewScriptPage />} />
+          <Route path="b/:brandId/scripts/import" element={<ImportReelPage />} />
           <Route path="b/:brandId/scripts/:scriptId" element={<ScriptFlowPage />} />
           <Route path="b/:brandId/scripts/:scriptId/reel" element={<ReelReviewPage />} />
           <Route path="b/:brandId/projects" element={<ProjectsPage />} />

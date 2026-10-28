@@ -113,7 +113,13 @@ export function ScriptFlowPage() {
       <div className="flex flex-wrap items-center gap-3">
         {renaming === null ? (
           <h1 className="flex min-w-0 items-center gap-2 type-page">
-            <span className="min-w-0 break-words">{s.title}</span>
+            {published ? (
+              <span className="min-w-0 break-words">{s.title}</span>
+            ) : (
+              <button type="button" aria-label={`Rename ${s.title}`} onClick={() => setRenaming(s.title)} className="min-w-0 break-words text-left hover:underline">
+                {s.title}
+              </button>
+            )}
             {!published && (
               <button type="button" aria-label="Rename" onClick={() => setRenaming(s.title)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
                 <Pencil size={20} strokeWidth={1.75} aria-hidden />

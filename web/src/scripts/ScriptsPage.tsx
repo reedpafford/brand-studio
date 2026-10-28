@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Check, CircleAlert, Clock, FileText, Layers, Pencil, Plus, Search } from "lucide-react";
+import { Archive, Check, CircleAlert, Clock, FileText, Layers, Pencil, Search } from "lucide-react";
 import { BulkCreate } from "./BulkCreate";
 import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -8,7 +8,8 @@ import { api, errorText } from "../api/client";
 import { useToast } from "../toast";
 import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
-import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, buttonClass, type Tone } from "../components";
+import { ImportReelLink, NewScriptButton } from "./NewScriptButton";
+import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, type Tone } from "../components";
 import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
 import { useBrands } from "../shell/useBrands";
@@ -316,10 +317,10 @@ export function ScriptsPage() {
     </Card>
   );
   const newScript = (
-    <Link to={`/b/${brandId}/scripts/new`} className={buttonClass("primary")}>
-      <Plus size={20} strokeWidth={1.75} aria-hidden />
-      New script
-    </Link>
+    <>
+      <ImportReelLink brandId={brandId} />
+      <NewScriptButton brandId={brandId} />
+    </>
   );
   const myMaking = removed ? [] : (makingRows.data ?? []).filter((r) => r.versions.some((v) => beingMade(v.status) && v.editor?.id === me?.id));
   const myDrafts = removed ? [] : (myDraftRows.data ?? []).filter((r) => r.created_by_id === me?.id);
@@ -340,7 +341,7 @@ export function ScriptsPage() {
       </div>
       <ViewSwitch />
       {bulk && <BulkCreate brandId={brandId} onClose={() => setBulk(false)} />}
-      {!rail && <ActionBar phone>{newScript}</ActionBar>}
+      {!rail && <ActionBar phone><div className="flex gap-2">{newScript}</div></ActionBar>}
       {filters}
       {sheet && (
         <Sheet title="Filters" onClose={() => setSheet(false)}>
