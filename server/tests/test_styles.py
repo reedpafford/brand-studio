@@ -12,6 +12,10 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
     assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
+    assert set(ids[5:]) == {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet",
+                            "whiteboard", "vox", "podcast"}  # fmt: skip
+    for own_flow in ("whiteboard", "podcast"):  # they need their own flows first (spec)
+        assert prompts.style(own_flow)["kind"] == "format"
     assert [s["id"] for s in prompts.styles() if s["on"]] == ["house"]
     for s in prompts.styles():
         assert s["kind"] in ("look", "format") and s["blurb"], s["id"]
