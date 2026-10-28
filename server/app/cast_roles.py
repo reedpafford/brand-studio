@@ -226,8 +226,14 @@ def _recast(db: Session, text: str, swap: dict[str, str]) -> str:
             if notes and b.notes:
                 text = text.replace(notes, b.notes)
         for name in {b.name, *([short(slot.role)] if slot else [])} - {""}:
-            text = re.sub(rf"(?<!\w)({re.escape(name)})\s*\([^)]*\)(?!\s*:)", r"\1", text)
+            text = bare(text, name)
     return text
+
+
+def bare(text: str, name: str) -> str:
+    """Without the look words in brackets after a person's name ("Kimchi (cap, tee, chain)"):
+    the sheet sets the face and outfit (rule 10). "Mom (sharp):" before a line stays."""
+    return re.sub(rf"(?<!\w)({re.escape(name)})\s*\([^)]*\)(?!\s*:)", r"\1", text)
 
 
 def carry_clips(db: Session, project: Project, old_row, new_row) -> int:

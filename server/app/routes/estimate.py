@@ -7,10 +7,11 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import clip_prompts
+from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
 from app.credits import credits_used, estimate
@@ -19,9 +20,12 @@ from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.projects import Project
+from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
 from app.models.storyboards import StoryboardFrame
+from app.prompts.schemas import Breakdown
 from app.routes.projects import get_project
 from app.routes.scripts import latest
+from app.sheets import look_usual
 from app.storyboard import image_model
 
 router = APIRouter(prefix="/projects/{project_id}/estimate", tags=["credits"])
@@ -42,18 +46,39 @@ class ProjectEstimateOut(BaseModel):
     budget_credits: float
 
 
-def _claude(db: Session, project: Project) -> Decimal:
-    return estimate(db, project.workspace_id, "write-claude", Decimal(1))
+def _claude(db: Session, ws: int) -> Decimal:
+    return estimate(db, ws, "write-claude", Decimal(1))
 
 
-def _still(db: Session, project: Project) -> Decimal:
+def _still(db: Session, ws: int) -> Decimal:
     job = {"model": image_model().id, "input": {"resolution": "1K"}}
-    return estimate(db, project.workspace_id, "image", Decimal(1), job)
+    return estimate(db, ws, "image", Decimal(1), job)
 
 
-def _video(db: Session, project: Project, seconds: int) -> Decimal:
+def _video(db: Session, ws: int, seconds: int) -> Decimal:
     job = {"model": video_model().id, "input": {"resolution": "480p"}}
-    return estimate(db, project.workspace_id, "video", Decimal(seconds), job)
+    return estimate(db, ws, "video", Decimal(seconds), job)
+
+
+def version_cost(db: Session, draft: ScriptDraft) -> Decimal:
+    """A version's whole price before it's started, not just its seconds (QA-Live, video #17:
+    "About 55" quoted, 99 charged): the breakdown (unless one is saved), the frame prompts, a
+    still per clip, the clip prompts, a look per role not cast yet, and its seconds of video.
+    Redos aren't counted."""
+    script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
+    ws = script.workspace_id
+    bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
+    n = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
+    calls = len(clip_prompts.batches(bd)) if bd else math.ceil(n / clip_prompts.BATCH_CLIPS)
+    slot = ScriptCastSlot
+    uncast = select(func.count()).where(slot.script_id == script.id, slot.library_item_id.is_(None))
+    claude = _claude(db, ws) * ((0 if bd else 1) + 1 + calls)
+    return (
+        claude
+        + _still(db, ws) * n
+        + look_usual(db, ws) * db.scalar(uncast)
+        + _video(db, ws, seconds)
+    )
 
 
 def _stages(db: Session, project: Project) -> list[StageOut]:
@@ -73,7 +98,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     clips = [c for c in clips if bd and c.breakdown_id == bd.id]
     planned = bd.data["clips"] if bd_ok else []
     n_clips = len(planned) or math.ceil(project.estimate_credits / CLIP_SECONDS_GUESS)
-    claude, still = _claude(db, project), _still(db, project)
+    claude, still = _claude(db, project.workspace_id), _still(db, project.workspace_id)
 
     stills_left = (len([f for f in frames if not f.file_id]) if frames else n_clips) * still
     storyboard_done = bool(frames) and all(f.file_id for f in frames)
@@ -100,7 +125,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
         (
             "clips",
             clips_done,
-            _video(db, project, seconds_left),
+            _video(db, project.workspace_id, seconds_left),
             f"{seconds_left} s of video at 480p, one take each",
         ),
         ("video", False, Decimal(0), "putting the clips together is free"),

@@ -21,6 +21,7 @@ from app.models.scripts import Suggestion
 from app.purge import PURGE_AFTER
 from app.reel import reel_link
 from app.routes.brands import get_brand
+from app.routes.estimate import version_cost
 from app.routes.jobs import stop_jobs
 from app.routes.references import catalogue
 from app.routes.references import find as find_reference
@@ -103,7 +104,7 @@ class VersionOut(VersionSummary):
     has_breakdown: bool
     approved_at: UtcTime | None
     variation_of: str | None = None  # "A": a variation of the original; null for the original
-    estimate_credits: float = 0  # to make it: 1 credit a second (480p), from its length
+    estimate_credits: float = 0  # to make it, every step included: estimate.version_cost
     clips: int = 0  # in the saved breakdown
     planned_by: Person | None = None  # who saved the breakdown
 
@@ -185,7 +186,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         has_breakdown=draft.breakdown is not None,
         approved_at=draft.approved_at,
         variation_of="A" if draft.slot else None,
-        estimate_credits=lib.seconds(draft),
+        estimate_credits=float(version_cost(db, draft)),
         clips=len((draft.breakdown or {}).get("clips", [])),
         planned_by=_person(db, draft.breakdown_by_id) if draft.breakdown else None,
     )

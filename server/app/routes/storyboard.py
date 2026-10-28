@@ -20,7 +20,7 @@ from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.scripts import latest
-from app.schemas import LongText
+from app.schemas import PromptText
 from app.sheets import require_looks
 
 router = APIRouter(prefix="/projects/{project_id}/storyboard", tags=["storyboard"])
@@ -32,7 +32,7 @@ class StoryboardIn(BaseModel):
 
 
 class FrameIn(BaseModel):
-    prompt: LongText
+    prompt: PromptText
     reference_ids: list[str] = Field(max_length=30)
 
 
