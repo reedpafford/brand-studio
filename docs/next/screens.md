@@ -109,7 +109,7 @@ The first step of a song script. Header, step picker, Back/Next as the Script st
 | **Allowance** | Editor's own script over the week: amber **Make 2 takes** (or **Make 2 more**) disabled, reason "That's more than this week's 145 credits. It resets on Monday." Reed: plain button. | With takes already made: **Next: Cast** with the takes there. With none: **Back to Song** (the lyrics stay saved; the takes can be made from Monday). |
 | **Published** (the script) | Players only, no Make. The Preferred take here is the default each new video starts from. | **Next: Cast**. |
 
-- Deleting a take: in the card's "…" menu, **Delete take**, with Undo. The Preferred one can't be deleted while it's Preferred ("Make another take Preferred first"), nor can the take a breakdown was timed to ("The breakdown is timed to this take. Make the breakdown again first."), so S5's **Go back to Take 1** always works.
+- Deleting a take: in the card's "…" menu, **Delete take**, with Undo. The Preferred one can't be deleted while it's Preferred ("Make another take Preferred first"), nor can the take a breakdown was timed to ("The breakdown is timed to this take. Make the breakdown again first."), nor can a take any video is using ("A video uses this take."), so S5's **Go back to Take 1** and every video's song always work. The ways on are in the reason: make another take Preferred, or leave it.
 
 ### S3e. The song inside an editor's video (Producer's rule-31 ruling)
 Lyrics are final at publish. The Preferred take, Sung/B-roll, re-timing and new takes are the editor's choices **per video**; the script and other videos never change.
