@@ -3496,7 +3496,7 @@ export interface paths {
         put?: never;
         /**
          * Make Songs
-         * @description Make 2 takes (or 1) of the version's lyrics in its style line.
+         * @description Make 2 takes (one request) of the version's lyrics in its style line.
          */
         post: operations["make_songs_scripts__script_id__drafts__slot__songs_post"];
         delete?: never;
@@ -5876,15 +5876,6 @@ export interface components {
             after: string;
             frame: components["schemas"]["FrameOut"];
         };
-        /** SongMakeIn */
-        SongMakeIn: {
-            /**
-             * Count
-             * @default 2
-             * @enum {integer}
-             */
-            count: 1 | 2;
-        };
         /** SongPreferredOut */
         SongPreferredOut: {
             take: components["schemas"]["SongTakeOut"];
@@ -5927,8 +5918,6 @@ export interface components {
         SongsOut: {
             /** Songs On */
             songs_on: boolean;
-            /** Take Credits */
-            take_credits: number;
             /** Estimate Credits */
             estimate_credits: number;
             /** Takes */
@@ -13767,11 +13756,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SongMakeIn"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             201: {

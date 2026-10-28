@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app import music, song_takes
 from app import script_library as lib
+from app import song_takes
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -41,13 +41,8 @@ class SongTakeOut(BaseModel):
 
 class SongsOut(BaseModel):
     songs_on: bool  # false: this server makes no songs (say so, don't offer Make)
-    take_credits: float  # one take
-    estimate_credits: float  # "Make 2 takes"
+    estimate_credits: float  # "Make 2 takes" (one request)
     takes: list[SongTakeOut]
-
-
-class SongMakeIn(BaseModel):
-    count: Literal[1, 2] = 2
 
 
 class SongPreferredOut(BaseModel):
@@ -56,8 +51,8 @@ class SongPreferredOut(BaseModel):
 
 
 def songs_on(request: Request) -> bool:
-    settings = request.app.state.settings
-    return bool(settings.generation_enabled or settings.fake_providers)
+    """Only the stand-ins make songs until Suno is connected (app/music.py)."""
+    return bool(request.app.state.settings.fake_providers)
 
 
 def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
@@ -91,8 +86,7 @@ def _song(db: Session, user: User, script_id: int, slot: int, edit: bool) -> Scr
 def _songs(request: Request, db: Session, user: User, draft: ScriptDraft) -> SongsOut:
     return SongsOut(
         songs_on=songs_on(request),
-        take_credits=float(song_takes.price(db, user, 1)),
-        estimate_credits=float(song_takes.price(db, user, music.TAKES)),
+        estimate_credits=float(song_takes.price(db, user)),
         takes=[_take_out(db, t, draft) for t in song_takes.takes(db, draft)],
     )
 
@@ -112,16 +106,15 @@ def list_songs(
 def make_songs(
     script_id: int,
     slot: Slot,
-    body: SongMakeIn,
     request: Request,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Make 2 takes (or 1) of the version's lyrics in its style line."""
+    """Make 2 takes (one request) of the version's lyrics in its style line."""
     if not songs_on(request):
         raise HTTPException(503, SONGS_OFF)
     draft = _song(db, user, script_id, slot, edit=True)
-    song_takes.make(db, user, draft, body.count)
+    song_takes.make(db, user, draft)
     return _songs(request, db, user, draft)
 
 
