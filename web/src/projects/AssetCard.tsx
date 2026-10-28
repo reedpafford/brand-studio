@@ -189,7 +189,7 @@ export function AssetCard({
 
   return (
     <section aria-label={title}>
-      <Card className="flex gap-4 sm:flex-col">
+      <Card className="flex flex-wrap gap-4 sm:flex-col">
         <div className="w-24 shrink-0 sm:w-full">
           {sheet ? (
             <img
@@ -346,9 +346,6 @@ export function AssetCard({
               )}
             </div>
           )}
-          {asset.slot_id != null && !asset.locked && asset.sheet_status === "approved" && (
-            <RoleTextFit key={asset.text_fit?.description ?? ""} asset={asset} projectId={projectId} stopFor={stopFor} onDone={refresh} />
-          )}
           {using && !asset.locked && (
             <div className="space-y-2">
               {asset.sheet_status === "needs_approval" && (
@@ -379,6 +376,10 @@ export function AssetCard({
             </p>
           )}
         </div>
+        {/* Its own row under the picture and the words, the card's full width on a phone. */}
+        {asset.slot_id != null && !asset.locked && asset.sheet_status === "approved" && (
+          <RoleTextFit key={asset.text_fit?.description ?? ""} asset={asset} projectId={projectId} stopFor={stopFor} onDone={refresh} />
+        )}
       </Card>
     </section>
   );

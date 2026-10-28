@@ -67,6 +67,8 @@ for (const width of [1440, 390]) {
       const update = page.getByRole("button", { name: "Update to match" });
       await expect(update).toBeVisible();
       expect((await update.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      // Its own row: the card's full width on a phone, not the text column beside the picture (QA-2 on #720).
+      expect((await page.getByRole("note", { name: /Role words for/ }).boundingBox())!.width).toBeGreaterThan(300);
       await expect(page.getByLabel("How this video describes them")).toHaveValue("A stocky French bulldog, the narrator");
       expect((await page.getByRole("button", { name: "Update the script's role too" }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
       const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
