@@ -87,3 +87,26 @@ Reed's picks: the goth waitress = **Goth GF 2** (a new Cast & places character m
 6. **"Change this…" on a clip with no take only rewrites the prompt,** and the editor must press Make clip. It charged 0.48 credits against 3 quoted.
 7. **Prices quoted vs charged:** "About 55 credits to make" against 99 charged; clip prompts quoted 18 and charged 9.09.
 8. **"Make storyboard" now draws all the stills by itself,** so the "Make all stills" button disappears.
+
+## Run 3: three videos from reel Dcwkj6NSO7r (2026-10-28, QA Owner, $22.08 of a $35 cap)
+Script 37. A was adapted to Reed's brief by hand (TJR → Kimchi; the turn is Kimchi showing him fomo; real trading in fomo; "Teach me!"; the double CTA). B and C are variations with the same flow: B at the campus gym, C at a family holiday dinner. Kimchi is locked from Cast & places. Videos: #27 A classroom (56.3 s), #28 B gym (54.3 s), #29 C family dinner (56.3 s).
+
+**Worked:**
+- **Continuity (#686):** each video is 4 clips split by scene (mocked → Kimchi shows fomo → trading → payoff and CTA), with no abrupt scene endings.
+- **The trading montage shows the act of trading (#669):** scrolling the coin list, tapping Buy, the face lit red then green by the screen, over-the-shoulder phone shots. B makes it a gym routine (buying between sets, push-ups on a red day, Kimchi spotting).
+- **The fomo word on invented screens (#666):** A shows the icon plus "fomo" correctly. B and C show only the icon (B on a white app theme). Numbers climb with one dip.
+- **The payoff and CTA use the real Home screen.** "Teach me!" holds on the bully's or uncle's begging face. The double CTA plays in all three: a close-up line to camera, then a cut to the phone held up to the lens.
+- **Faces hold:** the Student (same look in all three), Kimchi, and the classmate, gym bro, uncle and cousin.
+- **All 12 takes are in English, all 12 succeeded first time, and there were no copyright refusals.**
+- **Estimates now cover the cost:** about 70 credits charged per video against 86 shown; clip prompts 5.3 each against 12 quoted.
+
+**Findings:**
+1. **The payoff number doesn't match the script.** The real Home (rich) screenshot reads $348,920.15 when shown to the class or family, while the script and the earlier invented screens say $14,800. The breakdown also gives Advice: "the payoff reads under $100,000; make it clearly large".
+2. **A false block on A's clip 4:** "Shot 4.7's line isn't there once, word for word". "Teach me!" was in the shot and also quoted in the Summary line, so it counted twice. The free "Fix this clip's prompt" cleared it.
+3. **The reel check marks every reel line "changed or missing"** (Advice), even unchanged ones, because it compares against the reel's raw transcript chunks, which cut across lines.
+4. **The cast read after variations stored "version 1 doesn't exist; edit or regenerate"** for every role (a timing bug: the read ran before the versions were saved), and "two slots are called The; merge them". The Cast screen doesn't show them and nothing blocked.
+5. **"Keep each one to about 45 seconds"** in the variations note was ignored (60 s each). The breakdowns came out at 53–54 s.
+6. **Assets lists every role of the script in each video** (the gym bro and uncle show as "missing" in A), and Approve all lists them as skipped.
+7. **The camera swap at the CTA reads as a cut** from a close-up to a medium shot with the phone held up, not a front-camera (selfie) flip.
+8. **The video titles are the reel's caption with hashtags** ("Based on a True Story #business #daytrading #entrepreneur").
+9. **Clip prompts for three videos ran one after another** (about 3.5 min each), not in parallel.
