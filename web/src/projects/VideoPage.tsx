@@ -7,6 +7,7 @@ import { useMe } from "../auth/useMe";
 import { Banner, Button, Skeleton, StepPicker } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
+import { useFreshProject } from "./useFreshProject";
 import { AssetsPane, useAssets } from "./AssetsPane";
 import { notInShots } from "./AssetCard";
 import { BreakdownPane } from "./BreakdownPane";
@@ -37,6 +38,7 @@ export function VideoPage() {
   const navigate = useNavigate();
   const mayManage = useMayManageVideo();
   const video = useVideoActions(() => navigate(`/b/${brandId}/scripts`));
+  useFreshProject(id);
   const project = useQuery({
     queryKey: ["project", id],
     queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,

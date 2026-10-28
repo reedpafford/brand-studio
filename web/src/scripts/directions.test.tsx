@@ -127,6 +127,7 @@ test("Next with accepted directions not added asks once, and Stay keeps you here
   await screen.findByText(/Slow push-in on Mia's face\./);
   await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
   expect(await screen.findByRole("alertdialog", { name: "Leave without adding 2 directions?" })).toBeInTheDocument();
+  expect(screen.getByText("They stay accepted but are not added to the script. Leaving doesn't add them.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Stay" }));
   expect(screen.getByRole("button", { name: "Add 2 directions" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));

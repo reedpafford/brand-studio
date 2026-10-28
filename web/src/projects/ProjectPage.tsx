@@ -18,6 +18,7 @@ import { ScriptPanel } from "./ScriptPanel";
 import { ScriptTab } from "./ScriptTab";
 import { StoryboardPane } from "./StoryboardPane";
 import { STEPS, firstUnfinished, lockReason, nextOf, stepFromParams, stepStates, type StepId } from "./steps";
+import { useFreshProject } from "./useFreshProject";
 import { useProgress } from "./useProgress";
 
 /** One video: header with the credits, six steps, the step's work, one Next button, and the Script on demand. */
@@ -37,6 +38,7 @@ export function ProjectPage() {
   const [dirty, setDirty] = useState(false); // unsaved edits in Shots
   const [editingBrief, setEditingBrief] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
+  useFreshProject(id);
   const project = useQuery({
     queryKey: ["project", id],
     queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,

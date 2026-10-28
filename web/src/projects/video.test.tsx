@@ -995,3 +995,16 @@ test("no 'Prompt updated' line once a take exists", async () => {
   await screen.findByLabelText("Clip c1");
   expect(screen.queryByText(/Prompt updated/)).toBeNull();
 });
+
+test("the credits meter follows the video's jobs: when one finishes, the project is read again", async () => {
+  setViewport(1440);
+  let done = false;
+  const routes = { ...toClips } as Record<string, [number, unknown]>;
+  Object.defineProperty(routes, "GET /projects/9", { enumerable: true, get: () => [200, { ...project, credits_used: done ? 13 : 3, budget_credits: 24, budget_pct: done ? 54 : 12 }] });
+  Object.defineProperty(routes, "GET /jobs", { enumerable: true, get: () => [200, [{ id: 1, kind: "image", status: done ? "succeeded" : "running", project_id: 9, step: "frame", created_at: new Date().toISOString() }]] });
+  fakeServer(routes);
+  open("?step=clips");
+  expect(await screen.findByText(/^3 \/ 24 credits/)).toBeInTheDocument();
+  done = true; // the job finishes; the job list polls while it runs
+  expect(await screen.findByText(/^13 \/ 24 credits/, {}, { timeout: 8000 })).toBeInTheDocument();
+}, 20000);

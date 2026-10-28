@@ -181,7 +181,7 @@ export function ScriptFlowPage() {
         )}
       </div>
       {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
-      {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They are accepted but not in the script yet. Leaving drops them." } : null)} onEditWords={() => go("script")} />}
+      {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They stay accepted but are not added to the script. Leaving doesn't add them." } : null)} onEditWords={() => go("script")} />}
       {step === "variations" && <VariationsStep script={s} own={mine} />}
       {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
       {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
