@@ -214,3 +214,40 @@ def test_a_claude_check_sees_its_picture(app, db, editor):
     assert content[1]["text"] == "Does it fit?"
     assert content[0]["source"]["type"] == "base64"
     assert db.get(Job, job.id).status == "succeeded"
+
+
+def test_a_job_running_past_its_time_limit_fails_plainly_uncharged_and_is_cancelled(db, user):
+    """Producer, 2026-10-28: a running job had no time limit, so "Drawing…" could last
+    forever with nothing coming back. Past it, the job is cancelled at the provider and fails
+    like any failure, said plainly; a failed job isn't counted against anyone's credits."""
+    from datetime import timedelta
+
+    from app.credits import COUNTED
+    from app.worker import LIMITS
+
+    fake = FakeProvider(polls_until_done=10**6)  # says "running" for ever
+    cancelled = []
+    fake.cancel = cancelled.append
+    job = enqueue(db, user, "image", {})
+    _run(db, fake, job)
+    assert _run(db, fake, job).status == JobStatus.running  # within its limit
+    job.started_at -= LIMITS["image"] + timedelta(minutes=1)
+    db.commit()
+    fake.network_errors_on_poll = 1  # checking failing counts too
+    assert _run(db, fake, job).status == JobStatus.failed
+    assert (
+        job.error == "The image service didn't finish this in time. Nothing was charged; try again."
+    )
+    assert cancelled == [job.provider_ref] and job.status not in COUNTED
+
+
+def test_a_job_waiting_a_while_to_start_says_why_plainly(db, user, owner):
+    from datetime import timedelta
+
+    from app.routes.jobs import WAITING
+
+    job = enqueue(db, user, "image", {})
+    assert owner.get(f"/jobs/{job.id}").json()["waiting"] == ""  # just asked
+    job.created_at -= timedelta(minutes=11)
+    db.commit()
+    assert owner.get(f"/jobs/{job.id}").json()["waiting"] == WAITING

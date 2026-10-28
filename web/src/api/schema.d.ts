@@ -4486,6 +4486,11 @@ export interface components {
              * @default
              */
             created_by_name: string;
+            /**
+             * Waiting
+             * @default
+             */
+            waiting: string;
             /** Approved By Id */
             approved_by_id: number | null;
             /** Provider */
@@ -4558,6 +4563,11 @@ export interface components {
              * @default
              */
             created_by_name: string;
+            /**
+             * Waiting
+             * @default
+             */
+            waiting: string;
         };
         /**
          * JobStatus
