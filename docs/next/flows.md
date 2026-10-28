@@ -413,7 +413,7 @@ A small **Video settings** row at the top of every video and on "Make this versi
 | P | The row collapses to one line "Settings: House · Auto…"; tapping opens a sheet with the four pickers. | — |
 | U | Undo after a switch. Switching back makes the old takes current again (they were kept). | — |
 | S | Model or style switch: later stills or clips "Out of date". | — |
-| Language (proposed, waiting on Reed) | A video follows its script's language, shown read only in Video settings: "Spanish (from the script)". The language is chosen when the script is written. To make another language, the owner presses **Make a copy in another language** on the script: a new, unpublished, translated script for the owner to review and publish (rule 19 holds: the published words never change). | — |
+| Language (Reed, 2026-10-28) | A video follows its script's language, shown read only in Video settings: "Spanish (from the script)". The language is chosen when the script is written. To make another language, the owner presses **Make a copy in another language** on the script: a new, unpublished, translated script for the owner to review and publish (rule 19 holds: the published words never change). | — |
 
 **Language:** the script is written in the chosen language, every spoken line in a clip prompt says "in Spanish", and the English-only checks follow the language. Each language is switched on only after a sample test.
 
@@ -475,4 +475,3 @@ The Designer draws it first (on the Screening room direction Reed picked); Reed 
 1. **The music price.** The free price check of MiniMax Music comes first (spec step 0); until then the buttons show the model catalogue's price, and the test site runs on the free stand-in.
 2. **Lip-sync without a first frame** is the spec's biggest risk. The one paid 15-second test (spec step 0) decides whether Sung shots ship as designed, or fall back to "the Singer sings in B-roll style" (picture only, no lip-sync).
 3. **Reel import of song ads** is left out (S1). Say if Reed wants it in this item.
-4. **Language** (VS1): written as the Producer proposed, waiting on Reed's answer.
