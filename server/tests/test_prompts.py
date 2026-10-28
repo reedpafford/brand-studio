@@ -1216,6 +1216,10 @@ def test_a_requested_length_is_what_the_variations_length_advice_checks():
     words = check.spoken_words(v.script)
     assert check.asked_seconds("Make it about 45 s, punchier") == 45
     assert check.asked_seconds("a 1 minute cut") == 60 and check.asked_seconds("funnier") is None
+    assert check.asked_seconds("about 1.5 minutes") == 90  # QA on #700
+    assert check.asked_seconds("a 90s style, funnier") is None
+    assert check.asked_seconds("keep the 10 s montage but make it 30 seconds") == 30
+    assert check.asked_seconds("make it 45s") == 45
     fits = round(words / 2)  # seconds this variation's words fit
     ok = check.variations(original, result, {}, end, [], 1, [], "fomo", note=f"about {fits} s")
     assert not [p for p in ok if "spoken words" in p or "words in all" in p]

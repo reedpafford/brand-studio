@@ -501,13 +501,21 @@ STAR = re.compile(r"^★ .*?(?:screen|product): (.+?)(?: — .*)?$")  # "★ fom
 LOOSE = re.compile(r"^(#|\*\*|- |\* |Title:|Premise:|Variation )")  # markdown, not house format
 
 
+LENGTH = re.compile(  # "45 s", "45s", "30 seconds", "1.5 minutes"; never a decade ("a 90s style")
+    r"(\d+(?:\.\d+)?)\s*(?:(s|secs?|seconds)|(mins?|minutes?))\b"
+    r"(?!\s+(?:style|vibe|look|era|music|aesthetic|throwback)\b)",
+    re.I,
+)
+
+
 def asked_seconds(note: str) -> int | None:
-    """The length a variations note asks for, in seconds ("about 45 s", "1 minute"), or None."""
-    if m := re.search(r"(\d+)\s*(?:s|secs?|seconds)\b", note, re.I):
-        return int(m[1])
-    if m := re.search(r"(\d+)\s*(?:mins?|minutes?)\b", note, re.I):
-        return int(m[1]) * 60
-    return None
+    """The length a variations note asks for, in seconds: the last one it names ("keep the 10 s
+    montage but make it 30 seconds" is 30), or None."""
+    found = list(LENGTH.finditer(note))
+    if not found:
+        return None
+    m = found[-1]
+    return round(float(m[1]) * (60 if m[3] else 1))
 
 
 def variations(
