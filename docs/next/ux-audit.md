@@ -801,7 +801,12 @@ Owner and editor differ by rule 4 only in money (Reed sees $ in Approvals and Us
 
 ## Test site walk
 
-**Pending.** Next-Lead will share the test site's address. Then I'll walk it as owner and editor at 390 and 1280, and add the findings here, with screenshots in `ux-audit-shots/`.
+**Blocked from this session.** The test site is up at `https://srv2091584.hstgr.cloud:8443` (Next-Lead, 2026-10-28; its own health check passed), on the free stand-ins. This cloud session can't reach port 8443: the connection is reset by the session's network proxy, not by the site. It also has no owner account until Reed runs his invite.
+
+Until then, §1.8 stands in: the same `next` code, run locally on the same stand-ins. To finish the walk, one of these:
+- the session's network access allows `srv2091584.hstgr.cloud:8443`;
+- a teammate who can reach the site runs the walk script in `ux-audit-shots/NOTES.md` against it;
+- Reed or QA-Live walks it with this audit's §1.7 and §1.8 as the checklist.
 
 ## Questions
 
