@@ -1199,3 +1199,12 @@ def test_no_numeric_rhythm_rules_are_left():
         text = prompts.system(step)
         for gone in ("every 1–3 s", "about 2 s of the real brand element", "by about 5 s"):
             assert gone not in text, (step, gone)
+
+
+def test_a_camera_swap_is_staged_as_one():
+    """Reed, QA-Live Run 3: the double CTA's camera swap read as a cut, not a flip."""
+    assert "a whip pan or a flip into a front-facing selfie angle" in prompts.system("breakdown")
+    clip = prompts.system("clip_prompts")
+    assert "Whip pan into a front-facing selfie angle" in clip
+    assert "never a plain cut to him holding the phone up" in clip
+    assert "the bag for a product brand" in prompts.system("breakdown")  # brand-generic
