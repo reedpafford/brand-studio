@@ -14,7 +14,7 @@ A state passes only if the person sees what's happening and has one press that m
 | S1 | New script: Song | ✅ | ✅ | #759 at 5698de50 |
 | S2 | Lyrics and style (word count, cap, end-line Advice) | ✅ save, edit-with-takes confirm | ✅ | #759 at 5698de50 (word count, cap and end-line Advice not built) |
 | S3 | Write 2 song directions | ⬜ | ⬜ | — |
-| S4 | Make the song: takes, Preferred, timing | ❌ 2 states | ❌ 2 states | #759 at 5698de50 (UI); #748 (API) |
+| S4 | Make the song: takes, Preferred, timing | ✅ (too long not built) | ✅ (too long not built) | #759 at 19bbca56 (UI); #748 at 317efac0 (API) |
 | S5 | Cast: who sings | ⬜ | ⬜ | — |
 | S6 | Breakdown preview (owner) | ⬜ | ⬜ | — |
 | S7 | Publish | ⬜ | API: ✅ takes read-only once published | #748 at 9a44a675 (API) |
@@ -49,15 +49,13 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
-| S4 | Too long (after): an 800 s take comes back ready and Preferred | Can't be Preferred, with the reason; **Use the first N:NN** | #748 at 9a44a675 |
+| S4 | Too long (after): an 800 s take comes back ready and Preferred. Not built yet: comes with the song breakdown (#748's body says so) | Can't be Preferred, with the reason; **Use the first N:NN** | #748 (not built) |
 | S7 | A song script with no take can be published; its videos get no song and no way to get one | 409 "Make the song first" | #750 at b4ef028e |
 | V2a | An over-cap take can become the video's song | 409 "Too long for this video" + **Use the first N:NN** | #750 at b4ef028e |
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | Clips (story videos) | The new "Songs" paragraph is in clip_prompts.md, so every story video's clip-prompt text grows and the cache resets once | A song-only extension (EXTENDS) | #755 at 3a72323e |
 | V2 | The `[Lip-sync]` Advice fires on an editor's own Sung flips, telling them to edit final lyrics | Check only when the breakdown is written | #755 at 3a72323e |
 | S4 | Adding or removing a `[Lip-sync]` mark dates every take (whole-text compare) | Compare sung lines only | #748 vs #755 |
-| S4 S (UI) | After the lyrics change, every take sings older words but **Next: Cast** stays enabled (gated on a stale `preferred`) | Gate on `preferred && !out_of_date` | #759 at 5698de50 |
-| S4 X (UI) | A refused song offers only "Try again", which sends the same words again | **Edit lyrics** / **Edit style** (or **Use the brand's style instead**) | #759 at 5698de50 |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
@@ -92,3 +90,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-28 | #759 at 5698de50 (song screens S1, S2, S4) | Playwright at 1440 and 390: failed, refused, Advice, leave and return, delete guard, delete + Undo, lyrics-edit confirm, sideways scroll; plus the PR's song.e2e | FAIL: Next after the lyrics change, refused has no way on; 7 states pass |
 | 2026-10-28 | #748 at 317efac0 (Suno) | 8 API walk cases | 6 pass (delete guard fixed); too long (after) still open |
 | 2026-10-28 | #742 at c1f7ec80, #759 at 51f0e518 | Suno limits and per-request price | PASS; #759's two walk findings still open |
+| 2026-10-28 | #759 at 19bbca56 | Playwright at 1440 and 390, 6 walk cases + song.e2e | PASS |
