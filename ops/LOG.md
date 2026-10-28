@@ -1,4 +1,11 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 20:26 · #720 Assets: a role whose words contradict its approved look says so, with Update to match merged
+- 2026-10-28 20:25 · #721 Research: Starpop comparison, our side (Phase 1) merged
+- 2026-10-28 20:16 · #715, #716, #717 A role's words follow its approved look; Director asks a clip prompt run's parts at the same time (up to 4); the owner can still edit a published script's title, about and notes, merged
+- 2026-10-28 20:04 · Decision (#719, Reed): study Starpop and build a combined studio as a separate test site (own database, three phases with Reed's check-in after each); budget up to 75% of the credit balance at the start; Researcher added to ops/AGENTS.md merged
+- 2026-10-28 19:54 · Decision (#718): rule 31 covers role words that match an approved look; an editor updates that video's own look, only the owner changes the script's role words merged
+- 2026-10-28 19:53 · #713 Director: an approved sheet beats the role text in stills and clips (rule 10) merged
+- 2026-10-28 19:40 · #714 ops: HANDOFF/LOG refresh as of 25f3f3d merged (by the Producer)
 - 2026-10-28 19:34 · #711 e2e: the 390 Clips check stops its mock without failing a poll in flight merged
 - 2026-10-28 19:30 · Decision (#712, Reed): after publishing, a script's lines, cast and breakdown are final; only the owner may edit its title, about and notes (Current rules 31) merged
 - 2026-10-28 19:28 · #707 Reed's c4: a clip prompt's format problems are fixed in code, never by Claude merged
