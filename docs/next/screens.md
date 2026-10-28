@@ -20,10 +20,11 @@ Ids below are the flows' (S1–S7 owner, V1–V6 editor).
 - Reuses `NewScriptButton` (one draft per press, double-tap safe) and `Menu` / `Sheet`.
 - Library: a **Song** badge (in words) on song cards and a **Song** filter chip beside the existing filters.
 
-## S2. Lyrics (and style)
-- The writing frame is `ScriptFlowPage` with a step list per kind: song scripts show **Lyrics · Song · Cast · Breakdown · Publish**; Directions and Variations are not in the picker.
-- **Lyrics** box: Courier Prime, grows with its text; counter "0 / 3,500" and the live "About 30 s sung · 75 words" under it. At 390 the word count stays visible above the action bar.
+## S2. Song: lyrics and style
+- The writing frame is `ScriptFlowPage` with a step list per kind: song scripts show **Song · Takes · Cast · Breakdown · Publish**; Directions and Variations are not in the picker.
+- **Lyrics** box: today's Script-step editor (explicit **Save lyrics** / **Discard changes**, words kept for the tab, leaving asks once), Courier Prime, grows with its text; counter "0 / 3,500" and the live "About 30 s sung · 75 words" under it. At 390 the word count stays visible above the action bar.
 - **Style** box: grows as it wraps (one line to start, up to 4 at 390, then scrolls inside itself); counter "0 / 2,000"; placeholder "pop, female lead, 120 BPM, upbeat, modern polished".
+- Saved: the lyrics read only (Courier Prime) with a "Sung word for word" badge and **Edit lyrics** (secondary); with takes, Edit lyrics asks first (the flows' wording).
 - Over 3,500 characters: the counter says "Cut 120 characters"; the words stay in the box; saving waits until it fits.
 - Advice (long style, long song, no end line) uses today's Advice list look, closed by default, each with its free button (**Shorten it**, **Sing the end line**, **Speak it over the end**). A spoken end line shows as one row under the boxes with **Edit** and **Remove**.
 - **Write 2 song directions for me · about 3 credits** is secondary, under the boxes.
@@ -48,7 +49,8 @@ Ids below are the flows' (S1–S7 owner, V1–V6 editor).
 
 - Only one take plays at a time (starting one pauses the other).
 - The waveform never decodes audio in the browser: it draws the server's 200 peaks.
-- A take whose timing failed with `retry_helps: false` shows no Try again; its card leads with the other take or **Make 2 more · 3 credits**.
+- A take whose timing failed leads with **Use timing spread evenly** (free) or **Make this Preferred** on the other take; **Try again** (free) is secondary, and hidden when `retry_helps` is false.
+- **Make this Preferred** is disabled with its reason while a take's timing is still being read, or when it sings older words.
 - V2a in the editor's Breakdown: a one-row strip (play, "Song: take 2 · 0:31", **Change song** secondary). **Change song** opens a side panel on desktop and a full-screen sheet with a 44px **Close** at 390, holding the same take cards; the current one is marked **In this video**.
 
 ## S5. Cast: the Singer card
@@ -73,7 +75,7 @@ Ids below are the flows' (S1–S7 owner, V1–V6 editor).
 - Takes play with their song stretch under them (in the browser, free), with a **Song on / off** toggle (44px) per player.
 
 ## V6. Downloads
-- Layout as today; the zip line reads "Download all clips (.zip) · includes the song". A spoken end line shows as "Spoken at the end: '…'".
+- Layout as today plus "Song: take 2, laid under the whole video" and **Download the song** (secondary) beside **Download MP4**. A spoken end line shows as "Spoken at the end: '…'".
 
 ## Fields (agreed with Next-Server; the tables are in `docs/next/data.md`)
 | Where | Field |
