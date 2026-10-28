@@ -12,12 +12,12 @@ A state passes only if the person sees what's happening and has one press that m
 | Id | Flow | 390 | Desktop | Last checked |
 |---|---|---|---|---|
 | S1 | New script: Song | ⬜ | ⬜ | — |
-| S2 | Lyrics and style (word count, cap, end-line Advice) | ⬜ | ⬜ | — |
+| S2 | Lyrics and style (word count, cap, end-line Advice) | ⬜ | API: ✅ empty style, no lyrics → 422 | #748 at 9a44a675 (API) |
 | S3 | Write 2 song directions | ⬜ | ⬜ | — |
-| S4 | Make the song: takes, Preferred, timing | ⬜ | ⬜ | — |
+| S4 | Make the song: takes, Preferred, timing | ⬜ | API: ❌ 3 states (see Open failures) | #748 at 9a44a675 (API, no screen yet) |
 | S5 | Cast: who sings | ⬜ | ⬜ | — |
 | S6 | Breakdown preview (owner) | ⬜ | ⬜ | — |
-| S7 | Publish | ⬜ | ⬜ | — |
+| S7 | Publish | ⬜ | API: ✅ takes read-only once published | #748 at 9a44a675 (API) |
 | V2a | The video's own song (editor: Change song, Make 2 more; rule 31) | ⬜ | ⬜ | — |
 | V1 | Make this version | ⬜ | ⬜ | — |
 | V2 | Breakdown on the song (Sung / B-roll, split, join) | ⬜ | ⬜ | — |
@@ -52,6 +52,9 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 Advice "sung twice" | `times_sung` is 2 on a perfect take when the chorus is written twice in the lyrics, so false Advice on most songs | Compare against how often the line is written; add a test with a repeated chorus | #746 at 8d85af53 |
 | S4 X, in a video (V2a) | The REFUSED text says "Change those words", but in a video the lyrics are final | Wording by context, or neutral, with the press left to the screen | #746 at 8d85af53 |
 | S4 | A take over 900 s says its file can't be read | "Too long to use" | #746 at 8d85af53 |
+| S4 U | Deleting the Preferred take succeeds and hands the mark on; if the other sings older words, nothing is Preferred | 409 "Make another take Preferred first" | #748 at 9a44a675 |
+| S4 | Too long (after): an 800 s take comes back ready and Preferred | Can't be Preferred, with the reason; **Use the first N:NN** | #748 at 9a44a675 |
+| S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -72,3 +75,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-28 | #740 at e7fad772 | S1–S7, V1–V6, V2a on paper | PASS |
 | 2026-10-28 | #743 at 05ef4860 | ST, BR, VS, OR, layout on paper | PASS (one wording note on the VS1 confirm) |
 | 2026-10-28 | #746 at 8d85af53 (music stand-in, timing) | every `fake:` marker through make → time → message | FAIL: false "sung twice" on a repeated chorus |
+| 2026-10-28 | #748 at 9a44a675 (song-take routes) | S2, S4, S7 through the API: 8 walk cases on the stand-ins | FAIL: delete guard, sung twice, too long (after); 5 states pass |
