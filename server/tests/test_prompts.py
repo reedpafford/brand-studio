@@ -1138,7 +1138,7 @@ def test_a_montages_invented_trading_screens_climb():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")  # c2: -$380, then +$420, then +$48,000
     clip = cp.clips[0]
-    assert "[Image4] is the fomo logo." in clip.prompt
+    assert "[Image4] is the fomo logo: the word fomo in lowercase." in clip.prompt
     assert clip.prompt.count("an invented trading screen in the fomo style") == 3
     assert "layout exactly" not in clip.prompt  # never for an invented screen (rule 14)
     clip.prompt = clip.prompt.replace("+$48,000", "+$300")
@@ -1205,6 +1205,17 @@ def test_a_role_says_its_age_gender_and_job_and_its_sheet_fits_the_part():
     assert "starts with who they are: an age range, a gender and a role or job" in (
         prompts.system("cast_slots")
     )
+
+
+def test_the_grind_shows_trading_and_phone_beats_play_for_drama():
+    # Reed, after video #17: no tapping in fomo, and phones held up flat to the viewer
+    assert "**Show the trading.** For a trading app (fomo)" in prompts.system("breakdown")
+    for step in ("breakdown", "clip_prompts", "storyboard"):
+        assert "a phone held up flat to" in prompts.system(step), step
+        assert "screen's glow" in prompts.system(step), step
+    assert "for a trading app, the trading itself" in prompts.system("script_draft")
+    _, cp = example("clip_prompts")
+    assert "Malik's thumb scrolls the coin list and taps Buy" in cp.clips[0].prompt
 
 
 def test_the_app_bridge_is_only_for_an_app_brand():
