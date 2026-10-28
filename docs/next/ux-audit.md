@@ -6,7 +6,7 @@ Reed asked (2026-10-28): *"explore reworking the order and look of our current f
 
 So this is a **re-layout and re-wording**, not new logic. Every rule stays as it is, in particular rule 4 (editors see credits, never dollars), 18 (the end line is Advice), 22 (no dead ends), 26 (lean code), 29 (one scene or action per clip) and 31 (a published script is final). Where a fix needs the server, it says so and goes to Next-Server.
 
-**Sources:** the web app on `next` (`web/src`, read page by page); QA-Live's runs (`docs/qa/live-run-2026-10-27/README.md` on branch `qa/kel-faces-2026-10-27`, runs 1–3); the Starpop study (`docs/research/starpop-2026-10-28/`); `docs/next/flows.md` and `data.md` (Next-Lead, branch `agent/next-lead/flows-2`); `docs/next/screens.md`; the design rules in `docs/design/redesign/phase3/README.md`; and Reed's issues today (#725, #726, #728, #730). Screenshots from a free local walk (stand-ins, `BS_FAKE_PROVIDERS`) are in [`ux-audit-shots/`](ux-audit-shots/).
+**Sources:** the web app on `next` (`web/src`, read page by page); QA-Live's runs (`docs/qa/live-run-2026-10-27/README.md` on branch `qa/kel-faces-2026-10-27`, runs 1–3); the Starpop study (`docs/research/starpop-2026-10-28/`); `docs/next/flows.md` and `data.md` (Next-Lead, branch `agent/next-lead/flows-2`); `docs/next/screens.md`; the design rules in `docs/design/redesign/phase3/README.md`; and Reed's issues today (#725, #726, #728, #730). Screenshots from a free local walk (stand-ins, `BS_FAKE_PROVIDERS`), with notes, are in [`ux-audit-shots/`](ux-audit-shots/) (§1.8).
 
 ---
 
@@ -32,6 +32,7 @@ So this is a **re-layout and re-wording**, not new logic. Every rule stays as it
    - "kept in History" has no History to open;
    - a late breakdown fix locks the editor out of their own takes;
    - clip cards show the prompt but not the lines they cover.
+   - In the local walk, editing a finished video's breakdown locked the editor out of the video she had already finished (§1.8 LW1).
 7. **Fastest wins:**
    - every disabled button says why;
    - rename the two different "Looks good" buttons;
@@ -195,6 +196,27 @@ There are five steps: **Breakdown → Assets → Storyboard → Clips → Downlo
 | "Change it" prices | The price shows late or changes after load; two rounding rules; what the price covers isn't said. | G5, V18 | Yes: a fixed price slot (skeleton until known), one rounding, and "Change it and make a new take · up to N" with the parts under it (§4 S6). |
 | Stuck "Changing…" | No timer, no Stop, and it never clears when the change has no job id. | G8, V19 | Partly. The screen shows a timer, after 3 min "Taking longer than usual", and **Stop waiting** (keeps the note). The missing job id goes to Next-Server (§4 M9, N1). |
 | The refusals | Four wordings for one situation. | G9, V13 | Yes: one "Refused" card everywhere, with one free fix (§2.5, §4 M8). |
+
+## 1.8 What the free local walk showed
+
+An owner (Reed) and an editor (Maya) on Iron Paws ran one video end to end on the free stand-ins, then Maya edited a shot. Full notes: [`ux-audit-shots/NOTES.md`](ux-audit-shots/NOTES.md). Stand-in text ("INT. TEST — DAY", grey stills) is not counted as a problem. These add to the findings above.
+
+| Id | What happened | Sev | Shot |
+|---|---|---|---|
+| **LW1** | **Editing a finished video's breakdown cuts off the finished video.** Saving a shot edit gave no warning. Then Storyboard was out of date, Clips and Final cut were locked, and their links sent Maya back to Assets or Storyboard, so the MP4 she already had couldn't be reached. The fix agreed with Next-Lead (M14, out-of-date steps stay viewable read-only) covers it. Saving a breakdown on a finished video should also warn first: "This video is finished. Saving marks 6 stills and 4 clips out of date; the final cut stays downloadable." | **Blocker** | `25-1280-video-breakdown-unsaved-edit`, `26-1280-video-breakdown-after-edit`, `29-390-video-step-picker-locked`, `30-390-video-storyboard-out-of-date` |
+| **LW2** | **A locked video still reads "Video done" everywhere else.** Videos shows "✓ Video done", Usage counts it finished, and In production shows "0 videos being made", all while the video was out of date and locked. | Major | `02-390-library-videos-view`, `41-390-in-production`, `42-390-usage` |
+| **LW3** | **An out-of-date frame has no button of its own.** The badge says "Breakdown changed: redo this frame", but the card's Change this… is held ("Make the storyboard again first") and Approve is grey with no reason. The only way on is "Redo storyboard" at the top, which drops every still. It's not a dead end, but close to one (rule 22). Proposal: "Redo this frame · N" on the card (today's per-frame Make another, unheld for a stale frame). *To check with Next-Lead, since it unholds a press.* | Major | `30-390-video-storyboard-out-of-date`; `FrameCard.tsx:110, 191` |
+| **LW4** | **The retake prices next to each other don't add up.** "Change it and make a new take · 3 credits" sits beside "Make another take · 22 credits". The change price appears to leave out the take, so the button that makes a take reads 7× cheaper than the one beside it. On Storyboard, three "try again" prices sit side by side: "Make another · 1 credit", "Change it · 4 credits" and "Redo storyboard · 4 credits". | **Major** | `23-390-video-clips-takes`, `21-390-video-storyboard-stills`. Server price for "change and make a new take": **N7**. |
+| **LW5** | **The version panel shows two prices:** "About 21 credits to make" and "Make this version · 3 credits" (the breakdown). At 390 the button sits on the sheet's bottom edge. The version card (M12) gives one line: "Starting costs 3 (the breakdown) · the whole video about 21." | Minor | `14-390-version-panel-editor`, `14-1280-version-panel-editor` |
+| **LW6** | **Many action screens have no amber at all** (Variations written, Storyboard with stills, Clips, Assets with a look to approve, Quick clip, Brand). While Next is disabled, the actual next press (Approve, Approve all, Looks good) is grey-styled secondary. That's G2's other side: §2.3's table gives each state its one amber. | Major | `07`, `21`, `22`, `23`, `28`, `30`, `44`, `46` |
+| **LW7** | **Publish offers to publish a variation that Variations says to approve first.** Variations blocks Next with "Approve or remove variation B first", but Publish (through the step picker) offers "Publish 2 versions", listing B as "Words: When you publish". Publishing approves it; that's by design (`PublishStep.tsx:83`), but the two steps disagree about what's required. Proposal: Variations says the same ("B will be approved when you publish"), or Publish asks "B isn't approved yet. Publish it as it is?" | Minor | `11-390-write-publish`; `PublishStep.tsx:80–84` |
+| **LW8** | **Auto looks after an edit spend with no press on that visit.** Maya opened Assets by a link after the edit; the countdown ran out and the meter went 31 → 34 → 36. The next screen says "Made 1 look · 2 credits". Per Reed's rule this is allowed, but it needs the cost bar (§2.4) to say it before it starts, and the meter and the note should agree. | Minor | `27-390-video-assets-countdown-after-edit`, `28-390-video-assets-look-to-approve` |
+| **LW9** | **The length differs by screen:** "about 11 s" in the library and version panel, and "22 s of 22 s planned" on Breakdown. Assets shows a ✓ in the step picker before it has been opened. | Minor | `14`, `15-390-video-breakdown` |
+| **LW10** | **The Brand page's End line example says fomo on Iron Paws** ("Download fomo through the link in my bio."). The placeholder should use the brand's own name. | Minor | `46-390-brand`; `brand/KitPage.tsx:127` |
+| **LW11** | **At 390, toasts cover the action bar and its Next button,** for their 8 s with Undo. | Minor | `07-390-write-variations-written`, `22a-390-video-clips-no-prompts` |
+| **LW12** | **Greyed Quick clip buttons don't say why:** "Add" and "Improve prompt" (G1). | Minor | `44-390-quick-clip` |
+
+Confirmed by the walk: G1/V15 (`22-390-video-clips-before-looks-good`, `23a-390-video-clips-making`), G3/V17 (the green "✓ Looks good" badge on a clip still "Queued 2s"), G6/V6 (`16-390-video-assets-loading`: "Loading assets…" three times with three grey boxes), V23 (`24-390-video-downloads`: the zip is amber, the MP4 grey), and the three names for Cast & places (`45-390-cast-and-places`).
 
 ---
 
@@ -557,6 +579,9 @@ stateDiagram-v2
 | S17 | The Breakdown dirty bar says "Edits wait for Save. Fixes and flips save at once." | SV1 | S |
 | S18 | "The words are final. Reed can change them in a new script." where a note touches words and on the Script panel of a video. | §5.4 | S |
 | S19 | Cast & places says at the top: "Reed's reusable characters. Looks made for a video stay with that video." | H3, SV5 | S |
+| S20 | Final-cut safety: saving a breakdown, a look or the flavour on a finished video warns first with what goes out of date, and the final cut stays downloadable (with M14). Lists say "Out of date" rather than "Video done" while a finished video has out-of-date steps. | LW1, LW2 | S |
+| S21 | One price line in the version panel ("Starting costs 3 · the whole video about 21"); Variations and Publish say the same about unapproved variations; the end-line placeholder uses the brand's name; toasts sit above the action bar at 390; Quick clip's grey buttons say why. | LW5, LW7, LW10, LW11, LW12 | S |
+| M16 | "Redo this frame · N" on an out-of-date frame card (to agree with Next-Lead). | LW3 | S/M |
 | M11 | **Script ⇄ video links**: the version row shows who's making it and at which step, and opens the video; the video's header shows "From: {script} · {version}", linked. | H1, HO5, HO6 | M |
 | M12 | **The version card** at Publish and Make this version, with Settings (shape, platform, flavour) confirmed before the first paid press, plus notes from Reed. Needs N5 for flavour and live notes. | HO1, HO3, HO4 | M |
 | M13 | **Earlier (N)** on stills, per-video looks and the breakdown, with "Use this one" (free). The breakdown part may need N5b. | SV2, SV3 | M |
@@ -570,6 +595,7 @@ stateDiagram-v2
 | N5 | A **flavour per product on the script version**, set by Reed at Publish (default for the video, still changeable per video), and the video reading **notes** live from its script. | HO1, HO3, rule 16 |
 | N5b | A read route for a video's earlier breakdowns (if none exists), for "Earlier (N)". | SV2 |
 | N6 | When a Cast & places sheet changes, the stills and clip prompts that use it go Out of date, as a cast swap already does. | SV4 (QA r2 #3) |
+| N7 | "Change it and make a new take" is priced with the take included (today it reads 3 next to "Make another take · 22"). | LW4 |
 
 ### Suggested build order
 
