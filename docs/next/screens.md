@@ -44,7 +44,7 @@ Ids below are the flows' (S1–S7 owner, V1–V6 editor).
 | | Desktop | 390 |
 |---|---|---|
 | Take cards | Two side by side; more wrap to new rows | Stacked, full width |
-| Each card | 44px play/pause, the waveform from the take's `peaks` as the seek bar (tap or drag to seek), "0:12 / 0:31", **Take 1**, made at "10:42", the **Preferred** badge or **Make this the preferred one** (secondary), and a "…" menu with **Delete** | Same; the seek bar is at least 44px tall; the Preferred row is full width under the player |
+| Each card | 44px play/pause, the waveform from the take's `peaks` as the seek bar (tap or drag to seek), "0:12 / 0:31", **Take 1**, made at "10:42", the **Preferred** badge or **Make this Preferred** (secondary), and a "…" menu with **Delete** | Same; the seek bar is at least 44px tall; the Preferred row is full width under the player |
 | Labels | "Sings older words" / "Older style" (grey badge), "Reading the song's timing…", "Timing guessed": always in words, never colour alone | Same |
 
 - Only one take plays at a time (starting one pauses the other).
@@ -60,7 +60,7 @@ Ids below are the flows' (S1–S7 owner, V1–V6 editor).
 - **Song strip** above the shots: the take's waveform across the full width, a 44px play button, the play head, and the shots as segments under it, each labelled with its number and **Sung** or **B-roll** in words (Sung also filled with the accent). Tapping a segment scrolls to its shot and plays its stretch.
   - 390: the strip fits the width; segments show only their number; a segment under 44px gets a 44px hit area, and neighbours whose hit areas would overlap group into one target that opens a small list of their shots.
 - **Shot rows** (today's `BreakdownView` rows) gain the time range "0:00–0:04", the sung words (Courier Prime), a **Sung / B-roll** two-way switch (44px), **Play this shot**, and **Split here** / **Join with next** in the row's menu. Instrumental stretches show as "Music · 0:12–0:16" rows.
-- Split: **Split here** turns the shot's words into tappable gaps; the chosen gap splits it (free, Undo).
+- Split: **Split here** turns the shot's words into tappable gaps (each gap a 44px target at 390; words wrap so no target is narrower); the chosen gap splits it (free, Undo).
 - Problems and Advice use today's lists and their one-click fixes.
 
 ## S7 and V1. Publish and Make this version
