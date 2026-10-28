@@ -186,15 +186,9 @@ def breakdown(
         if len(screens) > 3:  # the model mixes them up (fomo montage run 3, 2026-10-24)
             problems.append(f"clip {clip.id}: {len(screens)} screens; keep the 3 its beats need")
         scenes = list(dict.fromkeys(scene_of[s] for s in clip.shot_ids if s in scene_of))
-        if len(scenes) > 1:  # faces drift in a clip that crosses places (QA-Live, video #16)
+        if len(scenes) > 1:  # one scene per clip, for continuity (rule 29, Reed 2026-10-28)
             problems.append(f"{ADVICE}clip {clip.id} crosses scenes {', '.join(map(str, scenes))}; "
                             "end it where the place or time changes")  # fmt: skip
-        n = len(clip.shot_ids)
-        if not _montage(clip.shot_ids, by_id) and (clip.seconds > CLIP_S or n > CLIP_SHOTS):
-            problems.append(
-                f"{ADVICE}clip {clip.id}: {clip.seconds} s, {n} shots; split it at a natural cut, "
-                f"about {CLIP_S} s and {CLIP_SHOTS} shots at most"
-            )
     return problems
 
 
@@ -394,9 +388,6 @@ def _shape(prompt: str, seconds: float) -> tuple[list[str], int]:
 
 
 CAST = re.compile(r"\[Image\d+\] (?:is|are) ([A-Z][\w-]+)")  # "[Image2] is Malik."
-
-
-CLIP_S, CLIP_SHOTS = 12, 12  # outside a montage (faces drift in longer clips, 2026-10-27)
 
 
 def _montage(ids: list[str], shots: dict) -> bool:

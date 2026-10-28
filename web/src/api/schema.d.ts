@@ -3866,7 +3866,7 @@ export interface components {
             seconds: number;
             /**
              * Seam
-             * @description Why the clip ends here: a hard cut that changes place or time, or the model's length limit. 'end' for the last clip.
+             * @description The hand-off: the beat the clip ends on and how the next clip's first shot answers it (a look, a sound, a matching pose, a white flash into a time jump), after the last line's reaction has landed. 'end' for the last clip.
              */
             seam: string;
         };

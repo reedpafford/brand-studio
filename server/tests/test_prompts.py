@@ -222,15 +222,16 @@ def test_no_prompt_or_example_keeps_a_rule_reed_replaced():
     assert "skyline arrival" not in cases and "ending on the skyline" not in cases  # rule 17
 
 
-def test_a_clip_holds_one_scene_and_about_12_seconds_outside_a_montage():
-    """QA-Live, video #16: faces drifted only in the 20 s, 19-shot clip that crossed scenes."""
+def test_a_clip_holds_one_scene_for_as_long_as_it_needs():
+    """Rule 29 (Reed, 2026-10-28): split by scene or action, never by a clip-length number;
+    only crossing a scene and the model's own max are flagged. For continuity, not face drift."""
     ex, bd = example("breakdown")
     script = script_of(ex)
     assert check.breakdown(script, bd, FOMO, 4, 30) == []
-    bd.clips[0].seconds = 14  # the opening argument, no montage
-    assert check.breakdown(script, bd, FOMO, 4, 30) == [
-        "Advice: clip c1: 14 s, 8 shots; split it at a natural cut, about 12 s and 12 shots at most"
-    ]
+    bd.clips[0].seconds = 22  # the opening argument, no montage: one clip, as long as it needs
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []
+    bd.clips[0].seconds = 31
+    assert check.breakdown(script, bd, FOMO, 4, 30) == ["clip c1: 31 s is outside 4–30 s"]
     _, bd = example("breakdown")
     bd.clips[1].shot_ids += bd.clips[2].shot_ids  # the montage clip runs on into the kitchen
     bd.clips[1].seconds += bd.clips[2].seconds
@@ -1160,3 +1161,32 @@ def test_the_closing_call_to_action_only_has_to_name_the_brand():
         "on the phone he holds up to the camera"
     ) in check.breakdown(script, bd, FOMO, 4, 30, end, "fomo")
     assert "approved" not in inspect.signature(check.breakdown).parameters
+
+
+def test_pacing_is_by_purpose_and_scenes_hand_off():
+    """Reed, 2026-10-28: no fixed timings in the creative guidance (rigid structure ruins
+    creativity); quick cuts to whoever talks, wide for a reaction or action, holds that land,
+    and scenes that end on a beat the next one answers. Brand-generic (the dog)."""
+    for step in ("breakdown", "clip_prompts", "script_draft", "variations", "enhance", "improve"):
+        text = prompts.system(step)
+        for gone in (
+            "once a second",
+            "median shot",
+            "about 12 s",
+            "12 shots",
+            "over 3 s",
+            "3–5 s",
+            "about 0.8 s",
+            "about 0.4 s",
+            "half a second",
+            "fewer, longer",
+        ):
+            assert gone not in text, (step, gone)
+    bd = prompts.system("breakdown")
+    assert "Pace by purpose, never by the clock" in bd and "go wide when a reaction" in bd
+    assert "for as long as it needs, up to the video model's max" in bd
+    assert "**Endings flow.**" in bd and "the dog's ears dropping" in bd
+    assert "The clip's last line never ends in its last moments" in prompts.system("clip_prompts")
+    assert "**Scenes flow.**" in prompts.system("script_draft")
+    assert "The hand-off" in schemas.Clip.model_fields["seam"].description
+    assert not hasattr(check, "CLIP_S")
