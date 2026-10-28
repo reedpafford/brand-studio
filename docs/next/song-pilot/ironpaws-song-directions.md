@@ -11,7 +11,7 @@ Song tags like [Verse] aren't sung. The style line gets Suno's pacing add-on whe
 ## Video 1: "That's My Gut" (eyes, paws, shedding)
 
 ### OPTION 1A (recommended): "That's My Gut Breaking Down"
-Concept: the reference's formula with your script. A cheeky pop-rap Frenchie with a chanted hook, running about 1:45 like the reference. Recommended because it's the proven shape and keeps every beat of your script.
+Concept: the reference's formula with your script. A breezy laid-back pop Frenchie with a chanted hook, running about 1:45 like the reference. Recommended because it's the proven shape and keeps every beat of your script.
 
 Lyrics:
 ```
@@ -71,12 +71,12 @@ Your pup's been waiting on you
 [End]
 ```
 
-Style: `playful pop-rap, cheeky male vocal with a sung hook, 105 BPM, bouncy and warm, modern polished, punchy drums`
+Style: `laid-back pop, warm playful female vocal, 104 BPM, breezy and carefree, bright strummed acoustic guitar, light drums and handclaps, modern polished`
 
 Visual concept: the hook is three fast exaggerated close-ups (a crust-eyed morning squint, a midnight paw-licking frenzy, a fur tornado over the couch). Verse 1 is the routine montage: the coffee mug, the vacuum pile growing like a mountain, a wall of failed sprays and shampoos. The pre-chorus dives inside the gut, with the bacteria crashing and toxins steaming out of the eyes and paws. Verse 2 is her phone glowing at night, then the Iron Paws bag hero shot and the powder hitting the bowl. "Before she even put it down" is the Frenchie leaping mid-air at the bowl. The bridge is quiet and warm: no crust, clean paws, the hug, "we were good". The outro shows five-star reviews raining down, dogs everywhere with the bag, and the Frenchie holding the bag to camera on the last line.
 
 ### OPTION 1B: "Nothing Left to Wipe"
-Concept: a tighter 60 s warm country-folk ballad from the Frenchie. It's less comedy and more heart, with the "we were good" moment as the emotional peak. It's about half the cost of 1A to make.
+Concept: a tighter 60 s soft acoustic-pop ballad from the Frenchie. It's less comedy and more heart, with the "we were good" moment as the emotional peak. It's about half the cost of 1A to make.
 
 Lyrics:
 ```
@@ -109,7 +109,7 @@ Iron Paws, the link is below
 [End]
 ```
 
-Style: `warm country-folk, gentle male vocal, 92 BPM, tender and hopeful, acoustic guitar and soft handclaps, modern polished`
+Style: `laid-back acoustic pop, soft warm female vocal, 92 BPM, tender and hopeful, fingerpicked guitar and soft handclaps, modern polished`
 
 Visual concept: the same three-symptom close-ups, played gently. The chorus is a slow push into a glowing gut. Verse 2 is the bag and the bowl leap, and the bridge is the morning with nothing to wipe, then the hug. The last line is the Frenchie with the bag at golden hour.
 
@@ -118,7 +118,7 @@ Visual concept: the same three-symptom close-ups, played gently. The chorus is a
 ## Video 2: "Until the Day at the Park" (ears, nose, eyes)
 
 ### OPTION 2A (recommended): "Same Gut, Three Places"
-Concept: the reference 2 shape with your script, as a pop-rap Frenchie running about 1:55. The park meeting with the older dog ("I used to look like you") is the turn. Recommended for the same reason as 1A.
+Concept: the reference 2 shape with your script, as a breezy laid-back pop Frenchie running about 1:55. The park meeting with the older dog ("I used to look like you") is the turn. Recommended for the same reason as 1A.
 
 Lyrics:
 ```
@@ -177,12 +177,12 @@ Your pup's been waiting on you
 [End]
 ```
 
-Style: `laid-back pop-rap, smooth male vocal with a sung hook, 96 BPM, warm and storytelling, modern polished, soft boom-bap drums`
+Style: `laid-back pop, warm storytelling female vocal, 100 BPM, breezy and sunny, bright strummed guitar, light drums, singalong chorus, modern polished`
 
 Visual concept: the hook is three exaggerated close-ups (a gunky ear under a giant magnifying glass, a nose cracking like a dry riverbed, a crusty morning squint). Verse 1 is the morning routine montage. Verse 2 is the sunny park: a wise old dog walks in slow motion like a hero, and the two owners talk on a bench. Verse 3 is her phone at night skipping the ear drops, the Iron Paws bag, the box at the door, and the bowl leap. The bridge shows a clean ear, a wet nose, clear eyes and the hug. The outro is the same proof shots, ending with the Frenchie holding the bag to camera.
 
 ### OPTION 2B: "I Used to Look Like You"
-Concept: a 60 s warm indie-pop version built around the old dog's line as the chorus. It's gentler and more hopeful, and about half the cost.
+Concept: a 60 s sweet laid-back pop version built around the old dog's line as the chorus. It's gentler and more hopeful, and about half the cost.
 
 Lyrics:
 ```
@@ -214,7 +214,7 @@ Iron Paws, the link is below
 [End]
 ```
 
-Style: `warm indie pop, bright male vocal, 100 BPM, hopeful and sweet, ukulele, handclaps and light synths, modern polished`
+Style: `laid-back pop, sweet bright female vocal, 98 BPM, hopeful and warm, strummed guitar, handclaps and light synth pads, modern polished`
 
 Visual concept: the three symptom close-ups, then the park meeting with the older dog as the chorus. Verse 2 is the phone, the bag and the bowl leap, the bridge is the check-up and hug, and the last line is the bag to camera.
 
@@ -222,6 +222,8 @@ Visual concept: the three symptom close-ups, then the park meeting with the olde
 
 ## Notes for Reed
 - **Claims** are yours, from your scripts: human grade, vet formulated, probiotics, chlorella, chicory root, 3,000+ five-star Amazon reviews, 10,000+ owners last month. I sing them as written; I haven't added any new ones.
-- **The voice.** I gave the Frenchie a male voice in all four. Say if you'd rather have a female one, or a specific feel (raspier, younger, more sung than rapped).
+- **Sound (Reed, 2026-10-28).** The audience is older, so all four use laid-back, breezy pop (the feel of a bright, strummy, carefree singalong), not rap. Suno rejects artist names, so the style lines describe the sound instead.
+- **The voice.** All four use a warm female vocal, to match that feel. Say if the Frenchie should sound male instead.
+- **Length.** Sung pop is a bit slower than rap, so the A options may run about 2:00–2:15. If you want them shorter, I'll trim the verses before you lock them.
 - **Length.** The A options run about the length of the references (1:45–2:00). Suno picks the final length; I'll measure it and plan the shots to it.
 - **End line.** It ends "Iron Paws, the link is below. Your pup's been waiting on you", which names the brand and where to find it (rule 18).
