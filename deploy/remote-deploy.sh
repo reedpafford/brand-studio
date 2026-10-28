@@ -37,6 +37,11 @@ main() {
 
   # Shared with the test site (deploy/next/), so live's Caddy can forward port 8443 to it.
   docker network inspect brand-studio-edge >/dev/null 2>&1 || docker network create brand-studio-edge >/dev/null
+  # The web server's config must parse before anything restarts: a bad one would take live down.
+  if ! docker run --rm -e DOMAIN="$domain" -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+      caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null; then
+    echo "::error::deploy/Caddyfile doesn't validate. Live was left as it was."; exit 1
+  fi
   # Port 8443 must be free (or already ours), or Caddy wouldn't start and live would go down.
   if ss -ltnH '( sport = :8443 )' 2>/dev/null | grep -q . && ! docker compose port caddy 8443 >/dev/null 2>&1; then
     echo "::error::Port 8443 is taken by something else on the server. Live was left as it was."; exit 1
