@@ -1198,10 +1198,10 @@ def test_a_role_says_its_age_gender_and_job_and_its_sheet_fits_the_part():
 
 def test_the_grind_shows_trading_and_phone_beats_play_for_drama():
     # Reed, after video #17: no tapping in fomo, and phones held up flat to the viewer
-    assert "**Show the trading.**" in prompts.system("breakdown")
+    assert "**Show the trading.** For a trading app (fomo)" in prompts.system("breakdown")
     for step in ("breakdown", "clip_prompts", "storyboard"):
         assert "a phone held up flat to" in prompts.system(step), step
         assert "screen's glow" in prompts.system(step), step
-    assert "shows the trading itself" in prompts.system("script_draft")
+    assert "for a trading app, the trading itself" in prompts.system("script_draft")
     _, cp = example("clip_prompts")
     assert "Malik's thumb scrolls the coin list and taps Buy" in cp.clips[0].prompt
