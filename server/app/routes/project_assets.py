@@ -154,7 +154,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
             out.append(AssetOut(kind=kind, ref=ref, role="", library_item_id=None,
                                 name=screen_name(screen), locked=False, sheet_status="approved",
                                 ready=True, file_id=screen.file_id))  # fmt: skip
-    roles = {s.id: s for s in _slots(db, project)}
+    roles, other = {s.id: s for s in _slots(db, project)}, set()
+    version = db.get(ScriptDraft, project.script_draft_id).slot if project.script_draft_id else None
     for row in out:
         refs = {row.ref, f"slot:{row.slot_id}"}
         row.shots = sum(
@@ -166,7 +167,9 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         seen = {f"char:{cast_roles.picked(project, slot)}"} if slot else set()
         if slot and not row.shots and not any(seen & set(s["character_ids"]) for s in shots):
             row.ready = True  # a role this video never shows needs no look here
-    return out
+            if slot.appears_in and version not in slot.appears_in:
+                other.add(row.slot_id)  # another version's role (QA-Live run 3: the gym bro)
+    return [row for row in out if row.slot_id not in other]
 
 
 @router.put("/slots/{slot_id}", response_model=list[AssetOut])

@@ -282,7 +282,9 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                     )
                 elif f"[Image{images.index(screen) + 1}]" not in c.prompt:
                     problems.append(f"{c.clip_id}: screen {screen} is attached but never shown")
-            said = [_exact(q) for q in QUOTED.findall(c.prompt)]
+            # A Summary or Keep line quoting a line doesn't say it a second time (QA-Live run 3).
+            spoken = [x for x in c.prompt.splitlines() if not x.startswith(("Summary: ", "Keep: "))]
+            said = [_exact(q) for q in QUOTED.findall("\n".join(spoken))]
             line = _exact(shot.line or "")
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
@@ -617,7 +619,8 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
             problems.append(f"{ADVICE}{role}: the description doesn't say their {' or '.join(who)}")
         if BACKGROUND.search(role):
             problems.append(f"{ADVICE}{role}: sounds like background people, who are never cast")
-        name = re.split(r"[ ,(]", role.strip(), maxsplit=1)[0]
+        bare = re.sub(r"^(the|a|an)\s+", "", role.strip(), flags=re.I)  # "The uncle": uncle
+        name = re.split(r"[ ,(]", bare, maxsplit=1)[0]
         named = rf"\b{re.escape(name)}\b"
         part = re.sub(r"\([^)]*\)", "", role.split(",", 1)[-1]).split()  # "Nate's rich friend"
         noun = rf"\b{re.escape(part[-1])}\b" if "," in role and part else named
@@ -642,12 +645,15 @@ def cast_slots(versions: dict[int, str], result: CastSlots, cast: list[str] = ()
 
 def reference_lines(script: str, reel: list[str], new_lines: bool = False) -> list[str]:
     """When a draft adapts a reference with new_lines off, every reel line stays word for word
-    (Reed, #271). Advice lists each one changed or missing, so the editor can see the swap."""
+    (Reed, #271). Advice lists each one changed or missing, so the editor can see the swap.
+    Words only: the reel's lines are its transcript's chunks, whose case and punctuation
+    rarely match the script's (QA-Live run 3: every line was flagged)."""
     if new_lines:
         return []
-    said = _plain("\n".join(re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M)))
+    spoken = re.findall(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", script, re.M)
+    said = f" {_words(_straight(' '.join(spoken)))} "
     return [f"{ADVICE}the reel's line “{x}” is changed or missing"
-            for x in reel if _plain(x) not in said]  # fmt: skip
+            for x in reel if f" {_words(_straight(x))} " not in said]  # fmt: skip
 
 
 def _plain(text: str) -> str:
