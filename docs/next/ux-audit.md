@@ -207,13 +207,18 @@ There are five steps: **Breakdown → Assets → Storyboard → Clips → Downlo
 | Breakdown (preview) | **3 Plan** *(optional, marked "Optional" in the picker)* | Plain name; the editor's step stays "Breakdown" (rule texts use it). Skipping it needs no visit: "Next: Publish" is offered from Cast too. |
 | Publish | **4 Publish** | Unchanged (W7). |
 
-A **song script** follows Next-Lead's flows (S1–S7): **Song → Takes → Cast → Plan → Publish**. The Song step is the Write step with the lyrics box, and the 2 directions panel sits where Suggestions is.
+A **song script** follows Next-Lead's flows (S1–S7): **Song → Takes → Cast → Plan → Publish**. The Song step is the Write step with the lyrics box. It has **no Suggestions or Versions panels**, because variations would rewrite locked lyrics. Its only writing help is "Write 2 song directions" inside Song (agreed with Next-Lead).
+
+**Editing words that are already approved** (behaviour unchanged): the words show "Approved · words final" with **Edit the words**. Pressing it asks first: "Edit version A? It goes back to draft. Approve the words again before Next. Roles already found are kept." Today an edit already un-approves a version; the question just says so before it happens.
 
 **Making a video (editor).** Same five steps, same locks, same rules. Two renames and one clearer split.
 
 | Today | Proposed | Change |
 |---|---|---|
-| — | **Video settings** row at the top (not a step) | Shape, "Where will it be posted?" and product flavour move here from Breakdown and Assets. They're asked once in **Make this version** and editable at the top of the video. Later, spec item 4 (style, video model, picture model, language) lands in the same row. Re-laid out, not new: it's the same PATCH to the video. |
+| — | **Video settings** row at the top (not a step) | Shape, "Where will it be posted?" and product flavour move here from Breakdown and Assets. They're asked once in **Make this version** and editable at the top of the video. Each change says its effect in the confirm, as today's behaviour does:
+  - **Flavour** stays changeable after start: "Switch to Chicken? 4 stills and 2 clips that show the bag go out of date. They're kept, and you can redo them."
+  - **Shape** stays changeable, with the whole redo price: "Change to 1:1? All 6 stills are redrawn · 2 credits. Clips made for 9:16 go out of date." *Decided here; Next-Lead writes it into flows.md.* Locking the shape would be new behaviour, so it isn't proposed.
+  - **Song** (song ads, V2a): the video's song ("Song: Take 2 · 0:31 ▾") sits in this same row and opens the "Change song" panel from screens.md S3e. That way every per-video choice lives in one place. Later, spec item 4 (style, video model, picture model, language) lands in the same row. Re-laid out, not new: it's the same PATCH to the video. |
 | Breakdown | **1 Breakdown** | One word inside the step ("breakdown", never "shots"). "Make it again · N" moves into a "…" menu (V2, V3). |
 | Assets | **2 Assets** | One skeleton until loaded (V6). Each look card keeps one main press; the rest goes in "…" (V8). |
 | Storyboard | **3 Storyboard** | One amber at a time (§2.3). "Make it again" in "…" (V11). |
@@ -241,7 +246,7 @@ flowchart LR
 - **Scripts** stays the library (and the owner's home).
 - **Projects** (spec item 5, not built yet) slot in **between the brand and its scripts and videos**, as a filter row and a breadcrumb: "fomo › November launch › The altar reel · B". "No project" is the default, so nothing changes until projects exist.
 - **Inside a video,** the back link names where it goes: "‹ Videos", or "‹ {script title}" when opened from the script. The breadcrumb doubles as the brand switcher's context.
-- **One address per video:** `/b/:brand/videos/:id`. The old `/projects` pages and links retire (G10). Older videos open in the five-step page at their furthest step; the server already gives both kinds the same data. *To check with Next-Lead.*
+- **One address per video:** `/b/:brand/videos/:id`. The old `/projects` pages retire (G10). Every old `/projects/…` link redirects to the same video in its new place, never a 404 (rule 22). Older videos open in the five-step page at their furthest step; the server already gives both kinds the same data. *To check with Next-Lead.*
 - **Phone tabs:** Videos · Scripts · Quick clip · Cast · Brand (5 × 78 px at 390). The owner's Studio pages stay in the account menu, and Approvals stays as the bell.
 
 ## 2.3 One primary action per screen
@@ -294,8 +299,8 @@ One vocabulary and one badge set for every card, step and list. Each state says 
 | Running too long | **Making… 3:10** | "Taking longer than usual." | **Stop waiting** (the note or work is kept; a late answer still shows) |
 | Ready to check | **Check this** (amber outline) | — | Approve / Prompt OK |
 | Approved | **Approved** (green) | — | Undo (8 s toast), then "Undo approval" in "…" |
-| Failed | **Didn't finish** (red) | "Nothing was charged." plus the reason in plain words. It clears the moment a new try starts or succeeds, and never sits under a newer good result. | **Try again · N** |
-| Refused | **Refused** (red) | "The video model wouldn't make this: it read it as {reason}. Nothing was charged." For copyright, it names the shot, not a guessed character. | **Reword it · free** (one name for Soften it and Reword it to pass), then **Make another take · N** |
+| Failed | **Didn't finish** (red) | "Didn't finish · nothing charged" (or "· credits returned" when they were held) plus the reason in plain words. It clears the moment a new try starts or succeeds, and never sits under a newer good result. | **Try again · N** |
+| Refused | **Refused** (red) | "The video model wouldn't make this: it read it as {reason}. Nothing was charged." For copyright, it names the shot, not a guessed character. | **Its free fix**. For a still or a clip prompt that's **Reword it · free** (one name for Soften it and Reword it to pass); for a song it's the style line or another take, never the words (rule 19). Then **Make another take · N** |
 | Out of date | **Out of date** (amber) | "Made for an older breakdown. Earlier takes are kept." | **Update · N** (rewrite prompts or redraw stills) |
 | Waiting for the owner | **Waiting for the owner's OK** (grey) | "This would go past the video's budget." | — (editor), **Approve** (owner) |
 | Locked | Step picker: grey with the reason | "Approve every asset first (2 left)" | the link to the blocking step |
@@ -514,10 +519,10 @@ stateDiagram-v2
 | M2 | **One state badge and line set** (§2.5) shared by Breakdown, Assets, Storyboard, Clips and Final cut. | G7, G9, G12 | M |
 | M3 | **Clips in two phases** (Prompts, Takes) on the same step, with "Prompt OK for all ready (N)" as a loop over the existing press with one Undo. The card's secondary presses go in "…". | V14, V22, G2 | M |
 | M4 | **One amber per step**, by the table in §2.3: Storyboard's priority order, Breakdown's "Make it again" into "…", the look card's extra presses into "…". | G2, V2, V8, V11 | M |
-| M5 | **Video settings row**: shape, platform and flavour move off Breakdown and Assets into one row at the top, also offered in Make this version. Spec item 4 later adds style, models and language here. | V1, V7, L3 | M |
+| M5 | **Video settings row**: shape, platform, flavour (and, for song ads, the video's song) move into one row at the top, also offered in Make this version. Each change confirms its effect and price. Spec item 4 (VS1 in flows) adds style, models and language here. | V1, V7, L3 | M |
 | M6 | **Videos in the menu** (rail and phone tabs), with Needs you / Making / Done; the editor's home after sign-in. | L1 | M |
 | M7 | **Writing flow in four steps**: Suggestions and Versions as panels in Write; **Approve the words** moves from Cast to Write's amber; Plan marked Optional. | W1, W3, W4, W5, W6 | M |
-| M8 | **One refusal card** for stills and takes: one name ("Reword it · free"), and the copyright line names the shot, not a guessed character (server text to agree with Next-Server). | G9, V13 | M |
+| M8 | **One refusal card** for stills, takes and songs, with its free fix ("Reword it · free" for stills and clips; the style line or another take for songs), and the copyright line names the shot, not a guessed character (server text to agree with Next-Server). | G9, V13 | M |
 | M9 | **"Changing…" never sticks on screen**: a timer, "Taking longer than usual" after 3 min, and **Stop waiting** (keeps the note; a late answer still lands). | G8, V19 | M |
 | M10 | Point every link at `/videos/:id` and retire the old six-step page, Projects list and New video form (deleting code, rule 26). *To agree with Next-Lead: older videos open at their furthest step.* | G10, O1, O3 | M |
 
@@ -555,6 +560,7 @@ This sits beside Next's feature order: song ads first, then styles, brand setup,
 ## Questions
 
 1. **Reed:** should the editor's home after sign-in be **Videos** (the proposal) or stay **Scripts**?
-2. **Next-Lead:** can older videos (made before the Script Library) open in the five-step page, so the six-step page can be deleted (M10)?
-3. **Next-Lead:** should the writing flow's four steps (M7) also be the song flow's names (Song → Takes → Cast → Plan → Publish)? flows.md currently says "Breakdown" for S6.
-4. **Next-Screens:** does the cost bar replace the action bar component on a phone, or sit inside it? This plan assumes inside it, so one fixed bar stays above the tabs.
+2. **Next-Lead:** can older videos (made before the Script Library) open in the five-step page, so the six-step page can be deleted (M10)? Old links redirect either way.
+3. **Next-Screens:** does the cost bar replace the action bar component on a phone, or sit inside it? This plan assumes inside it, so one fixed bar stays above the tabs.
+
+**Agreed with Next-Lead (2026-10-28):** flows.md takes the renames and moves in one PR. V6 becomes Final cut; V5 gets Prompts then Takes (Approve all on both lists); owner S6 becomes Plan; story Write → Cast → Plan → Publish and song Song → Takes → Cast → Plan → Publish. flows.md stays the one place for every state and press; this audit gives the order, the look and the reasons.
