@@ -1317,8 +1317,16 @@ def test_a_person_in_bed_and_a_bodily_sound_in_one_clip_is_advice():
         "Malik, in bed, startled out of sleep, a wordless groan, a loud wet licking sound",
     )
     assert f"Advice: c2: {check.NOT_SEXUAL}" in check.clip_prompts(logo_once(bd), cp, 30, 10)
-    clean = "Biscuit licks his own front paw, close on the paw; Tasha sighs, in pyjamas"
-    assert not (check.IN_BED.search(clean) and check.BODILY.search(clean))
+
+    def flagged(text):
+        return bool(check.IN_BED.search(text) and check.BODILY.search(text))
+
+    # Reed's rewording (pyjamas, a sigh, the dog licking his own paw) still failed
+    assert flagged("Tasha in bed, in pyjamas, sighs; Biscuit licks his own front paw")
+    assert not flagged("Tasha in bed, in pyjamas, eyes open: a noise from the foot of the bed")
+    assert not flagged("Biscuit licks his own front paw on the rug, close on the paw")
+    assert not flagged("Tasha in bed, a sight she can't believe")
     for step in ("clip_prompts", "storyboard"):
         assert "pyjamas" in prompts.system(step), step
     assert "**Never reads as sexual.**" in prompts.system("clip_prompts")
+    assert "a noise from the foot of the bed" in prompts.system("breakdown")

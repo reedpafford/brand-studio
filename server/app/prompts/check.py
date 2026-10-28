@@ -407,14 +407,18 @@ def _montage(ids: list[str], shots: dict) -> bool:
 
 
 IN_BED = re.compile(  # a person in bed or undressed
-    r"\b(in bed|into bed|under the (?:covers|sheets)|pillows?|duvet|undress\w*|naked|shirtless|"
-    r"topless|underwear|lingerie)\b",
+    r"\b(beds?|bedsheets?|under the (?:covers|sheets)|pillows?|duvet|asleep|undress\w*|naked|"
+    r"shirtless|topless|underwear|lingerie)\b",
     re.I,
 )
-BODILY = re.compile(r"\b(lick\w*|slurp\w*|wet|moan\w*|groan\w*|panting|tongues?)\b", re.I)
+BODILY = re.compile(  # any bodily sound or action word
+    r"\b(lick\w*|slurp\w*|suck\w*|wet|moan\w*|groan\w*|pant(?:s|ing)|gasp\w*|sigh(?:s|ed|ing)?|tongues?)\b",
+    re.I,
+)
 NOT_SEXUAL = (
-    "a person in bed or undressed and a bodily sound or word (licking, wet, a groan) in one "
-    "clip can be refused as sexual; give the animal's action its own shot and keep them dressed"
+    "a person in bed or undressed and a bodily sound or word (licking, wet, a groan, a sigh) in "
+    "one clip can be refused as sexual; give the animal's action its own clip, with no one in "
+    "bed, and call it only a noise from the foot of the bed"
 )
 
 
