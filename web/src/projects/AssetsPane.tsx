@@ -94,16 +94,17 @@ export function AssetsPane({
     refresh: () => Promise.all([["assets", projectId], ["library", "character"], ["breakdown", projectId], ["storyboard", projectId], ["project-clips", projectId]].map((queryKey) => queryClient.invalidateQueries({ queryKey }))), // as a single Approve does
     name: (s) => s.label ?? "",
   });
-  if (assets.isPending)
+  // Until the list is read again for this step (one cached from an earlier step can predate the shots) and the brand's
+  // products are in, nothing is counted: never "Not in this video's shots" or empty bags worked out from missing data.
+  if (!assets.isFetchedAfterMount || picks.loading)
     return (
-      <div
-        role="status"
-        aria-label="Loading"
-        className="grid gap-4 lg:grid-cols-3"
-      >
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-64" />
-        ))}
+      <div role="status" className="space-y-3">
+        <p className="text-sm text-muted">Loading assets…</p>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
       </div>
     );
   const list = (assets.data ?? []).filter((a) => !notInShots(a));

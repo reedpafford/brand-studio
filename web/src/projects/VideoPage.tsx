@@ -62,6 +62,8 @@ export function VideoPage() {
     );
   if (!p) return <p className="p-6">That video doesn't exist.</p>;
   const list = (assets.data ?? []).filter((a) => !notInShots(a)); // a role no shot uses is not counted
+  // Opening Assets reads its list again; until then (and until the brand's products are in) its counts and the flavour check wait.
+  const assetsLoading = (assets.isRefetching && !assets.data?.some((a) => a.sheet_status === "drawing")) || flavours.loading;
   const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length } };
   // A link to a step that is locked lands on the step that blocks it (Storyboard when its frames are out of date, say).
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
@@ -77,7 +79,7 @@ export function VideoPage() {
   };
   const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
   const next = videoNext(step);
-  const reason = !next ? null : dirty && step === "breakdown" ? "Save your changes first." : step === "assets" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
+  const reason = !next ? null : dirty && step === "breakdown" ? "Save your changes first." : step === "assets" && assetsLoading ? "Loading assets…" : step === "assets" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
   const nextButton = next && !(step === "breakdown" && dirty && !rail) && (
     <Button disabled={reason !== null} reason={reason} onClick={() => pick(next.id)}>
       Next: {next.label}
@@ -87,7 +89,7 @@ export function VideoPage() {
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used };
   const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
-  const meta = step === "assets" ? `${all.assets.total} asset${all.assets.total === 1 ? "" : "s"} · ${all.assets.ready} approved` : null;
+  const meta = step === "assets" ? (assetsLoading ? "Loading assets…" : `${all.assets.total} asset${all.assets.total === 1 ? "" : "s"} · ${all.assets.ready} approved`) : null;
 
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>

@@ -180,7 +180,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     ready: rows.filter((c) => c.picked_take_id !== null && !c.approved && !c.stale && blocking(c.problems, c.kept).length === 0).length,
     waiting: rows.filter((c) => !c.approved).length,
   });
-  if (clips.isPending || frames.isPending) return <p className="text-muted">Loading…</p>;
+  if (clips.isPending || frames.isPending || !clips.isFetchedAfterMount || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
   const list = clips.data;
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.

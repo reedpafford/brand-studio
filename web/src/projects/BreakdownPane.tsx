@@ -66,6 +66,7 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
     // A new breakdown version replaces the frames and clips made from the old one.
     queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
     queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["assets", projectId] }); // which roles the new shots use
   }, [finished, projectId, queryClient]);
 
   const roles = useRoleNames(projectId);

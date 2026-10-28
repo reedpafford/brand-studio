@@ -420,7 +420,7 @@ test("a clip change that didn't finish says the server's words, keeps the note i
   expect(await screen.findByText("That change didn't finish. Nothing was charged.")).toBeInTheDocument();
   expect(screen.getByLabelText("Change this… c1")).toHaveValue("Slower, warmer light");
   expect(screen.queryByText(/Ask the owner/)).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Try again · 27 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Try again · 27 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/change")?.body).toEqual({ note: "Slower, warmer light" }));
 });
 
@@ -437,6 +437,44 @@ test("Changing… stops when its rewrite job has failed, even while the clip sti
   expect(screen.queryByRole("button", { name: "Changing…" })).toBeNull();
   expect(screen.getByLabelText("Change this… c1")).not.toHaveAttribute("readonly");
   expect(screen.getByRole("button", { name: "Try again · 27 credits" })).toBeEnabled();
+});
+
+test("Assets waits for its list and the brand's products: no 0 assets, no Not in this video's shots, no flavour reason from a cached earlier list", async () => {
+  setViewport(390);
+  const bag = (variant: string) => ({ id: variant.length, name: `Bag ${variant}`, file_id: 9, tags: ["product"], default_for: [], brand_id: 1, product: "bag", variant });
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, product_variants: { bag: "Peanut butter" } }],
+    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, role: "Biscuit", shots: 2, sheet_status: "approved", ready: true })]],
+    "GET /brands/1/screens": [200, [bag("Peanut butter"), bag("Chicken")]],
+  });
+  // The Assets list and the brand's screens answer only when released; the cache holds the list from before the shots.
+  const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation()!;
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    const path = new URL(req.url).pathname;
+    if (path.endsWith("/brands/1/screens") || path.endsWith("/projects/9/assets")) await held;
+    return inner(req.clone(), init);
+  }));
+  const client = new QueryClient();
+  client.setQueryData(["assets", 9], [asset({ ref: "slot:3", slot_id: 3, role: "Biscuit", shots: 0 })]);
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/b/1/videos/9?step=assets"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findAllByText("Loading assets…")).not.toHaveLength(0);
+  expect(screen.queryByText(/Not in this video's shots/)).toBeNull();
+  expect(screen.queryByText(/^0 assets/)).toBeNull();
+  expect(screen.queryByText(/flavour first/)).toBeNull();
+  release();
+  expect(await screen.findByText("1 asset · 1 approved")).toBeInTheDocument();
+  expect(screen.queryByText(/Not in this video's shots/)).toBeNull();
+  expect(screen.queryByText("Loading assets…")).toBeNull();
 });
 
 const own = (o: object = {}) => asset({ ref: "slot:3", slot_id: 3, library_item_id: 12, own_look_id: 12, only_here: "video", role: "Coach", name: "Coach", sheet_status: "needs_approval", ...o });

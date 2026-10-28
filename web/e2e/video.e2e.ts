@@ -40,10 +40,24 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
+    if (width === 390) {
+      // A slow Assets list (Reed's Pit Bull 1): it says it's loading, never "0 assets" or "Not in this video's shots" from the list read before the shots.
+      await page.route(`**/api/projects/${id}/assets`, async (route) => {
+        await new Promise((r) => setTimeout(r, 1500));
+        await route.fallback();
+      });
+    }
     await page.getByRole("button", { name: "Next: Assets" }).click();
     await expect(
       page.getByRole("heading", { name: "Assets", level: 2 }),
     ).toBeVisible();
+    if (width === 390) {
+      await expect(page.getByText("Loading assets…").first()).toBeVisible();
+      await expect(page.getByText(/^0 assets/)).toHaveCount(0);
+      await expect(page.getByText("Not in this video's shots")).toHaveCount(0);
+      await expect(page.getByText("Loading assets…")).toHaveCount(0, { timeout: 10_000 });
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+    }
     const sizes = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
       window: document.documentElement.clientWidth,
