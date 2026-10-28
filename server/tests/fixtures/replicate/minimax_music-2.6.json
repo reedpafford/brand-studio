@@ -1,0 +1,92 @@
+{
+ "Input": {
+  "properties": {
+   "audio_format": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/audio_format"
+     }
+    ],
+    "default": "mp3",
+    "description": "Audio format for the output",
+    "x-order": 6
+   },
+   "bitrate": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/bitrate"
+     }
+    ],
+    "default": 256000,
+    "description": "Bitrate for the generated music",
+    "x-order": 5
+   },
+   "is_instrumental": {
+    "default": false,
+    "description": "Generate instrumental music without vocals. When true, prompt is required and lyrics are not needed.",
+    "title": "Is Instrumental",
+    "type": "boolean",
+    "x-order": 2
+   },
+   "lyrics": {
+    "default": "",
+    "description": "Lyrics for the song. Use \\n to separate lines. You can add structure tags like [Intro], [Verse], [Pre Chorus], [Chorus], [Interlude], [Bridge], [Outro], [Post Chorus], [Transition], [Break], [Hook], [Build Up], [Inst], [Solo] to control the arrangement. 1-3500 characters. Not required when is_instrumental is true.",
+    "title": "Lyrics",
+    "type": "string",
+    "x-order": 0
+   },
+   "lyrics_optimizer": {
+    "default": false,
+    "description": "Automatically generate lyrics from the prompt when lyrics are empty.",
+    "title": "Lyrics Optimizer",
+    "type": "boolean",
+    "x-order": 3
+   },
+   "prompt": {
+    "default": "",
+    "description": "A description of the music style, mood, and scenario. For example: 'Pop, melancholic, perfect for a rainy night'. 0-2000 characters. Required when is_instrumental is true.",
+    "title": "Prompt",
+    "type": "string",
+    "x-order": 1
+   },
+   "sample_rate": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/sample_rate"
+     }
+    ],
+    "default": 44100,
+    "description": "Sample rate for the generated music",
+    "x-order": 4
+   }
+  }
+ },
+ "enums": {
+  "audio_format": {
+   "enum": [
+    "mp3",
+    "wav",
+    "pcm"
+   ]
+  },
+  "bitrate": {
+   "enum": [
+    32000,
+    64000,
+    128000,
+    256000
+   ]
+  },
+  "sample_rate": {
+   "enum": [
+    16000,
+    24000,
+    32000,
+    44100
+   ]
+  }
+ },
+ "fetched": "2026-10-28",
+ "model": "minimax/music-2.6",
+ "version": "dcd69b2c83c63ed612af65fc9842781fd7cf86db555e0b12ded7c6292bff8b7a"
+}

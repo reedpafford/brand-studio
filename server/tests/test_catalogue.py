@@ -37,6 +37,9 @@ def test_limits_match_replicate_schema(model):
     if model.duration:
         assert model.duration.max == props["duration"]["maximum"]
         assert model.duration.smart == (props["duration"]["minimum"] == -1)
+    if model.kind == "music":  # lyrics in their own field, and its own words switched off
+        assert {"lyrics", "prompt", "lyrics_optimizer"} <= set(props)
+        return
     images = "reference_images" if "reference_images" in props else None
     images = images or ("image_input" if "image_input" in props else "images")
     assert model.max_reference_images == _up_to(schema, images)
