@@ -21,7 +21,7 @@ from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_project_clips import _prompt
 
-LOGO = "[Image2] is the fomo logo, the word fomo in lowercase."
+LOGO = "[Image2] is the fomo logo: the word fomo in lowercase."
 WORD = "fomo logo, the word fomo in lowercase, sharp and legible"
 
 
@@ -127,7 +127,7 @@ def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
                   reference_ids=[f"char:{mom}"])  # fmt: skip
     drawn = storyboard.with_cast(db, project, frame, bd)
     assert drawn.reference_ids == [f"char:{mom}", up]
-    assert 'Image 2 is the fomo logo: the word "fomo" in lowercase letters, sharp' in drawn.prompt
+    assert 'Image 2 is the fomo logo, the word "fomo" in lowercase: sharp' in drawn.prompt
     picked = frame.model_copy(update={"reference_ids": [f"char:{mom}", down, up]})
     assert storyboard.with_cast(db, project, picked, bd).reference_ids == [f"char:{mom}", up]
     cta = storyboard.with_cast(db, project, frame.model_copy(update={"shot_id": "1.2",
@@ -174,5 +174,5 @@ def test_saved_trading_prompts_stills_and_cut_ins_are_repaired_for_free(
     assert f"shows [Image2], with its {WORD}" in clip.prompt
     assert clip.real_images == {"1.2": True}  # no real chart pasted; Home still can be
     assert f"keep its {WORD} in the top corner" in (frame.prompt)
-    assert 'the word "fomo" in lowercase letters' in frame.prompt and "Token" not in frame.prompt
+    assert 'the word "fomo" in lowercase: sharp' in frame.prompt and "Token" not in frame.prompt
     assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 0  # idempotent

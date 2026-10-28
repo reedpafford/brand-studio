@@ -214,13 +214,13 @@ def _word(who: str) -> str:
 
 
 def logo_still(n: int, who: str) -> str:  # Nano Banana wants the exact words in quotes
-    return (f'Image {n} is the {who}: the word "{_word(who)}" in lowercase letters, sharp and '
-            "legible in the top corner of the phone's trading screen, invented with the chart "
-            "this beat needs.")  # fmt: skip
+    return (f'Image {n} is the {who}, the word "{_word(who)}" in lowercase: sharp and legible in '
+            "the top corner of the phone's trading screen, invented with the chart this beat "
+            "needs.")  # fmt: skip
 
 
 def logo_clip(n: int, who: str) -> str:  # no quote marks: Seedance reads them as speech
-    return f"[Image{n}] is the {who}, the word {_word(who)} in lowercase."
+    return f"[Image{n}] is the {who}: the word {_word(who)} in lowercase."
 
 
 OLDER = "Advice: Drawn from an older look of "
