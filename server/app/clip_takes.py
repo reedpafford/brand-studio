@@ -95,14 +95,23 @@ BUSY = ("The video service was busy and couldn't finish this. Nothing was charge
 REFUSED = "The video model thinks this clip looks too much like someone else's character or video."
 
 
+SENSITIVE = ("The video model flagged this take as sensitive. Nothing was charged. Its check is "
+             "a little random, so making it again may pass; if it keeps failing, Reword it to "
+             "pass.")  # fmt: skip
+
+
 def moderated(detail: str) -> str:
-    """What the video model's content check read a take as ("sexual"), or "" when it didn't
-    refuse it that way (Replicate: ContentModerationError, "flagged for: X", E005)."""
-    if "copyright" in detail.lower() or not re.search(r"ContentModeration|flagged for|E005",
-                                                      detail, re.I):  # fmt: skip
-        return ""  # Seedance's copyright E005 says what to do itself
-    said = re.search(r"flagged for:?\s*([a-z][a-z ,/-]*[a-z])", detail, re.I)
-    return said.group(1).lower() if said else "unsafe content"
+    """What the video model's content check read a take as: the prompt refused ("flagged for:
+    sexual", ContentModerationError), or "sensitive" for E005's "flagged as sensitive" (a
+    take, at random); "" when it didn't refuse it that way. Seedance's copyright E005 says
+    what to do itself."""
+    if "copyright" in detail.lower():
+        return ""
+    if said := re.search(r"flagged for:?\s*([a-z][a-z ,/-]*[a-z])", detail, re.I):
+        return said.group(1).lower()
+    if "ContentModeration" in detail:
+        return "unsafe content"
+    return "sensitive" if re.search(r"flagged as sensitive|E005", detail, re.I) else ""
 
 
 def refused(db: Session, job: Job) -> None:
@@ -119,6 +128,14 @@ def refused(db: Session, job: Job) -> None:
         job.error = (
             f"{MODERATED}{term}. Nothing was charged. Change the wording, then make it again."
         )
+        if term == "sensitive":  # at random: make it again, or reword it once it keeps failing
+            job.error = SENSITIVE
+            videos = select(Job).where(Job.project_id == job.project_id, Job.kind == "video",
+                                       Job.id < job.id).order_by(Job.id.desc())  # fmt: skip
+            last = row and next((j for j in db.scalars(videos)
+                                 if j.input.get("project_clip_id") == row.id), None)  # fmt: skip
+            if not last or last.error != SENSITIVE:
+                return
         if row and row.prompt == job.input.get("clip_prompt"):  # the prompt it was made from
             said = (f"{MODERATED}{term}. Keep the story and the spoken lines; remove what "
                     f"reads as {term}.")  # fmt: skip
