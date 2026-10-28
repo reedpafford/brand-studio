@@ -56,16 +56,29 @@ services:
       retries: 6
       start_period: 10s
 
+  # Stills and takes: handed to Replicate and checked on, so they never wait behind a long
+  # Claude call (Reed's 9 stills waited 6 minutes behind three breakdowns, 2026-10-28).
   worker:
     <<: *server
     command: ["python", "-m", "app.worker"]
-    # A deploy waits for the job in hand (a Claude call can take minutes) instead of cutting it off.
+    # A deploy waits for the job in hand instead of cutting it off.
     stop_grace_period: 10m
     environment:
       <<: *server-env
       REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+      BS_WORKER_PROVIDERS: '["fake", "replicate"]'  # Claude and reel prep have their own
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # Claude answers in the same call (a breakdown or clip prompts can take minutes), one at a time.
+  claude-worker:
+    <<: *server
+    command: ["python", "-m", "app.worker"]
+    stop_grace_period: 10m  # a deploy lets the Claude call in hand finish
+    environment:
+      <<: *server-env
       STUDIO_ANTHROPIC_KEY: ${STUDIO_ANTHROPIC_KEY:-}
-      BS_WORKER_PROVIDERS: '["fake", "replicate", "claude"]'  # reel prep has its own worker
+      BS_WORKER_PROVIDERS: '["claude"]'
     depends_on:
       migrate: { condition: service_completed_successfully }
 
