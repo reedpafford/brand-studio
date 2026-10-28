@@ -1,4 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 15:28 · #685 ops: the old clip-length decisions marked superseded (rule 29) merged
+- 2026-10-28 15:25 · Decision (#684, Reed): correction to rule 29: clips split by scene or action, no rigid timings, quick dialogue cuts stay, no abrupt scene endings merged
+- 2026-10-28 15:20 · Decision (#683, Reed): continuity tweaks to rule 29 (clips up to about 15 s per scene, held exchanges and payoffs, hand-offs between clips); superseded by #684 on timings, merged
+- 2026-10-28 00:43 · #682 ops: HANDOFF/LOG refresh as of 24a5517 merged (by the Producer)
 - 2026-10-28 05:41 · #681 Budget stops at the per-video cap and never drops for a shorter plan; opt-in editor walk e2e merged
 - 2026-10-28 05:36 · #680 The credits meter follows the video's jobs; the leave question says leaving doesn't add the directions merged
 - 2026-10-28 05:23 · #679 The project budget is twice the video's whole estimate, so short videos aren't refused at Clips merged
