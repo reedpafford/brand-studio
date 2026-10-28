@@ -138,6 +138,7 @@ Pressed on S2. Uses the brand, the product and anything already typed (as a brie
 | Done | Two cards side by side (stacked on a phone): title, concept, lyrics, style, visual concept. One is marked **Recommended**. | **Use this one** on a card. |
 | Use this one, boxes empty | Its lyrics and style fill the boxes. Toast: "Option B's lyrics are in. They're yours now: the AI won't change them." Undo. | **Next**. |
 | Use this one, boxes have words | Confirm: "Replace your lyrics with option B's? Your words are kept in Undo." Not yet / Replace. | **Replace**. |
+| Claims not in the brand facts | A direction lists claims the brand block doesn't state (Director's `unchecked_claims`): on the card, "Not checked: 'vet-approved in 7 days'". After **Use this one**, the same line shows under the Lyrics box until the owner acts. Advice only, never a block. | **Keep it** (the owner vouches; the note goes), or **Edit lyrics** (the owner's own typing; rule 19). |
 | Neither fits | Under the cards: **Write 2 more · about 3 credits** and "Or write your own above." | Either. |
 | F | "The directions didn't finish. Nothing was charged." | **Try again**. |
 | X | Claude refuses (e.g. a health claim): "Claude won't write this: [its reason, one line]." | **Try again** with the reason's free repair when there is one, else the owner types their own. |
