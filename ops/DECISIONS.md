@@ -8,7 +8,7 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 **Costs**
 2. 1 credit = $0.1028 = 1 second of 480p video. Videos stay at 480p.
 3. The per-video cap is $75 (729 credits). The project budget is twice the 480p estimate; going over needs Reed.
-4. Editors see credits and % of budget, never dollars or Reed's name. Past an allowance they're declined with the reason, never "Ask Reed".
+4. Editors see credits and % of budget, never dollars. Editors may see Reed's name (Reed, 2026-10-28). Past an allowance they're declined with the reason, never "Ask Reed".
 5. Editor allowances: Quick clips 150 credits a week; own scripts about 145 credits ($15) a week.
 6. No paid call (Replicate, Claude) without Reed's approval. Test spend is capped at $15 a week; every paid call is logged in ops/SPEND.md.
 
@@ -165,3 +165,4 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-28 Reed: CTAs are adapted per video; the saved end line is the default, not a required match. The end-line check is Advice only and never blocks (Current rules 18).
 - 2026-10-28 Reed (continuity): clips up to about 15 s in one scene, merge short same-scene neighbours, let exchanges and payoffs breathe, hand off between clips on purpose; the Writer and script prompts follow it, Iron Paws in its own terms (Current rules 29). (Superseded by the correction below: no time caps or held-shot timings.)
 - 2026-10-28 Reed (continuity, correcting the line above): clips split by scene or action, not by time; no rigid timings; quick dialogue cuts stay; the fix is no abrupt scene endings and deliberate hand-offs (Current rules 29).
+- 2026-10-28 Reed: editors may see his name; the owner-name masking is removed to simplify (Current rules 4). Dollars stay hidden and editors are never told "Ask Reed".
