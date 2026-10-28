@@ -119,7 +119,7 @@ for (const width of [1440, 390]) {
       await expect(page.getByText(/Ask the owner/)).toHaveCount(0);
       const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(wide).toBeLessThanOrEqual(0);
-      await page.unroute(`**/api/projects/${id}/clips`);
+      await page.unrouteAll({ behavior: "ignoreErrors" }); // a poll still in route.fetch must not fail the reload
       await page.reload();
     }
     await page
