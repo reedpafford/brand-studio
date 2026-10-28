@@ -1,4 +1,13 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 19:34 · #711 e2e: the 390 Clips check stops its mock without failing a poll in flight merged
+- 2026-10-28 19:30 · Decision (#712, Reed): after publishing, a script's lines, cast and breakdown are final; only the owner may edit its title, about and notes (Current rules 31) merged
+- 2026-10-28 19:28 · #707 Reed's c4: a clip prompt's format problems are fixed in code, never by Claude merged
+- 2026-10-28 19:18 · #710 A failed "Change it" says so instead of spinning for ever merged
+- 2026-10-28 18:51 · #704 A scripted camera swap is staged as one: a whip or flip into a selfie angle merged
+- 2026-10-28 18:45 · #708 Clips: a change that didn't finish says so, keeps the note, and offers Try again merged
+- 2026-10-28 18:41 · #706 asked_seconds reads decimals, the last length named, and never a decade merged
+- 2026-10-28 18:40 · #703 QA-Live run 3: five small fixes (titles, other versions' roles, reel-line check, Summary quotes, cast read) merged
+- 2026-10-28 18:38 · #709 ops: HANDOFF/LOG refresh as of 61b7a78 merged (by the Producer)
 - 2026-10-28 18:34 · #705 Draw it as is follow-ups and an accurate waiting reason merged
 - 2026-10-28 18:29 · #699 Claude gets its own worker lane, so stills never wait behind it merged
 - 2026-10-28 18:24 · #702 Storyboard and Clips: a job that hasn't started says why merged
