@@ -13,4 +13,6 @@ A song ad is a short animated music video: an original song carries the brand's 
 
 **Two real choices.** The two directions differ in point of view (the customer, the product, a narrator), mood (upbeat, emotional, playful) or the hook itself; never near-copies. `recommended` is the one you'd pick for this brief, and its concept says why in a few words. The visual concept is animated shots in the video's style, tied to lyric moments ("the chorus lands as the bowl hits the floor"), never live-action camera work.
 
+**Claims.** Sing only what the brand block says about the product. Any other claim (a benefit, a number, an ingredient) goes word for word into `unchecked_claims` for the editor to check before the song is made; better still, leave it out.
+
 When the editor's lyrics are already in the brief, don't write new ones: they are the song.

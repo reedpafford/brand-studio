@@ -16,10 +16,21 @@ SONG = {
     "bpm": 120,
     "beats": [x / 2 for x in range(13)],
     "sections": [
-        {"name": "Verse 1", "start": 0.0, "end": 4.0},
-        {"name": "Chorus", "start": 4.0, "end": 6.0},
-    ],  # fmt: skip
-    "lines": [{"start": 0.1, "end": 1.9, "text": "Bowl stays full"}],
+        {"name": "Verse", "start": 0.0, "end": 4.0, "cuts": [2.0]},
+        {"name": "Chorus", "start": 4.0, "end": 6.0, "cuts": []},
+    ],
+    "lines": [
+        {"section": "Verse", "text": "Bowl stays full", "start": 0.1, "end": 1.9, "heard": 1},
+        {
+            "section": "Verse",
+            "text": "Then the green goes on",
+            "start": 2.1,
+            "end": 3.8,
+            "heard": 0,
+        },
+    ],
+    "words": [{"word": "Bowl", "start": 0.1, "end": 0.4}],  # for the screens, not Claude
+    "peaks": [0.1, 0.9],
 }
 
 
@@ -76,8 +87,11 @@ def test_a_song_breakdown_is_the_breakdown_plus_its_own_part():
 def test_song_block_lists_sections_beats_and_timed_lines():
     block = prompts.song_block(SONG)
     assert block.startswith('<song seconds="6.00" bpm="120">')
-    assert "- 4.00–6.00 Chorus" in block and "Beats: 0.00 0.50 1.00" in block
-    assert "1| 0.10–1.90 Bowl stays full" in block
+    assert "- 0.00–4.00 Verse (cuts: 2.00)" in block and "- 4.00–6.00 Chorus\n" in block
+    assert "Beats: 0.00 0.50 1.00" in block
+    assert "1| 0.10–1.90 Bowl stays full\n" in block
+    assert "2| 2.10–3.80 Then the green goes on (times guessed)" in block
+    assert "peaks" not in block and "0.40" not in block  # words and peaks stay out
     assert "<length>30 s (about 75 sung words)</length>" in prompts.song_directions_input(
         "Goal: x", ["char:1 Biscuit"], "folk", 30
     )
@@ -117,3 +131,19 @@ def test_a_sung_clip_binds_the_song_and_its_audio_line_passes():
     assert check.AUDIO_LINE.match(line)
     text = prompts.system("clip_prompts")
     assert "**Songs.**" in text and "audio:song:<clip id>" in text
+
+
+def test_suno_gets_the_lyrics_word_for_word_without_our_marks():
+    sent = prompts.song_request(LYRICS, "indie folk, warm female lead, 100 BPM.")
+    assert sent["lyrics"] == (
+        "[Intro: vocals start immediately]\n[Verse 1]\nBowl stays full\n"
+        "Then the green goes on\n[Chorus]\nGet Iron Paws now\n[End]"
+    )
+    assert sent["style"].startswith("indie folk, warm female lead, 100 BPM, vocals start")
+    assert "spoken word" in sent["exclude_styles"]
+
+
+def test_directions_list_claims_the_brand_never_made():
+    field = schemas.SongDirection.model_fields["unchecked_claims"]
+    assert "word for word" in field.description
+    assert "`unchecked_claims`" in prompts.system("song_directions")

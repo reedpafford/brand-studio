@@ -915,8 +915,8 @@ def song_breakdown(lyrics: str, bd: SongBreakdown, song: dict, *args, **kwargs) 
             problems.append(f"shot {shot.id}: a B-roll shot has a line; B-roll is silent picture")
     if abs(at - end) > 0.5:
         problems.append(f"the shots end at {at:.2f} s, the song at {end:.2f} s")
-    beats = song.get("beats") or []
     sections = song.get("sections") or []
+    beats = (song.get("beats") or []) + [c for x in sections for c in x.get("cuts", [])]
     asked = lip_synced(lyrics)
     for shot in shots:
         edges = [shot.song_start, shot.song_end]

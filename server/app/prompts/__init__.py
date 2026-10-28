@@ -348,19 +348,44 @@ def song_directions_input(
 
 
 def song_block(song: dict) -> str:
-    """The preferred song take, measured, for the song_breakdown step: {seconds, bpm, beats
-    [s], sections [{name, start, end}], lines [{start, end, text}]} (Whisper's times joined
-    into the sung lines). Sections may be empty: the lyrics' tags stand in."""
-    beats = " ".join(f"{b:.2f}" for b in song.get("beats", []))
-    lines = [f'<song seconds="{song["seconds"]:.2f}" bpm="{song.get("bpm") or "?"}">']
-    if song.get("sections"):
-        lines += ["Sections:"] + [
-            f"- {x['start']:.2f}–{x['end']:.2f} {x['name']}" for x in song["sections"]
-        ]
-    lines += [f"Beats: {beats}", "Sung lines:"]
-    lines += [f"{n}| {x['start']:.2f}–{x['end']:.2f} {x['text']}"
-              for n, x in enumerate(song.get("lines", []), 1)]  # fmt: skip
+    """The preferred take, measured, for the song_breakdown step: Next-Server's song timing
+    {seconds, bpm, beats, sections [{name, start, end, cuts}], lines [{section, text, start,
+    end, heard}]} (words and peaks are for the screens, left out). Sections start on bar lines;
+    `cuts` are bar lines inside one that fall outside any sung word, the best shot edges. A
+    line heard 0 times has guessed times."""
+    lines = [f'<song seconds="{song["seconds"]:.2f}" bpm="{song.get("bpm") or "?"}">', "Sections:"]
+    for x in song.get("sections", []):
+        cuts = " ".join(f"{c:.2f}" for c in x.get("cuts", []))
+        lines.append(
+            f"- {x['start']:.2f}–{x['end']:.2f} {x['name']}" + (f" (cuts: {cuts})" * bool(cuts))
+        )
+    lines.append("Beats: " + " ".join(f"{b:.2f}" for b in song.get("beats", [])))
+    lines.append("Sung lines:")
+    for n, x in enumerate(song.get("lines", []), 1):
+        guessed = " (times guessed)" if x.get("heard", 1) == 0 else ""
+        lines.append(f"{n}| {x['start']:.2f}–{x['end']:.2f} {x['text']}{guessed}")
     return "\n".join([*lines, "</song>"])
+
+
+SUNO_PACE = (
+    ", vocals start immediately, no instrumental intro, no instrumental breaks, continuous "
+    "singing, tight ending"
+)
+
+
+def song_request(lyrics: str, style_line: str) -> dict:
+    """What the music provider (Suno) is sent for a picked direction: the lyrics word for word
+    with our [Lip-sync] marks taken out (they're for the breakdown, never sung), opened and
+    closed so the vocals start at once and end tight; the style line plus the pacing, outside
+    its 25 words; and the styles to avoid (Starpop's measured Suno settings)."""
+    from app.prompts.check import LIP_SYNC
+
+    sung = "\n".join(LIP_SYNC.sub("", x).rstrip() for x in lyrics.strip().splitlines())
+    return {
+        "lyrics": f"[Intro: vocals start immediately]\n{sung}\n[End]",
+        "style": style_line.strip().rstrip(".") + SUNO_PACE,
+        "exclude_styles": "instrumental intro, instrumental break, long outro, spoken word",
+    }
 
 
 def spoken_words(script: str) -> int:

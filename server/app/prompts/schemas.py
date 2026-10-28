@@ -250,6 +250,11 @@ class SongDirection(BaseModel):
         description="2–3 sentences: what's on screen at the key lyric moments, as animated "
         "B-roll in the video's style."
     )
+    unchecked_claims: list[str] = Field(
+        description="Every claim the lyrics make about the product that the brand block doesn't "
+        "state (a benefit, a number, an ingredient), word for word, for the editor to check; "
+        "empty when every claim is the brand's own."
+    )
 
 
 class SongDirections(BaseModel):
