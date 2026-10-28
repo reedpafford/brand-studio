@@ -9,9 +9,7 @@ import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
-import { useJobs } from "../clip/History";
 import { useAllowanceStop } from "./useScript";
-import { serverTime } from "../time";
 
 export const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
 const MAX_MB = 100;
@@ -37,7 +35,7 @@ function postUpload(path: "/scripts/import/upload", form: Record<string, string>
   });
 }
 
-/** New script, Import a reel: a link or a video file. Getting it is free; the script is made at once and opens at its Description while the reel is prepared. */
+/** New script, Import a reel: a link or a video file. Getting it is free; the script is made at once and opens at its Script while the reel is prepared. */
 export function ReelPicker({ brandId }: { brandId: number }) {
   const [url, setUrl] = useState("");
   const [bad, setBad] = useState<string | null>(null);
@@ -140,26 +138,6 @@ const ROWS: { id: "got" | "heard" | "watch" | "write" | "cast"; label: string }[
   { id: "write", label: "Writing the script" },
   { id: "cast", label: "Filling in the cast" },
 ];
-
-/** "Reading the reel… 1m 10s": how long the paid read has been going, from its first job (or from when this page saw it start). */
-export function ReelProgress({ scriptId }: { scriptId: number }) {
-  const jobs = useJobs();
-  const [seen] = useState(() => Date.now());
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const running = (jobs.data ?? []).filter((j) => j.script_id === scriptId && (j.status === "queued" || j.status === "running"));
-  const from = running.length ? Math.min(...running.map((j) => serverTime(j.created_at).getTime())) : seen;
-  const secs = Math.max(0, Math.floor((now - (Number.isFinite(from) ? from : seen)) / 1000));
-  return (
-    <p role="status" className="flex items-center gap-2">
-      <LoaderCircle size={20} strokeWidth={1.75} aria-hidden className="animate-spin motion-reduce:animate-none" />
-      Reading the reel… {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}
-    </p>
-  );
-}
 
 /** What the server says is left this week, if it says the read doesn't fit. The usual wording comes from the allowance itself. */
 const notEnough = (e?: { credits: number; credits_left: number | null } | null) => (e && e.credits_left !== null && e.credits > e.credits_left ? "That's more than the credits you have left this week. It resets on Monday." : null);
@@ -271,7 +249,7 @@ function FillAgain({ scriptId }: { scriptId: number }) {
   );
 }
 
-/** On the Description step: getting the reel, the price to read it, the read's progress, and what came of it. */
+/** On the Script step: getting the reel, the price to read it, the read's progress, and what came of it. */
 export function ReelBlock({ scriptId, published, createdById }: { scriptId: number; published: boolean; createdById: number | null }) {
   const reel = useReelImport(scriptId);
   const file = useRef<HTMLInputElement>(null);
