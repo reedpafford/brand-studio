@@ -314,7 +314,8 @@ Where: the script's header, next to the title ("Style: House ▾"). Story and So
 | Picker | Cards with one sample still each, name, one line ("Soft 3D feature-film look"). House first, then Reed's order. Off entries show **Off** for editors and are greyed: "Not switched on yet". | **Use this style** on a card. |
 | Owner sees Off entries | Owner can pick an Off entry on their own draft to try it, labelled "Off for editors: only you can use it". | **Use this style**, or **Switch on for editors** (only once a sample is approved, ST3). |
 | Format entry | "Song" is a format: on a Story script its card says "Song is a kind of script: start a new song script". | **Start a song script** (opens S1 with Song picked). |
-| Format not built | A voiceover-led entry (e.g. Zack D, Skeleton if voiceover is needed): "Needs its own steps: not built yet". Not pickable. | — |
+| Voiceover-led entry | Zack D and Skeleton are narrated: they use the narrator voiceover lines clips already carry ("Voiceover (Biscuit, in English…)", as Iron Paws Pitbull 1 does). Picking one on a script with no narrator line: Advice "This style is narrated: the script has no narrator lines yet." | **Make the narrator a role** (free: the cast read marks the script's voiceover speaker as the narrator), or keep it as a look only. |
+| Format not built | An entry that needs steps we don't have (podcast, whiteboard): "Needs its own steps: not built yet". Not pickable. | — |
 | Change after looks exist | Confirm: "Change to Claymation? Character looks are per style: 3 roles need a new look (about N credits, made at Assets)." Not yet / Change. | **Change**. |
 | B | The estimate updates before the confirm; an editor over budget sees the reason and the picker stays on the current style. | — |
 | P | Cards in one column, sample still full width, the button under each. | — |
@@ -399,7 +400,8 @@ A small **Video settings** row at the top of every video and on "Make this versi
 | O/Ed | Editors see credits only. The owner picks for any video; an editor for their videos. | — |
 | P | The row collapses to one line "Settings: House · Auto…"; tapping opens a sheet with the four pickers. | — |
 | U | Undo after a switch. Switching back makes the old takes current again (they were kept). | — |
-| S | Model or style switch: later stills or clips "Out of date". Language switch: the script is the same words in one language only. A Story or Song script written in English stays English; the language setting is for new scripts and for spoken-line instructions. Mixing would break rule 19, so a video's language can't differ from its script's: the picker shows the script's language, read only. | — |
+| S | Model or style switch: later stills or clips "Out of date". | — |
+| Language (proposed, waiting on Reed) | A video follows its script's language, shown read only in Video settings: "Spanish (from the script)". The language is chosen when the script is written. To make another language, the owner presses **Make a copy in another language** on the script: a new, unpublished, translated script for the owner to review and publish (rule 19 holds: the published words never change). | — |
 
 **Language:** the script is written in the chosen language, every spoken line in a clip prompt says "in Spanish", and the English-only checks follow the language. Each language is switched on only after a sample test.
 
@@ -460,5 +462,4 @@ The Designer draws it first (on the Screening room direction Reed picked); Reed 
 1. **The music price.** The free price check of MiniMax Music comes first (spec step 0); until then the buttons show the model catalogue's price, and the test site runs on the free stand-in.
 2. **Lip-sync without a first frame** is the spec's biggest risk. The one paid 15-second test (spec step 0) decides whether Sung shots ship as designed, or fall back to "the Singer sings in B-roll style" (picture only, no lip-sync).
 3. **Reel import of song ads** is left out (S1). Say if Reed wants it in this item.
-4. **Zack D and Skeleton** are narrated (voiceover-led) in Starpop's files. We have no voiceover step, so as looks they work on Story scripts, and their narrated formats wait for a voiceover item. Reed should confirm that reading.
-5. **Language vs rule 19** (VS1): a video's language follows its script, because translating would change the words. Confirm.
+4. **Language** (VS1): written as the Producer proposed, waiting on Reed's answer.
