@@ -33,7 +33,7 @@ A song script carries a **Song** badge everywhere it's listed (Library card, In 
 
 | | Desktop | 390 |
 |---|---|---|
-| Opens as | A small menu under the button | A bottom sheet |
+| Opens as | A small menu under the button (Esc or a click outside closes it) | A bottom sheet with a 44px **Close** at the top |
 | Choices | **Story** "Dialogue and action, as today." · **Song** "Your lyrics, sung word for word, over B-roll." | Same, each a full-width 44px row |
 
 - **One press:** pick one. It makes the draft and opens it at its first step (Script for Story, Song for Song).
