@@ -592,6 +592,14 @@ def test_shot_times_take_a_hyphen_or_an_en_dash():
     assert check._shape(prompt, 10) == check._shape(prompt.replace("-", "–"), 10)
     assert check._shape(prompt, 10)[0] == []
     assert check._shape(prompt.replace("0-1 s.", "0\ty1 s."), 10)[0] == [
+        "shot 1 has no times; write them like “0-2 s.”"
+    ]
+    # Reed's c4: whole seconds with no full stop are never "not whole seconds" (the real
+    # reason instead), and decimals are.
+    assert check._shape(prompt.replace("0-1 s.", "0-1 s"), 10)[0] == [
+        "shot 1's times need a full stop after “s”, like “0-2 s.”"
+    ]
+    assert check._shape(prompt.replace("0-1 s.", "0-1.5 s."), 10)[0] == [
         "shot 1's times aren't whole seconds; write them like “0-2 s.”"
     ]
     last = re.findall(r"^Shot \d+ \| \d+[-–]\d+ s\.", prompt, re.M)[-1]
@@ -1223,3 +1231,42 @@ def test_a_requested_length_is_what_the_variations_length_advice_checks():
     assert f"Advice: variation 1 has {words} spoken words; about 17–25 fit the 10 s asked for" in (
         short
     )
+
+
+def test_c4s_shape_is_put_right_in_code_with_its_words_unchanged():
+    """Reed's Iron Paws c4 (24 s): "Shot 18 | 18-23 s in the gut…" had no full stop and
+    overlapped shot 17 (19-21 s), a shot ran 12.5-14 s, and the closing audio line didn't
+    match the opening one. All of it is mechanical: repaired in code, free, no Claude call,
+    and no other word changes."""
+    from app.clip_prompts import repair_shape
+
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    clip = cp.clips[0]
+    planned = next(c for c in bd.clips if c.id == clip.clip_id)
+    lines = clip.prompt.splitlines()
+    shots = [i for i, x in enumerate(lines) if x.startswith("Shot ")]
+    first, second = shots[0], shots[1]
+    lines[first] = re.sub(r"\| \d+-\d+ s\.", "| 0-1.5 s.", lines[first])  # a decimal
+    lines[second] = re.sub(r"\| \d+-\d+ s\.", "| 0-2 s", lines[second])  # overlap, no stop
+    lines[-1] = lines[0].replace("No subtitles.", "Quiet. No subtitles.")  # closing differs
+    broken = clip.model_copy(update={"prompt": "\n".join(lines)})
+    assert len(check._shape(broken.prompt, planned.seconds)[0]) == 2
+    fixed = repair_shape(broken, bd)
+    assert check._shape(fixed.prompt, planned.seconds)[0] == []
+    words = lambda p: re.sub(r"^Shot (\d+) \| [^ ]+ ?s\b\.?", r"Shot \1", p, flags=re.M)  # noqa: E731
+    assert words(fixed.prompt).splitlines()[1:-1] == words(broken.prompt).splitlines()[1:-1]
+
+
+def test_the_free_fix_never_drops_a_lip_sync_note():
+    """Reed's c4: Fix this clip's prompt dropped "nobody on screen lip-syncs it", which
+    invites lip-sync. It's put back before the Keep line."""
+    from app.clip_prompts import _kept_voiceover
+
+    _, cp = example("clip_prompts")
+    clip = cp.clips[0]
+    note = "The voiceover is Biscuit's narration; nobody on screen lip-syncs it."
+    lines = clip.prompt.splitlines()
+    before = "\n".join([*lines[:-2], note, *lines[-2:]])
+    back = _kept_voiceover(clip, before).prompt.splitlines()
+    assert back[-3:] == [note, *lines[-2:]] and _kept_voiceover(clip, clip.prompt) == clip

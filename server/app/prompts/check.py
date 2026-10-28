@@ -348,10 +348,14 @@ def _shot_times(prompt: str) -> str:
         return "has no shot times (each shot line starts like “Shot 1 | 0-2 s.”)"
     end = 0
     for k, (number, rest) in enumerate(shots):
-        times = re.match(r" (\d+)[-–](\d+) s\.", rest)
         which = "the last shot" if k == len(shots) - 1 else f"shot {number}"
+        times = re.match(r" ?(\d+(?:\.\d+)?) ?[-–] ?(\d+(?:\.\d+)?) ?s\b(\.?)", rest)
         if not times:
+            return f"{which} has no times; write them like “0-2 s.”"
+        if "." in times[1] + times[2]:  # the real reason, never when they are whole (c4)
             return f"{which}'s times aren't whole seconds; write them like “0-2 s.”"
+        if not times[3]:
+            return f"{which}'s times need a full stop after “s”, like “0-2 s.”"
         start, stop = int(times[1]), int(times[2])
         if stop <= start:
             return f"has an empty {which.removeprefix('the ')} ({start}–{stop} s). " + (

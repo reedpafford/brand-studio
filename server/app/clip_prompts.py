@@ -392,6 +392,8 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             continue
         try:  # one clip that can't be saved never loses the others
             c = repair_shape(with_cast(db, project, c, bd, known), bd)  # free, at once
+            if job.input.get("fix"):  # the free fix never drops who isn't lip-syncing (c4)
+                c = _kept_voiceover(c, job.input.get("before") or "")
             problems = clip_problems(db, project, bd, c)
         except Exception:
             log.exception("job %s: saving clip %s's prompt failed", job.id, c.clip_id)
@@ -435,6 +437,22 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         row.free_fix_used = bool(job.input.get("fix"))  # once per version, then priced (QA)
 
 
+LIP_SYNC = re.compile(r"lip[- ]?sync|voice-?over|mouth stays closed", re.I)
+
+
+def _kept_voiceover(clip: ClipPrompt, before: str) -> ClipPrompt:
+    """A voiceover or lip-sync note the earlier prompt had, put back before the Keep line
+    when Fix this clip's prompt dropped it (Reed's c4: "nobody on screen lip-syncs it")."""
+    lines = clip.prompt.splitlines()
+    lost = [x for x in before.splitlines() if LIP_SYNC.search(x) and x not in lines
+            and not x.startswith(("Audio: ", "Shot "))]  # fmt: skip
+    if not lost:
+        return clip
+    at = _line(lines, "Keep: ")
+    lines[at if at >= 0 else len(lines) - 1 : at if at >= 0 else len(lines) - 1] = lost
+    return clip.model_copy(update={"prompt": "\n".join(lines)})
+
+
 def _unwritten(job: Job) -> dict[str, str]:
     """clip id -> why its part of the run failed (the provider's `failed_parts`)."""
     groups = job.input.get("batches") or []
@@ -460,7 +478,10 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
     lines = clip.prompt.strip().splitlines() or [""]
     if AUDIO_LINE.match(lines[0]) and (len(lines) < 2 or lines[-1] != lines[0]):
-        lines.append(lines[0])
+        if len(lines) > 1 and lines[-1].startswith("Audio: "):  # a different closing line
+            lines[-1] = lines[0]  # (Reed's c4): the same as the opening one, never a second
+        else:
+            lines.append(lines[0])
     images = [r for r in clip.references if r.kind == "image"]
     first = "[Image1] is the first frame."
     if images and images[0].id.startswith("frame:") and first not in clip.prompt:
@@ -491,18 +512,19 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
     return clip.model_copy(update={"prompt": prompt, "seconds": seconds})
 
 
-SHOT = re.compile(r"^(Shot \d+ \| )(\d+)[-–](\d+)( s\..*)$")
+# A shot's times, whole or not, with or without the period after "s" (Reed's c4: "18-23 s i…").
+SHOT = re.compile(r"^(Shot \d+ \| )(\d+(?:\.\d+)?) ?[-–] ?(\d+(?:\.\d+)?) ?s\b\.?(.*)$")
 
 
 def _retime(lines: list[str], seconds: int) -> list[str]:
-    """Shots back to back from 0 to the clip's length, each keeping its length (at least 1 s);
-    the longest give a second each when they run over, the last takes up any gap. Unchanged
-    when the shots can't fit (more shots than seconds) or a time isn't whole seconds."""
+    """Shots back to back from 0 to the clip's length in whole seconds, written "0-2 s.", each
+    keeping its length rounded (at least 1 s); the longest give a second each when they run
+    over, the last takes up any gap. Unchanged when the shots can't fit (more than seconds)."""
     at = [i for i, x in enumerate(lines) if x.startswith("Shot ")]
     found = [SHOT.match(lines[i]) for i in at]
     if not at or not all(found):
         return lines
-    lengths = [max(int(m[3]) - int(m[2]), 1) for m in found]
+    lengths = [max(round(float(m[3]) - float(m[2])), 1) for m in found]
     while sum(lengths) > seconds and max(lengths) > 1:
         lengths[lengths.index(max(lengths))] -= 1
     if sum(lengths) > seconds:
@@ -510,8 +532,9 @@ def _retime(lines: list[str], seconds: int) -> list[str]:
     lengths[-1] += seconds - sum(lengths)
     out, start = list(lines), 0
     for i, m, n in zip(at, found, lengths, strict=True):
-        if (int(m[2]), int(m[3])) != (start, start + n):  # a right one stays as written
-            out[i] = f"{m[1]}{start}-{start + n}{m[4]}"
+        line = f"{m[1]}{start}-{start + n} s.{m[4]}"
+        if not re.match(rf"^Shot \d+ \| {start}[-–]{start + n} s\.", lines[i]):  # right: kept
+            out[i] = line
         start += n
     return out
 
@@ -552,8 +575,9 @@ def queue_fix(db: Session, user, project: Project, row: ProjectClip, problems: l
         raise HTTPException(409, "Clip prompts are already being written for this project.")
     clip = row.clip_id
     data = job_input(db, project, bd, [clip])
-    fix = ("Rewrite only this clip's prompt, keeping every spoken line word for word, and "
-           f"clear these problems: {'; '.join(problems)}")  # fmt: skip
+    fix = ("Change only the lines of this clip's prompt that these problems name, and keep "
+           "every other line word for word (the spoken lines, the audio, the action and the "
+           f"voiceover and lip-sync notes): {'; '.join(problems)}")  # fmt: skip
     data = {**data, "prompt": f"{data['prompt']}\n<fix clip=\"{clip}\">\n{escape(fix)}\n</fix>",
             "clip_ids": [clip], "fix": True, "before": row.prompt}  # fmt: skip
     job = Job(workspace_id=project.workspace_id, created_by_id=user.id, approved_by_id=user.id,
