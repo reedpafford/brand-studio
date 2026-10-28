@@ -368,6 +368,8 @@ This is Starpop's three columns: the brand and its videos, the work, and the med
 
 # Part 3. Low-fi wireframes
 
+**Clickable version:** [`wireframes/index.html`](wireframes/index.html) is one self-contained file, grey-box, dark or light. It toggles between phone 390 and desktop and between editor and owner, and a state switch shows Normal, Waiting, Failed, Refused, Out of date and Over budget on the video steps. It covers the Videos home, the Scripts library, Make this version (the handoff card), Write, Song, Takes, Cast, Plan, Publish, Breakdown, Assets, Storyboard, Clips (Prompts and Takes), Final cut, the cost bar and the state words. The ASCII below is the same layout in text.
+
 ## 3.1 A video at Clips, desktop (1280)
 
 ```
