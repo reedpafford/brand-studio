@@ -11,10 +11,10 @@ A state passes only if the person sees what's happening and has one press that m
 
 | Id | Flow | 390 | Desktop | Last checked |
 |---|---|---|---|---|
-| S1 | New script: Song | ⬜ | ⬜ | — |
-| S2 | Lyrics and style (word count, cap, end-line Advice) | ⬜ | API: ✅ empty style, no lyrics → 422 | #748 at 9a44a675 (API) |
+| S1 | New script: Song | ✅ | ✅ | #759 at 5698de50 |
+| S2 | Lyrics and style (word count, cap, end-line Advice) | ✅ save, edit-with-takes confirm | ✅ | #759 at 5698de50 (word count, cap and end-line Advice not built) |
 | S3 | Write 2 song directions | ⬜ | ⬜ | — |
-| S4 | Make the song: takes, Preferred, timing | ⬜ | API: ❌ 3 states (see Open failures) | #748 at 9a44a675 (API, no screen yet) |
+| S4 | Make the song: takes, Preferred, timing | ❌ 2 states | ❌ 2 states | #759 at 5698de50 (UI); #748 (API) |
 | S5 | Cast: who sings | ⬜ | ⬜ | — |
 | S6 | Breakdown preview (owner) | ⬜ | ⬜ | — |
 | S7 | Publish | ⬜ | API: ✅ takes read-only once published | #748 at 9a44a675 (API) |
@@ -58,6 +58,9 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Clips (story videos) | The new "Songs" paragraph is in clip_prompts.md, so every story video's clip-prompt text grows and the cache resets once | A song-only extension (EXTENDS) | #755 at 3a72323e |
 | V2 | The `[Lip-sync]` Advice fires on an editor's own Sung flips, telling them to edit final lyrics | Check only when the breakdown is written | #755 at 3a72323e |
 | S4 | Adding or removing a `[Lip-sync]` mark dates every take (whole-text compare) | Compare sung lines only | #748 vs #755 |
+| S4 S (UI) | After the lyrics change, every take sings older words but **Next: Cast** stays enabled (gated on a stale `preferred`) | Gate on `preferred && !out_of_date` | #759 at 5698de50 |
+| S4 X (UI) | A refused song offers only "Try again", which sends the same words again | **Edit lyrics** / **Edit style** (or **Use the brand's style instead**) | #759 at 5698de50 |
+| Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -88,3 +91,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-28 | #743 at d16aef16 | Finished-video warning, cut with out-of-date clips, flavour edge states, Suno S4 | PASS |
 | 2026-10-28 | #755 at 3a72323e (song prompts) | Song directions, song breakdown, Sung clips; House prompts | PASS on the prompts, 19 tests; FAIL on 2 effects (story clip prompts, editor-flip Advice) |
 | 2026-10-28 | #743 at c8c5305d | ST1 voiceover-led entries, S3 unchecked claims | PASS |
+| 2026-10-28 | #759 at 5698de50 (song screens S1, S2, S4) | Playwright at 1440 and 390: failed, refused, Advice, leave and return, delete guard, delete + Undo, lyrics-edit confirm, sideways scroll; plus the PR's song.e2e | FAIL: Next after the lyrics change, refused has no way on; 7 states pass |
