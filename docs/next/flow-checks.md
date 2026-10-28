@@ -55,8 +55,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | V2a | An over-cap take can become the video's song | 409 "Too long for this video" + **Use the first N:NN** | #750 at b4ef028e |
 | S4 | Suno: one request = 2 songs at a 1-credit placeholder; limits 5,000 / 1,000. screens.md (#742) still has 3,500 / 2,000 and "3 for 2, 2 for one" | screens.md follows flows.md S4 | #746 at 6efea144 |
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
-| ST1 | Zack D and Skeleton are `format` in #753 but looks in flows.md Q4, so two of Reed's first four styles can't be picked | Settle with Reed's answer to Q4 | #753 at 49b73764 |
-| S3 | Song directions return `unchecked_claims`; flows.md has no state for them | "These claims aren't in the brand facts" + **Keep it** / **Edit the line** (Advice) | #755 at 3a72323e |
 | Clips (story videos) | The new "Songs" paragraph is in clip_prompts.md, so every story video's clip-prompt text grows and the cache resets once | A song-only extension (EXTENDS) | #755 at 3a72323e |
 | V2 | The `[Lip-sync]` Advice fires on an editor's own Sung flips, telling them to edit final lyrics | Check only when the breakdown is written | #755 at 3a72323e |
 | S4 | Adding or removing a `[Lip-sync]` mark dates every take (whole-text compare) | Compare sung lines only | #748 vs #755 |
@@ -86,6 +84,7 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-28 | #748 at 9a44a675 | full server suite | PASS |
 | 2026-10-28 | #746 at 6efea144 (Suno) | times_sung, TooLong, quote length | PASS (Advice note: a repeat names both chorus copies) |
 | 2026-10-28 | #743 at ba9010cf (UX audit names and moves) | Out of date viewable, finished video, flavour, shape | PASS with 3 gaps |
-| 2026-10-28 | #753 at 49b73764 (the rest of the styles) | House prompts, style switches | PASS: 15/15 House renders identical, 18 tests; 1 mismatch with flows.md Q4 |
+| 2026-10-28 | #753 at 49b73764 (the rest of the styles) | House prompts, style switches | PASS: 15/15 House renders identical, 18 tests (Zack D / Skeleton as formats match flows.md ST1 "Voiceover-led entry") |
 | 2026-10-28 | #743 at d16aef16 | Finished-video warning, cut with out-of-date clips, flavour edge states, Suno S4 | PASS |
 | 2026-10-28 | #755 at 3a72323e (song prompts) | Song directions, song breakdown, Sung clips; House prompts | PASS on the prompts, 19 tests; FAIL on 2 effects (story clip prompts, editor-flip Advice) |
+| 2026-10-28 | #743 at c8c5305d | ST1 voiceover-led entries, S3 unchecked claims | PASS |
