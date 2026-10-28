@@ -9,6 +9,7 @@ import { Badge, Button, Card, Menu, MenuItem, TextArea, useToast, Select, wholeC
 import { errorText as errorClass } from "../ui";
 import { lookFitNote, useSheetPrice } from "../library/SheetPanel";
 import { RoleFacts } from "./RoleFacts";
+import { RoleTextFit } from "./RoleTextFit";
 
 type Asset = components["schemas"]["AssetOut"];
 
@@ -344,6 +345,9 @@ export function AssetCard({
                 </Button>
               )}
             </div>
+          )}
+          {asset.slot_id != null && !asset.locked && asset.sheet_status === "approved" && (
+            <RoleTextFit key={asset.text_fit?.description ?? ""} asset={asset} projectId={projectId} stopFor={stopFor} onDone={refresh} />
           )}
           {using && !asset.locked && (
             <div className="space-y-2">

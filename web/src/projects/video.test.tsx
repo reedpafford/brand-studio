@@ -489,6 +489,43 @@ test("a look still being made says Making the look…, with no approval badge an
   expect(within(card).queryByRole("button", { name: "Approve" })).toBeNull();
 });
 
+test("an approved look that contradicts the role's words says so, and Update the description saves the edited words with Undo", async () => {
+  setViewport(390);
+  const fit = { seen: "The approved look is a French bulldog.", name: "Biscuit, the French bulldog", description: "A stocky French bulldog, the narrator" };
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({ role: "Biscuit, the golden retriever", description: "A golden retriever, the narrator", sheet_status: "approved", ready: true, sheet_file_id: 71, text_fit: fit })]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Biscuit", sheet_status: "approved" })],
+    "PATCH /projects/9/assets/slots/3": [200, []],
+  });
+  open();
+  const note = await screen.findByRole("note", { name: "Role words for Biscuit, the golden retriever" });
+  expect(within(note).getByText(/The approved look is a French bulldog\./)).toBeInTheDocument();
+  expect(within(note).getByLabelText("Role")).toHaveValue("Biscuit, the French bulldog");
+  const box = within(note).getByLabelText("Description");
+  expect(box).toHaveValue("A stocky French bulldog, the narrator");
+  await userEvent.type(box, " who loves salmon");
+  await userEvent.click(within(note).getByRole("button", { name: "Update the description" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9/assets/slots/3")?.body).toEqual({ role: "Biscuit, the French bulldog", description: "A stocky French bulldog, the narrator who loves salmon" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PATCH /projects/9/assets/slots/3").at(-1)?.body).toEqual({ role: "Biscuit, the golden retriever", description: "A golden retriever, the narrator" }));
+});
+
+test("a look approved before the words were checked offers the check at its price", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, [own({ role: "Biscuit", sheet_status: "approved", ready: true, sheet_file_id: 71, text_check_credits: 1 })]],
+    "GET /library/character/12": [200, item({ id: 12, name: "Biscuit", sheet_status: "approved" })],
+    "POST /projects/9/assets/slots/3/check-text": [200, []],
+  });
+  open();
+  const card = await screen.findByLabelText("Biscuit");
+  expect(within(card).queryByRole("note", { name: /Role words/ })).toBeNull();
+  await userEvent.click(within(card).getByRole("button", { name: /^Check the description against the look · 1 credit/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/check-text")).toBe(true));
+});
+
 test("when the role has gone back to a Cast & places character, the video's own look is kept and offered again", async () => {
   setViewport(1440);
   const calls = fakeServer({

@@ -52,6 +52,26 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("button", { name: "Next: Storyboard" }),
     ).toBeEnabled();
+    if (width === 390) {
+      // An approved look the role's words contradict (Reed's Biscuit): the words to update fit a phone.
+      await page.route(`**/api/projects/${id}/assets`, (route) =>
+        route.fulfill({
+          json: [{
+            kind: "character", ref: "char:1", role: "Biscuit, the golden retriever", library_item_id: 1, name: "Biscuit", locked: false,
+            sheet_status: "approved", ready: true, slot_id: 1, description: "A golden retriever, the narrator", shots: 2, only_here: "video", own_look_id: 1,
+            text_fit: { seen: "The approved look is a French bulldog.", name: "Biscuit, the French bulldog", description: "A stocky French bulldog, the narrator" },
+          }],
+        }),
+      );
+      await page.reload();
+      const update = page.getByRole("button", { name: "Update the description" });
+      await expect(update).toBeVisible();
+      expect((await update.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await expect(page.getByLabel("Description")).toHaveValue("A stocky French bulldog, the narrator");
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(wide).toBeLessThanOrEqual(0);
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+    }
   });
 }
 
