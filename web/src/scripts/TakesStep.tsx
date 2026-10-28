@@ -86,7 +86,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, makeMore }: { t: SongT
           <p role="alert" className={errorClass}>{t.failed_reason ?? "Didn't finish · nothing charged."}</p>
           {/* A refusal comes back the same for the same words and style: the way out is changing them on the Song step. */}
           {!readOnly && (
-            <Link to="?" className={buttonClass("secondary")}>
+            <Link to="?edit=1" className={buttonClass("secondary")}>
               <Pencil size={20} strokeWidth={1.75} aria-hidden />
               Edit lyrics or style
             </Link>

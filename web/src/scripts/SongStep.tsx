@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Lock, Pencil, X } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { Badge, Button, Card, Dialog, Field, TextArea } from "../components";
@@ -123,6 +124,9 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
   const toast = useToast();
   // The boxes while editing; null shows the saved lyrics. Kept for this tab, so no way out of the page loses them.
   const memory = `song-words-${s.id}`;
+  // "Edit lyrics or style" from a refused take opens the boxes at once (no lock, no confirm: it already knows).
+  const [params, setParams] = useSearchParams();
+  const asked = params.get("edit") === "1" && !s.published;
   const [draft, setDraftNow] = useState<{ text: string; style: string } | null>(() => {
     try {
       const kept = sessionStorage.getItem(memory);
@@ -130,7 +134,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
     } catch {
       /* private window */
     }
-    return saved.text.trim() || s.published ? null : { text: "", style: saved.style_line };
+    return (saved.text.trim() || s.published) && !asked ? null : { text: saved.text, style: saved.style_line };
   });
   const setDraft = (d: { text: string; style: string } | null) => {
     setDraftNow(d);
@@ -142,6 +146,9 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
     }
   };
   const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    if (asked) setParams({}, { replace: true }); // done: a reload shows the step as usual
+  }, [asked]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirty = draft !== null && (draft.text !== saved.text || draft.style !== saved.style_line);
   useEffect(() => onDirty(dirty), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onDirty(false), []); // eslint-disable-line react-hooks/exhaustive-deps

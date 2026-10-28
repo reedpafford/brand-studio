@@ -185,10 +185,11 @@ test("after the lyrics change, a Preferred take that sings the older words doesn
   expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Make the song first");
 });
 
-test("a refused take offers Edit lyrics or style, which goes back to the Song step", async () => {
+test("a refused take offers Edit lyrics or style, which opens the Song step's boxes at once", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "The music service won't sing this: an artist's name in the style. Describe the sound instead." })])] });
   open("/b/1/scripts/7?step=takes");
   await userEvent.click(await screen.findByRole("link", { name: "Edit lyrics or style" }));
-  expect(await screen.findByRole("heading", { name: "Song", level: 2 })).toBeInTheDocument();
+  expect(await screen.findByLabelText("Lyrics")).toHaveValue(LYRICS); // the boxes open at once, no confirm
+  expect(screen.queryByRole("alertdialog")).toBeNull();
 });
