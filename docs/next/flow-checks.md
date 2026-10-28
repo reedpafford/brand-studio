@@ -1,24 +1,41 @@
 # Flow checks (Flow-QA's living checklist)
 
 Every flow in docs/next/flows.md, every state, and when it was last walked on the test site or in the browser tests (free stand-ins only, phone 390 and desktop).
-Until flows.md lands, the song-ad rows below come from the approved spec (docs/research/starpop-2026-10-28/spec.md, feature 1). They're renamed to match flows.md when it does.
+Flow ids follow docs/next/flows.md (#740 song ads, #743 items 2–6). The screen plan (docs/next/screens.md) numbers the same song steps S1–S9 a little differently; flows.md wins.
 
 **Marks:** ✅ passes · ❌ fails (see Open failures) · ⬜ not built yet · — doesn't apply.
 **States walked for every step:** empty · loading · queued · running · done · failed · refused · over budget / allowance · owner · editor · 390 · desktop · back / Undo · leaving the page mid-run · "Out of date" on later steps.
 A state passes only if the person sees what's happening and has one press that moves them on (rule 22), and every paid press shows its price first (rule 24, spec feature 6).
 
-## Song ads (feature 1)
+## Song ads (flows.md item 1)
 
-| # | Flow | Steps | States | 390 | Desktop | Last checked |
-|---|---|---|---|---|---|---|
-| S1 | Owner starts a song script | New script → Song | ⬜ | ⬜ | ⬜ | — |
-| S2 | Lyrics and style line | paste lyrics, or "Write 2 song directions" (paid) → pick one → lyrics lock | ⬜ | ⬜ | ⬜ | — |
-| S3 | Make the song | "Make 2 takes" (paid) → play → Preferred → "Make 2 more" | ⬜ | ⬜ | ⬜ | — |
-| S4 | Change the preferred take after the breakdown | Preferred → later steps "Out of date" | ⬜ | ⬜ | ⬜ | — |
-| S5 | Cast read and Breakdown from the song | word timings → shots with time ranges → Sung / B-roll flip | ⬜ | ⬜ | ⬜ | — |
-| S6 | Publish the song script | Publish → lines, cast, breakdown and song final (rule 31) | ⬜ | ⬜ | ⬜ | — |
-| S7 | Editor makes the video | Assets → Breakdown (waveform) → Storyboard → Clips (Sung slices) | ⬜ | ⬜ | ⬜ | — |
-| S8 | Final cut with the song under it | Downloads → stitched video plus song (free) | ⬜ | ⬜ | ⬜ | — |
+| Id | Flow | 390 | Desktop | Last checked |
+|---|---|---|---|---|
+| S1 | New script: Song | ⬜ | ⬜ | — |
+| S2 | Lyrics and style (word count, cap, end-line Advice) | ⬜ | ⬜ | — |
+| S3 | Write 2 song directions | ⬜ | ⬜ | — |
+| S4 | Make the song: takes, Preferred, timing | ⬜ | ⬜ | — |
+| S5 | Cast: who sings | ⬜ | ⬜ | — |
+| S6 | Breakdown preview (owner) | ⬜ | ⬜ | — |
+| S7 | Publish | ⬜ | ⬜ | — |
+| — | The video's own song (editor: Change song, Make 2 more; rule 31) | ⬜ | ⬜ | — |
+| V1 | Make this version | ⬜ | ⬜ | — |
+| V2 | Breakdown on the song (Sung / B-roll, split, join) | ⬜ | ⬜ | — |
+| V3–V4 | Assets, Storyboard (Sung stills as reference) | ⬜ | ⬜ | — |
+| V5 | Clips: Sung and B-roll | ⬜ | ⬜ | — |
+| V6 | Downloads: the song underneath | ⬜ | ⬜ | — |
+
+Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `fake:refuse`, `fake:copyright`, `fake:drop-line`, `fake:repeat-line`, `fake:long=N` (N past the cap, e.g. 800).
+
+## Items 2–6 (flows.md #743)
+
+| Id | Flow | 390 | Desktop | Last checked |
+|---|---|---|---|---|
+| ST1–ST3 | Style picker, downstream effects, switching a style on | ⬜ | ⬜ | — |
+| BR1–BR2 | Brand page, import from website | ⬜ | ⬜ | — |
+| VS1 | Video settings | ⬜ | ⬜ | — |
+| OR1–OR4 | Projects, Media, Preferred and versions, cost log | ⬜ | ⬜ | — |
+| Layout | Three columns, cost bar | ⬜ | ⬜ | — |
 
 ## Effects on other steps (checked on every PR that touches a step)
 
@@ -35,7 +52,17 @@ A state passes only if the person sees what's happening and has one press that m
 | Song | Lyrics over the 3,500 limit (pasted, or from a direction) have no state | Counter red; **Save lyrics** disabled with "cut N characters"; the words stay | #742 plan |
 | Takes | Take statuses `timing` and `timing_failed` have no state | `timing`: plays, Next waits with the reason; `timing_failed`: **Make this Preferred** on the other take / **Make 2 more** | #742 plan |
 
-The #737 screen plan passes on paper; the questions left are Next-Lead's, in flows.md.
+| flows.md S4 / data.md | Rule 31 as merged (#739): Preferred take and new takes per video, but flows.md fixes them at publish and has no editor song step | An editor song step (#737 S3e); `projects.song_take_id`, `song_takes.project_id` | #740 |
+| flows.md S4 | Timing failed offers only Try again (repeats) | **Make the other one preferred** / **Make 2 more** | #740 |
+| flows.md S5 → V2 | "Nobody on camera", then a flip to Sung, has no singer | "Who sings this shot?" picker, free, Undo | #740 |
+| flows.md S4 | Deleting the Preferred take when the other sings older words; deleting a take a video uses | Guard both, with the reason | #740 |
+| flows.md vs #737 | Step names, empty style (Advice vs block), the press for an unsafe refusal, sung-twice | Pick one in flows.md; the screens follow | #740 |
+| ST2 | Per-style sheet on a library character (rule 12); editor dead end | Per-video look for editors | #743 |
+| ST1 | Publishing on an Off style | **Switch to House** at Publish | #743 |
+| VS1 | A non-audio video model on a song video leaves Sung clips unmakeable | Grey them out, or Sung → B-roll with Undo | #743 |
+| ST3 | Sample needs the brand's hero; no default cast yet | Stock character, or a picker | #743 |
+
+The #737 screen plan passes on paper.
 
 Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes and flips), 8068f911 (take-delete guard for videos) and 86dc2dd9 (no take fits the cap) (on paper; re-checked on the built screens): cap block, timing fallback, unsung line, Sung problems, refusal by style, restart, take-delete guard, trim and hold, 390 takes layout, "up to N" pricing. To re-check on the built screens.
 
@@ -48,3 +75,5 @@ Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes 
 | 2026-10-28 | next at 4b89a38 (baseline, before Next work) | all existing browser tests, 390 and desktop, free stand-ins | PASS: 52 passed, 1 skipped (3.8 min) |
 | 2026-10-28 | #737 at 97c4f14e | S1–S9 on paper | PASS |
 | 2026-10-28 | #742 at 972a31fd (song fields) | S2, S3 on paper | FAIL: 2 open |
+| 2026-10-28 | #740 at 78300b55 (flows.md, song ads) | S1–S7, V1–V6 on paper | FAIL: rule 31, 3 dead ends, 4 disagreements |
+| 2026-10-28 | #743 at 395c6005 (flows.md, items 2–6) | ST, BR, VS, OR, layout on paper | FAIL: 4 blocking, 4 smaller |
