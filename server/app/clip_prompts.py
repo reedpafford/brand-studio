@@ -46,6 +46,7 @@ from app.storyboard import (
 from app.storyboard import assets as picture_assets
 
 log = logging.getLogger(__name__)
+MODERATED = "The video model refused this prompt: it read it as "  # clip_takes.refused
 
 # asset id -> (line for the prompt, kind for Seedance, its file ids)
 Assets = dict[str, tuple[str, str, list[int]]]
@@ -345,8 +346,10 @@ def repair(db: Session, project: Project) -> int:
         if cleared := bool((row.real_images or {}).keys() - cuts):
             row.real_images = {k: v for k, v in row.real_images.items() if k in cuts}
         problems = clip_problems(db, project, bd, now) + [
-            p for p in row.problems or [] if p.startswith(LEFT_OUT)
-        ]  # what an earlier trim left out stays said
+            p
+            for p in row.problems or []
+            if p.startswith(LEFT_OUT) or (p.startswith(MODERATED) and now.prompt == was.prompt)
+        ]  # what an earlier trim left out stays said, a refusal until the words change
         if any(p.lower().startswith("more references than") for p in problems):
             now = repair_shape(_cap(with_cast(db, project, was, bd, known), known), bd)
             kept = {r.id for r in now.references}

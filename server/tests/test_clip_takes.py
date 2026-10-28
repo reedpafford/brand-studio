@@ -289,3 +289,49 @@ def test_a_busy_service_says_to_try_again_never_ask_the_owner(app, db, editor, s
         "Make clip to try again."
     )
     assert credits_used(db, db.get(Project, setup["project"])) == before
+
+
+class Flagged(FakeSeedance):
+    """The video model's content check refusing a take (Reed's Iron Paws c4, jobs 990-1016)."""
+
+    def __call__(self, request):
+        if request.method == "GET" and "/predictions/p" in str(request.url):
+            n = str(request.url).rsplit("p", 1)[1]
+            error = ("Prediction failed: Async prediction failed: ContentModerationError: "
+                     "Content flagged for: sexual")  # fmt: skip
+            return httpx.Response(200, json={"id": f"p{n}", "status": "failed", "error": error})
+        return super().__call__(request)
+
+
+def test_a_moderation_refusal_says_why_and_offers_a_free_reword(app, db, editor, setup, clip):  # noqa: F811
+    from app.credits import credits_used
+    from app.models.clips import ProjectClip
+    from app.models.projects import Project
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    before = credits_used(db, db.get(Project, setup["project"]))
+    db.get(ProjectClip, clip["id"]).free_fix_used = True  # used on this prompt already
+    db.commit()
+    editor.post(f"{url}/generate")
+    _work(app, db, Flagged([]))
+    (job,) = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
+    assert job["error"] == (
+        "The video model refused this prompt: it read it as sexual. Nothing was charged. "
+        "Change the wording, then make it again."
+    )
+    assert "try again" not in job["error"].lower()
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]  # Clips reopened
+    assert shown["problems"] == [
+        "The video model refused this prompt: it read it as sexual. Keep the story and the "
+        "spoken lines; remove what reads as sexual."
+    ]
+    assert shown["free_fix_used"] is False  # one free press: Fix this clip's prompt
+    again = editor.post(f"{url}/generate")
+    assert again.status_code == 409  # never the same prompt again
+    fix = editor.post(f"{url}/fix").json()
+    queued = db.get(Job, fix["job"]["id"])
+    assert "remove what reads as sexual" in queued.input["prompt"] and fix["job"]["credits"] == 0
+    assert credits_used(db, db.get(Project, setup["project"])) == before
+
+    body = {"prompt": shown["prompt"] + " ", "references": shown["references"]}  # their own edit
+    assert editor.put(url, json=body).json()["problems"] == []  # new words: the refusal goes

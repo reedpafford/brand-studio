@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.advice import names
 from app.breakdown import video_model
-from app.clip_prompts import assets
+from app.clip_prompts import MODERATED, assets
 from app.credits import estimate
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
@@ -95,6 +95,16 @@ BUSY = ("The video service was busy and couldn't finish this. Nothing was charge
 REFUSED = "The video model thinks this clip looks too much like someone else's character or video."
 
 
+def moderated(detail: str) -> str:
+    """What the video model's content check read a take as ("sexual"), or "" when it didn't
+    refuse it that way (Replicate: ContentModerationError, "flagged for: X", E005)."""
+    if "copyright" in detail.lower() or not re.search(r"ContentModeration|flagged for|E005",
+                                                      detail, re.I):  # fmt: skip
+        return ""  # Seedance's copyright E005 says what to do itself
+    said = re.search(r"flagged for:?\s*([a-z][a-z ,/-]*[a-z])", detail, re.I)
+    return said.group(1).lower() if said else "unsafe content"
+
+
 def refused(db: Session, job: Job) -> None:
     """Seedance's copyright refusal ("…may be related to copyright restrictions") in plain
     words with a next step (rules 4 and 22), never "Ask the owner". Refused takes aren't
@@ -104,6 +114,16 @@ def refused(db: Session, job: Job) -> None:
     if re.search(r"service is (temporarily|currently) unavailable", job.error_detail or "", re.I):
         took = row and db.scalar(select(ClipTake.id).where(ClipTake.clip_id == row.id).limit(1))
         job.error = BUSY.format("Make another take" if took else "Make clip")  # its button
+        return
+    if term := moderated(job.error_detail or ""):  # Reed's c4: "flagged for: sexual", 4 times
+        job.error = (
+            f"{MODERATED}{term}. Nothing was charged. Change the wording, then make it again."
+        )
+        if row and row.prompt == job.input.get("clip_prompt"):  # the prompt it was made from
+            said = (f"{MODERATED}{term}. Keep the story and the spoken lines; remove what "
+                    f"reads as {term}.")  # fmt: skip
+            row.problems = [p for p in row.problems or [] if not p.startswith(MODERATED)] + [said]
+            row.free_fix_used = False  # Fix this clip's prompt rewords it, free, once per refusal
         return
     if "copyright" not in (job.error_detail or "").lower():
         return
