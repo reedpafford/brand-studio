@@ -87,3 +87,13 @@ def test_clip_prompts_switch_workspace_and_dollars(app, db, editor, outsider, se
     body = {"prompt": "x", "references": []}
     assert editor.put(f"{url}/999", json=body).status_code == 404
     assert_no_dollars(editor, [url])
+
+
+def test_a_long_generated_prompt_can_still_be_edited():
+    """QA-Live, video #17: clip 1's saved prompt was 5,070 characters and edits capped at 5,000."""
+    from app.routes.project_clips import ProjectClipIn
+    from app.routes.storyboard import FrameIn
+
+    long = "Shot 1 | 0–1 s. Close-up. " * 200  # 5,200 characters, as a long montage writes
+    assert ProjectClipIn(prompt=long, references=[]).prompt == long
+    assert FrameIn(prompt=long, reference_ids=[]).prompt == long

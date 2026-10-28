@@ -21,6 +21,9 @@ from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_project_clips import _prompt
 
+LOGO = "[Image2] is the fomo logo: the word fomo in lowercase."
+WORD = "fomo logo, the word fomo in lowercase, sharp and legible"
+
 
 def _cast(editor, db, setup) -> tuple[Project, int]:  # noqa: F811
     mom = editor.post(
@@ -115,9 +118,7 @@ def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
     clip = ClipPrompt(clip_id="c1", seconds=5, prompt=_prompt(), references=mine)
     fixed = clip_prompts.with_cast(db, project, clip, bd)
     assert [r.id for r in fixed.references] == [f"char:{mom}", up, home]  # the logo once
-    assert "[Image2] is the fomo logo. [Image3] is the Home screen, exactly as it is." in (
-        fixed.prompt
-    )
+    assert f"{LOGO} [Image3] is the Home screen, exactly as it is." in (fixed.prompt)
     assert "layout" not in fixed.prompt
     assert not [p for p in clip_prompts.clip_problems(db, project, bd, fixed) if "attached" in p]
     assert clip_prompts.with_cast(db, project, fixed, bd) == fixed
@@ -126,7 +127,7 @@ def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
                   reference_ids=[f"char:{mom}"])  # fmt: skip
     drawn = storyboard.with_cast(db, project, frame, bd)
     assert drawn.reference_ids == [f"char:{mom}", up]
-    assert "Image 2 is the fomo logo: sharp in the top corner" in drawn.prompt
+    assert 'Image 2 is the fomo logo, the word "fomo" in lowercase: sharp' in drawn.prompt
     picked = frame.model_copy(update={"reference_ids": [f"char:{mom}", down, up]})
     assert storyboard.with_cast(db, project, picked, bd).reference_ids == [f"char:{mom}", up]
     cta = storyboard.with_cast(db, project, frame.model_copy(update={"shot_id": "1.2",
@@ -162,18 +163,16 @@ def test_saved_trading_prompts_stills_and_cut_ins_are_repaired_for_free(
     db.commit()
     # A paid take or still made before any repair never sends the logo called a chart.
     sent = clip_takes.take_input(db, project, clip)["input"]["prompt"]
-    assert "[Image2] is the fomo logo." in sent and "Token chart up" not in sent
+    assert LOGO in sent and "Token chart up" not in sent
     assert "layout" not in json.dumps(storyboard.render_input(db, project, frame))
     assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 1
     db.commit()
     db.refresh(clip)
     db.refresh(frame)
     assert [r["id"] for r in clip.references] == [mom, up, home]  # the logo once
-    assert clip.prompt.count("[Image2] is the fomo logo.") == 1 and "layout" not in clip.prompt
-    assert "shows [Image2], with its fomo logo sharp in the top corner" in clip.prompt
+    assert clip.prompt.count(LOGO) == 1 and "layout" not in clip.prompt
+    assert f"shows [Image2], with its {WORD}" in clip.prompt
     assert clip.real_images == {"1.2": True}  # no real chart pasted; Home still can be
-    assert "keep its fomo logo sharp in the top corner, the rest of the screen invented." in (
-        frame.prompt
-    )
-    assert "Image 2 is the fomo logo: sharp" in frame.prompt and "Token" not in frame.prompt
+    assert f"keep its {WORD} in the top corner" in (frame.prompt)
+    assert 'the word "fomo" in lowercase: sharp' in frame.prompt and "Token" not in frame.prompt
     assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 0  # idempotent

@@ -1216,3 +1216,11 @@ def test_the_grind_shows_trading_and_phone_beats_play_for_drama():
     assert "for a trading app, the trading itself" in prompts.system("script_draft")
     _, cp = example("clip_prompts")
     assert "Malik's thumb scrolls the coin list and taps Buy" in cp.clips[0].prompt
+
+
+def test_the_app_bridge_is_only_for_an_app_brand():
+    # Producer, before Reed's Iron Paws video: no "opening the app" beat for a bag brand
+    for step in ("breakdown", "script_draft", "variations"):
+        text = prompts.system(step)
+        for at in [m.start() for m in re.finditer(r"opening the app|the app being opened", text)]:
+            assert "app brand" in text[max(at - 160, 0) : at], step
