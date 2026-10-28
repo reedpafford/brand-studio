@@ -30,7 +30,8 @@ Shared behaviour (as today, so not repeated in every table):
 - **Leaving the page** never stops anything: jobs run on the server, and the step shows the result when the person comes back.
 - **Failed** always says "Nothing was charged" (or "credits returned") and offers **Try again** on the same screen.
 - **Undo** sits in the toast for 8 seconds after any delete, replace, pick or Approve all.
-- **Price first:** every paid button shows its price ("· 4 credits", or "free").
+- **Price first:** every paid button shows its price ("· 4 credits", or "free"), and the charge lands within that quote ("up to N" when it can vary; anything unused comes back). A charge above its quote is a bug for Flow-QA to file.
+- **Server restart** mid-job: "The server restarted while this was being made. Nothing was charged; try again." with **Try again**.
 - **Over budget, editor:** the paid button is disabled with the reason as its label ("That's more than this video's budget."); the free alternatives on the screen stay pressable. Past the week: "You've used this week's N credits. It resets on Monday." Never "Ask Reed".
 - **The cap** ($75, 729 credits) stops everyone, owner included: "This video would go over its limit."
 
@@ -99,12 +100,14 @@ Two boxes and one button.
 | Style empty | Next stays allowed. The song step will use the placeholder style; Advice under the box: "No style yet: the song will be pop by default." | — |
 | Advice: long style | Over 25 words: "Music models follow short styles better. Keep it under 25 words." Advice only. | **Shorten it** (free, cuts in code to the first 25 words, Undo). |
 | Advice: long song | Over about 150 words: "About 70 s sung. That's a long ad: the video will be about that long too." Advice only. | — |
-| Advice: no end line (rule 18) | The lyrics don't name the brand or where to find it: "The song doesn't say fomo or where to find it." Advice only. | **Add the end line** (free: adds the brand's end line as a last `[Outro]` line; the owner can edit it; Undo). |
+| Advice: no end line (rule 18) | The lyrics don't name the brand or where to find it: "The song doesn't say fomo or where to find it." Advice only. Two ways to meet it, either one: | **Sing the end line** (free: adds the brand's end line as a last `[Outro]` line; the owner can edit it; Undo), or **Speak it over the end** (free: the brand's end line, editable, is spoken over the song's last seconds with the music lowered under it; see V6). |
+| Spoken end line set | Under the boxes: "Spoken at the end: 'Download fomo through the link in my bio.'" with **Edit** and **Remove** (Undo). | — |
 | B (too long for the cap) | The sung length would make a video over 729 credits: "A song this long would go over the video limit. Cut it to about N words." This blocks **Make the song** only. | The owner cuts words; the count updates live. |
 | O/Ed | Same for both. An editor's own script: the price lines show their week ("This week: U of A"). | — |
 | P | Boxes full width, the Lyrics box grows with its text; the word count stays visible above the bottom bar. | — |
 | U: lyrics changed after a song exists | See **Effects of changes** below: takes that sing other words are marked "Sings older words". | — |
-| Published | Read only, with "Published · final". | — |
+| Published | Read only, with "Published · final" (rule 31: the lyrics are the script's lines). | — |
+| "Locked" means | The AI never changes the lyrics. The owner types freely until publishing. There is no lock to undo. | — |
 
 ## S3. Write 2 song directions (optional)
 
@@ -136,18 +139,22 @@ Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyr
 | Timing failed | "Couldn't read this take's timing. Nothing was charged." The take can still be played, but not be Preferred until timing is read. | **Try again** (free). |
 | Advice: words off | Timing found lines the singer skipped or slurred: "The singer skips 'every single bowl' at 0:12." Advice only (rule 19 binds us, not the singer). | **Make 2 more**, or keep it. |
 | Advice: instrumental intro | Over 2 s before the first word: "This take starts with 4 s of music before the singing." Advice. At the stitch the head is trimmed to 0.5 s automatically (free). | — |
-| Advice: length | A take is over the limit-safe length (from S2's cap): "This take is 1:12; the video would cost about N credits." Only blocks if it's over the cap: then it can't be Preferred, with the reason. | **Make the other one preferred**, or cut the lyrics. |
+| Too long (after) | A take came out longer than the lyrics promised and a video of it would go over the cap: "This take is 1:12: a video of it would go over the limit." | **Use the first 0:55** (free: the take is trimmed at the last section end that fits, never mid-word, and the trimmed take becomes the one used; the full take is kept). |
 | F | Per take: "This take didn't finish. Credits returned." | **Try again** (makes that take again at its price). |
-| X | The music model refused: "The music model won't sing this: [reason]". The common one is an artist's name in the style line: "Music models refuse artists' names. Describe the sound instead." | **Use the brand's style instead** (free, swaps the style line for the brand's music style or the default, Undo, then Make 2 takes again at its price). |
+| X | The music model refused: "The music model won't sing this: [reason]". The common one is an artist's name in the style line: "Music models refuse artists' names. Describe the sound instead." The fix is always in the style line or a retry, never in the lyrics (rule 19). | **Use the brand's style instead** (free, swaps the style line for the brand's music style or the default, Undo, then Make 2 takes again at its price). If the refusal is about the words themselves: "The music model won't sing these words: [reason]. Only you can change the lyrics." with **Try again** (some refusals don't repeat). |
+| Songs off | No music service on this site (the test site without a music key, or the stand-ins off): "Songs aren't switched on here." in place of the button. Lyrics, style and directions still work. | — |
+| Too long (before) | The price line under the button covers the song and the clips it implies: "2 takes · N credits. A video this long: about M credits to make." Over the 729-credit cap: the button is replaced by the fix. | **Keep the first N lines** (free: cuts the lyrics at the last section that fits, shown before/after, Undo), then Make 2 takes. |
 | B | Owner: only the cap stops them. Editor's own script: the week. | Disabled button with the reason; the existing takes stay playable and pickable. |
 | O/Ed | The same; dollars never shown. | — |
 | P | Players stacked, full width; each has a 44px play button and its Preferred toggle as a full-width row under it. | — |
 | U: delete a take | **Delete** on a take; Undo. Deleting the preferred take makes the other the preferred one (said in the toast). Deleting the last take returns to E. | — |
 | U: change Preferred | Moves Preferred; a breakdown preview made on the other take goes out of date (S). | — |
 | S | A take made before the lyrics or style changed: grey label "Sings older words" (or "Older style"). It can't be Preferred. | **Make 2 takes** for the new words. The old ones stay playable, and deletable. |
-| Published | Read only; the preferred take is fixed. Other takes are hidden from editors. | — |
+| Published | Read only for the owner. The preferred take becomes each new video's starting song; every published take is offered to editors in their video (V2a), where the choice is theirs (rule 31). | — |
 
 **Decided here:** a take is tied to the exact lyrics and style it was made from. Only a take that sings the current lyrics can be Preferred. That keeps rule 19 true all the way to the final cut.
+
+Takes per press: always 2 (two calls to the music model, priced as two). One take can be remade alone with its own **Try again**.
 
 ## S5. Cast: who sings
 
@@ -157,7 +164,7 @@ As today's Cast step, with one addition: **the Singer**.
 |---|---|---|
 | Locked | "Make the song first" (no preferred take yet). | Goes to Song. |
 | E / reading | The cast read runs on the lyrics and the visual concept (free reading as today). Roles named in the lyrics or concept appear. | — |
-| Singer | A card on top: "Who sings on camera?" with the roles, the brand's default cast, or **Nobody on camera** (all shots B-roll). Pre-picked: the hero from the visual concept, else the brand's default cast's first character. | Pick, then **Next**. |
+| Singer | A card on top: "Who sings on camera?" with the roles, the brand's default cast, or **Nobody on camera** (all shots B-roll). The Singer is always a cast role. Pre-picked: the hero from the visual concept, else the brand's default cast's first character. When the lyrics and concept name nobody, the cast read adds a role named **Singer** automatically (its look is made per video at Assets, rule 7). | Pick, then **Next**. |
 | Nobody on camera | Advice: "No shot will lip-sync. The song plays over B-roll only." | — |
 | Rest | Exactly as today's Cast (lock to a library look, or "made at Assets"). | — |
 | U | Changing the Singer after a breakdown preview marks it out of date (S6 S). | — |
@@ -182,6 +189,8 @@ Same step as the editor's Breakdown (V2), made by the owner from the preferred t
 | Confirm | "Publish {title}? Its lyrics and song become final." Not yet / Publish. | **Publish**. |
 | Published | "Published · final". Only **Duplicate script** (copies lyrics, style and all takes, Preferred kept). The owner can still edit title, about and notes (rule 31). | — |
 
+Not on song scripts: the Story flow's **Directions** (camera suggestions) and **Variations** steps are hidden. "Write 2 song directions" (S3) is the only writing help.
+
 ## V1. Make this version (editor)
 
 As today. The price includes the song's Sung clips; the song is already paid.
@@ -191,6 +200,19 @@ As today. The price includes the song's Sung clips; the song is already paid.
 | Ready | "Make this version · free" (breakdown saved) or "· N credits". Under it: "About N credits to make · 0:31 song". | **Make this version** → Breakdown. |
 | B | "That's more than this week's N free credits…" (own script) or the video budget reason. | — |
 | Taken | "{name} is making this version." | — |
+
+## V2a. The song in this video (top of the editor's Breakdown)
+
+A strip above the shots: the video's song (a player and its length) and **Change song**. The choice of take is the video's own (rule 31); the lyrics are not.
+
+| State | What they see | The one press |
+|---|---|---|
+| Default | The published preferred take: "Song: take 2 · 0:31". | — |
+| Change song | A sheet with every published take and any this video made, each with a player and length; the current one marked **In this video**. | **Use this take**. |
+| Use this take, shots exist | Confirm: "Use take 1? The shots keep their lines and Sung marks; their times move to take 1 (free). Clips already made for take 2 go out of date." Not yet / Use it. | **Use it** (free re-timing in code, Undo). |
+| Make 2 more | In the sheet: **Make 2 more takes · N credits** (the same lyrics and style; billed to this video's budget, or the editor's week on their own script). States as S4 (waiting, running, timing, failed, refused, too long). | — |
+| B | The make button is disabled with the reason; the existing takes stay usable. | **Use this take** on an existing one. |
+| P | The strip is one row (play, "0:31", Change song); the sheet is full screen, takes stacked. | — |
 
 ## V2. Breakdown on the song
 
@@ -210,15 +232,16 @@ Desktop: the song's waveform across the top, the shots as blocks under it, a pla
 | F | "The shots didn't finish. Nothing was charged." | **Try again**. |
 | X | Claude refuses: the reason, plus **Try again**. | — |
 | B | As today. | — |
-| O/Ed | The editor edits their video's breakdown, as today. They can't change the song (published, rule 31). | — |
+| O/Ed | The editor edits their video's breakdown, as today: Sung or B-roll, split and join are theirs (rule 31). The lyrics can't change. A flip that changes a clip's price shows the new price on that clip's **Rewrite clip prompts** before anything is made. | — |
 | U | Every flip, split and join has Undo. | — |
-| S | Only if the owner's published version is duplicated and changed: that's a new script, so editors' videos are never pulled out of date by the owner. | — |
+| S | The video's take changed (V2a): times re-flow for free; nothing else goes out of date in Breakdown. The owner can't change a published script, so an editor's video is never pulled out of date from outside. | — |
+| Timing guessed | A line the take skipped or slurred has no measured time: its shot shows "Timing guessed" (Advice). | **Change song** to another take, or keep it. |
 
 Clips follow scenes, not shots (rule 29): consecutive shots in one place and one action become one clip, as today. The song is sliced to fit each clip, never the clip to the song. A clip that holds a Sung shot lip-syncs only that shot's stretch; its other shots in the same clip are picture.
 
 ## V3. Assets
 
-As today. The Singer is a role like any other and needs an approved look (rule 8). Nothing new.
+As today. The Singer is a role like any other and needs an approved look (rule 8): Storyboard and Clips stay locked with "Approve every asset first (N left)" and the one press to Assets, exactly as today. Nothing new.
 
 ## V4. Storyboard
 
@@ -253,7 +276,9 @@ The final video is stitched as today (free), and the preferred take's full song 
 |---|---|---|
 | Done | The player, **Download MP4**, **Download all clips (.zip)** (the zip also holds the song file). | — |
 | F | "The video couldn't be put together. Nothing was charged." | **Try again**. |
-| S | As today ("A clip changed since this video was made. It's free.") | **Make it again**. |
+| S | As today ("A clip changed since this video was made. It's free."), and also when the video's take or spoken end line changed. | **Make it again**. |
+| Spoken end line | When set (S2), it's spoken over the song's last seconds with the music lowered under it (free, in the stitch). | — |
+| Lengths | A take longer than its song stretch is trimmed to it; a shorter one holds its last frame to fill it. Never a gap, never silence. A clip with no approved take blocks the stitch as today: "Approve every clip to make the video (N left)." with the press to Clips. | — |
 
 ## Effects of changes (song ads)
 
@@ -263,9 +288,10 @@ What happens to later steps when an earlier one changes. "Out of date" items are
 |---|---|---|---|---|---|
 | Lyrics edited (owner, draft) | Takes singing the old words: "Sings older words", can't be Preferred | Preview out of date | — | — | — |
 | Style edited | "Older style" (still playable, can't be Preferred) | Preview out of date | — | — | — |
-| Preferred take changed | — | Preview out of date | — | — | — |
+| Preferred take changed (owner, draft) | — | Preview out of date | — | — | — |
+| Video's take changed (editor, V2a) | — | Times re-flow, free, Undo | Kept | Clips out of date | Out of date |
 | Singer changed | — | Preview out of date | — | — | — |
-| Published | Fixed | Fixed (the published preview, if any) | — | — | — |
+| Published | The lyrics are fixed; takes become each video's choice | The published preview is each new video's start | — | — | — |
 | Shot flipped Sung ↔ B-roll (editor) | — | Saved, Undo | Kept | That clip out of date | Out of date |
 | Shot split or joined | — | Saved, Undo | New shot needs a still; others kept | Clips touching it out of date | Out of date |
 | Look changed at Assets | — | — | Redrawn as today | Out of date as today | Out of date |

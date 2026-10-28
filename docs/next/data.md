@@ -4,9 +4,9 @@ What each spec item adds or changes in the database, and how migrations are numb
 
 ## Migration rules
 
-- **Next numbers its migrations from 0100** (`0100_…`, `0101_…`), so they never take a number main uses (main is at 0035 and counts up slowly during stabilization).
+- **Next's migrations are named `n01`, `n02`, …** (file `n01_song_scripts.py`, `revision = "n01"`), so they never take a number main uses (main is at 0053 and still counting).
 - **One builder holds the next number at a time.** Claim it in the table below (in your PR, or by asking Next-Lead) before writing the migration. Two open PRs never share a number.
-- **When main merges into `next` with a new migration**, alembic sees two heads. Next-Lead adds an empty merge migration (`alembic merge heads`, numbered in the 01xx series) in the same merge PR, and runs `test_migrations` on it.
+- **When main merges into `next` with a new migration**, alembic sees two heads. Next-Lead adds an empty merge migration (`alembic merge heads`, the next `nNN`) in the same merge PR, and runs `test_migrations` on it.
 - Every migration has a downgrade and keeps old rows valid (new columns have defaults). JSON fields inside an existing JSON column (like breakdown shots) need no migration, but are listed here so everyone reads them the same way.
 - The test site's database is a copy of nothing: it can be wiped and re-seeded (`docker volume rm brand-studio-next_db`) if a migration goes wrong there. Live is never touched.
 
@@ -14,20 +14,20 @@ What each spec item adds or changes in the database, and how migrations are numb
 
 | Number | What | Who | PR |
 |---|---|---|---|
-| 0100 | Song ads: `scripts.kind`, `script_drafts.style_line`, `script_drafts.singer`, `song_takes` | Next-Server | — |
-| 0101 | Song ads: `project_clips.song_slice`, `final_videos.song_take_id` | Next-Server | — |
+| n01 | Song ads: `scripts.kind`, `script_drafts.style_line`, `script_drafts.song_directions`, `script_drafts.singer`, `script_drafts.spoken_end_line`, `song_takes`, `projects.song_take_id` | Next-Server | — |
+| n02 | Song ads: `project_clips.song_slice`, `final_videos.song_take_id` | Next-Server (with the breakdown work) | — |
 
 ## 1. Song ads
 
 | Where | Change | Notes |
 |---|---|---|
 | `scripts` | `kind` text, `story` or `song`, default `story` | Set at New script (S1); never changes after. |
-| `script_drafts` (a version) | The lyrics are the version's `text`, as a story's words are. Add `style_line` text (default "") and `singer` text (the cast role who sings, "" = nobody on camera) | Rule 19: only the owner's typing or **Use this one** writes `text`. |
-| New: `song_takes` | `id`, `draft_id` (FK script_drafts), `job_id`, `file_id` (the song), `lyrics` (the exact text it was made from), `style_line`, `seconds`, `words` (JSON: `[{word, start, end}]`), `lines` (JSON: each lyric line with its start/end), `timing_status` (`waiting`, `ready`, `failed`), `advice` (JSON list), `preferred` bool, `deleted_at` (Undo) | A take can be Preferred only when `lyrics` and `style_line` equal the version's and `timing_status` is `ready` (S4). At most one preferred per version (enforced in code, tested). |
+| `script_drafts` (a version) | The lyrics are the version's `text`, as a story's words are. Add `style_line` text (default ""), `song_directions` JSON list (default [], each `{concept, lyrics, style_line, visual_concept, recommended}`), `singer` text (the cast role who sings, "" = nobody on camera) and `spoken_end_line` text (default "", S2) | Rule 19: only the owner's typing or **Use this one** writes `text`. |
+| New: `song_takes` | `id`, `draft_id` (FK script_drafts, cascade), `project_id` (nullable FK projects: set when an editor made it in their video, V2a), `job_id`, `file_id` (null until made), `lyrics` and `style_line` (the exact text it was made from), `seconds` (null until measured), `timing` (JSON: sections, beats, lines, words `[{word, start, end}]`; null until measured), `timing_job_id`, `trim_to` (seconds, null = whole take; "Use the first 0:55"), `advice` (JSON list), `preferred` bool, `batch` (each "Make 2" press), `created_by_id`, `deleted_at` (Undo) | A take can be Preferred only when `lyrics` and `style_line` equal the version's and its timing is measured (S4). At most one preferred per version, enforced in code and tested. Takes with a `project_id` are seen only in that video. |
 | Breakdown shots (inside `breakdowns.data` and `script_drafts.breakdown`) | Each shot gains `start` and `end` (seconds in the song, at word boundaries) and `sung` (bool) | No migration. Song breakdowns also store `song_take_id` at the top of the data, so a changed Preferred is seen as out of date. |
 | `project_clips` | `song_slice` JSON: `{start, end}` of the song this clip covers, and `sung_shots` | The slice is what a Sung clip lip-syncs. |
 | `final_videos` | `song_take_id` (nullable FK) | The song laid underneath; null for a story video. |
-| `projects` (a video) | Nothing new: the published version carries its preferred take | — |
+| `projects` (a video) | `song_take_id` (nullable FK song_takes): the video's own song, starting as the version's preferred take (V2a) | Changing it re-flows shot times for free and marks clips out of date. |
 
 Code notes for Next-Server (not tables):
 - **Whisper keeps word timings.** `server/app/whisper.py` computes them but returns lines only. Song takes need the words; the reel import keeps using lines.
