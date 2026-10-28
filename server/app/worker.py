@@ -38,9 +38,10 @@ log = logging.getLogger("worker")
 MAX_SUBMIT_TRIES = 3
 # Messages everyone sees. Raw provider text can hold balances or URLs, so it goes only
 # into `error_detail` (owner-only) and the log.
-UNSURE = "Lost contact while starting paid work. Check the provider before retrying."
+UNSURE = "Lost contact while this was starting, so it was stopped. Nothing was charged; try again."
+CHECK = "Lost contact while starting paid work: check the provider before retrying."  # owner
 RESTARTED = "The server restarted while this was being written. Nothing was charged; try again."
-FAILED = "The service couldn't finish this. Ask the owner for details."
+FAILED = "The service couldn't finish this. Nothing was charged; try again."  # never counted
 EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 # Provider output links expire (Replicate: 1 hour); stop retrying downloads after that.
 DOWNLOAD_GIVE_UP = timedelta(hours=1)
@@ -133,7 +134,7 @@ def recover(db: Session, providers: dict[str, Provider], only: set[str] | None =
         elif getattr(providers[job.provider], "sync", False):  # cut off mid-answer by a restart
             _fail(db, job, RESTARTED)
         elif providers[job.provider].paid:
-            _fail(db, job, UNSURE)
+            _fail(db, job, UNSURE, CHECK)
         else:
             _move(db, job, JobStatus.running, JobStatus.queued)
     db.commit()
@@ -334,7 +335,7 @@ def start_next(
     except NetworkError:
         db.refresh(job)
         if provider.paid:
-            _fail(db, job, UNSURE)
+            _fail(db, job, UNSURE, CHECK)
         elif job.attempts < MAX_SUBMIT_TRIES:
             _move(db, job, JobStatus.running, JobStatus.queued)
         else:
@@ -359,7 +360,7 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         db.commit()
         return True
     except NetworkError:
-        _fail(db, job, UNSURE)
+        _fail(db, job, UNSURE, CHECK)
         db.commit()
         return True
     except Exception as exc:  # noqa: BLE001 - any other provider error fails the job

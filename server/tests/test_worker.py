@@ -213,7 +213,7 @@ def test_a_claude_check_sees_its_picture(app, db, editor):
     assert [b["type"] for b in content] == ["image", "text"]
     assert content[1]["text"] == "Does it fit?"
     assert content[0]["source"]["type"] == "base64"
-    assert db.get(Job, job.id).status == "succeeded"
+    assert db.get(Job, job.id).output == {"prompt": "fits"}  # answered (no clip to save it on)
 
 
 def test_a_job_running_past_its_time_limit_fails_plainly_uncharged_and_is_cancelled(db, user):

@@ -206,3 +206,14 @@ def test_a_left_over_id_is_named_from_the_askers_workspace_only(
     assert "a screen" not in shown  # the brand screen by its own name
     assert shown.endswith("; a character and a character left")  # another workspace's: gone
     assert "Secret Rival" not in shown and not IDS.search(shown)
+
+
+def test_no_message_sends_anyone_to_the_owner():
+    """Rule 22 (c5, 2026-10-28): every failed job showed "Ask the owner for details." A message
+    says what happened, whether anything was charged, and what to press next."""
+    said = []
+    for path in APP.rglob("*.py"):
+        for n in ast.walk(ast.parse(path.read_text())):
+            if isinstance(n, ast.Assign) and any(getattr(t, "id", "").isupper() for t in n.targets):
+                said += [(path.name, s) for s in _strings(n.value) if "Ask the owner" in s]
+    assert said == []

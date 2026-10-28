@@ -87,7 +87,7 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
             f"<kind>{'still' if target == 'frame' else 'clip'}</kind>\n"
             f"<prompt>\n{escape(row.prompt)}\n</prompt>\n<note>\n{escape(note)}\n</note>"
         ),
-        "max_tokens": 4000,
+        "max_tokens": 16000,  # the whole prompt comes back: a 24 s clip ran out of room at 4000
     }
     if own_script(db, project, user):  # the still or take is held on the editor's week until
         data["then_credits"] = str(then)  # it's queued (reel_read.held), so nothing overshoots
@@ -97,6 +97,20 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
     row.change = {"note": note, "job_id": job.id, "status": "changing", **was}
     db.commit()
     return job
+
+
+UNFINISHED = "That change didn't finish, so nothing was charged. Try again."
+
+
+def change_failed(db: Session, job: Job) -> None:
+    """A rewrite that failed (Reed's c5: the answer ran out of room) or couldn't be saved: the
+    still or clip says so, with its note kept for Try again, never "Changing…" for ever. A
+    failed job isn't counted (credits.COUNTED), so nothing was charged."""
+    job.error = UNFINISHED
+    model = StoryboardFrame if job.input.get("target") == "frame" else ProjectClip
+    row = db.get(model, job.input.get("target_id") or 0, populate_existing=True)  # read fresh
+    if row and (row.change or {}).get("job_id") == job.id and row.change["status"] == "changing":
+        row.change = {**row.change, "status": "failed", "error": UNFINISHED}
 
 
 def save_changed(db: Session, job: Job) -> None:
