@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brand Studio Next wireframes</title>
+<!-- Grey-box wireframes of the proposed flow (docs/next/ux-audit.md). One file, no external code. -->
+<style>
+:root {
+  --bg:#0b0b0d; --surface:#151517; --surface-2:#1e1e21; --surface-3:#28282c;
+  --border:#2a2a2f; --border-strong:#64646e;
+  --text:#f3f2ef; --muted:#a3a1a9; --faint:#6e6c75;
+  --accent:#f4a940; --accent-soft:#2e2414; --accent-text:#f7c27a; --on-accent:#1a1206;
+  --success:#5bd08a; --success-soft:#12261a; --warning:#f2c14e; --warning-soft:#2a2312;
+  --danger:#ff8a7e; --danger-soft:#33191a;
+  --r-sm:6px; --r:10px; --r-lg:14px;
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --script: "Courier Prime", ui-monospace, Menlo, monospace;
+}
+:root[data-theme="light"] {
+  --bg:#f5f3ee; --surface:#ffffff; --surface-2:#efece5; --surface-3:#e6e2d9;
+  --border:#e2ded5; --border-strong:#8f8a81; --text:#1c1b19; --muted:#5e5b55; --faint:#8a867e;
+  --accent-soft:#fcefd9; --accent-text:#8a4b00;
+  --success:#1f7a3d; --success-soft:#e4f3e8; --warning:#8a5a00; --warning-soft:#fcf0dc;
+  --danger:#b42318; --danger-soft:#fde8e6;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 var(--sans); }
+button { font:inherit; color:inherit; }
+a { color:var(--accent-text); }
+
+/* Prototype controls (not part of the app) */
+.proto { position:sticky; top:0; z-index:50; display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center;
+  padding:10px 16px; background:#000; border-bottom:1px dashed var(--border-strong); font-size:13px; color:var(--muted); }
+:root[data-theme="light"] .proto { background:#e9e6df; }
+.proto b { color:var(--text); }
+.seg { display:inline-flex; border:1px solid var(--border-strong); border-radius:999px; overflow:hidden; }
+.seg button { background:none; border:0; padding:6px 12px; min-height:32px; cursor:pointer; color:var(--muted); }
+.seg button[aria-pressed="true"] { background:var(--surface-3); color:var(--text); font-weight:600; }
+.proto select { background:var(--surface-2); color:var(--text); border:1px solid var(--border-strong); border-radius:8px; padding:6px 8px; max-width:100%; }
+.note { padding:8px 16px; font-size:13px; color:var(--muted); max-width:1280px; margin:0 auto; }
+
+/* Stage */
+.stage { padding:16px; display:flex; justify-content:center; }
+.app { background:var(--bg); border:1px solid var(--border); border-radius:16px; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+.app.desk { width:min(1280px, 100%); min-height:760px; }
+.app.phone { width:390px; max-width:100%; height:844px; }
+.row { display:flex; min-height:0; flex:1; }
+
+/* Desktop chrome */
+.topbar { height:56px; display:flex; align-items:center; gap:12px; padding:0 16px; border-bottom:1px solid var(--border); flex:none; }
+.switch { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border:1px solid var(--border); background:var(--surface-2); border-radius:var(--r); font-weight:700; min-height:44px; cursor:pointer; }
+.dot { width:12px; height:12px; border-radius:50%; background:var(--accent); display:inline-block; }
+.avatar { width:36px; height:36px; border-radius:50%; background:var(--accent-soft); color:var(--accent-text); display:grid; place-items:center; font-weight:700; font-size:13px; }
+.rail { width:220px; flex:none; border-right:1px solid var(--border); padding:12px; display:flex; flex-direction:column; gap:2px; overflow:auto; }
+.rail.slim { width:72px; }
+.rail .eyebrow { padding:12px 10px 6px; }
+.nav { display:flex; align-items:center; gap:10px; min-height:44px; padding:0 10px; border-radius:var(--r); color:var(--muted); cursor:pointer; background:none; border:0; text-align:left; width:100%; }
+.nav:hover { background:var(--surface-2); color:var(--text); }
+.nav[aria-current="page"] { background:var(--surface-2); color:var(--text); box-shadow:inset 3px 0 0 var(--accent); }
+.nav .ico { width:20px; height:20px; border:1.5px solid currentColor; border-radius:5px; flex:none; opacity:.8; }
+.count { margin-left:auto; background:var(--accent); color:var(--on-accent); border-radius:999px; font-size:12px; font-weight:700; padding:0 7px; }
+.main { flex:1; min-width:0; display:flex; flex-direction:column; }
+.work { flex:1; overflow:auto; padding:24px 32px 24px; }
+.side { width:300px; flex:none; border-left:1px solid var(--border); display:flex; flex-direction:column; min-height:0; }
+.side .tabs { padding:8px 12px 0; }
+.side .body { padding:12px 16px; overflow:auto; flex:1; }
+
+/* Phone chrome */
+.phone .work { padding:16px; }
+.ptabs { flex:none; display:flex; border-top:1px solid var(--border); background:var(--surface); height:60px; }
+.ptab { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11.5px; color:var(--muted); cursor:pointer; background:none; border:0; min-height:44px; }
+.ptab .ico { width:20px; height:20px; border:1.5px solid currentColor; border-radius:5px; }
+.ptab[aria-current="page"] { color:var(--accent-text); font-weight:700; }
+.phead { flex:none; display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border); min-height:56px; }
+
+/* Cost bar */
+.costbar { flex:none; border-top:1px solid var(--border); background:var(--surface); padding:10px 16px; display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; }
+.phone .costbar { padding:8px 12px; gap:6px; }
+.meter { min-width:180px; }
+.meter .bar { height:6px; background:var(--surface-2); border-radius:99px; overflow:hidden; margin-top:4px; }
+.meter .bar i { display:block; height:100%; background:var(--accent); border-radius:99px; }
+.costbar .what { flex:1; min-width:160px; color:var(--muted); font-size:13px; }
+.costbar .go { margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+.phone .costbar .go { width:100%; align-items:stretch; margin:0; }
+.phone .costbar .meter { flex:1; min-width:0; }
+
+/* Parts */
+h1 { font-size:28px; line-height:1.15; margin:0; font-weight:800; letter-spacing:-.02em; }
+.phone h1 { font-size:22px; }
+h2 { font-size:20px; margin:0; font-weight:700; }
+h3 { font-size:17px; margin:0; font-weight:700; }
+.eyebrow { font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+.meta { font-size:13px; color:var(--muted); }
+.script { font-family:var(--script); font-size:14px; line-height:1.6; }
+.stack > * + * { margin-top:12px; }
+.stack-lg > * + * { margin-top:24px; }
+.hrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.spacer { flex:1; }
+.grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); }
+.phone .grid { grid-template-columns:1fr; gap:12px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px; }
+.phone .card { padding:14px; }
+.card.click { cursor:pointer; }
+.card.click:hover { border-color:var(--border-strong); }
+.media { background:repeating-linear-gradient(135deg, var(--surface-2) 0 10px, var(--surface-3) 10px 20px); border-radius:var(--r); display:grid; place-items:center; color:var(--faint); font-size:12px; }
+.r916 { aspect-ratio:9/16; max-height:220px; }
+.r169 { aspect-ratio:16/9; }
+.phone .r916 { max-height:260px; }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:0 16px; border-radius:var(--r); border:1px solid var(--border); background:var(--surface-2); cursor:pointer; font-weight:500; white-space:nowrap; }
+.btn:hover { background:var(--surface-3); }
+.btn.dense { min-height:36px; padding:0 12px; }
+.phone .btn.dense { min-height:44px; }
+.btn.amber { background:var(--accent); color:var(--on-accent); border-color:transparent; font-weight:700; }
+.btn.amber:hover { filter:brightness(1.07); }
+.btn.ghost { background:none; border-color:transparent; }
+.btn.ghost:hover { background:var(--surface-2); }
+.btn[disabled] { background:var(--surface-2); color:var(--faint); border-color:transparent; cursor:not-allowed; filter:none; }
+.btn.full { width:100%; }
+.why { font-size:13px; color:var(--muted); }
+.price { font-variant-numeric:tabular-nums; }
+.badge { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; padding:2px 8px; border-radius:var(--r-sm); background:var(--surface-3); color:var(--muted); white-space:nowrap; }
+.badge.ok { background:var(--success-soft); color:var(--success); }
+.badge.warn { background:var(--warning-soft); color:var(--warning); }
+.badge.bad { background:var(--danger-soft); color:var(--danger); }
+.badge.check { background:var(--accent-soft); color:var(--accent-text); }
+.line { font-size:13px; }
+.line.bad { color:var(--danger); }
+.line.warn { color:var(--warning); }
+.banner { border-radius:var(--r); padding:12px 14px; background:var(--surface-2); border:1px solid var(--border); display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; }
+.banner.warn { background:var(--warning-soft); border-color:transparent; }
+.banner.bad { background:var(--danger-soft); border-color:transparent; }
+.banner.info { background:var(--accent-soft); border-color:transparent; }
+.banner .t { flex:1; min-width:180px; }
+.steps { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.step { display:inline-flex; align-items:center; gap:6px; min-height:40px; padding:0 12px; border-radius:999px; cursor:pointer; background:none; border:0; color:var(--text); }
+.step:hover { background:var(--surface-2); }
+.step.cur { background:var(--accent); color:var(--on-accent); font-weight:700; }
+.step.todo { color:var(--faint); cursor:not-allowed; }
+.step .n { font-variant-numeric:tabular-nums; }
+.step .s { font-size:12px; opacity:.85; }
+.join { width:14px; height:1px; background:var(--border-strong); }
+.picker { width:100%; justify-content:space-between; }
+.tabsx { display:flex; gap:4px; border-bottom:1px solid var(--border); }
+.tabx { min-height:44px; padding:0 12px; background:none; border:0; border-bottom:2px solid transparent; color:var(--muted); cursor:pointer; font-weight:500; margin-bottom:-1px; }
+.tabx[aria-selected="true"] { color:var(--text); border-color:var(--accent); }
+.chip { display:inline-flex; align-items:center; min-height:28px; padding:0 10px; border-radius:999px; background:var(--surface-2); border:1px solid var(--border); font-size:13px; }
+.box { border:1px solid var(--border-strong); background:var(--surface); border-radius:var(--r); padding:10px 12px; min-height:44px; color:var(--muted); }
+.box.tall { min-height:150px; color:var(--text); }
+.wave { height:40px; border-radius:6px; background:repeating-linear-gradient(90deg, var(--surface-3) 0 2px, transparent 2px 5px); position:relative; }
+.segs { display:flex; gap:2px; margin-top:6px; }
+.segs span { flex:1; min-height:28px; border-radius:4px; background:var(--surface-2); font-size:12px; display:grid; place-items:center; color:var(--muted); }
+.segs span.sung { background:var(--accent-soft); color:var(--accent-text); font-weight:600; }
+.kv { display:grid; grid-template-columns:110px 1fr; gap:6px 12px; font-size:14px; }
+.phone .kv { grid-template-columns:1fr; gap:2px; }
+.phone .kv dt { margin-top:8px; }
+.kv dt { color:var(--muted); }
+.kv dd { margin:0; }
+.more { width:44px; height:44px; display:grid; place-items:center; border-radius:var(--r); background:none; border:0; cursor:pointer; color:var(--muted); font-size:20px; letter-spacing:1px; }
+.more:hover { background:var(--surface-2); }
+.list { display:flex; flex-direction:column; gap:10px; }
+.vrow { display:flex; gap:12px; align-items:center; }
+.vrow .media { width:56px; height:84px; flex:none; }
+.hl { background:var(--accent-soft); border-radius:4px; }
+.legend { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+.anno { border:1px dashed var(--border-strong); border-radius:var(--r); padding:8px 10px; font-size:12.5px; color:var(--muted); }
+.anno b { color:var(--text); }
+.toast { position:absolute; left:50%; transform:translateX(-50%); bottom:140px; background:var(--surface-3); border:1px solid var(--border-strong); border-radius:var(--r); padding:10px 14px; display:flex; gap:12px; align-items:center; box-shadow:0 8px 24px #0008; z-index:5; }
+.desk .toast { bottom:96px; }
+@media (max-width:700px) { .stage { padding:8px; } .app.desk { min-height:0; } }
+</style>
+</head>
+<body>
+
+<div class="proto" role="toolbar" aria-label="Prototype controls">
+  <span><b>Wireframes</b> · proposed flow, from docs/next/ux-audit.md</span>
+  <span class="seg" role="group" aria-label="Screen size">
+    <button data-set="view" data-v="desk">Desktop</button><button data-set="view" data-v="phone">Phone 390</button>
+  </span>
+  <span class="seg" role="group" aria-label="Who">
+    <button data-set="who" data-v="editor">Editor</button><button data-set="who" data-v="owner">Owner (Reed)</button>
+  </span>
+  <span class="seg" role="group" aria-label="Card state">
+    <button data-set="st" data-v="ok">Normal</button><button data-set="st" data-v="wait">Waiting</button><button data-set="st" data-v="fail">Failed</button><button data-set="st" data-v="refused">Refused</button><button data-set="st" data-v="stale">Out of date</button><button data-set="st" data-v="over">Over budget</button>
+  </span>
+  <label>Go to <select id="jump" aria-label="Go to a screen"></select></label>
+  <span class="seg" role="group" aria-label="Theme">
+    <button data-set="theme" data-v="dark">Dark</button><button data-set="theme" data-v="light">Light</button>
+  </span>
+</div>
+<p class="note">Grey boxes stand for pictures and video. Every button you can press moves you through the flow. The <b>Card state</b> switch shows how waiting, failed, refused, out of date and over budget read on the video steps. Editors see credits only (rule 4). Amber is the one main press per screen, and it always sits in the cost bar at the bottom.</p>
+
+<div class="stage"><div id="app" class="app desk" aria-live="polite"></div></div>
+
+<script>
+"use strict";
+const S = { view: "desk", who: "editor", st: "ok", theme: "dark", screen: "videos", kind: "story", toast: null, side: "script", prompts: "prompts" };
+try { const saved = JSON.parse(localStorage.getItem("bs-wire") || "{}"); Object.assign(S, saved, { toast: null }); } catch (e) {}
+
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const btn = (label, o = {}) => {
+  const cls = ["btn", o.amber ? "amber" : "", o.ghost ? "ghost" : "", o.dense ? "dense" : "", o.full ? "full" : ""].join(" ");
+  const attrs = (o.go ? ` data-go="${o.go}"` : "") + (o.toast ? ` data-toast="${esc(o.toast)}"` : "") + (o.disabled ? " disabled" : "") + (o.st ? ` data-st="${o.st}"` : "") + (o.kind ? ` data-kind="${o.kind}"` : "");
+  const price = o.price !== undefined ? ` <span class="price">· ${o.price}</span>` : "";
+  const b = `<button class="${cls}"${attrs}>${label}${price}</button>`;
+  return o.why ? `<span style="display:inline-flex;flex-direction:column;gap:4px">${b}<span class="why">${o.why}</span></span>` : b;
+};
+const badge = (t, k = "") => `<span class="badge ${k}">${t}</span>`;
+const more = (what) => `<button class="more" aria-label="More for ${esc(what)}" data-toast="More: the less common presses live here (Make it again, Advanced: edit the prompt, Delete…).">···</button>`;
+const media = (label, r = "r916") => `<div class="media ${r}">${label}</div>`;
+
+/* ---------- the screens ---------- */
+const VIDEO_STEPS = [["v-breakdown", "Breakdown"], ["v-assets", "Assets"], ["v-storyboard", "Storyboard"], ["v-clips", "Clips"], ["v-final", "Final cut"]];
+const STORY_STEPS = [["write", "Write"], ["cast", "Cast"], ["plan", "Plan"], ["publish", "Publish"]];
+const SONG_STEPS = [["song", "Song"], ["songtakes", "Takes"], ["cast", "Cast"], ["plan", "Plan"], ["publish", "Publish"]];
+
+const screens = {};
+const label = {};
+function def(id, name, fn) { screens[id] = fn; label[id] = name; }
+
+function crumbs(text, back) {
+  return `<div class="hrow">${back ? `<button class="btn ghost dense" data-go="${back[0]}">‹ ${back[1]}</button>` : ""}<span class="meta">${text}</span></div>`;
+}
+function stepper(list, cur, extra = {}) {
+  if (S.view === "phone") {
+    const i = list.findIndex((s) => s[0] === cur);
+    const opts = list.map((s, j) => `<option value="${s[0]}"${s[0] === cur ? " selected" : ""}>${j + 1}. ${s[1]}${extra[s[0]] ? " · " + extra[s[0]] : ""}</option>`).join("");
+    return `<label class="meta" style="display:block">Step ${i + 1} of ${list.length}<select class="btn picker" style="margin-top:4px" data-stepsel>${opts}</select></label>`;
+  }
+  const idx = list.findIndex((s) => s[0] === cur);
+  return `<nav class="steps" aria-label="Steps">${list.map((s, j) => {
+    const state = j < idx ? "✓" : j === idx ? j + 1 : j + 1;
+    const cls = j === idx ? "step cur" : "step";
+    return `${j ? '<span class="join"></span>' : ""}<button class="${cls}" data-go="${s[0]}"><span class="n">${state}</span> ${s[1]}${extra[s[0]] ? ` <span class="s">· ${extra[s[0]]}</span>` : ""}</button>`;
+  }).join("")}</nav>`;
+}
+function settingsRow(song) {
+  return `<div class="hrow meta" aria-label="Video settings"><span class="chip">9:16</span><span class="chip">Reels</span><span class="chip">Peanut butter</span>${song ? '<span class="chip">Song: Take 2 · 0:31 ▾</span>' : ""}<button class="btn ghost dense" data-toast="Video settings opens: shape, platform, flavour${song ? ", song" : ""} (later: style, models, language). Each change says what goes out of date and its price first.">Settings</button></div>`;
+}
+function videoHead(cur, extra) {
+  const song = S.kind === "song";
+  const title = song ? "Pitbull song · A" : "The altar reel · B";
+  return `<div class="stack">
+    ${S.view === "phone" ? "" : crumbs(`fomo › November launch › From: <a href="#" data-go="write">The altar reel</a> · version B`, ["videos", "Videos"])}
+    ${S.view === "phone" ? "" : `<div class="hrow"><h1>${title}</h1>${more(title)}<span class="spacer"></span>${settingsRow(song)}</div>`}
+    ${S.view === "phone" ? settingsRow(song) : ""}
+    ${stepper(VIDEO_STEPS, cur, extra)}
+  </div>`;
+}
+
+/* The state switch, applied to a card */
+function cardState(kind, price) {
+  switch (S.st) {
+    case "wait": return { badge: badge("Making… 0:42"), lines: `<p class="line meta">You can leave this page; it carries on.</p>`, press: "" };
+    case "fail": return { badge: badge("Didn't finish", "bad"), lines: `<p class="line bad">Didn't finish · nothing charged. The video service was busy.</p>`, press: btn("Try again", { price, dense: true, toast: "Try again: queued. The failure line clears now." }) };
+    case "refused": return { badge: badge("Refused", "bad"), lines: `<p class="line bad">The video model wouldn't make this: it read shot 1.2 as too close to someone else's character. Nothing was charged.</p>`, press: btn("Reword it", { price: "free", dense: true, toast: "Reworded (story and spoken lines kept). Before/after shown, with Undo." }) + " " + btn(kind === "still" ? "Make another" : "Make another take", { price, dense: true, toast: "Queued." }) };
+    case "stale": return { badge: badge("Out of date", "warn"), lines: `<p class="line warn">Made for an older breakdown. ${kind === "still" ? "The earlier still is kept." : "Earlier takes are kept."}</p>`, press: btn(kind === "still" ? "Redo this frame" : "Rewrite this clip's prompt", { price: kind === "still" ? "1 credit" : "1 credit", dense: true, toast: "Queued. The earlier one is kept, with Undo." }) };
+    case "over": return { badge: badge("Check this", "check"), lines: "", press: btn(kind === "still" ? "Make another" : "Make another take", { price, dense: true, disabled: true, why: S.who === "owner" ? "" : "That's more than this video's budget." }) };
+    default: return null;
+  }
+}
+function costbar({ used = 412, budget = 660, finish = "about 140", press = "", amber = "", go = "", disabled = false, why = "", toast = "" }) {
+  const pct = Math.round((used / budget) * 100);
+  const week = S.who === "editor" && S.screen.match(/^(write|cast|plan|publish|song|songtakes)$/);
+  const left = week ? `<div class="meter"><div class="meta">This week: 40 of 145 credits</div><div class="bar"><i style="width:28%"></i></div></div>`
+    : `<div class="meter"><div class="meta price">${used} / ${budget} credits · ${pct}%</div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div></div>`;
+  const over = S.st === "over" && S.who === "editor" && /^v-/.test(S.screen);
+  const dis = disabled || (over && /·/.test(amber));
+  const w = over && /·/.test(amber) ? "That's more than this video's budget. The free presses above still work." : why;
+  return `<div class="costbar" role="region" aria-label="Cost bar">${left}
+    ${S.view === "phone" ? "" : `<div class="what">${finish ? `To finish: ${finish} ▾` : ""}${press ? ` · This press: ${press}` : ""}</div>`}
+    <div class="go">${amber ? `<button class="btn amber ${S.view === "phone" ? "full" : ""}"${go ? ` data-go="${go}"` : ""}${toast ? ` data-toast="${esc(toast)}"` : ""}${dis ? " disabled" : ""}>${amber}</button>` : ""}${w ? `<span class="why">${w}</span>` : ""}</div></div>`;
+}
+
+/* Videos (editor home) */
+def("videos", "Videos (editor home)", () => {
+  const row = (t, step, st, go, k = "") => `<div class="card click vrow" data-go="${go}" ${k ? `data-kind="${k}"` : ""}>${media("")}<div class="stack" style="margin:0;flex:1;min-width:0"><div class="hrow"><h3>${t}</h3></div><div class="hrow">${step}</div><div class="meta">${st}</div></div></div>`;
+  return {
+    main: `<div class="stack-lg">
+      <div class="hrow"><h1>Videos</h1><span class="spacer"></span><button class="btn dense" data-toast="Filters: status, project, mine/anyone, quick clips.">Filters</button></div>
+      <section class="stack"><p class="eyebrow">Needs you</p><div class="list">
+        ${row("The altar reel · B", badge("Clips · 2 to check", "check"), "62% of budget · Kel", "v-clips", "story")}
+        ${row("Pitbull 1 · A", badge("Assets · 1 look to approve", "check"), "18% of budget · Kel", "v-assets", "story")}
+      </div></section>
+      <section class="stack"><p class="eyebrow">Making</p><div class="list">
+        ${row("Pitbull song · A", badge("Storyboard · Making… 1:10"), "30% of budget", "v-storyboard", "song")}
+      </div></section>
+      <section class="stack"><p class="eyebrow">Done</p><div class="list">
+        ${row("Mom's 3 days · C", badge("Final cut", "ok"), "Downloaded 14:02 · 71 credits", "v-final", "story")}
+        ${row("Gym bro · B", badge("Finished · changes waiting", "warn"), "Breakdown changed after the final cut", "v-storyboard", "story")}
+      </div></section></div>`,
+    bar: costbar({ used: 40, budget: 145, finish: "", amber: "Open: The altar reel · B", go: "v-clips" }),
+  };
+});
+
+/* Scripts library */
+def("scripts", "Scripts library", () => {
+  const owner = S.who === "owner";
+  const v = (l, s, k, go) => `<button class="chip" style="cursor:pointer" data-go="${go}">${l} · ${s}</button>`;
+  const card = (t, meta, vs, extra = "") => `<div class="card stack"><div class="hrow"><h3>${t}</h3>${extra}<span class="spacer"></span>${more(t)}</div><p class="meta">${meta}</p><div class="hrow">${vs}</div></div>`;
+  return {
+    main: `<div class="stack-lg">
+      <div class="hrow"><h1>Scripts</h1><span class="spacer"></span>${owner ? btn("Import a reel", { dense: true, go: "write" }) + btn("Bulk create", { dense: true, toast: "Bulk create: many reel links or files at once, total price first." }) : ""}<button class="btn dense" data-toast="Filters: status, length, reference, versions left, project.">Filters</button></div>
+      ${owner ? `<section class="stack"><p class="eyebrow">Your drafts</p>${card("Iron Paws: Bowl licker", "Draft · only you can see it · Write", v("A", "Writing", "", "write"), badge("Story"))}${card("Pitbull song", "Draft · Takes made · Cast", v("A", "Writing", "", "song"), badge("Song", "check"))}</section>` : ""}
+      <section class="stack"><p class="eyebrow">Ready to make</p>
+        ${card("The altar reel", "fomo · 54 s · from a reel · 1 version left", v("A", "Final cut · Mary", "", "v-final") + v("B", "Clips · Kel", "", "v-clips") + v("C", "Ready to make", "", "version"), badge("Story"))}
+        ${card("Pitbull 1", "Iron Paws · 30 s · Peanut butter", v("A", "Ready to make", "", "version"), badge("Story"))}
+      </section></div>`,
+    bar: costbar({ used: 40, budget: 145, finish: "", amber: owner ? "New script" : "Make version C of The altar reel", go: owner ? "write" : "version", toast: owner ? "New script: Story or Song? (S1)" : "" }),
+  };
+});
+
+/* Version card (the handoff) */
+def("version", "Make this version (the handoff)", () => ({
+  main: `<div class="stack-lg">${crumbs("fomo › Scripts", ["scripts", "Scripts"])}
+    <div class="card stack" style="max-width:640px">
+      <div class="hrow"><h2>The altar reel · Version C</h2><span class="spacer"></span>${badge("Published · final")}</div>
+      <dl class="kv">
+        <dt>Words</dt><dd class="script">NATE: Will you marry me?<br>LEXI: Hell no.<br><span class="meta">… 6 lines · Show all</span></dd>
+        <dt>Reel</dt><dd>DeiD2HlPrBt (live action becomes the end line)</dd>
+        <dt>Cast</dt><dd>Lexi = Goth GF ${badge("Locked")} · The Boss ${badge("Made for this video")}<div class="meta">Not locked: each video makes its own look (about 2 credits each).</div></dd>
+        <dt>Plan</dt><dd>9 clips · 54 s · saved by Reed, free to start</dd>
+        <dt>Settings</dt><dd><span class="hrow"><span class="chip">9:16</span><span class="chip">Reels</span><span class="chip">Peanut butter (set by Reed)</span><button class="btn ghost dense" data-toast="Change before you start: shape, platform, flavour.">Change</button></span></dd>
+        <dt>Notes from Reed</dt><dd>"Keep the ring throw in slow motion."</dd>
+      </dl>
+      <p class="meta">Starting is free (the plan is saved) · the whole video about 86 credits · budget 172</p>
+    </div></div>`,
+  bar: costbar({ used: 0, budget: 172, finish: "about 86", press: "free (plan saved)", amber: "Make this version", go: "v-breakdown" }),
+}));
+
+/* Writing: Write */
+def("write", "Write (story)", () => {
+  const side = `<div class="tabsx" role="tablist"><button class="tabx" role="tab" aria-selected="${S.side !== "versions"}" data-side="script">Suggestions</button><button class="tabx" role="tab" aria-selected="${S.side === "versions"}" data-side="versions">Versions</button></div>
+    ${S.side === "versions"
+      ? `<div class="stack" style="margin-top:12px"><p class="meta">Optional. Most scripts go out as one version.</p><div class="card stack"><div class="hrow"><b>A</b> ${badge("Original")}</div></div><p class="meta">How many variations? 0 · 1 · 2</p>${btn("Write 1 variation", { price: "3 credits", dense: true, toast: "Writing B… You can leave this page." })}<p class="why">Writing variations approves A's words first.</p></div>`
+      : `<div class="stack" style="margin-top:12px"><p class="meta">Camera, movement, reactions and where screens show. Your words never change.</p>${btn("Suggest", { price: "3 credits", dense: true, toast: "Suggestions arrive here; Accept adds them beside the line." })}<div class="card stack"><p class="line">Line 2: <i>close-up as she throws the ring</i></p><div class="hrow">${btn("Accept", { dense: true, toast: "Accepted, with Undo." })}${btn("Skip", { dense: true, ghost: true })}</div></div></div>`}`;
+  const words = `<div class="stack"><div class="hrow"><h2>The words</h2><span class="spacer"></span><span class="meta">From the reel: 5 lines kept, 1 rewritten for fomo</span></div>
+    <div class="box tall script">NATE: Will you marry me?<br>LEXI: Hell no.<br>…<br>NATE: Want to trade like me? Download fomo through the link in my bio.</div>
+    <div class="hrow">${btn("Save", { dense: true, toast: "Saved." })}<span class="meta">About ▸ · Reel: read ✓</span>${btn("Have Claude write it", { dense: true, ghost: true, price: "3 credits", toast: "Write a new script? Your words are kept in Undo." })}</div></div>`;
+  return {
+    main: `<div class="stack-lg">${crumbs("fomo › Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>The altar reel</h1>${badge("Draft · only you can see it")}<span class="spacer"></span>${more("script")}</div>${stepper(STORY_STEPS, "write", { plan: "optional" })}
+      ${S.view === "phone" ? words + `<div class="hrow">${btn("Suggestions", { dense: true, toast: "Opens Suggestions as a full-height sheet." })}${btn("Versions", { dense: true, toast: "Opens Versions as a full-height sheet." })}</div>` : words}</div>`,
+    side: S.view === "phone" ? null : side,
+    bar: costbar({ finish: "", amber: "Approve the words · Next: Cast", go: "cast", why: S.view === "phone" ? "" : "Approving makes the words final. Undo is offered." }),
+  };
+});
+
+/* Song */
+def("song", "Song (lyrics + style)", () => ({
+  main: `<div class="stack-lg">${crumbs("Iron Paws › Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>Pitbull song</h1>${badge("Song", "check")}${badge("Draft")}</div>${stepper(SONG_STEPS, "song", { plan: "optional" })}
+    <div class="stack"><h2>Lyrics</h2><div class="box tall script">[Verse]<br>Mixed it in my bowl, peanut butter gold…<br>[Chorus]<br>Iron Paws, every single bowl…</div><p class="meta">About 30 s sung · 75 words · sung word for word</p>
+    <h3>Style</h3><div class="box">pop, female lead, 120 BPM, upbeat, modern polished</div>
+    <div class="hrow">${btn("Write 2 song directions for me", { price: "3 credits", dense: true, toast: "Two directions arrive side by side; Use this one fills the boxes (Undo)." })}</div>
+    <div class="banner"><span class="t meta">The song doesn't say Iron Paws or where to find it (Advice).</span>${btn("Sing the end line", { dense: true, price: "free", toast: "Added as [Outro], with Undo." })}</div></div></div>`,
+  bar: costbar({ finish: "", amber: "Save lyrics · Next: Takes", go: "songtakes" }),
+}));
+
+def("songtakes", "Takes (the song)", () => {
+  const take = (n, pref) => `<div class="card stack"><div class="hrow"><h3>Take ${n}</h3><span class="spacer"></span>${pref ? badge("Preferred", "ok") : btn("Make this Preferred", { dense: true, toast: "Take " + n + " is Preferred. Undo." })}</div><div class="wave"></div><div class="hrow meta"><button class="btn dense" data-toast="Plays.">▶</button> 0:12 / 0:31 · made 10:42</div></div>`;
+  return {
+    main: `<div class="stack-lg">${crumbs("Iron Paws › Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>Pitbull song</h1>${badge("Song", "check")}</div>${stepper(SONG_STEPS, "songtakes")}
+      ${S.st === "fail" ? `<div class="banner bad"><span class="t">The song didn't finish. Credits were returned.</span>${btn("Try again", { price: "up to 4 credits", dense: true })}</div>` : ""}
+      ${S.st === "refused" ? `<div class="banner bad"><span class="t">The music model won't sing this: the style names an artist. Describe the sound instead.</span>${btn("Use the brand's style instead", { price: "free", dense: true })}</div>` : ""}
+      ${S.st === "wait" ? `<div class="grid"><div class="card">${badge("Making the song… 0:42")}<div class="wave" style="margin-top:10px;opacity:.4"></div></div><div class="card">${badge("Making the song… 0:42")}<div class="wave" style="margin-top:10px;opacity:.4"></div></div></div>` : `<div class="grid">${take(1, false)}${take(2, true)}</div>`}
+      ${S.st === "stale" ? `<p class="line warn">Take 1 and Take 2 sing older words. Make takes of the new lyrics first.</p>` : ""}
+      <p class="meta">The song sets the video's length. Take 2 is 0:31: about 34 credits to make the video at 480p.</p>
+      ${btn("Make 2 more", { price: "up to 4 credits", dense: true, toast: "Two more takes are being made." })}</div>`,
+    bar: costbar({ finish: "", amber: S.st === "stale" ? "Make 2 takes · up to 4 credits" : "Next: Cast", go: S.st === "stale" ? "" : "cast" }),
+  };
+});
+
+/* Cast (writing) */
+def("cast", "Cast (writing)", () => {
+  const song = S.kind === "song";
+  const role = (n, d, locked) => `<div class="card stack"><div class="hrow"><h3>${n}</h3><span class="spacer"></span>${locked ? badge("Locked to Goth GF") : badge("Made for each video")}${more(n)}</div><p class="meta">${d}</p>${locked ? "" : `<p class="why">Not locked: each video makes its own look (about 2 credits each).</p>`}${btn(locked ? "Change the look" : "Lock to a look", { dense: true, toast: "Pick a Cast & places character (or make its sheet here)." })}</div>`;
+  return {
+    main: `<div class="stack-lg">${crumbs((song ? "Iron Paws" : "fomo") + " › Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>${song ? "Pitbull song" : "The altar reel"}</h1></div>${stepper(song ? SONG_STEPS : STORY_STEPS, "cast", { plan: "optional" })}
+      ${song ? `<div class="card stack"><h3>Who sings on camera?</h3><div class="hrow"><span class="chip">Bo (hero)</span><span class="chip">Nobody on camera</span></div></div>` : ""}
+      <div class="grid">${role(song ? "Bo" : "Lexi", "Late 20s · woman · bride · from the script", true)}${role("The Boss", "40s · man · boss (a guess)", false)}${role("Kimchi", "20s · man · trader friend", false)}</div>
+      <div class="hrow">${btn("Add a role", { dense: true, toast: "Add a role: name, kind, description." })}${btn("Find roles again", { dense: true, ghost: true, price: "3 credits", toast: "Find the roles again? Locks are kept." })}</div></div>`,
+    bar: costbar({ finish: "", amber: "Next: Plan (optional)", go: "plan" }),
+  };
+});
+
+/* Plan (writing) */
+def("plan", "Plan (optional breakdown)", () => {
+  const song = S.kind === "song";
+  return {
+    main: `<div class="stack-lg">${crumbs("Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>${song ? "Pitbull song" : "The altar reel"}</h1></div>${stepper(song ? SONG_STEPS : STORY_STEPS, "plan", { plan: "optional" })}
+      <div class="banner"><span class="t">Plan the shots now, or let it happen when an editor starts this version.</span>${btn("Make the plan", { price: "3 credits", dense: true, toast: "Planning… 0:12" })}</div>
+      ${song ? `<div class="card stack"><div class="wave"></div><div class="segs"><span class="sung">1 · Sung</span><span>2</span><span>3</span><span>4</span><span class="sung">5 · Sung</span><span>6</span></div><p class="meta">Made from Take 2 (Preferred) · 0:31</p></div>` : `<div class="card stack"><p class="meta">3 scenes · 9 clips · 54 s</p><p class="script">1.1 · 3 s · NATE: "Will you marry me?"</p><p class="script">1.2 · 2 s · LEXI: "Hell no."</p></div>`}</div>`,
+    bar: costbar({ finish: "", amber: "Next: Publish", go: "publish" }),
+  };
+});
+
+def("publish", "Publish", () => ({
+  main: `<div class="stack-lg">${crumbs("Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>The altar reel</h1></div>${stepper(S.kind === "song" ? SONG_STEPS : STORY_STEPS, "publish")}
+    <div class="grid"><div class="card stack"><h3>Version A</h3><dl class="kv"><dt>Words</dt><dd>Approved ✓</dd><dt>Cast</dt><dd>Lexi locked · 2 made per video</dd><dt>Plan</dt><dd>54 s (saved)</dd><dt>Defaults</dt><dd>9:16 · Reels · Peanut butter</dd><dt>Notes</dt><dd>"Keep the ring throw in slow motion."</dd></dl></div>
+    <div class="card stack"><h3>Version B</h3><p class="line warn">Not approved yet: it's approved when you publish.</p></div></div>
+    <p class="meta">Publishing makes the words final (rule 31). Afterwards you can still edit the title, about and notes.</p></div>`,
+  bar: costbar({ finish: "", amber: "Publish 2 versions", go: "scripts", toast: "Published. 2 versions are ready to make." }),
+}));
+
+/* Video: Breakdown */
+def("v-breakdown", "Video · Breakdown", () => {
+  const song = S.kind === "song";
+  const st = S.st === "stale" ? `<div class="banner warn"><span class="t">This breakdown was made for older words.</span></div>` : "";
+  const shot = (id, s, l, who) => `<div class="card stack"><div class="hrow"><b>${id}</b><span class="meta">${s}</span><span class="spacer"></span>${btn("Edit", { dense: true, ghost: true, toast: "The shot editor opens. Edits wait for Save; fixes save at once." })}${more("shot " + id)}</div><p class="script">${l}</p><div class="hrow">${who.map((w) => `<span class="chip">${w}</span>`).join("")}</div></div>`;
+  return {
+    main: `<div class="stack-lg">${videoHead("v-breakdown", { "v-clips": "" })}
+      ${st}
+      ${S.st === "fail" ? `<div class="banner bad"><span class="t">The breakdown didn't finish · nothing charged.</span>${btn("Try again", { price: "3 credits", dense: true })}</div>` : ""}
+      ${S.st === "wait" ? `<p class="meta">Making the breakdown… 0:12 · You can leave this page.</p><div class="card media r169"></div>` : `
+      <div class="hrow"><p class="meta">3 scenes · 18 shots · 9 clips · 54 s of 54 s planned</p></div>
+      ${song ? `<div class="card stack"><div class="wave"></div><div class="segs"><span class="sung">1 · Sung</span><span>2</span><span>3</span><span>4</span><span>5</span><span class="sung">6 · Sung</span></div></div>` : ""}
+      <div class="banner bad"><span class="t"><b>2 problems</b> to fix before the storyboard · "Shot 4.2 shows Kimchi, but the line is Lexi's."</span>${btn("Fix 2 problems", { dense: true, price: "free", toast: "Fixed 2 problems. Undo." })}${btn("Keep anyway", { dense: true, ghost: true })}</div>
+      <p class="eyebrow">Scene 1 · The altar</p>${shot("1.1", "3 s · close", 'NATE: "Will you marry me?"', ["Nate", "Altar"])}${shot("1.2", "2 s · wide", 'LEXI: "Hell no."', ["Lexi", "Nate"])}`}</div>`,
+    bar: costbar({ finish: "about 140", amber: S.st === "stale" ? "Make the breakdown again · 3 credits" : "Next: Assets", go: S.st === "stale" ? "" : "v-assets", disabled: false, why: "", toast: S.st === "stale" ? "Making the breakdown again…" : "" }),
+  };
+});
+
+/* Video: Assets */
+def("v-assets", "Video · Assets", () => {
+  const cs = cardState("look", "up to 2 credits");
+  const look = (n, sub, st, check) => {
+    const c = check ? cs : null;
+    return `<div class="card stack">${media(c && S.st === "wait" ? "" : "sheet")}<div class="hrow"><h3>${n}</h3><span class="spacer"></span>${more(n)}</div><p class="meta">${sub}</p><div class="hrow">${c ? c.badge : st}</div>${c ? c.lines + `<div class="hrow">${c.press}</div>` : ""}${check && !c ? `${btn("Approve", { dense: true, toast: n + "'s look approved. Undo." })}<div class="box">Change this…</div>${btn("Change it", { dense: true, price: "up to 2 credits", why: "Usually 1. Anything not used comes back." })}` : ""}</div>`;
+  };
+  return {
+    main: `<div class="stack-lg">${videoHead("v-assets", { "v-assets": "1 to approve" })}
+      <div class="banner info"><span class="t">Making 1 look for The Boss · up to 4 credits (usually 2) · starting in 5 s</span>${btn("Not now", { dense: true, ghost: true, toast: "Not now. The card keeps its own Make a look button." })}</div>
+      <h2>Cast</h2><div class="grid">${look("Lexi · Goth GF", "Locked · in 6 shots", badge("Approved", "ok"), false)}${look("The Boss", "40s · man · boss · in 3 shots", badge("Check this", "check"), true)}${look("Kimchi", "20s · man · trader friend · in 4 shots", badge("Approved", "ok"), false)}</div>
+      <h2>Places · Products · App screens</h2><p class="meta">Pictures from the brand; nothing to approve. The flavour is set in Settings.</p><div class="grid">${media("Altar", "r169")}${media("PB bag", "r169")}</div></div>`,
+    bar: costbar({ used: 18, budget: 220, finish: "about 120", amber: "Approve all looks (1)", toast: "Approved 1 look. Undo. Next: Storyboard is open.", go: "v-storyboard" }),
+  };
+});
+
+/* Video: Storyboard */
+def("v-storyboard", "Video · Storyboard", () => {
+  const frame = (n, line, i) => {
+    const c = i === 1 ? cardState("still", "1 credit") : null;
+    return `<div class="card stack">${media(c && S.st === "wait" ? "Making… 0:20" : "still " + n)}<div class="hrow"><b>Clip ${n}</b>${c ? c.badge : i === 0 ? badge("Approved", "ok") : badge("Check this", "check")}<span class="spacer"></span>${more("frame " + n)}</div><p class="script">${line}</p>${c ? c.lines + `<div class="hrow">${c.press}</div>` : i === 0 ? "" : `<div class="hrow">${btn("Approve", { dense: true, toast: "Approved. Undo." })}${btn("Make another", { dense: true, price: "1 credit", toast: "Drawing… the earlier still is kept." })}</div><div class="box">Change this…</div>`}</div>`;
+  };
+  const stale = S.st === "stale";
+  return {
+    main: `<div class="stack-lg">${videoHead("v-storyboard", { "v-storyboard": stale ? "out of date" : "2 to check" })}
+      ${stale ? `<div class="banner warn"><span class="t">The breakdown changed after these stills. Clips and Final cut stay open to look at; new takes wait until the stills are redone.</span></div>` : ""}
+      <div class="grid">${frame(1, 'NATE: "Will you marry me?"', 0)}${frame(2, 'LEXI: "Hell no."', 1)}${frame(3, "The ring hits the floor.", 2)}</div></div>`,
+    bar: costbar({ used: 120, budget: 220, finish: "about 90", amber: stale ? "Update everything after this · 4 credits" : "Approve all frames (2)", go: stale ? "" : "v-clips", press: stale ? "3 stills + 2 clip prompts" : "", toast: stale ? "Redrawing 3 stills, then rewriting 2 clip prompts. Stops at the first step that fails or is over budget." : "Approved 2 frames. Undo." }),
+  };
+});
+
+/* Video: Clips (Prompts / Takes) */
+def("v-clips", "Video · Clips (Prompts, Takes)", () => {
+  const phase = S.prompts;
+  const tabs = `<div class="tabsx" role="tablist" aria-label="Clips phase"><button class="tabx" role="tab" aria-selected="${phase === "prompts"}" data-phase="prompts">Prompts · 2 to check</button><button class="tabx" role="tab" aria-selected="${phase === "takes"}" data-phase="takes">Takes</button></div>`;
+  const song = S.kind === "song";
+  const pcard = (n, line, i) => {
+    const c = i === 1 ? cardState("clip", "6 credits") : null;
+    return `<div class="card stack">${media("still " + n)}<div class="hrow"><b>Clip ${n} · 6 s</b>${c ? c.badge : i === 0 ? badge("Prompt OK", "ok") : badge("Check this", "check")}<span class="spacer"></span>${more("clip " + n)}</div>
+      ${song ? `<p class="meta">${i === 1 ? "Sung · lip-syncs 0:06–0:11" : "B-roll · picture only"}</p>` : ""}
+      <p class="script">${line}</p><p class="meta">${song ? "Bo · Kitchen" : "Lexi, Nate · Altar"}</p>
+      <p class="meta" style="border-left:2px solid var(--border-strong);padding-left:8px">Summary: ${song ? "Bo, the bowl, the song's hook" : "Lexi turns him down at the altar"}… <a href="#" data-toast="The full prompt opens (pictures named, never [Image1]).">Read the prompt</a></p>
+      ${c ? c.lines + `<div class="hrow">${c.press}</div>` : i === 0 ? btn("Undo Prompt OK", { dense: true, ghost: true }) : `<div class="hrow">${btn("Prompt OK", { dense: true, toast: "Prompt OK. Undo." })}</div><div class="box">Change this…</div>${btn("Change the prompt", { dense: true, price: "1 credit" })}`}</div>`;
+  };
+  const tcard = (n, line, i) => {
+    const c = i === 1 ? cardState("clip", "6 credits") : null;
+    return `<div class="card stack">${media(c && S.st === "wait" ? "Making… 0:42" : "▶ take")}<div class="hrow"><b>Clip ${n} · 6 s</b>${c ? c.badge : i === 0 ? badge("Approved", "ok") : badge("Take 2 picked", "check")}<span class="spacer"></span>${more("clip " + n)}</div>
+      <p class="script">${line}</p>
+      <div class="hrow"><span class="chip">Take 1</span><span class="chip" style="border-color:var(--accent)">Take 2 ●</span></div>
+      ${c ? c.lines + `<div class="hrow">${c.press}</div>` : i === 0 ? "" : `<div class="hrow">${btn("Approve take", { dense: true, toast: "Approved. Undo." })}${btn("Make another take", { dense: true, price: "6 credits", toast: "Making… the earlier takes are kept." })}</div><div class="box">Change this…</div>${btn("Change it and make a new take", { dense: true, price: "up to 7 credits", why: "Rewrite 1 + take 6. Anything not used comes back." })}`}</div>`;
+  };
+  const lines = song ? ["Bo licks the bowl clean (B-roll).", 'BO (sung): "Iron Paws, every single bowl"', "The empty bowl spins (B-roll)."] : ['NATE: "Will you marry me?"', 'LEXI: "Hell no."', "The ring hits the floor."];
+  const cards = phase === "prompts" ? lines.map((l, i) => pcard(i + 1, l, i)).join("") : lines.map((l, i) => tcard(i + 1, l, i)).join("");
+  return {
+    main: `<div class="stack-lg">${videoHead("v-clips", { "v-clips": phase === "prompts" ? "2 to check" : "2 to approve" })}${tabs}<div class="grid">${cards}</div></div>`,
+    side: S.view === "phone" ? null : `<div class="tabsx" role="tablist"><button class="tabx" role="tab" aria-selected="${S.side !== "media"}" data-side="script">Script</button><button class="tabx" role="tab" aria-selected="${S.side === "media"}" data-side="media">Media</button></div>
+      ${S.side === "media" ? `<div class="stack" style="margin-top:12px"><p class="eyebrow">This video's looks</p><div class="grid" style="grid-template-columns:1fr 1fr">${media("Lexi")}${media("Boss")}</div><p class="meta">Looks and stills made here stay with this video. Reed's characters come from Cast & places.</p></div>`
+        : `<div class="stack script" style="margin-top:12px">${song ? '<p>[Verse]</p><p class="hl">Mixed it in my bowl, peanut butter gold…</p><p>[Chorus]</p><p class="hl">Iron Paws, every single bowl…</p>' : '<p class="hl">1 NATE: Will you marry me?</p><p class="hl">2 LEXI: Hell no.</p><p>3 NATE: …</p><p>4 …</p>'}</div>`}`,
+    bar: phase === "prompts"
+      ? costbar({ used: 412, budget: 660, finish: "about 140", amber: "Prompt OK for all ready (2)", toast: "2 prompts OK. Undo. Next: Make the takes.", press: "free" })
+      : costbar({ used: 412, budget: 660, finish: "about 140", press: "Make the takes · 54 credits → leaves 194", amber: "Make the takes · 54 credits", toast: "Making 9 takes… You can leave this page." }),
+  };
+});
+
+/* Video: Final cut */
+def("v-final", "Video · Final cut", () => {
+  const song = S.kind === "song";
+  const stale = S.st === "stale";
+  return {
+    main: `<div class="stack-lg">${videoHead("v-final", {})}
+      ${stale ? `<div class="banner warn"><span class="t">Older cut: made before the breakdown changed. It stays downloadable.</span></div>` : ""}
+      ${S.st === "fail" ? `<div class="banner bad"><span class="t">The video couldn't be put together · nothing charged.</span>${btn("Try again", { dense: true, price: "free" })}</div>` : ""}
+      <div class="card stack" style="max-width:420px">${media(S.st === "wait" ? "Putting it together… 0:08" : "▶ final cut")}<div class="hrow"><b>The altar reel · B</b>${stale ? badge("Older cut", "warn") : badge("Final cut ready", "ok")}</div><p class="meta">54 s · 9:16 · 480p · 71 credits${song ? " · Song: Take 2, laid under the whole video" : ""}</p></div>
+      <div class="hrow">${btn("Download all clips (.zip)", { dense: true })}${song ? btn("Download the song (.mp3)", { dense: true }) : ""}<button class="btn ghost dense" data-toast="Each clip's picked take and its older takes open here.">Each clip ▸</button></div></div>`,
+    bar: costbar({ used: 471, budget: 660, finish: "", amber: "Download MP4", toast: "Downloading. Final cut ready · downloaded 14:02." }),
+  };
+});
+
+def("states", "State words (reference)", () => ({
+  main: `<div class="stack-lg"><h1>How states read</h1><p class="meta">One set of words and badges on every step (ux-audit.md §2.5). Words first, colour second.</p>
+    <div class="grid">
+      ${[["Waiting", "", "Waiting to start · 0:12. After 10 min: the service isn't taking work right now; it's charged only if it runs.", "Cancel"],
+         ["Making… 0:42", "", "You can leave this page; it carries on. After 3 min: Taking longer than usual.", "Stop waiting"],
+         ["Check this", "check", "Ready for you to look at.", "Approve / Prompt OK"],
+         ["Approved", "ok", "Undo in the toast for 8 s, then in ···", "—"],
+         ["Didn't finish", "bad", "Didn't finish · nothing charged (or · credits returned), plus the reason in plain words. It clears when a new try starts.", "Try again · N"],
+         ["Refused", "bad", "The model wouldn't make this: {reason}. Nothing was charged. Names the shot.", "Its free fix: Reword it · free (stills, clips) / the style line or another take (songs)"],
+         ["Out of date", "warn", "Made for an older breakdown. Earlier ones are kept. The step stays open to look at.", "Update · N / Redo this frame · N"],
+         ["Finished · changes waiting", "warn", "The final cut is still downloadable as the older cut.", "Open (goes to the first out-of-date step)"],
+         ["Waiting for the owner's OK", "", "This would go past the video's budget.", "— (editor) / Approve (owner)"],
+        ].map(([b, k, l, p]) => `<div class="card stack">${badge(b, k)}<p class="line">${l}</p><p class="meta">Press: <b>${p}</b></p></div>`).join("")}
+    </div>
+    <div class="card stack"><h3>Over budget (editor)</h3><p class="meta">The amber in the cost bar is disabled with the reason as its line: "That's more than this video's budget." On their own script: "You've used this week's 145 credits. It resets on Monday." Never "Ask Reed". Free presses stay pressable.</p></div></div>`,
+  bar: costbar({ finish: "", amber: "" }),
+}));
+
+/* ---------- frame ---------- */
+const NAV = [["videos", "Videos"], ["scripts", "Scripts"], ["clip", "Quick clip"], ["library", "Cast & places"], ["brand", "Brand"]];
+const STUDIO = [["approvals", "Approvals", 2], ["production", "In production"], ["usage", "Usage"], ["team", "Team"]];
+const section = (id) => (id.startsWith("v-") || id === "videos" ? "videos" : ["scripts", "write", "cast", "plan", "publish", "song", "songtakes", "version"].includes(id) ? "scripts" : id);
+
+function render() {
+  document.documentElement.dataset.theme = S.theme;
+  document.querySelectorAll(".proto [data-set]").forEach((b) => b.setAttribute("aria-pressed", String(S[b.dataset.set] === b.dataset.v)));
+  const sel = document.getElementById("jump");
+  sel.innerHTML = Object.keys(screens).map((k) => `<option value="${k}"${k === S.screen ? " selected" : ""}>${label[k]}</option>`).join("") + `<option value="v-clips|song"${S.screen === "v-clips" && S.kind === "song" ? "" : ""}>Song ad · Clips (Sung / B-roll)</option>`;
+  const app = document.getElementById("app");
+  app.className = "app " + S.view;
+  const scr = (screens[S.screen] || screens.videos)();
+  const sec = section(S.screen);
+  const inVideo = S.screen.startsWith("v-");
+  const toast = S.toast ? `<div class="toast" role="status"><span>${esc(S.toast)}</span><button class="btn ghost dense" data-close>OK</button></div>` : "";
+  if (S.view === "desk") {
+    const rail = `<nav class="rail ${inVideo ? "slim" : ""}" aria-label="Main">${inVideo ? "" : '<p class="eyebrow">fomo</p>'}${NAV.map(([id, l]) => `<button class="nav" ${sec === id ? 'aria-current="page"' : ""} data-go="${id === "clip" || id === "library" || id === "brand" ? "" : id}" ${id === "clip" || id === "library" || id === "brand" ? `data-toast="${l}: unchanged pages (see the audit)."` : ""} title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}
+      ${S.who === "owner" ? `<p class="eyebrow">${inVideo ? "" : "Studio"}</p>${STUDIO.map(([id, l, n]) => `<button class="nav" data-toast="${l}: owner page, cross-brand (unchanged, see the audit)." title="${l}"><span class="ico"></span>${inVideo ? "" : l}${n && !inVideo ? `<span class="count">${n}</span>` : ""}</button>`).join("")}` : ""}</nav>`;
+    app.innerHTML = `<header class="topbar"><button class="switch" data-toast="Brands: fomo, Iron Paws${S.who === "owner" ? ", + New brand" : ""}"><span class="dot"></span>fomo ▾</button><span class="spacer"></span>${S.who === "owner" ? `<button class="btn dense" data-toast="Approvals: 2 waiting (dollars show here, for Reed only).">Approvals <span class="count" style="margin-left:6px">2</span></button>` : ""}<span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span></header>
+      <div class="row">${rail}<div class="main"><div class="row" style="min-height:0"><main class="work">${scr.main}</main>${scr.side ? `<aside class="side" aria-label="Script and media"><div class="body">${scr.side}</div></aside>` : ""}</div>${scr.bar}</div></div>${toast}`;
+  } else {
+    const back = inVideo ? `<button class="btn ghost dense" data-go="videos">‹ Videos</button><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${S.kind === "song" ? "Pitbull song · A" : "The altar reel · B"}</b>${more("video")}`
+      : `<button class="switch" style="flex:1" data-toast="Brands: fomo, Iron Paws"><span class="dot"></span>fomo ▾</button>${S.who === "owner" ? `<button class="more" aria-label="Approvals, 2 waiting" data-toast="Approvals: 2 waiting.">🔔</button>` : ""}<span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span>`;
+    app.innerHTML = `<div class="phead">${back}</div><main class="work">${scr.main}</main>${scr.bar}
+      <nav class="ptabs" aria-label="Tabs">${NAV.map(([id, l]) => `<button class="ptab" ${sec === id ? 'aria-current="page"' : ""} ${["videos", "scripts"].includes(id) ? `data-go="${id}"` : `data-toast="${l}: unchanged page."`}><span class="ico"></span>${l === "Cast & places" ? "Cast" : l === "Quick clip" ? "Quick" : l}</button>`).join("")}</nav>${toast}`;
+  }
+  try { localStorage.setItem("bs-wire", JSON.stringify({ view: S.view, who: S.who, st: S.st, theme: S.theme, screen: S.screen, kind: S.kind, side: S.side, prompts: S.prompts })); } catch (e) {}
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button, a");
+  if (!t) return;
+  if (t.matches("[data-set]")) { S[t.dataset.set] = t.dataset.v; S.toast = null; return render(); }
+  if (t.matches("[data-close]")) { S.toast = null; return render(); }
+  if (t.matches("[data-side]")) { S.side = t.dataset.side; return render(); }
+  if (t.matches("[data-phase]")) { S.prompts = t.dataset.phase; return render(); }
+  e.preventDefault();
+  if (t.disabled) return;
+  if (t.dataset.kind) S.kind = t.dataset.kind;
+  if (t.dataset.go) {
+    S.screen = t.dataset.go;
+    if (S.screen === "song" || S.screen === "songtakes") S.kind = "song";
+    if (S.screen === "write") S.kind = "story";
+    if (S.screen === "v-clips" && t.dataset.toast && /Prompt OK for all/.test(t.textContent)) S.prompts = "takes";
+    S.toast = t.dataset.toast || null;
+    document.getElementById("app").scrollIntoView({ block: "nearest" });
+    return render();
+  }
+  if (t.dataset.toast) {
+    if (S.screen === "v-clips" && /Prompt OK for all/.test(t.textContent)) S.prompts = "takes";
+    S.toast = t.dataset.toast; return render();
+  }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.id === "jump") {
+    const [id, k] = e.target.value.split("|");
+    S.screen = id; if (k) S.kind = k; else if (id === "song" || id === "songtakes") S.kind = "song"; else if (["write"].includes(id)) S.kind = "story";
+    S.toast = null; render();
+  }
+  if (e.target.matches("[data-stepsel]")) { S.screen = e.target.value; S.toast = null; render(); }
+});
+render();
+</script>
+</body>
+</html>

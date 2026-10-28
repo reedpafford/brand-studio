@@ -1,0 +1,42 @@
+# Brand Studio Next (the test site, branch `next`): the live stack's services as their own
+# Compose project with its own database, files, images and worker lanes. Nothing is shared
+# with live except the "edge" network, where live's Caddy reaches this stack's web server.
+# Run from deploy/: docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml up -d
+x-next-env: &next-env
+  BS_ENV: next  # production checks, but the free stand-ins are allowed
+  BS_COOKIE_NAME: bs_next_session  # same address as live on another port; cookies ignore ports
+  PUBLIC_ADDRESS: ${PUBLIC_ADDRESS:?set PUBLIC_ADDRESS in deploy/.env}
+
+services:
+  migrate:
+    image: brand-studio-next-server
+    environment: *next-env
+  api:
+    image: brand-studio-next-server
+    environment: *next-env
+  worker:
+    image: brand-studio-next-server
+    environment: *next-env
+  claude-worker:
+    image: brand-studio-next-server
+    environment: *next-env
+  reel-worker:
+    image: brand-studio-next-server
+    environment: *next-env
+
+  # Plain http inside the server: live's Caddy holds 80/443, does HTTPS on port 8443 and
+  # forwards here (deploy/Caddyfile). No published ports.
+  caddy:
+    image: brand-studio-next-web
+    ports: !reset []
+    volumes:
+      - ./next/Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      default:
+      edge:
+        aliases: [brand-studio-next-web]
+
+networks:
+  edge:
+    name: brand-studio-edge
+    external: true  # made once by either deploy script: docker network create brand-studio-edge

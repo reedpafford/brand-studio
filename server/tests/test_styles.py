@@ -12,6 +12,10 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
     assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
+    assert set(ids[5:]) == {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet",
+                            "whiteboard", "vox", "podcast"}  # fmt: skip
+    for own_flow in ("whiteboard", "podcast"):  # they need their own flows first (spec)
+        assert prompts.style(own_flow)["kind"] == "format"
     assert [s["id"] for s in prompts.styles() if s["on"]] == ["house"]
     for s in prompts.styles():
         assert s["kind"] in ("look", "format") and s["blurb"], s["id"]
@@ -65,3 +69,13 @@ def test_an_unknown_style_is_refused():
         prompts.system("storyboard", "pixar")
     with pytest.raises(ValueError):
         prompts.sheet_prompt("character", "x", style_id="Disney Pixar")  # ids, not names
+
+
+def test_styles_borrow_a_studio_look_never_its_frame_and_never_rewrite_lines():
+    """Flow-QA: "a frame from a Pixar film" may be refused as a copy; "in the style of" is
+    safe. Next-Lead: a format's script notes never change an existing script's lines."""
+    for s in prompts.styles():
+        text = "\n".join(s["sections"].values())
+        assert "frame from a Pixar" not in text and "from an animated Pixar" not in text, s["id"]
+        if "script" in s["sections"] and s["id"] in ("zack-d", "skeleton"):
+            assert "word for word" in s["sections"]["script"], s["id"]
