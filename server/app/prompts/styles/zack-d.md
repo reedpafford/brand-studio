@@ -1,6 +1,6 @@
 # Zack D
-<!-- After the Zack D. Films format, from Starpop's zack-d-ads skill (docs/research/starpop-2026-10-28, rule 20). A format: a calm narrator explains one surprising thing in a bright cyan 3D world, as one continuous camera journey. Starpop attaches a background plate; until we make one, the world is written in words. -->
-kind: format
+<!-- After the Zack D. Films format, from Starpop's zack-d-ads skill (docs/research/starpop-2026-10-28, rule 20). A look usable on any story script (flows Q4): a calm narrator explains one surprising thing in a bright cyan 3D world, as one continuous camera journey. Starpop attaches a background plate; until we make one, the world is written in words. -->
+kind: look
 order: 3
 on: no
 image_model: auto
