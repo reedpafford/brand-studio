@@ -161,6 +161,16 @@ test("a take still rendering shows on its own clip after a reload, with the time
   expect(within(screen.getByLabelText("Clip c1")).getByText("Not made")).toBeInTheDocument();
 });
 
+test("a take that has waited a while to start says why, in plain words", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ id: 2, clip_id: "c2" })]],
+    "GET /jobs": [200, [{ id: 21, kind: "video", step: "clip_take", status: "queued", credits: 24, project_id: 9, project_clip_id: 2, created_at: new Date().toISOString(), waiting: "This hasn't started yet: the service that makes it isn't taking work right now. Nothing is charged while it waits." }]],
+  });
+  open();
+  expect(await within(await screen.findByLabelText("Clip c2")).findByText(/isn't taking work right now/)).toBeInTheDocument();
+});
+
 test("takes can be picked, and Looks good approves the picked one", async () => {
   const calls = fakeServer({
     ...base,
