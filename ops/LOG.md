@@ -1,4 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 21:24 · #725 Assets, Storyboard, Clips: no counts from a list read before the step opened merged
+- 2026-10-28 20:52 · #723 Director: the first clip-prompt part is asked alone and writes the shared prompt's cache merged
+- 2026-10-28 20:44 · #722 Assets: the role-words box takes the card's full width on a phone merged
+- 2026-10-28 20:42 · #724 ops: HANDOFF/LOG refresh as of 145d745 merged (by the Producer)
 - 2026-10-28 20:26 · #720 Assets: a role whose words contradict its approved look says so, with Update to match merged
 - 2026-10-28 20:25 · #721 Research: Starpop comparison, our side (Phase 1) merged
 - 2026-10-28 20:16 · #715, #716, #717 A role's words follow its approved look; Director asks a clip prompt run's parts at the same time (up to 4); the owner can still edit a published script's title, about and notes, merged
