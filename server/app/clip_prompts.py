@@ -36,6 +36,7 @@ from app.storyboard import (
     hero,
     is_logo,
     left_out,
+    logo_clip,
     nearest_first,
     newer_sheets,
     older_looks,
@@ -262,8 +263,10 @@ def with_cast(
     for r in (r for r in new if r.id not in before):
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
         if r.id in want:  # rule 14: a logo is only the logo, the trading screen is invented
-            said = "." if is_logo(pics, r.id) else " screen, exactly as it is."
-            prompt = _add(prompt, "References: ", f"{tag} is the {who}{said}")
+            n, real = new.index(r) + 1, f"{tag} is the {who} screen, exactly as it is."
+            prompt = _add(
+                prompt, "References: ", logo_clip(n, who) if is_logo(pics, r.id) else real
+            )
             continue
         prompt = _add(prompt, "References: ", f"{tag} is {who}.")
         prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")

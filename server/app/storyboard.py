@@ -199,15 +199,28 @@ def logo_words(prompt: str, tag: str, said: str, who: str) -> str:
             seen.append(said)  # up and down both attached: the logo is said once
             return lead[1] + said if len(seen) == 1 else lead[1].strip(" ")
         return OLD_SCREEN.sub(
-            f"{who} sharp in the top corner, the rest of the screen invented", m[0]
+            f"{who}, the word {_word(who)} in lowercase, sharp and legible in the top corner, the "
+            "rest of the screen invented",
+            m[0],
         )
 
     return re.sub(r"[^.\n]*\.", fix, prompt)
 
 
-def logo_still(n: int, who: str) -> str:
-    return (f"Image {n} is the {who}: sharp in the top corner of the phone's trading screen, "
-            "invented with the chart this beat needs.")  # fmt: skip
+def _word(who: str) -> str:
+    """The brand's name, the word its logo must read ("fomo logo" -> "fomo"): QA-Live, video
+    #17, a logo alone came out "JOMO" or as the icon with no word."""
+    return who.removesuffix(" logo")
+
+
+def logo_still(n: int, who: str) -> str:  # Nano Banana wants the exact words in quotes
+    return (f'Image {n} is the {who}: the word "{_word(who)}" in lowercase letters, sharp and '
+            "legible in the top corner of the phone's trading screen, invented with the chart "
+            "this beat needs.")  # fmt: skip
+
+
+def logo_clip(n: int, who: str) -> str:  # no quote marks: Seedance reads them as speech
+    return f"[Image{n}] is the {who}, the word {_word(who)} in lowercase."
 
 
 OLDER = "Advice: Drawn from an older look of "
@@ -244,7 +257,7 @@ def say_logo(known: dict, prompt: str, ids: list[str], clip: bool = False) -> st
     for n, r in enumerate(ids, 1):
         if is_logo(known, r):
             who = _name(known, r)
-            tag, said = (rf"\[Image{n}\]", f"[Image{n}] is the {who}.") if clip else (
+            tag, said = (rf"\[Image{n}\]", logo_clip(n, who)) if clip else (
                 rf"(?i:\bimage {n}\b)", logo_still(n, who))  # fmt: skip
             prompt = logo_words(prompt, tag, said, who)
     return prompt
