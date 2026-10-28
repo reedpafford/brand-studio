@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -82,6 +82,26 @@ test("Make still and Make all stills queue the image jobs and say Drawing…", a
   await userEvent.click(await screen.findByRole("button", { name: "Make all stills · 6 credits" })); // two missing × 3
   await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/render"))).toHaveLength(2));
   expect(await within(screen.getByLabelText("Frame c2")).findByText("Drawing…")).toBeInTheDocument();
+});
+
+test("a still whose job never shows in the jobs list stops saying Drawing… and can be made again", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({})]],
+    "POST /projects/9/storyboard/frames/1/render": [201, { id: 11, kind: "image", status: "queued", credits: 3, project_id: 9 }],
+  });
+  open();
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(await screen.findByRole("button", { name: /Make still/ }));
+  const card = screen.getByLabelText("Frame c1");
+  expect(await within(card).findByText("Drawing…")).toBeInTheDocument();
+  act(() => {
+    vi.advanceTimersByTime(50_000);
+  });
+  expect(await within(card).findByText("No still yet")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Make still/ })).toBeEnabled();
+  vi.useRealTimers();
 });
 
 test("editing a frame's prompt saves it with its references", async () => {

@@ -445,11 +445,11 @@ def repair(db: Session, project: Project) -> int:
 
 
 GENTLE = {  # what Nano Banana refuses (check.FLAGGED), said so it draws (Reed, #520)
-    "leggings": "workout pants", "lap": "knees", "laps": "knees", "thigh": "leg",
+    "leggings": "workout pants", "thigh": "leg",
     "thighs": "legs", "cleavage": "neckline", "pus": "redness", "discharge": "irritation",
     "wound": "scrape", "wounds": "scrapes",
 }  # fmt: skip
-STEMS = {"crust": "dry patches", "ooz": "glistening", "blood": "red", "vomit": "feeling sick"}
+STEMS = {"ooz": "glistening", "blood": "red", "vomit": "feeling sick"}
 
 
 def soften(prompt: str) -> str:

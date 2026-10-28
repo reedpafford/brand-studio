@@ -711,10 +711,9 @@ def test_storyboard_check_warns_on_words_the_image_model_refuses():
 
     refused = "His chin on her lap, in black leggings, crusty eyes and a bloody paw."
     assert check.storyboard(frames(refused), 14, 4) == [
-        "Advice: c1: the image model may refuse “bloody, crusty, lap, leggings”; soften it or "
-        "draw it as is"
+        "Advice: c1: the image model may refuse “bloody, leggings”; soften it or draw it as is"
     ]
-    fine = "Beside her on a wet street: faint tear stains, a pink sore paw; she drops to her knees."
+    fine = "Crusty eyes, his chin on her lap; she pours the bowl, he laps it up, a pie crust."
     assert check.storyboard(frames(fine), 14, 4) == []
 
 
@@ -1204,6 +1203,31 @@ def test_no_numeric_rhythm_rules_are_left():
         text = prompts.system(step)
         for gone in ("every 1–3 s", "about 2 s of the real brand element", "by about 5 s"):
             assert gone not in text, (step, gone)
+
+
+def test_the_story_agrees_with_the_real_balance_and_variations_take_a_length():
+    """QA-Live Run 3: the real Home screen's $348,920.15 at the CTA against a story that said
+    $14,800; and "about 45 s" in a variations note came out at 60 s."""
+    for step in ("script_draft", "breakdown", "variations"):
+        assert "climb toward that balance" in prompts.system(step), step
+    assert "never a different one the real screen would contradict" in prompts.system("breakdown")
+    v = prompts.system("variations")
+    assert "**Same size, unless asked.**" in v and "that length wins" in v
+
+
+def test_a_requested_length_is_what_the_variations_length_advice_checks():
+    original, result, end = _variation_case()
+    v = result.variations[0]
+    words = check.spoken_words(v.script)
+    assert check.asked_seconds("Make it about 45 s, punchier") == 45
+    assert check.asked_seconds("a 1 minute cut") == 60 and check.asked_seconds("funnier") is None
+    fits = round(words / 2)  # seconds this variation's words fit
+    ok = check.variations(original, result, {}, end, [], 1, [], "fomo", note=f"about {fits} s")
+    assert not [p for p in ok if "spoken words" in p or "words in all" in p]
+    short = check.variations(original, result, {}, end, [], 1, [], "fomo", note="about 10 s")
+    assert f"Advice: variation 1 has {words} spoken words; about 17–25 fit the 10 s asked for" in (
+        short
+    )
 
 
 def test_a_summary_quoting_a_line_doesnt_count_it_twice():

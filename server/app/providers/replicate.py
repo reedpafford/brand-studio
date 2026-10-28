@@ -55,6 +55,10 @@ class ReplicateProvider:
         body = {"version": model.provider_version, "input": input["input"]}
         return self._call("POST", "/predictions", json=body)["id"]
 
+    def cancel(self, ref: str) -> None:
+        """Stop a prediction that ran past our time limit (Replicate: POST .../cancel)."""
+        self._call("POST", f"/predictions/{ref}/cancel")
+
     def poll(self, ref: str) -> Result:
         p = self._call("GET", f"/predictions/{ref}")
         status = p.get("status")

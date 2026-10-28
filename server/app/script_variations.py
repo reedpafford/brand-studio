@@ -59,6 +59,7 @@ def job_input(
         "slots": slots,
         "system": system,
         "prompt": message,
+        "note": note,  # a length it asks for is what the length advice checks against
     }
 
 
@@ -84,7 +85,7 @@ def save_variations(db: Session, job: Job) -> None:
     slots = job.input["slots"]
     found = check.variations(
         original.text, result, screens, brand.end_line, brand.never_say, len(slots), cast=names,
-        brand=brand.name,
+        brand=brand.name, note=job.input.get("note", ""),
     )  # fmt: skip
     for n, (slot, made) in enumerate(zip(slots, result.variations, strict=False), 1):
         draft = db.scalar(
