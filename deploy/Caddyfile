@@ -29,3 +29,21 @@
 		file_server
 	}
 }
+
+# Brand Studio Next (the test site, branch `next`): the same address on port 8443. Its own stack
+# (deploy/next/) answers on the shared edge network; if it's down, only this port fails.
+{$DOMAIN}:8443 {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+	reverse_proxy brand-studio-next-web:80
+}
+
+# Plain http always goes to the live site on 443 (stated, so the port-8443 site can't take it).
+http://{$DOMAIN} {
+	redir https://{host}{uri} permanent
+}

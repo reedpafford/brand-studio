@@ -35,6 +35,8 @@ main() {
   } > .env.new
   mv .env.new .env
 
+  # Shared with the test site (deploy/next/), so live's Caddy can forward port 8443 to it.
+  docker network inspect brand-studio-edge >/dev/null 2>&1 || docker network create brand-studio-edge >/dev/null
   docker compose up -d --build --remove-orphans
 
   for _ in $(seq 1 60); do
