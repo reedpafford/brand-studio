@@ -8,9 +8,8 @@ def test_editor_joins_with_editor_role(editor):
 
 
 def test_members_listed_for_everyone(owner, editor):
-    names = [m["name"] for m in editor.get("/team/members").json()]
-    assert names == ["the owner", "Ed"]  # rule 4: editors never see Reed's name
-    assert [m["name"] for m in owner.get("/team/members").json()] == ["Reed", "Ed"]
+    for viewer in (editor, owner):  # names show plainly to everyone (Reed, 2026-10-28)
+        assert [m["name"] for m in viewer.get("/team/members").json()] == ["Reed", "Ed"]
 
 
 def test_editor_cannot_invite_or_remove(editor):

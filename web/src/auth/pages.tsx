@@ -57,7 +57,7 @@ export function SetupPage() {
 
 class InviteGone extends Error {}
 
-/** A stored name like "owner-reed" is a slug, not a name. The owner's own settings say "{owner}'s studio"; anyone else is told "your team's studio" (editors never see the owner's name). */
+/** A stored name like "owner-reed" is a slug, not a name: it reads as "{owner}'s studio" ("your team's studio" with no owner name). */
 export function studioName(stored: string, owner?: string) {
   const slug = !/\s/.test(stored.trim()) && stored.includes("-");
   return !slug ? stored : owner ? `${owner}'s studio` : "your team's studio";
@@ -108,13 +108,13 @@ export function InvitePage() {
       </AuthShell>
     );
   const i = invite.data;
-  const studio = studioName(i.workspace_name);
+  const studio = studioName(i.workspace_name, i.owner_name);
   return (
     <AuthForm
       title={`Join ${studio}`}
       intro={
         <p className="text-sm text-muted">
-          {i.invited_by_name && i.invited_by_name !== i.owner_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}. Your email is {i.email}.
+          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}. Your email is {i.email}.
         </p>
       }
       submitLabel="Create my account"
