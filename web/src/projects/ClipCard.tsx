@@ -90,6 +90,10 @@ export function ClipCard(props: {
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
   const price = props.cost === undefined ? "" : ` · ${Math.round(props.cost)} credits`;
   const picked = c.takes.find((t) => t.id === c.picked_take_id);
+  // "Change this…" on a clip with no take only rewrites the prompt (no surprise paid take): say what to press next.
+  const lastChange = c.change as ChangeState;
+  // A change always clears "Looks good" (the prompt must be read again), so the line only shows while it is waiting to be read.
+  const updated = props.review && props.toRead && c.takes.length === 0 && lastChange?.status === "done" && lastChange.note !== FIX_NOTE;
   return (
     <li className={`space-y-2 rounded-md bg-surface p-3 text-sm ${c.approved ? "border-2 border-success" : "border border-border"}`} aria-label={`Clip ${c.clip_id}`}>
       <div className="flex flex-wrap items-center gap-2">
@@ -225,6 +229,11 @@ export function ClipCard(props: {
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
+          {updated && (
+            <p className="w-full text-muted" role="status">
+              Prompt updated. Read it, press Looks good, then press {verb}.
+            </p>
+          )}
           {c.picked_take_id !== null && !c.approved && (
             <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={props.onApprove}>
               ✓ Looks good
