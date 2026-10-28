@@ -322,10 +322,11 @@ Where: the script's header, next to the title ("Style: House ▾"). Story and So
 | L | The picker's cards as grey tiles. | — |
 | Picker | Cards with one sample still each, name, one line ("Soft 3D feature-film look"). House first, then Reed's order. Off entries show **Off** for editors and are greyed: "Not switched on yet". | **Use this style** on a card. |
 | Owner sees Off entries | Owner can pick an Off entry on their own draft to try it, labelled "Off for editors: only you can use it". | **Use this style**, or **Switch on for editors** (only once a sample is approved, ST3). |
+| Publishing on an Off style | Publish says first: "Claymation is off for editors, so they couldn't make this." | **Publish on House instead** (free, Undo), or **Make a sample** (ST3) and switch it on, then publish. |
 | Format entry | "Song" is a format: on a Story script its card says "Song is a kind of script: start a new song script". | **Start a song script** (opens S1 with Song picked). |
 | Voiceover-led entry | Zack D and Skeleton are narrated: they use the narrator voiceover lines clips already carry ("Voiceover (Biscuit, in English…)", as Iron Paws Pitbull 1 does). Picking one on a script with no narrator line: Advice "This style is narrated: the script has no narrator lines yet." | **Make the narrator a role** (free: the cast read marks the script's voiceover speaker as the narrator), or keep it as a look only. |
 | Format not built | An entry that needs steps we don't have (podcast, whiteboard): "Needs its own steps: not built yet". Not pickable. | — |
-| Change after looks exist | Confirm: "Change to Claymation? Character looks are per style: 3 roles need a new look (about N credits, made at Assets)." Not yet / Change. | **Change**. |
+| Change after looks exist | Confirm with the whole price of redoing: "Change to Claymation? 3 roles need a new look, 9 stills and 4 clips go out of date. To finish: about N credits (was M)." Not yet / Change. | **Change**. |
 | B | The estimate updates before the confirm; an editor over budget sees the reason and the picker stays on the current style. | — |
 | P | Cards in one column, sample still full width, the button under each. | — |
 | U | Undo in the toast after a change; changing back is free and the earlier looks come back (they're kept per style). | — |
@@ -335,16 +336,17 @@ Where: the script's header, next to the title ("Style: House ▾"). Story and So
 
 | Step | Effect |
 |---|---|
-| Assets | A look is per style. A library character with no sheet in this style gets "Make a {style} sheet · N credits" (a new version on the item; the House one is kept). A per-video look is made in the style automatically, as today. |
+| Assets | A look is per style. A library character with no sheet in this style: the editor gets "Make a {style} look for this video · N credits", a per-video look that stays with the video and is never saved to Cast & places (rule 12). Only the owner adds a style sheet to a library character, in Cast & places ("Make a {style} sheet", a new version on the item; the House one is kept). Unlocked roles get a per-video look in the style automatically, as today. (Producer, 2026-10-28) |
 | Storyboard | Stills use the style's paragraphs (look, character when people are in frame, camera) and its default picture model. |
-| Clips | Prompts open with the style's motion line. Banned words from the style are repaired in code (free), never a block. |
+| Clips | Prompts open with the style's motion line. Banned words from the style are repaired in code (free), never a block, and only in the picture descriptions: the script's spoken lines are never touched (rule 19). A banned word inside a spoken line is Advice only. |
 | Refusals | The style's failure/fix list drives the free fix offered on a refused or broken still ("Make another" before rewording, per the entry). |
 
 ## ST3. Switching a style on (owner)
 
 | State | What they see | The one press |
 |---|---|---|
-| E | On the Styles page (owner): each Off entry has "Make a sample · N credits" (one still and one 5 s clip of the brand's hero). | **Make a sample**. |
+| E | On the Styles page (owner): each Off entry has "Make a sample · N credits" (one still and one 5 s clip of the brand's hero: its default cast's first character). | **Make a sample**. |
+| No hero | The brand has no default cast yet: "Who's in the sample?" with the brand's library characters. With none at all, a sample character is described in the style itself. | Pick one, or **Use a sample character**. |
 | R/F/X | As Storyboard and Clips today. | Try again / the free fix. |
 | Sample ready | The still and clip. | **Switch on for editors**, or **Not yet**. |
 | On | "On · editors can pick it". | **Switch off** (Undo). Videos already using it keep it. |
@@ -377,7 +379,7 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 | Editor | Read only, with "Only the owner changes the brand." | — |
 | P | Sections stacked, each collapsible; lists edited one row at a time. | — |
 | U | Every delete has Undo. | — |
-| S | Brand changes never touch published scripts or videos already made. New scripts, and steps not yet run, read the new setup. Said under the page title: "Changes apply to new work, not to videos already made." | — |
+| S | Brand changes never touch published scripts, and nothing already made goes out of date. A video in progress uses the brand as it is when each later step runs (a new end line shows up in clips not yet written). Said under the page title: "Changes apply to work from now on. Nothing already made changes." | — |
 
 ## BR2. Import from website (nice-to-have, last)
 
@@ -403,6 +405,7 @@ A small **Video settings** row at the top of every video and on "Make this versi
 |---|---|---|
 | E | "House · Auto · Auto · English". | Tap a setting → its picker. |
 | Picker | Each choice with its price in credits ("Seedance 2.5 · 1 credit a second", "Nano Banana Pro · 1.2 credits a still"). Off choices (an untested language) are hidden from editors. | Pick → confirm. |
+| Song video, model can't lip-sync | Video models that can't take a song slice are labelled "No lip-sync" in the picker. Picking one asks: "Seedance 2.0 can't lip-sync. Your 3 Sung shots become B-roll (picture only)." Not yet / Switch. | **Switch** (the Sung shots flip to B-roll in this video, with Undo; switching back flips them back). |
 | Confirm | "Switch to Seedance 2.0? To finish: about N credits (was M). Clips already made stay as they are and show Out of date." Not yet / Switch. | **Switch**. |
 | B | The confirm shows "That's more than this video's budget" and Switch is disabled; the picker stays open. | Pick a cheaper choice. |
 | Cap | A choice that would push the video over 729 credits is greyed: "Over the video limit". | — |
@@ -427,7 +430,7 @@ A brand holds projects ("November launch"). A project holds scripts, videos and 
 | E | "No projects yet. Everything works without one." | **New project**. |
 | Moving | On any script, video or clip: "Project: none ▾". | Pick → moved (toast, Undo). |
 | Delete project | "Delete November launch? Its 6 items move to No project." | **Delete** (Undo). Nothing inside is deleted. |
-| Editor | Can file their own items; the owner files anything. | — |
+| Editor | Sees the projects of the brands they work on; files their own items into them and can make a project. Only the owner renames or deletes a project made by someone else. The owner files anything. | — |
 | P | Projects are a list in the left tab (item 6). | — |
 
 ## OR2. Media
@@ -439,6 +442,7 @@ One page with every still, sheet, take, song and final video. Filters: brand, pr
 | E | "Nothing made yet in {brand}." | **Make a quick clip**. |
 | L | Grey tiles. | — |
 | Item | Thumbnail, kind, when, who. | **Open in {step}** (e.g. "Open in Clips"), or **Download**. |
+| Owner vs editor | The owner sees everything. An editor sees what they can already open today (their own work and published scripts' videos); nothing new becomes visible through Media. | — |
 | Deleted video | Its media is listed as "From a deleted video" until it's purged. | **Restore the video** (owner). |
 | P | Two-column grid, filters in a sheet. | — |
 
