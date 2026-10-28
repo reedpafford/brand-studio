@@ -25,8 +25,8 @@ A state passes only if the person sees what's happening and has one press that m
 | Change | Must mark "Out of date" | Must stay as is | Last checked |
 |---|---|---|---|
 | Lyrics edited (before publish) | song takes, breakdown, storyboard, clips | cast and looks | — |
-| Preferred song take switched | breakdown time ranges, Sung slices, clips | stills that don't depend on timing | — |
-| A shot flipped Sung ↔ B-roll | that shot's clip prompt and price | other shots | — |
+| Preferred song take switched (per video, by the editor) | that video's breakdown time ranges, Sung slices, clips | the script, other videos, stills that don't depend on timing | — |
+| A shot flipped Sung ↔ B-roll (per video) | that shot's clip prompt and price | other shots, the script, other videos | — |
 | Style line edited | song takes | lyrics | — |
 
 ## Open failures
@@ -38,7 +38,7 @@ A state passes only if the person sees what's happening and has one press that m
 | Breakdown | No problem for a Sung shot without an approved singer, or one past the model's limit or crossing a scene | Assets link; **Split at a beat** | #737 plan |
 | Takes | Refused offers only Edit lyrics | add **Edit style** | #737 plan |
 | Takes | A server restart mid-song isn't named | reason + **Try again** | #737 plan |
-| Breakdown, Clips | Editor Sung/B-roll flips vs rule 31 | waits on flows.md | #737 plan |
+| Takes, Breakdown | Producer's rule-31 ruling (2026-10-28): lyrics are final at publish; Preferred take, Sung/B-roll, re-timing and new takes are the editor's, per video. #737 still has "Published: Preferred fixed, no Make" | Editor's video gets **Make this Preferred**, **Make 2 more**, flips, each marking only that video's later steps Out of date | #737 plan |
 
 ## Walks
 | Date | PR / commit | Flows | Result |
