@@ -49,11 +49,9 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
-| S4 U | Deleting the Preferred take succeeds and hands the mark on; if the other sings older words, nothing is Preferred | 409 "Make another take Preferred first" | #748 at 9a44a675 |
 | S4 | Too long (after): an 800 s take comes back ready and Preferred | Can't be Preferred, with the reason; **Use the first N:NN** | #748 at 9a44a675 |
 | S7 | A song script with no take can be published; its videos get no song and no way to get one | 409 "Make the song first" | #750 at b4ef028e |
 | V2a | An over-cap take can become the video's song | 409 "Too long for this video" + **Use the first N:NN** | #750 at b4ef028e |
-| S4 | Suno: one request = 2 songs at a 1-credit placeholder; limits 5,000 / 1,000. screens.md (#742) still has 3,500 / 2,000 and "3 for 2, 2 for one" | screens.md follows flows.md S4 | #746 at 6efea144 |
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | Clips (story videos) | The new "Songs" paragraph is in clip_prompts.md, so every story video's clip-prompt text grows and the cache resets once | A song-only extension (EXTENDS) | #755 at 3a72323e |
 | V2 | The `[Lip-sync]` Advice fires on an editor's own Sung flips, telling them to edit final lyrics | Check only when the breakdown is written | #755 at 3a72323e |
@@ -92,3 +90,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-28 | #755 at 3a72323e (song prompts) | Song directions, song breakdown, Sung clips; House prompts | PASS on the prompts, 19 tests; FAIL on 2 effects (story clip prompts, editor-flip Advice) |
 | 2026-10-28 | #743 at c8c5305d | ST1 voiceover-led entries, S3 unchecked claims | PASS |
 | 2026-10-28 | #759 at 5698de50 (song screens S1, S2, S4) | Playwright at 1440 and 390: failed, refused, Advice, leave and return, delete guard, delete + Undo, lyrics-edit confirm, sideways scroll; plus the PR's song.e2e | FAIL: Next after the lyrics change, refused has no way on; 7 states pass |
+| 2026-10-28 | #748 at 317efac0 (Suno) | 8 API walk cases | 6 pass (delete guard fixed); too long (after) still open |
+| 2026-10-28 | #742 at c1f7ec80, #759 at 51f0e518 | Suno limits and per-request price | PASS; #759's two walk findings still open |
