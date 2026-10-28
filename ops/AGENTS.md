@@ -14,6 +14,7 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 | Designer | Opus 5.5 | Screen designs before build; screenshot review at phone/desktop | on demand (later) |
 | Director | Opus 5.5 | Prompts and video quality; only rules: engaging + required brand elements featured | on demand (later) |
 | Writer | Opus 5.5 | Turns Reed's ideas into ready-to-paste Script Library scripts (asks what it needs, pitches 2–3 hooks, writes, revises). Reads the Current rules, house style, docs/references, brand kits and the script_draft prompt. Never touches the app, repo or live site; no paid calls | on demand (Reed) |
+| Researcher | Opus 5.5 | Studies other tools (now Starpop) through Reed's own logged-in browser and writes findings for Reed; read-only on live sites; spends only within the budget Reed sets | on demand (Producer) |
 | Treasurer | Haiku 5.5 | Bills vs usage, credit rates, spikes; weekly note | weekly (later) |
 
 ## Flow
@@ -36,6 +37,7 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Builder-Server-5 (replaced Builder-Server-3 and -4 on 2026-10-27, context hygiene; montage trading screens) | session_01FRDAYJJv6AhprHx2GkXuCr |
 | Builder-Server-6 (role matching, duplicate roles) | session_01FRDAYJUwbJh3yTNjVjfofU |
 | Writer (Reed talks to it directly) | session_01FRDAYF8xUEnyc2USaQdPNF |
+| Researcher (Starpop, Phase 1) | session_01FRDAYGsMfXmbBgso61qMqh |
 | Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
 | Builder-Screens-3 (editor video flow; replaced Builder-Screens-2 on 2026-10-26) | session_01RY7gQZ2FyTVwVAYrbX5MXu |
 | QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
