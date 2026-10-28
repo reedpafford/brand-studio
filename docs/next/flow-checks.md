@@ -49,20 +49,11 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
+| S4 Advice "sung twice" | `times_sung` is 2 on a perfect take when the chorus is written twice in the lyrics, so false Advice on most songs | Compare against how often the line is written; add a test with a repeated chorus | #746 at 8d85af53 |
+| S4 X, in a video (V2a) | The REFUSED text says "Change those words", but in a video the lyrics are final | Wording by context, or neutral, with the press left to the screen | #746 at 8d85af53 |
+| S4 | A take over 900 s says its file can't be read | "Too long to use" | #746 at 8d85af53 |
 
-| V2a | An editor can pick a take whose video goes over the cap? | Greyed with the reason, or **Use the first 0:55** | #740 at 91f4b387 |
-| flows.md S4 | Timing failed offers only Try again (repeats) | **Make the other one preferred** / **Make 2 more** | #740 |
-| flows.md S5 → V2 | "Nobody on camera", then a flip to Sung, has no singer | "Who sings this shot?" picker, free, Undo | #740 |
-| flows.md S4 | Deleting the Preferred take when the other sings older words; deleting a take a video uses | Guard both, with the reason | #740 |
-| flows.md vs #737/#742 | Step names, empty style (Advice vs block), the press for an unsafe refusal, sung-twice, Preferred while timing runs | Pick one in flows.md; the screens follow | #740 |
-| ST2 | Per-style sheet on a library character (rule 12); editor dead end. Producer ruled: per-video look for editors, library sheet owner only | flows.md to write it in | #743 |
-| ST1 | Publishing on an Off style | **Switch to House** at Publish | #743 |
-| VS1 | A non-audio video model on a song video leaves Sung clips unmakeable | Grey them out, or Sung → B-roll with Undo | #743 |
-| ST3 | Sample needs the brand's hero; no default cast yet | Stock character, or a picker | #743 |
-
-The #737 screen plan passes on paper.
-
-Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes and flips), 8068f911 (take-delete guard for videos) and 86dc2dd9 (no take fits the cap) (on paper; re-checked on the built screens): cap block, timing fallback, unsung line, Sung problems, refusal by style, restart, take-delete guard, trim and hold, 390 takes layout, "up to N" pricing. To re-check on the built screens.
+Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
 ## Walks
 | Date | PR / commit | Flows | Result |
@@ -78,3 +69,6 @@ Fixed in #737 at 8271b0fd, 6af52e4e (rule-31 ruling: per-video Preferred, takes 
 | 2026-10-28 | #742 at 4f9fbdf4 | S2, S3 on paper | PASS |
 | 2026-10-28 | #740 at 91f4b387 | S1–S7, V1–V6, V2a on paper | Rule 31 PASS; 3 dead ends still open, plus 1 new |
 | 2026-10-28 | #745 at 773c1de (style registry, prompts only) | House prompts unchanged; server tests | PASS: 15/15 renders identical, 691 tests pass |
+| 2026-10-28 | #740 at e7fad772 | S1–S7, V1–V6, V2a on paper | PASS |
+| 2026-10-28 | #743 at 05ef4860 | ST, BR, VS, OR, layout on paper | PASS (one wording note on the VS1 confirm) |
+| 2026-10-28 | #746 at 8d85af53 (music stand-in, timing) | every `fake:` marker through make → time → message | FAIL: false "sung twice" on a repeated chorus |
