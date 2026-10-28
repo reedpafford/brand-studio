@@ -32,7 +32,7 @@ def test_a_frame_is_softened_by_itself_and_with_soften_it(app, db, editor, setup
     made["frames"][0]["prompt"] = "Mom from image 1 in leggings, wallet in her lap."
     _run(app, db, FakeClaude(made))
     (frame,) = editor.get(url).json()
-    assert frame["prompt"] == "Mom from image 1 in workout pants, wallet in her knees."
+    assert frame["prompt"] == "Mom from image 1 in workout pants, wallet in her lap."
     assert frame["softened"]["before"] == made["frames"][0]["prompt"]
     assert not [p for p in frame["problems"] if "refuse" in p]
 

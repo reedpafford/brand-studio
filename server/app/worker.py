@@ -45,6 +45,11 @@ EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "i
 # Provider output links expire (Replicate: 1 hour); stop retrying downloads after that.
 DOWNLOAD_GIVE_UP = timedelta(hours=1)
 UNKNOWN = "This job names a service we don't have."
+# How long the provider may take once it has the work (Replicate: a still takes seconds to a
+# minute, a video take a few minutes); past it the job fails, uncharged, and is cancelled there.
+LIMITS = {"image": timedelta(minutes=15), "video": timedelta(minutes=45)}
+LIMIT = timedelta(hours=1)  # anything else, e.g. a reel's local prep
+SLOW = "{} didn't finish this in time. Nothing was charged; try again."
 DAY = 24 * 60 * 60
 
 
@@ -228,15 +233,39 @@ def check_running(
             result = providers[job.provider].poll(job.provider_ref)
         except NetworkError:
             log.warning("job %s: network error while checking; will retry", job.id)
-            continue
+            result = Result("running")
         except Exception as exc:  # noqa: BLE001 - a broken answer fails the job, not the worker
             _stop(db, job) if job.input.get("discard") else _fail(db, job, FAILED, repr(exc))
             db.commit()
             continue
         if result.state == "running":
+            if _overdue(job):  # the provider keeps saying "running", or checking keeps failing
+                _time_out(db, job, providers[job.provider])
             continue
         if not _finish(db, job, providers[job.provider], result, storage):
             continue
+
+
+def _overdue(job: Job) -> bool:
+    started = job.started_at or job.created_at
+    return utcnow() - started > LIMITS.get(job.kind, LIMIT)
+
+
+def _time_out(db: Session, job: Job, provider: Provider) -> None:
+    """Still running past its time limit (the provider keeps saying "running", or checking
+    keeps failing): cancelled at the provider if it can, then failed like any failure (its
+    step's own handling, nothing charged), said plainly (Producer, 2026-10-28)."""
+    try:
+        getattr(provider, "cancel", lambda ref: None)(job.provider_ref)
+    except Exception:  # noqa: BLE001 - cancelling is a courtesy; the job fails either way
+        log.warning("job %s: couldn't cancel it at the provider", job.id, exc_info=True)
+    limit = LIMITS.get(job.kind, LIMIT)
+    _finish(db, job, provider, Result("failed", error=f"No answer within {limit}."), None)
+    what = {"image": "The image service", "video": "The video service"}.get(job.kind)
+    message = SLOW.format(what or "The service")
+    db.execute(update(Job).where(Job.id == job.id, Job.status == JobStatus.failed)
+               .values(error=message))  # fmt: skip
+    db.commit()
 
 
 def _stored(db: Session, storage: Storage | None, job: Job, file_id: int) -> StoredFile:

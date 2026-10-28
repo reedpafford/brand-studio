@@ -425,8 +425,8 @@ def repair(db: Session, project: Project) -> int:
         for r in newer_sheets(db, known, now.reference_ids, row.job_id):  # the sheet sets it
             now = now.model_copy(update={"prompt": bare(now.prompt, _name(known, r))})
         problems = frame_problems(db, project, now, row.breakdown_id) + [
-            p for p in row.problems or [] if p.startswith(LEFT_OUT)
-        ]  # what an earlier trim left out stays said
+            p for p in row.problems or [] if p.startswith(LEFT_OUT) or p == REFUSED
+        ]  # what an earlier trim left out, or a refusal, stays said
         if any(p.lower().startswith(TOO_MANY) for p in problems):  # never a dead end
             now = _cap(with_cast(db, project, was, breakdowns[row.breakdown_id], known), known)
             problems = frame_problems(db, project, now, row.breakdown_id) + left_out(
@@ -445,11 +445,11 @@ def repair(db: Session, project: Project) -> int:
 
 
 GENTLE = {  # what Nano Banana refuses (check.FLAGGED), said so it draws (Reed, #520)
-    "leggings": "workout pants", "lap": "knees", "laps": "knees", "thigh": "leg",
+    "leggings": "workout pants", "thigh": "leg",
     "thighs": "legs", "cleavage": "neckline", "pus": "redness", "discharge": "irritation",
     "wound": "scrape", "wounds": "scrapes",
 }  # fmt: skip
-STEMS = {"crust": "dry patches", "ooz": "glistening", "blood": "red", "vomit": "feeling sick"}
+STEMS = {"ooz": "glistening", "blood": "red", "vomit": "feeling sick"}
 
 
 def soften(prompt: str) -> str:
@@ -471,6 +471,21 @@ def softened(prompt: str) -> dict | None:
         return None
     return {"note": "Softened so it can be drawn.", "status": "done", "before": prompt,
             "after": after, "unchanged": False, "softened": True}  # fmt: skip
+
+
+REFUSED = ("Advice: the image model refused to draw this still, so nothing was charged. "
+           "It may refuse a word here: soften it, or change the prompt.")  # fmt: skip
+
+
+def still_refused(db: Session, job: Job) -> None:
+    """The image model refusing a still ("sensitive", E005) says so plainly on its frame,
+    with Soften it (Reed, 2026-10-28). Failed stills aren't counted (credits.COUNTED)."""
+    if not re.search(r"sensitive|E005", job.error_detail or "", re.I):
+        return
+    job.error = REFUSED.removeprefix("Advice: ").capitalize()
+    frame = db.get(StoryboardFrame, job.input.get("frame_id") or 0)
+    if frame and REFUSED not in (frame.problems or []):
+        frame.problems = [*(frame.problems or []), REFUSED]
 
 
 def save_frames(db: Session, job: Job) -> None:

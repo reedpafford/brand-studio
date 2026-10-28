@@ -266,3 +266,53 @@ def test_each_frame_says_what_one_still_costs(app, db, editor, setup):  # noqa: 
     _run(app, db, FakeClaude(_frames(f"char:{mom}", f"screen:{setup['screen']}")))
     price = still_price(db, db.get(Project, setup["project"]))
     assert price >= 1 and {f["still_credits"] for f in editor.get(url).json()} == {price}
+
+
+class RefusingNano(FakeNanoBanana):
+    """Nano Banana refusing the still as sensitive (E005)."""
+
+    def __call__(self, request):
+        if str(request.url).endswith("/predictions/p1"):
+            error = "E005: the input or output was flagged as sensitive"
+            return httpx.Response(200, json={"id": "p1", "status": "failed", "error": error})
+        return super().__call__(request)
+
+
+def test_a_word_the_image_model_may_refuse_never_blocks_and_a_refusal_says_so(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+):
+    """Reed, 2026-10-28: "crust" was flagged and only Soften it was offered. It is Advice: the
+    still can be drawn as is; if the image model does refuse, the frame says so, with Soften
+    it, and nothing is charged."""
+    from app.credits import credits_used
+    from app.models.projects import Project
+    from app.storyboard import REFUSED
+
+    mom = editor.post(
+        "/library/character", json={"name": "Mom", "image_file_ids": [upload(editor)]}
+    ).json()
+    with_sheet(db, mom["id"])
+    editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom["id"]]})
+    _with_breakdown(app, db, editor, setup)
+    url = f"/projects/{setup['project']}/storyboard"
+    editor.post(url, json={})
+    _run(app, db, FakeClaude(_frames(f"char:{mom['id']}", f"screen:{setup['screen']}")))
+    frame = editor.get(url).json()[0]
+    edited = {"prompt": frame["prompt"] + " Mom's dog has a bloody paw.",
+              "reference_ids": frame["reference_ids"]}  # fmt: skip
+    problems = editor.put(f"{url}/frames/{frame['id']}", json=edited).json()["problems"]
+    assert any(p.startswith("Advice: ") and "may refuse" in p for p in problems)
+    before = credits_used(db, db.get(Project, setup["project"]))
+    job = editor.post(f"{url}/frames/{frame['id']}/render")  # Draw it as is
+    assert job.status_code == 201
+    client = httpx.Client(transport=httpx.MockTransport(RefusingNano()))
+    for _ in range(2):
+        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+    assert db.get(Job, job.json()["id"]).error.startswith("The image model refused to draw")
+    assert REFUSED in editor.get(url).json()[0]["problems"]  # with Soften it on the card
+    assert credits_used(db, db.get(Project, setup["project"])) == before  # nothing charged
+    assert editor.post(f"{url}/frames/{frame['id']}/render").status_code == 201  # try again
+    assert REFUSED not in editor.get(url).json()[0]["problems"]

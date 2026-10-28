@@ -1,5 +1,6 @@
 """Jobs as the team sees them (status, output, no money) and usage with dollars (owner only)."""
 
+from datetime import timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -29,6 +30,10 @@ from app.schemas import UtcTime
 router = APIRouter(tags=["jobs"])
 
 
+WAITING = ("This hasn't started yet: the service that makes it isn't taking work right now. "
+           "Nothing is charged while it waits.")  # fmt: skip
+
+
 class JobOut(BaseModel):
     id: int
     kind: str
@@ -54,6 +59,7 @@ class JobOut(BaseModel):
     resolution: str | None = None
     created_by_id: int | None = None  # who asked (for the owner's Approvals list)
     created_by_name: str = ""
+    waiting: str = ""  # why a job hasn't started yet, once it has waited a while (plain)
 
     @model_validator(mode="before")
     @classmethod
@@ -97,6 +103,9 @@ class JobOut(BaseModel):
             **{k: given.get(k) for k in ("duration", "aspect_ratio", "resolution")},
             "created_by_id": job.created_by_id,
             "created_by_name": user_name(db, job.created_by_id) if db else "",
+            "waiting": WAITING
+            if job.status == JobStatus.queued and utcnow() - job.created_at > timedelta(minutes=10)
+            else "",
             **({"cost_usd": _usd(db, job)} if "cost_usd" in cls.model_fields and db else {}),
         }
 

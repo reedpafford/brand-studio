@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -82,6 +82,26 @@ test("Make still and Make all stills queue the image jobs and say Drawing…", a
   await userEvent.click(await screen.findByRole("button", { name: "Make all stills · 6 credits" })); // two missing × 3
   await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/render"))).toHaveLength(2));
   expect(await within(screen.getByLabelText("Frame c2")).findByText("Drawing…")).toBeInTheDocument();
+});
+
+test("a still whose job never shows in the jobs list stops saying Drawing… and can be made again", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({})]],
+    "POST /projects/9/storyboard/frames/1/render": [201, { id: 11, kind: "image", status: "queued", credits: 3, project_id: 9 }],
+  });
+  open();
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(await screen.findByRole("button", { name: /Make still/ }));
+  const card = screen.getByLabelText("Frame c1");
+  expect(await within(card).findByText("Drawing…")).toBeInTheDocument();
+  act(() => {
+    vi.advanceTimersByTime(50_000);
+  });
+  expect(await within(card).findByText("No still yet")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Make still/ })).toBeEnabled();
+  vi.useRealTimers();
 });
 
 test("editing a frame's prompt saves it with its references", async () => {
@@ -382,7 +402,7 @@ test("Save prompt and Cancel are 44px tall on a phone", async () => {
   for (const name of ["Save prompt", "Cancel"]) expect(screen.getByRole("button", { name }).className).toContain("min-h-11");
 });
 
-const flagged = "c1: the image model may refuse “knife”; say it gently";
+const flagged = "Advice: c1: the image model may refuse “knife”; soften it or draw it as is";
 
 test("a frame the image model may refuse offers a free Soften it, shows what changed, and Undo puts the earlier prompt back", async () => {
   const routes: Record<string, [number, unknown]> = {
@@ -401,9 +421,7 @@ test("a frame the image model may refuse offers a free Soften it, shows what cha
   });
   const calls = fakeServer(routes);
   open();
-  const list = await screen.findByLabelText("Problems for c1");
-  expect(within(list).getByText("Free")).toBeInTheDocument();
-  await userEvent.click(within(list).getByRole("button", { name: "Soften it" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Soften it" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/soften")).toBe(true));
   const note = await screen.findByRole("note", { name: "Softened" });
   expect(note).toHaveTextContent("Before: Mia holds a knife");
@@ -430,6 +448,21 @@ test("a frame the server softened by itself says so with Before and After; Undo 
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toMatchObject({ prompt: "Mia holds a knife" }));
   await vi.waitFor(() => expect(screen.queryByRole("note", { name: "Softened" })).toBeNull());
   expect(await screen.findByRole("button", { name: "Soften it" })).toBeInTheDocument();
+});
+
+test("a word the image model may refuse is advice: Draw it as is draws the still with the prompt unchanged", async () => {
+  // Reed, 2026-10-28: "crust" was flagged and only Soften it was offered; he wants to push it anyway.
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [frame({ prompt: "Mia holds a knife", problems: [flagged] })]],
+    "POST /projects/9/storyboard/frames/1/render": [201, { id: 11, kind: "image", step: "frame", frame_id: 1, status: "queued", credits: 3, project_id: 9 }],
+  });
+  open();
+  expect(await screen.findByRole("button", { name: "Soften it" })).toBeInTheDocument();
+  expect(screen.queryByLabelText("Problems for c1")).toBeNull(); // nothing blocks
+  await userEvent.click(screen.getByRole("button", { name: /^Draw it as is/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/render")).toBe(true));
+  expect(calls.some((c) => c.key.endsWith("/soften") || c.key.startsWith("PUT"))).toBe(false); // the prompt is unchanged
 });
 
 test("a frame problem that is not about a refused word has no Soften it", async () => {

@@ -51,9 +51,10 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
-  // A job the list never shows is waited on only briefly (a run that was lost must not read "Writing…" for ever).
+  // A job the list never shows is waited on only briefly (a lost run or still must not read "Writing…" or "Drawing…" for ever).
   const pressed = usePressed();
-  const going = (id: number | undefined) => id !== undefined && (jobOf(id) ? GOING.includes(jobOf(id)!.status) : !(id === writing && pressed.unseen));
+  const stillPressed = usePressed();
+  const going = (id: number | undefined) => id !== undefined && (jobOf(id) ? GOING.includes(jobOf(id)!.status) : !(id === writing ? pressed.unseen : stillPressed.unseen));
   // What the server says is going for this project (so a reload mid-run still shows it).
   const mineGoing = (step: string) => (jobs.data ?? []).filter((j) => j.project_id === projectId && j.step === step && GOING.includes(j.status));
   const writingNow = going(writing ?? undefined) || mineGoing("storyboard").length > 0;
@@ -103,6 +104,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     },
     onSuccess: ({ frame, job }) => {
       setDrawing((d) => ({ ...d, [frame.id]: job.id }));
+      stillPressed.press();
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
   });
