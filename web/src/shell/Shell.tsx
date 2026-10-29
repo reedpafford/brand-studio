@@ -16,11 +16,11 @@ import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
 
-const SECTIONS: { to: string; also?: string; label: string; short: string; icon: LucideIcon }[] = [
+const SECTIONS: { to: string; also?: string; label: string; short: string; icon: LucideIcon; railOnly?: boolean }[] = [
   { to: "videos", also: "projects", label: "Videos", short: "Videos", icon: Film },
   { to: "scripts", label: "Scripts", short: "Scripts", icon: FileText },
   { to: "clip", label: "Quick clip", short: "Quick clip", icon: Zap },
-  { to: "media", label: "Media", short: "Media", icon: Images },
+  { to: "media", label: "Media", short: "Media", icon: Images, railOnly: true }, // on a phone: from the Videos header (five tabs)
   { to: "library", label: "Cast & places", short: "Cast", icon: Users },
   { to: "brand", label: "Brand", short: "Brand", icon: Palette },
 ];
@@ -388,7 +388,7 @@ function Tabs({ current }: { current: number | null }) {
   return (
     <nav aria-label="Tabs" style={{ height: "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
       {current &&
-        SECTIONS.map((s) => (
+        SECTIONS.filter((s) => !s.railOnly).map((s) => (
           <NavItem key={s.to} to={`/b/${current}/${s.to}`} also={s.also} className={tab}>
             <s.icon size={20} strokeWidth={1.75} aria-hidden />
             {s.short}

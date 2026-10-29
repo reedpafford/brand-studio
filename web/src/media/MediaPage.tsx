@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Film, Images, Music, Users } from "lucide-react";
+import { ChevronLeft, Download, Film, Images, Music, Users } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, EmptyState, MediaCard, Select, Sheet, Skeleton, buttonClass, useToast } from "../components";
+import { ProjectsChip } from "../folders/Projects";
 import { useBrands } from "../shell/useBrands";
 import { serverTime } from "../time";
 import { useRail } from "../useMedia";
@@ -149,20 +150,29 @@ export function MediaPage() {
       )}
     </>
   );
-  const active = [!!kind, !!by, !!folder].filter(Boolean).length;
+  const active = [!!kind, !!by].filter(Boolean).length; // the project shows on its own chip
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
+      {!rail && ( // on a phone Media opens from Videos
+        <Link to={`/b/${brandId}/videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline">
+          <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
+          Videos
+        </Link>
+      )}
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="type-eyebrow text-muted">{brand?.name}</p>
           <h1 className="type-page">Media</h1>
         </div>
-        {!rail && (
-          <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
-            Filters{active > 0 ? ` (${active})` : ""}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ProjectsChip brandId={brandId} />
+          {!rail && (
+            <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
+              Filters{active > 0 ? ` (${active})` : ""}
+            </Button>
+          )}
+        </div>
       </div>
       {rail && <div className="flex flex-wrap items-end gap-3">{controls}</div>}
       {media.isError && <Banner tone="danger" title="Couldn't load the media. Check your connection." action={<Button variant="secondary" onClick={() => media.refetch()}>Try again</Button>} />}

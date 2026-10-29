@@ -88,6 +88,16 @@ test("a project picked in the side list (?folder=) filters Media too", async () 
   expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("folder=none"))).toBe(true);
 });
 
+test("picking a project in the side list stays on Media and filters it", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, page([item()]), { "GET /brands/1/folders": [200, [{ id: 4, brand_id: 1, name: "November launch", created_by_id: 1, items: { scripts: 0, videos: 1, clips: 0 }, can_manage: true }]] }));
+  open();
+  const list = await screen.findByRole("region", { name: "Projects" });
+  await userEvent.click(within(list).getByRole("button", { name: "November launch · 1 item" }));
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("folder=4"))).toBe(true));
+  expect(await screen.findByRole("heading", { name: "Media" })).toBeInTheDocument();
+});
+
 test("an editor gets no who-made-it filter (the server shows them their own work)", async () => {
   setViewport(1440);
   fakeServer(base(editor, page([item()])));
@@ -126,12 +136,16 @@ test("Show more asks for the next page", async () => {
   await vi.waitFor(() => expect(urls().some((u) => u.includes("before="))).toBe(true));
 });
 
-test("on a phone the filters open in a sheet, and Media is a bottom tab", async () => {
+test("on a phone the filters open in a sheet, the tabs stay five, and Media opens from the Videos header with < Videos back", async () => {
   setViewport(390);
-  fakeServer(base(owner, page([item()])));
-  open();
+  fakeServer({ ...base(owner, page([item()])), "GET /projects": [200, []], "GET /scripts": [200, []], "GET /references": [200, []] });
+  open("/b/1/videos");
+  const tabs = await screen.findByRole("navigation", { name: "Tabs" });
+  await vi.waitFor(() => expect(within(tabs).getAllByRole("link")).toHaveLength(5));
+  expect(within(tabs).queryByRole("link", { name: /Media/ })).toBeNull();
+  await userEvent.click(await screen.findByRole("link", { name: "Media" }));
   await screen.findByRole("list", { name: "Media" });
-  expect(within(screen.getByRole("navigation", { name: "Tabs" })).getByRole("link", { name: /Media/ })).toBeInTheDocument();
+  expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
   expect(screen.queryByLabelText("Kind")).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Filters" }));
   const sheet = await screen.findByRole("dialog", { name: "Filters" });

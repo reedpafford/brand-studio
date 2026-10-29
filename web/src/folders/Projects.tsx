@@ -31,7 +31,7 @@ export function useFolderFilter(): string | null {
 export const folderQuery = (folder: string | null) => (folder ? { folder } : {});
 
 const count = (f: FolderOut) => f.items.scripts + f.items.videos + f.items.clips;
-const LISTS = ["scripts", "videos", "clip"]; // the lists a project filters
+const LISTS = ["scripts", "videos", "clip", "media"]; // the lists a project filters
 
 function useRefresh(brandId: number) {
   const queryClient = useQueryClient();
@@ -82,7 +82,7 @@ function ProjectMenu({ folder, brandId }: { folder: FolderOut; brandId: number }
       )}
       {deleting && (
         <Dialog title={`Delete ${folder.name}?`} cancelLabel="Keep it" actionLabel="Delete" danger busy={remove.isPending} holdReason={remove.isError ? remove.error.message : null} onCancel={() => setDeleting(false)} onConfirm={() => remove.mutate()}>
-          {n > 0 ? `Its ${n} item${n === 1 ? "" : "s"} move to No project. Nothing inside is deleted.` : "Nothing is in it."}
+          {n > 0 ? `Its ${n} item${n === 1 ? " moves" : "s move"} to No project. Nothing inside is deleted.` : "Nothing is in it."}
         </Dialog>
       )}
     </>
