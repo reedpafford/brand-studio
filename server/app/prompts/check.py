@@ -1158,6 +1158,13 @@ VOICED = re.compile(
     r"\b(?:vocals?|choir|singing|singer|sung|humm(?:ing|ed)|lyrics?|chant\w*)\b", re.I
 )
 
+NEGATED = re.compile(r"\b(?:no|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I)
+
+
+def _negated(text: str, m: re.Match) -> bool:
+    """ "no vocals", "without any singing", "non-vocal": a voice word that asks for none."""
+    return bool(NEGATED.search(text[max(0, m.start() - 40) : m.start()]))
+
 
 def narration_music(result: NarrationMusic) -> list[str]:
     """Fixes for a music prompt, free: a name, or vocals under the narrator ("under the
@@ -1165,7 +1172,9 @@ def narration_music(result: NarrationMusic) -> list[str]:
     problems = []
     if m := NAMED.search(result.prompt):
         problems.append(f"the music prompt names someone (“{m.group(0)}…”); describe the sound")
-    if m := VOICED.search(result.prompt):
+    if m := next(
+        (m for m in VOICED.finditer(result.prompt) if not _negated(result.prompt, m)), None
+    ):
         problems.append(f"the music prompt asks for a voice (“{m.group(0)}”); it's instrumental")
     if not 20 <= len(result.prompt.split()) <= 80:
         problems.append("the music prompt should be 30 to 60 words")

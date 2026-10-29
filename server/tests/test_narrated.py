@@ -85,6 +85,15 @@ def test_the_music_bed_is_an_instrumental_with_no_names():
     )
     named = good.model_copy(update={"prompt": good.prompt + " Like Hans Zimmer."})
     assert any("names someone" in p for p in check.narration_music(named))
+    for fine in (
+        " Instrumental, no vocals.",
+        " Without any singing.",
+        " Non-vocal.",
+        " No drums or vocals.",
+    ):
+        assert (
+            check.narration_music(good.model_copy(update={"prompt": good.prompt + fine})) == []
+        ), fine
     sung = good.model_copy(update={"prompt": good.prompt + " A soft choir hums."})
     assert any("asks for a voice" in p for p in check.narration_music(sung))
     assert "<seconds>140</seconds>" in prompts.narration_music_input("Day one.", 139.6)
