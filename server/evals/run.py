@@ -1,8 +1,10 @@
 """Run the eval cases through Claude and save each answer for `score.py`. PAID: one run is
 12 calls (about $2). Only with the Producer's go-ahead, logged in ops/SPEND.md.
 
-Usage (from server/): python -m evals.run <out dir> [--cap-usd 2] [--cases id ...] [--print]
+Usage (from server/):
+  python -m evals.run <out dir> [--cap-usd 2] [--cases id ...] [--style id] [--print]
 Key from STUDIO_ANTHROPIC_KEY. Stops before the next call once the cap is reached.
+--style <id> runs the cases in that style (default house).
 --print is free: it writes each first-round prompt to <case>.<step>.prompt.txt and calls nothing.
 Reel import cases start with Gemini's watch, which runs on Replicate with the reel's video
 (not from here): put its answer at <out>/<case>.reel_watch.json, then the Claude steps run."""
@@ -73,7 +75,13 @@ def video_model() -> str:
 
 
 def run_case(
-    client, case: dict, out: Path, spent: list[Decimal], cap: Decimal, dry: bool = False
+    client,
+    case: dict,
+    out: Path,
+    spent: list[Decimal],
+    cap: Decimal,
+    dry: bool = False,
+    style: str = "house",
 ) -> None:
     brand = CASES["brands"][case["brand"]]
     brand["screens"] = [s | {"logo_only": logo_only(s)} for s in brand["screens"]]
@@ -152,13 +160,13 @@ def run_case(
             prompt = f"{video_model()}\n<assets>\n" + "\n".join(assets) + "\n</assets>\n"
             prompt += f"<breakdown>\n{bd.model_dump_json()}\n</breakdown>"
         if dry:
-            text = f"=== SYSTEM\n{system(step)}\n\n{brand_text}\n\n=== USER\n{prompt}\n"
+            text = f"=== SYSTEM\n{system(step, style)}\n\n{brand_text}\n\n=== USER\n{prompt}\n"
             (out / f"{case['id']}.{step}.prompt.txt").write_text(text)
             print(f"{case['id']}.{step}: prompt written (free)", flush=True)
             continue
         answer = ask(
             client,
-            system=[system(step), brand_text],
+            system=[system(step, style), brand_text],
             prompt=prompt,
             schema=SCHEMAS[step],
             max_tokens=LONG_MAX_TOKENS if step in ("breakdown", "clip_prompts") else 16000,
@@ -179,6 +187,7 @@ def main() -> None:
     parser.add_argument("--cap-usd", type=Decimal, default=Decimal(2))
     parser.add_argument("--cases", nargs="*", help="only these case ids (default: all)")
     parser.add_argument("--print", action="store_true", help="write prompts only; no calls")
+    parser.add_argument("--style", default="house", help="a style id from app/prompts/styles")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     client = None if args.print else make_client(os.environ.get("STUDIO_ANTHROPIC_KEY", ""))
@@ -187,7 +196,7 @@ def main() -> None:
         if args.cases and case["id"] not in args.cases:
             continue
         try:
-            run_case(client, case, args.out, spent, args.cap_usd, args.print)
+            run_case(client, case, args.out, spent, args.cap_usd, args.print, args.style)
         except Exception as exc:  # noqa: BLE001 - keep going; a failed case is a result
             print(f"{case['id']}: FAILED {exc}", flush=True)
     total = sum(spent)

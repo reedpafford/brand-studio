@@ -1,4 +1,13 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 22:44 · #730 Clips: a failed take's line fits what happened since; Change it says what it does merged
+- 2026-10-28 22:40 · Agents (#735): the Brand Studio Next team added to ops/AGENTS.md merged (by the Producer)
+- 2026-10-28 22:38 · Decision (#734, Reed): the Phase 2 spec approved with changes: House style plus styles (Disney Pixar, Song, Zack D, Skeleton first), other models at real Replicate cost (rule 2), music behind one interface, song ads are B-roll timed to the track, built on branch `next` as a separate test site (rules 2 and 20; ops/NEXT.md) merged
+- 2026-10-28 22:24 · #733 Research: Phase 2 spec for the Starpop borrow list merged
+- 2026-10-28 22:20 · #728 A take the video model refuses as unsafe says why and offers a free reword merged
+- 2026-10-28 22:03 · #727 Director: never read as sexual (no bodily sounds beside a person in bed) merged
+- 2026-10-28 22:00 · #731, #732 Research: Starpop findings from Reed's Mac session and a one-page Starpop vs Brand Studio summary merged
+- 2026-10-28 21:52 · #726 Assets: an Approve's re-read keeps the counts (no "Loading assets…" flash) merged
+- 2026-10-28 21:43 · #729 ops: HANDOFF/LOG refresh as of 2c9e106 merged (by the Producer)
 - 2026-10-28 21:24 · #725 Assets, Storyboard, Clips: no counts from a list read before the step opened merged
 - 2026-10-28 20:52 · #723 Director: the first clip-prompt part is asked alone and writes the shared prompt's cache merged
 - 2026-10-28 20:44 · #722 Assets: the role-words box takes the card's full width on a phone merged

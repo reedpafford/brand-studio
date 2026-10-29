@@ -27,3 +27,11 @@ def test_production_starts_with_real_secrets_or_no_setup_token():
     check_production(prod(setup_token="a" * 32))
     check_production(prod(setup_token=""))  # empty = setup switched off
     check_production(Settings(env="dev", setup_token="change-me"))  # dev is not checked
+
+
+def test_the_test_site_runs_on_stand_ins_but_not_with_example_secrets():
+    check_production(prod(env="next", fake_providers=True))
+    with pytest.raises(RuntimeError, match="POSTGRES_PASSWORD"):
+        check_production(
+            prod(env="next", database_url=GOOD_DB.replace("3f9a1c7e5b2d4086", "change-me"))
+        )
