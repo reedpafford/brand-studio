@@ -64,3 +64,10 @@ test("on a phone the bar sits in the action bar above the tabs; an editor's own 
   expect(await within(phone).findByRole("button", { name: "Next: Assets" })).toBeInTheDocument();
   expect(within(phone).getByText("This week: 40 of 145 credits")).toBeInTheDocument();
 });
+
+test("one credit left to finish says credit", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /projects/9/estimate": [200, { remaining_credits: 1, stages: [] }] });
+  show(null);
+  expect(await screen.findByText("To finish: about 1 credit · 248 left")).toBeInTheDocument();
+});
