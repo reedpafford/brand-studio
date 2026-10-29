@@ -114,12 +114,13 @@ const full = (o: object = {}) => ({
   notes: "Keep it warm.", reference_replace: "", cast: [], versions: [{ slot: 0, status: "draft", title: "Bo tries salmon", seconds: 0, project_id: null, text: "", words: 0, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }], ...o,
 });
 
-test("New script makes an untitled draft at once and opens the Script screen, with the editor first", async () => {
+test("New script asks Story or Song; Story makes an untitled draft at once and opens the Script screen, with the editor first", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })] });
   open("/b/1/scripts");
-  await userEvent.dblClick(await screen.findByRole("button", { name: "New script" })); // a fast double tap
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "" }));
+  await userEvent.click(await screen.findByRole("button", { name: "New script" }));
+  await userEvent.dblClick(screen.getByRole("menuitem", { name: /Story/ })); // a fast double tap
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "", kind: "story" }));
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
   expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
