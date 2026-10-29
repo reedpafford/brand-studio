@@ -59,7 +59,8 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Another editor's video (#964 + #977) | #977 greys every press for a second editor, but also the presses that only show things: the Plan's Scenes/Shots tabs (stuck on Shots), show-all toggles, See the change, Problems, check chips | Keep show-only presses live (a `look` mark on the shared Button, or outside the fieldset); merge #964 with #977 |
+| Another editor's video (#964 + #977) | Video page fixed at 9cde7ea2; but the older-video page (/projects/:id, "Videos made before scripts") has no banner and live presses for a second editor, each a 403 | Same view-only on ProjectPage (banner, provider, Rename only for the maker or owner, brief editor buttons) |
+| Import from website: a paid read lost (#980) | Reload or leave while reading or reviewing: the 3-credit findings can't be reached again | Keep the read's id (localStorage per brand, or a server "latest read") and resume on return |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -349,3 +350,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #976 A first sheet in a look lists as drawing | a698ab3e | PASS: after a reload the look reads drawing (no Make); a second press still 409; 6/6 |
 | 2026-10-29 | #975 Cost log: an editor's script writing | 7aed75cb | PASS: their own calls only, never a video's twice; 3/3 |
 | 2026-10-29 | Re-checks after next merges | #963 6179c7cf, #964 09520d86, #970 45e0d907, #972 dc40fb1b | Unchanged verdicts: merges of next, and #970's test now stubs the real provider (never built in tests). #964's write tests 18/18 with #957 and #974 in |
+| 2026-10-29 | #977 (re-walk, with #964) | 9cde7ea2 | FAIL: VideoPage passes (Plan tabs and show-only presses live; 183/183; e2e 6/6); ProjectPage for older videos has no view-only |
+| 2026-10-29 | #980 Import from website screens (BR2) | 2e4ddf1f | FAIL: a paid read is lost on reload or leaving. Price first, fail/empty, review ticks, Save/Undo pass; 40/40, e2e 6/6 |
