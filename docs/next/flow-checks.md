@@ -234,3 +234,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #906 at 813934e2 (M14 part 1: out of date stays viewable, paid presses wait) | code walk; vitest projects (327) | PASS (wording: "redo the out-of-date stills" is cheaper than the whole storyboard) |
 | 2026-10-29 | #907 at 07968de0 (narrated 2a: one narration at a time, ST0 switch, narrator check, narrated clip prompts) | narration + narrated + song_takes (41) | PASS |
 | 2026-10-29 | #908 at 3afac6ce (ST2 banned words per look) | look_words on 7 prompts; styles + song (40) | FAIL: safeguards rewritten ("no blood, no gore" → "no glow, no ,"; "not floating" → "not resting"; "Not photorealistic" → "Not stylised") |
+| 2026-10-29 | #906 at 03c0ad93 (archive lands on Videos with Undo) | vitest projects + videos (334) | PASS |
+| 2026-10-29 | #909 at 29596fd2 (Narrated format: S1, N1, V6n screens) | code walk; vitest scripts + finalsong (243) | FAIL: Make another live while timing (server 409s) |
