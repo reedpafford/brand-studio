@@ -271,6 +271,7 @@ def edit_clip(
     row.same_fix = fix and body.prompt == row.change.get("before")  # its Undo: still counted
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, **body.model_dump())
+    clip = clip.model_copy(update={"prompt": clip_prompts.words_kept(clip.prompt)})
     clip = clip_prompts.with_cast(db, project, clip, bd, trim=False)
     refused = clip_prompts.refusal(row.problems, row.prompt, clip.prompt)
     row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]

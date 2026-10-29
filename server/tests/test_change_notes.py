@@ -351,3 +351,13 @@ def test_a_change_that_cant_be_saved_fails_plainly(app, db, editor, setup, monke
     assert frame.change["status"] == "failed" and frame.change["note"] == "Brighter."
     shown = editor.get(url).json()[0]["change"]
     assert (shown["status"], shown["error"]) == ("failed", UNFINISHED)
+
+
+def test_words_after_the_closing_audio_line_save_where_they_stay(app, db, editor, setup, clip):  # noqa: F811
+    # Flow-QA: the save showed them after the audio line, the next open moved them.
+    url = f"/projects/{setup['project']}/clips"
+    before = editor.get(url).json()[0]
+    body = {"prompt": before["prompt"] + " A new detail.", "references": before["references"]}
+    saved = editor.put(f"{url}/{clip['id']}", json=body).json()
+    assert "\nA new detail.\nKeep: " in saved["prompt"]
+    assert editor.get(url).json()[0]["prompt"] == saved["prompt"]
