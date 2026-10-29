@@ -56,7 +56,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Clips, Storyboard "Change this…" (live today) | "Changing…" can spin for good when the change has no job id or its job is never picked up: no timer, no Stop (audit G8, Blocker) | A timer, then "didn't finish" + Try again | #774 audit |
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
-| S4 (rule 3) | Trim → Preferred → Undo the trim leaves an over-cap take Preferred, and the script publishes (200) over the 729 cap | Un-trim hands Preferred back or refuses; `preferred()` and `use_in_video` skip over-cap takes | #748 at 3607b3d |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -109,3 +108,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #759 at 37344101 | Full song walk at 1440 and 390 (20 cases) | PASS; the screen holds the cap after a trim's Undo |
 | 2026-10-29 | #777 at e52817cd (Final cut, Approvals words, back link) | Full browser suite; old links; no Ask the owner; no dollars; #751 kept | Flow PASS (52 passed); FAIL on the committed node_modules symlink |
 | 2026-10-29 | #755 at 691a5eb5 (re-pass for the Producer) | Flow checks + no screen promises the unwired song checks (searched next, #759, #775) | PASS |
+| 2026-10-29 | #748 at 6a97f0f, #750 at df64b78 | 15 API walk cases incl. trim → prefer → untrim → publish; full server suite | PASS (743 passed); cap bypass closed |
