@@ -326,3 +326,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #957 Preferred and going back (OR3, server) | 5dd5236a | FAIL: Go back (breakdown) during a running storyboard. Role guards, Undo and test_preferred pass |
 | 2026-10-29 | #962 Video settings re-reads the cast after a switch | 6a9529d2 | PASS: the redraw holds on "A look in the cast isn't ready." after House to Disney Pixar; Undo lifts it; video and storyboard tests 152/152 |
 | 2026-10-29 | #965 Make this version's price line (VS1) | f029a977 | FAIL: the Look pick isn't priced. Models, cap, 409/422, nothing made, lip_sync pass |
+| 2026-10-29 | #944 Per-look sheets (web, ST2) | ea705c65 | PASS: a first sheet reads Drawing… with one POST; a failed one says nothing was charged, with Try again. Note: after a reload Make shows again and gets 409 (server should list a waiting look as drawing) |
