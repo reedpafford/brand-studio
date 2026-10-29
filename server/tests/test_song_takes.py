@@ -113,6 +113,8 @@ def test_the_preferred_take_cant_be_removed_others_can_with_undo(app, db, owner,
 def test_lyrics_past_sunos_limit_are_refused_when_saved(owner, song):
     r = owner.put(song, json={"text": "la " * 1700})
     assert (r.status_code, r.json()["detail"]) == (422, music.TOO_LONG)
+    r = owner.put(song, json={"text": LYRICS, "style_line": "x" * 900})
+    assert (r.status_code, r.json()["detail"]) == (422, music.STYLE_TOO_LONG)
 
 
 def test_a_song_needs_lyrics_and_a_song_script(app, owner, song):
@@ -325,6 +327,7 @@ def test_a_reply_with_one_song_keeps_it_and_asks_again_free(app, db, owner, song
     _work(app, db)
     kept, missing = owner.get(f"{song}/songs").json()["takes"]
     assert (kept["status"], missing["status"]) == ("ready", "failed")
+    assert missing["failed_reason"] == music.MISSING
     assert owner.post(f"/songs/{missing['id']}/try-again").status_code == 200
     again = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
     assert again.credits == 0  # the first request was charged for both songs

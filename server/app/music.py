@@ -11,7 +11,9 @@ does. Assumptions, to check against those docs:
 - A2 One request returns 2 songs (as in Suno's app), so "Make 2 takes" is one job.
 - A3 The songs come back as audio file links; we read the timing ourselves (free), so nothing
   depends on Suno's own timings.
-- A4 Price: unknown. Estimated at 1 credit a request until Suno gives a real one (rule 2)."""
+- A4 Price: unknown. Estimated at 1 credit a request until Suno gives a real one (rule 2).
+  A request that came back with one song is asked again free, so that second request is
+  real spend not counted in credits; recheck this once Suno's real price is known."""
 
 import re
 
@@ -40,6 +42,7 @@ STYLE_TOO_LONG = f"The style line is too long ({MAX_OWN_STYLE} characters at mos
 # What a failed request, or a take's timing, says (rule 22: the reason, nothing charged,
 # Try again).
 FAILED = "The songs couldn't be made this time. Nothing was charged; press Try again."
+MISSING = "This song didn't come back from the music service. Press Try again: it's free."
 REFUSED = (
     "The music service wouldn't sing these lyrics: it read some words as unsafe. Change those "
     "words, then press Try again. Nothing was charged."

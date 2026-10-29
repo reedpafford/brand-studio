@@ -164,7 +164,7 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
     if song.status in WAITING:
         return "making", None, False
     if song.status != JobStatus.succeeded or take.file_id is None:
-        reason = song.error or music.FAILED
+        reason = music.MISSING if song.status == JobStatus.succeeded else song.error or music.FAILED
         if take.project_id and reason == music.REFUSED:  # a video can't change the words
             reason = music.REFUSED_IN_VIDEO
         return "failed", reason, True
