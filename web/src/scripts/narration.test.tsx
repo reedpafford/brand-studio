@@ -210,3 +210,13 @@ test("with nothing for the narrator to read, the press is greyed with the server
   expect(press).toHaveAccessibleDescription("Write the words first: the narrator reads them as written.");
   expect(press).not.toHaveTextContent(/credit|free/);
 });
+
+test("switching to Dialogue from the Narration step lands on Script", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, narrated()], "GET /scripts/7/drafts/0/songs": [200, songs()], "PATCH /scripts/7": [200, {}] });
+  open("/b/1/scripts/7?step=narration");
+  await userEvent.click(await screen.findByRole("button", { name: "Format: Narrated" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Dialogue" }));
+  await userEvent.click(within(screen.getByRole("alertdialog", { name: "Make this Dialogue?" })).getByRole("button", { name: "Change" }));
+  expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
+});

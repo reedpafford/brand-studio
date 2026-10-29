@@ -5,6 +5,8 @@ import { api, must } from "../api/client";
 import { Badge, Button, Dialog, Menu, MenuItem } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { useSearchParams } from "react-router-dom";
+import { stepsFor } from "./flow";
 import type { Script } from "./useScript";
 
 const FORMAT: Record<string, string> = { story: "Dialogue", song: "Song", narrated: "Narrated" };
@@ -21,10 +23,14 @@ function useSwap(s: Script) {
   const set = (kind: Swap) => must(api.PATCH("/scripts/{script_id}", { params: { path: { script_id: s.id } }, body: { kind } }));
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
   const was = s.kind as Swap;
+  const [params, setParams] = useSearchParams();
   return useMutation({
     mutationFn: set,
     onSuccess: async (_r, kind) => {
       await refresh();
+      // A step the new format doesn't have (Narration, on a Dialogue script) gives way to Script (QA-2).
+      const step = params.get("step");
+      if (step && !stepsFor({ kind }).some((x) => x.id === step)) setParams((p) => { p.set("step", "script"); return p; }, { replace: true });
       toast(`It's ${FORMAT[kind]} now.`, () => void set(was).then(refresh, (e: Error) => toast(e.message, undefined, "error")));
     },
   });
