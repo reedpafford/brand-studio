@@ -41,9 +41,8 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const letter = LETTER[slot] ?? String(slot + 1);
   const make = useMutation({
     mutationFn: async () => {
-      // #956 takes the picks as an optional body; until it is in the generated schema the body is passed untyped.
-      const init = { params: { path: { script_id: scriptId, slot } }, ...(Object.keys(picks).length ? { body: picks } : {}) };
-      const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/produce", init as { params: typeof init.params });
+      // #956: the picks go as the body, none when nothing was changed.
+      const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/produce", { params: { path: { script_id: scriptId, slot } }, ...(Object.keys(picks).length ? { body: picks } : {}) });
       if (!data) throw new Error(errorText(error));
       return data;
     },

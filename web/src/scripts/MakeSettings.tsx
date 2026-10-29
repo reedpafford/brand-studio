@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Settings2 } from "lucide-react";
-import { api } from "../api/client";
+import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
 import { Badge, Button, Panel } from "../components";
@@ -13,7 +13,6 @@ import type { Script } from "./useScript";
 type SettingsOut = components["schemas"]["SettingsOut"];
 /** What Make this version sends (#956's VideoSettingsIn): only what was picked; anything left out is the default. */
 export type Picks = Omit<components["schemas"]["SettingIn"], "undo">;
-export type MakeEstimate = { credits: number; over_cap: boolean; reason: string | null };
 
 /** The row's choices before a video exists, built as the video's own settings are (Next-Lead: no settings route here):
  *  models and prices from the catalogue, looks, the fixed shapes, the brand's flavours. Defaults: the script's look, Auto
@@ -28,7 +27,6 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
   const kept = Object.fromEntries(Object.entries(defaults).filter(([p, v]) => flavours[p]?.includes(v)));
   const variants = { ...kept, ...picks.product_variants };
   const rate = (m: (typeof models.data)[number], at: string) => m.credits_per_unit[at] ?? Object.values(m.credits_per_unit)[0] ?? 0;
-  const lipSync = (m: object) => (m as { lip_sync?: boolean }).lip_sync ?? true; // in the catalogue's output with #956
   return {
     look: picks.look ?? script.look,
     video_model: picks.video_model ?? null,
@@ -37,26 +35,20 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
     product_variants: variants,
     auto: Object.keys(flavours).filter((p) => !(p in kept)), // may go back to Auto (no default to fall back on)
     language: script.language,
-    video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, "480p"), lip_sync: lipSync(m), default: m.default, over_cap: false })),
+    video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, "480p"), lip_sync: m.lip_sync, default: m.default, over_cap: false })),
     image_models: models.data.filter((m) => m.kind === "image").map((m) => ({ id: m.id, name: m.name, credits_per_still: rate(m, "1K"), default: m.default, over_cap: false })),
     shapes: ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"],
     flavours,
   };
 }
 
-/** What the version costs to make with these picks (#956: POST …/estimate), or null where the server doesn't offer it yet. */
+/** What the version costs to make with these picks (#965): "about N credits", and the reason when it's held back. */
 export function useMakeEstimate(scriptId: number, slot: number, picks: Picks, enabled: boolean) {
   return useQuery({
     enabled,
     queryKey: ["make-estimate", scriptId, slot, picks],
     placeholderData: (was) => was, // the line keeps its number while the new one comes
-    queryFn: async () => {
-      const r = await fetch(`${location.origin}/api/scripts/${scriptId}/drafts/${slot}/estimate`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(picks) });
-      if (r.status === 404 || r.status === 405) return null;
-      const body = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(typeof body?.detail === "string" ? body.detail : "Couldn't work out the price. Try again.");
-      return body as MakeEstimate;
-    },
+    queryFn: async () => (await must(api.POST("/scripts/{script_id}/drafts/{slot}/estimate", { params: { path: { script_id: scriptId, slot } }, body: picks }))).data!,
   });
 }
 
