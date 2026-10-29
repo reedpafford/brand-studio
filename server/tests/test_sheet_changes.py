@@ -74,3 +74,70 @@ def test_a_changed_sheet_refreshes_the_words_and_flags_the_old_still(app, db, ed
     db.commit()
     assert storyboard.repair(db, project) == clip_prompts.repair(db, project) == 0  # idempotent
     assert frame.approved and db.query(Job).count() == jobs  # nothing drawn or charged by itself
+
+
+def test_a_changed_place_or_sheet_marks_its_still_and_take_out_of_date(app, db, editor, setup):  # noqa: F811
+    """N6 (SV4): a Cast & places picture changed. A still drawn from a place's earlier sheet
+    is Out of date, as a person's already was, and a clip whose picked take was made from an
+    earlier sheet says so and isn't approved any more (once; approving it again stays)."""
+    from app.models.brands import Brand
+    from app.models.clips import ClipTake
+    from app.models.projects import Project
+
+    bd, nate, mom = _people(app, db, editor, setup)
+    still, take_file, new_place, new_mom = (upload(editor) for _ in range(4))
+    picture = upload(editor)
+    kitchen = editor.post("/library/place", json={"name": "Kitchen", "image_file_ids": [picture]})
+    kitchen = kitchen.json()
+    pid = setup["project"]
+    item = db.get(LibraryItem, kitchen["id"])
+    item.sheet_file_id, item.sheet_approved = item.image_file_ids[0], True
+    item.brands = [db.get(Brand, db.get(Project, pid).brand_id)]
+    place, old_place = f"place:{item.id}", item.image_file_ids[0]
+    sheet = {r: db.get(LibraryItem, int(r[5:])).sheet_file_id for r in (nate, mom)}
+    frame = StoryboardFrame(project_id=pid, breakdown_id=bd.id, clip_id="c1", shot_id="1.1",
+                            reference_ids=[nate, mom, place], prompt="Nate shrugs at Mom.",
+                            file_id=still, approved=True)  # fmt: skip
+    db.add(frame)
+    db.flush()
+    db.add(Job(workspace_id=1, kind="image", provider="fake", project_id=pid, status="succeeded",
+               input={"frame_id": frame.id, "files": {"image_input": [
+                   sheet[nate], sheet[mom], old_place]}},
+               output={"file_ids": [still]}))  # fmt: skip
+    refs = [{"kind": "image", "id": i, "role": "x"} for i in (mom, nate)]
+    clip = ProjectClip(project_id=pid, breakdown_id=bd.id, clip_id="c1", seconds=5,
+                       prompt=PROMPT, references=refs, approved=True)  # fmt: skip
+    db.add(clip)
+    db.flush()
+    made = Job(workspace_id=1, kind="video", provider="fake", project_id=pid, status="succeeded",
+               input={"project_clip_id": clip.id,
+                      "files": {"reference_images": [sheet[mom], sheet[nate]]}})  # fmt: skip
+    db.add(made)
+    db.flush()
+    take = ClipTake(clip_id=clip.id, number=1, job_id=made.id, file_id=take_file)
+    db.add(take)
+    db.flush()
+    clip.picked_take_id = take.id
+    db.commit()
+    project = db.get(Project, pid)
+    storyboard.repair(db, project), clip_prompts.repair(db, project)
+    db.commit()
+    assert not frame.still_stale and clip.approved  # nothing changed yet
+    assert not [p for p in clip.problems if p.startswith(clip_prompts.OLDER_TAKE)]
+
+    item.sheet_file_id = new_place  # the Kitchen's sheet, and Mom's, change in Cast & places
+    db.get(LibraryItem, int(mom[5:])).sheet_file_id = new_mom
+    db.commit()
+    storyboard.repair(db, project), clip_prompts.repair(db, project)
+    db.commit()
+    assert (frame.still_stale, frame.approved) == (True, False)
+    assert "Advice: Drawn from an older look of Mom, Kitchen. Redraw it to show the new look." in (
+        frame.problems)  # fmt: skip
+    assert not clip.approved
+    assert "Advice: Its take was made from an older look of Mom. Make another take to show it." in (
+        clip.problems)  # fmt: skip
+    clip.approved = True  # approved anyway: it stays approved
+    db.commit()
+    clip_prompts.repair(db, project)
+    db.commit()
+    assert clip.approved

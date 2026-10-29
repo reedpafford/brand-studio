@@ -33,6 +33,7 @@ from app.storyboard import (
     _name,
     _renumber,
     _same,
+    drawn_from_older,
     hero,
     is_logo,
     is_product,
@@ -50,6 +51,21 @@ from app.storyboard import assets as picture_assets
 
 log = logging.getLogger(__name__)
 MODERATED = "The video model refused this prompt: it read it as "  # clip_takes.refused
+
+
+OLDER_TAKE = "Advice: Its take was made from an older look of "
+
+
+def older_take(db: Session, known: dict, row: ProjectClip) -> list[str]:
+    """Who or what the clip's picked take was made from an earlier sheet of (N6: a Cast &
+    places sheet changed since): its job sent other pictures. [] with no take."""
+    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+    job = db.get(Job, take.job_id) if take else None
+    if job is None:
+        return []
+    sent = {f for ids in (job.input.get("files") or {}).values() for f in ids}
+    refs = [r["id"] for r in row.references or [] if r["kind"] == "image"]
+    return drawn_from_older(known, refs, sent)
 
 
 def refusal(problems: list[str] | None, before: str, after: str) -> list[str]:
@@ -390,6 +406,10 @@ def repair(db: Session, project: Project) -> int:
             + [p for p in row.problems or [] if p.startswith(LEFT_OUT)]
             + refusal(row.problems, was.prompt, now.prompt)
         )  # what a trim left out stays said
+        if older := older_take(db, known, row):  # flagged once: an approval after it stays
+            problems.append(f"{OLDER_TAKE}{', '.join(older)}. Make another take to show it.")
+            if not any(p.startswith(OLDER_TAKE) for p in row.problems or []):
+                row.approved = False
         if any(p.lower().startswith("more references than") for p in problems):
             now = repair_shape(_cap(with_cast(db, project, was, bd, known), known), bd)
             kept = {r.id for r in now.references}
