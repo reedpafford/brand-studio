@@ -57,6 +57,7 @@ function LanguageCard({ language: l, brandId }: { language: Language; brandId: n
     queryKey: ["language-sample", l.id],
     queryFn: async () => (await must(api.GET("/languages/{language}/sample", path))).data!,
     refetchInterval: (q) => (q.state.data?.status === "making" ? 3000 : false),
+    retry: false, // a failed load says why at once, with Try again
   });
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["languages"] }), queryClient.invalidateQueries({ queryKey: ["language-sample", l.id] })]);
   const fail = (e: Error) => toast(e.message, undefined, "error");
@@ -98,7 +99,14 @@ function LanguageCard({ language: l, brandId }: { language: Language; brandId: n
       {english ? (
         <p className="text-sm text-muted">English is always on.</p>
       ) : !s ? (
-        sample.isError ? <p className="text-sm text-muted">{sample.error.message}</p> : <Skeleton className="h-control w-48" />
+        sample.isError ? (
+          <div className="space-y-2">
+            <p role="alert" className={errorClass}>{sample.error.message}</p>
+            <Button variant="secondary" onClick={() => void sample.refetch()}>Try again</Button>
+          </div>
+        ) : (
+          <Skeleton className="h-control w-48" />
+        )
       ) : s.status === "making" ? (
         <p role="status" className="text-sm text-muted">Writing a short {l.name} script…</p>
       ) : (
