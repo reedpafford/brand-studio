@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app import credits, plans, prompts
 from app.db import utcnow
 from app.models.accounts import User
+from app.models.clips import FinalVideo
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
@@ -14,6 +15,7 @@ from app.routes.jobs import enqueue
 from tests.conftest import PASSWORD, upload
 from tests.helpers import approved_plan, with_sheet
 from tests.test_breakdown import BREAKDOWN
+from tests.test_media import _file
 from tests.test_script_library import IMPORTED, SCRIPT, _imported, _make
 
 
@@ -233,11 +235,29 @@ def test_releasing_never_gives_the_allowance_back(editor, db):
 def test_restore_right_after_release_gives_the_version_back(owner, editor, db):
     base, _ = _published(owner, db, breakdown=BREAKDOWN)
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
-    editor.post(f"/projects/{pid}/release")
+    project = db.get(Project, pid)
+    final = _file(db, project.workspace_id, "video/mp4")
+    db.add(FinalVideo(project_id=pid, file_id=final, take_ids=[],
+                      created_by_id=project.created_by_id))  # fmt: skip
+    db.commit()
+    gone = editor.post(f"/projects/{pid}/release").json()
+    assert gone["released"] and owner.get(f"/projects/{pid}").json()["released"]
+    tiles = owner.get(f"/brands/{gone['brand_id']}/media", params={"kind": "final"}).json()["items"]
+    assert [(i["from_deleted_video"], i["deleted_video_released"]) for i in tiles] == [(True, True)]
     back = editor.post(f"/projects/{pid}/restore").json()
     assert back["script_draft_id"] is not None and back["archived_at"] is None
+    assert not back["released"]
     version = owner.get(base).json()["versions"][0]
     assert (version["status"], version["project_id"]) == ("in_production", pid)
+    again = editor.post(f"/projects/{pid}/release")  # Undo of Restore: back to Ready to make
+    assert again.status_code == 200 and again.json()["released"]
+    assert owner.get(base).json()["versions"][0]["status"] != "in_production"
+
+
+def test_an_archived_video_is_not_released(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    assert not editor.post(f"/projects/{pid}/archive").json()["released"]
 
 
 def test_a_done_video_cant_be_released(owner, editor, db):

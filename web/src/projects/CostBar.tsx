@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { Button, creditsLabel, wholeCredits } from "../components";
+import { Button, creditsText, wholeCredits } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { Meter } from "./Meter";
@@ -60,7 +60,7 @@ export function CostBarProvider(props: {
   const after = shown?.price != null && !shown.reason ? left - shown.price : null;
   const value = useMemo(() => setAction, []);
   const press = shown && (
-    <Button price={shown.price} upTo={shown.upTo} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
+    <Button price={shown.price} charge={shown.upTo ? "estimate" : "fixed"} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
       {shown.label}
     </Button>
   );
@@ -77,7 +77,7 @@ export function CostBarProvider(props: {
       </div>
       {estimate.data && (
         <p className="text-sm tabular-nums text-muted">
-          {estimate.data.remaining_credits === 0 ? "Nothing left to make." : `To finish: up to ${creditsLabel(estimate.data.remaining_credits)}`} · {wholeCredits(Math.max(0, left))} left
+          {estimate.data.remaining_credits === 0 ? "Nothing left to make." : `To finish: up to ${creditsText(estimate.data.remaining_credits)}`} · {wholeCredits(Math.max(0, left))} left
         </p>
       )}
       {press && (

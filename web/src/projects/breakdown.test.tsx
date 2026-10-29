@@ -1,13 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { editor } from "../test/people";
 
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
   cast_ids: [4], reference_file_id: null, estimate_credits: 30, budget_credits: 60, credits_used: 0, budget_pct: 0, created_by_id: 2,
@@ -34,6 +32,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/script/suggestions": [200, []],
   "GET /projects/9/script/notes": [200, []],
   "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }]],
+  "GET /projects/9/breakdown/price": [200, { credits: 6 }], // #996: what Make the shots charges
   "GET /jobs": [200, []],
   "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
   "GET /library/place": [200, [{ id: 2, name: "Kitchen", image_file_ids: [] }]],
@@ -42,13 +41,7 @@ const base: Record<string, [number, unknown]> = {
 };
 
 function open() {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/projects/9?stage=breakdown"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp("/b/1/projects/9?stage=breakdown");
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -57,7 +50,7 @@ test("with no breakdown it offers to make one and shows the cost", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "POST /projects/9/breakdown": [201, { id: 8, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
   open();
   expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Make the breakdown · 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Make the breakdown · up to 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown")).toBe(true));
   expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
 });
@@ -152,7 +145,7 @@ test("a breakdown made for an older script is flagged and offers a new one", asy
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ script_version: 3, stale: true })] });
   open();
   expect(await screen.findByText("This breakdown was made for older words.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make it again · 6 credits" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make it again · up to 6 credits" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveAccessibleDescription("Make new shots first");
 });
 
@@ -160,7 +153,7 @@ test("Redo asks first when the breakdown was edited, and a failed run says nothi
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ source: "edit" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Redo · 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Redo · up to 6 credits" }));
   expect(confirm).toHaveBeenCalledWith("Replace this breakdown? Your edits are kept in History.");
 });
 
@@ -276,7 +269,7 @@ test("on desktop Next waits, disabled, while edits are unsaved, and says why", a
 test("Redo is a secondary button; Next is the only primary one", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
   open();
-  const redo = await screen.findByRole("button", { name: "Redo · 6 credits" });
+  const redo = await screen.findByRole("button", { name: "Redo · up to 6 credits" });
   expect(redo).not.toHaveClass("bg-accent");
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveClass("bg-accent");
 });
@@ -284,7 +277,7 @@ test("Redo is a secondary button; Next is the only primary one", async () => {
 test("an editor's paid button is off, with the reason, when the call would take the video past its budget; nothing asks Reed", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();
-  const redo = await screen.findByRole("button", { name: "Redo · 6 credits" });
+  const redo = await screen.findByRole("button", { name: "Redo · up to 6 credits" });
   expect(redo).toBeDisabled();
   expect(redo).toHaveAccessibleDescription("That's more than this video's budget.");
   expect(screen.queryByText(/Ask Reed/)).not.toBeInTheDocument();
@@ -293,7 +286,7 @@ test("an editor's paid button is off, with the reason, when the call would take 
 test("Reed past the budget gets the plain button: pressing it is his approval", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();
-  expect(await screen.findByRole("button", { name: "Redo · 6 credits" })).toBeEnabled();
+  expect(await screen.findByRole("button", { name: "Redo · up to 6 credits" })).toBeEnabled();
 });
 
 test("'lines 2 ◂' lights those lines in the script, and a script line lights its shot", async () => {
@@ -560,5 +553,5 @@ test("removing a place or a screen the video doesn't have says how to use it aga
 test("Make the breakdown shows the server's price for it (the clip prompts' rewrite included), not the writing rate", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "GET /projects/9/breakdown/price": [200, { credits: 12 }] });
   open();
-  expect(await screen.findByRole("button", { name: "Make the breakdown · 12 credits" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Make the breakdown · (up to )?12 credits/ })).toBeInTheDocument();
 });

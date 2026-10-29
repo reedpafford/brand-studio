@@ -6,8 +6,9 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { editor } from "../test/people";
 
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
   cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 600, credits_used: 0, budget_pct: 0, created_by_id: 2,
@@ -39,13 +40,7 @@ const base: Record<string, [number, unknown]> = {
 };
 
 function open(query = "?stage=clips") {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[`/b/1/projects/9${query}`]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(`/b/1/projects/9${query}`);
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -64,7 +59,7 @@ test("with no clips it offers to write the clip prompts, with the cost", async (
   const calls = fakeServer({ ...base, "GET /projects/9/clips": [200, []], "POST /projects/9/clips/prompts": [201, { id: 7, kind: "write-claude", step: "clip_prompts", status: "queued", credits: 6, project_id: 9 }] });
   open();
   expect(await screen.findByText("No clips yet.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · 6 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · up to 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
   expect(await screen.findByText("Writing your clip prompts…")).toBeInTheDocument();
 });
@@ -366,7 +361,7 @@ test("a failed prompt run says so, nothing was charged, and the one Write button
   expect(screen.queryByText("Writing your clip prompts…")).toBeNull();
   // One paid button, not two: the banner only says what happened.
   expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);
-  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · 6 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · up to 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
 });
 

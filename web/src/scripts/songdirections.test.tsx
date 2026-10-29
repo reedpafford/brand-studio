@@ -1,13 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paws through the link in my bio." }];
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean, Iron Paws";
 const direction = (o: object = {}) => ({ id: 11, title: "Clean Bowl", concept: "A bouncy before-and-after.", lyrics: LYRICS, style_line: "indie pop, warm female lead, 104 BPM", visual_concept: "Bo sniffs, then licks the bowl clean.", recommended: true, left_out: [], unchecked_claims: [], ...o });
@@ -19,13 +17,7 @@ const song = (v: object = {}) => ({
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes: [] }] };
 
 function open() {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/scripts/7"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp("/b/1/scripts/7");
 }
 
 afterEach(() => {
@@ -39,7 +31,7 @@ test("empty lyrics: Write 2 song directions shows its price and sends the From a
   open();
   await userEvent.type(await screen.findByLabelText("From a script (optional)"), "Bo hated his bowl.");
   await userEvent.type(screen.getByLabelText("Sounds like (optional)"), "a sunny acoustic song");
-  await userEvent.click(screen.getByRole("button", { name: /Write 2 song directions for me · 3 credits/ }));
+  await userEvent.click(screen.getByRole("button", { name: /Write 2 song directions for me · up to 3 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/directions")?.body).toEqual({ source: "Bo hated his bowl.", sounds_like: "a sunny acoustic song" }));
 });
 
@@ -63,7 +55,7 @@ test("two cards: Recommended, the length, Leaves out and Not checked; Use this o
   expect(within(cards).getByText("Leaves out: the vet quote")).toBeInTheDocument();
   expect(within(cards).getByText('Not checked: "vet-approved in 7 days"')).toBeInTheDocument();
   expect(within(cards).getByText(/The style names "Jack Johnson"\. Suno won't take names/)).toBeInTheDocument();
-  expect(within(cards).getByRole("button", { name: /Write 2 more · 3 credits/ })).toBeInTheDocument();
+  expect(within(cards).getByRole("button", { name: /Write 2 more · up to 3 credits/ })).toBeInTheDocument();
   await userEvent.click(within(cards).getAllByRole("button", { name: "Use this one" })[0]);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/directions/11/use")).toBe(true));
   expect(await screen.findByText(/"Clean Bowl" is in\. The lyrics are yours now/)).toBeInTheDocument();
@@ -89,7 +81,7 @@ test("failed and refused say so, nothing charged, with Try again; nothing to go 
   fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_job: { id: 90, status: "failed", reason: "Claude won't write this: it won't promise a health result. Nothing was charged; try again.", started_at: "2026-10-29T03:00:00Z" } })] });
   open();
   expect(await screen.findByText(/Claude won't write this: it won't promise a health result/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Try again · 3 credits/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /Try again · up to 3 credits/ })).toBeEnabled();
 });
 
 test("nothing to go on: the press says why and links to the brand page", async () => {
@@ -156,7 +148,7 @@ test("a failure with no reason from the server still says nothing was charged, w
   fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_job: { id: 90, status: "failed", reason: null, started_at: "2026-10-29T03:00:00Z" } })] });
   open();
   expect(await screen.findByText(/The directions didn't finish\. Nothing was charged\./)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Try again · 3 credits/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /Try again · up to 3 credits/ })).toBeEnabled();
 });
 
 test("any other stop (an approved version) holds whatever is typed, with no brand-page link", async () => {

@@ -44,7 +44,7 @@ export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: bool
   const refused = !find.running && find.start.isError ? find.start.error.message : null;
   const failed = !find.running && !refused && !hasRoles && find.problems.length > 0;
   const button = (again: boolean) => (
-    <Button variant={again ? "ghost" : "secondary"} icon={again ? RotateCcw : Sparkles} price={find.price} busy={find.start.isPending} disabled={find.price === undefined || reason !== null} reason={reason} onClick={() => (again ? setAsking(true) : find.start.mutate())}>
+    <Button variant={again ? "ghost" : "secondary"} icon={again ? RotateCcw : Sparkles} charge="estimate" price={find.price} busy={find.start.isPending} disabled={find.price === undefined || reason !== null} reason={reason} onClick={() => (again ? setAsking(true) : find.start.mutate())}>
       {again ? "Find roles again" : failed ? "Try again" : "Find roles in the script"}
     </Button>
   );

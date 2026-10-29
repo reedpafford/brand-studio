@@ -1,6 +1,6 @@
 import { useId, type ButtonHTMLAttributes, type ComponentType, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
-import { creditsLabel, wholeCredits } from "./credits";
+import { pressLabel, wholeCredits, type Charge } from "./credits";
 import { useViewOnly } from "./ViewOnly";
 
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string; "aria-hidden"?: boolean }>;
@@ -18,17 +18,18 @@ const look: Record<Variant, string> = {
 /** The same look as a Button, for a link that downloads or goes somewhere (an <a>). */
 export const buttonClass = (variant: Variant = "primary") => `${base} ${look[variant]} min-h-control px-4`;
 
-export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> & {
+/** A paid action says its price inside the button: "Make the takes · 8 credits". `null`: not known yet, so a grey
+ *  placeholder holds its place (the label never changes length after it shows) and a press waits for it. A price
+ *  always comes with its `charge`, so no paid button can skip saying "up to" when the charge can be lower (rule 32). */
+type Priced = { price?: never; charge?: never } | { price: number | null | undefined; charge: Charge };
+
+export type ButtonProps = Priced & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> & {
   variant?: Variant;
   /** Desktop-only secondary controls may be 36px; phones are always 44px. */
   dense?: boolean;
   /** Shows a spinner, disables the button and keeps its label. */
   busy?: boolean;
-  /** A paid action says its price inside the button: "Make the takes · 8 credits". `null`: not known yet, so a grey
-   *  placeholder holds its place (the label never changes length after it shows) and a press waits for it. */
-  price?: number | null;
-  /** The price can vary: the button shows the most it can cost ("up to 4 credits"), and `usually` says the usual price under it. */
-  upTo?: boolean;
+  /** The usual price under an "up to" one ("Usually 3. Anything not used comes back."). */
   usually?: number;
   /** An icon after the label, pushed to the far edge (a picker's chevron). */
   trailing?: Icon;
@@ -44,7 +45,7 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   children?: ReactNode;
 };
 
-export function Button({ variant = "primary", dense, busy, price, upTo, usually, reason, icon: Icon, trailing: Trailing, spread, reads, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
+export function Button({ variant = "primary", dense, busy, price, charge, usually, reason, icon: Icon, trailing: Trailing, spread, reads, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
   const why = useId();
   const lookOnly = useViewOnly() && !(reads ?? (rest["aria-expanded"] !== undefined && price === undefined));
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
@@ -75,14 +76,14 @@ export function Button({ variant = "primary", dense, busy, price, upTo, usually,
         {price !== undefined && price !== null && (
           <>
             {" "}
-            <span className="tabular-nums">· {upTo ? "up to " : ""}{creditsLabel(price)}</span>
+            <span className="tabular-nums">· {pressLabel(price, charge ?? "fixed")}</span>
           </>
         )}
       </span>
       {Trailing && <Trailing size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />}
     </button>
   );
-  const usual = upTo && usually !== undefined && price !== undefined && price !== null && !busy ? `Usually ${wholeCredits(usually)}. Anything not used comes back.` : null;
+  const usual = charge === "estimate" && usually !== undefined && price !== undefined && price !== null && !busy ? `Usually ${wholeCredits(usually)}. Anything not used comes back.` : null;
   if (!reason && !usual) return button;
   return (
     <span className="flex flex-col items-stretch gap-1">

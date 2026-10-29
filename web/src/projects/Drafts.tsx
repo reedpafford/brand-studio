@@ -1,13 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
-import { Elapsed, useJobs } from "../clip/History";
+import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Sparkles } from "lucide-react";
 import { Badge, Banner, Button, Card, Skeleton } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** No script yet: Claude writes a few drafts from the brief, and you pick one to start from. */
 export function DraftsPanel({
@@ -72,7 +71,7 @@ export function DraftsPanel({
   const err = write.error ?? use.error;
   const list = drafts.data ?? [];
 
-  const price = cost === undefined ? undefined : Math.round(cost * 10) / 10;
+  const price = cost; // the Button rounds it up: never below the charge
   return (
     <section className="space-y-4" aria-label="Script drafts">
       <div className="grid gap-4 lg:grid-cols-2">
@@ -105,7 +104,7 @@ export function DraftsPanel({
               variant={list.length ? "secondary" : "primary"}
               disabled={!!stop}
               reason={stop}
-              price={price}
+              charge="estimate" price={price}
               busy={write.isPending}
               onClick={() => write.mutate()}
             >

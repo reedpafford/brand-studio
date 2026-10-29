@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
+import { creditsLabel } from "../components";
 import { Sheet } from "../projects/Sheet";
 import { btnPrimary, btnSecondary, errorText as errorClass, input } from "../ui";
+import { GOING } from "./History";
 
 type Body = components["schemas"]["ClipIn"];
 const DIRECTIONS = ["Cinematic", "Realistic", "Funny", "Product ad"] as const;
-const WAITING = ["queued", "running", "needs_owner_approval"];
 
 /** Improve prompt: Claude turns the idea into a full prompt. Nothing is made until Generate is pressed. */
 export function ImproveDialog(props: { body: Body; onUse: (prompt: string) => void; onClose: () => void }) {
@@ -29,7 +30,7 @@ export function ImproveDialog(props: { body: Body; onUse: (prompt: string) => vo
   const result = useQuery({
     queryKey: ["improve", jobId],
     enabled: jobId !== undefined,
-    refetchInterval: (q) => (!q.state.data || WAITING.includes(q.state.data.status) ? 2000 : false),
+    refetchInterval: (q) => (!q.state.data || GOING.includes(q.state.data.status) ? 2000 : false),
     queryFn: async () => {
       const { data, error } = await api.GET("/clips/improve/{job_id}", { params: { path: { job_id: jobId! } } });
       if (!data) throw new Error(errorText(error));
@@ -37,7 +38,7 @@ export function ImproveDialog(props: { body: Body; onUse: (prompt: string) => vo
     },
   });
   const r = result.data;
-  const working = start.isPending || (jobId !== undefined && (!r || WAITING.includes(r.status)));
+  const working = start.isPending || (jobId !== undefined && (!r || GOING.includes(r.status)));
   const ready = r?.status === "succeeded" && r.prompt !== null;
   const shown = text ?? r?.prompt ?? "";
   const failed = r?.status === "failed";
@@ -68,7 +69,7 @@ export function ImproveDialog(props: { body: Body; onUse: (prompt: string) => vo
       </fieldset>
       <button className={`${btnPrimary} min-h-11 w-full sm:min-h-9`} disabled={working || !props.body.prompt.trim()} onClick={() => start.mutate()}>
         {working ? "Writing…" : ready || failed ? "Improve again" : "Improve"}
-        {cost !== undefined && !working ? ` · ${Math.round(cost)} credits` : ""}
+        {cost !== undefined && !working ? ` · ${creditsLabel(cost)}` : ""}
       </button>
       {start.isError && <p role="alert" className={errorClass}>{start.error.message}</p>}
       {failed && <p role="alert" className={errorClass}>{r.error || "That did not work."} Credits returned.</p>}

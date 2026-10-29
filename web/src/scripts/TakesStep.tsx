@@ -39,8 +39,8 @@ export const videoCost = (t: SongTake) => {
 };
 
 /** One take: its player, its state in words, and the press each state needs (flows S4). */
-/** A failed request is made again for both its takes, so Try again costs a whole request (`requestPrice`). A timing failure that a retry can't fix leads to the other take or to Make 2 more under the cards. */
-function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t: SongTake; a: ReturnType<typeof useSongActions>; requestPrice: number; readOnly: boolean; others: SongTake[]; onDefaultStyle?: () => void }) {
+/** Try again shows what the server says it costs (`retry_credits`): a whole request, or free for a timing or a request that came back short. A timing failure that a retry can't fix leads to the other take or to Make 2 more under the cards. */
+function TakeCard({ t, a, readOnly, others, onDefaultStyle }: { t: SongTake; a: ReturnType<typeof useSongActions>; readOnly: boolean; others: SongTake[]; onDefaultStyle?: () => void }) {
   const label = `Take ${t.number}`;
   const otherReady = others.find((o) => o.status === "ready" && !o.out_of_date && !o.preferred);
   const tooLong = t.over_cap && t.trim_to == null;
@@ -106,7 +106,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
                 </Button>
               )}
               {t.retry_helps && !t.refused_for && (
-                <Button variant="secondary" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+                <Button variant="secondary" icon={RotateCcw} charge="fixed" price={t.retry_credits} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
                   Try again
                 </Button>
               )}
@@ -115,7 +115,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
                 {t.refused_for === "words" ? "Edit lyrics" : t.refused_for === "style" ? "Edit music style" : "Edit lyrics or music style"}
               </Link>
               {t.retry_helps && t.refused_for && (
-                <Button variant="ghost" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+                <Button variant="ghost" icon={RotateCcw} charge="fixed" price={t.retry_credits} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
                   Try again
                 </Button>
               )}
@@ -140,8 +140,8 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
                 </Button>
               )}
               {t.retry_helps && (
-                <Button variant="ghost" icon={RotateCcw} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
-                  Try again · free
+                <Button variant="ghost" icon={RotateCcw} charge="fixed" price={t.retry_credits} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+                  Try again
                 </Button>
               )}
             </div>
@@ -232,7 +232,7 @@ export function TakesStep({ script: s }: { script: Script }) {
       </div>
     ) : (
     <div className="space-y-1">
-      <Button variant={primary ? "primary" : "secondary"} icon={Music} price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+      <Button variant={primary ? "primary" : "secondary"} icon={Music} charge="fixed" price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={a.make.isPending} onClick={() => a.make.mutate()}>
         {label}
       </Button>
       {failed && <p role="alert" className={errorClass}>{failed}</p>}
@@ -272,7 +272,7 @@ export function TakesStep({ script: s }: { script: Script }) {
           {!readOnly && takes.length > 0 && current.length === 0 && <Banner tone="warning" title="These takes sing older words.">Make 2 takes of the lyrics as they are now. The old ones stay playable.</Banner>}
           <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
             {takes.map((t) => (
-              <TakeCard key={t.id} t={t} a={a} requestPrice={data.estimate_credits} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} onDefaultStyle={defaultStyle} />
+              <TakeCard key={t.id} t={t} a={a} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} onDefaultStyle={defaultStyle} />
             ))}
           </div>
           {!readOnly && data.songs_on && make(current.length === 0 ? "Make 2 takes" : "Make 2 more", current.length === 0)}

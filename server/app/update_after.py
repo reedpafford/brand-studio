@@ -41,8 +41,8 @@ def _redraw(db: Session, project: Project) -> list[StoryboardFrame]:
 
 
 def _still(db: Session, project: Project) -> Decimal:
-    job = storyboard.image_job_input(storyboard.image_model(), "", project.aspect_ratio)
-    return estimate(db, project.workspace_id, "image", Decimal(1), job)
+    """One still, as its job will charge: the video's own picture model (it priced Auto's)."""
+    return storyboard.still_credits(db, project.workspace_id, storyboard.image_model(project))
 
 
 def _count(n: int, one: str) -> str:

@@ -133,7 +133,7 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
     <Button
       variant={planned ? "ghost" : "secondary"}
       icon={planned ? RotateCcw : Sparkles}
-      price={price}
+      charge="estimate" price={price}
       busy={run.isPending}
       disabled={running || readOnly || stop !== null}
       reason={stop ?? undefined}
@@ -224,7 +224,7 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
         </div>
       )}
       {older && !readOnly && (
-        <Banner tone="warning" title="Made for an older plan." action={<Button variant="secondary" icon={RotateCcw} price={price} busy={run.isPending} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => run.mutate()}>Make the preview again</Button>}>
+        <Banner tone="warning" title="Made for an older plan." action={<Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} busy={run.isPending} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => run.mutate()}>Make the preview again</Button>}>
           The scene plan changed after these shots were made, so a new video makes its own shots from the plan. Make the preview again to start videos from it.
         </Banner>
       )}
@@ -256,7 +256,7 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
             return data as unknown as { changed_shots: { shot_id: string; before: string[]; after: string[] }[] };
           },
           again: readOnly ? null : (
-            <Button variant="secondary" icon={RotateCcw} price={price} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => setAsking(true)}>
+            <Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => setAsking(true)}>
               Make it again
             </Button>
           ),

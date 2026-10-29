@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
-import { useJobs } from "../clip/History";
+import { Elapsed, GOING, useJobs } from "../clip/History";
 import { useToast } from "../toast";
 import { Check, ChevronDown, Sparkles, X } from "lucide-react";
 import { Button, Menu, MenuItem } from "../components";
-import { Elapsed } from "../clip/History";
 import { card, errorText as errorClass } from "../ui";
 import { Sheet } from "./Sheet";
 
@@ -20,7 +19,6 @@ const KIND: Record<string, string> = {
   scene_break: "Scene break",
   cut: "Cut",
 };
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** Everything about Enhance for one project: the run, its marks and notes, and what you do with them. */
 export function useEnhance(projectId: number, scriptVersion: number | undefined, scriptText = "") {
@@ -192,7 +190,7 @@ export function EnhanceBar({ e, stop }: { e: EnhanceState; stop?: string | null 
         <Button
           variant="secondary"
           icon={Sparkles}
-          price={e.cost}
+          charge="estimate" price={e.cost}
           disabled={e.running || e.start.isPending || !!stop}
           reason={stop}
           onClick={() => (pending === 0 || window.confirm(`Replace the ${pending} waiting suggestions?`)) && e.start.mutate()}

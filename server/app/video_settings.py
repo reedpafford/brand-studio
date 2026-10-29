@@ -143,16 +143,15 @@ def out_of_date(db: Session, project: Project) -> tuple[list, list]:
 
 
 def to_finish(db: Session, project: Project) -> Decimal:
-    """Credits still to spend: the steps not done yet, plus redoing what's out of date."""
-    from app import clip_takes, sheets, storyboard
+    """Credits still to spend: the steps not done yet (the looks still to make among them,
+    as the cost bar shows), plus redoing what's out of date."""
+    from app import clip_takes, storyboard
     from app.routes.estimate import _stages
 
     stills, clips = out_of_date(db, project)
     left = sum(Decimal(str(s.credits)) for s in _stages(db, project))
     redo = len(stills) * storyboard.still_price(db, project)
     redo += sum((clip_takes.take_credits(db, project, c) for c in clips), Decimal(0))
-    roles = len(sheets.roles_needing_look(db, project))  # a new look in this look (ST1, ST2)
-    redo += roles * sheets.look_price(db, project.workspace_id)
     return (left + redo).quantize(Decimal("0.01"))
 
 
@@ -306,7 +305,11 @@ def settings(db: Session, project: Project) -> dict:
     cap = get_limits(db, project.workspace_id).per_video_max_credits
 
     def price(kind: str, m) -> float:
-        job = {"model": m.id, "input": {"resolution": "480p" if kind == "video" else "1K"}}
+        if kind != "video":  # a still, priced as its job will be
+            from app.storyboard import still_credits
+
+            return float(still_credits(db, project.workspace_id, m))
+        job = {"model": m.id, "input": {"resolution": "480p"}}
         return float(estimate(db, project.workspace_id, kind, Decimal(1), job))
 
     def over(field: str, value) -> bool:

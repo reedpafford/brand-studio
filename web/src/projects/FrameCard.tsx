@@ -78,7 +78,7 @@ export function FrameCard(props: {
       </label>
       <Button
         dense
-        price={props.cost}
+        charge="fixed" price={props.cost}
         disabled={props.stopped}
         reason={props.stopFor(props.cost)}
         onClick={() => {
@@ -156,7 +156,7 @@ export function FrameCard(props: {
         <div className="flex flex-wrap items-center gap-2">
           {refused && <p className="w-full text-sm text-danger">{props.words(refused)}</p>}
           <SoftenIt busy={props.softening} onSoften={props.onSoften} />
-          <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => props.onRender()}>
+          <Button variant="secondary" dense charge="fixed" price={props.cost} disabled={!!why} reason={why} onClick={() => props.onRender()}>
             Draw it as is
           </Button>
         </div>
@@ -178,7 +178,7 @@ export function FrameCard(props: {
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {refusable ? null : f.file_id === null ? (
-              <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => props.onRender()}>
+              <Button variant="secondary" dense charge="fixed" price={props.cost} disabled={!!why} reason={why} onClick={() => props.onRender()}>
                 {verb}
               </Button>
             ) : (
@@ -186,7 +186,7 @@ export function FrameCard(props: {
                 <Button variant="secondary" dense disabled={props.busy || !!approveWhy} reason={approveWhy} onClick={() => props.onApprove(!f.approved)}>
                   {f.approved ? "Undo approve" : "Approve"}
                 </Button>
-                <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => (props.oneStep ? props.onRender() : setRedo(redo === null ? "" : null))} aria-expanded={props.oneStep ? undefined : redo !== null}>
+                <Button variant="secondary" dense charge="fixed" price={props.cost} disabled={!!why} reason={why} onClick={() => (props.oneStep ? props.onRender() : setRedo(redo === null ? "" : null))} aria-expanded={props.oneStep ? undefined : redo !== null}>
                   {props.oneStep ? "Make another" : verb}
                 </Button>
               </>

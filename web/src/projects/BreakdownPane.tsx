@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, errorText } from "../api/client";
+import { api, errorText, must } from "../api/client";
 import { useBrandPieces } from "../clip/BrandPieces";
-import { useJobs } from "../clip/History";
+import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Clapperboard, RotateCcw } from "lucide-react";
 import { Banner, Button, EmptyState, Skeleton } from "../components";
 import { WaitingBadge } from "./Meter";
-import { Elapsed } from "../clip/History";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 import { refName, useRoleNames } from "./names";
 import { BreakdownVersions } from "./VersionLists";
 
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
 /** The newest breakdown for the project, or null when there is none (or no script). */
@@ -40,17 +38,12 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
 
   const current = useBreakdown(projectId, scriptVersion);
   const jobs = useJobs();
-  const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
-  // What Make the shots charges (Next-Server's price sweep): the writing call, plus the clip prompts' rewrite once the
-  // video has them. Read with fetch until it is in the generated schema; a server without it falls back to the rate.
+  // What Make the shots charges (#996): the writing call, plus the clip prompts' rewrite once the video has them.
   const price = useQuery({
     queryKey: ["breakdown-price", projectId],
-    queryFn: async () => {
-      const r = await fetch(`${location.origin}/api/projects/${projectId}/breakdown/price`, { credentials: "include" });
-      return r.ok ? ((await r.json()) as { credits: number }).credits : null;
-    },
+    queryFn: async () => (await must(api.GET("/projects/{project_id}/breakdown/price", { params: { path: { project_id: projectId } } }))).data!.credits,
   });
-  const cost = price.isPending ? null : (price.data ?? rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit); // null: not known yet, the press waits
+  const cost = price.data ?? null; // null: not known yet, the press waits
 
   // Our own run: the job we started, or any job the server says is a breakdown (a song or narrated
   // video's is song_breakdown / narrated_breakdown; Approve the plan starts it from another step).
@@ -93,7 +86,7 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
     <Button
       variant={opts.primary ? "primary" : "secondary"}
       icon={label === "Redo" ? RotateCcw : undefined}
-      price={cost}
+      charge="estimate" price={cost}
       busy={make.isPending}
       disabled={running || asked || !!stop}
       reason={stop}

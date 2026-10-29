@@ -31,7 +31,7 @@ def _version(db: Session, user: User, script_id: int, slot: int) -> ScriptDraft:
 
 @router.post("/scripts/{script_id}/drafts/{slot}/song-study", response_model=JobOut,
              status_code=201)  # fmt: skip
-async def study_song_ad(
+def study_song_ad(
     script_id: int,
     slot: Slot,
     request: Request,
@@ -53,7 +53,7 @@ async def study_song_ad(
     if link:
         job, old = song_study.start(db, user, draft, {"url": link}, "link", link)
     else:
-        stored = await _store_video(request, user, db, file)
+        stored = _store_video(request, user, db, file)
         job_input = {"video_key": stored.key, "video_file_id": stored.id}
         job, old = song_study.start(db, user, draft, job_input, "upload")
     for key in old:

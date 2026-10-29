@@ -1,14 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { keepFirst } from "./SongStep";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paws through the link in my bio." }];
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
 const version = (o: object = {}) => ({ slot: 0, status: "draft", title: "Bowl song", seconds: 0, project_id: null, text: LYRICS, words: 10, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null, style_line: "pop, female lead, upbeat", singer: "", spoken_end_line: "", song_directions: [], ...o });
@@ -16,18 +14,12 @@ const song = (o: object = {}, v: object = {}) => ({
   id: 7, brand_id: 1, kind: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
-const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
+const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, retry_credits: 0, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
 const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes, ...o });
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
 
 function open(path: string) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(path);
 }
 
 afterEach(() => {
@@ -146,7 +138,7 @@ test("Takes: the Preferred take can't be deleted and says why; another is delete
 
 test("a failed take says why with Try again at a request's price (both its takes are made again); songs off says so instead of a Make button", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "The music service wouldn't sing these lyrics. Nothing was charged." })], { songs_on: false })] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", retry_credits: 1, file_id: null, seconds: null, failed_reason: "The music service wouldn't sing these lyrics. Nothing was charged." })], { songs_on: false })] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("The music service wouldn't sing these lyrics. Nothing was charged.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Try again · 1 credit/ })).toBeInTheDocument();
@@ -199,7 +191,7 @@ test("after the lyrics change, a Preferred take that sings the older words doesn
 
 test("a refused take offers Edit lyrics or style, which opens the Song step's boxes at once", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "The music service won't sing this: an artist's name in the style. Describe the sound instead." })])] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", retry_credits: 1, file_id: null, seconds: null, failed_reason: "The music service won't sing this: an artist's name in the style. Describe the sound instead." })])] });
   open("/b/1/scripts/7?step=takes");
   await userEvent.click(await screen.findByRole("link", { name: "Edit lyrics or music style" }));
   expect(await screen.findByLabelText("Lyrics")).toHaveValue(LYRICS); // the boxes open at once, no confirm
@@ -228,9 +220,17 @@ test("a refusal over the style offers Use the default style instead (clears the 
   expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
 });
 
+test("a request that came back short is asked again free, so its Try again says free, not a request's price", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", retry_credits: 0, file_id: null, seconds: null, failed_reason: "Only one song came back. The other is free to try again." })])] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByRole("button", { name: /^Try again · free$/ })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Try again · \d/ })).toBeNull();
+});
+
 test("a failed take that isn't a refusal leads with Try again; the Edit link comes after it", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "Suno took too long. Nothing was charged." })])] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", retry_credits: 1, file_id: null, seconds: null, failed_reason: "Suno took too long. Nothing was charged." })])] });
   open("/b/1/scripts/7?step=takes");
   const retry = await screen.findByRole("button", { name: /Try again · 1 credit/ });
   const editLink = screen.getByRole("link", { name: "Edit lyrics or music style" });

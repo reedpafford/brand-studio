@@ -1,12 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { renderApp } from "../test/render";
+import { editor } from "../test/people";
 
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
   cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 60, credits_used: 0, budget_pct: 0, created_by_id: 2,
@@ -20,13 +18,7 @@ const base: Record<string, [number, unknown]> = {
 };
 
 function open() {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/projects/9?tab=script"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp("/b/1/projects/9?tab=script");
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -127,8 +119,14 @@ const draftJob = (o: object) => ({ id: 70, kind: "write-claude", step: "script_d
 test("with no script, Claude can write drafts from the brief, with the cost shown", async () => {
   const calls = fakeServer({ ...none, "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []], "POST /projects/9/script/draft": [201, draftJob({ status: "queued" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Write drafts · 3 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Write drafts · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/draft")).toBe(true));
+});
+
+test("Write drafts rounds an owner's rate up, never below the charge (2.04 reads 3 credits)", async () => {
+  fakeServer({ ...none, "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 2.04 }]], "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
+  open();
+  expect(await screen.findByRole("button", { name: "Write drafts · up to 3 credits" })).toBeInTheDocument();
 });
 
 test("finished drafts show their hook idea and script, and Use this draft makes it the working script", async () => {
@@ -164,7 +162,7 @@ test("a failed draft run says credits came back and offers another go", async ()
 test("over the video's budget an editor's drafts button is off, with the reason", async () => {
   fakeServer({ ...none, "GET /projects/9": [200, { ...project, credits_used: 59, budget_credits: 60 }], "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
   open();
-  const write = await screen.findByRole("button", { name: /^Write drafts · 3 credits/ });
+  const write = await screen.findByRole("button", { name: /^Write drafts · up to 3 credits/ });
   expect(write).toBeDisabled();
   expect(write).toHaveAccessibleDescription("That's more than this video's budget.");
 });

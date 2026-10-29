@@ -17,7 +17,7 @@ from app.db import get_db
 from app.enhance import escape, screens_of
 from app.models.accounts import User
 from app.models.brands import Brand
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.prompts import check
 from app.prompts.schemas import ImprovedPrompt
 from app.routes.clips import ClipIn, _plan, generation_on
@@ -88,8 +88,7 @@ def improve(
 ):
     """Queue an Improve call (a paid Claude call, about 3 credits from the weekly allowance).
     The brand pieces are checked as for Generate, so the reference lines match."""
-    waiting = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
-    mine = db.scalars(select(Job).where(Job.created_by_id == user.id, Job.status.in_(waiting)))
+    mine = db.scalars(select(Job).where(Job.created_by_id == user.id, Job.status.in_(WAITING)))
     if any(j.input.get("step") == "improve" for j in mine):  # a double press: one paid call
         raise HTTPException(409, "Your prompt is already being improved.")
     plan = _plan(db, user, body, request.app.state.storage)

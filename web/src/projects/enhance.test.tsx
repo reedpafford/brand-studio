@@ -1,12 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { renderApp } from "../test/render";
+import { editor } from "../test/people";
 
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
   cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 60, credits_used: 0, budget_pct: 0, created_by_id: 2,
@@ -25,13 +23,7 @@ const base: Record<string, [number, unknown]> = {
 };
 
 function open(query = "tab=script") {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[`/b/1/projects/9?${query}`]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(`/b/1/projects/9?${query}`);
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -39,7 +31,7 @@ afterEach(() => vi.unstubAllGlobals());
 test("Enhance shows its cost and starts the run", async () => {
   const calls = fakeServer({ ...base, "POST /projects/9/script/enhance": [201, { id: 3, kind: "write-claude", status: "queued", credits: 3, project_id: 9 }] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · 3 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/enhance")).toBe(true));
 });
 

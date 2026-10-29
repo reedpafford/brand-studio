@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
-import { useJobs } from "../clip/History";
+import { GOING, useJobs } from "../clip/History";
 import { fileUrl } from "../api/upload";
 import { card, errorText as errorClass } from "../ui";
 import { Sheet } from "./Sheet";
@@ -12,7 +12,7 @@ import { blocking } from "./problems";
 import { refName, useRoleNames } from "./names";
 import { useProblemWords } from "./ProblemText";
 import { useOwnScriptStop } from "./useOwnScriptStop";
-import { Banner, Button, Dialog, useToast, wholeCredits } from "../components";
+import { Banner, Button, Dialog, pressLabel, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
@@ -23,7 +23,6 @@ import { FrameCard } from "./FrameCard";
 import { useCostBarAction } from "./CostBar";
 
 type Frame = components["schemas"]["FrameOut"];
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** One still per clip: Claude writes the frame prompts, then each still is drawn. */
 /** The project's storyboard frames (shared by the Storyboard and Clips steps). */
@@ -85,7 +84,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const imageCost = frames.data?.[0]?.still_credits ?? (stillModel ? rate(`image-${stillModel}`) : undefined);
   // A total for several stills is one still's exact price times N, rounded once (Next-Server's price sweep): 9 stills at
   // 0.33 read 3, as charged, not 9. One still's own button keeps its rounded-up price.
-  const exact = (frames.data?.[0] as { still_exact_credits?: number } | undefined)?.still_exact_credits ?? imageCost;
+  const exact = frames.data?.[0]?.still_exact_credits ?? (stillModel ? rate(`image-${stillModel}`) : undefined); // before frames, the rate is exact
   const stills = (n: number) => (exact === undefined ? undefined : Math.ceil(exact * n));
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
 
@@ -248,7 +247,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       <Button
         variant={list.length ? "secondary" : "primary"}
         dense
-        price={makeTotal}
+        charge="estimate" price={makeTotal}
         busy={make.isPending}
         disabled={writingNow || stillOld || !!stopFor(makeTotal)}
         reason={stopFor(makeTotal)}
@@ -259,7 +258,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       {confirmRedo && (
         <Dialog
           title="Make the storyboard again?"
-          actionLabel={`${makeLabel}${makeTotal === undefined ? "" : ` · ${wholeCredits(makeTotal)} credits`}`}
+          actionLabel={`${makeLabel}${makeTotal === undefined ? "" : ` · ${pressLabel(makeTotal, "estimate")}`}`}
           danger={made > 0}
           cancelLabel="Not yet"
           onCancel={() => setConfirmRedo(false)}
@@ -315,13 +314,13 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
         )}
         <span className="flex w-full flex-wrap items-start gap-2 sm:w-auto">
           {!bar && outOfDate.length > 0 && (
-            <Button dense price={redrawCost} busy={render.isPending} disabled={redrawBlocked !== null} reason={redrawBlocked} onClick={() => void drawAll(outOfDate)}>
+            <Button dense charge="fixed" price={redrawCost} busy={render.isPending} disabled={redrawBlocked !== null} reason={redrawBlocked} onClick={() => void drawAll(outOfDate)}>
               Redraw {outOfDate.length} out-of-date still{outOfDate.length === 1 ? "" : "s"}
             </Button>
           )}
           {/* With Redraw in the bar, the missing stills that fit can still be made in one press here (grey). */}
           {(!bar || outOfDate.length > 0) && missing.length > 0 && (
-            <Button variant={outOfDate.length > 0 ? "secondary" : "primary"} dense price={allCost} busy={render.isPending} disabled={!!stopFor(allCost)} reason={stopFor(allCost)} onClick={() => void drawAll(missing)}>
+            <Button variant={outOfDate.length > 0 ? "secondary" : "primary"} dense charge="fixed" price={allCost} busy={render.isPending} disabled={!!stopFor(allCost)} reason={stopFor(allCost)} onClick={() => void drawAll(missing)}>
               Make {missing.length} still{missing.length === 1 ? "" : "s"}
             </Button>
           )}

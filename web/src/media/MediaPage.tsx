@@ -37,20 +37,25 @@ function opens(m: Item, brandId: number): { to: string; step: string } {
   return { to: video("downloads"), step: "Final cut" }; // a final video, or a video's song
 }
 
-function Tile({ m, brandId, mayRestore }: { m: Item; brandId: number; mayRestore: boolean }) {
+function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: number | undefined; owner: boolean }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const restore = useMutation({
     mutationFn: () => must(api.POST("/projects/{project_id}/restore", { params: { path: { project_id: m.project_id! } } })),
     onSuccess: () => {
-      toast(`${m.video_name ?? "The video"} is back.`);
-      return queryClient.invalidateQueries({ queryKey: ["media"] });
+      const refresh = () => queryClient.invalidateQueries({ queryKey: ["media"] });
+      // Undo puts it back as it was, free: released again (its version back to Ready to make), or deleted again.
+      const again = m.deleted_video_released ? "/projects/{project_id}/release" : "/projects/{project_id}/archive";
+      toast(`${m.video_name ?? "The video"} is back.`, () => void must(api.POST(again, { params: { path: { project_id: m.project_id! } } })).then(refresh, (e: Error) => toast(e.message, undefined, "error")));
+      return refresh();
     },
     onError: (e: Error) => toast(e.message, undefined, "error"),
   });
   const { to, step } = opens(m, brandId);
   const isVideo = m.content_type.startsWith("video/");
   const title = m.video_name ?? (m.open_step === "quick" ? "Quick clip" : m.kind === "sheet" ? "Cast & places" : kindName(m.kind));
+  const gone = m.deleted_video_by; // the deleted video's maker: they or the owner may restore it (as the Archived list offers)
+  const mayRestore = owner || (!!gone && gone.id === meId);
   const meta = [kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
   return (
     <li>
@@ -62,12 +67,12 @@ function Tile({ m, brandId, mayRestore }: { m: Item; brandId: number; mayRestore
         video={!m.poster_file_id && isVideo ? fileUrl(m.file_id) : null}
         playable={isVideo}
         icon={m.kind === "song" ? Music : m.kind === "sheet" ? Users : Images}
-        badge={m.from_deleted_video ? <Badge tone="warning">From a deleted video</Badge> : undefined}
+        badge={m.from_deleted_video ? <Badge tone="warning">{!gone ? "From a deleted video" : gone.id === meId ? "From your deleted video" : `From ${gone.name}'s deleted video`}</Badge> : undefined}
       >
         {m.kind === "song" && <audio controls preload="none" src={fileUrl(m.file_id)} aria-label={`Play ${title}`} className="w-full" />}
         <div className="flex flex-wrap gap-2">
           {m.from_deleted_video ? (
-            mayRestore && ( // the owner, or whoever made it (as the Archived list offers)
+            mayRestore && (
               <Button variant="secondary" dense busy={restore.isPending} onClick={() => restore.mutate()}>
                 Restore the video
               </Button>
@@ -198,7 +203,7 @@ export function MediaPage() {
           <>
             <ul aria-label="Media" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {items.map((m) => (
-                <Tile key={m.key} m={m} brandId={brandId} mayRestore={owner || (!!me && m.made_by?.id === me.id)} />
+                <Tile key={m.key} m={m} brandId={brandId} meId={me?.id} owner={owner} />
               ))}
             </ul>
             {media.hasNextPage && (

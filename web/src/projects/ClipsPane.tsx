@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Banner, Button, useToast } from "../components";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
-import { useJobs } from "../clip/History";
+import { GOING, useJobs } from "../clip/History";
 import { card, errorText as errorClass } from "../ui";
 import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
@@ -19,7 +19,6 @@ import { ClipCard } from "./ClipCard";
 import { useCostBarAction } from "./CostBar";
 
 type Clip = components["schemas"]["ProjectClipOut"];
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; ownScript?: boolean; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
   const { projectId } = props;
@@ -240,7 +239,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; own
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
         {!bar && (
-          <Button dense price={writeCost} busy={write.isPending} disabled={!!stopFor(writeCost)} reason={stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
+          <Button dense charge="estimate" price={writeCost} busy={write.isPending} disabled={!!stopFor(writeCost)} reason={stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
             Write clip prompts
           </Button>
         )}
@@ -265,7 +264,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; own
           <Button
             variant={stale.length > 0 ? "secondary" : "primary"} // the rewrite is the step's amber while any clip is stale
             dense
-            price={allCost}
+            charge="fixed" price={allCost}
             busy={generate.isPending}
             disabled={!!makeWhy}
             reason={makeWhy}

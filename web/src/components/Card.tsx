@@ -58,7 +58,7 @@ export function MediaCard({
           {Icon && <Icon size={24} strokeWidth={1.75} aria-hidden />}
         </span>
       )}
-      {badge && <span className="absolute left-3 top-3">{badge}</span>}
+      {badge && <span className="absolute inset-x-3 top-3 flex [overflow-wrap:anywhere]">{badge}</span>}
       {playable && (
         <span className="absolute left-1/2 top-1/2 grid size-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-scrim text-on-media">
           <Play size={20} strokeWidth={1.75} aria-hidden />

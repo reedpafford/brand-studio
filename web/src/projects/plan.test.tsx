@@ -1,13 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { editor } from "../test/people";
 
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
   cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 600, credits_used: 0, budget_pct: 0, product_variants: {}, created_by_id: 2,
@@ -36,13 +34,7 @@ const base: Record<string, [number, unknown]> = {
 };
 
 function open(query = "?step=plan") {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[`/b/1/videos/9${query}`]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(`/b/1/videos/9${query}`);
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -70,7 +62,7 @@ test("no plan yet: Make the plan shows its price; Shots is greyed until approved
   expect(screen.getByRole("tab", { name: /Shots/ })).toHaveAttribute("aria-disabled", "true");
   expect(screen.getByRole("tab", { name: /Shots/ })).toHaveAccessibleDescription("Approve the plan first");
   expect(screen.getByRole("button", { name: "Write it myself · free" })).toBeInTheDocument();
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: /Make the plan · 6 credits/ })).toBeEnabled());
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: /Make the plan · up to 6 credits/ })).toBeEnabled());
   await userEvent.click(screen.getByRole("button", { name: /Make the plan/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan")).toBe(true));
 });
@@ -94,7 +86,7 @@ test("ready to check: structure, cast, scene cards with place, lines, actions an
   expect(within(second).getByText("Kitchen · Morning")).toBeInTheDocument();
   expect(within(second).getByText("She grins at fomo on the screen.")).toBeInTheDocument();
   expect(within(second).getByLabelText("Product")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Approve the plan · makes the shots · 6 credits/ }));
+  await userEvent.click(screen.getByRole("button", { name: /Approve the plan · makes the shots · up to 6 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/approve")).toBe(true));
 });
 
@@ -121,7 +113,7 @@ test("failed: Claude's reason, nothing charged, Try again; Write it myself stays
   fakeServer({ ...withPlan("none"), "GET /projects/9/plan": [200, plan({ scenes: [], job: { id: 30, status: "failed", reason: "Claude won't plan this: the script promises a cure.", started_at: null } })] });
   open();
   expect(await screen.findByText("Claude won't plan this: the script promises a cure.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Try again · 6 credits/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Try again · up to 6 credits/ })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Write it myself · free" })).toBeInTheDocument();
 });
 
@@ -240,14 +232,14 @@ test("out of date: Made for older words with Make a new plan; earlier plans come
   const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, earlier: [{ id: 3, version: 1, source: "claude", made_at: new Date().toISOString() }] })], "POST /projects/9/plan/earlier/0/use": [200, plan()], "POST /projects/9/plan": [201, { id: 40 }] });
   open();
   expect(await screen.findByText("Made for older words.")).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: /Make a new plan · 6 credits/ })[0]).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /Make a new plan · up to 6 credits/ })[0]).toBeInTheDocument();
   expect(screen.getByText(/this one is kept under Earlier plans/)).toBeInTheDocument();
   await userEvent.click(screen.getByText("Earlier plans · 1"));
   await userEvent.click(screen.getByRole("button", { name: "Use this one · free" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(true));
   await userEvent.click(screen.getByText("Make a new plan", { selector: "summary" }));
   await userEvent.type(screen.getByLabelText("What to change (optional)"), "funnier");
-  await userEvent.click(screen.getAllByRole("button", { name: /Make a new plan · 6 credits/ }).at(-1)!);
+  await userEvent.click(screen.getAllByRole("button", { name: /Make a new plan · up to 6 credits/ }).at(-1)!);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/plan")?.body).toEqual({ note: "funnier" }));
 });
 
@@ -255,7 +247,7 @@ test("with no plan yet, Make the plan is priced from the video's plan_credits", 
   setViewport(1440);
   fakeServer({ ...withPlan("none"), "GET /projects/9": [200, { ...project, plan_status: "none", plan_credits: 9 }], "GET /projects/9/plan": [404, { detail: "none" }] });
   open();
-  expect(await screen.findByRole("button", { name: /Make the plan · 9 credits/ })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Make the plan · up to 9 credits/ })).toBeInTheDocument();
 });
 
 test("Change this scene… sends its note at its price; it needs a note first (#928)", async () => {
@@ -263,11 +255,11 @@ test("Change this scene… sends its note at its price; it needs a note first (#
   const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, change_scene_credits: 2 })], "POST /projects/9/plan/scenes/s2/change": [201, { id: 41 }] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Change scene 2…" }));
-  const press = screen.getByRole("button", { name: /^Change this scene · 2 credits/ });
+  const press = screen.getByRole("button", { name: /^Change this scene · up to 2 credits/ });
   expect(press).toBeDisabled();
   expect(press).toHaveAccessibleDescription("Say what to change in this scene");
   await userEvent.type(screen.getByLabelText("What should change in scene 2?"), "funnier");
-  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · up to 2 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/plan/scenes/s2/change")?.body).toEqual({ note: "funnier" }));
 });
 
@@ -277,11 +269,11 @@ test("on an approved plan, Change this scene asks first", async () => {
   open("?step=plan&view=scenes");
   await userEvent.click(await screen.findByRole("button", { name: "Change scene 1…" }));
   await userEvent.type(screen.getByLabelText("What should change in scene 1?"), "calmer");
-  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · up to 2 credits/ }));
   expect(calls.some((c) => c.key === "POST /projects/9/plan/scenes/s1/change")).toBe(false);
   await userEvent.click(within(screen.getByRole("alertdialog", { name: "Change the plan?" })).getByRole("button", { name: "Not yet" }));
   expect(screen.getByLabelText("What should change in scene 1?")).toHaveValue("calmer");
-  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · up to 2 credits/ }));
   await userEvent.click(within(screen.getByRole("alertdialog", { name: "Change the plan?" })).getByRole("button", { name: "Change" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/scenes/s1/change")).toBe(true));
 });
@@ -291,7 +283,7 @@ test("out of date with #928: Update the plan keeps the unchanged scenes", async 
   const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, change_scene_credits: 2 })], "POST /projects/9/plan/update": [201, { id: 42 }] });
   open();
   expect(await screen.findByText(/Updating keeps the scenes whose lines didn't change/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /^Update the plan · 6 credits/ }));
+  await userEvent.click(screen.getByRole("button", { name: /^Update the plan · up to 6 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/update")).toBe(true));
 });
 
@@ -301,7 +293,7 @@ test("a refused scene change keeps the note; a scene job in progress shows Makin
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Change scene 2…" }));
   await userEvent.type(screen.getByLabelText("What should change in scene 2?"), "funnier");
-  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · up to 2 credits/ }));
   expect(await screen.findByText("A plan is already being made.")).toBeInTheDocument();
   expect(screen.getByLabelText("What should change in scene 2?")).toHaveValue("funnier");
 });
@@ -318,8 +310,8 @@ test("a plan whose job ended before it reads back (a 404 in between) still shows
   setViewport(1440);
   fakeServer({ ...withPlan("none"), "GET /projects/9/plan": [404, { detail: "none" }], "POST /projects/9/plan": [201, { id: 30 }] });
   open();
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: /Make the plan · 6 credits/ })).toBeEnabled());
-  await userEvent.click(screen.getByRole("button", { name: /Make the plan · 6 credits/ }));
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: /Make the plan · up to 6 credits/ })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: /Make the plan · up to 6 credits/ }));
   // The job has ended and the GET answered 404 once; then the plan is there.
   vi.unstubAllGlobals();
   fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan()] });

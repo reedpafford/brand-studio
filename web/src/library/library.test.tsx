@@ -5,20 +5,15 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { ...owner, id: 2, name: "Eli", role: "editor" };
 const brands = [{ id: 1, name: "fomo", colours: [] }, { id: 2, name: "Iron Paws", colours: [] }];
 const mia = { id: 5, kind: "character", name: "Mia", notes: "", brand_ids: [1], image_file_ids: [9], outfits: [], version: 3 };
 
 function renderAt(path: string) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(path);
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -398,7 +393,7 @@ test("the owner makes a character's sheet in another look, then approves it with
   const calls = fakeServer({ ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90 }] });
   renderAt("/b/1/library/characters/5");
   const pixar = await screen.findByLabelText("Disney Pixar sheet");
-  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet · 2 credits/ }));
+  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet · up to 2 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ look_id: "pixar", change: "" }));
   expect(screen.queryByLabelText("House sheet")).toBeNull();
 });

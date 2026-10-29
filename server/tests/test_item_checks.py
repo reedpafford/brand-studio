@@ -10,7 +10,7 @@ from app.models.projects import Project
 from app.providers.fake_local import FakeWriter
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
-from tests.conftest import upload
+from tests.conftest import run_writer, upload
 from tests.helpers import with_sheet
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
@@ -23,10 +23,6 @@ def checks_on(monkeypatch):
     monkeypatch.setattr("app.item_checks.on", lambda: True)  # as on the test site's stand-ins
 
 
-def _check(app, db):
-    run_once(db, {"claude": FakeWriter()}, app.state.storage, only={"claude"})
-
-
 def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setup, clip):  # noqa: F811
     clips, url = f"/projects/{setup['project']}/clips", f"/projects/{setup['project']}/checks"
     editor.post(f"{clips}/{clip['id']}/generate")
@@ -35,7 +31,7 @@ def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setu
     assert take["check"]["status"] == "checking"  # never blocks: Approve works meanwhile
     assert editor.post(f"{clips}/{clip['id']}/approve").json()["approved"] is True
     editor.delete(f"{clips}/{clip['id']}/approve")
-    _check(app, db)
+    run_writer(app, db)
     job = db.query(Job).filter(Job.kind == "check-claude").one()
     assert len(job.input["files"]["reference_images"]) == 1  # Mom's sheet; frames come first
     assert job.input["take_frames"]["count"] == 1  # key_takes: one frame keeps it to cents
@@ -81,7 +77,7 @@ def test_stills_are_checked_only_when_the_scope_is_everything(app, db, editor, s
         replicate = ReplicateProvider(BASE, client, token="test-token")
         for _ in range(2):
             run_once(db, {"replicate": replicate}, app.state.storage, only={"replicate"})
-        _check(app, db)
+        run_writer(app, db)
 
     draw()
     assert editor.get(url).json()[0]["check"] is None  # key_takes: stills aren't checked

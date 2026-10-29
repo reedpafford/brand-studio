@@ -7,8 +7,9 @@ import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { weekStop } from "./useScript";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { id: 2, email: "sam@b.co", name: "Sam", role: "editor", workspace_id: 1 };
 const brands = [{ id: 1, name: "Iron Paws", colours: [] }, { id: 2, name: "fomo", colours: [] }];
 const v = (slot: number, status: string, o: object = {}) => ({ slot, status, title: "Bo tries salmon", seconds: 0, project_id: null, ...o });
@@ -24,13 +25,7 @@ const base: Record<string, [number, unknown]> = {
 };
 
 function open(path = "/b/1/scripts") {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(path);
 }
 
 afterEach(() => {
@@ -1148,7 +1143,7 @@ test("Read it again opens a panel with the note box and the price first, sends t
   await userEvent.click(await screen.findByRole("button", { name: "Read it again" }));
   const panel = await screen.findByRole("dialog", { name: "Read it again" });
   await userEvent.type(within(panel).getByLabelText("What did it get wrong? (optional)"), "shot 3 is the groom");
-  await userEvent.click(within(panel).getByRole("button", { name: "Read it again · 7 credits" }));
+  await userEvent.click(within(panel).getByRole("button", { name: "Read it again · up to 7 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/import/read-again")?.body).toEqual({ note: "shot 3 is the groom" }));
   expect(await screen.findByRole("list", { name: "Reading the reel" })).toBeInTheDocument();
 });

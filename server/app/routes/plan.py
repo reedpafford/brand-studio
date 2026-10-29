@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app import credits, plans
+from app import breakdown, credits, plans
 from app.advice import names
 from app.auth import current_user, user_name
 from app.db import get_db
@@ -167,8 +167,9 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
     else:
         stop = credits.fits(db, project, user, plans.price(db, project)) or None
         stop = f"Making the plan {stop}" if stop else None
+    shots = price if project.id is None else credits.price(breakdown.make_price(db, project))
     base = PlanOut(status="ready", source="claude", job=job, estimate_credits=price,
-                   approve_credits=price, change_scene_credits=price, stop=stop)  # fmt: skip
+                   approve_credits=shots, change_scene_credits=price, stop=stop)  # fmt: skip
     if plan is None:
         return base
     known = names(assets(db, project))

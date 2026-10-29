@@ -315,22 +315,59 @@ def test_make_this_versions_price_line_follows_the_picks(owner, editor, db):
 
 def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeypatch):
     """QA-3: with no saved plan, 14.73 was quoted from 2 s of spoken words, but the video
-    plans for 15 s until its plan exists (28.06). The quote now uses the video's own rules,
-    plus a look for Nate, who speaks with no role yet (making the video adds him)."""
+    plans for 15 s until its plan exists (28.06). Now the quote and the video's to-finish use
+    one rule (sheets.roles_without_a_look): equal, Nate's first look in both, before and
+    after making the video adds him as a role; "Not now" on his look takes it out."""
+    import copy
+
     import pytest
 
     import tests.test_script_produce as produce
-    from app.sheets import look_usual
+    from app import breakdown, cast_roles
+    from app.models.script_library import Script
+    from app.sheets import look_price
     from tests.test_script_library import SCRIPT, _make
 
     monkeypatch.setattr(produce, "_make", lambda c, **kw: _make(c, text=SCRIPT))
-    nate = float(look_usual(db, 1))  # his look, once he's a role
     for picks in ({}, {"look": "disney-pixar"}):
         base, _ = _published(owner, db)  # Mom is Mia (a House sheet only); Nate has no role
         quote = owner.post(f"{base}/drafts/0/estimate", json=picks).json()["credits"]
         card = owner.get(base).json()["versions"][0]["estimate_credits"]
         made = owner.post(f"{base}/drafts/0/produce", json=picks).json()["project_id"]
-        to_finish = float(vs.to_finish(db, db.get(Project, made)))
-        assert quote == pytest.approx(to_finish + nate, abs=0.01)
+        video = db.get(Project, made)
+        assert float(vs.to_finish(db, video)) == pytest.approx(quote, abs=0.001)
         if not picks:  # the version card shows the same figure (in the script's own look)
-            assert card == pytest.approx(to_finish + nate, abs=0.01)
+            assert card == pytest.approx(quote, abs=0.001)
+        added = breakdown.add_speakers(db, db.get(Script, int(base.rsplit("/", 1)[1])))
+        db.commit()
+        assert added == ["Nate"]  # the cast adds him: still one first look, not two
+        assert float(vs.to_finish(db, video)) == pytest.approx(quote, abs=0.001)
+        bar = owner.get(f"/projects/{made}/estimate").json()  # what the cost bar reads
+        assert bar["remaining_credits"] == pytest.approx(quote, abs=0.01)  # Flow-QA on #987
+        assert [x["stage"] for x in bar["stages"] if x["stage"] == "looks" and x["credits"]]
+        nate = next(s for s in cast_roles.video_slots(db, video) if s.role == "Nate")
+        video.slot_looks = {**(video.slot_looks or {}), str(nate.id): None}  # "Not now"
+        db.commit()
+        less = quote - float(look_price(db, 1))  # what Make a look holds
+        assert float(vs.to_finish(db, video)) == pytest.approx(less, abs=0.001)
+        # Flow-QA on #987: while the newest shots still have him, "Not now" can't drop his
+        # look (Make the storyboard would refuse without it); once no shot has him, it does.
+        plan = copy.deepcopy(BREAKDOWN)
+        for sc in plan["scenes"]:
+            for sh in sc["shots"]:
+                sh["character_ids"] = [f"slot:{nate.id}"]
+        row = BreakdownVersion(project_id=made, script_version=1, source="claude", data=plan)
+        db.add(row)
+        db.commit()
+        declined = float(vs.to_finish(db, video))
+        video.slot_looks = {}  # not declined: the same, his look counted either way
+        db.commit()
+        assert float(vs.to_finish(db, video)) == pytest.approx(declined, abs=0.001)
+        video.slot_looks = {str(nate.id): None}
+        for sc in plan["scenes"]:
+            for sh in sc["shots"]:
+                sh["character_ids"] = []
+        row.data = copy.deepcopy(plan)
+        db.commit()
+        dropped = declined - float(look_price(db, 1))
+        assert float(vs.to_finish(db, video)) == pytest.approx(dropped, abs=0.001)

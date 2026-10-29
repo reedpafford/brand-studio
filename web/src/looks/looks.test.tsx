@@ -1,11 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
 
 const owner = { id: 1, email: "o@b.co", name: "Olu", role: "owner", workspace_id: 1 };
 const editor = { ...owner, id: 2, role: "editor" };
@@ -20,13 +18,7 @@ const routes = (o: Record<string, [number, unknown]> = {}) => ({
 });
 
 function open() {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/looks"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp("/looks");
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -38,9 +30,18 @@ test("an Off look offers Make a sample of the brand's hero at its price; House i
   const card = await screen.findByLabelText("Disney Pixar");
   expect(within(card).getByText("Off for editors")).toBeInTheDocument();
   expect(await within(card).findByText(/One still and one 5 s clip of Bo/)).toBeInTheDocument();
-  await userEvent.click(within(card).getByRole("button", { name: /Make a sample · 6 credits/ }));
+  await userEvent.click(within(card).getByRole("button", { name: /Make a sample · up to 6 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /looks/pixar/sample")?.body).toEqual({ brand_id: 1, character_id: 5 }));
   expect(within(screen.getByLabelText("House")).getByText("The house look is always on.")).toBeInTheDocument();
+});
+
+test("on the test site, the sample says before the press whether it's real or a stand-in", async () => {
+  setViewport(390);
+  const note = "Test site: the budget for real samples is used up, so this sample will be a stand-in.";
+  fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ test_site: note })] }));
+  open();
+  const card = await screen.findByLabelText("Disney Pixar");
+  expect(await within(card).findByText(note)).toBeInTheDocument();
 });
 
 test("with no hero, Who's in the sample? offers the brand's characters or the look's own sample character", async () => {
@@ -75,7 +76,7 @@ test("a failed sample says why with Try again; an On look offers Switch off", as
   open();
   const card = await screen.findByLabelText("Disney Pixar");
   expect(await within(card).findByText("The still was refused. Nothing was charged.")).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: /Try again · 6 credits/ })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Try again · up to 6 credits/ })).toBeInTheDocument();
   expect(within(screen.getByLabelText("Zack D")).getByRole("button", { name: "Switch off" })).toBeInTheDocument();
 });
 

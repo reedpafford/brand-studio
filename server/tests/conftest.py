@@ -158,3 +158,30 @@ def outsider(app, db, owner):
         r = c.post("/auth/login", json={"email": "other@example.com", "password": PASSWORD})
         assert r.status_code == 200, r.text
         yield c
+
+
+# Shared helpers (each was copied between test files)
+
+
+def run_writer(app, db) -> None:
+    """Run the waiting Claude jobs once, on the free stand-in writer."""
+    from app.providers.fake_local import FakeWriter
+    from app.worker import run_once
+
+    run_once(db, {"claude": FakeWriter()}, app.state.storage, only={"claude"})
+
+
+def first_brand(client) -> int:
+    """The workspace's first brand (fomo, from setup)."""
+    return client.get("/brands").json()[0]["id"]
+
+
+def file_into(client, kind, item_id, folder_id):
+    """File a script, video or quick clip into a project (OR1)."""
+    return client.post("/folders/file", json={"kind": kind, "id": item_id, "folder_id": folder_id})
+
+
+def bulk_scripts(client, rows: list[dict]):
+    """Create several scripts at once, all in the first brand."""
+    brand = first_brand(client)
+    return client.post("/scripts/bulk", json={"scripts": [{"brand_id": brand, **r} for r in rows]})

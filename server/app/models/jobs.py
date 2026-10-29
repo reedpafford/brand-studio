@@ -20,6 +20,10 @@ class JobStatus(StrEnum):
     needs_owner_approval = "needs_owner_approval"  # would go over the project budget
 
 
+# Not finished yet: a press waits for these (one at a time), and a stop stops them
+WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
+
+
 class Job(Filed, Entity, Base):
     __tablename__ = "jobs"
     folder_id: Mapped[int | None] = mapped_column(ForeignKey("folders.id"), index=True)  # OR1

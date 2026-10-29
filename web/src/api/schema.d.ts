@@ -2769,6 +2769,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/breakdown/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Make Price
+         * @description What Make the shots charges (breakdown.make_price).
+         */
+        get: operations["make_price_projects__project_id__breakdown_price_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/breakdown/keep": {
         parameters: {
             query?: never;
@@ -4760,6 +4780,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/languages/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Switch Language
+         * @description Approve: switch on for editors (only with a read, unrejected sample), or off (scripts
+         *     already in it keep it); Undo is the opposite press.
+         */
+        patch: operations["switch_language_languages__language__patch"];
+        trace?: never;
+    };
+    "/languages/{language}/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sample */
+        get: operations["sample_languages__language__sample_get"];
+        put?: never;
+        /**
+         * Make Sample
+         * @description Test <language> (paid: one script call); again replaces the sample.
+         */
+        post: operations["make_sample_languages__language__sample_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Reject Sample
+         * @description Reject the sample (the language stays off), or Undo.
+         */
+        patch: operations["reject_sample_languages__language__sample_patch"];
+        trace?: never;
+    };
     "/brands/{brand_id}/media": {
         parameters: {
             query?: never;
@@ -5914,6 +5980,11 @@ export interface components {
              * @default 0
              */
             still_credits: number;
+            /**
+             * Still Exact Credits
+             * @default 0
+             */
+            still_exact_credits: number;
             /** Redo Credits */
             redo_credits?: number | null;
             /** Redo Blocked */
@@ -6475,6 +6546,41 @@ export interface components {
             /** On */
             on: boolean;
         };
+        /** LanguageRejectIn */
+        LanguageRejectIn: {
+            /** Rejected */
+            rejected: boolean;
+        };
+        /** LanguageSampleIn */
+        LanguageSampleIn: {
+            /** Brand Id */
+            brand_id: number;
+        };
+        /**
+         * LanguageSampleOut
+         * @description Test <language> · credits; the sample to read, then Approve or Reject.
+         */
+        LanguageSampleOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "making" | "ready" | "rejected" | "failed";
+            /** Text */
+            text: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Credits */
+            credits: number;
+            language: components["schemas"]["LanguageOut"];
+            /** Test Site */
+            test_site?: string | null;
+        };
+        /** LanguageSwitchIn */
+        LanguageSwitchIn: {
+            /** On */
+            on: boolean;
+        };
         /** LimitsIn */
         LimitsIn: {
             /** Weekly Quick Clip Credits */
@@ -6617,6 +6723,11 @@ export interface components {
             /** Drawing */
             drawing: boolean;
         };
+        /** MakePriceOut */
+        MakePriceOut: {
+            /** Credits */
+            credits: number;
+        };
         /** Maker */
         Maker: {
             /** Id */
@@ -6675,6 +6786,12 @@ export interface components {
              * @default false
              */
             from_deleted_video: boolean;
+            deleted_video_by?: components["schemas"]["Maker"] | null;
+            /**
+             * Deleted Video Released
+             * @default false
+             */
+            deleted_video_released: boolean;
         };
         /** MediaPage */
         MediaPage: {
@@ -7441,6 +7558,11 @@ export interface components {
             /** Script Draft Id */
             script_draft_id?: number | null;
             /**
+             * Released
+             * @default false
+             */
+            released: boolean;
+            /**
              * Own Script
              * @default false
              */
@@ -7757,6 +7879,8 @@ export interface components {
             /** Clip Id */
             clip_id: number | null;
             look: components["schemas"]["LookOut"];
+            /** Test Site */
+            test_site?: string | null;
         };
         /** SaveIn */
         SaveIn: {
@@ -9091,6 +9215,11 @@ export interface components {
             flavours: {
                 [key: string]: string;
             };
+            /**
+             * Flavours Gone
+             * @default []
+             */
+            flavours_gone: string[];
         };
         /** VideoMerged */
         VideoMerged: {
@@ -9461,6 +9590,11 @@ export interface components {
             flavours: {
                 [key: string]: string;
             };
+            /**
+             * Flavours Gone
+             * @default []
+             */
+            flavours_gone: string[];
             /** Text */
             text: string;
             /** Words */
@@ -15286,6 +15420,37 @@ export interface operations {
             };
         };
     };
+    make_price_projects__project_id__breakdown_price_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MakePriceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     keep_advice_projects__project_id__breakdown_keep_post: {
         parameters: {
             query?: never;
@@ -19160,6 +19325,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LanguageOut"][];
+                };
+            };
+        };
+    };
+    switch_language_languages__language__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                language: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LanguageSwitchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sample_languages__language__sample_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                language: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageSampleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_sample_languages__language__sample_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                language: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LanguageSampleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageSampleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_sample_languages__language__sample_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                language: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LanguageRejectIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageSampleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

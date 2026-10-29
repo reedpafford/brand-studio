@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
-import { useJobs } from "../clip/History";
+import { GOING, useJobs } from "../clip/History";
 import type { EnhanceState } from "../projects/Enhance";
 import { useToast } from "../toast";
 
-const GOING = ["queued", "running", "needs_owner_approval"];
 const SLOT = 0;
 
 /** Suggest directions for a library script's original, in the same shape as a video's Enhance so the same lines and buttons work. */

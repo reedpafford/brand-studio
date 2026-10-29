@@ -315,7 +315,7 @@ export function AssetCard({
                     variant="secondary"
                     busy={makeLook.isPending}
                     price={makeUpTo ?? price}
-                    upTo={makeUpTo !== undefined}
+                    charge={makeUpTo !== undefined ? "estimate" : "fixed"}
                     usually={makeUsual}
                     reason={decline}
                     disabled={!!decline}
@@ -388,20 +388,20 @@ export function AssetCard({
                 </Button>
               )}
               <TextArea ref={changeBox} label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={change} onChange={(e) => setChange(e.target.value)} />
-              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={item.isPending && using ? null : changeUpTo ?? price} upTo={changeUpTo !== undefined} usually={item.data?.sheet_usual_credits || price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
+              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={item.isPending && using ? null : changeUpTo ?? price} charge={changeUpTo !== undefined ? "estimate" : "fixed"} usually={item.data?.sheet_usual_credits || price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
                 Change it
               </Button>
             </div>
           )}
           {lookNeeded && id !== null && !deleted && (
-            <Button variant="secondary" busy={copy.isPending} price={asset.look_credits ?? price} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(asset.look_credits ?? price)} reason={stopFor(asset.look_credits ?? price)} onClick={() => copy.mutate()}>
+            <Button variant="secondary" busy={copy.isPending} price={asset.look_credits ?? price} charge={asset.look_credits != null ? "estimate" : "fixed"} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(asset.look_credits ?? price)} reason={stopFor(asset.look_credits ?? price)} onClick={() => copy.mutate()}>
               Make {/^[aeiou]/i.test(lookNeeded) ? "an" : "a"} {lookNeeded} look for this video
             </Button>
           )}
           {copyFailed && (
             <div className="space-y-2">
               <p role="alert" className={errorClass}>The look didn't finish. Nothing was charged.</p>
-              <Button variant="secondary" busy={drawCopy.isPending} price={copyCost} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(copyCost)} reason={stopFor(copyCost)} onClick={() => drawCopy.mutate()}>
+              <Button variant="secondary" busy={drawCopy.isPending} price={copyCost} charge={asset.look_credits != null ? "estimate" : "fixed"} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(copyCost)} reason={stopFor(copyCost)} onClick={() => drawCopy.mutate()}>
                 Try again
               </Button>
             </div>
@@ -411,7 +411,7 @@ export function AssetCard({
               <Button variant="secondary" busy={approveCopy.isPending} onClick={() => approveCopy.mutate()}>
                 Approve this look
               </Button>
-              <Button variant="ghost" busy={drawCopy.isPending} price={copyCost} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(copyCost)} reason={stopFor(copyCost)} onClick={() => drawCopy.mutate()}>
+              <Button variant="ghost" busy={drawCopy.isPending} price={copyCost} charge={asset.look_credits != null ? "estimate" : "fixed"} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(copyCost)} reason={stopFor(copyCost)} onClick={() => drawCopy.mutate()}>
                 Redo
               </Button>
             </div>

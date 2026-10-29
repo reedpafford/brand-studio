@@ -77,7 +77,7 @@ function WriteWithClaude({ script: s, text, hasUnsaved, onWritten }: { script: S
       )}
       {last?.status === "failed" && <p role="alert" className={errorClass}>The last try didn't finish. Credits were returned.</p>}
       {write.isError && <p role="alert" className={errorClass}>{write.error.message}</p>}
-      <Button variant="secondary" icon={Sparkles} price={credits} disabled={credits === undefined || stop !== null || patch.isPending} reason={stop} onClick={() => (text.trim() || hasUnsaved ? setAsking(true) : press())}>
+      <Button variant="secondary" icon={Sparkles} charge="estimate" price={credits} disabled={credits === undefined || stop !== null || patch.isPending} reason={stop} onClick={() => (text.trim() || hasUnsaved ? setAsking(true) : press())}>
         {last?.status === "failed" ? "Try again" : "Have Claude write it for me"}
       </Button>
       {credits !== undefined && <p className="text-sm text-muted">Writes it from the About fields below. Includes finding the roles.</p>}

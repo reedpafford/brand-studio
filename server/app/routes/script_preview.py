@@ -17,7 +17,7 @@ from app.auth import current_user
 from app.credits import estimate
 from app.db import get_db
 from app.models.accounts import User
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
@@ -25,7 +25,6 @@ from app.routes.references import for_script as script_reference
 from app.routes.script_library import Slot
 
 router = APIRouter(prefix="/scripts/{script_id}/drafts/{slot}/breakdown", tags=["script library"])
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 class PreviewOut(BaseModel):
