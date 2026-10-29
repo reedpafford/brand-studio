@@ -1153,7 +1153,7 @@ test("a run that stopped says where and why, with that step's own press", async 
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
 });
 
-test("an update over the budget is refused with the server's reason under the press", async () => {
+test("an update the server refuses says why, and the press can be tried again without a reload", async () => {
   setViewport(1440);
   fakeServer({
     ...toClips,
@@ -1165,8 +1165,8 @@ test("an update over the budget is refused with the server's reason under the pr
   open("?step=clips");
   const bar = await screen.findByRole("region", { name: "Cost" });
   await userEvent.click(await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" }));
-  const update = await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" });
-  await vi.waitFor(() => expect(update).toHaveAccessibleDescription("That's more than this video's budget."));
+  expect(await screen.findByRole("alert")).toHaveTextContent("That's more than this video's budget.");
+  expect(within(bar).getByRole("button", { name: "Update everything after this · 16 credits" })).toBeEnabled();
 });
 
 const staleClips = [clip({ id: 3, clip_id: "c1", stale: true, takes: [{ id: 5 }], picked_take_id: 5 }), clip({ id: 4, clip_id: "c2", stale: true })];
