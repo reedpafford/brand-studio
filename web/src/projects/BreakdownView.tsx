@@ -221,7 +221,7 @@ export function BreakdownView(props: {
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
-          {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s{preview ? "" : ` of ${props.plannedSeconds} s planned`}
+          {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s{preview || !props.plannedSeconds ? "" : ` of ${props.plannedSeconds} s planned`}
           <span className="sr-only"> · {row.source === "edit" ? "edited" : "made by Claude"}</span>
         </p>
         {!row.stale && makeButton("Redo", { ask: row.source === "edit" || dirty ? "Replace this breakdown? Your edits are kept in History." : undefined })}
