@@ -35,8 +35,8 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 2 | n04 | #851 | n02 | On `next` |
 | 3 | n06 | #862 | n04 | On `next` |
 | 4 | n07 | #873 | n06 | On `next` (merged before n05) |
-| 5 | n05 | #858 | n07 | Open: being re-pointed to n07 |
-| 6 | n08 | Builder-Server-7, brand setup | n05 (once #858 is in) | Not open; tracks next's head for CI until its turn |
+| 5 | n05 | #858 | n07 | On `next` (ade1a9f1) |
+| 6 | n08 | Builder-Server-7, brand setup | n05 | Its turn now |
 | — | n03 | Next-Server, flavours | the head when it's built | Not started |
 
 ## 1. Song ads

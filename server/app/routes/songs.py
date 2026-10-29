@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy.orm import Session
 
-from app import music, song_directions, song_takes
+from app import music, narration, song_directions, song_takes
 from app import script_library as lib
 from app.auth import current_user
 from app.db import get_db
@@ -47,6 +47,9 @@ class SongTakeOut(BaseModel):
     over_cap: bool  # that video is over the per-video cap: offer Use the first …
     fits_until: float | None  # where "Use the first 0:55" would end it (a section end)
     trim_to: float | None  # in use: only the take's first this-many seconds
+    kind: Literal["song", "narration"] = "song"  # a narration: one voice reads the words (N1)
+    voice: str = ""  # a narration's voice ("Sarah")
+    untrimmed_seconds: float | None = None  # a narration whose pauses were trimmed: "2:26 → 2:19"
 
 
 class SongsOut(BaseModel):
@@ -63,10 +66,20 @@ class SongPreferredOut(BaseModel):
     was_preferred_id: int | None  # Undo: make that one Preferred again
 
 
-def songs_on(request: Request) -> bool:
-    """The stand-ins, or Suno through KIE once Reed switches it on (app/providers/kie.py)."""
+def songs_on(request: Request, db: Session | None = None, draft: ScriptDraft | None = None):
+    """The stand-ins, or Suno through KIE once Reed switches it on (app/providers/kie.py). A
+    narration's voice is on Replicate, so it's on wherever paid generation is."""
     settings = request.app.state.settings
+    if draft is not None and song_takes.narrated(db, draft):
+        return bool(settings.fake_providers or settings.generation_enabled)
     return bool(settings.fake_providers or settings.kie_suno)
+
+
+def _real(request: Request, db: Session, draft: ScriptDraft) -> float:
+    """A real song through KIE's price (song_takes.real_songs); a narration is never one."""
+    if song_takes.narrated(db, draft):
+        return 0.0
+    return song_takes.real_songs(db, request.app.state.settings)
 
 
 def _refused_for(reason: str | None) -> str | None:
@@ -99,6 +112,9 @@ def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
         over_cap=over,
         fits_until=song_takes.fits_until(db, take) if over else None,
         trim_to=take.trim_to,
+        kind=take.kind,
+        voice=take.voice,
+        untrimmed_seconds=(take.timing or {}).get("untrimmed_seconds") if take.trimmed else None,
     )
 
 
@@ -106,7 +122,7 @@ def _song(db: Session, user: User, script_id: int, slot: int, edit: bool) -> Scr
     script = lib.get_script(db, user, script_id)
     if edit:
         lib.editable(user, script)
-    if script.kind != "song":
+    if script.kind not in narration.TIMED:
         raise HTTPException(409, NOT_A_SONG)
     return lib.get_draft(db, script, slot)
 
@@ -114,8 +130,8 @@ def _song(db: Session, user: User, script_id: int, slot: int, edit: bool) -> Scr
 def _songs(request: Request, db: Session, user: User, draft: ScriptDraft) -> SongsOut:
     video, keep = song_takes.lyrics_estimate(db, draft)
     return SongsOut(
-        songs_on=songs_on(request),
-        estimate_credits=float(song_takes.price(db, user)),
+        songs_on=songs_on(request, db, draft),
+        estimate_credits=float(song_takes.price(db, user.workspace_id, draft)),
         video_estimate_credits=float(video),
         keep_lines=keep,
         takes=[_take_out(db, t, draft) for t in song_takes.takes(db, draft)],
@@ -144,11 +160,12 @@ def make_songs(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Make 2 takes (one request) of the version's lyrics in its style line."""
-    if not songs_on(request):
-        raise HTTPException(503, SONGS_OFF)
+    """Make 2 takes (one request) of the version's lyrics in its style line; on a Narrated
+    script, one narration of its words (flows N1)."""
     draft = _song(db, user, script_id, slot, edit=True)
-    song_takes.make(db, user, draft, kie=song_takes.real_songs(db, request.app.state.settings))
+    if not songs_on(request, db, draft):
+        raise HTTPException(503, SONGS_OFF)
+    song_takes.make(db, user, draft, kie=_real(request, db, draft))
     return _songs(request, db, user, draft)
 
 
@@ -174,11 +191,11 @@ def try_again(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    if not songs_on(request):
-        raise HTTPException(503, SONGS_OFF)
     take, draft = _get_take(db, user, take_id)
+    if not songs_on(request, db, draft):
+        raise HTTPException(503, SONGS_OFF)
     paid = song_takes.state(db, take)[0] == "failed"  # a timing is read again free
-    kie = paid and song_takes.real_songs(db, request.app.state.settings)
+    kie = paid and _real(request, db, draft)
     song_takes.try_again(db, user, take, kie=kie)
     return _take_out(db, take, draft)
 
@@ -245,7 +262,7 @@ class VideoSongOut(BaseModel):
 def _song_video(db: Session, user: User, project_id: int):
     project = get_project(db, user, project_id)
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    if not draft or db.get(Script, draft.script_id).kind != "song":
+    if not draft or db.get(Script, draft.script_id).kind not in narration.TIMED:
         raise HTTPException(409, NOT_A_SONG)
     return project, draft
 
@@ -278,10 +295,10 @@ def make_video_songs(
     db: Session = Depends(get_db),
 ):
     """More takes for this video only, charged to its budget (or the editor's week)."""
-    if not songs_on(request):
-        raise HTTPException(503, SONGS_OFF)
     project, draft = _song_video(db, user, project_id)
-    song_takes.make(db, user, draft, project, song_takes.real_songs(db, request.app.state.settings))
+    if not songs_on(request, db, draft):
+        raise HTTPException(503, SONGS_OFF)
+    song_takes.make(db, user, draft, project, _real(request, db, draft))
     return _video_songs(request, db, user, project, draft)
 
 
