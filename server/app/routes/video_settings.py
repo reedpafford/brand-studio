@@ -65,6 +65,7 @@ class PreviewOut(BaseModel):
     was_credits: float  # "(was M)"
     stills_out_of_date: int  # made now that this switch outdates
     clips_out_of_date: int
+    roles_needing_look: list[str] = []  # roles this switch leaves with no look in it (ST1)
     sung_to_broll: int  # a no-lip-sync model on a song video
     over_budget: bool
     over_cap: bool

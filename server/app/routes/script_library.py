@@ -582,6 +582,40 @@ def update_script(
     return _out(db, script)
 
 
+class LookChangeOut(BaseModel):
+    """ST1's confirm: "Change to Claymation? 3 roles need a new look. To finish: about N
+    credits (was M)." A script's look never moves a video's (VS1)."""
+
+    roles: list[str]  # the roles that would need a new look in it
+    to_finish_credits: int  # making those looks
+    was_credits: int  # the same on its look now
+    over_budget: bool  # the editor's week on their own script (the owner has no budget here)
+    reason: str  # why Change is held back, plainly ("" when it isn't)
+
+
+@router.get("/{script_id}/look-change", response_model=LookChangeOut)
+def look_change(
+    script_id: int, look: str, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """What changing this script's look would take, before the PATCH (free, read only)."""
+    from app.credits import credits_left, price
+    from app.sheets import look_price, roles_needing_look
+
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    new = looks.pick(db, user, look)
+    each = look_price(db, user.workspace_id)
+    roles = roles_needing_look(db, script, new)
+    now, was = len(roles) * each, len(roles_needing_look(db, script)) * each
+    left = None if user.is_owner else credits_left(db, user)
+    over = left is not None and now > left
+    return LookChangeOut(roles=roles, to_finish_credits=price(now) if now else 0,
+                         was_credits=price(was) if was else 0, over_budget=over,
+                         reason=LOOK_OVER if over else "")  # fmt: skip
+
+
+LOOK_OVER = "Making those looks would go over this week's credits. It resets on Monday."
+
+
 def _removable(db: Session, user: User, script_id: int, archived: bool = False) -> Script:
     script = lib.get_script(db, user, script_id, archived)
     if not (user.is_owner or (script.created_by_id == user.id and not script.published)):

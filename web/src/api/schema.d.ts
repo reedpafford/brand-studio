@@ -1679,6 +1679,26 @@ export interface paths {
         patch: operations["update_script_scripts__script_id__patch"];
         trace?: never;
     };
+    "/scripts/{script_id}/look-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Look Change
+         * @description What changing this script's look would take, before the PATCH (free, read only).
+         */
+        get: operations["look_change_scripts__script_id__look_change_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/restore": {
         parameters: {
             query?: never;
@@ -5923,6 +5943,23 @@ export interface components {
             /** Password */
             password: string;
         };
+        /**
+         * LookChangeOut
+         * @description ST1's confirm: "Change to Claymation? 3 roles need a new look. To finish: about N
+         *     credits (was M)." A script's look never moves a video's (VS1).
+         */
+        LookChangeOut: {
+            /** Roles */
+            roles: string[];
+            /** To Finish Credits */
+            to_finish_credits: number;
+            /** Was Credits */
+            was_credits: number;
+            /** Over Budget */
+            over_budget: boolean;
+            /** Reason */
+            reason: string;
+        };
         /** LookFitOut */
         LookFitOut: {
             /** Seen */
@@ -8606,6 +8643,11 @@ export interface components {
             stills_out_of_date: number;
             /** Clips Out Of Date */
             clips_out_of_date: number;
+            /**
+             * Roles Needing Look
+             * @default []
+             */
+            roles_needing_look: string[];
             /** Sung To Broll */
             sung_to_broll: number;
             /** Over Budget */
@@ -11975,6 +12017,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    look_change_scripts__script_id__look_change_get: {
+        parameters: {
+            query: {
+                look: string;
+            };
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookChangeOut"];
                 };
             };
             /** @description Validation Error */
