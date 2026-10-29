@@ -251,7 +251,7 @@ def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
         left = credits_left(db, user)
         if left is None or total <= left:
             return ""
-        return "would go over this week's free credits. It resets on Monday."
+        return "would go over this week's credits. It resets on Monday."
     if credits_used(db, project) + total <= project.budget_credits:
         return ""
     return "would go over this video's budget."
@@ -283,8 +283,7 @@ def over_allowance(db: Session, user: User, project: Project | None, credits: De
     if used >= allowance:  # the screens' words (useScript.ts weekStop)
         return f"You've used this week's {n} credit{plural}. It resets on Monday."
     return (
-        f"That's more than this week's {n} free credit{plural} ({used:.0f} used). "
-        "It resets on Monday."
+        f"That's more than this week's {n} credit{plural} ({used:.0f} used). It resets on Monday."
     )
 
 

@@ -287,7 +287,7 @@ test("on an editor's own script past the weekly allowance the storyboard is decl
   open("?step=storyboard");
   const button = await screen.findByRole("button", { name: "Make storyboard · 15 credits" });
   expect(button).toBeDisabled();
-  expect(await screen.findByText(/more than this week's 145 free credits/)).toBeInTheDocument();
+  expect(await screen.findByText(/more than this week's 145 credits/)).toBeInTheDocument();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
 });
 

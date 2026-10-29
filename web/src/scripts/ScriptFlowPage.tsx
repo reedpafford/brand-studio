@@ -118,7 +118,7 @@ export function ScriptFlowPage() {
             {published ? (
               <span className="min-w-0 break-words">{s.title}</span>
             ) : (
-              <button type="button" aria-label={`Rename ${s.title}`} onClick={() => setRenaming(s.title)} className="min-w-0 break-words text-left hover:underline">
+              <button type="button" aria-label={`Rename ${s.title}`} onClick={() => setRenaming(s.title)} className="min-h-control min-w-0 break-words text-left hover:underline sm:min-h-control-dense">
                 {s.title}
               </button>
             )}
