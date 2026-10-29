@@ -31,6 +31,7 @@ SCHEMAS = {
     "narrated_breakdown": schemas.SongBreakdown,  # flows V6n: the narration is the clock
     "narrated_clip_prompts": schemas.ClipPrompts,
     "item_check": schemas.ItemCheck,  # flows P4: the advisory check on a still or a take
+    "narration_music": schemas.NarrationMusic,  # flows N1: the bed under the narrator
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
@@ -41,8 +42,9 @@ EXTENDS = {
 }
 NO_RULES = {
     "look_fit",
+    "narration_music",
     "item_check",
-}  # a check, not a writer: the writer's rules would only add tokens
+}  # not script writers: the rules would only add tokens
 
 
 # A style's extra guidance, by the steps it's added to (styles/*.md); its look sections fill
@@ -440,6 +442,21 @@ def song_request(lyrics: str, style_line: str) -> dict:
         "style": style_line.strip().rstrip(".") + SUNO_PACE,
         "exclude_styles": "instrumental intro, instrumental break, long outro, spoken word",
     }
+
+
+def narration_music_input(script: str, seconds: float, note: str = "") -> str:
+    """The user message for the narration_music step."""
+    out = f"<script>\n{script.strip()}\n</script>\n<seconds>{round(seconds)}</seconds>"
+    return out + (f"\n<note>{note.strip()}</note>" if note.strip() else "")
+
+
+def music_prompt(result: schemas.NarrationMusic) -> str:
+    """What the music model is sent: the Director's prompt, said to be an instrumental with no
+    voice in it (flows N1). The length goes as the model's own duration setting."""
+    return (
+        result.prompt.strip().rstrip(".")
+        + ". Instrumental only: no vocals, no choir, no spoken word."
+    )
 
 
 def spoken_words(script: str) -> int:
