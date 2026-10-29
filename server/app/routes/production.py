@@ -79,6 +79,7 @@ class ProductionRow(BaseModel):
 class Summary(BaseModel):
     in_production: int
     needs_attention: int
+    changes_waiting: int = 0  # finished videos whose clips changed since (LW2)
 
 
 def _owner(user: User = Depends(current_user)) -> User:
@@ -267,5 +268,11 @@ def in_production(
 
 @router.get("/summary", response_model=Summary)
 def summary(user: User = Depends(_owner), db: Session = Depends(get_db)):
+    from app.routes.project_clips import final_out_of_date
+
     found = rows(db, user)
-    return Summary(in_production=len(found), needs_attention=sum(1 for r in found if r.flag))
+    done = db.scalars(select(Project).where(Project.workspace_id == user.workspace_id,
+                                            Project.finished_at.is_not(None),
+                                            Project.archived_at.is_(None)))  # fmt: skip
+    return Summary(in_production=len(found), needs_attention=sum(1 for r in found if r.flag),
+                   changes_waiting=sum(final_out_of_date(db, p) for p in done))  # fmt: skip

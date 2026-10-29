@@ -5177,6 +5177,11 @@ export interface components {
             poster_file_id?: number | null;
             /** Step */
             step?: ("breakdown" | "assets" | "storyboard" | "clips" | "downloads" | "done") | null;
+            /**
+             * Final Out Of Date
+             * @default false
+             */
+            final_out_of_date: boolean;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -5802,6 +5807,11 @@ export interface components {
             in_production: number;
             /** Needs Attention */
             needs_attention: number;
+            /**
+             * Changes Waiting
+             * @default 0
+             */
+            changes_waiting: number;
         };
         /** TakeIn */
         TakeIn: {

@@ -85,3 +85,25 @@ def test_files_are_named_after_the_script_and_its_version():
 
     assert file_base("Bo tries salmon · B") == "bo-tries-salmon-b"
     assert file_base("¡¿") == "clips"
+
+
+def test_a_finished_video_with_changed_clips_says_so(app, db, owner, editor, setup, clip):  # noqa: F811
+    """LW2: Videos, Usage and In production said "Video done" while the finished video was
+    out of date. Lists now say so (final_out_of_date), worked out each time, never stored."""
+    base = f"/projects/{setup['project']}"
+    editor.post(f"{base}/clips/{clip['id']}/generate")
+    _work(app, db, FakeSeedance([_mp4("red")]))
+    take = editor.get(f"{base}/clips").json()[0]["takes"][0]
+    editor.post(f"{base}/clips/{clip['id']}/takes/{take['id']}/pick")
+    editor.post(f"{base}/clips/{clip['id']}/approve")
+    editor.get(f"{base}/clips.zip")  # the whole video sent: done
+
+    def listed():
+        (row,) = editor.get("/projects", params={"status": "done"}).json()
+        return row["final_out_of_date"]
+
+    assert listed() is False and editor.get(base).json()["final_out_of_date"] is False
+    assert owner.get("/production/summary").json()["changes_waiting"] == 0
+    editor.delete(f"{base}/clips/{clip['id']}/approve")  # a clip changed since
+    assert listed() is True and editor.get(base).json()["final_out_of_date"] is True
+    assert owner.get("/production/summary").json()["changes_waiting"] == 1
