@@ -59,3 +59,11 @@ def test_a_frame_whose_clip_changed_redoes_the_storyboard(app, db, editor, setup
     assert shown["redo_credits"] is None and shown["redo_blocked"] == CHANGED
     refused = editor.post(f"{url}/frames/{frame.id}/redo")
     assert refused.status_code == 409 and "Redo storyboard" in refused.json()["detail"]
+
+
+def test_a_moved_script_says_to_make_the_breakdown_again(app, db, editor, setup):  # noqa: F811
+    url, frame = _frame(app, db, editor, setup)
+    script = f"/projects/{setup['project']}/script"
+    editor.put(script, json={"text": editor.get(script).json()["text"] + "\nMOM: Fine."})
+    refused = editor.post(f"{url}/frames/{frame.id}/redo")
+    assert refused.status_code == 409 and "Make the breakdown again" in refused.json()["detail"]

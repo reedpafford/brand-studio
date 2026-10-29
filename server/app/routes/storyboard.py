@@ -328,8 +328,11 @@ def redo_frame_(
     then drawn, at the price on its button. The earlier still stays: pick it back to undo."""
     project, frame = _frame(db, user, project_id, frame_id)
     newest = _newest_breakdown(db, project)
-    if not _stale(db, project, frame) or _script_moved(db, project):
-        raise HTTPException(409, "This frame isn't waiting for a new breakdown.")
+    if _script_moved(db, project):
+        raise HTTPException(409, "The script changed since this breakdown. Make the breakdown "
+                                 "again first, then redo this frame.")  # fmt: skip
+    if not _stale(db, project, frame):
+        raise HTTPException(409, "This frame is up to date: there's nothing to redo.")
     if wrong := advice.open_cast(newest):
         detail = wrong[0].removeprefix(advice.CAST)
         raise HTTPException(409, f"Put the right cast in each shot first: {detail}.")
