@@ -11,6 +11,7 @@ import { useOwnScriptStop } from "./useOwnScriptStop";
 import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 import { refName, useRoleNames } from "./names";
+import { BreakdownVersions } from "./VersionLists";
 
 const GOING = ["queued", "running", "needs_owner_approval"];
 
@@ -132,5 +133,10 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
       </section>
     );
 
-  return <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} onDirty={props.onDirty} />;
+  return (
+    <div className="space-y-4">
+      <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} onDirty={props.onDirty} />
+      <BreakdownVersions projectId={projectId} />
+    </div>
+  );
 }

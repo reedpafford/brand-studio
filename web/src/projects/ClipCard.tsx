@@ -13,6 +13,7 @@ import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { FIX_NOTE, FixedNote, FixThisPrompt, refused } from "./FixClip";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 import { LookTip } from "./LookFix";
+import { ClipVersions } from "./VersionLists";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -190,6 +191,7 @@ export function ClipCard(props: {
         ) : null;
       })()}
       <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${c.clip_id}`} />
+      <ClipVersions projectId={props.projectId} clipRowId={c.id} label={c.clip_id} versions={(c as { versions?: Parameters<typeof ClipVersions>[0]["versions"] }).versions ?? []} />
       {c.takes.length > 0 && (
         <fieldset className="flex flex-wrap items-center gap-3">
           <legend className="sr-only">Takes for clip {c.clip_id}</legend>
