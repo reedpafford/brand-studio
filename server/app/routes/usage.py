@@ -1,5 +1,6 @@
 """Usage, the brand tracker (Reed only; DECISIONS #237): spend, finished videos and cost per
-finished video per brand, for this week, this month or all time. Editors get 404."""
+finished video per brand, for this week, this month or all time. Editors get 404, except
+/usage/mine: their own videos in credits (OR4)."""
 
 from decimal import Decimal
 from typing import Literal
@@ -10,15 +11,17 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import folders, usage
 from app import script_library as lib
-from app import usage
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.models.brands import Brand
+from app.models.folders import Folder
 from app.models.jobs import ChargeRefund, Job, Usage
 from app.models.projects import Project
 from app.models.script_library import Script
+from app.routes.brands import get_brand
 from app.routes.project_clips import out_of_date
 from app.routes.script_library import ScriptRow
 from app.routes.script_library import _out as library_row
@@ -240,6 +243,7 @@ class UsageVideo(BaseModel):
     finished_at: UtcTime | None
     last_activity_at: UtcTime
     final_out_of_date: bool = False  # done, but its clips changed since: "changes waiting"
+    folder_id: int | None = None  # its project (OR1); null: No project
 
 
 class UsageVideosOut(BaseModel):
@@ -265,6 +269,7 @@ def brand_videos(
     person_id: int | None = None,
     q: str = "",
     sort: Literal["activity", "spend", "finished", "title"] = "activity",
+    folder: str | None = None,  # a project's id, or none: No project (OR4)
     cursor: str | None = None,
     limit: int = Query(25, ge=1, le=100),
     owner: User = Depends(owner_or_404),
@@ -274,7 +279,10 @@ def brand_videos(
     finished in it, others with activity in it; all time lists everything."""
     _brand(db, owner, brand_id)
     when = usage.period(period)
-    projects = list(db.scalars(select(Project).where(Project.brand_id == brand_id)))
+    query = select(Project).where(Project.brand_id == brand_id)
+    if (filed := folders.where(Project.folder_id, folder)) is not None:
+        query = query.where(filed)
+    projects = list(db.scalars(query))
     spend, guessed, credits, last = usage.project_totals(db, [p.id for p in projects])
     states = usage.video_statuses(db, projects)
     old = out_of_date(db, projects)  # LW2, read once for the whole list
@@ -304,6 +312,7 @@ def brand_videos(
                 finished_at=p.finished_at,
                 last_activity_at=active,
                 final_out_of_date=state == "done" and p.id in old,
+                folder_id=p.live_folder_id,
             )
         )
     shown = [
@@ -321,6 +330,126 @@ def brand_videos(
         people=sorted(people.values(), key=lambda w: w.name.lower()),
         items=page,
     )
+
+
+class ProjectCost(BaseModel):
+    folder_id: int | None  # null: No project
+    name: str
+    videos: int  # filed in it now, not put away
+    finished: int  # in the period
+    spend_usd: float
+    spend_estimated: bool
+    credits: float
+    cost_per_finished_usd: float | None  # those finished videos' whole life, each
+
+
+class ProjectCostsOut(BaseModel):
+    items: list[ProjectCost]
+
+
+def _names(db: Session, brand_id: int) -> dict:
+    live = select(Folder).where(Folder.brand_id == brand_id, Folder.deleted_at.is_(None))
+    return {f.id: f.name for f in db.scalars(live)}
+
+
+@router.get("/brands/{brand_id}/projects", response_model=ProjectCostsOut)
+def brand_projects(
+    brand_id: int,
+    period: PeriodName = "week",
+    owner: User = Depends(owner_or_404),
+    db: Session = Depends(get_db),
+):
+    """OR4: what each project cost in the period, by spend, No project last. Spend follows
+    where each video, script and quick clip is filed now (not a history): its videos' jobs,
+    its scripts' own writing calls and its quick clips, each counted once."""
+    _brand(db, owner, brand_id)
+    when, names = usage.period(period), _names(db, brand_id)
+    costs = usage.filed(db, brand_id, when)
+    projects = list(db.scalars(select(Project).where(Project.brand_id == brand_id)))
+    lifetime, _, _, _ = usage.project_totals(db, [p.id for p in projects])
+    rows = []
+    for folder_id in [*names, None]:
+        mine = [p for p in projects if p.live_folder_id == folder_id]
+        start = when.start
+        done = [p for p in mine if p.finished_at and (start is None or p.finished_at >= start)]
+        cost = costs.get(folder_id, {})
+        spent = sum((lifetime.get(p.id, Decimal(0)) for p in done), Decimal(0))
+        rows.append(ProjectCost(
+            folder_id=folder_id, name=names.get(folder_id, "No project"),
+            videos=sum(1 for p in mine if p.archived_at is None), finished=len(done),
+            spend_usd=usage.money(cost.get("spend")),
+            spend_estimated=cost.get("estimated", False),
+            credits=float(cost.get("credits", 0)),
+            cost_per_finished_usd=usage.money(spent / len(done)) if done else None))  # fmt: skip
+    rows.sort(key=lambda r: (r.folder_id is None, -r.spend_usd, r.name.lower()))
+    return ProjectCostsOut(items=rows)
+
+
+class MyVideo(BaseModel):
+    project_id: int
+    title: str
+    status: Literal["in_production", "done", "failed"]
+    credits: float  # its whole life
+    budget_credits: float
+    folder_id: int | None
+    finished_at: UtcTime | None
+    last_activity_at: UtcTime
+
+
+class MyProject(BaseModel):
+    folder_id: int | None  # null: No project
+    name: str
+    videos: int
+    credits: float
+
+
+class MineOut(BaseModel):
+    credits: float  # the videos listed, plus quick clips
+    quick_clip_credits: float  # in the period
+    videos: list[MyVideo]
+    projects: list[MyProject]
+
+
+@router.get("/mine", response_model=MineOut)
+def mine(
+    brand_id: int,
+    period: PeriodName = "week",
+    folder: str | None = None,  # a project's id, or none: No project
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """OR4 for anyone: the caller's own videos in the brand, in credits only (never dollars,
+    never someone else's video), and their quick clips' credits in the period. Videos are
+    picked by the period as on the owner's list: done ones finished in it, others active."""
+    get_brand(db, user, brand_id)
+    when, names = usage.period(period), _names(db, brand_id)
+    query = select(Project).where(Project.brand_id == brand_id, Project.created_by_id == user.id)
+    if (filed := folders.where(Project.folder_id, folder)) is not None:
+        query = query.where(filed)
+    projects = list(db.scalars(query))
+    _, _, credits, last = usage.project_totals(db, [p.id for p in projects])
+    states, videos = usage.video_statuses(db, projects), []
+    for p in projects:
+        active = max(filter(None, [last.get(p.id), p.created_at]))
+        moment = p.finished_at if states[p.id] == "done" else active
+        if when.start is not None and moment < when.start:
+            continue
+        videos.append(MyVideo(
+            project_id=p.id, title=usage.video_title(db, p)[0], status=states[p.id],
+            credits=float(credits.get(p.id, 0)), budget_credits=float(p.budget_credits),
+            folder_id=p.live_folder_id, finished_at=p.finished_at,
+            last_activity_at=active))  # fmt: skip
+    quick = usage.filed(db, brand_id, when, made_by=user.id, quick_only=True)
+    quick_credits = float(sum((c["credits"] for c in quick.values()), Decimal(0)))
+    groups: dict = {}
+    for v in videos:
+        group = groups.setdefault(v.folder_id, [0, 0.0])
+        group[0], group[1] = group[0] + 1, group[1] + v.credits
+    return MineOut(
+        credits=sum(v.credits for v in videos) + quick_credits, quick_clip_credits=quick_credits,
+        videos=sorted(videos, key=lambda v: -v.last_activity_at.timestamp()),
+        projects=[MyProject(folder_id=f, name=names.get(f, "No project"), videos=n, credits=c)
+                  for f, (n, c) in sorted(groups.items(), key=lambda g: g[0] is None)])  # fmt: skip
 
 
 class UsageScript(ScriptRow):

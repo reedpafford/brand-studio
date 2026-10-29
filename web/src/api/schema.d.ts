@@ -914,6 +914,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/brands/{brand_id}/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brand Projects
+         * @description OR4: what each project cost in the period, by spend, No project last. Spend follows
+         *     where each video, script and quick clip is filed now (not a history): its videos' jobs,
+         *     its scripts' own writing calls and its quick clips, each counted once.
+         */
+        get: operations["brand_projects_usage_brands__brand_id__projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mine
+         * @description OR4 for anyone: the caller's own videos in the brand, in credits only (never dollars,
+         *     never someone else's video), and their quick clips' credits in the period. Videos are
+         *     picked by the period as on the owner's list: done ones finished in it, others active.
+         */
+        get: operations["mine_usage_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usage/brands/{brand_id}/scripts": {
         parameters: {
             query?: never;
@@ -6342,6 +6386,17 @@ export interface components {
             /** Cast */
             cast: components["schemas"]["SlotOut"][];
         };
+        /** MineOut */
+        MineOut: {
+            /** Credits */
+            credits: number;
+            /** Quick Clip Credits */
+            quick_clip_credits: number;
+            /** Videos */
+            videos: components["schemas"]["MyVideo"][];
+            /** Projects */
+            projects: components["schemas"]["MyProject"][];
+        };
         /** MissingLooksOut */
         MissingLooksOut: {
             /** Slot Ids */
@@ -6446,6 +6501,42 @@ export interface components {
              * Format: date
              */
             resets_on: string;
+        };
+        /** MyProject */
+        MyProject: {
+            /** Folder Id */
+            folder_id: number | null;
+            /** Name */
+            name: string;
+            /** Videos */
+            videos: number;
+            /** Credits */
+            credits: number;
+        };
+        /** MyVideo */
+        MyVideo: {
+            /** Project Id */
+            project_id: number;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_production" | "done" | "failed";
+            /** Credits */
+            credits: number;
+            /** Budget Credits */
+            budget_credits: number;
+            /** Folder Id */
+            folder_id: number | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Last Activity At
+             * Format: date-time
+             */
+            last_activity_at: string;
         };
         /** Named */
         Named: {
@@ -6738,6 +6829,30 @@ export interface components {
             auto_fix?: components["schemas"]["AutoFixOut"] | null;
             /** Look Fix */
             look_fix?: string | null;
+        };
+        /** ProjectCost */
+        ProjectCost: {
+            /** Folder Id */
+            folder_id: number | null;
+            /** Name */
+            name: string;
+            /** Videos */
+            videos: number;
+            /** Finished */
+            finished: number;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Credits */
+            credits: number;
+            /** Cost Per Finished Usd */
+            cost_per_finished_usd: number | null;
+        };
+        /** ProjectCostsOut */
+        ProjectCostsOut: {
+            /** Items */
+            items: components["schemas"]["ProjectCost"][];
         };
         /** ProjectEstimateOut */
         ProjectEstimateOut: {
@@ -8357,6 +8472,8 @@ export interface components {
              * @default false
              */
             final_out_of_date: boolean;
+            /** Folder Id */
+            folder_id?: number | null;
         };
         /** UsageVideosOut */
         UsageVideosOut: {
@@ -10937,6 +11054,7 @@ export interface operations {
                 person_id?: number | null;
                 q?: string;
                 sort?: "activity" | "spend" | "finished" | "title";
+                folder?: string | null;
                 cursor?: string | null;
                 limit?: number;
             };
@@ -10955,6 +11073,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageVideosOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    brand_projects_usage_brands__brand_id__projects_get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCostsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mine_usage_mine_get: {
+        parameters: {
+            query: {
+                brand_id: number;
+                period?: "week" | "month" | "all";
+                folder?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MineOut"];
                 };
             };
             /** @description Validation Error */
