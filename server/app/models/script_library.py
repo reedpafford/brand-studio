@@ -38,13 +38,17 @@ class Script(Entity, Base):
 
 @event.listens_for(Script, "before_insert")
 def _language(mapper, connection, script: Script) -> None:
-    """A new script is written in its brand's language unless one was given (VS1, BR1)."""
+    """A new script is written in its brand's language unless one was given (VS1, BR1); an
+    editor's starts in English while the brand's is off (app/languages.py)."""
     if script.language is None:
+        from app.languages import starting
+        from app.models.accounts import Role, User
         from app.models.brands import Brand
 
         found = connection.scalar(select(Brand.default_language)
                                   .where(Brand.id == script.brand_id))  # fmt: skip
-        script.language = found or "en"
+        role = connection.scalar(select(User.role).where(User.id == script.created_by_id))
+        script.language = starting(found, role in (None, Role.owner))
 
 
 class ScriptDraft(Entity, Base):

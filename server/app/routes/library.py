@@ -66,6 +66,11 @@ class LookFitOut(BaseModel):
     problem: SaidText  # Redo it's note, prefilled
 
 
+class LookSheetOut(BaseModel):
+    file_id: int | None
+    status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
+
+
 class ItemOut(ItemIn):
     id: int
     kind: Kind
@@ -79,6 +84,7 @@ class ItemOut(ItemIn):
     sheet_usual_credits: int = 0  # "Usually N": the sheet and its check
     change_credits: int = 0  # Change this…: the sheet and its check (never redone by itself)
     advice: list[str] = []  # a product with no main claim: "Scripts won't mention…" (BR1)
+    look_sheets: dict[str, LookSheetOut] = {}  # ST2: the owner's sheets in other looks
 
 
 class VersionOut(BaseModel):
@@ -105,11 +111,13 @@ def _snapshot(item: LibraryItem) -> dict:
         "main_claim": item.main_claim,
         "sheet_file_id": item.sheet_file_id,
         "sheet_approved": item.sheet_approved,
+        "look_sheets": item.look_sheets or {},
     }
 
 
-def sheet_status(item: LibraryItem) -> str:
-    """Worked out, not stored, so a failed sheet job never leaves it stuck at "drawing"."""
+def sheet_status(item: LibraryItem, look: str | None = None) -> str:
+    """Worked out, not stored, so a failed sheet job never leaves it stuck at "drawing".
+    `look`: the owner's sheet in another look (ST2), else the House one."""
     db = object_session(item)
     waiting = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
     jobs = (
@@ -119,14 +127,17 @@ def sheet_status(item: LibraryItem) -> str:
         if db
         else []
     )
-    mine = [j for j in jobs if j.input.get("library_item_id") == item.id]
+    mine = [j for j in jobs if j.input.get("library_item_id") == item.id
+            and j.input.get("sheet_look_id") == look]  # fmt: skip
     if any(j.status == JobStatus.needs_owner_approval for j in mine):
         return "waiting_for_owner"  # over the editor's allowance: held until the owner says yes
     if mine:
         return "drawing"
-    if not item.sheet_file_id:
+    sheet = (item.look_sheets or {}).get(look) or {} if look else {
+        "file_id": item.sheet_file_id, "approved": item.sheet_approved}  # fmt: skip
+    if not sheet.get("file_id"):
         return "none"
-    return "approved" if item.sheet_approved else "needs_approval"
+    return "approved" if sheet.get("approved") else "needs_approval"
 
 
 def _prices(item: LibraryItem) -> dict:
@@ -144,7 +155,9 @@ def _prices(item: LibraryItem) -> dict:
 
 
 def _out(item: LibraryItem) -> ItemOut:
-    data = {k: v for k, v in _snapshot(item).items() if k != "sheet_approved"}
+    data = {k: v for k, v in _snapshot(item).items() if k not in ("sheet_approved", "look_sheets")}
+    looks = {k: LookSheetOut(file_id=v.get("file_id"), status=sheet_status(item, k))
+             for k, v in (item.look_sheets or {}).items()}  # fmt: skip
     return ItemOut(
         id=item.id,
         kind=item.kind,
@@ -154,6 +167,7 @@ def _out(item: LibraryItem) -> ItemOut:
         owner_script_id=item.owner_script_id,
         look_fit=item.look_fit,
         advice=[NO_CLAIM] if item.kind == Kind.prop and not item.main_claim.strip() else [],
+        look_sheets=looks,
         **_prices(item),
         **data,
     )

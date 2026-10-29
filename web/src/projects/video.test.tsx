@@ -1249,9 +1249,20 @@ test("a link to a locked step lands on the step that blocks it, not always on Br
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
 });
 
-test("a link to a locked step lands on Assets while assets are left to approve", async () => {
+test("a storyboard already made stays open while a look in the cast isn't ready, and its paid presses wait for Cast (audit M14)", async () => {
   setViewport(1440);
-  fakeServer({ ...toClips, "GET /projects/9/assets": [200, [asset({})]] });
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }]], "GET /projects/9/assets": [200, [asset({})]] });
+  open("?step=storyboard");
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument(); // not sent to Cast
+  expect(screen.getByText("Waiting on the cast")).toBeInTheDocument();
+  expect(screen.getAllByText("A look in the cast isn't ready. Make or approve it in Cast first.").length).toBeGreaterThan(0); // the banner, and the reason under the bar's press
+  await userEvent.click(screen.getByRole("button", { name: "Open Cast" }));
+  expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
+});
+
+test("a step with nothing made yet still lands on Cast while a look isn't ready", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, []], "GET /projects/9/assets": [200, [asset({})]] });
   open("?step=storyboard");
   expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
 });

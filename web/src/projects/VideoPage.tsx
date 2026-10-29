@@ -21,6 +21,7 @@ import { CostBarProvider, type CostAction } from "./CostBar";
 import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
+import { VideoSettings, useVideoSettings } from "./VideoSettings";
 import { useUpdateAfter } from "./UpdateAfter";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { StoryboardPane } from "./StoryboardPane";
@@ -56,6 +57,7 @@ export function VideoPage() {
   // An editor on their own script is billed to the week, not to a budget.
   const week = p?.own_script && allowance.data ? { used: allowance.data.quick_clip_credits_used, allowed: allowance.data.quick_clip_credits_allowed } : null;
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
+  const settings = useVideoSettings(id); // the row has Shape once the server offers settings
   // The storyboard is out of date and the shots are current: one press brings it and the clip prompts up to date (audit M14 part 2).
   const stopFor = useOwnScriptStop(p?.own_script, p ? { used: p.credits_used, budget: p.budget_credits } : undefined);
   const updating = (step === "storyboard" || step === "clips") && !progress.shots.stale && (progress.frames.stale || progress.clips.stale);
@@ -100,8 +102,9 @@ export function VideoPage() {
   };
   const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
   // Made work whose earlier step changed stays viewable; its paid presses wait, and the banner says where to go (audit M14).
-  const hold = videoHold(step, all);
-  const fixAt = hold ? VIDEO_STEPS.find((s) => s.id === videoBlocker(step, all)) : undefined;
+  const held = videoHold(step, all);
+  const hold = held?.why ?? null;
+  const fixAt = held ? VIDEO_STEPS.find((s) => s.id === held.at) : undefined;
   const next = videoNext(step);
   const reason = !next ? null : dirty && step === "plan" ? "Save your changes first." : step === "cast" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
   // The cost bar's press when the step has none of its own. On a phone, unsaved shot edits take the bar's place.
@@ -134,6 +137,8 @@ export function VideoPage() {
         </div>
       </div>
       {video.dialog}
+      {/* Every per-video choice in one row (flows VS1); an archived video is read only. Plan has its own song strip, with the player. */}
+      {!p.archived_at && <VideoSettings project={p} finished={finished} song={step !== "plan"} />}
       {p.archived_at && (
         <Banner tone="info" title="Archived" action={mayManage(p) ? <Button variant="secondary" onClick={() => void video.restore(target)}>Restore</Button> : undefined}>
           It's out of the lists. Its clips and downloads are kept. Restore it to keep working.
@@ -156,7 +161,7 @@ export function VideoPage() {
         </div>
       </div>
       {hold && !update.stopped && ( // a stopped update says where, with that step's own press
-        <Banner tone="warning" title="Out of date" action={fixAt && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
+        <Banner tone="warning" title={held?.at === "cast" ? "Waiting on the cast" : "Out of date"} action={fixAt && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
           {hold}
         </Banner>
       )}
@@ -166,7 +171,7 @@ export function VideoPage() {
           project={p as typeof p & { plan_status?: "none" | "ready" | "approved" | null }}
           shots={
             <div className="space-y-4">
-              <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
+              <ShapeRow shape={!settings.data} projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
               {p.song && <SongStrip project={p} hasShots={all.shots.made} hasClips={all.clips.total > 0} />}
               <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
             </div>

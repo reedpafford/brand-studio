@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ellipsis, Package, Plus } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Banner, Button, Card, EmptyState, Field, Menu, MenuItem, MediaCard, Skeleton } from "../components";
@@ -23,6 +23,10 @@ export function ProductsTab() {
   return (
     <div className="space-y-4">
       <BrandAction>{addButton}</BrandAction>
+      {/* BR1: a product's line and main claim live on its page in Cast & places (its prop), not on these screens. */}
+      <p className="text-sm text-muted">
+        <Link className="inline-flex min-h-control items-center underline sm:min-h-control-dense" to={`/b/${brandId}/library/props`}>Each product's line and main claim are on its page in Cast & places →</Link>
+      </p>
       {screens.isError && <Banner title="Couldn't load the products." action={<Button variant="secondary" onClick={() => void screens.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {screens.isPending && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
