@@ -2524,7 +2524,9 @@ export interface paths {
         put: operations["save_projects__project_id__breakdown_put"];
         /**
          * Make
-         * @description Queue a breakdown call (a paid Claude call, counted against the project budget).
+         * @description Queue a breakdown call (a paid Claude call, counted against the project budget). The
+         *     shots are made from an approved plan (flows.md 1b): "Approve the plan first" until then;
+         *     a video made before plans reads its plan from its breakdown, so it's never stopped.
          */
         post: operations["make_projects__project_id__breakdown_post"];
         delete?: never;
