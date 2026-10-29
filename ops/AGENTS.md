@@ -38,8 +38,7 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Agent | Session |
 |---|---|
 | Builder-Server-5 (replaced Builder-Server-3 and -4 on 2026-10-27, context hygiene; montage trading screens) | session_01FRDAYJJv6AhprHx2GkXuCr |
-| Builder-Server-6 (follow-ups on its merged PRs only; context high) | session_01FRDAYJUwbJh3yTNjVjfofU |
-| Builder-Server-7 (Next: S3a song-ad study) | session_01FRDAYFH6rssaRstCKXKqHk |
+| Builder-Server-7 (Next: study → song directions wiring, then brand setup BR1) | session_01FRDAYFH6rssaRstCKXKqHk |
 | Builder-Server-8 (Next 1b: creative plan, automatic fixes, advisory check) | session_01FRDAYEp2gLv1FV5wFBnwnd |
 | Builder-Screens-4 (live screens, UX audit fixes) | session_01FRDAYHTQXtVgwKpPjzi8Yt |
 | Next-Layout (Next: layout and wording) | session_01FRDAYFBXFobYo8VFRkdXJF |
