@@ -1,4 +1,7 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 09:05 · Into `next`: #866 Director scene plan; #869 advisory check on stills and takes and the on-screen text fix; #864 real Suno on the test site only, stopped at the test budget; #882 final cut names the song; #879 song-ad web follow-ups; #875 study Stop and 10-minute limit; #885 stand-in test clip; #887 narration_text fix
+- 2026-10-29 08:14 · #878 Clips: a save puts words after the audio line where they will stay (Builder-Server-6) merged
+- 2026-10-29 08:00 · #884 ops: HANDOFF/LOG refresh as of 71784ae merged (by the Producer)
 - 2026-10-29 08:05 · Into `next`: #871 the five video steps; #876 Plan (web) Scenes | Shots switch; #877 cost bar part 2 for Clips; #862 refused or busy takes retry once on their own, wording flags fix themselves, with Undo; #851 song study; #874 NEXT.md on what must move to main together; #880 data.md real migration order
 - 2026-10-29 07:27 · #868 Clips: an editor's words after the closing audio line are kept (Builder-Server-6) merged
 - 2026-10-29 06:57 · #872 ops: HANDOFF/LOG refresh as of 49097e3 merged (by the Producer)
