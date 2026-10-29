@@ -13,12 +13,12 @@ const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_re
 const songs = (takes: object[], o: object = {}) => ({ songs_on: true, estimate_credits: 1, takes, song_take_id: 1, ...o });
 const project = (o: object = {}) => ({ id: 5, brand_id: 1, name: "Bowl song", own_script: false, credits_used: 10, budget_credits: 100, budget_pct: 10, ...o }) as never;
 
-function show(p = project(), hasShots = true) {
+function show(p = project(), hasShots = true, hasClips = true) {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
         <ToastProvider>
-          <SongStrip project={p} hasShots={hasShots} />
+          <SongStrip project={p} hasShots={hasShots} hasClips={hasClips} />
         </ToastProvider>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -35,6 +35,7 @@ test("the strip shows the video's song with Change song; Use this take asks firs
   await userEvent.click(screen.getByRole("button", { name: "Change song" }));
   const panel = await screen.findByRole("dialog", { name: "Change song" });
   expect(within(panel).getByText("In this video")).toBeInTheDocument();
+  expect(within(panel).getByText("0:28 · a video of about 34 credits")).toBeInTheDocument();
   await userEvent.click(within(panel).getByRole("button", { name: "Use this take" }));
   const ask = screen.getByRole("alertdialog", { name: "Use take 2?" });
   expect(ask).toHaveTextContent("Clips already made for take 1 go out of date.");
@@ -100,14 +101,25 @@ test("a refusal inside a video says the lyrics are final and the way on is anoth
   expect(within(panel).getByRole("button", { name: /Try again/ })).toBeInTheDocument();
 });
 
-test("the video's own Preferred take offers no Delete (the server would refuse it)", async () => {
+test("both takes this video made can be deleted, unless the video uses one", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take({ preferred: false }), take({ id: 3, number: 1, preferred: true, in_video: true })])] });
+  fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 3, number: 1, preferred: false, in_video: true }), take({ id: 4, number: 2, preferred: false, in_video: true })])] });
   show();
   await userEvent.click(await screen.findByRole("button", { name: "Change song" }));
   const panel = await screen.findByRole("dialog", { name: "Change song" });
-  expect(within(panel).getByText("Made in this video")).toBeInTheDocument();
-  expect(within(panel).queryByRole("button", { name: "Delete take" })).toBeNull();
+  expect(within(panel).getAllByRole("button", { name: "Delete take" })).toHaveLength(2);
+});
+
+test("with shots but no clips yet, Use this take asks without warning about clips", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: false })])] });
+  show(project(), true, false);
+  await userEvent.click(await screen.findByRole("button", { name: "Change song" }));
+  const panel = await screen.findByRole("dialog", { name: "Change song" });
+  await userEvent.click(within(panel).getByRole("button", { name: "Use this take" }));
+  const ask = screen.getByRole("alertdialog", { name: "Use take 2?" });
+  expect(ask).toHaveTextContent("their times move to take 2 (free).");
+  expect(ask).not.toHaveTextContent("Clips already made");
 });
 
 test("SongSetting, for the Video settings row, names the song and opens Change song", async () => {

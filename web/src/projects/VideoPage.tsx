@@ -145,7 +145,7 @@ export function VideoPage() {
       {step === "breakdown" && (
         <div className="space-y-4">
           <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
-          {p.song && <SongStrip project={p} hasShots={all.shots.made} />}
+          {p.song && <SongStrip project={p} hasShots={all.shots.made} hasClips={all.clips.total > 0} />}
           <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
         </div>
       )}
