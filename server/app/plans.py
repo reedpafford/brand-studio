@@ -76,6 +76,16 @@ def copy_to_video(project: Project, draft) -> None:
         project.plan = {**draft.plan, "source": "owner", "version": 1}
 
 
+def preview_follows(draft) -> bool:
+    """The version's saved preview may start its video: there's no approved owner plan, or the
+    preview was made from it. One made before ("Made for an older plan") is made again from the
+    plan, paid, so the shots never silently skip Reed's plan (Flow-QA)."""
+    plan = draft.plan or {}
+    if not plan.get("approved_at"):
+        return True
+    return (draft.breakdown or {}).get("plan_version") == plan.get("version")
+
+
 def _newest_breakdown(db: Session, project: Project) -> BreakdownVersion | None:
     return db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
                      .order_by(BreakdownVersion.id.desc()).limit(1))  # fmt: skip

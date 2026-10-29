@@ -561,7 +561,7 @@ def save_breakdown(db: Session, job: Job) -> None:
         draft = db.get(ScriptDraft, draft_id)
         script_preview.save(  # it lands the plan (roles, names it doesn't have)
             db, draft, Breakdown.model_validate(job.output), job.created_by_id,
-            job.input.get("script_text"),
+            job.input.get("script_text"), job.input.get("plan_version"),
         )  # fmt: skip
         return
     project = db.get(Project, job.input["project_id"])

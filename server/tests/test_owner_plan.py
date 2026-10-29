@@ -41,3 +41,45 @@ def test_the_owners_plan_is_each_new_videos_start(app, owner, editor, db):
     assert editor.get(f"/projects/{pid}").json()["plan_status"] == "approved"
     shots = db.get(Job, made["breakdown_job_id"])
     assert "<plan>" in shots.input["prompt"]  # its shots are made from the owner's plan
+
+
+def test_a_preview_made_before_the_plan_never_starts_the_video(app, owner, editor, db):
+    """Flow-QA on #934: preview → plan → approve → publish. The old preview is "Made for an
+    older plan", and Make this version makes the shots again from the plan (paid), never the
+    old ones; a preview made from the plan lands free and knows its plan."""
+    from tests.test_breakdown import BREAKDOWN
+    from tests.test_enhance import FakeClaude, _run
+
+    base = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
+    url = f"{base}/drafts/0/plan"
+    owner.put(f"{base}/drafts/0/breakdown", json=BREAKDOWN)  # the preview, before any plan
+    owner.post(url, json={})
+    _write(app, db)
+    owner.post(f"{url}/approve")
+    version = next(v for v in owner.get(base).json()["versions"] if v["slot"] == 0)
+    assert version["preview_older_plan"] is True  # "Make the preview again"
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    made = editor.post(f"{base}/drafts/0/produce").json()
+    shots = db.get(Job, made["breakdown_job_id"])  # paid, from Reed's plan
+    assert "<plan>" in shots.input["prompt"] and shots.input["plan_version"] == 1
+
+    again = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
+    plan = f"{again}/drafts/0/plan"
+    owner.post(plan, json={})
+    _write(app, db)
+    owner.post(f"{plan}/approve")
+    owner.post(f"{again}/drafts/0/breakdown")  # the preview films the approved plan
+    _run(app, db, FakeClaude(BREAKDOWN))
+    version = next(v for v in owner.get(again).json()["versions"] if v["slot"] == 0)
+    assert version["has_breakdown"] and version["preview_older_plan"] is False
+    owner.post(f"{again}/drafts/0/approve")
+    owner.post(f"{again}/publish")
+    made = editor.post(f"{again}/drafts/0/produce").json()
+    assert made["breakdown_job_id"] is None  # free: the preview follows the plan
+    landed = editor.get(f"/projects/{made['project_id']}/breakdown").json()
+    assert landed["older_plan"] is False
+    from app.models.breakdowns import BreakdownVersion
+
+    row = db.query(BreakdownVersion).filter_by(project_id=made["project_id"]).one()
+    assert row.data["plan_version"] == 1  # an edit to the video's plan makes it older

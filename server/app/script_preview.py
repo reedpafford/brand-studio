@@ -135,15 +135,24 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
 
 
 def save(
-    db: Session, draft: ScriptDraft, bd: Breakdown, by_id: int | None = None, text=None
+    db: Session,
+    draft: ScriptDraft,
+    bd: Breakdown,
+    by_id: int | None = None,
+    text=None,
+    plan_version: int | None | str = "keep",
 ) -> None:
     """A new plan for the version, from `text` (the words it was made from; the version's
     own by default). Advice kept on the old plan doesn't carry over. A name the version doesn't
-    have is taken out first, said as advice (it has no Remove button here)."""
+    have is taken out first, said as advice (it has no Remove button here). `plan_version`:
+    the owner's plan it was made from (S6); an edit or fix keeps the one before."""
     script = db.get(Script, draft.script_id)
     bd, removed = breakdown.land(
         db, stand_in_project(db, script, draft), bd, live_looks(db, script)
     )
-    draft.breakdown, draft.breakdown_by_id = bd.model_dump(), by_id
+    if plan_version == "keep":
+        plan_version = (draft.breakdown or {}).get("plan_version")
+    made = {"plan_version": plan_version} if plan_version else {}
+    draft.breakdown, draft.breakdown_by_id = {**bd.model_dump(), **made}, by_id
     draft.breakdown_text, draft.breakdown_kept = draft.text if text is None else text, []
     draft.breakdown_problems = problems(db, script, draft, bd) + removed

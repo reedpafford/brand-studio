@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, looks, merge_roles, music, narration, rewritten, song_study
+from app import advice, looks, merge_roles, music, narration, plans, rewritten, song_study
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -149,6 +149,7 @@ class VersionOut(VersionSummary):
     # "Was:" marks until approval: [{line_index (0-based line of text), text, was}]
     rewritten: list[dict] = []
     has_breakdown: bool
+    preview_older_plan: bool = False  # "Made for an older plan. Make the preview again" (S6)
     approved_at: UtcTime | None
     variation_of: str | None = None  # "A": a variation of the original; null for the original
     estimate_credits: float = 0  # to make it, every step included: estimate.version_cost
@@ -284,6 +285,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
             if m["line_index"] < len(lines)
         ],
         has_breakdown=draft.breakdown is not None,
+        preview_older_plan=draft.breakdown is not None and not plans.preview_follows(draft),
         approved_at=draft.approved_at,
         variation_of="A" if draft.slot else None,
         estimate_credits=float(version_cost(db, draft)),

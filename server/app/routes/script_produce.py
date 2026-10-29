@@ -82,7 +82,7 @@ def produce(
     )
     db.add(version)
     plans.copy_to_video(project, draft)  # S6: the owner's approved plan is its start
-    if draft.breakdown:
+    if draft.breakdown and plans.preview_follows(draft):
         plan = Breakdown.model_validate(draft.breakdown)
         named = {r for sc in plan.scenes for sh in sc.shots for r in sh.character_ids}
         live = named & script_preview.live_looks(db, script)  # a look the plan names joins the cast
@@ -95,7 +95,7 @@ def produce(
                 project_id=project.id,
                 script_version=1,
                 source="library",
-                data=bd.model_dump(),
+                data={**bd.model_dump(), **({"plan_version": 1} if project.plan else {})},
                 problems=breakdown.problems(db, project, draft.text, bd) + removed,
                 created_by_id=user.id,
             )
