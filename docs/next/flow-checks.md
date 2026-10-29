@@ -91,3 +91,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-28 | #750 at cb1c556d | V2a, S7 through the API | FAIL: same 2 (publish with no take, over-cap take) |
 | 2026-10-28 | #759 at ba7852eb | Playwright at 1440 and 390 (refused → boxes open) | PASS, 12/12 |
 | 2026-10-29 | #748 at 3607b3d, #750 at 0ae5902 | 13 API walk cases (cap + trim + Undo, publish guard, video song) | FAIL on 1: section `[Lip-sync]` dates takes; the rest pass |
+| 2026-10-29 | #766 at bf5fbe3f (Clips words, Next-Layout) | Full browser suite at 390 and 1440; grey-button reasons, status chip, failure line, 44px on phones | PASS (52 passed, 1 skipped) |
