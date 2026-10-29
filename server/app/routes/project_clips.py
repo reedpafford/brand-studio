@@ -22,6 +22,8 @@ from app import (
     cut_in,
     item_checks,
     looks,
+    narration,
+    narration_music,
     prompts,
 )
 from app.advice import Said
@@ -71,11 +73,17 @@ class TakeOut(BaseModel):
     check: CheckOut | None = None  # P4: the advisory check on this take (Advice only)
 
 
+class NarrationOut(BaseModel):
+    voice: str  # "Narration: Sarah · music under it"
+    music: bool
+
+
 class VideoOut(BaseModel):
     file_id: int
     take_ids: list[int]  # the picked takes it was made from, in clip order
     out_of_date: bool  # a pick, a "Use the real image" switch or the video's song changed since
     song_take_id: int | None = None  # song ads: the take laid under the whole video (V6)
+    narration: NarrationOut | None = None  # narrated ads: whose voice, and music under it
 
 
 class InsertOut(BaseModel):
@@ -654,8 +662,11 @@ def _video_out(db: Session, video: FinalVideo) -> VideoOut:
     cuts = _cut_ins(db, db.get(Project, video.project_id), clips)
     old = video.take_ids != current or (video.cut_ins or []) != cuts
     old = old or video.song_take_id != db.get(Project, video.project_id).song_take_id
+    take = db.get(SongTake, video.song_take_id) if video.song_take_id else None
+    told = (NarrationOut(voice=take.voice, music=bool(take.music_file_id))
+            if take and take.kind == narration.KIND else None)  # fmt: skip
     return VideoOut(file_id=video.file_id, take_ids=video.take_ids, out_of_date=old,
-                    song_take_id=video.song_take_id)  # fmt: skip
+                    song_take_id=video.song_take_id, narration=told)  # fmt: skip
 
 
 @router.post("/video", response_model=VideoOut, status_code=201)
@@ -683,12 +694,16 @@ def make_video(
     newest = _newest_breakdown(db, project)
     if song and (old := sum(_stale(db, c, newest) for c in clips)):  # made for the earlier song
         raise HTTPException(409, SONG_CHANGED.format(old))
+    narrated = bool(song and song.kind == narration.KIND)
+    if narrated and narration_music.state(db, song)[0] == "making":
+        raise HTTPException(409, narration_music.MAKING)
     try:
         videos = [_with_cut_ins(db, storage, project, c) for c in clips]
-        if song:  # the song is the only sound (flows V6)
+        if song:  # the song is the only sound (V6); a narration keeps the takes' (V6n)
             lengths = [c.song_slice["end"] - c.song_slice["start"] for c in clips]
             sound = storage.get(db.get(StoredFile, song.file_id).key)
-            data = clip_takes.song_cut(videos, lengths, sound)
+            bed = song.music_file_id and storage.get(db.get(StoredFile, song.music_file_id).key)
+            data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None)
         else:
             data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
     except Exception as exc:  # noqa: BLE001 - a bad clip file: say so plainly

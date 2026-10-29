@@ -3173,6 +3173,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/update-after": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Update Price */
+        get: operations["update_price_projects__project_id__update_after_get"];
+        put?: never;
+        /**
+         * Update Now
+         * @description Paid: the whole price is checked first (409 with why, and nothing starts).
+         */
+        post: operations["update_now_projects__project_id__update_after_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/clips.zip": {
         parameters: {
             query?: never;
@@ -3631,6 +3652,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/songs/{take_id}/music-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Music Again
+         * @description A narration's music failed: Try the music again (the prompt and the bed, at
+         *     music_credits); the narration is kept as it is.
+         */
+        post: operations["music_again_songs__take_id__music_again_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/songs/{take_id}/spread-timing": {
         parameters: {
             query?: never;
@@ -4008,6 +4050,26 @@ export interface paths {
          * @description Looks fine: the finding goes from the card, kept in the item's history (who, when).
          */
         post: operations["looks_fine_projects__project_id__checks__check_id__findings__index__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/checks/{check_id}/findings/{index}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Undo of Looks fine: the finding is back on the card (free).
+         */
+        post: operations["restore_projects__project_id__checks__check_id__findings__index__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5683,6 +5745,13 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** NarrationOut */
+        NarrationOut: {
+            /** Voice */
+            voice: string;
+            /** Music */
+            music: boolean;
+        };
         /** NewInviteOut */
         NewInviteOut: {
             /** Id */
@@ -6252,6 +6321,11 @@ export interface components {
             credits_per_check: number;
             /** Check Credits Per Video */
             check_credits_per_video: number;
+            /**
+             * Paused
+             * @default false
+             */
+            paused: boolean;
             /** Items */
             items: components["schemas"]["FlaggedOut"][];
         };
@@ -6869,6 +6943,21 @@ export interface components {
              */
             voice: string;
             /**
+             * Music Status
+             * @default none
+             * @enum {string}
+             */
+            music_status: "none" | "making" | "ready" | "failed";
+            /** Music Reason */
+            music_reason?: string | null;
+            /** Music File Id */
+            music_file_id?: number | null;
+            /**
+             * Music Credits
+             * @default 0
+             */
+            music_credits: number;
+            /**
              * Sentences
              * @default []
              */
@@ -7075,6 +7164,33 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** UpdateOut */
+        UpdateOut: {
+            /** Credits */
+            credits: number;
+            /** Steps */
+            steps: components["schemas"]["UpdateStep"][];
+            /** Running */
+            running: boolean;
+            /** Stopped At */
+            stopped_at: ("storyboard" | "stills" | "clip_prompts") | null;
+            /** Reason */
+            reason: string | null;
+        };
+        /** UpdateStep */
+        UpdateStep: {
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "storyboard" | "stills" | "clip_prompts";
+            /** What */
+            what: string;
+            /** Credits */
+            credits: number;
+            /** Status */
+            status?: ("started" | "waiting") | null;
         };
         /** UploadOut */
         UploadOut: {
@@ -7420,6 +7536,7 @@ export interface components {
             out_of_date: boolean;
             /** Song Take Id */
             song_take_id?: number | null;
+            narration?: components["schemas"]["NarrationOut"] | null;
         };
         /** VideoSongIn */
         VideoSongIn: {
@@ -14324,6 +14441,72 @@ export interface operations {
             };
         };
     };
+    update_price_projects__project_id__update_after_get: {
+        parameters: {
+            query?: {
+                from?: "plan" | "storyboard" | "clips";
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_now_projects__project_id__update_after_post: {
+        parameters: {
+            query?: {
+                from?: "plan" | "storyboard" | "clips";
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     clips_zip_projects__project_id__clips_zip_get: {
         parameters: {
             query?: {
@@ -15143,6 +15326,37 @@ export interface operations {
             };
         };
     };
+    music_again_songs__take_id__music_again_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     spread_timing_songs__take_id__spread_timing_post: {
         parameters: {
             query?: never;
@@ -15832,6 +16046,39 @@ export interface operations {
         };
     };
     looks_fine_projects__project_id__checks__check_id__findings__index__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                check_id: number;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_projects__project_id__checks__check_id__findings__index__restore_post: {
         parameters: {
             query?: never;
             header?: never;

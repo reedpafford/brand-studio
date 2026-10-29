@@ -18,7 +18,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { ReelChip } from "./ReelImport";
-import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
+import { LegacyVideos, useProjectList } from "../projects/LegacyVideos";
 import { serverTime } from "../time";
 
 type Row = components["schemas"]["ScriptRow"];
