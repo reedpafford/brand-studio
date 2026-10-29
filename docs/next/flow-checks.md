@@ -61,6 +61,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Another editor's video (#964 + #977) | Video page fixed at 9cde7ea2; but the older-video page (/projects/:id, "Videos made before scripts") has no banner and live presses for a second editor, each a 403 | Same view-only on ProjectPage (banner, provider, Rename only for the maker or owner, brief editor buttons) |
 | Import from website: a paid read lost (#980) | Reload or leave while reading or reviewing: the 3-credit findings can't be reached again | Keep the read's id (localStorage per brand, or a server "latest read") and resume on return |
+| A video's "to finish" leaves out looks for uncast roles (VS1, seen on #986) | A new video with Nate (a speaker, no role yet): after Cast adds him, "to finish" is still one look (1.70) under the Make this version quote | `video_settings.to_finish` adds a look for each role with no look yet, as the quote does |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -352,3 +353,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | Re-checks after next merges | #963 6179c7cf, #964 09520d86, #970 45e0d907, #972 dc40fb1b | Unchanged verdicts: merges of next, and #970's test now stubs the real provider (never built in tests). #964's write tests 18/18 with #957 and #974 in |
 | 2026-10-29 | #977 (re-walk, with #964) | 9cde7ea2 | FAIL: VideoPage passes (Plan tabs and show-only presses live; 183/183; e2e 6/6); ProjectPage for older videos has no view-only |
 | 2026-10-29 | #980 Import from website screens (BR2) | 2e4ddf1f | FAIL: a paid read is lost on reload or leaving. Price first, fail/empty, review ticks, Save/Undo pass; 40/40, e2e 6/6 |
+| 2026-10-29 | #986 Make this version's quote by the video's rules | 5654894d (+ next) | PASS: quote = card; equals the video's cost incl. Nate's look (House and Disney Pixar, owner and editor); switching back free. Found: the video's to-finish misses uncast roles' looks |
