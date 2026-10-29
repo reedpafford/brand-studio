@@ -920,25 +920,58 @@ NAME = re.compile(r"\b[A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*)*")  # "Jack Johnson", 
 
 
 def _names(sounds_like: str) -> list[str]:
-    return [n for n in NAME.findall(sounds_like) if len(n) > 2 and n.lower() not in ("the", "like")]
+    """The names in a "sounds like" ("Better Together by Jack Johnson", "fleetwood mac"),
+    any case: each part between "by", "and", "&", commas, slashes and dashes."""
+    text = re.sub(r"^\s*(?:sounds? like|like|the song)\s+", "", sounds_like.strip(), flags=re.I)
+    parts = re.split(r"\s+(?:by|and|&|feat\.?|ft\.?)\s+|[,/;]|\s+[-–]\s+", text, flags=re.I)
+    return [x.strip(" \"'“”‘’") for x in parts if len(x.strip(" \"'“”‘’")) > 2]
+
+
+AROUND = r"(?:\s*,?\s*\b(?:like|by|in the style of|à la|inspired by|reminiscent of)\s+)?"
+
+
+def _tidy(style: str) -> str:
+    """What a removed name leaves, put right: "pop , upbeat" → "pop, upbeat"."""
+    style = re.sub(r"\s+([,.;])", r"\1", style)
+    style = re.sub(r"([,;])\s*(?=[,;])", "", style)
+    style = re.sub(r"\s{2,}", " ", style)
+    return style.strip(" ,;-")
 
 
 def without_names(result: SongDirections, sounds_like: str) -> list[str]:
     """The music service refuses artist and song names, so a style line that names the
-    "sounds like" one has the name taken out, free, before anyone sees it (Flow-QA on #794):
-    "acoustic pop like Jack Johnson, 96 BPM" becomes "acoustic pop, 96 BPM". Said as advice.
-    Doing it again changes nothing."""
+    "sounds like" one has the name taken out, free, before anyone sees it (Flow-QA on #794),
+    in any case and with what it leaves tidied: "acoustic pop like Jack Johnson, 96 BPM"
+    becomes "acoustic pop, 96 BPM"; "Coldplay-style stadium rock" becomes "stadium rock".
+    Said as advice. Doing it again changes nothing."""
     notes = []
     for n, d in enumerate(result.directions, 1):
         for name in _names(sounds_like):
-            near = r"(?:\s*,?\s*\b(?:like|by|in the style of|à la|inspired by)\s+)?"
-            found = re.compile(near + rf"\b{re.escape(name)}\b('s)?", re.I)
+            words = r"\s+".join(re.escape(w) for w in name.split())
+            found = re.compile(AROUND + rf"\b{words}\b(?:'s|-(?:style|esque|like|ish))?", re.I)
             if found.search(d.style_line):
-                d.style_line = found.sub("", d.style_line)
-                d.style_line = re.sub(r"\s*,\s*,", ",", d.style_line).strip(" ,")
+                d.style_line = _tidy(found.sub("", d.style_line))
                 notes.append(f"{ADVICE}direction {n}: took “{name}” out of the style line "
                              "(the music service refuses names)")  # fmt: skip
     return notes
+
+
+def finish_directions(
+    result: SongDirections,
+    brand: str,
+    seconds: int | None = None,
+    sounds_like: str = "",
+    study: dict | None = None,
+) -> tuple[list[str], list[str]]:
+    """The one call the directions job makes on each answer (Flow-QA on #819): the free name
+    repair in place, then the check. Returns (notes to save, fixes). With fixes (a copied
+    line, a wrong count), the job asks for the directions once more, inside the same job and
+    charged once; if the second answer still has fixes, the job ends as failed ("The
+    directions didn't finish. Nothing was charged.") and nothing is shown (rule 22)."""
+    repaired = without_names(result, sounds_like)
+    found = song_directions(result, brand, seconds, sounds_like, study)
+    fixes = [x for x in found if not x.startswith(ADVICE)]
+    return repaired + [x for x in found if x.startswith(ADVICE)], fixes
 
 
 def copied_lines(result: SongDirections, study: dict | None) -> list[str]:
@@ -980,7 +1013,7 @@ def song_directions(
             problems.append(f"{ADVICE}direction {n}: the style line is over 25 words")
         if not says_brand(sung[-1], brand):
             problems.append(f"{ADVICE}direction {n}: {NO_CTA}")
-        if named := [x for x in names if _words(x) in _words(d.style_line)]:
+        if named := [x for x in names if f" {_words(x)} " in f" {_words(d.style_line)} "]:
             problems.append(
                 f"{ADVICE}direction {n}: the style line names “{named[0]}”; the music service "
                 "refuses artist and song names, so describe the sound instead"

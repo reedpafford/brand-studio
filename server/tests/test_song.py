@@ -262,3 +262,34 @@ def test_a_song_ad_study_guides_the_shape_and_its_lines_are_never_reused():
     assert ("direction 2: “Scratching all night, that's my belly crying out” repeats a line of "
             "the reference song") in problems  # fmt: skip
     assert not problems[0].startswith("Advice: ")  # a fix: written again
+
+
+def test_names_go_in_any_case_and_leave_a_tidy_style_line():
+    """Flow-QA on #819: lowercase names stayed, and the leftovers read badly."""
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    cases = [
+        ("jack johnson", "laid-back pop like jack johnson, upbeat", "laid-back pop, upbeat"),
+        ("Fleetwood Mac", "pop , fleetwood mac , upbeat", "pop, upbeat"),
+        ("Coldplay", "Coldplay-style stadium rock, 120 BPM", "stadium rock, 120 BPM"),
+        ("Bon Iver", "indie folk, Bon Iver,  falsetto", "indie folk, falsetto"),
+    ]
+    for like, style, tidy in cases:
+        result.directions[0].style_line = style
+        notes = check.without_names(result, like)
+        assert result.directions[0].style_line == tidy, (like, result.directions[0].style_line)
+        assert len(notes) == 1 and check.without_names(result, like) == []
+    assert check._names("Better Together by Jack Johnson") == ["Better Together", "Jack Johnson"]
+
+
+def test_the_directions_job_has_one_call_that_repairs_then_checks():
+    """Flow-QA on #819: nothing called the repair or the copy check; one entry point does."""
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    result.directions[0].style_line = "breezy pop like Jack Johnson, 100 BPM"
+    notes, fixes = check.finish_directions(result, "Iron Paws", 30, "Jack Johnson", STUDY)
+    assert result.directions[0].style_line == "breezy pop, 100 BPM" and fixes == []
+    assert notes and notes[0].startswith("Advice: direction 1: took “Jack Johnson”")
+    result.directions[1].lyrics += "\n[Bridge]\nScratching all night, that's my belly crying out"
+    _, fixes = check.finish_directions(result, "Iron Paws", 30, "Jack Johnson", STUDY)
+    assert any("repeats a line of the reference song" in f for f in fixes)  # ask once more
