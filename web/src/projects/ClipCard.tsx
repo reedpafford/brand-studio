@@ -92,6 +92,9 @@ export function ClipCard(props: {
   const failed = props.job?.status === "failed" && !failedBefore;
   const status = c.approved ? "Approved" : props.busy ? null : failed ? "Failed · credits returned" : c.stale ? "Made for an older breakdown" : c.file_id ? "Ready" : "Not made";
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
+  // Why it can't be pressed yet, in one plain line under it. A prompt only waiting for Looks good isn't a reason: the
+  // press marks it Looks good and makes the take.
+  const makeReason = props.busy ? "A take is on its way." : c.stale ? "Rewrite this clip's prompt first." : blocking(c.problems, c.kept).length > 0 ? "Fix the problems above first." : props.blockers.length > 0 ? "Approve the looks it needs first." : props.stopFor(props.cost);
   const price = props.cost === undefined ? "" : ` · ${Math.round(props.cost)} credits`;
   const picked = c.takes.find((t) => t.id === c.picked_take_id);
   // "Change this…" on a clip with no take only rewrites the prompt (no surprise paid take): say what to press next.
@@ -242,7 +245,7 @@ export function ClipCard(props: {
         <div className="flex flex-wrap items-center gap-2">
           {updated && (
             <p className="w-full text-muted" role="status">
-              Prompt updated. Read it, press Looks good, then press {verb}.
+              Prompt updated. Read it, then press {verb}.
             </p>
           )}
           {c.picked_take_id !== null && !c.approved && (
@@ -261,10 +264,10 @@ export function ClipCard(props: {
             </Button>
           )}
           {note === null && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.toRead || props.stopped || props.busy || blocking(c.problems, c.kept).length > 0 || c.stale || props.blockers.length > 0} onClick={() => props.onGenerate()}>
-            {verb}
-            {price}
-          </button>
+            <Button variant="secondary" className="min-h-11 sm:min-h-9" disabled={!!makeReason} reason={makeReason} onClick={() => { if (props.toRead) props.onLooksGood(); props.onGenerate(); }}>
+              {verb}
+              {price}
+            </Button>
           )}
           {c.takes.length > 0 && note === null && !props.review && (
             <button className={`${linkText} min-h-11 sm:min-h-9`} onClick={() => setNote("")}>
