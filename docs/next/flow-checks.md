@@ -58,7 +58,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| Migration order (#858, #873) | #862 merged (n06 → n04); #858 n05 still on n04 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
+| Migration order (#873) | n04 → n06 → n05 on #858 at 7fa31331; #873 n07 must follow n05 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Real-song budget (#864) | A stopped real song stops counting, so the budget can be passed; "used up" note not shown on Song step | Count cancelled jobs marked discard; show songs_note above Make 2 takes | #864 at bef43a05 |
 | Narration text (#858) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
