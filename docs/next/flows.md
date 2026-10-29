@@ -563,28 +563,28 @@ Where the pickers show: the script header ("Dialogue ▾ · House ▾", ST0), Ne
 
 | Step | Effect |
 |---|---|
-| Assets | A look is per style. A library character with no sheet in this style: the editor gets "Make a {style} look for this video · N credits", a per-video look that stays with the video and is never saved to Cast & places (rule 12). Only the owner adds a style sheet to a library character, in Cast & places ("Make a {style} sheet", a new version on the item; the House one is kept). Unlocked roles get a per-video look in the style automatically, as today. (Producer, 2026-10-28) |
-| Storyboard | Stills use the style's paragraphs (look, character when people are in frame, camera) and its default picture model. |
-| Clips | Prompts open with the style's motion line. Banned words from the style are repaired in code (free), never a block, and only in the picture descriptions: the script's spoken lines are never touched (rule 19). A banned word inside a spoken line is Advice only. |
-| Refusals | The style's failure/fix list drives the free fix offered on a refused or broken still ("Make another" before rewording, per the entry). |
+| Assets | A sheet is per look. A library character with no approved sheet in the video's look: the editor gets "Make a {look} look for this video · N credits", a per-video look that stays with the video and is never saved to Cast & places (rule 12). Only the owner adds a sheet in another look to a library character, in Cast & places ("Make a {look} sheet", a new version on the item; the House one is kept). Unlocked roles get a per-video look in the video's look automatically, as today. (Producer, 2026-10-28) |
+| Storyboard | Stills use the look's paragraphs (look, character when people are in frame, camera) and the video's picture model (Auto: the look's default). |
+| Clips | Prompts open with the look's motion line. Banned words from the look are repaired in code (free), never a block, and only in the picture descriptions: the script's spoken lines are never touched (rule 19). A banned word inside a spoken line is Advice only. |
+| Refusals | The look's failure/fix list drives the free fix offered on a refused or broken still ("Make another" before rewording, per the entry). |
 
 ## ST3. Switching a look on (owner, the Looks page)
 
 | State | What they see | The one press |
 |---|---|---|
 | E | On the Looks page (owner): each Off entry has "Make a sample · N credits" (one still and one 5 s clip of the brand's hero: its default cast's first character). | **Make a sample**. |
-| No hero | The brand has no default cast yet: "Who's in the sample?" with the brand's library characters. With none at all, a sample character is described in the style itself. | Pick one, or **Use a sample character**. |
+| No hero | The brand has no default cast yet: "Who's in the sample?" with the brand's library characters. With none at all, a sample character is described in the look itself. | Pick one, or **Use a sample character**. |
 | R/F/X | As Storyboard and Clips today. | Try again / the free fix. |
 | Sample ready | The still and clip. | **Switch on for editors**, or **Not yet**. |
 | On | "On · editors can pick it". | **Switch off** (Undo). Videos already using it keep it. |
 
-**Out of date (ST):** changing a video's style marks its stills and clips "Out of date" (kept, with the usual redo press), exactly like a look change.
+**Out of date (ST):** changing a video's look marks its stills and clips "Out of date" (kept, with the usual redo press), like any Video settings switch (VS1).
 
 ---
 
 # 3. Brand setup (build third)
 
-One Brand page with sections, each saying where it's used ("Used in: script, stills, clips"). The new sections (products' description and claim, voice and tone, CTA lines, default cast, music style, default style and language, website import) are owner-only; editors read them. What editors can edit today (logo, colours, screens, Cast & places characters) stays as it is until Reed decides otherwise (behaviour unchanged, per the UX audit).
+One Brand page with sections, each saying where it's used ("Used in: script, stills, clips"). The new sections (products' description and claim, voice and tone, CTA lines, default cast, music style, default look and language, website import) are owner-only; editors read them. What editors can edit today (logo, colours, screens, Cast & places characters) stays as it is until Reed decides otherwise (behaviour unchanged, per the UX audit).
 
 ## BR1. The Brand page
 
@@ -597,7 +597,7 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 | CTA lines | Several lines, one marked **Default**. | Deleting the default: the next line becomes default (toast, Undo). Deleting the last: Advice "Videos will end without a saved call to action" (rule 18 stays Advice). |
 | Default cast | Pick library characters. | A picked character later deleted: shows "Deleted: pick another" with **Pick another** / **Remove**. |
 | Music style | One line (feeds S2). | — |
-| Default style and language | Pickers (ST1, item 4). | Picking an Off style: "Off for editors: new scripts will start on House until it's on." |
+| Default look and language | Pickers (ST1, item 4). | Picking an Off look: "Off for editors: new scripts will start on House until it's on." |
 
 | State | What they see | The one press |
 |---|---|---|
@@ -624,7 +624,7 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 
 # 4. Video settings (build fourth)
 
-The **Video settings** row at the top of every video and on "Make this version" (the UX audit's one row for every per-video choice): Shape · Flavour · Style · Video model · Picture model · Language, and the Song on a song video (V2a). Each shows its choice ("Auto" by default) and price.
+The **Video settings** row at the top of every video and on "Make this version" (the UX audit's one row for every per-video choice): Shape · Flavour · Look · Video model · Picture model · Language, and the Song on a song video (V2a). Each shows its choice ("Auto" by default) and price. On Make this version the row follows once the create route takes the settings (follow-up after the plan-first change); until then it's on the video page only.
 
 ## VS1. Changing a setting
 
