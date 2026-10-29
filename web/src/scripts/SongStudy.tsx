@@ -12,7 +12,7 @@ import type { Script } from "./useScript";
 type Section = { name: string; start: number; end: number; lines: string[]; guessed: boolean };
 export type Study = {
   status: "studying" | "done" | "failed";
-  job?: { id: number; status: "queued" | "running" | "failed"; started_at: string | null } | null;
+  job?: Job | null;
   seconds?: number | null;
   bpm?: number | null;
   sections: Section[];
@@ -20,7 +20,10 @@ export type Study = {
   frames: { file_id: number; t: number }[];
   use_as_guide: boolean;
   problem: string;
+  attempt?: Attempt | null; // a newer try while a finished study is kept (#851)
 };
+type Job = { id: number; status: "queued" | "running" | "failed"; started_at: string | null };
+type Attempt = { status: "studying" | "failed"; job?: Job | null; problem: string };
 
 // The routes are Builder-Server-7's; until they are in the generated schema they are called with fetch.
 async function send(method: "POST" | "PATCH" | "DELETE", path: string, body?: FormData | object) {
@@ -57,7 +60,7 @@ export function SongStudy({ script: s }: { script: Script }) {
   const file = useRef<HTMLInputElement>(null);
   const base = `/scripts/${s.id}/drafts/0/song-study`;
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
-  const studying = study?.status === "studying";
+  const studying = study?.status === "studying" || study?.attempt?.status === "studying";
   // While it's studied, the version is read again until the card is in.
   useEffect(() => {
     if (!studying) return;
@@ -77,7 +80,8 @@ export function SongStudy({ script: s }: { script: Script }) {
       return refresh();
     },
   });
-  const cancel = useMutation({ mutationFn: (id: number) => send("POST", `/jobs/${id}/cancel`), onSuccess: refresh });
+  // Stop works queued or running (#875). If it finished first, the server says so: that's said in a toast and the card is read again, never a dead end.
+  const stop = useMutation({ mutationFn: () => send("POST", `${base}/stop`), onSuccess: refresh, onError: (e) => { toast(e.message); void refresh(); } });
   const guide = useMutation({ mutationFn: (on: boolean) => send("PATCH", base, { use_as_guide: on }), onSuccess: refresh });
   const remove = useMutation({
     mutationFn: () => send("DELETE", base),
@@ -87,7 +91,7 @@ export function SongStudy({ script: s }: { script: Script }) {
     },
   });
   // Only the latest press's refusal shows, until the next press.
-  const latest = [start, cancel, guide, remove].reduce((a, m) => (m.submittedAt > a.submittedAt ? m : a));
+  const latest = [start, guide, remove].reduce((a, m) => (m.submittedAt > a.submittedAt ? m : a));
 
   // Hidden until the server offers studies (the version carries song_study, null when there is none).
   if (s.published || !v || !("song_study" in v)) return null;
@@ -120,10 +124,17 @@ export function SongStudy({ script: s }: { script: Script }) {
         {studying && (
           <div role="status" className="flex flex-wrap items-center gap-3">
             <p className="min-w-0 flex-1 text-sm">
-              Studying the song ad…<Elapsed since={study.job?.started_at} />. You can leave this page.
+              {study.status === "done" ? "Studying a new song ad…" : "Studying the song ad…"}
+              <Elapsed since={(study.attempt?.job ?? study.job)?.started_at} />. You can leave this page.
             </p>
-            {study.job?.status === "queued" && <Button variant="ghost" busy={cancel.isPending} onClick={() => cancel.mutate(study.job!.id)}>Cancel</Button>}
+            <Button variant="ghost" busy={stop.isPending} onClick={() => stop.mutate()}>Stop</Button>
           </div>
+        )}
+        {study?.status === "done" && study.attempt?.status === "failed" && (
+          <>
+            <p role="alert" className={errorClass}>We couldn't study the new one: {study.attempt.problem || "studying it didn't finish"}. Nothing was charged. The study below is kept.</p>
+            {ask("Try another")}
+          </>
         )}
         {study?.status === "failed" && (
           <>

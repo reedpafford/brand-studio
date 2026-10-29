@@ -5,6 +5,7 @@
 
 import shutil
 import tempfile
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -26,7 +27,7 @@ class LocalProvider:
         fetch_link: Callable[[str, Path], Path] = reel.fetch,
         hear_song: Callable[[Path, str], list[dict]] = song_timing.words,
         hear_voice: Callable[[Path, str], list[dict]] = song_timing.words,
-        hear_study: Callable[[Path], list[dict]] = song_study.hear,
+        hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
         self.hear_song, self.hear_voice, self.hear_study = hear_song, hear_voice, hear_study
@@ -86,13 +87,16 @@ class LocalProvider:
         """A song ad's study and its frames; a plain reason when it can't be read. An
         uploaded video is deleted either way: only the study and its frames are kept."""
         folder = Path(tempfile.mkdtemp(dir=self.root))
+        marker = song_study.stop_key(input.get("job_id", 0))
+        until = time.monotonic() + song_study.LIMIT
+        watch = song_study.Watch(lambda: self.storage.exists(marker), until)
         try:
             video = folder / "reel.mp4"
             if input.get("url"):
                 video = self.fetch_link(input["url"], folder)
             else:
                 video.write_bytes(self.storage.get(input["video_key"]))
-            found, frames = song_study.study(video, folder, hear=self.hear_study)
+            found, frames = song_study.study(video, folder, hear=self.hear_study, watch=watch)
         except reel.Refused as no:
             shutil.rmtree(folder, ignore_errors=True)
             return Result("succeeded", output={"problem": no.message, "problem_code": no.code})
@@ -100,6 +104,7 @@ class LocalProvider:
             shutil.rmtree(folder, ignore_errors=True)
             raise
         finally:
+            self.storage.delete(marker)
             if input.get("video_key"):
                 self.storage.delete(input["video_key"])
         for f in folder.iterdir():  # the video and anything else: only the frames stay
