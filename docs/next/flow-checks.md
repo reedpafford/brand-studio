@@ -63,6 +63,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | A scene change lost to an edit (#928) | Change this scene · 3 credits, then Split here while it runs: the result is dropped, the job is charged as succeeded, nothing says so | PUT /plan refused while a plan or scene job runs (_one_at_a_time in edit) |
 | Look fix screens (#929) | "Fixed for the look" with Undo stays after Undo (the server keeps look_fixed) | Show the note only while the prompt is still its `after` |
 | Made work locked by a look sheet (#930 + videoSteps) | A non-House video with stills or clips: its Cast & places rows read not ready (look_needed), and videoLock's "Approve the cast first" locks Storyboard and Clips, redirecting to Cast | `if (left > 0 && !kept)` in videoLock, with a videoHold line; land with or before #930 |
+| The product's claim, no way there (#932) | BR1's line and claim now sit on the prop's Cast & places page; the Brand page's Products tab doesn't say so or link there | A line on ProductsTab linking to the props in Cast & places |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -282,3 +283,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #922 at 2b352389; #930 at 6e35749e | #922 PASS: a stop waits on each still it named. #930 server PASS (sheets per look, Make a {look} look priced); FAIL with the screens: made work locked out (open above) |
 | 2026-10-29 | #919 b798db49; #925 51f8258e; #926 91576f5a; #929 c825f460 | #919 PASS (paid retries wait past the week): row closed. #925 PASS (Undo never refused with undo:true): row closed. #926 shapes match #925; Undo flag still missing. #929 link dropped (fix 1 closed); fix 2 open |
 | 2026-10-29 | #923 at 91e56824 | PASS: only a video made from a script waits for its approved plan; the earlier way makes its breakdown as before. Open row closed |
+| 2026-10-29 | #932 at 7bc1f85a (BR1 product line and claim) | The prop page PASS (owner edits, editor read only with the reason, Advice). FAIL: no way there from the Brand page (open above) |
