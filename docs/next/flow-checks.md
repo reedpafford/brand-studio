@@ -57,7 +57,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
 | S4 (rule 3) | Trim → Preferred → Undo the trim leaves an over-cap take Preferred, and the script publishes (200) over the 729 cap | Un-trim hands Preferred back or refuses; `preferred()` and `use_in_video` skip over-cap takes | #748 at 3607b3d |
-| S4 U (UI) | When the trim also makes the take Preferred, its Undo toast is replaced by "Take 1 is Preferred." (no Undo); the trim can't be undone | One toast, one Undo reversing both | #759 at da86aa07 |
+| S4 U (UI) | After the trim's Undo the over-cap take stays Preferred and **Next: Cast** is enabled (the one toast and Undo are fixed) | Gate the step on `!over_cap` too, plus #748's server fix | #759 at 75d2ac8b |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -105,3 +105,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #774 (audit Part 6, docs) | Read for dead ends and rule breaks | 3 live items added to Open failures |
 | 2026-10-29 | #775 at f424baa8 (S5 Singer, S7 Publish card, V1 song) | Playwright at 1440 and 390 + song.e2e | PASS (notes: Singer role from the cast read, out-of-date preview on a Singer change) |
 | 2026-10-29 | #748 at 5c3d02f | `[Lip-sync]` section and line marks; untrim cap case | Lip-sync PASS; cap bypass through the trim's Undo still open |
+| 2026-10-29 | #759 at 75d2ac8b | Trim + Preferred + Undo at 1440 and 390 | One toast and Undo PASS; after Undo, Next: Cast is open on an over-cap song (FAIL) |
