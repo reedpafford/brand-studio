@@ -368,3 +368,9 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #997 Media: a deleted video's maker restores it | 12b8af07 (+ next) | PASS: the badge names the video's maker; Restore for them or the owner (the video's maker, not the item's); 2/2 + 11/11 |
 | 2026-10-29 | #987 (re-walk) | 23e999fd (+ next) | PASS: quote = card = cost bar = to-finish at every step (28.06; 24.66 after Nate's look, charged 1.70 ≤ 3.40; Pixar 31.46; Not now kept); 45/45, 112/112 |
 | 2026-10-29 | #987 (re-check) | c1c14d0e | PASS: next merged; same figures (28.06 → 24.66 after Nate's look charged 1.70; Pixar 31.46), bar = to-finish |
+| 2026-10-29 | #996 (merged head) | 9ad919aa | PASS: conflict resolved; 16/16 |
+| 2026-10-29 | #998 Languages: a test that couldn't load says why | be93b2c6 (+ next) | PASS; 7/7 |
+| 2026-10-29 | #999 Paid buttons say "up to" when the charge can be lower (rule 32) | efda27c5 (+ next) | PASS: every priced press declares estimate/fixed; 750/750. Note: Approve all could be "up to" |
+| 2026-10-29 | #1000 Web deletion pass | add5eb56 (+ next) | PASS: vitest 941/941, Playwright 68 (1 skipped) |
+| 2026-10-29 | #1001 Server delete pass | 687414da (+ next) | PASS: full suite 1049 |
+| 2026-10-29 | #1002 Restore has Undo | df16d884 (+ next) | PASS: release → restore → Undo releases again (version back to Ready to make); 18/18 |
