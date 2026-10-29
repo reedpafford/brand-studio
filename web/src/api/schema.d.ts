@@ -333,7 +333,12 @@ export interface paths {
         delete: operations["archive_brand_brands__brand_id__delete"];
         options?: never;
         head?: never;
-        /** Update Brand */
+        /**
+         * Update Brand
+         * @description Change the brand. BR1's new sections are the owner's; what editors changed before BR1
+         *     (name, logo, colours, fonts, notes, never_say, legal and end line) they still may, until
+         *     Reed decides. Nothing already made or published changes (BR1).
+         */
         patch: operations["update_brand_brands__brand_id__patch"];
         trace?: never;
     };
@@ -351,6 +356,67 @@ export interface paths {
          * @description Undo an archive: the brand and everything in it come back.
          */
         post: operations["restore_brand_brands__brand_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/cta-lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Cta Line
+         * @description Add a call to action line (the first one is the Default).
+         */
+        post: operations["add_cta_line_brands__brand_id__cta_lines_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/cta-lines/{line_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Cta Line
+         * @description Delete a line; deleting the Default makes the next line the Default (Undo: restore).
+         */
+        delete: operations["delete_cta_line_brands__brand_id__cta_lines__line_id__delete"];
+        options?: never;
+        head?: never;
+        /** Edit Cta Line */
+        patch: operations["edit_cta_line_brands__brand_id__cta_lines__line_id__patch"];
+        trace?: never;
+    };
+    "/brands/{brand_id}/cta-lines/{line_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Cta Line
+         * @description Undo a delete: the line comes back, and the Default again if it was.
+         */
+        post: operations["restore_cta_line_brands__brand_id__cta_lines__line_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3107,6 +3173,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/update-after": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Update Price */
+        get: operations["update_price_projects__project_id__update_after_get"];
+        put?: never;
+        /**
+         * Update Now
+         * @description Paid: the whole price is checked first (409 with why, and nothing starts).
+         */
+        post: operations["update_now_projects__project_id__update_after_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/clips.zip": {
         parameters: {
             query?: never;
@@ -3565,6 +3652,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/songs/{take_id}/music-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Music Again
+         * @description A narration's music failed: Try the music again (the prompt and the bed, at
+         *     music_credits); the narration is kept as it is.
+         */
+        post: operations["music_again_songs__take_id__music_again_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/songs/{take_id}/spread-timing": {
         parameters: {
             query?: never;
@@ -3948,6 +4056,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/checks/{check_id}/findings/{index}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Undo of Looks fine: the finding is back on the card (free).
+         */
+        post: operations["restore_projects__project_id__checks__check_id__findings__index__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -4121,6 +4249,20 @@ export interface components {
         };
         /** BrandIn */
         BrandIn: {
+            /** Audience */
+            audience?: string | null;
+            /** Do List */
+            do_list?: string[] | null;
+            /** Dont List */
+            dont_list?: string[] | null;
+            /** Music Style */
+            music_style?: string | null;
+            /** Default Language */
+            default_language?: string | null;
+            /** Default Look */
+            default_look?: string | null;
+            /** Default Cast */
+            default_cast?: number[] | null;
             /** Logo File Id */
             logo_file_id?: number | null;
             /** Style Board File Id */
@@ -4204,12 +4346,76 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
+            /**
+             * Audience
+             * @default
+             */
+            audience: string;
+            /**
+             * Do List
+             * @default []
+             */
+            do_list: string[];
+            /**
+             * Dont List
+             * @default []
+             */
+            dont_list: string[];
+            /**
+             * Music Style
+             * @default
+             */
+            music_style: string;
+            /**
+             * Default Language
+             * @default en
+             */
+            default_language: string;
+            /**
+             * Default Look
+             * @default house
+             */
+            default_look: string;
+            /**
+             * Default Cast
+             * @default []
+             */
+            default_cast: number[];
+            /**
+             * Cta Lines
+             * @default []
+             */
+            cta_lines: components["schemas"]["CtaLine"][];
+            /**
+             * Cast
+             * @default []
+             */
+            cast: components["schemas"]["CastPick"][];
+            /**
+             * Advice
+             * @default []
+             */
+            advice: string[];
         };
         /**
          * BrandPatch
          * @description Send only the fields you want to change.
          */
         BrandPatch: {
+            /** Audience */
+            audience?: string | null;
+            /** Do List */
+            do_list?: string[] | null;
+            /** Dont List */
+            dont_list?: string[] | null;
+            /** Music Style */
+            music_style?: string | null;
+            /** Default Language */
+            default_language?: string | null;
+            /** Default Look */
+            default_look?: string | null;
+            /** Default Cast */
+            default_cast?: number[] | null;
             /** Logo File Id */
             logo_file_id?: number | null;
             /** Style Board File Id */
@@ -4381,6 +4587,15 @@ export interface components {
             /** Upload Id */
             upload_id?: number | null;
         };
+        /** CastPick */
+        CastPick: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Deleted */
+            deleted: boolean;
+        };
         /** ChangeIn */
         ChangeIn: {
             /** Note */
@@ -4485,6 +4700,38 @@ export interface components {
              * @default []
              */
             skip_screen_ids: number[];
+        };
+        /** CtaDeleted */
+        CtaDeleted: {
+            /** Promoted Id */
+            promoted_id: string | null;
+            brand: components["schemas"]["BrandOut"];
+        };
+        /** CtaIn */
+        CtaIn: {
+            /** Text */
+            text: string;
+            /**
+             * Default
+             * @default false
+             */
+            default: boolean;
+        };
+        /** CtaLine */
+        CtaLine: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /** Default */
+            default: boolean;
+        };
+        /** CtaPatch */
+        CtaPatch: {
+            /** Text */
+            text?: string | null;
+            /** Default */
+            default?: boolean | null;
         };
         /** DialogueLine */
         DialogueLine: {
@@ -4973,6 +5220,10 @@ export interface components {
             voice_file_id?: number | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -5002,6 +5253,10 @@ export interface components {
             voice_file_id?: number | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
@@ -5034,6 +5289,11 @@ export interface components {
              * @default 0
              */
             change_credits: number;
+            /**
+             * Advice
+             * @default []
+             */
+            advice: string[];
         };
         /**
          * ItemPatch
@@ -5054,6 +5314,10 @@ export interface components {
             voice_file_id?: number | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
         };
         /**
          * JobDetailOut
@@ -5470,6 +5734,13 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** NarrationOut */
+        NarrationOut: {
+            /** Voice */
+            voice: string;
+            /** Music */
+            music: boolean;
+        };
         /** NewInviteOut */
         NewInviteOut: {
             /** Id */
@@ -5513,6 +5784,10 @@ export interface components {
             voice_file_id?: number | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -6033,6 +6308,11 @@ export interface components {
             credits_per_check: number;
             /** Check Credits Per Video */
             check_credits_per_video: number;
+            /**
+             * Paused
+             * @default false
+             */
+            paused: boolean;
             /** Items */
             items: components["schemas"]["FlaggedOut"][];
         };
@@ -6650,6 +6930,21 @@ export interface components {
              */
             voice: string;
             /**
+             * Music Status
+             * @default none
+             * @enum {string}
+             */
+            music_status: "none" | "making" | "ready" | "failed";
+            /** Music Reason */
+            music_reason?: string | null;
+            /** Music File Id */
+            music_file_id?: number | null;
+            /**
+             * Music Credits
+             * @default 0
+             */
+            music_credits: number;
+            /**
              * Sentences
              * @default []
              */
@@ -6856,6 +7151,33 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** UpdateOut */
+        UpdateOut: {
+            /** Credits */
+            credits: number;
+            /** Steps */
+            steps: components["schemas"]["UpdateStep"][];
+            /** Running */
+            running: boolean;
+            /** Stopped At */
+            stopped_at: ("storyboard" | "stills" | "clip_prompts") | null;
+            /** Reason */
+            reason: string | null;
+        };
+        /** UpdateStep */
+        UpdateStep: {
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "storyboard" | "stills" | "clip_prompts";
+            /** What */
+            what: string;
+            /** Credits */
+            credits: number;
+            /** Status */
+            status?: ("started" | "waiting") | null;
         };
         /** UploadOut */
         UploadOut: {
@@ -7201,6 +7523,7 @@ export interface components {
             out_of_date: boolean;
             /** Song Take Id */
             song_take_id?: number | null;
+            narration?: components["schemas"]["NarrationOut"] | null;
         };
         /** VideoSongIn */
         VideoSongIn: {
@@ -8341,6 +8664,141 @@ export interface operations {
             header?: never;
             path: {
                 brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_cta_line_brands__brand_id__cta_lines_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CtaIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_cta_line_brands__brand_id__cta_lines__line_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                line_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CtaDeleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_cta_line_brands__brand_id__cta_lines__line_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                line_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CtaPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_cta_line_brands__brand_id__cta_lines__line_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                line_id: string;
             };
             cookie?: never;
         };
@@ -13970,6 +14428,72 @@ export interface operations {
             };
         };
     };
+    update_price_projects__project_id__update_after_get: {
+        parameters: {
+            query?: {
+                from?: "plan" | "storyboard" | "clips";
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_now_projects__project_id__update_after_post: {
+        parameters: {
+            query?: {
+                from?: "plan" | "storyboard" | "clips";
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     clips_zip_projects__project_id__clips_zip_get: {
         parameters: {
             query?: {
@@ -14789,6 +15313,37 @@ export interface operations {
             };
         };
     };
+    music_again_songs__take_id__music_again_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     spread_timing_songs__take_id__spread_timing_post: {
         parameters: {
             query?: never;
@@ -15478,6 +16033,39 @@ export interface operations {
         };
     };
     looks_fine_projects__project_id__checks__check_id__findings__index__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                check_id: number;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_projects__project_id__checks__check_id__findings__index__restore_post: {
         parameters: {
             query?: never;
             header?: never;

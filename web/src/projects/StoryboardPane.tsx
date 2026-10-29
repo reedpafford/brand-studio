@@ -34,7 +34,7 @@ export function useFrames(projectId: number) {
 }
 
 /** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. */
-export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
+export function StoryboardPane(props: { hold?: string | null; castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -51,7 +51,9 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const [lightbox, setLightbox] = useState<Frame | null>(null);
   const [confirmRedo, setConfirmRedo] = useState(false);
   const auto = useRef(false);
-  const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
+  const limit = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
+  // While an earlier step is out of date every paid press waits, with why (audit M14); free ones (Approve, edits) stay.
+  const stopFor = (cost: number | undefined) => props.hold ?? limit(cost);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
   // A job the list never shows is waited on only briefly (a lost run or still must not read "Writing…" or "Drawing…" for ever).
