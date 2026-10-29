@@ -342,6 +342,9 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
         db.commit()
         assert added == ["Nate"]  # the cast adds him: still one first look, not two
         assert float(vs.to_finish(db, video)) == pytest.approx(quote, abs=0.001)
+        bar = owner.get(f"/projects/{made}/estimate").json()  # what the cost bar reads
+        assert bar["remaining_credits"] == pytest.approx(quote, abs=0.01)  # Flow-QA on #987
+        assert [x["stage"] for x in bar["stages"] if x["stage"] == "looks" and x["credits"]]
         nate = next(s for s in cast_roles.video_slots(db, video) if s.role == "Nate")
         video.slot_looks = {**(video.slot_looks or {}), str(nate.id): None}  # "Not now"
         db.commit()

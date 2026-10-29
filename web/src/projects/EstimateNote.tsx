@@ -4,6 +4,7 @@ import { api } from "../api/client";
 const NAMES: Record<string, string> = {
   script: "Script",
   breakdown: "Breakdown",
+  looks: "Looks",
   storyboard: "Storyboard",
   clip_prompts: "Clip prompts",
   clips: "Clips",

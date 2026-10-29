@@ -31,7 +31,7 @@ router = APIRouter(prefix="/projects/{project_id}/estimate", tags=["credits"])
 
 
 class StageOut(BaseModel):
-    stage: str  # script, breakdown, storyboard, clip_prompts, clips, video
+    stage: str  # script, breakdown, looks, storyboard, clip_prompts, clips, video
     done: bool
     credits: float  # still to spend on this stage (0 when done)
     note: str  # how it was worked out, in plain words
@@ -85,6 +85,16 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
                                   breakdown=not bd, video=video)  # fmt: skip
 
 
+def _looks(db: Session, project: Project) -> tuple:
+    """The looks still to make (rule 32: up to what Make a look can charge): each role's
+    first look and each one with none in the video's look, by the quote's own rules."""
+    from app.sheets import look_price, roles_needing_look, roles_without_a_look
+
+    n = len(roles_without_a_look(db, project)) + len(roles_needing_look(db, project))
+    note = f"up to {n} look{'' if n == 1 else 's'} to make" if n else "every role has a look"
+    return ("looks", not n, n * look_price(db, project.workspace_id), note)
+
+
 def _stages(db: Session, project: Project) -> list[StageOut]:
     script = latest(db, project)
     bd = db.scalar(
@@ -114,6 +124,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     rows = [
         ("script", script is not None, claude, "one Claude call to draft it"),
         ("breakdown", bd_ok, claude, "one Claude call"),
+        _looks(db, project),
         (
             "storyboard",
             storyboard_done,
