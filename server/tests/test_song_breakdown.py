@@ -137,10 +137,10 @@ def test_the_reflow_keeps_shots_on_their_lines():
 
     old = {"seconds": 20, "lines": [{"start": 2, "end": 6}, {"start": 8, "end": 12}]}
     new = {"seconds": 30, "lines": [{"start": 3, "end": 10}, {"start": 14, "end": 20}]}
-    song = {"take_id": 1, "shots": {"1.1": {"start": 0, "end": 8, "sung": False},
+    part = {"take_id": 1, "shots": {"1.1": {"start": 0, "end": 8, "sung": False},
                                     "1.2": {"start": 8, "end": 10, "sung": True},
                                     "1.3": {"start": 10, "end": 20, "sung": False}}}  # fmt: skip
-    moved = reflow(song, old, new, 2)["shots"]
+    moved = reflow(part, old, new, 2)["shots"]
     assert [(moved[s]["start"], moved[s]["end"]) for s in ("1.1", "1.2", "1.3")] == [
         (0, 14),
         (14, 17),
