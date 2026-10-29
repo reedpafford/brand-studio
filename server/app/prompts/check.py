@@ -1220,7 +1220,9 @@ def plan(
     if twice := sorted({n for n in used if used.count(n) > 1}):
         problems.append(f"{_lines(twice)} in more than one scene")
     if extra := [n for n in used if n not in want]:
-        problems.append(f"{_lines(extra, 'are', 'is')} not a script line with words")
+        problems.append(
+            f"{_lines(extra, 'are not script lines', 'is not a script line')} with words"
+        )
     if not (missing or twice or extra) and used != want:
         problems.append("the lines are out of order: every line stays where the script has it")
     for sc in result.scenes:
@@ -1371,3 +1373,22 @@ def format_advice(script: str, fmt: str) -> list[str]:
                 "one voice. The narrator will read it."
             )
     return out
+
+
+def follows_plan(plan: ScenePlan, bd: Breakdown) -> list[str]:
+    """Fixes for a breakdown made from an approved plan (flows P2): each breakdown scene
+    stays inside one plan scene (one place and time), and each ★ line's shot shows its
+    product or screen, so the stills and clips draw the real one."""
+    scene_of = {x.line: sc.id for sc in plan.scenes for x in sc.lines}
+    star = {x.line: x.product for sc in plan.scenes for x in sc.lines if x.product}
+    problems = []
+    for sc in bd.scenes:
+        planned = sorted({scene_of[n] for s in sc.shots for n in s.script_lines if n in scene_of})
+        if len(planned) > 1:
+            problems.append(f"scene {sc.id} mixes plan scenes {', '.join(map(str, planned))}: "
+                            "keep each plan scene's place and time")  # fmt: skip
+        for shot in sc.shots:
+            for n in shot.script_lines:
+                if n in star and star[n] not in shot.screen_ids:
+                    problems.append(f"shot {shot.id}: line {n} is ★ {star[n]} in the plan; show it")
+    return problems

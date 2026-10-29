@@ -32,6 +32,8 @@ GOOD = _plan(
 def test_every_line_with_words_is_in_one_scene_once_in_order():
     assert prompts.plan_lines(SCRIPT) == [2, 3, 4, 7]  # headings and blank lines aren't planned
     assert check._lines([4, 7]) == "lines 4, 7 are"
+    extra = _plan(_scene(1, "INT. LIVING ROOM — DAY", [1, 2, 3, 4, 5]), GOOD.scenes[1])
+    assert "lines 1, 5 are not script lines with words" in check.plan(SCRIPT, extra, [], [])
     assert check.plan(SCRIPT, GOOD, ["char:1", "char:2"], ["product:1"]) == []
     gap = _plan(_scene(1, "INT. LIVING ROOM — DAY", [2, 3]), GOOD.scenes[1])
     assert check.plan(SCRIPT, gap, ["char:1"], ["product:1"]) == ["line 4 is in no scene"]
@@ -106,3 +108,19 @@ def test_a_video_made_before_plans_gets_its_plan_from_the_breakdown():
     assert (
         plan.scenes[0].lines[2].product == "product:1" and plan.scenes[0].lines[0].product is None
     )
+
+
+def test_the_breakdown_keeps_the_plans_scenes_and_its_product_marks():
+    from tests.test_song import _breakdown, _shot
+
+    bd = _breakdown([_shot("1.1", [2, 3], 0, 2), _shot("1.2", [4, 7], 2, 4)])
+    assert check.follows_plan(GOOD, bd) == [
+        "scene 1 mixes plan scenes 1, 2: keep each plan scene's place and time",
+        "shot 1.2: line 7 is ★ product:1 in the plan; show it",
+    ]
+    bd.scenes[0].shots[1].screen_ids = ["product:1"]
+    bd.scenes[0].shots[1].script_lines = [4]
+    assert check.follows_plan(GOOD, bd) == []
+    text = prompts.system("breakdown")
+    assert "**The plan.**" in text and "<plan>" in text
+    assert "**The plan.**" in prompts.system("song_breakdown")  # the song and narrated steps too
