@@ -25,16 +25,16 @@ What each spec item adds or changes in the database, and how migrations are numb
 
 ## Merge order (the chain on `next`)
 
-Numbers are names, not an order. Each migration's `down_revision` is the head on `next` when it merges, so the chain stays one line. When one merges, Next-Lead tells the next owner to set their `down_revision` to it.
+Numbers are names, not an order. A PR waiting its turn points its `down_revision` at next's current head so its CI runs (CI tests it merged with next), and moves to its real parent just before it merges; the Producer checks for one head before every merge. Each migration's `down_revision` is the head on `next` when it merges, so the chain stays one line. When one merges, Next-Lead tells the next owner to set their `down_revision` to it.
 
 | Turn | Migration | PR | `down_revision` | State |
 |---|---|---|---|---|
 | — | n01 | #748 | 0053 | On `next` |
-| 1 | n02 | #829 | n01 | On `next` (3063729d) |
-| 2 | n04 | #851 | n02 | Open: being re-pointed to n02 now |
-| 3 | n05 | #858 | n04 (once #851 is in) | Open: placeholder n01 until its turn |
-| 4 | n06 | #862 | n05 (once #858 is in) | Open: placeholder n01 until its turn |
-| 5 | n07 | Next-Server, Format and Look PR 1 | the head then | Not open |
+| 1 | n02 | #829 | n01 | On `next` |
+| 2 | n04 | #851 | n02 | On `next` |
+| 3 | n06 | #862 | n04 | On `next` (merged before n05) |
+| 4 | n05 | #858 | n06 | Open: being re-pointed to n06 |
+| 5 | n07 | #873 | n05 (once #858 is in) | Open: tracks next's head for CI until its turn |
 | — | n03 | Next-Server, flavours | the head when it's built | Not started |
 
 ## 1. Song ads
