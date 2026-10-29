@@ -1436,3 +1436,26 @@ test("an old /scripts/new link goes to the Scripts list", async () => {
   open("/b/1/scripts/new");
   expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
 });
+
+test("with the owner's plan approved, Make this version says the shots come next and what they cost", async () => {
+  setViewport(390);
+  const full = { ...script({ versions: [v(0, "approved", { text: "INT. KITCHEN\nBo sniffs the salmon.", has_breakdown: false, estimate_credits: 21 })] }) };
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]],
+    "GET /scripts/7": [200, full],
+    "GET /scripts/7/cast": [200, []],
+    "GET /scripts/7/drafts/0/plan": [200, { status: "approved", scenes: [] }],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
+    "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: 4 }],
+    "GET /projects/55": [404, { detail: "x" }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  expect(await within(panel).findByText("From the owner's plan: the shots are made when you start")).toBeInTheDocument();
+  expect(within(panel).getByText("Starting costs 3 (the shots) · the whole video about 21 credits")).toBeInTheDocument();
+  await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
+  expect(await screen.findByText("Version A is yours. Next: the shots.")).toBeInTheDocument();
+});
