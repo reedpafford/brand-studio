@@ -509,7 +509,7 @@ test("a Ready to make chip opens the version panel, and Make this version reserv
   expect(within(panel).getByText(/Bo sniffs the salmon/)).toBeInTheDocument();
   expect(within(panel).getByText("Bo · Locked look")).toBeInTheDocument();
   expect(within(panel).getByText("The plan is made when you start")).toBeInTheDocument();
-  expect(within(panel).getByText("Starting costs 3 (the plan) · the whole video about 21 credits")).toBeInTheDocument(); // one line (#749 LW5)
+  expect(within(panel).getByText("Starting costs 3 (the plan) · the whole video up to 21 credits")).toBeInTheDocument(); // one line (#749 LW5)
   // No saved breakdown: starting one is a paid call, so the button says its price.
   await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
@@ -636,7 +636,7 @@ test("the version panel says what it is a variation of, who planned the breakdow
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" });
   expect(await within(panel).findByText("Variation of A")).toBeInTheDocument();
   expect(within(panel).getByText("Planned by Reed · 28 s · 4 clips")).toBeInTheDocument();
-  expect(within(panel).getByText("Starting is free · the whole video about 210 credits")).toBeInTheDocument();
+  expect(within(panel).getByText("Starting is free · the whole video up to 210 credits")).toBeInTheDocument();
   expect(within(panel).getByRole("button", { name: "Make this version" })).not.toHaveTextContent(/credit/); // a saved breakdown is free
 });
 
@@ -1467,7 +1467,7 @@ test("Make this version shows the video's settings, and a pick moves the price l
   const models = await screen.findByRole("dialog", { name: "Video model" });
   expect(within(models).getByRole("button", { name: /Kling/ })).toHaveTextContent("No lip-sync");
   await userEvent.click(within(models).getByRole("button", { name: /Kling/ }));
-  expect(await within(panel).findByText("Starting costs 3 (the plan) · the whole video about 34 credits")).toBeInTheDocument();
+  expect(await within(panel).findByText("Starting costs 3 (the plan) · the whole video up to 34 credits")).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: /Video model: Kling/ })).toBeInTheDocument();
 });
 
@@ -1523,7 +1523,7 @@ test("with the owner's plan approved, Make this version says the shots come next
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
   expect(await within(panel).findByText("From the owner's plan: the shots are made when you start")).toBeInTheDocument();
-  expect(within(panel).getByText("Starting costs 3 (the shots) · the whole video about 21 credits")).toBeInTheDocument();
+  expect(within(panel).getByText("Starting costs 3 (the shots) · the whole video up to 21 credits")).toBeInTheDocument();
   await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
   expect(await screen.findByText("Version A is yours. Next: the shots.")).toBeInTheDocument();

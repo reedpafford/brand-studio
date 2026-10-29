@@ -258,8 +258,10 @@ def video_credits(db: Session, take: SongTake, seconds: float | None = None,
     """About what a video of this take (or its first `seconds`) costs, every step at plan:
     the song decides the video's length (spec §1), plus up to a look (`look_price`, rule 32)
     for each role that will need one, by the rules the video's cost bar uses
-    (`sheets.roles_without_a_look`, `roles_needing_look`). The take card, the version and the
-    video's bar show this one figure; budgets stay on "usual" (`credits.budget`)."""
+    (`sheets.roles_without_a_look`, `roles_needing_look`), and the plan call Make this version
+    charges first (`plans.plan_first`). The take card and the version show this one figure,
+    the video's bar the rest once the plan is charged; budgets stay on "usual"."""
+    from app.plans import plan_first
     from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
     length = seconds or take.trim_to or take.seconds or 0
@@ -267,8 +269,10 @@ def video_credits(db: Session, take: SongTake, seconds: float | None = None,
     script = db.get(Script, draft.script_id)
     looks = len(roles_without_a_look(db, script, draft))
     looks += len(roles_needing_look(db, script, video.look if video else None))
-    return looks * look_price(db, script.workspace_id) + plan_cost(
-        db, script.workspace_id, math.ceil(length), None, roles=0, video=video
+    return (
+        plan_first(db, draft)
+        + looks * look_price(db, script.workspace_id)
+        + plan_cost(db, script.workspace_id, math.ceil(length), None, roles=0, video=video)
     )
 
 
