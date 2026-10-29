@@ -72,3 +72,27 @@ def test_a_new_take_moves_the_shots_free_and_undo_moves_them_back(
     r = editor.put(f"{video}/song", json={"take_id": first})  # Undo
     assert r.status_code == 200, r.text
     assert _rows(db, video)[-1].data["song"]["take_id"] == first
+
+
+def test_a_shot_whose_line_wasnt_heard_says_its_timing_is_guessed(
+    app,
+    db,
+    owner,
+    editor,
+    song,  # noqa: F811
+):
+    video = _video(app, db, owner, editor, song)
+    project = db.get(Project, int(video.rsplit("/", 1)[1]))
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    draft.style_line = "pop fake:drop-line"  # a take that doesn't sing the last line
+    db.commit()
+    editor.post(f"{video}/songs", json={})
+    _work(app, db)
+    draft.style_line = "pop"
+    dropped = db.query(SongTake).order_by(SongTake.id.desc()).first()
+    dropped.style_line = "pop"  # (stands in for another take of the current words)
+    db.commit()
+    assert editor.put(f"{video}/song", json={"take_id": dropped.id}).status_code == 200
+    plan = editor.get(f"{video}/breakdown").json()
+    flags = {sid: s["guessed"] for sid, s in plan["song"]["shots"].items()}
+    assert any(flags.values()) and not all(flags.values())

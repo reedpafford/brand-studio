@@ -31,6 +31,7 @@ class SongShotTime(BaseModel):
     start: float
     end: float
     sung: bool
+    guessed: bool = False  # its line wasn't heard in the take: "Timing guessed"
 
 
 class SongPart(BaseModel):
@@ -54,6 +55,26 @@ class BreakdownOut(BaseModel):
     song: SongPart | None = None  # a song video's: each shot's time in the song, and Sung
 
 
+def _song(db: Session, row: BreakdownVersion) -> dict | None:
+    """A song video's shot times, each marked when its line wasn't heard in the take."""
+    from app import song_breakdown
+    from app.models.scripts import ScriptVersion
+    from app.models.songs import SongTake
+
+    song = row.data.get("song")
+    take = db.get(SongTake, song["take_id"]) if song else None
+    if not take:
+        return song
+    text = db.scalar(select(ScriptVersion.text).where(
+        ScriptVersion.project_id == row.project_id, ScriptVersion.version == row.script_version
+    )) or ""  # fmt: skip
+    unsure = song_breakdown.guessed(
+        Breakdown.model_validate(row.data), text, song_breakdown.timing_used(take)
+    )
+    shots = {sid: {**t, "guessed": sid in unsure} for sid, t in song["shots"].items()}
+    return {**song, "shots": shots}
+
+
 def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
     db = object_session(row)
     project = db.get(Project, row.project_id)
@@ -66,7 +87,7 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         problems=row.problems,
         kept=row.kept or [],
         stale=row.script_version != working,
-        song=row.data.get("song"),
+        song=_song(db, row),
         fixes=breakdown_fix.fixes(row.problems or []),
     )
 

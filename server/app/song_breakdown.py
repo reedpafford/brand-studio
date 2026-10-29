@@ -137,3 +137,18 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
     cast_roles.carry_frames(db, project, row, again)
     cast_roles.carry_clips(db, project, row, again)
     return again
+
+
+def guessed(bd: Breakdown, text: str, timing: dict) -> set[str]:
+    """Shots one of whose sung lines wasn't heard in the take, so its time is a guess
+    ("Timing guessed"). Script line numbers count every line of the lyrics; the timing's
+    lines are the sung ones, in the same order (check.sung_lines)."""
+    from app.prompts.check import LIP_SYNC, SECTION
+
+    sung, n = {}, 0
+    for number, line in enumerate(text.splitlines(), 1):
+        if not SECTION.match(line) and LIP_SYNC.sub("", line).strip():
+            sung[number], n = n, n + 1
+    heard = [ln.get("heard", 1) for ln in timing.get("lines", [])]
+    unheard = {num for num, k in sung.items() if k < len(heard) and heard[k] == 0}
+    return {s.id for scene in bd.scenes for s in scene.shots if unheard & set(s.script_lines)}

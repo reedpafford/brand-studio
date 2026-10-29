@@ -5975,6 +5975,11 @@ export interface components {
             end: number;
             /** Sung */
             sung: boolean;
+            /**
+             * Guessed
+             * @default false
+             */
+            guessed: boolean;
         };
         /** SongTakeOut */
         SongTakeOut: {
