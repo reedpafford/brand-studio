@@ -58,8 +58,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| S3 approved version (#818) | Refused before any charge now, but the reason says "Duplicate it": no Duplicate before publish | Say "Undo approval on Publish" | #818 at 2911002c |
-| S3 names and copies (#818) | `check.finish_directions` (#819) is not yet called by the directions job: a sounds-like name still reaches Suno | Next-Server wires it: names out, copy check, one rewrite, else failed and not charged | #819 at 00c4f96b |
 | V6 song video (#829) | After a song switch, Make video uses clips made for the old take: a 24 s cut under a 40 s song, marked current | Refuse while a clip is out of date for the video's song | #829 at 81fcf9ec |
 | Names in the style (#831) | "country Taylor Swift" keeps the name; "beatles" leaves "like the" | Find names inside the sounds-like; take "the" with the lead-in | #831 at 08545fe2 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
@@ -155,4 +153,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #829 at 81fcf9ec (V6: Make video for a song video, n02) | Tests (15); switch to a 40 s take then Make video | FAIL: Make video uses clips made for the old song (24 s cut, new song under it, says current) |
 | 2026-10-29 | #831 at 08545fe2 (only real names leave the style) | 14 inputs; test_song (19) | FAIL: "country Taylor Swift" keeps the name; "beatles" leaves "like the" |
 | 2026-10-29 | next red since #821 (Assets tick test) | Bisected: each side passes, the merge fails; test kept a detached Steps list | Fixed on next by #832 (my #835 closed as duplicate) |
+| 2026-10-29 | #818 at 6252911a (wording; names and one rewrite in the job) | 19 checks: names out (3 inputs), fake:three (one rewrite, charged once), fake:three-always (failed, not charged), approved wording, earlier states | PASS; S3a's copy check waits for the study route |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
