@@ -8,11 +8,13 @@ import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import type { Script } from "./useScript";
+import { ClaimsNote, SongDirections, directionsOf } from "./SongDirections";
+import { clock } from "./TakePlayer";
 import { useSongs } from "./useSongs";
 
 export const MAX_LYRICS = 4960; // Suno's limits less the pacing words the server adds (app/music.py)
 const MAX_STYLE = 893;
-const SUNG_PER_SECOND = 2.5; // about how fast a song is sung
+const SUNG_RATE = [2.0, 2.4]; // words a second Suno sang Reed's pilot songs (the server's prompts.SUNG_RATE)
 
 /** The sung words: section tags like [Verse] are not sung and don't count. */
 export const sungWords = (lyrics: string) => lyrics.replace(/\[[^\]]*\]/g, " ").split(/\s+/).filter(Boolean).length;
@@ -33,6 +35,12 @@ export function keepFirst(lyrics: string, n: number): { kept: string; dropped: n
 }
 const words = (s: string) => s.split(/\s+/).filter(Boolean);
 const n = (x: number) => x.toLocaleString("en-GB");
+
+/** "75 sung words: a song of about 0:31–0:38", at the pace Suno really sings (flows S2; the server's check.length_note). */
+export function lengthNote(lyrics: string) {
+  const w = sungWords(lyrics);
+  return `${n(w)} sung word${w === 1 ? "" : "s"}: a song of about ${clock(Math.round(w / SUNG_RATE[1]))}–${clock(Math.round(w / SUNG_RATE[0]))}`;
+}
 
 export type Song = { text: string; style_line: string; spoken_end_line: string; singer?: string }; // singer left out: kept as it is
 
@@ -66,7 +74,7 @@ function Advice({ song, brand, save }: { song: Song; brand?: { name: string; end
       text: "Suno follows short styles better. Keep it under 25 words.",
       fix: <Button variant="secondary" onClick={() => save({ ...song, style_line: styleWords.slice(0, 25).join(" ") }, "Style cut to 25 words.")}>Shorten it · free</Button>,
     });
-  if (sung > 150) items.push({ text: `About ${Math.round(sung / SUNG_PER_SECOND)} s sung. That's a long ad: the video will be about that long too.` });
+  if (sung > 150) items.push({ text: `${lengthNote(song.text)}. That's a long ad: the video will be about that long too.` });
   if (brand && !named && !song.spoken_end_line)
     items.push({
       text: `The song doesn't say ${brand.name} or where to find it.`,
@@ -174,6 +182,8 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
     put.mutate(next, { onSuccess: () => toast(said, () => put.mutate(before)) });
   };
 
+  const directions = (hasWords: boolean) => <SongDirections script={s} brandId={brandId} saved={saved} hasWords={hasWords} onUsed={() => setDraft(null)} />;
+
   if (draft === null) {
     return (
       <div className="space-y-4">
@@ -187,11 +197,13 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
             )}
           </div>
           <pre className="whitespace-pre-wrap break-words type-script">{saved.text}</pre>
-          <p className="text-sm text-muted">{saved.style_line ? `Style: ${saved.style_line}` : "No style yet"} · About {Math.round(sungWords(saved.text) / SUNG_PER_SECOND)} s sung · {n(sungWords(saved.text))} words</p>
+          <p className="text-sm text-muted">{saved.style_line ? `Style: ${saved.style_line}` : "No style yet"} · {lengthNote(saved.text)}</p>
         </Card>
         {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
+        <ClaimsNote script={s} claims={directionsOf(v).claims_to_check} onEdit={() => (takes > 0 ? setAsking(true) : setDraft({ text: saved.text, style: saved.style_line }))} />
         <SpokenLine song={saved} readOnly={s.published} save={fix} />
         {!s.published && <Advice song={saved} brand={brand} save={fix} />}
+        {directions(!!saved.text.trim())}
         {asking && (
           <Dialog title="Edit the lyrics?" cancelLabel="Cancel" actionLabel="Edit lyrics" onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); setDraft({ text: saved.text, style: saved.style_line }); }}>
             Your {takes === 1 ? "take" : `${takes} takes`} will be out of date. They're kept, and you can make new ones.
@@ -214,7 +226,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
           value={draft.text}
           onChange={(e) => setDraft({ ...draft, text: e.target.value })}
           counter={over > 0 ? `Cut ${n(over)} characters` : `${n(draft.text.length)} / ${n(MAX_LYRICS)}`}
-          hint={`Sung exactly as written. [Verse] and [Chorus] tags are fine. About ${Math.round(sung / SUNG_PER_SECOND)} s sung · ${n(sung)} words`}
+          hint={`Sung exactly as written. [Verse] and [Chorus] tags are fine.${sung ? ` ${lengthNote(draft.text)}.` : ""}`}
           error={over > 0 ? `That's ${n(over)} characters over the music model's ${n(MAX_LYRICS)}. Your words stay here; cut some, then save.` : null}
         />
         <TextArea
@@ -245,6 +257,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
           )}
         </div>
       </Card>
+      {directions(!!(saved.text.trim() || draft.text.trim()))}
     </div>
   );
 }
