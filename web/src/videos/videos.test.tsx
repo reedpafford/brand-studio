@@ -135,3 +135,28 @@ test("Scripts is scripts only: no Scripts · Videos switch, and Reed's brand ope
   expect(screen.queryByRole("navigation", { name: "View" })).toBeNull();
   expect(screen.queryByRole("searchbox", { name: "Search videos" })).toBeNull();
 });
+
+test("with no status picked, the videos are grouped Needs you, Making, Done; a video that needs you says what it waits on", async () => {
+  setViewport(390);
+  fakeServer(base(editor, [
+    video({ id: 9, name: "Waits on me · A", needs_you: true, waiting_on: "2 stills and 1 clip ready to check" }),
+    video({ id: 10, name: "Being made · B", needs_you: false }),
+    video({ id: 11, name: "All done · C", needs_you: false, finished_at: "2026-10-24T10:00:00Z" }),
+  ]));
+  open();
+  const needs = await screen.findByRole("region", { name: "Needs you" });
+  expect(within(needs).getByRole("link", { name: /Waits on me · A/ })).toHaveTextContent("2 stills and 1 clip ready to check");
+  expect(within(screen.getByRole("region", { name: "Making" })).getByRole("link", { name: /Being made · B/ })).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "Done" })).getByRole("link", { name: /All done · C/ })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Needs you · 1" })).toBeInTheDocument();
+});
+
+test("Status: Needs you asks the server for just those, in one list", async () => {
+  setViewport(1440);
+  fakeServer(base(editor, [video({ needs_you: true, waiting_on: "Approve 2 looks" })]));
+  open("/b/1/videos?status=needs_you");
+  expect(await screen.findByText("Approve 2 looks")).toBeInTheDocument();
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("status=needs_you"))).toBe(true));
+  expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
+  expect(screen.getByLabelText("Status")).toHaveValue("needs_you");
+});
