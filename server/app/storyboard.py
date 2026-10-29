@@ -26,7 +26,14 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
-from app.sheets import require_cast_sheets, require_looks, require_sheet, sheet_for
+from app.sheets import (
+    NO_LOOK,
+    require_cast_sheets,
+    require_looks,
+    require_sheet,
+    sheet_for,
+    usable_files,
+)
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
@@ -84,6 +91,8 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         if item.kind == Kind.character and files:  # rule 10: the sheet wins
             them = "; ".join(f"plays {short(s.role)}" for s in roles.get(item.id, []))
             parts = (key, item.kind, item.name, them, SHEET_SETS)
+        elif not files and usable_files(item):  # a House sheet, none in its look (Flow-QA)
+            parts = (*parts, NO_LOOK)
         out[key] = (" | ".join(x for x in parts if x), files)
     for slot in video_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
@@ -259,6 +268,28 @@ def older_looks(db: Session, known: dict, frame: StoryboardFrame) -> list[str]:
 
 
 SHEETS = (*CHAR, "place:", "prop:")  # Cast & places pictures a sheet change can make old
+
+
+def stills(db: Session, frame: StoryboardFrame) -> list[dict]:
+    """The frame's earlier stills (OR3, Preferred: the one in use is `file_id`), newest last,
+    each with when and who: the file's time, and whoever asked for the job that drew it."""
+    from app.auth import user_name
+
+    drew = Job.input["frame_id"].as_integer() == frame.id
+    jobs = db.scalars(select(Job).where(Job.project_id == frame.project_id, drew))
+    by = {((j.output or {}).get("file_ids") or [None])[0]: j.created_by_id for j in jobs}
+    out = []
+    for e in frame.earlier or []:
+        made = db.get(StoredFile, e["file_id"])
+        who = by.get(e["file_id"])
+        out.append(
+            {
+                **e,
+                "made_at": made.created_at.isoformat() if made else None,
+                "made_by": {"id": who, "name": user_name(db, who)} if who else None,
+            }
+        )
+    return out
 
 
 def drawn_from_older(known: dict, refs: list[str], sent: set[int]) -> list[str]:
@@ -572,6 +603,50 @@ def still_refused(db: Session, job: Job) -> None:
         frame.problems = [*(frame.problems or []), REFUSED]
 
 
+HISTORY = 10  # OR3: earlier storyboards kept (their stills' files are never deleted)
+KEPT = ("breakdown_id", "job_id", "clip_id", "shot_id", "prompt", "reference_ids", "problems",
+        "kept", "file_id", "approved", "still_stale", "look", "made_with", "redrawn", "earlier",
+        "change")  # fmt: skip
+
+
+def _rows(db: Session, project: Project) -> list[StoryboardFrame]:
+    return list(db.scalars(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id)
+                           .order_by(StoryboardFrame.id)))  # fmt: skip
+
+
+def as_version(db: Session, frames: list[StoryboardFrame]) -> dict:
+    """A storyboard as Versions keeps it: when and who (its Claude call), and every frame."""
+    job = db.get(Job, frames[0].job_id) if frames[0].job_id else None
+    made = job.created_at if job else frames[0].created_at
+    return {"made_at": made.isoformat(), "made_by_id": job.created_by_id if job else None,
+            "frames": [{k: getattr(f, k) for k in KEPT} for f in frames]}  # fmt: skip
+
+
+def keep_storyboard(db: Session, project: Project) -> None:
+    """The storyboard in hand goes to Versions (newest first, at most HISTORY) before another
+    replaces it."""
+    if frames := _rows(db, project):
+        history = [as_version(db, frames), *(project.storyboard_history or [])]
+        project.storyboard_history = history[:HISTORY]
+
+
+def use_storyboard(db: Session, project: Project, index: int) -> None:
+    """Go back to this (OR3): an earlier storyboard's frames, stills and all, are the video's
+    again; the one in hand goes to the front of Versions, so Undo is index 0. Free. Each frame
+    keeps its clip id, so the clips' `frame:` pictures line up; frames for an older breakdown
+    read "made for an older breakdown", and takes from the replaced stills read Out of date."""
+    history = list(project.storyboard_history or [])
+    if not 0 <= index < len(history):
+        raise HTTPException(404, "There's no such earlier storyboard.")
+    back = history.pop(index)
+    if frames := _rows(db, project):
+        history.insert(0, as_version(db, frames))
+    db.execute(delete(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
+    for f in back["frames"]:
+        db.add(StoryboardFrame(project_id=project.id, **{k: f[k] for k in KEPT if k in f}))
+    project.storyboard_history = history[:HISTORY]
+
+
 def save_frames(db: Session, job: Job) -> None:
     """Replace the project's frames with Claude's new ones (a new storyboard was asked for), or
     the one frame Redo this frame wrote again."""
@@ -581,6 +656,7 @@ def save_frames(db: Session, job: Job) -> None:
         return redo_frame.save(db, job)
     project = db.get(Project, job.input["project_id"])
     result = StoryboardFrames.model_validate(job.output)
+    keep_storyboard(db, project)  # OR3: the one it replaces stays in Versions
     db.execute(delete(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
     bd = Breakdown.model_validate(db.get(BreakdownVersion, job.input["breakdown_id"]).data)
     known = assets(db, project)

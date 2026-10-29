@@ -30,7 +30,7 @@ from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown, Frame
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import _mine, get_project
 from app.routes.scripts import latest
 from app.schemas import PromptText
 from app.sheets import require_looks
@@ -65,7 +65,9 @@ class FrameOut(BaseModel):
     stale: bool  # made from an older breakdown, or the breakdown is for an older script
     still_stale: bool  # the still shows the old cast (its redraw wasn't covered): "Out of date"
     redrawn: bool  # redrawn for a new cast and not approved yet: "Redrawn"
-    earlier: list[dict]  # older stills, newest last: [{file_id, prompt}]
+    # older stills, newest last (OR3: the one in use, `file_id`, is the Preferred one):
+    # [{file_id, prompt, made_at, made_by: {id, name} | null}]
+    earlier: list[dict]
     # The last Change it note: {note, status: changing | done | unchanged | failed, before,
     # after, unchanged, error}; cleared on Approve or the next note ("What your note changed").
     change: dict | None
@@ -81,6 +83,7 @@ class FrameOut(BaseModel):
     redo_credits: int | None = None
     redo_blocked: str | None = None
     check: CheckOut | None = None  # P4: the advisory check on its newest still (Advice only)
+    was_file_id: int | None = None  # Use this still: the one it replaced (Undo picks it back)
 
 
 class SoftenOut(BaseModel):
@@ -139,7 +142,7 @@ def _out(
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
                 "redo_credits", "redo_blocked", "still_stale", "check", "look_fixed",
-                "look_fix")  # fmt: skip
+                "look_fix", "earlier", "was_file_id")  # fmt: skip
     other = looks.frame_other(project, frame) or video_settings.frame_stale(project, frame)  # VS1
     newest = _newest_breakdown(db, project)
     redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
@@ -155,6 +158,7 @@ def _out(
         **{f: getattr(frame, f) for f in FrameOut.model_fields if f not in computed},
         approved=frame.approved and not stale and not other,
         stale=stale,
+        earlier=storyboard.stills(db, frame),
         still_stale=frame.still_stale or other,
         change=asked or None,
         drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
@@ -225,6 +229,62 @@ def frames(project_id: int, user: User = Depends(current_user), db: Session = De
     )
     waiting = _waiting(db, project)
     return [_out(db, project, f, waiting) for f in rows]
+
+
+class Maker(BaseModel):
+    id: int
+    name: str
+
+
+class StoryboardVersionOut(BaseModel):
+    """OR3 Versions: the storyboard in hand (`index` null) and the earlier ones (`index`: Go
+    back to this)."""
+
+    index: int | None
+    made_at: str
+    made_by: Maker | None
+    frames: int
+    still_file_ids: list[int]  # each frame's still, for the thumbnails (none drawn: left out)
+    current: bool
+
+
+def _version(db: Session, entry: dict, index: int | None) -> StoryboardVersionOut:
+    from app.auth import user_name
+
+    by = entry.get("made_by_id")
+    return StoryboardVersionOut(
+        index=index, made_at=entry["made_at"], current=index is None,
+        made_by=Maker(id=by, name=user_name(db, by)) if by else None,
+        frames=len(entry["frames"]),
+        still_file_ids=[f["file_id"] for f in entry["frames"] if f.get("file_id")],
+    )  # fmt: skip
+
+
+@router.get("/versions", response_model=list[StoryboardVersionOut])
+def versions(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The storyboard in hand first, then the earlier ones, newest first (at most 10)."""
+    project = get_project(db, user, project_id)
+    rows = storyboard._rows(db, project)
+    now = [_version(db, storyboard.as_version(db, rows), None)] if rows else []
+    return now + [_version(db, e, i) for i, e in enumerate(project.storyboard_history or [])]
+
+
+@router.post("/versions/{index}/use", response_model=list[FrameOut])
+def use_version(
+    project_id: int, index: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Go back to this: free, never refused over budget; Undo is index 0 (the one it replaced).
+    Waits while a storyboard or a still is being made, so nothing lands on a frame that's gone.
+    Whoever made the video, or the owner."""
+    project = _mine(db, user, project_id)
+    if project.archived_at is not None:
+        raise HTTPException(409, "This video is archived. Restore it first.")
+    if any(j.input.get("step") in ("storyboard", "frame") or j.input.get("frame_id")
+           for j in _waiting(db, project)):  # fmt: skip
+        raise HTTPException(409, "Wait for the storyboard and stills being made.")
+    storyboard.use_storyboard(db, project, index)
+    db.commit()
+    return frames(project_id, user, db)
 
 
 @router.put("/frames/{frame_id}", response_model=FrameOut)
@@ -384,13 +444,16 @@ def pick_still(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Use an earlier still again, with the prompt it was made from (free; the Undo of a
-    change). The one it replaces becomes an earlier still."""
+    """Use an earlier still again, with the prompt it was made from: OR3's Preferred still,
+    and the Undo of a change. Free, never refused over budget. The one it replaces becomes an
+    earlier still (`was_file_id`: pick it back to undo); a take made from the replaced still
+    reads Out of date (clip_prompts.older_still). Whoever made the video, or the owner."""
+    _mine(db, user, project_id)
     project, frame = _frame(db, user, project_id, frame_id)
     old = next((e for e in frame.earlier or [] if e["file_id"] == body.file_id), None)
     if old is None:
         raise HTTPException(404, "No such earlier still.")
-    rest = [e for e in frame.earlier if e is not old]
+    rest, was = [e for e in frame.earlier if e is not old], frame.file_id
     if frame.file_id:
         rest.append({"file_id": frame.file_id, "prompt": frame.prompt,
                      **({"made_with": frame.made_with} if frame.made_with else {})})  # fmt: skip
@@ -398,7 +461,7 @@ def pick_still(
     frame.made_with = old.get("made_with") or {}  # VS1: what that still was made with
     frame.approved = frame.still_stale = False
     db.commit()
-    return _out(db, project, frame)
+    return _out(db, project, frame).model_copy(update={"was_file_id": was})
 
 
 @router.post("/frames/{frame_id}/approve", response_model=FrameOut)

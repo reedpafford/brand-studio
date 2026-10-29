@@ -5,7 +5,7 @@ import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Button, Card, Panel, Skeleton } from "../components";
+import { Badge, Button, Card, Dialog, Panel, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
@@ -64,12 +64,26 @@ export function LookPicker({ current, looks, onPick, busy, error, onClose }: { c
   );
 }
 
+/** What changing a script's look would take (Next-Server's #943), read before the change. Until the route is in the generated
+ *  schema it is called with fetch; a server without it (404) changes the look with no confirm, as before. */
+type LookChange = { roles: string[]; to_finish_credits: number; was_credits: number; over_budget: boolean; reason: string };
+async function lookChange(scriptId: number, look: string): Promise<LookChange | null> {
+  const r = await fetch(`${location.origin}/api/scripts/${scriptId}/look-change?look=${encodeURIComponent(look)}`, { credentials: "include" });
+  if (r.status === 404) return null;
+  const body = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(typeof body?.detail === "string" ? body.detail : "That didn't work. Try again.");
+  return body as LookChange;
+}
+
 /** "Look: House ▾" for a script or a video: opens the picker, saves at once (free) with Undo. Read only once published. Hidden until the server offers looks. */
 export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: string | null | undefined; scriptId: number; queryKey: unknown[]; readOnly?: boolean }) {
   const looks = useLooks();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [open, setOpen] = useState(false);
+  // ST1: once roles would need a new look, the change is confirmed with what it takes to finish.
+  const [asking, setAsking] = useState<{ look: Look; change: LookChange } | null>(null);
+  const check = useMutation({ mutationFn: (look: string) => lookChange(scriptId, look) });
   const save = useMutation({
     mutationFn: (look: string) => must(api.PATCH("/scripts/{script_id}", { params: { path: { script_id: scriptId } }, body: { look } })),
     onSuccess: async (_r, look) => {
@@ -82,22 +96,32 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
   const id = value ?? looks.data[0]?.id ?? "house";
   const name = looks.data.find((l) => l.id === id)?.name ?? "House";
   if (readOnly) return <Badge icon={Palette}>Look: {name}</Badge>;
-  const pick = (l: Look) => {
+  const change = (l: Look) => {
     const was = id;
     save.mutate(l.id, {
       onSuccess: () => {
         setOpen(false);
+        setAsking(null);
         toast(`The look is ${l.name}.`, () => save.mutate(was));
       },
     });
   };
+  const pick = (l: Look) =>
+    check.mutate(l.id, { onSuccess: (c) => (c && c.roles.length > 0 ? setAsking({ look: l, change: c }) : change(l)) });
+  const refused = (save.error ?? check.error)?.message ?? null;
+  const n = asking?.change.roles.length ?? 0;
   return (
     <>
       <Button variant="ghost" dense icon={Palette} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
         Look: {name}
       </Button>
-      {save.isError && !open && <p role="alert" className={errorClass}>{save.error.message}</p>}
-      {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : null} error={save.isError ? save.error.message : null} onPick={pick} onClose={() => setOpen(false)} />}
+      {refused && !open && <p role="alert" className={errorClass}>{refused}</p>}
+      {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : check.isPending ? (check.variables ?? null) : null} error={refused} onPick={pick} onClose={() => setOpen(false)} />}
+      {asking && (
+        <Dialog title={`Change to ${asking.look.name}?`} cancelLabel="Not yet" actionLabel="Change" busy={save.isPending} holdReason={asking.change.over_budget ? asking.change.reason || "That would go over this week's credits." : null} onCancel={() => setAsking(null)} onConfirm={() => change(asking.look)}>
+          {n} role{n === 1 ? "" : "s"} need{n === 1 ? "s" : ""} a new look ({asking.change.roles.join(", ")}). To finish: about {asking.change.to_finish_credits} credits (was {asking.change.was_credits}).
+        </Dialog>
+      )}
     </>
   );
 }

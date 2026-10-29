@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChartColumn, ChevronDown, Clapperboard, Film, Plus, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, ChevronDown, Clapperboard, Film, Plus, FileText, Images, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
@@ -11,14 +11,16 @@ import { applyTheme, getTheme, type Theme } from "../theme";
 import { useMedia } from "../useMedia";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
 import { NewBrand } from "./NewBrand";
+import { ProjectsList } from "../folders/Projects";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
 
-const SECTIONS: { to: string; also?: string; label: string; short: string; icon: LucideIcon }[] = [
+const SECTIONS: { to: string; also?: string; label: string; short: string; icon: LucideIcon; railOnly?: boolean }[] = [
   { to: "videos", also: "projects", label: "Videos", short: "Videos", icon: Film },
   { to: "scripts", label: "Scripts", short: "Scripts", icon: FileText },
   { to: "clip", label: "Quick clip", short: "Quick clip", icon: Zap },
+  { to: "media", label: "Media", short: "Media", icon: Images, railOnly: true }, // on a phone: from the Videos header (five tabs)
   { to: "library", label: "Cast & places", short: "Cast", icon: Users },
   { to: "brand", label: "Brand", short: "Brand", icon: Palette },
 ];
@@ -359,6 +361,12 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
     <nav aria-label="Main" className={`sticky top-topbar h-[calc(100vh-var(--topbar-h))] shrink-0 overflow-y-auto border-r border-border bg-bg p-3 ${wide ? "w-rail" : "w-[72px]"}`}>
       {wide && brand && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">{brand.name}</p>}
       {current && <div className="flex flex-col gap-1">{SECTIONS.map((s) => row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also))}</div>}
+      {current && wide && (
+        <div className="mt-4 border-t border-border pt-2">
+          <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">Projects</p>
+          <ProjectsList brandId={current} />
+        </div>
+      )}
       {owner && (
         <div className="mt-4 border-t border-border pt-2">
           {wide && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">Studio</p>}
@@ -380,7 +388,7 @@ function Tabs({ current }: { current: number | null }) {
   return (
     <nav aria-label="Tabs" style={{ height: "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
       {current &&
-        SECTIONS.map((s) => (
+        SECTIONS.filter((s) => !s.railOnly).map((s) => (
           <NavItem key={s.to} to={`/b/${current}/${s.to}`} also={s.also} className={tab}>
             <s.icon size={20} strokeWidth={1.75} aria-hidden />
             {s.short}

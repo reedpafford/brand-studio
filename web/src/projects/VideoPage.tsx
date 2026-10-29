@@ -24,6 +24,7 @@ import { ShapeRow } from "./ShapeRow";
 import { VideoSettings, useVideoSettings } from "./VideoSettings";
 import { useUpdateAfter } from "./UpdateAfter";
 import { useOwnScriptStop } from "./useOwnScriptStop";
+import { ProjectPicker } from "../folders/Projects";
 import { StoryboardPane } from "./StoryboardPane";
 import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
@@ -103,6 +104,8 @@ export function VideoPage() {
   const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
   // Made work whose earlier step changed stays viewable; its paid presses wait, and the banner says where to go (audit M14).
   const held = videoHold(step, all);
+  // While a look in the cast isn't ready, the update would be refused at its storyboard step: it waits with the same reason (Flow-QA on #936).
+  const updateAction = update.action && held?.at === "cast" ? { ...update.action, reason: held.why } : update.action;
   const hold = held?.why ?? null;
   const fixAt = held ? VIDEO_STEPS.find((s) => s.id === held.at) : undefined;
   const next = videoNext(step);
@@ -121,7 +124,7 @@ export function VideoPage() {
 
   return (
     // One cost bar at the bottom: the budget (or the editor's week), what finishing costs, and the step's press (audit M1).
-    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} fallback={waiting ? null : (update.action ?? nextAction)}>
+    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} fallback={waiting ? null : (updateAction ?? nextAction)}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}
@@ -134,6 +137,7 @@ export function VideoPage() {
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="min-w-0 break-words type-page">{p.name}</h1>
           {menu}
+          {mayManage(p) && <ProjectPicker brandId={p.brand_id} kind="video" id={id} folderId={p.folder_id} />}
         </div>
       </div>
       {video.dialog}

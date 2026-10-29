@@ -56,6 +56,8 @@ class Project(Filed, Entity, Base):
     # earlier plans, newest first, at most 10. Null: read from the breakdown, or none yet.
     plan: Mapped[dict | None] = mapped_column(JSON)
     plan_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    # OR3: the storyboards before the one in hand, newest first, at most 10 (n13)
+    storyboard_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
 
     # Assets step: unlocked cast slot id (as text) -> the library character the editor gave it.
     slot_cast: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)

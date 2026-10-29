@@ -155,9 +155,11 @@ def save_changed(db: Session, job: Job) -> None:
         breakdown = Breakdown.model_validate(bd.data)
         clip = clip_prompts.with_cast(db, project, clip, breakdown, trim=False, note=i["note"])
         clip = clip_prompts.repair_shape(clip, breakdown)  # what code can fix, free, first
+        clip_prompts.before_change(db, row)
         row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
         row.seconds = clip.seconds
         row.problems = clip_prompts.clip_problems(db, project, breakdown, clip)
+        clip_prompts.log_prompt(db, row, job.created_by_id)  # OR3: Versions
         if not _has_take(db, row):
             return  # before any take, a change only rewrites the prompt
         if stops := advice.stops(row):  # never pay for a take from a prompt with a problem
