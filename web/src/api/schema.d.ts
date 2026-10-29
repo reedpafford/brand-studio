@@ -5036,6 +5036,11 @@ export interface components {
             text: string;
             /** Note */
             note: string;
+            /**
+             * Fix
+             * @default
+             */
+            fix: string;
         };
         /** FixIn */
         FixIn: {
@@ -5125,6 +5130,12 @@ export interface components {
             softened?: {
                 [key: string]: unknown;
             } | null;
+            /** Look Fixed */
+            look_fixed?: {
+                [key: string]: unknown;
+            } | null;
+            /** Look Fix */
+            look_fix?: string | null;
             /**
              * Drawing
              * @default false
@@ -6244,6 +6255,8 @@ export interface components {
             /** Retried */
             retried?: ("refused" | "busy") | null;
             auto_fix?: components["schemas"]["AutoFixOut"] | null;
+            /** Look Fix */
+            look_fix?: string | null;
         };
         /** ProjectEstimateOut */
         ProjectEstimateOut: {
