@@ -20,7 +20,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n03 | Flavour from the script: `script_drafts.flavours` JSON `{product: variant}` (default `{}`), copied to the video at Make this version (the video's own pick stays where it is today) | Next-Server | — |
 | n04 | Song-ad study (S3a): `script_drafts.song_study` JSON, default null | Builder-Server-7 | — |
 | n05 | Narrated (N1, V6n): `song_takes.kind`, `voice`, `music_file_id`, `music_job_id`, `trimmed`; `scripts.kind` gains `narrated` (validation only) | Next-Server | — |
-| n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, new `item_checks`; existing videos planned from their breakdown | Builder-Server-8 | — |
+| n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, `project_clips.auto_fix`, new `item_checks`; existing videos are planned from their breakdown in code, when read | Builder-Server-8 | — |
 
 ## Merge order (the chain on `next`)
 
@@ -66,7 +66,7 @@ Code notes for Next-Server (not tables):
 | `jobs` | `retry_of_id` (nullable FK jobs) and `auto` bool (default false): the one automatic retry (P3) | At most one auto retry per job, enforced in code and tested. |
 | `project_clips` | `auto_fix` JSON (default null): `{before, after, fixed: ["removed \"9:16\"", …], undone}`, the wording fixed for you (P3) | **Undo** puts `before` back and sets `undone`; while the prompt is still `before`, it isn't fixed again and its flags are Advice. Spoken (quoted) words are never changed. |
 | New: `item_checks` | `id`, `project_id`, `target` (`frame` or `take`), `target_id`, `job_id`, `status` (`checking`/`done`/`failed`/`skipped`), `findings` JSON `[{kind: face/outfit/product, role, text, change_note}]`, `dismissed` JSON (finding indexes with who and when), `created_at` | One row per still or take checked. Never touches approvals. |
-| Migration plan | Existing videos with a breakdown get `plan` from it in the same migration (in code, free, `source = "from_breakdown"`, approved), so no video is blocked. | n06, one number for all of 1b (Builder-Server-8). |
+| Migration plan | n06 adds the columns only. A video with a breakdown and no stored `plan` gets one read from its breakdown when it's first asked for (in code, free, `source = "from_breakdown"`, approved), so no video is blocked, made before or after. Every "is the plan approved?" (the Plan GET, the shots/breakdown guard, the step ✓ in ProjectOut, the lists and "Needs you") goes through that one function. | n06, one number for all of 1b (Builder-Server-8; Next-Lead agreed reading at read time, 2026-10-29). |
 
 ## 2–6. Later items
 

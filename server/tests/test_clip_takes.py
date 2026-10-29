@@ -381,9 +381,7 @@ def test_a_reworded_refusal_is_made_again_on_its_own_once(app, db, editor, setup
     assert len(shown["takes"]) == 1 and shown["retrying"] is None
 
 
-def test_a_take_flagged_sensitive_is_made_again_on_its_own_then_reworded(
-    app, db, editor, setup, clip
-):  # noqa: F811, E501
+def test_a_sensitive_take_is_made_again_on_its_own_then_reworded(app, db, editor, setup, clip):  # noqa: F811
     from app.clip_takes import SENSITIVE
 
     url = f"/projects/{setup['project']}/clips/{clip['id']}"

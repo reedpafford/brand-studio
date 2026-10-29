@@ -49,6 +49,7 @@ class ScriptDraft(Entity, Base):
     style_line: Mapped[str] = mapped_column(Text, default="")
     song_directions: Mapped[list[dict]] = mapped_column(JSON, default=list)
     singer: Mapped[str] = mapped_column(String(120), default="")  # a cast role; "": nobody seen
+    plan: Mapped[dict | None] = mapped_column(JSON)  # 1b: the owner's plan, each video's start
     # Rule 18: an end line spoken over the song's last seconds (music lowered), at the stitch
     spoken_end_line: Mapped[str] = mapped_column(Text, default="")
     approved_at: Mapped[datetime | None]
