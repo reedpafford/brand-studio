@@ -53,3 +53,6 @@ refused: Soften it, then Make another.
 face: Make another: the one recurring character never changes while the world changes scale around them.
 outfit: Change this… naming the sheet's one outfit colour.
 product: Change this… "the real product centred in the open world on the glowing floor ring, the label facing the camera".
+
+## sample
+A calm adult in their thirties with short dark hair, in one plain orange top, standing on the cyan ground beside a large glass of water.

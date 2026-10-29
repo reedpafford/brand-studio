@@ -4,7 +4,7 @@ Producing a version makes a project (`Project.script_draft_id`, one per version)
 
 from datetime import datetime
 
-from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint, event, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
@@ -17,6 +17,7 @@ class Script(Entity, Base):
     title: Mapped[str] = mapped_column(String(200))
     kind: Mapped[str] = mapped_column(String(20), default="story")  # story | song (song ads)
     look: Mapped[str] = mapped_column(String(40), default="house")  # how pictures are drawn (ST1)
+    language: Mapped[str] = mapped_column(String(10), default="en")  # its videos read it (VS1)
     description: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     reference_id: Mapped[str | None] = mapped_column(String(80))  # a GET /references reel
@@ -33,6 +34,17 @@ class Script(Entity, Base):
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     # Roles kept apart for good ("They're different"): [[slot id, slot id], …] (merge-roles.md)
     cast_apart: Mapped[list] = mapped_column(JSON, default=list)
+
+
+@event.listens_for(Script, "before_insert")
+def _language(mapper, connection, script: Script) -> None:
+    """A new script is written in its brand's language unless one was given (VS1, BR1)."""
+    if script.language is None:
+        from app.models.brands import Brand
+
+        found = connection.scalar(select(Brand.default_language)
+                                  .where(Brand.id == script.brand_id))  # fmt: skip
+        script.language = found or "en"
 
 
 class ScriptDraft(Entity, Base):

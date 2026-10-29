@@ -103,6 +103,12 @@ def test_a_still_that_fails_stops_the_run_and_says_where(app, db, editor, setup)
     assert (shown["stopped_at"], shown["running"]) == ("stills", False)
     assert shown["reason"] == "The still didn't finish. Nothing was charged."
     assert shown["steps"]  # the press is there again, for what's left
+    frame = db.get(StoryboardFrame, still.input["frame_id"])  # its own press puts it right
+    assert editor.post(f"{url}/storyboard/frames/{frame.id}/render").status_code == 201
+    for _ in range(3):
+        run_once(db, providers, app.state.storage)
+    after = editor.get(f"{url}/update-after").json()
+    assert (after["stopped_at"], after["reason"]) == (None, None)  # nothing left at Storyboard
 
 
 def test_out_of_date_stills_alone_are_drawn_again(app, db, editor, setup):  # noqa: F811
@@ -120,3 +126,28 @@ def test_out_of_date_stills_alone_are_drawn_again(app, db, editor, setup):  # no
     db.refresh(frame)
     assert frame.file_id != was and not frame.still_stale
     assert editor.get(f"{url}/update-after").json()["steps"] == []
+
+
+def test_a_frame_to_fix_stops_at_the_stills(app, db, editor, setup, monkeypatch):  # noqa: F811
+    url = f"/projects/{setup['project']}"
+    providers = _made(app, db, editor, url)
+    monkeypatch.setattr("app.advice.blocking", lambda problems: True)  # every new frame to fix
+    editor.post(f"{url}/update-after")
+    from app.worker import run_once
+
+    run_once(db, providers, app.state.storage)  # the storyboard: nothing can be drawn
+    shown = editor.get(f"{url}/update-after").json()
+    assert shown["stopped_at"] == "stills" and "on Storyboard" in shown["reason"]
+    shot = db.query(StoryboardFrame).first().shot_id
+    assert f"shot {shot}" in shown["reason"]
+
+
+def test_a_stop_waiting_on_two_stills_is_over_only_when_both_are_drawn():
+    from app.models.jobs import JobStatus
+
+    stop = Job(id=1, input={})
+    drew = [Job(id=2, status=JobStatus.succeeded, input={"step": "frame", "frame_id": 10})]
+    assert not update_after._put_right(drew, stop, "stills", [11])  # one fine, one to fix (QA)
+    assert not update_after._put_right(drew, stop, "stills", [10, 11])  # one of two
+    drew.append(Job(id=3, status=JobStatus.succeeded, input={"step": "frame", "frame_id": 11}))
+    assert update_after._put_right(drew, stop, "stills", [10, 11])

@@ -12,6 +12,7 @@ import { RotateCcw } from "lucide-react";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
+import { LookFixedNote, LookTip, type LookFixed } from "./LookFix";
 
 type Frame = components["schemas"]["FrameOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -52,6 +53,9 @@ export function FrameCard(props: {
   const [redo, setRedo] = useState<string | null>(null);
   const [seed, setSeed] = useState<{ text: string; n: number }>();
   const check = (f as Frame & { check?: ItemCheck }).check;
+  // The look's banned words repaired (ST2); shown only while the prompt is still the fixed one (after Undo it isn't).
+  const lookFixed = (f.look_fixed as LookFixed | null | undefined) ?? null;
+  const showLookFixed = lookFixed && f.prompt === lookFixed.after ? lookFixed : null;
   const phone = useMedia("(max-width: 639px)");
   const verb = f.file_id === null ? "Make still" : "Redo";
   // A word the image model may refuse: Soften it or Draw it as is, in place of Make still; a refusal said plainly (QA-2).
@@ -138,6 +142,8 @@ export function FrameCard(props: {
           ))}
         </ul>
       )}
+      {showLookFixed && <LookFixedNote fix={showLookFixed} busy={props.undoing} onUndo={f.file_id === null ? () => props.onUndoSoften(showLookFixed.before) : undefined} />}
+      <LookTip text={f.look_fix} />
       {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.undoing} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
       <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${f.clip_id}`} />
       {/* A word the image model may refuse is advice: soften it, or draw it as is (Reed, 2026-10-28). */}

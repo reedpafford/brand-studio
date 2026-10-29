@@ -43,7 +43,8 @@ def test_a_look_is_switched_on_only_with_a_sample(db, owner, editor):
     ws = owner.get("/auth/me").json()["workspace_id"]
     db.add(LookSwitch(workspace_id=ws, look_id="claymation", sample_still_id=None))
     db.commit()
-    db.query(LookSwitch).one().sample_still_id = _a_file(db)  # a sample made (ST3)
+    row = db.query(LookSwitch).one()
+    row.sample_still_id, row.sample_clip_id = _a_file(db), _a_file(db)  # a sample made (ST3)
     db.commit()
     on = owner.patch("/looks/claymation", json={"on": True})
     assert on.status_code == 200 and on.json()["on"] and _cards(editor)["claymation"]["on"]

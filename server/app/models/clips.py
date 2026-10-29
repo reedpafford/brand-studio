@@ -52,6 +52,8 @@ class ClipTake(Entity, Base):
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
     prompt: Mapped[str | None] = mapped_column(Text)  # what it was made from; picked back with it
     look: Mapped[str] = mapped_column(String(40), default="house")  # the video's look then (VS1)
+    # What it was made with (VS1, n09): {video_model, aspect_ratio, products}; {} = before n09
+    made_with: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class FinalVideo(Entity, Base):

@@ -25,9 +25,10 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
 from app.prompts import check
-from app.prompts.schemas import Breakdown, ScenePlan
+from app.prompts.schemas import Breakdown, PlanScene, ScenePlan
 
 STEP = "plan"
+SCENE_STEP = "plan_scene"  # Change this scene… (the Director's plan_scene, on top of plan)
 KIND = "write-claude"
 HISTORY = 10  # Earlier plans kept
 LIMIT = timedelta(minutes=10)  # a plan still not back after this is stopped, uncharged
@@ -171,6 +172,66 @@ def job_input(db: Session, project: Project, version: ScriptVersion, note: str =
             "stars": _stars(db, project), "max_seconds": model.duration.max}  # fmt: skip
 
 
+def _plan_of(plan: dict) -> ScenePlan:
+    return ScenePlan.model_validate({k: plan[k] for k in ScenePlan.model_fields})
+
+
+def scene_input(db: Session, project: Project, version: ScriptVersion, scene_id: int,
+                note: str) -> dict:  # fmt: skip
+    """Change this scene…: the plan's own input, the whole plan, the scene and the note; the
+    free check keeps its id and lines (check.plan_scene)."""
+    plan = current(db, project)
+    before = next((s for s in plan["scenes"] if s["id"] == scene_id), None)
+    if before is None:
+        raise HTTPException(404, "That scene is no longer in the plan.")
+    base = job_input(db, project, version)
+    message = prompts.plan_scene_input(base["prompt"], _plan_of(plan), escape(version.text),
+                                       scene_id, escape(note))  # fmt: skip
+    system, _ = project_context(db, project, SCENE_STEP)
+    return {**base, "step": SCENE_STEP, "system": system, "prompt": message, "max_tokens": 6000,
+            "scene_id": scene_id, "before": before, "made_from": plan.get("version")}  # fmt: skip
+
+
+def scene_checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
+    after = PlanScene.model_validate(output)
+    return after.model_dump(), check.plan_scene(
+        PlanScene.model_validate(job_input["before"]), after
+    )
+
+
+def scene_again(job_input: dict, fixes: list[str]) -> dict:
+    said = "\n".join(f"- {f}" for f in fixes)
+    fix = f"<fix>\nYour last scene can't be used:\n{said}\nWrite the scene again.\n</fix>"
+    return {**job_input, "prompt": f"{job_input['prompt']}\n{fix}"}
+
+
+def save_scene(db: Session, job: Job) -> None:
+    """The changed scene lands in the plan; the plan before goes to Earlier plans (its Undo)."""
+    project = db.get(Project, job.input["project_id"])
+    if project is None or project.archived_at is not None or not project.plan:
+        return
+    after = PlanScene.model_validate(job.output).model_dump()
+    scenes = [after if s["id"] == after["id"] else s for s in project.plan["scenes"]]
+    if [x["line"] for s in scenes for x in s["lines"]] != [
+        x["line"] for s in project.plan["scenes"] for x in s["lines"]
+    ]:
+        return  # the plan was edited since and the scene no longer fits it: nothing lands
+    _set(project, {**_plan_of(project.plan).model_dump(), "scenes": scenes},
+         project.plan.get("source", "made"), job.id, job.input["script"])  # fmt: skip
+
+
+def update_note(plan: dict) -> str:
+    """Update the plan (made for older words): the scenes as they were, to keep where their
+    lines didn't change."""
+    said = "; ".join(
+        f"scene {s['id']} at {s['place']}: "
+        + " / ".join(x["action"] for x in s["lines"] if x["action"])
+        for s in plan["scenes"]
+    )
+    return ("The script's words changed since this plan. Keep the scenes and actions whose "
+            f"lines didn't change, and plan the rest: {said}")[:3000]  # fmt: skip
+
+
 def price(db: Session, project: Project) -> Decimal:
     """What Make the plan charges: the same estimate `enqueue` takes for it."""
     return estimate(db, project.workspace_id, KIND, Decimal(1), {})
@@ -308,7 +369,7 @@ def latest_job(db: Session, project: Project) -> Job | None:
                      and j.input.get("script_draft_id") == mine), None)  # fmt: skip
     jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.kind == KIND)
                       .order_by(Job.id.desc()))  # fmt: skip
-    return next((j for j in jobs if j.input.get("step") == STEP), None)
+    return next((j for j in jobs if j.input.get("step") in (STEP, SCENE_STEP)), None)
 
 
 def job_state(db: Session, project: Project) -> dict | None:

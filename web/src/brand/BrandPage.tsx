@@ -8,6 +8,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { KitPage } from "./KitPage";
+import { setupOf } from "./BrandSetup";
 import { ProductsTab } from "./ProductsTab";
 import { ScreensTab } from "./ScreensTab";
 import { groupProducts, useScreens } from "./screens";
@@ -47,6 +48,7 @@ export function BrandPage() {
             <div>
               <p className="type-eyebrow text-muted">{brand?.name}</p>
               <h1 className="type-page">Brand</h1>
+              {brand && setupOf(brand) && <p className="text-sm text-muted">Changes apply to work from now on. Nothing already made changes.</p>}
             </div>
             {owner && brand && <ArchiveBrand brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />}
           </div>
