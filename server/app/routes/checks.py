@@ -85,3 +85,21 @@ def looks_fine(
         row.dismissed = [*(row.dismissed or []), said]
     db.commit()
     return item_checks.shown(db, row)
+
+
+@router.post("/{check_id}/findings/{index}/restore", response_model=CheckOut)
+def restore(
+    project_id: int,
+    check_id: int,
+    index: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo of Looks fine: the finding is back on the card (free)."""
+    project = get_project(db, user, project_id)
+    row = db.get(ItemCheck, check_id)
+    if not row or row.project_id != project.id or not 0 <= index < len(row.findings or []):
+        raise HTTPException(404, "That advice is no longer here.")
+    row.dismissed = [d for d in row.dismissed or [] if d["index"] != index]
+    db.commit()
+    return item_checks.shown(db, row)

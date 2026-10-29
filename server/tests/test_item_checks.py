@@ -40,6 +40,9 @@ def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setu
     assert len(job.input["files"]["reference_images"]) == 1  # Mom's sheet; frames come first
     assert job.input["take_frames"]["count"] == 1  # key_takes: one frame keeps it to cents
     assert editor.post(f"{clips}/approve-all").json()["approved_with_advice"] == 1
+    assert (
+        editor.post(f"{clips}/approve-all").json()["approved_with_advice"] == 0
+    )  # only this press's
     (shown,) = editor.get(clips).json()
     check = shown["takes"][0]["check"]
     assert check["status"] == "advice" and shown["approved"] is True  # approval untouched
@@ -55,6 +58,10 @@ def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setu
     assert (fine["status"], fine["findings"]) == ("ok", [])
     assert db.get(ItemCheck, check["id"]).dismissed[0]["index"] == 0  # kept in its history
     assert editor.get(url).json()["items"] == []
+    back = editor.post(f"{url}/{check['id']}/findings/0/restore").json()  # Undo of Looks fine
+    assert back["status"] == "advice" and len(back["findings"]) == 1
+    assert len(editor.get(url).json()["items"]) == 1
+    assert editor.post(f"{url}/{check['id']}/findings/5/restore").status_code == 404
 
 
 def test_stills_are_checked_only_when_the_scope_is_everything(app, db, editor, setup, monkeypatch):  # noqa: F811, E501
@@ -114,3 +121,10 @@ def test_over_budget_is_skipped_and_a_failed_check_is_free(app, db, editor, setu
     assert newest["status"] == "failed"  # "Couldn't check this one."
     held = db.query(Job).filter(Job.kind == "check-claude").one().credits
     assert held and credits_used(db, project) == before - held  # nothing charged
+
+
+def test_a_narrators_lines_dont_make_a_clip_key(app, db, editor, setup, clip, monkeypatch):  # noqa: F811
+    url = f"/projects/{setup['project']}/checks"
+    assert editor.get(url).json()["check_credits_per_video"] == 1  # Mom speaks: one key take
+    monkeypatch.setattr("app.item_checks.video_format", lambda db, project: "narrated")
+    assert editor.get(url).json()["check_credits_per_video"] == 0  # heard over the picture
