@@ -21,8 +21,9 @@ export function useSongs(scriptId: number, enabled = true) {
   });
 }
 
-/** Make, Try again, Use timing spread evenly, Preferred and Delete, each with Undo where the flows ask for it. */
-export function useSongActions(scriptId: number) {
+/** Make, Try again, Use timing spread evenly, Preferred and Delete, each with Undo where the flows ask for it.
+ * A narration (flows N1) is a take of kind "narration": its toasts say "Narration 2 is the one used". */
+export function useSongActions(scriptId: number, words: { noun: string; picked: string } = { noun: "Take", picked: "is Preferred" }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["songs", scriptId] }), queryClient.invalidateQueries({ queryKey: ["allowance"] })]);
@@ -47,7 +48,7 @@ export function useSongActions(scriptId: number) {
     onSuccess: async (data) => {
       await refresh();
       const was = data?.was_preferred_id;
-      toast(`Take ${data?.take.number} is Preferred.`, was ? () => void ok(api.POST("/songs/{take_id}/preferred", take(was))).then(refresh) : undefined);
+      toast(`${words.noun} ${data?.take.number} ${words.picked}.`, was ? () => void ok(api.POST("/songs/{take_id}/preferred", take(was))).then(refresh) : undefined);
     },
   });
   // "Use the first 0:55": with no other take Preferred, the trimmed take also becomes the one used (flows S4).
@@ -72,7 +73,7 @@ export function useSongActions(scriptId: number) {
     },
     onSuccess: async (t) => {
       await refresh();
-      toast(`Take ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", take(t.id))).then(refresh));
+      toast(`${words.noun} ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", take(t.id))).then(refresh));
     },
   });
   return { make, tryAgain, spread, prefer, trim, remove };

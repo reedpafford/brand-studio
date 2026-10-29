@@ -146,14 +146,16 @@ test("a failed take says why with Try again at a request's price (both its takes
   expect(screen.queryByRole("button", { name: /Make 2/ })).toBeNull();
 });
 
-test("at 390: New script opens a sheet with Close and both choices", async () => {
+test("at 390: New script opens a sheet with Close and the three formats, each with its line", async () => {
   setViewport(390);
   fakeServer({ ...base, "GET /scripts": [200, []], "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs()] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   const sheet = screen.getByRole("dialog", { name: "New script" });
   expect(within(sheet).getByRole("button", { name: "Close" })).toBeInTheDocument();
-  expect(within(sheet).getByRole("menuitem", { name: /Song/ })).toBeInTheDocument();
+  expect(within(sheet).getByRole("menuitem", { name: /Dialogue.*People speak on camera/ })).toBeInTheDocument();
+  expect(within(sheet).getByRole("menuitem", { name: /Song.*Your lyrics, sung word for word/ })).toBeInTheDocument();
+  expect(within(sheet).getByRole("menuitem", { name: /Narrated.*One voice reads your script over B-roll, with music/ })).toBeInTheDocument();
 });
 
 test("at 390 on a song script, the steps are one button: Step 1 of 5 · Song", async () => {

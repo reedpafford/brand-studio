@@ -15,7 +15,8 @@ import { VariationsStep, variationsReason } from "./VariationsStep";
 import { ScriptStep } from "./ScriptStep";
 import { ReadReelButton, useReelImport } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
-import { around, hasWords, lockReason, stepFromParam, stepStates, stepsFor } from "./flow";
+import { around, hasWords, isNarrated, lockReason, stepFromParam, stepStates, stepsFor } from "./flow";
+import { NarrationStep } from "./NarrationStep";
 import { SongStep } from "./SongStep";
 import { TakesStep } from "./TakesStep";
 import { useSongs } from "./useSongs";
@@ -31,7 +32,8 @@ export function ScriptFlowPage() {
   const rail = useRail();
   const { data: me } = useMe();
   const script = useScript(id);
-  const songs = useSongs(id, script.data?.kind === "song");
+  const voiced = !!script.data && (script.data.kind === "song" || isNarrated(script.data)); // a song's takes, or a narrated script's narrations
+  const songs = useSongs(id, voiced);
   const patch = usePatchScript(id);
   const navigate = useNavigate();
   const mayDelete = useMayDelete();
@@ -54,7 +56,7 @@ export function ScriptFlowPage() {
     queryFn: async () => (await api.GET("/credits/me")).data ?? null,
   });
 
-  if (script.isPending || (script.data?.kind === "song" && songs.isPending))
+  if (script.isPending || (voiced && songs.isPending))
     return (
       <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8" role="status" aria-label="Loading">
         <Skeleton className="h-10 w-1/2" />
@@ -68,7 +70,7 @@ export function ScriptFlowPage() {
   // Only a Preferred take that sings the lyrics as they are now, and whose video fits the cap, counts: the screen holds the cap whatever the server says.
   const tooLong = (t: (typeof takes)[number]) => t.over_cap && t.trim_to == null;
   const fit = takes.find((t) => t.preferred && !t.out_of_date);
-  const song = s.kind === "song" ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date).length, older: takes.filter((t) => t.out_of_date).length } : undefined;
+  const song = voiced ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date).length, older: takes.filter((t) => t.out_of_date).length } : undefined;
   const step = stepFromParam(s, params.get("step"));
   if (lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
   const first = stepsFor(s)[0].id;
@@ -199,6 +201,7 @@ export function ScriptFlowPage() {
       </div>
       {step === "song" && <SongStep script={s} brandId={brandId} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The lyrics you changed are not saved." } : null)} />}
       {step === "takes" && <TakesStep script={s} />}
+      {step === "narration" && <NarrationStep script={s} />}
       {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
       {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They stay accepted but are not added to the script. Leaving doesn't add them." } : null)} onEditWords={() => go("script")} />}
       {step === "variations" && <VariationsStep script={s} own={mine} />}

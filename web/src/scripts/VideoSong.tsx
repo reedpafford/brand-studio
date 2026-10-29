@@ -38,6 +38,11 @@ function useMakeStop(p: Project, price: number | undefined): string | null {
   return p.credits_used + price > p.budget_credits ? "That's more than this video's budget." : null;
 }
 
+/** A narrated video's narrations are song takes of kind "narration" (Next-Server #858): the same panel, its own words (flows V6n). */
+const SONG = { take: "Take", thing: "song", change: "Change song", final: "The lyrics are final.", more: "Make 2 more takes", same: "Same lyrics and style.", marks: " and Sung marks" };
+const NARRATION = { take: "Narration", thing: "narration", change: "Change narration", final: "The words are final.", more: "Make another", same: "Same words and voice.", marks: "" };
+const wordsFor = (takes: SongTake[] | undefined) => (takes?.some((t) => (t as { kind?: string }).kind === "narration") ? NARRATION : SONG);
+
 /** Change song: every take this video can use, the current one marked, "Use this take" (Undo), Make 2 more, and the over-cap trim. */
 function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Project; onClose: () => void; hasShots: boolean; hasClips: boolean }) {
   const songs = useVideoSongs(p.id);
@@ -58,7 +63,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
       setAsking(null);
       await refresh();
       const was = r?.was_song_take_id;
-      toast(`Take ${t.number} is this video's song.`, was ? () => void ok(api.PUT("/projects/{project_id}/song", { params: { path: { project_id: p.id } }, body: { take_id: was } })).then(refresh) : undefined);
+      toast(`${W.take} ${t.number} is this video's ${W.thing}.`, was ? () => void ok(api.PUT("/projects/{project_id}/song", { params: { path: { project_id: p.id } }, body: { take_id: was } })).then(refresh) : undefined);
     },
   });
   const make = useMutation({ mutationFn: () => ok(api.POST("/projects/{project_id}/songs", { params: { path: { project_id: p.id } } })), onSuccess: refresh });
@@ -77,7 +82,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
     },
     onSuccess: async (t) => {
       await refresh();
-      toast(`Take ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", { params: { path: { take_id: t.id } } })).then(refresh));
+      toast(`${W.take} ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", { params: { path: { take_id: t.id } } })).then(refresh));
     },
   });
   // Only the latest press's refusal shows, until the next press.
@@ -85,9 +90,10 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
   const refused = latest.isError ? latest.error.message : null;
   const press = (t: SongTake) => (hasShots ? setAsking(t) : use.mutate(t));
   const current = data?.takes.find((t) => t.id === data.song_take_id);
+  const W = wordsFor(data?.takes);
 
   return (
-    <Panel title="Change song" onClose={onClose}>
+    <Panel title={W.change} onClose={onClose}>
       {!data ? (
         songs.isError ? (
           <Banner title="Couldn't load the takes." action={<Button variant="secondary" onClick={() => void songs.refetch()}>Try again</Button>}>Nothing was changed.</Banner>
@@ -99,18 +105,18 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
         )
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-muted">The lyrics are final. Which take this video uses is yours to choose; the script and other videos don't change.</p>
+          <p className="text-sm text-muted">{W.final} Which {W.take.toLowerCase()} this video uses is yours to choose; the script and other videos don't change.</p>
           {refused && <p role="alert" className={errorClass}>{refused}</p>}
           <ul className="space-y-3">
             {data.takes.map((t) => {
               const inUse = t.id === data.song_take_id;
               const tooLong = t.over_cap && t.trim_to == null;
-              const why = t.status === "timing" ? "Reading the song's timing…" : t.status !== "ready" ? null : tooLong ? "Too long for this video." : null;
+              const why = t.status === "timing" ? (W === NARRATION ? "Measuring the sentences…" : "Reading the song's timing…") : t.status !== "ready" ? null : tooLong ? "Too long for this video." : null;
               return (
                 <li key={t.id}>
                   <Card className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="type-card">Take {t.number}</h3>
+                      <h3 className="type-card">{W.take} {t.number}</h3>
                       {length(t) != null && <span className="text-sm tabular-nums text-muted">{clock(length(t)!)}{videoCost(t)}</span>}
                       {inUse && <Badge tone="accent">In this video</Badge>}
                       {t.in_video && <Badge>Made in this video</Badge>}
@@ -120,7 +126,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
                     {t.status === "making" ? (
                       <p role="status" className="text-sm text-muted">Making…</p>
                     ) : t.file_id !== null && t.seconds !== null ? (
-                      <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={`Take ${t.number}`} />
+                      <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={`${W.take} ${t.number}`} />
                     ) : null}
                     {(t.status === "failed" || t.status === "timing_failed") && (
                       <div className="space-y-2">
@@ -142,12 +148,12 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
                     {/* Only takes this video made can be deleted, and not the one it uses (flows V2a); Undo brings it back. */}
                     {t.in_video && !inUse && t.status !== "making" && (
                       <Button variant="ghost" icon={Trash2} busy={remove.isPending && remove.variables?.id === t.id} onClick={() => remove.mutate(t)}>
-                        Delete take
+                        Delete {W.take.toLowerCase()}
                       </Button>
                     )}
                     {!inUse && (t.status === "ready" || t.status === "timing") && (
                       <Button variant="secondary" spread className="sm:w-auto" disabled={!!why} reason={why} busy={use.isPending && use.variables?.id === t.id} onClick={() => press(t)}>
-                        Use this take
+                        Use this {W.take.toLowerCase()}
                       </Button>
                     )}
                   </Card>
@@ -157,15 +163,15 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
           </ul>
           {data.songs_on && (
             <Button variant="secondary" icon={Music} price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
-              Make 2 more takes
+              {W.more}
             </Button>
           )}
-          <p className="text-sm text-muted">Same lyrics and style. {p.own_script ? "Counted in your week." : "Counted in this video's budget."}</p>
+          <p className="text-sm text-muted">{W.same} {p.own_script ? "Counted in your week." : "Counted in this video's budget."}</p>
         </div>
       )}
       {asking && (
-        <Dialog title={`Use take ${asking.number}?`} cancelLabel="Not yet" actionLabel="Use it" busy={use.isPending} onCancel={() => setAsking(null)} onConfirm={() => use.mutate(asking)}>
-          The shots keep their lines and Sung marks; their times move to take {asking.number} (free).{current && hasClips ? ` Clips already made for take ${current.number} go out of date.` : ""}
+        <Dialog title={`Use ${W.take.toLowerCase()} ${asking.number}?`} cancelLabel="Not yet" actionLabel="Use it" busy={use.isPending} onCancel={() => setAsking(null)} onConfirm={() => use.mutate(asking)}>
+          The shots keep their lines{W.marks}; their times move to {W.take.toLowerCase()} {asking.number} (free).{current && hasClips ? ` Clips already made for ${W.take.toLowerCase()} ${current.number} go out of date.` : ""}
         </Dialog>
       )}
     </Panel>
@@ -177,6 +183,7 @@ export function SongStrip({ project: p, hasShots, hasClips = false }: { project:
   const songs = useVideoSongs(p.id);
   const [open, setOpen] = useState(false);
   const t = songs.data?.takes.find((x) => x.id === songs.data?.song_take_id);
+  const W = wordsFor(songs.data?.takes);
   return (
     <Card className="flex flex-wrap items-center gap-3">
       <div className="min-w-0 flex-1 basis-60">
@@ -184,15 +191,15 @@ export function SongStrip({ project: p, hasShots, hasClips = false }: { project:
           <Skeleton className="h-11" />
         ) : t && t.file_id !== null && t.seconds !== null ? (
           <div className="space-y-1">
-            <p className="text-sm">Song: Take {t.number} · {clock(length(t)!)}</p>
-            <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={`Take ${t.number}`} />
+            <p className="text-sm">{W === NARRATION ? `Narration ${t.number}` : `Song: Take ${t.number}`} · {clock(length(t)!)}</p>
+            <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={`${W.take} ${t.number}`} />
           </div>
         ) : (
-          <p className="text-sm text-muted">{songs.isError ? "Couldn't load the song." : "No song picked for this video yet."}</p>
+          <p className="text-sm text-muted">{songs.isError ? `Couldn't load the ${W.thing}.` : `No ${W.thing} picked for this video yet.`}</p>
         )}
       </div>
       <Button variant="secondary" icon={Music} onClick={() => setOpen(true)}>
-        Change song
+        {W.change}
       </Button>
       {open && <ChangeSong project={p} hasShots={hasShots} hasClips={hasClips} onClose={() => setOpen(false)} />}
     </Card>
@@ -205,7 +212,9 @@ export function SongSetting({ project: p, hasShots = true, hasClips = true }: { 
   const songs = useVideoSongs(p.id);
   const [open, setOpen] = useState(false);
   const t = songs.data?.takes.find((x) => x.id === songs.data?.song_take_id);
-  const label = t ? `Song: Take ${t.number}${length(t) != null ? ` · ${clock(length(t)!)}` : ""}` : songs.isPending ? "Song…" : "Song: pick a take";
+  const W = wordsFor(songs.data?.takes);
+  const name = W === NARRATION ? "Narration" : "Song";
+  const label = t ? `${W === NARRATION ? `Narration ${t.number}` : `Song: Take ${t.number}`}${length(t) != null ? ` · ${clock(length(t)!)}` : ""}` : songs.isPending ? `${name}…` : `${name}: pick a ${W.take.toLowerCase()}`;
   return (
     <>
       <Button variant="secondary" icon={Music} trailing={ChevronDown} onClick={() => setOpen(true)} aria-haspopup="dialog">
