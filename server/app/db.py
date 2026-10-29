@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 
 from fastapi import Request
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import MetaData, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 # Stable constraint names so Alembic migrations work the same on SQLite and Postgres.
@@ -22,8 +22,12 @@ class Base(DeclarativeBase):
 
 
 def make_sessionmaker(url: str) -> sessionmaker[Session]:
-    args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    engine = create_engine(url, connect_args=args)
+    if not url.startswith("sqlite"):
+        return sessionmaker(create_engine(url), expire_on_commit=False)
+    # SQLite (dev and the browser tests only): the API and worker share one file, so wait up to
+    # 30 s for a lock instead of 5, and use WAL so reading never waits on the worker's writes.
+    engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
+    event.listen(engine, "connect", lambda conn, _: conn.execute("PRAGMA journal_mode=WAL"))
     return sessionmaker(engine, expire_on_commit=False)
 
 

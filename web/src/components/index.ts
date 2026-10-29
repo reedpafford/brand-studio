@@ -1,7 +1,7 @@
 export { Badge, type Tone } from "./Badge";
 export { Button, buttonClass, type ButtonProps, type Variant } from "./Button";
 export { Card, MediaCard } from "./Card";
-export { creditsLabel, wholeCredits } from "./credits";
+export { creditsLabel, roundUp, wholeCredits } from "./credits";
 export { Field, Select, TextArea } from "./Field";
 export { Banner, EmptyState, Skeleton } from "./Feedback";
 export { StepPicker, Tabs, type Step, type StepState, type Tab } from "./Nav";

@@ -38,6 +38,26 @@ from app.sheets import (
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
 
+STILL_RESOLUTION = "1K"  # every still is drawn at this size; its price follows from it
+
+
+def still_input(model: CatalogueModel, prompt: str, aspect_ratio: str, characters=(),
+                objects=()) -> dict:  # fmt: skip
+    """The image job that draws one still: the one place a still's model and size are set, so
+    the job and every price of it (still_credits) can't drift apart."""
+    return image_job_input(model, prompt, aspect_ratio, characters=characters, objects=objects,
+                           resolution=STILL_RESOLUTION)  # fmt: skip
+
+
+def still_credits(db: Session, workspace_id: int, model: CatalogueModel) -> Decimal:
+    """What one still costs with this picture model: the estimate `enqueue` takes for the job
+    `still_input` makes (its price follows the model and the size, never the shape)."""
+    from app.credits import estimate
+
+    job = {"model": model.id, "input": {"resolution": STILL_RESOLUTION}}
+    return estimate(db, workspace_id, "image", Decimal(1), job)
+
+
 def image_model(project: Project | None = None) -> CatalogueModel:
     """The picture model a video's stills are drawn with: its own pick (VS1), else Auto."""
     models = catalogue()
@@ -683,10 +703,9 @@ def save_frames(db: Session, job: Job) -> None:
 def still_price(db: Session, project: Project) -> int:
     """What one still costs (Make still, Redo, Save and redraw), rounded up: the image model's
     price, the same for every frame of the video."""
-    from app.credits import estimate, price
+    from app.credits import price
 
-    job = image_job_input(image_model(project), "", project.aspect_ratio)
-    return price(estimate(db, project.workspace_id, "image", Decimal(1), job))
+    return price(still_credits(db, project.workspace_id, image_model(project)))
 
 
 def render_input(db: Session, project: Project, frame: StoryboardFrame, note: str = "") -> dict:
@@ -710,9 +729,7 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
         (characters if ref.startswith(CHAR) else objects).extend(files)
     prompt = say_logo(known, frame.prompt, frame.reference_ids)  # never a logo called a chart
     prompt = f"{prompt}\nChange from the last still: {note}" if note else prompt
-    job = image_job_input(
-        image_model(project), prompt, project.aspect_ratio, characters=characters, objects=objects
-    )
+    job = still_input(image_model(project), prompt, project.aspect_ratio, characters, objects)
     made = video_settings.made_with(db, project, frame.reference_ids, job["model"])  # VS1
     return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id,
             "made_with": made}  # fmt: skip

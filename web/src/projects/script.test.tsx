@@ -131,6 +131,12 @@ test("with no script, Claude can write drafts from the brief, with the cost show
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/draft")).toBe(true));
 });
 
+test("Write drafts rounds an owner's rate up, never below the charge (2.04 reads 3 credits)", async () => {
+  fakeServer({ ...none, "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 2.04 }]], "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
+  open();
+  expect(await screen.findByRole("button", { name: "Write drafts · 3 credits" })).toBeInTheDocument();
+});
+
 test("finished drafts show their hook idea and script, and Use this draft makes it the working script", async () => {
   const calls = fakeServer({
     ...none,

@@ -51,6 +51,7 @@ class MediaItem(BaseModel):
     script_id: int | None = None  # a script's own song
     open_step: Step
     from_deleted_video: bool = False
+    deleted_video_by: Maker | None = None  # that deleted video's maker: they or the owner restore
 
 
 class MediaPage(BaseModel):
@@ -169,18 +170,24 @@ def list_media(
         except ValueError:
             raise HTTPException(422, "That page link is out of date. Start from the top.") from None
         rows = [r for r in rows if (r["made_at"], r["key"]) < mark]
-    page, videos = rows[:PAGE], {}
-    names = {u.id: u.name for u in db.scalars(select(User).where(
-        User.id.in_({r["by"] for r in page if r["by"]})))}  # fmt: skip
+    page = rows[:PAGE]
+    videos = {p.id: p for p in db.scalars(select(Project).where(
+        Project.id.in_({r["project_id"] for r in page if r["project_id"]})))}  # fmt: skip
+    people = {r["by"] for r in page if r["by"]} | {v.created_by_id for v in videos.values()}
+    names = {u.id: u.name for u in db.scalars(select(User).where(User.id.in_(people)))}
+
+    def maker(user_id: int | None) -> Maker | None:
+        return Maker(id=user_id, name=names[user_id]) if user_id in names else None
+
     items = []
     for r in page:
-        video = videos.get(r["project_id"]) or db.get(Project, r["project_id"] or 0)
-        videos[r["project_id"]] = video
+        video = videos.get(r["project_id"])
+        gone = bool(video and video.archived_at)
         by_id = r.pop("by")
         items.append(MediaItem(
-            **r, content_type=files[r["file_id"]].content_type,
-            made_by=Maker(id=by_id, name=names[by_id]) if by_id in names else None,
+            **r, content_type=files[r["file_id"]].content_type, made_by=maker(by_id),
             video_name=video.name if video else None,
-            from_deleted_video=bool(video and video.archived_at)))  # fmt: skip
+            from_deleted_video=gone,
+            deleted_video_by=maker(video.created_by_id) if gone else None))  # fmt: skip
     last = page[-1] if len(rows) > PAGE else None
     return MediaPage(items=items, next=last and _cursor(last["made_at"], last["key"]))

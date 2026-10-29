@@ -6756,6 +6756,7 @@ export interface components {
              * @default false
              */
             from_deleted_video: boolean;
+            deleted_video_by?: components["schemas"]["Maker"] | null;
         };
         /** MediaPage */
         MediaPage: {
@@ -7838,6 +7839,8 @@ export interface components {
             /** Clip Id */
             clip_id: number | null;
             look: components["schemas"]["LookOut"];
+            /** Test Site */
+            test_site?: string | null;
         };
         /** SaveIn */
         SaveIn: {

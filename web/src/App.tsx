@@ -18,6 +18,7 @@ import { BrandPage, ToBrand } from "./brand/BrandPage";
 import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
 import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
+import { LanguagesPage } from "./languages/LanguagesPage";
 import { LooksPage } from "./looks/LooksPage";
 import { UsageBrandPage } from "./usage/UsageBrandPage";
 import { UsagePage } from "./usage/UsagePage";
@@ -54,6 +55,7 @@ export function App() {
           <Route path="b/:brandId/media" element={<MediaPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="looks" element={<LooksPage />} />
+          <Route path="languages" element={<LanguagesPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="production" element={<ProductionPage />} />
           <Route path="usage" element={<UsagePage />} />
