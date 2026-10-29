@@ -61,7 +61,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Drawn-words-only shot Advice (#886) | Fixed in #890 (line kept), but text_on_screen_advice is not wired yet | Wire it in reword, on the fixed prompt | #890 at 6820b8f3 |
 | Plan versions (#893) | Earlier plans → use v1: shots from v2 not "older"; an edit reuses v2's number | One _next() for _set, edit, use_earlier | #893 at b7f56c4d |
-| Needs you (#896) | "A step didn't finish" for change, look_fit, song, plan, narration; failed item_check flags the video | Skip check-claude; name the steps; leave unknown out | #896 at 18afb0e |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -223,3 +222,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #892 at 693e7cdd (plan rule in the message) | breakdown system prompts byte-identical to next; test_plan + test_prompts (115) | PASS |
 | 2026-10-29 | #891 at 5092a41f (scope key_takes, check_credits_per_video, approved_with_advice) | item_checks + approve_all + migrations (8) | PASS (notes: estimate skips prop-only key clips; V.O. counts as speaking; approved_with_advice over all picked) |
 | 2026-10-29 | #902 at 78aaa19e (P4 screens: notes chip, Review, summary) | code walk; vitest projects (328) | PASS (gaps owned: paused line, "approved with Advice") |
+| 2026-10-29 | #896 at dda65d8a (advisory skipped, steps named) | test_needs_you (3) | PASS |
