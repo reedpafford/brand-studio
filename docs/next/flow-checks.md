@@ -317,3 +317,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #955 at b4337442 (S6 screens) | PASS: a version's Scenes (optional, free Approve) then Shots; "Made for an older plan." with Make the preview again; video-only parts hidden; published read only. scripts.e2e live 9 |
 | 2026-10-29 | #950 at 29874519 | Owner walk PASS live (projects-or1.e2e 1440 and 390); the script-page picker guard still open |
 | 2026-10-29 | #956 at e30fc287 (VS1 settings at Make this version) | PASS: settings land on the new video; an off look (409) or bad model (422) makes nothing and leaves the version free; song version Sung → B-roll on 2.0 |
+| 2026-10-29 | #958 at c37a062f (OR4 cost log, server) | PASS: owner per-project and per-video in dollars, spend follows filing, editors 404 there and credits-only on their own videos and quick clips |
