@@ -58,7 +58,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| Clip prompt edit (live, main and next) | Words added after the closing "Audio:" line are dropped on the next load (the save reply shows them) | Repair keeps text after the audio line, or the editor is told | main and next, 2026-10-29 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -170,4 +169,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #863 at 3eb91b26 | Undo shows the server's reason | Half fixed; waits on #862 clearing auto_fix on an edit |
 | 2026-10-29 | #862 at b4d3ef79, #863 at 3eb91b26 | Edit (inside a Shot line) while the retry waits: retrying null, retry cancelled, 0 charged; fix then edit clears auto_fix, Undo 409 with reason | PASS both |
 | 2026-10-29 | Live finding (main and next) | Words added after the closing "Audio:" line of a clip prompt: PUT reply keeps them, the next GET drops them (clip_prompts.repair on the list) | FAIL, to the Producer for an owner |
+| 2026-10-29 | #868 at d756188d (main: words after the audio line kept) | Repro: save, 3 loads (kept once, stable), edit the moved words; clip tests (23) | PASS; note: the words move above the Keep line on the next load |
+| 2026-10-29 | #858 at 2055786a (next merged in) | test_narration, test_song_takes, test_kie, publish with old narration (36) | PASS |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
