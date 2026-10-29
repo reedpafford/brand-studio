@@ -5308,6 +5308,13 @@ export interface components {
             brand_id: number;
             /** Name */
             name: string;
+            /**
+             * Song
+             * @default false
+             */
+            song: boolean;
+            /** Song Take Id */
+            song_take_id?: number | null;
             /** Planned Seconds */
             planned_seconds: number | null;
             /** Breakdown Seconds */

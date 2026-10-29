@@ -190,6 +190,10 @@ def test_a_video_starts_on_the_preferred_take_and_can_switch_with_undo(
     songs = editor.get(f"{video}/songs").json()
     first, second = songs["takes"]
     assert songs["song_take_id"] == first["id"] and first["preferred"]
+    assert not first["in_video"]
+    assert (
+        editor.get(video).json()["song"] and editor.get(video).json()["song_take_id"] == first["id"]
+    )
     switched = editor.put(f"{video}/song", json={"take_id": second["id"]}).json()
     assert switched == {"song_take_id": second["id"], "was_song_take_id": first["id"]}
     editor.put(f"{video}/song", json={"take_id": first["id"]})  # Undo
@@ -205,6 +209,7 @@ def test_a_video_makes_its_own_takes_on_its_budget(app, db, owner, editor, song)
     _work(app, db)
     takes = editor.get(f"{video}/songs").json()["takes"]
     own = takes[-1]  # the video's second take (the first is Preferred among its own)
+    assert own["in_video"]
     assert len(takes) == 4 and own["status"] == "ready" and own["number"] == 2
     job = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
     assert job.project_id == int(video.rsplit("/", 1)[1])  # charged to the video
