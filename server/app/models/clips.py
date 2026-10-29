@@ -33,6 +33,8 @@ class ProjectClip(Entity, Base):
     # Song ads: {start, end, sung_shots} of the video's song this clip covers, from its
     # breakdown row (song_breakdown.slice_of); None for a story video
     song_slice: Mapped[dict | None] = mapped_column(JSON)
+    # OR3: the prompts before the one in hand, newest first, at most 10 (n13)
+    prompt_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
 
 
 @event.listens_for(ProjectClip.prompt, "set")
