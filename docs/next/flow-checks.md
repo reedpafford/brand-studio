@@ -170,5 +170,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #862 at b4d3ef79, #863 at 3eb91b26 | Edit (inside a Shot line) while the retry waits: retrying null, retry cancelled, 0 charged; fix then edit clears auto_fix, Undo 409 with reason | PASS both |
 | 2026-10-29 | Live finding (main and next) | Words added after the closing "Audio:" line of a clip prompt: PUT reply keeps them, the next GET drops them (clip_prompts.repair on the list) | FAIL, to the Producer for an owner |
 | 2026-10-29 | #868 at d756188d (main: words after the audio line kept) | Repro: save, 3 loads (kept once, stable), edit the moved words; clip tests (23) | PASS; note: the words move above the Keep line on the next load |
+| 2026-10-29 | 06:37 check-in: #866 at 03ddd719 (Director: scene plan P1) | 20 house prompts identical; check.plan on a sample (missing, order, twice); tests (112) | PASS; notes: narrated "sentences" vs script lines; "lines 1 are"; not wired yet |
 | 2026-10-29 | #858 at 2055786a (next merged in) | test_narration, test_song_takes, test_kie, publish with old narration (36) | PASS |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
