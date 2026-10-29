@@ -59,7 +59,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Script page's project picker (#950) | An editor on the owner's script sees "Project: none ▾"; every pick is refused (403) | Show it only to the owner or the script's maker, as on videos and quick clips |
 | Redraw after a look switch (next a627db21; ST1/ST2 + VS1) | House to Disney Pixar, then Storyboard's "Redraw 1 out-of-date still": no hold shows, and the paid redraw is drawn with no picture of the person | Server: count a locked character with no sheet in the video's look as having no look, so the redraw is refused. Screen: refresh the cast list after a switch, so the cast hold shows |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -321,3 +320,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #958 at c37a062f (OR4 cost log, server) | PASS: owner per-project and per-video in dollars, spend follows filing, editors 404 there and credits-only on their own videos and quick clips |
 | 2026-10-29 | #959 at e7c74e22 | PASS: a long menu scrolls inside itself; New brand reachable with 25 brands (zzmenu.e2e live) |
 | 2026-10-29 | #960 at 9f0d2ae0 | PASS: with the owner's plan approved, the version panel says "(the shots)"; closes the #942 note. scripts.test 94 |
+| 2026-10-29 | #950 Projects screens (OR1) | ff138cc6 | PASS: the script page's project picker shows only to the owner or the script's maker; projects, scripts and folders tests 648/648 |
