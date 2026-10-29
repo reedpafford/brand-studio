@@ -304,11 +304,12 @@ test("Assets gets its tick only once it has been opened, not before (#749 LW9)",
   fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ready: true, locked: true, sheet_status: "approved" })]] });
   open("?step=breakdown");
   const steps = await screen.findByRole("list", { name: "Steps" });
-  const tick = () => within(steps).getByRole("button", { name: "Assets" }).querySelector(".text-success");
+  // The Steps list is swapped for a skeleton while Assets loads (#773), so it is found again each time.
+  const tick = () => within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Assets" }).querySelector(".text-success");
   await vi.waitFor(() => expect(within(steps).getByRole("button", { name: "Assets" })).toBeEnabled());
   expect(tick()).toBeNull();
   await userEvent.click(within(steps).getByRole("button", { name: "Assets" }));
-  await userEvent.click(await within(steps).findByRole("button", { name: "Breakdown" }));
+  await userEvent.click(await within(await screen.findByRole("list", { name: "Steps" })).findByRole("button", { name: "Breakdown" }));
   await vi.waitFor(() => expect(tick()).not.toBeNull());
 });
 
