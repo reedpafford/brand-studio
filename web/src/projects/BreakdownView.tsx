@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
@@ -16,6 +16,7 @@ import { AdviceList, useKeep } from "./Keep";
 import { useBreakdownFixes, useFixCast, useRemoveRef, type RefKind } from "./BreakdownFixes";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown } from "./breakdownEdit";
 import { EditableText, lineLabel, lines, ShotEditor, type Picks } from "./ShotEditor";
+import { videoQuery } from "./useProgress";
 
 export function BreakdownView(props: {
   row: components["schemas"]["BreakdownOut"];
@@ -47,6 +48,8 @@ export function BreakdownView(props: {
   const [sheetShot, setSheetShot] = useState<string | null>(null);
   const line = props.line;
   const keep = useKeep(projectId, { of: "breakdown" });
+  // A video already made: saving an edit says first what it marks out of date (the finished video stays downloadable).
+  const made = !!useQuery({ ...videoQuery(projectId), enabled: !preview }).data;
   const real = blocking(row.problems, row.kept); // advice is listed apart, closed
 
   // A line picked in the script brings its shot into view.
@@ -156,7 +159,10 @@ export function BreakdownView(props: {
   // Desktop: a bar sticks to the bottom of the window. Below 1024 it takes the action bar's place (Next steps aside while edits are unsaved).
   const bar = (
     <div className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2"} role="group" aria-label="Unsaved changes">
-      <span className={rail ? "flex-1 text-sm" : "block text-sm text-muted"}>Edits wait for Save. Fixes and flips save at once.</span>
+      <span className={rail ? "flex-1 text-sm" : "block text-sm text-muted"}>
+        Edits wait for Save. Fixes and flips save at once.
+        {made && " Saving them marks Clips and Final cut out of date; your finished video stays downloadable."}
+      </span>
       <Button busy={save.isPending} onClick={() => save.mutate()}>
         Save changes
       </Button>

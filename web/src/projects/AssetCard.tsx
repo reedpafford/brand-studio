@@ -354,7 +354,7 @@ export function AssetCard({
                 </Button>
               )}
               <TextArea ref={changeBox} label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={change} onChange={(e) => setChange(e.target.value)} />
-              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={changeUpTo ?? price} upTo={changeUpTo !== undefined} usually={item.data?.sheet_usual_credits || price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
+              <Button variant="secondary" icon={Wand2} busy={redraw.isPending} price={item.isPending && using ? null : changeUpTo ?? price} upTo={changeUpTo !== undefined} usually={item.data?.sheet_usual_credits || price} reason={changeReason} disabled={!!changeReason} onClick={() => redraw.mutate(change.trim())}>
                 Change it
               </Button>
             </div>

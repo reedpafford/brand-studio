@@ -8,6 +8,7 @@ import { Badge, Button, Panel, Skeleton, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
+import { SongRow, useSongLength } from "./SongParts";
 import { beingMade } from "./ScriptsPage";
 import { useAllowanceStop, useScript, useWeek } from "./useScript";
 
@@ -43,6 +44,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
   const stop = useAllowanceStop(s, cost);
   const week = useWeek(s); // an editor making their own script sees how much of the week is used
+  const songLength = useSongLength(scriptId, s?.kind === "song");
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
   return (
@@ -55,6 +57,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
       ) : (
         <div className="space-y-5">
           {v.variation_of && <p className="-mt-2 text-sm text-muted">Variation of {v.variation_of}</p>}
+          {s.kind === "song" && <section aria-label="Song"><SongRow scriptId={scriptId} /></section>}
           <section aria-label="The words" className="space-y-2">
             <p className="whitespace-pre-wrap font-script leading-[1.6] [overflow-wrap:anywhere]">{(all ? lines : lines.slice(0, SHOWN)).join("\n")}</p>
             {lines.length > SHOWN && (
@@ -88,6 +91,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
             <p className="text-sm text-muted">
               {/* One price line: what the press starts with, then the whole video (the button holds the first). */}
               {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the breakdown) · the whole video about ${wholeCredits(v.estimate_credits)}` : `The whole video costs about ${wholeCredits(v.estimate_credits)} credits`}
+              {songLength && ` · ${songLength} song`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
           )}

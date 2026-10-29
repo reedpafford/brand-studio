@@ -1,0 +1,14 @@
+{
+ "model": "ai-music-api/generate",
+ "callBackUrl": "https://example.com/cb",
+ "input": {
+  "custom_mode": true,
+  "instrumental": false,
+  "title": "Same Gut, Three Places",
+  "lyrics": "[Intro: vocals start immediately]\n[Hook]\nDark brown gunk in my ears, that's my gut breaking down\nDry cracked nose, no matter what, that's my gut breaking down\nCrusty eyes every morning, that's my gut breaking down too\nThree different problems? Nah, I'll tell you what's true\n\n[Verse 1]\nEvery morning she'd clean my ears, they'd fill right back\nEvery day balm on my nose, come back, it's cracked\nEvery morning wipe the crust like it's one more thing to do\nShe never connected any of it, and neither did I, it's true\nUntil the day at the park\n\n[Verse 2]\nThere was a dog I'd never seen, older than me\nClear eyes, clean ears, nose wet and healthy\nI couldn't stop staring, we sniffed hello\nHe just said, \"Kid, I used to look like you, you know\"\nHis owner told my owner, \"Mine had all of it too\nThe ears, the nose, the eyes, I tried everything you do\nThey're not three different problems, it's one gut breaking down\nShowing up in three places, go after the gut and it all calms down\"\nMy owner went quiet, I could tell it clicked\n\n[Verse 3]\nStraight home, straight to her phone, I watched her from the floor\nNot ear drops, not nose balm, not eye wipes anymore\nShe was looking for the gut, and she found it, Iron Paws\nProbiotics to rebuild the balance that I lost\nChlorella flushed the toxins out my eyes and skin\nChicory root to hold the lining, keep the yeast from winning\nShe ordered it that night, it was there the next day\nPeanut butter flavor, mixed it in, no big display\nI finished the bowl before she even put it down\n\n[Bridge]\nA few weeks went by, she came to clean my ears\nAnd she stopped, they were clean\nTouched my nose, it was wet\nLooked in my eyes, no crust left\nSat down next to me, said, \"I'm sorry, I didn't know\"\nI licked her hand, we were good, we were good\n\n[Outro]\nHuman grade, vet formulated\nThree thousand five-star reviews on Amazon\nTen thousand dog owners joined last month alone\nYou just didn't know what the signs meant\nBut now you do\nIron Paws, the link is below\nYour pup's been waiting on you\n[End]",
+  "style": "laid-back pop, warm storytelling female vocal, 100 BPM, breezy and sunny, bright strummed guitar, light drums, singalong chorus, modern polished, vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending",
+  "negative_tags": "instrumental intro, instrumental break, long outro, spoken word, rap",
+  "vocal_gender": "f",
+  "model": "V6"
+ }
+}

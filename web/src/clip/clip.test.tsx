@@ -138,10 +138,10 @@ test("Generate sends the brand pieces to the server and says the clip is queued"
 });
 
 test("past the weekly allowance Generate is disabled with the server's reason, and nothing offers to ask Reed", async () => {
-  fakeServer({ ...studio, "POST /clips/estimate": [409, { detail: "That's more than this week's 150 free credits (145 used). It resets on Monday." }] });
+  fakeServer({ ...studio, "POST /clips/estimate": [409, { detail: "That's more than this week's 150 credits (145 used). It resets on Monday." }] });
   open();
   await userEvent.type(await screen.findByLabelText(/What happens/), "A long calm shot of the city");
-  expect(await screen.findByText("That's more than this week's 150 free credits (145 used). It resets on Monday.")).toBeInTheDocument();
+  expect(await screen.findByText("That's more than this week's 150 credits (145 used). It resets on Monday.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Generate/ })).toBeDisabled();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
 });
