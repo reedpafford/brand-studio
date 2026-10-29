@@ -122,7 +122,7 @@ test("picking previews the switch: Sung to B-roll, what goes out of date and the
   await userEvent.click(within(ask).getByRole("button", { name: "Switch" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings")?.body).toEqual({ video_model: "seedance-2.0" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/settings").map((c) => c.body)).toContainEqual({ video_model: null })); // `was`, sent back as it is
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/settings").map((c) => c.body)).toContainEqual({ video_model: null, undo: true })); // `was` with undo, so it's never refused over the limit
 });
 
 test("over the budget, Switch is disabled with the reason and the picker stays open", async () => {
@@ -159,4 +159,13 @@ test("on a phone the row is one line that opens a sheet with the settings", asyn
   const sheet = await screen.findByRole("dialog", { name: "Video settings" });
   expect(within(sheet).getByRole("button", { name: /Video model: Auto/ })).toBeInTheDocument();
   expect(within(sheet).getByText("Language: Spanish (from the script)")).toBeInTheDocument();
+});
+
+test("one credit to finish says credit", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, to_finish_credits: 1, sung_to_broll: 0, clips_out_of_date: 0 }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
+  expect(await screen.findByText("To finish: about 1 credit (was 24).")).toBeInTheDocument();
 });

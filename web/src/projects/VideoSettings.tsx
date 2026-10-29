@@ -88,7 +88,7 @@ function confirmText(field: Field, choice: Choice, p: PreviewOut, finished: bool
   if (finished) lines.push(`This video is finished.${later ? ` Changing the ${field.label.toLowerCase()} puts ${later} out of date;` : ""} your current final cut stays downloadable until you make a new one.`);
   if (p.sung_to_broll > 0) lines.push(`${choice.label} can't lip-sync. Your ${n(p.sung_to_broll, "Sung shot")} become${p.sung_to_broll === 1 ? "s" : ""} B-roll (picture only).`);
   if (later && !finished) lines.push(`${cap(later)} already made stay as they are and show Out of date.`);
-  lines.push(`To finish: about ${wholeCredits(p.to_finish_credits)} credits (was ${wholeCredits(p.was_credits)}).`);
+  lines.push(`To finish: about ${credits(wholeCredits(p.to_finish_credits))} (was ${wholeCredits(p.was_credits)}).`);
   return lines;
 }
 
@@ -117,8 +117,8 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
         setAsking(null);
         setPicking(null);
         await refresh();
-        // Undo sends `was` back as it is; switching back makes the old stills and takes current again (the server kept them).
-        toast(`${field.label}: ${choice.label}.`, () => apply.mutate(was as SettingIn, { onSuccess: () => void refresh(), onError: (e) => toast(e.message, undefined, "error") }));
+        // Undo sends `was` back with undo: true, so it is never refused (even over the limit); the old stills and takes become current again.
+        toast(`${field.label}: ${choice.label}.`, () => apply.mutate({ ...(was as SettingIn), undo: true }, { onSuccess: () => void refresh(), onError: (e) => toast(e.message, undefined, "error") }));
       },
     });
 
