@@ -309,7 +309,8 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
               Redraw {outOfDate.length} out-of-date still{outOfDate.length === 1 ? "" : "s"}
             </Button>
           )}
-          {!bar && missing.length > 0 && (
+          {/* With Redraw in the bar, the missing stills that fit can still be made in one press here (grey). */}
+          {(!bar || outOfDate.length > 0) && missing.length > 0 && (
             <Button variant={outOfDate.length > 0 ? "secondary" : "primary"} dense price={allCost} busy={render.isPending} disabled={!!stopFor(allCost)} reason={stopFor(allCost)} onClick={() => void drawAll(missing)}>
               Make {missing.length} still{missing.length === 1 ? "" : "s"}
             </Button>

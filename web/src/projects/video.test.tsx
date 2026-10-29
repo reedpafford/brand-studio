@@ -1042,6 +1042,17 @@ test("Storyboard's one amber is in the cost bar: Make 1 still, then Approve 1 on
   expect(screen.getAllByRole("button", { name: "Approve 1" })).toHaveLength(1);
 });
 
+test("with Redraw in the bar, the missing stills can still be made in one grey press in the step", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [waiting(1, { still_stale: true, still_credits: 4 }), waiting(2, { file_id: null, still_credits: 4 })]] });
+  open("?step=storyboard");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(await within(bar).findByRole("button", { name: "Redraw 1 out-of-date still · 4 credits" })).toBeInTheDocument();
+  const make = screen.getByRole("button", { name: "Make 1 still · 4 credits" });
+  expect(bar.contains(make)).toBe(false);
+  expect(make).not.toHaveClass("bg-accent");
+});
+
 test("with every still drawn, Approve all is the bar's press and not repeated in the step", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [waiting(1), waiting(2)]] });
