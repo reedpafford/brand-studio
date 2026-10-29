@@ -504,6 +504,7 @@ test("when the newest take failed but an earlier take is picked, the clip stays 
   expect(within(card).queryByText("Failed · credits returned")).toBeNull();
   expect(within(card).getByText("Ready")).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Make another take/ })).toBeEnabled(); // the failed one can be tried again: no dead end
 });
 
 test("when the newest take failed and no take is picked, the clip still reads Failed and points to the other takes", async () => {
