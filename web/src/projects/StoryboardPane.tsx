@@ -244,7 +244,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
             make.mutate();
           }}
         >
-          {made > 0 ? `Every frame is written again from the current breakdown, and the ${made} still${made === 1 ? "" : "s"} you've made are dropped.` : "Every frame is written again from the current breakdown."}
+          {made > 0 ? `Every frame is written again from the current breakdown, and the ${made} still${made === 1 ? "" : "s"} you've made ${made === 1 ? "is" : "are"} dropped.` : "Every frame is written again from the current breakdown."}
         </Dialog>
       )}
     </>
