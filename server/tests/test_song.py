@@ -178,6 +178,12 @@ def test_a_sounds_like_song_becomes_a_style_line_without_its_name():
     result.directions[0].style_line = "acoustic pop like Jack Johnson, 96 BPM"
     problems = check.song_directions(result, "Iron Paws", 30, sounds_like=like)
     assert any("names “Jack Johnson”" in p and p.startswith("Advice: ") for p in problems)
+    notes = check.without_names(result, like)  # the free repair, before anyone sees it
+    assert result.directions[0].style_line == "acoustic pop, 96 BPM"
+    assert notes == ["Advice: direction 1: took “Jack Johnson” out of the style line "
+                     "(the music service refuses names)"]  # fmt: skip
+    assert check.song_directions(result, "Iron Paws", 30, sounds_like=like) == []
+    assert check.without_names(result, like) == []  # again changes nothing
     assert "describes that sound instead, never the name" in prompts.system("song_directions")
 
 

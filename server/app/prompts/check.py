@@ -917,12 +917,32 @@ def lip_synced(lyrics: str) -> set[int]:
 NAME = re.compile(r"\b[A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*)*")  # "Jack Johnson", "Better Together"
 
 
+def _names(sounds_like: str) -> list[str]:
+    return [n for n in NAME.findall(sounds_like) if len(n) > 2 and n.lower() not in ("the", "like")]
+
+
+def without_names(result: SongDirections, sounds_like: str) -> list[str]:
+    """The music service refuses artist and song names, so a style line that names the
+    "sounds like" one has the name taken out, free, before anyone sees it (Flow-QA on #794):
+    "acoustic pop like Jack Johnson, 96 BPM" becomes "acoustic pop, 96 BPM". Said as advice.
+    Doing it again changes nothing."""
+    notes = []
+    for n, d in enumerate(result.directions, 1):
+        for name in _names(sounds_like):
+            near = r"(?:\s*,?\s*\b(?:like|by|in the style of|à la|inspired by)\s+)?"
+            found = re.compile(near + rf"\b{re.escape(name)}\b('s)?", re.I)
+            if found.search(d.style_line):
+                d.style_line = found.sub("", d.style_line)
+                d.style_line = re.sub(r"\s*,\s*,", ",", d.style_line).strip(" ,")
+                notes.append(f"{ADVICE}direction {n}: took “{name}” out of the style line "
+                             "(the music service refuses names)")  # fmt: skip
+    return notes
+
+
 def song_directions(
     result: SongDirections, brand: str, seconds: int | None = None, sounds_like: str = ""
 ) -> list[str]:
-    names = [
-        n for n in NAME.findall(sounds_like) if len(n) > 2 and n.lower() not in ("the", "like")
-    ]
+    names = _names(sounds_like)
     problems = []
     if len(result.directions) != 2:
         problems.append(f"{len(result.directions)} directions; write exactly 2")
