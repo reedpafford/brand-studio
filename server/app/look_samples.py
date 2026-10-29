@@ -145,7 +145,8 @@ def retry_price(db: Session, ws: int, look_id: str) -> Decimal:
 def lane(db: Session, settings, credits: Decimal) -> str:
     """Replicate's (real on live, a stand-in on the test site), or the test site's real lane
     while real samples are on and this press still fits their budget (Reed, 2026-10-29). A
-    real job counts once sent, whatever happens to it after."""
+    real job counts once sent, whatever happens to it after. The switch alone decides here:
+    the key is only the worker's, and the deploy writes the switch only with the key."""
     if not (settings.fake_providers and settings.real_look_samples):
         return "replicate"
     if not _fits(db, settings, credits):

@@ -146,3 +146,27 @@ def test_real_samples_on_the_test_site_go_real_until_the_budget(app, db, owner, 
     owner.post("/looks/skeleton/sample", json={"brand_id": brand})  # past the budget
     newest = db.query(Job).order_by(Job.id.desc()).first()
     assert newest.input["look_id"] == "skeleton" and newest.provider == "replicate"  # stand-in
+
+
+def test_with_real_samples_on_only_a_sample_goes_real_and_no_key_means_a_stand_in(
+    app, db, owner, monkeypatch
+):
+    """QA-4 on #970: every other image or video job stays a stand-in while the switch is on;
+    switched on without the key, the sample's lane makes a stand-in, never a failed job."""
+    from app.providers import REAL_SAMPLES, get_providers
+    from app.providers.fake_local import FakeMedia
+    from tests.test_song_takes import _work
+
+    monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
+    settings = app.state.settings
+    settings.fake_providers, settings.real_look_samples = True, True
+    settings.look_samples_budget_usd = 6
+    assert isinstance(get_providers(settings)[REAL_SAMPLES], FakeMedia)
+    brand = _brand(owner)
+    clip = owner.post("/clips", json={"brand_id": brand, "prompt": "A dog runs on a beach"})
+    assert clip.status_code == 201, clip.text
+    assert db.get(Job, clip.json()["id"]).provider == "replicate"  # a Quick clip: stand-in
+    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    _work(app, db, ticks=4)
+    ready = owner.get(f"/looks/zack-d/sample?brand_id={brand}").json()
+    assert ready["status"] == "ready" and ready["clip_id"]  # made, as stand-ins
