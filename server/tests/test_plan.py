@@ -31,12 +31,13 @@ GOOD = _plan(
 
 def test_every_line_with_words_is_in_one_scene_once_in_order():
     assert prompts.plan_lines(SCRIPT) == [2, 3, 4, 7]  # headings and blank lines aren't planned
+    assert check._lines([4, 7]) == "lines 4, 7 are"
     assert check.plan(SCRIPT, GOOD, ["char:1", "char:2"], ["product:1"]) == []
     gap = _plan(_scene(1, "INT. LIVING ROOM — DAY", [2, 3]), GOOD.scenes[1])
-    assert check.plan(SCRIPT, gap, ["char:1"], ["product:1"]) == ["lines 4 are in no scene"]
+    assert check.plan(SCRIPT, gap, ["char:1"], ["product:1"]) == ["line 4 is in no scene"]
     twice = _plan(_scene(1, "INT. LIVING ROOM — DAY", [2, 3, 4]),
                   _scene(2, "INT. KITCHEN — DAY", [4, 7], product="product:1"))  # fmt: skip
-    assert "lines 4 are in more than one scene" in check.plan(
+    assert "line 4 is in more than one scene" in check.plan(
         SCRIPT, twice, ["char:1"], ["product:1"]
     )
     swapped = _plan(_scene(1, "INT. LIVING ROOM — DAY", [3, 2, 4]), GOOD.scenes[1])
@@ -44,7 +45,7 @@ def test_every_line_with_words_is_in_one_scene_once_in_order():
         "the lines are out of order: every line stays where the script has it"
     ]
     heading = _plan(_scene(1, "INT. LIVING ROOM — DAY", [1, 2, 3, 4]), GOOD.scenes[1])
-    assert "lines 1 aren't script lines with words" in check.plan(
+    assert "line 1 is not a script line with words" in check.plan(
         SCRIPT, heading, ["char:1"], ["product:1"]
     )
 

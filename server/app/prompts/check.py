@@ -1150,6 +1150,11 @@ def _said(line: str, labelled: bool) -> str:
     return line.strip()[m.end() :] if m else ("" if labelled else line)
 
 
+def _lines(ns: list[int], many: str = "are", one: str = "is") -> str:
+    """ "line 4 is", "lines 4, 7 are"."""
+    return f"lines {', '.join(map(str, ns))} {many}" if len(ns) > 1 else f"line {ns[0]} {one}"
+
+
 def plan(
     script: str,
     result: ScenePlan,
@@ -1170,11 +1175,11 @@ def plan(
     want = plan_lines(script)
     labelled = any(LABEL.match(words[n].strip()) for n in want)
     if missing := [n for n in want if n not in used]:
-        problems.append(f"lines {', '.join(map(str, missing))} are in no scene")
+        problems.append(f"{_lines(missing)} in no scene")
     if twice := sorted({n for n in used if used.count(n) > 1}):
-        problems.append(f"lines {', '.join(map(str, twice))} are in more than one scene")
+        problems.append(f"{_lines(twice)} in more than one scene")
     if extra := [n for n in used if n not in want]:
-        problems.append(f"lines {', '.join(map(str, extra))} aren't script lines with words")
+        problems.append(f"{_lines(extra, 'are', 'is')} not a script line with words")
     if not (missing or twice or extra) and used != want:
         problems.append("the lines are out of order: every line stays where the script has it")
     for sc in result.scenes:

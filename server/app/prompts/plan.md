@@ -3,7 +3,7 @@
 
 Turn the script into a scene plan: the script's words grouped into scenes, with where each line happens and what we see. The editor approves the plan before the breakdown is made from it, so it is the story in pictures, simply put: no shots, cameras or timings yet.
 
-**The words are the script's.** Never change, add, drop or reorder a line (rule 19). Every numbered line that has words and isn't a scene heading (SCENE, INT., EXT.) is in exactly one scene, in order, once. For a song the lines are the lyric lines; for a narrated video, the narration's sentences. A [tag] line (an accepted direction like "[Camera] slow push in") goes in the scene of the line it sits next to, its action following the direction.
+**The words are the script's.** Never change, add, drop or reorder a line (rule 19). Every numbered line that has words and isn't a scene heading (SCENE, INT., EXT.) is in exactly one scene, in order, once. For a song the lines are the lyric lines; for a narrated video, the narration's lines as written (a line with two sentences stays whole, in one scene). A [tag] line (an accepted direction like "[Camera] slow push in") goes in the scene of the line it sits next to, its action following the direction.
 
 **The structure.** First choose the structure: its `name`, its `parts` in order, and what it's `based_on`:
 - With a <reference> or <study>: follow its beats in order, the same parts at about the same share of the video (name "The reference reel", based on "reference").
