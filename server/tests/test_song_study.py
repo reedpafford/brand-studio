@@ -307,3 +307,20 @@ def test_a_study_past_the_time_limit_says_so(app, db, owner, song, clip, monkeyp
     study = _study(owner, song)
     assert (study["status"], study["problem"]) == ("failed", song_study.PROBLEMS["too_slow"])
     assert study["problem_code"] == "too_slow"
+
+
+def test_stop_as_the_worker_finishes_says_it_finished(app, db, owner, song, clip, monkeypatch):
+    job = _upload(owner, song, clip).json()
+    original = song_study.update
+
+    def worker_saves_first(*args, **kwargs):  # its save lands between Stop's read and update
+        db.query(Job).filter_by(id=job["id"]).update({"status": "succeeded"})
+        db.commit()
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(song_study, "update", worker_saves_first)
+    no = owner.post(f"/scripts/{song}/drafts/0/song-study/stop")
+    assert (no.status_code, no.json()["detail"]) == (409, song_study.JUST_DONE)
+    db.expire_all()
+    assert db.get(Job, job["id"]).status == "succeeded"  # Stop never claims it stopped it
+    assert not app.state.storage.exists(song_study.stop_key(job["id"]))

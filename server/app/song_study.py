@@ -58,6 +58,7 @@ PROBLEMS = {
     "too_slow": "it took over 10 minutes to study",
 }
 FAILED = "studying it didn't finish"
+JUST_DONE = "It just finished, so there's nothing to stop."
 BUSY = "A song ad is already being studied here. Wait for it, or cancel it."
 
 
@@ -393,8 +394,11 @@ def stop(db: Session, storage, draft: ScriptDraft) -> None:
     if job is None or job.status not in WAITING:
         raise HTTPException(409, "Nothing is being studied here.")
     running = job.status == JobStatus.running
-    db.execute(update(Job).where(Job.id == job.id, Job.status.in_(WAITING))
-               .values(status=JobStatus.cancelled, finished_at=utcnow()))  # fmt: skip
+    done = db.execute(update(Job).where(Job.id == job.id, Job.status.in_(WAITING))
+                      .values(status=JobStatus.cancelled, finished_at=utcnow()))  # fmt: skip
+    if done.rowcount != 1:  # the worker finished it first (its save is one transaction)
+        db.rollback()
+        raise HTTPException(409, JUST_DONE)
     db.commit()
     if running:
         storage.put(stop_key(job.id), b"")
