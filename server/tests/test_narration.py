@@ -152,3 +152,11 @@ def test_a_narrated_videos_clips_keep_their_own_sound(app, db, owner, editor, na
     editor.post(f"{video}/clips/prompts")
     job = db.query(Job).filter(Job.input["step"].as_string() == "clip_prompts").one()
     assert job.input["system"][0] == prompts.system("narrated_clip_prompts")
+
+
+def test_with_nothing_to_read_the_press_says_so_instead_of_a_price(owner, narrated):
+    _words(owner, narrated, "SCENE 1\n★ Iron Paws")  # headings only: nothing to read aloud
+    shown = owner.get(f"{narrated}/songs").json()
+    assert (shown["songs_note"], shown["estimate_credits"]) == (narration.NO_WORDS, 0)
+    _words(owner, narrated, WORDS)
+    assert owner.get(f"{narrated}/songs").json()["songs_note"] is None
