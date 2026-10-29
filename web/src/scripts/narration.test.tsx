@@ -125,3 +125,54 @@ test("while the sentences are measured, Make another waits too, and Cast says to
   expect(screen.getByRole("button", { name: /Make another/ })).toBeDisabled();
   expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Wait for the narration to finish");
 });
+
+test("the header's format is a picker on a draft: Dialogue → Narrated asks first, saves, and Undo puts it back", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, narrated({}, { kind: "story" })], "PATCH /scripts/7": [200, {}] });
+  open("/b/1/scripts/7?step=script");
+  await userEvent.click(await screen.findByRole("button", { name: "Format: Dialogue" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Narrated" }));
+  const ask = screen.getByRole("alertdialog", { name: "Make this Narrated?" });
+  expect(within(ask).getByText(/nobody speaks on camera/)).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "PATCH /scripts/7")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Change" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ kind: "narrated" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PATCH /scripts/7").at(-1)?.body).toEqual({ kind: "story" }));
+});
+
+test("a song, or a published script, shows its format as a plain chip", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs()] });
+  open("/b/1/scripts/7");
+  expect((await screen.findAllByText("Song")).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", { name: /^Format:/ })).toBeNull();
+});
+
+test("a Dialogue script that reads as narrated says so, with Make it Narrated", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, narrated({ reads_narrated: true }, { kind: "story" })], "PATCH /scripts/7": [200, {}] });
+  open("/b/1/scripts/7?step=script");
+  expect(await screen.findByText("This reads as narrated. Make it Narrated?")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Make it Narrated" }));
+  await userEvent.click(within(screen.getByRole("alertdialog", { name: "Make this Narrated?" })).getByRole("button", { name: "Change" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ kind: "narrated" }));
+});
+
+test("on a Narrated script, a line spoken on camera is Advice: the narrator will read it", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /scripts/7": [200, narrated({ dialogue_lines: [{ line: 2, text: "BO: Then he found Iron Paws." }] })], "GET /scripts/7/drafts/0/songs": [200, songs()] });
+  open("/b/1/scripts/7?step=script");
+  const list = await screen.findByLabelText("Lines spoken on camera");
+  expect(within(list).getByText(/Line 2, "BO: Then he found Iron Paws.": this line is spoken on camera, but a Narrated script has one voice\. The narrator will read it\./)).toBeInTheDocument();
+});
+
+test("a narration lists each sentence's start, and the voice is the server's", async () => {
+  setViewport(1440);
+  const sentences = [{ text: "Bo hated his bowl.", start: 0, end: 1.6 }, { text: "Then he found Iron Paws.", start: 2, end: 3.4 }];
+  fakeServer({ ...base, "GET /scripts/7": [200, narrated()], "GET /scripts/7/drafts/0/songs": [200, songs([narration({ preferred: true, sentences })], { voice: "Sarah" })] });
+  open("/b/1/scripts/7?step=narration");
+  await userEvent.click(await screen.findByText("Each sentence's start · 2"));
+  expect(screen.getByText("Then he found Iron Paws.")).toBeInTheDocument();
+  expect(screen.getByText("0:02")).toBeInTheDocument();
+});

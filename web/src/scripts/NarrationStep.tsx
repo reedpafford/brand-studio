@@ -7,8 +7,8 @@ import { useAllowanceStop, type Script } from "./useScript";
 import { useSongActions, useSongs, type SongTake } from "./useSongs";
 
 /** A narration is a song take of kind "narration" (Next-Server #858), with its voice and, when pauses were trimmed, its length before. */
-type Narration = SongTake & { voice?: string; untrimmed_seconds?: number | null };
-const VOICE = "Sarah"; // the one voice for now (flows N1: choosing the voice comes later)
+type Narration = SongTake;
+const VOICE = "Sarah"; // until the server names the version's voice (SongsOut.voice, #907); choosing it comes later
 const WORDS = { noun: "Narration", picked: "is the one used" };
 
 function Elapsed() {
@@ -42,6 +42,16 @@ function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<
         <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={label} />
       ) : null}
       {t.untrimmed_seconds != null && length != null && <p className="text-sm text-muted">Pauses trimmed: {clock(t.untrimmed_seconds)} → {clock(length)}</p>}
+      {(t.sentences ?? []).length > 0 && (
+        <details>
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm">Each sentence's start · {t.sentences.length}</summary>
+          <ul className="space-y-1 text-sm">
+            {t.sentences.map((x, i) => (
+              <li key={i} className="flex gap-3"><span className="w-10 shrink-0 tabular-nums text-muted">{clock(x.start)}</span><span className="min-w-0 break-words">{x.text}</span></li>
+            ))}
+          </ul>
+        </details>
+      )}
       {t.advice.map((x) => (
         <p key={x} className="text-sm text-muted">{x}</p>
       ))}
@@ -113,7 +123,7 @@ export function NarrationStep({ script: s }: { script: Script }) {
           <EmptyState icon={Mic} title="No narration">This script was published without a narration.</EmptyState>
         ) : (
           <EmptyState icon={Mic} title="Make the narration" action={data.songs_on ? make("Make the narration", true) : undefined}>
-            One voice reads the whole script. Voice: {VOICE}.
+            One voice reads the whole script. Voice: {data.voice || VOICE}.
           </EmptyState>
         )
       ) : (
