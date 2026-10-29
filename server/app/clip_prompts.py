@@ -58,12 +58,13 @@ OLDER_TAKE = "Advice: Its take was made from an older look of "
 
 def older_take(db: Session, known: dict, row: ProjectClip) -> list[str]:
     """Who or what the clip's picked take was made from an earlier sheet of (N6: a Cast &
-    places sheet changed since): its job sent other pictures. [] with no take."""
+    places sheet changed since): its job sent other pictures. [] with no take, or when what
+    it was made from isn't known."""
     take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
     job = db.get(Job, take.job_id) if take else None
-    if job is None:
+    sent = {f for ids in ((job.input.get("files") or {}) if job else {}).values() for f in ids}
+    if not sent:
         return []
-    sent = {f for ids in (job.input.get("files") or {}).values() for f in ids}
     refs = [r["id"] for r in row.references or [] if r["kind"] == "image"]
     return drawn_from_older(known, refs, sent)
 
