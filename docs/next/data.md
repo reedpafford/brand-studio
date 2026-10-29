@@ -20,6 +20,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n03 | Flavour from the script: `script_drafts.flavours` JSON `{product: variant}` (default `{}`), copied to the video at Make this version (the video's own pick stays where it is today) | Next-Server | — |
 | n04 | Song-ad study (S3a): `script_drafts.song_study` JSON, default null | Builder-Server-7 | — |
 | n05 | Narrated (N1, V6n): `song_takes.kind`, `voice`, `music_file_id`, `music_job_id`, `trimmed`; `scripts.kind` gains `narrated` (validation only) | Next-Server | — |
+| n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, new `item_checks`; existing videos planned from their breakdown | Builder-Server-8 | — |
 
 ## 1. Song ads
 
@@ -51,7 +52,7 @@ Code notes for Next-Server (not tables):
 | Breakdown rows | `data["plan_version"]`: the plan version the breakdown was made from | No migration (inside the JSON). A smaller number than `projects.plan.version` means "Made for an older plan". |
 | `jobs` | `retry_of_id` (nullable FK jobs) and `auto` bool (default false): the one automatic retry (P3) | At most one auto retry per job, enforced in code and tested. |
 | New: `item_checks` | `id`, `project_id`, `target` (`frame` or `take`), `target_id`, `job_id`, `status` (`checking`/`done`/`failed`/`skipped`), `findings` JSON `[{kind: face/outfit/product, role, text, change_note}]`, `dismissed` JSON (finding indexes with who and when), `created_at` | One row per still or take checked. Never touches approvals. |
-| Migration plan | Existing videos with a breakdown get `plan` from it in the same migration (in code, free, `source = "from_breakdown"`, approved), so no video is blocked. | One number for all of 1b, claimed by Next-Server first. |
+| Migration plan | Existing videos with a breakdown get `plan` from it in the same migration (in code, free, `source = "from_breakdown"`, approved), so no video is blocked. | n06, one number for all of 1b (Builder-Server-8). |
 
 ## 2–6. Later items
 
