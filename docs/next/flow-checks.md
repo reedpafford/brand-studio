@@ -301,3 +301,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #942 at 0efd0f47 (web side of #941) | PASS: the panel says the plan is made first; the toast says plan or shots. #941's words row closed. Note: the price line says "(the plan)" for an owner-plan version too |
 | 2026-10-29 | #941 at 6deca1bb + #942 0efd0f47 | PASS together: #941's own wording backed out, #942 carries it; they merge cleanly |
 | 2026-10-29 | #943 at 1e5df668 (ST1 look change confirm; VS1 counts the looks) | PASS: roles needing a look, to finish (was), an off look refused, the editor's week (probe), published refused, VS1 preview includes the looks. Note: the PATCH doesn't hold over the week (free); the screen must |
+| 2026-10-29 | #939 at 60ac28b5 | PASS: Update everything after this waits on the cast line with the same reason; #936 follow-up closed |
