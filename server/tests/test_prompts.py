@@ -45,7 +45,7 @@ def test_every_step_has_a_system_prompt_with_both_rules(step):
 def test_schemas_use_only_what_structured_outputs_accept(step):
     dumped = json.dumps(prompts.SCHEMAS[step].model_json_schema())
     for unsupported in ("minimum", "maximum", "minLength", "maxLength", "pattern"):
-        assert f'"{unsupported}"' not in dumped
+        assert f'"{unsupported}":' not in dumped  # a key; "pattern" may be a Literal's value
 
 
 def test_worked_examples_pass_their_own_checks():

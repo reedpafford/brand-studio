@@ -6520,6 +6520,8 @@ export interface components {
             keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
+            /** Songs Note */
+            songs_note?: string | null;
         };
         /** StageOut */
         StageOut: {
@@ -7065,6 +7067,8 @@ export interface components {
             keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
+            /** Songs Note */
+            songs_note?: string | null;
             /** Song Take Id */
             song_take_id: number | null;
         };

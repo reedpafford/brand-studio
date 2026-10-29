@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     kie_base_url: str = "https://api.kie.ai/api/v1"
     kie_api_key: SecretStr = Field(SecretStr(""), validation_alias="KIE_API_KEY")
     kie_delivery_hosts: list[str] = []  # set with the switch, from a real song link
+    # Real songs stop before their spend would pass this (0: none). Each request counts at
+    # this price until KIE's real one is known (music.py A4).
+    kie_budget_usd: float = 0.0
+    kie_usd_per_request: float = 0.1028
     # Claude: key from STUDIO_ANTHROPIC_KEY only (never in code or logs).
     anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
     # Paid generation (Replicate, Claude). Off by default: the owner turns it on at deploy.
