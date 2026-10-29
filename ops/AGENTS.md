@@ -38,7 +38,13 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 | Agent | Session |
 |---|---|
 | Builder-Server-5 (replaced Builder-Server-3 and -4 on 2026-10-27, context hygiene; montage trading screens) | session_01FRDAYJJv6AhprHx2GkXuCr |
-| Builder-Server-6 (role matching, duplicate roles) | session_01FRDAYJUwbJh3yTNjVjfofU |
+| Builder-Server-6 (follow-ups on its merged PRs only; context high) | session_01FRDAYJUwbJh3yTNjVjfofU |
+| Builder-Server-7 (Next: S3a song-ad study) | session_01FRDAYFH6rssaRstCKXKqHk |
+| Builder-Server-8 (Next 1b: creative plan, automatic fixes, advisory check) | session_01FRDAYEp2gLv1FV5wFBnwnd |
+| Builder-Screens-4 (live screens, UX audit fixes) | session_01FRDAYHTQXtVgwKpPjzi8Yt |
+| Next-Layout (Next: layout and wording) | session_01FRDAYFBXFobYo8VFRkdXJF |
+| UX-Auditor (docs/next/ux-audit.md, wireframes) | session_01FRDAYJ8rMAHbCsr2LY6pBC |
+| Song-Producer (Reed's hand-made song and narrated ads) | session_01FRDAYHNoiSK3NwTtj4n7cE |
 | Writer (Reed talks to it directly) | session_01FRDAYF8xUEnyc2USaQdPNF |
 | Researcher (Starpop, Phases 1–2, done) | session_01FRDAYGsMfXmbBgso61qMqh |
 | Next-Lead (branch `next`, ops/NEXT.md) | session_01FRDAYGxkc3gPaKGXtreXsy |
