@@ -40,6 +40,7 @@ So this is a **re-layout and re-wording**, not new logic. Every rule stays as it
    - stable prices.
 
    These are 14 small (S) changes, listed first in §4.
+8. **Every other screen and card** (Part 6): Quick clip History mixes every person's clips from every brand (and can lose clips on a busy week); nothing tells an editor what needs them; one video has three names; brand selection says nothing about each brand; editors can edit the brand and Reed's characters, against flows.md. Card specs for every list and a proposed brand switcher and editor home are in §6.2–6.4.
 
 ---
 
@@ -54,7 +55,7 @@ So this is a **re-layout and re-wording**, not new logic. Every rule stays as it
   - **QA r1/r2/r3** are QA-Live's runs 1, 2 and 3 (2026-10-27/28).
   - **Shot** is a screenshot in `ux-audit-shots/`.
   - **#NNN** is a merged PR.
-- Every finding has an id (G = everywhere, L = library, W = writing, V = video, O = owner pages). Part 4 points back to them.
+- Every finding has an id (G = everywhere, L = library, W = writing, V = video, O = owner pages; P6 = Part 6). Part 4 points back to them.
 
 ---
 
@@ -599,6 +600,36 @@ stateDiagram-v2
 | N6 | When a Cast & places sheet changes, the stills and clip prompts that use it go Out of date, as a cast swap already does. | SV4 (QA r2 #3) |
 | N7 | "Change it and make a new take" is priced with the take included (today it reads 3 next to "Make another take · 22"). | LW4 |
 
+### Added after Part 6 (every screen and card)
+
+| # | Change | Fixes | Size |
+|---|---|---|---|
+| S22 | **Quick clip History is yours, in this brand:** the list shows only the signed-in person's clips for the brand on screen (Reed gets a "Mine · Everyone" switch); the heading says "Your clips in {brand}". Every card, at both widths, shows "5 s · 9:16 · 5 credits · 2 h ago" (and "by Kel" in Everyone). A clip without a summary is "Untitled clip", never "Clip 12". Complete only with N8. | P6-01, P6-13 | S |
+| S23 | **Editor's Scripts list:** a script in "Making now" isn't repeated in the list under it; the default "Ready to make" filter shows as a chip ("Showing: Ready to make ×"); the empty state has its press ("Write your own script") and a link to "Your videos". | P6-03, P6-16 | S |
+| S24 | **Version chips in state words:** "A · Clips · Maya", "B · Final cut", "C · Ready to make", "A · Finished · changes waiting". Never "In production" or "Video done". The step needs N9. | P6-05, P6-19 | S |
+| S25 | **One name for a video:** "{script} · {letter}" on the Videos list, the video header, Approvals, In production and Usage; a variation's own title goes in the meta line. | P6-04 | S |
+| S26 | **Whole credits everywhere:** In production ("3 of 54.12") and Approvals ("3.4 credits") round up like the rest (phase3 rule 2). | P6-11 | S |
+| S27 | **Cast & places on the shared parts:** heading "Cast & places", 44 px tabs and buttons, the sheet state in words on each card ("Sheet approved" · "Needs a sheet" · "Making the sheet…"), no "v3", History rows "Saved 29 Oct by Reed · Restore". Deletes the page's old `ui.ts` classes (rule 26). | P6-10, P6-21 | S |
+| S28 | **Brand page tabs:** App screens lists only screens (the product bags stay under Products, so Iron Paws reads "App screens 0", not 2); a tab with nothing in it says so with its one press; tile badges read "Used for: fomo mention" in words, not tag slugs; "so briefs can pick them" becomes "so videos show the right bag". | P6-09, P6-20 | S |
+| S29 | **Team rows say what each editor is doing:** "This week: 40 of 145 credits · 2 videos being made · active 2 h ago" (from the owner-only allowances and In production reads that exist). `/team` for an editor shows "Page not found", like Approvals. | P6-14 | S |
+| S30 | **The editor's week in the account menu:** "This week: 18 of 145 credits · resets Monday" under their name. The owner's Quick clip doesn't show an allowance line he isn't held to (*to check with Next-Lead whether the owner has one*). | P6-15 | S |
+| S31 | **Empty brand:** for Reed, a short "Set up Night Owl" list on Scripts and Quick clip (Logo · Colours · End line · Screens or products, each a link to Brand) until each is filled; for an editor, "Nothing to make in Night Owl yet" with "Write your own script". | P6-16 | S |
+| S32 | **Version panel for a version someone else has:** "Kel is making this · at Clips · 62% of budget", and for Reed an **Open the video** press. | P6-18 | S |
+| S33 | **Script card:** the whole row is the target (today only the 23 px title link is), and the meta reads "Changed 2 h ago" (it shows the date it was made while the list sorts by last change). | P6-12 | S |
+| M17 | **Videos home with the card spec (§6.4):** Needs you · Making · Done, each card saying its step and what waits, built on M6. Needs N9. | P6-02, P6-05 | M |
+| M18 | **Brand selection, reorganised (§6.3):** the switcher shows each brand's "2 need you" (editor) or "3 being made" (owner); a brand's home is Videos for editors and Scripts for Reed; Studio pages read "All brands" in the switcher instead of the last brand; picking a brand from a Studio page opens its home. Counts need N9. | P6-06, P6-17 | M |
+| M19 | **One card set for every list (§6.2):** Script, Video, Quick clip, Cast & places item, In production row and Team row built from the shared `Card` / `MediaCard` with the field order in §6.2, deleting each page's own row markup (rule 26). | P6-13, P6-19 | M |
+
+**For Next-Server (Part 6):**
+
+| # | What | Why |
+|---|---|---|
+| N8 | `/jobs` takes `brand_id`, `mine` and "Quick clips only", so History asks for exactly its list. Today it reads the newest 200 jobs of the whole studio, video steps included, and keeps the Quick clips among them, so on a busy week a clip drops out of History. | P6-01 |
+| N9 | Each video in the Videos list and each version in a script row carry the script title, the version letter, the step and what waits on that step ("2 to check", "Making…", "Finished · changes waiting"); and a per-brand count of what needs the caller, for the switcher. | P6-02, P6-04, P6-05, P6-06 |
+| N10 | *To agree with Next-Lead:* rule 5 has two weekly allowances (Quick clips 150, own scripts about 145); the server keeps one shared 145 (`models/credits.py:16–17`). Either the server splits them or the rule text is checked with Reed. No rule changes here. | P6-08 |
+| N11 | *To agree with Next-Lead (it changes behaviour):* the Brand page, screens and Cast & places accept edits from editors (`routes/brands.py:1`, `routes/library.py:240`), while flows.md BR1 says "Owner edits; editors read". If BR1 stands, those writes become owner-only (with the screens of S28 and S27 read-only for editors). | P6-07 |
+| N12 | *Only if Reed wants it (new behaviour, rule 25):* which brands each editor works on. Today every editor sees every brand, so "an editor with one brand" can't exist. | P6-06 |
+
 ### Suggested build order
 
 1. S1–S14, in any order (each touches one or two files).
@@ -606,6 +637,7 @@ stateDiagram-v2
 3. Then M3–M10.
 4. Then S15–S19 and M11–M15 from Part 5, alongside M3–M10 (M12 waits for N5).
 5. L1 last, as the spec says.
+6. Part 6: S22–S33 in any order alongside S1–S21 (S22 and S24 are finished by N8 and N9); M17 with M6; M18 and M19 after M2 (state badges), before L1.
 
 This sits beside Next's feature order: song ads first, then styles, brand setup, video settings, organization, layout. M5 is where spec item 4's settings land. L1 is spec item 6.
 
@@ -826,3 +858,145 @@ Until then, §1.8 stands in: the same `next` code, run locally on the same stand
 - **LW2:** a new state, **Finished · changes waiting**, in lists and In production; Open goes to the first out-of-date step.
 - **LW3 / M16:** "Redo this frame · N credits" on an out-of-date frame card redraws that frame only, keeps the earlier one, and has Undo. "Redo storyboard" stays, and its confirm says it redoes every still.
 - **N7** goes to Next-Server through Next-Lead.
+
+---
+
+# Part 6. Every screen and every card, for Reed and for an editor
+
+Added at Reed's request (2026-10-29): *"I want EVERYTHING looked at. I mean even brand selection. Does it make sense the way it is organized right now? How editors see what's available, what's been done, what information is shown at each card, everything."* Parts 1–5 covered the video and writing steps. This part covers the rest: brand selection, the lists and their cards, Quick clip, Cast & places, the Brand page, the Studio pages, sign-in and empty states. New changes are in Part 4 as S22–S33, M17–M19 and N8–N12. No rule changes; anything that would change behaviour says *to agree with Next-Lead*.
+
+**How it was walked.** Locally on `next` at eb14d6ac, free stand-ins only (`BS_FAKE_PROVIDERS=true`, `BS_GENERATION_ENABLED=false`, a throwaway database, nothing paid, no keys). People: **Reed** (owner), **Maya** and **Kel** (editors), one invite waiting. Brands: **fomo**, **Iron Paws** and an empty **Night Owl**. Data: "The altar reel" published with 3 versions (A being made by Maya, at Storyboard; B by Kel, at Assets; C ready), "Gym bro portfolio" (Kel, finished), "Crusty eyes pitbull" (Maya, finished, Iron Paws), drafts by Reed and by Maya, 5 Quick clips by three people in two brands, Cast & places characters (one with an approved sheet), a place and a prop, Iron Paws' bag in two flavours, fomo's five screens. Shots are in [`ux-audit-shots/part6/`](ux-audit-shots/part6/), `P6-NN-<width>-<screen>.jpg`, each screen at 390 and 1440, full page (at 390 the fixed action bar and tabs show mid-image, as in the earlier shots). Stand-in text (reversed lines in variations, grey pictures, "about 1 s") is not counted.
+
+## 6.1 Findings
+
+| Id | What's wrong | Sev | Evidence |
+|---|---|---|---|
+| **P6-01** | **Quick clip History is the whole studio's, every brand.** On fomo, Maya's "History" (searched as "Search your clips") lists Kel's fomo clip, her own Iron Paws clips and Reed's clips, with nothing saying whose or which brand. The empty Night Owl shows the same five clips, so its empty state never appears. Worse, the list is the newest 200 jobs of the whole studio, video steps included, filtered down to Quick clips afterwards: on a busy week an editor's paid clip drops out of History and can't be found. (The 200 cut was read in the code, not reproduced at that volume.) | **Blocker** | `server/app/routes/jobs.py:201–216` (no brand or person filter, `limit(200)`); `clip/History.tsx:400` (keeps `!project_id` only), `:527`; shots `P6-23-390-owner-empty-brand-quick-clip`, `P6-40-1440-editor-quick-clip-fomo`. Fix: S22 + N8. |
+| **P6-02** | **Nothing tells an editor what needs them.** The things an editor waits on (a look to approve, prompts to check, takes to pick) show only inside each video. The Videos view (behind the Scripts switch) gives every unfinished video the same badge, "In production", and a line "Maya · At Storyboard" with her own name. No share of budget, no "2 to check", no order by what needs her. Maya's "Making now" on Scripts shows the script card, not her video or its step. | Major | `videos/VideosPage.tsx:51–85`; `scripts/ScriptsPage.tsx:372–377`; shots `P6-34`, `P6-30`. Fix: M17 (on M6) + N9. |
+| **P6-03** | **The editor's Scripts list repeats itself and hides what she made.** On fomo, "The altar reel" appears twice: under "Making now" and again in the list. On Iron Paws, Maya's own finished "Crusty eyes pitbull" is gone ("No scripts ready to make yet."), because the list quietly starts on "Ready to make" with no chip saying a filter is on. Kel's finished "Gym bro portfolio" is hidden the same way. | Major | `ScriptsPage.tsx:130` (editor default), `:196–200` and `:372–383` (the same row in both lists); shots `P6-30-390-editor-home-after-sign-in`, `P6-32-390-editor-scripts-ironpaws`, `P6-47`. Fix: S23. |
+| **P6-04** | **One video, three names.** Kel's version B is "The altar reel — Local variation 1" on Videos, "The altar reel · B" in In production, and Maya's A is just "The altar reel". An editor making A and C of one script sees two rows with the same title. | Major | `server/app/routes/script_produce.py:57` (`"{script} — {version title}"`, slot A gets none); `ProductionPage.tsx:236`; shots `P6-08-1440-owner-videos-fomo`, `P6-46`, `P6-18`. Fix: S25. |
+| **P6-05** | **Version chips say "In production", not where.** "A · In production · Maya" doesn't say Storyboard or Clips, or whether it's stuck; "Video done" stays on a finished video whose steps went out of date (LW2). The chips are the only place Reed sees the editor's side from the library (HO6). | Major | `ScriptsPage.tsx:34–41`, `:456`; `usage/BrandLists.tsx:236–246` (the same chips); shot `P6-05-1440-owner-scripts-fomo`. Fix: S24 + N9. |
+| **P6-06** | **Brand selection tells you nothing about the brands.** The switcher is a dot and a name, alphabetical. Nothing says fomo has 2 videos waiting on you and Iron Paws none, so work in another brand is invisible until you switch. Every editor sees every brand (there's no "brands you work on"), including the empty Night Owl. On Studio pages (Approvals, In production, Usage, Team) the switcher still names a brand, or says "Choose a brand" on a fresh device, and the rail then drops the brand sections. | Major | `shell/Shell.tsx:169–227` (switcher), `:64` (last brand on Studio pages), `:339` (sections only with a brand); `server/app/routes/brands.py:74–80` (all brands for everyone); shots `P6-03`, `P6-32`, `P6-18-1440-owner-in-production`. Fix: M18 + N9 (counts); N12 only if Reed wants per-editor brands. |
+| **P6-07** | **Editors can change the brand and Reed's characters.** Maya gets the full Brand page: Save changes, Add colour, Add product, Add screens. Cast & places gives her New character, Archive character, Redo the sheet and the brand checkboxes. flows.md BR1 says "Owner edits; editors read." A sheet redo by an editor changes every video that uses it (SV4). | Major | `brand/BrandPage.tsx:27, 51` (owner checked only for Archive brand); `brand/KitPage.tsx:191–195`; `library/ItemPage.tsx:146, 157–162` (no role check); `server/app/routes/brands.py:1, 98–108`; `routes/library.py:240`; shots `P6-42-390-editor-brand`, `P6-41`. *To agree with Next-Lead:* N11. |
+| **P6-08** | **Quick clips and own scripts share one weekly pot.** Rule 5 has two allowances (Quick clips 150, own scripts about 145); the server keeps one of 145 for both, and Quick clip says "This week: 18 of 145 credits". So the screens can't say what the rule says. Reed's own Quick clip also shows the line, as if he had a limit. | Major | `server/app/models/credits.py:16–17`; `clip/ClipPage.tsx:155–159`; `team/CreditLimits.tsx` (one "Editors' weekly allowance"); shots `P6-10`, `P6-21`. *To agree with Next-Lead:* N10. |
+| **P6-09** | **Product bags are counted as app screens.** Products are stored as screens, so Iron Paws reads "Products 1 · App screens 2", and the two "app screens" are the same two bags. fomo shows an empty "Products 0" tab. | Minor | `brand/screens.tsx:14, 45–57`; `BrandPage.tsx:31–36`; shots `P6-15-1440-owner-brand-products`, `P6-16`. Fix: S28. |
+| **P6-10** | **Cast & places is the one page still on the old look.** The heading says "Library", tabs are 40 px, buttons 42 px, cards show "v3", and "Needs a sheet" is on places too. A card doesn't say where it's used, so Reed can't tell what an edit will touch. The item page lists "v2 · Oct 29 by Reed · Restore". | Minor | `library/LibraryPage.tsx:9, 12–13, 58, 105–106`; `ItemPage.tsx:196`; shots `P6-11-1440-owner-cast-characters`, `P6-12-1440-owner-cast-item`. Fix: S27. |
+| **P6-11** | **Raw decimals:** In production shows "3 of 54.12 credits" and "9.73 of 54.12"; Approvals rounds to one decimal ("3.4 credits"). Everything else is whole credits, rounded up. | Minor | `production/ProductionPage.tsx:71`; `approvals/ApprovalsPage.tsx:35`; shot `P6-18`. Fix: S26. |
+| **P6-12** | **The script card's only target is its 23 px title.** The row isn't a link (only the title and the chips are), and its meta shows when the script was made while the list sorts by "Recently changed". | Minor | `ScriptsPage.tsx:424, 431–439`; measured at 390 on `P6-05`, `P6-30`. Fix: S33. |
+| **P6-13** | **History cards miss who, when and cost.** At 1440 a card shows the prompt, "5 s · 9:16 · 480p" and Download; the credits appear only at 390. No time, no person. A card without a summary is "Clip 12", and its menu is "More for clip 12" (an id). | Minor | `clip/History.tsx:426, 494, 442, 498` vs `:517`; shot `P6-10-1440-owner-quick-clip`. Fix: S22. |
+| **P6-14** | **Team rows don't say what anyone is doing.** Name, email and role only. Reed can't see who is near their week or who has three videos open. An editor who types `/team` gets the people list with emails, while Approvals answers "Page not found". | Minor | `team/TeamPage.tsx:19, 118–168`; shots `P6-21-1440-owner-team`, `P6-43-390-editor-team-url`. Fix: S29. |
+| **P6-15** | **An editor has to open Quick clip to see their week.** The account menu has only Theme and Sign out for an editor. | Minor | `Shell.tsx:235–300`; shot `P6-33-390-editor-account-menu`. Fix: S30. |
+| **P6-16** | **Empty states.** A new brand says "No scripts for Night Owl yet. Write a script once…", with no word that the brand has no logo, colours or end line yet (scripts and prompts read them). An editor on an empty brand gets "The owner publishes scripts here. You can also write your own." with no press beside it. Cast & places' empty card uses the old styles. | Minor | `ScriptsPage.tsx:387–391`; `LibraryPage.tsx:80–84`; shots `P6-22`, `P6-44`. Fix: S31, S23. |
+| **P6-17** | **Same home for both roles.** After sign-in or an invite, everyone lands on the last brand (else the first, alphabetically) at Scripts. For an editor that's the library, with "New script" as the amber, not their videos. With no brands at all, `/` sends an editor to Team. | Minor | `Shell.tsx:371–385`; `scripts/NewScriptButton.tsx` (the amber on the editor's home); shot `P6-30`. Fix: M18 (with M6). |
+| **P6-18** | **A version someone else has is a dead-looking panel.** "Kel is making this version." with no step, no progress, and for Reed no way into the video from it. | Minor | `scripts/VersionPanel.tsx:99`; shot `P6-37-390-editor-version-panel-taken`. Fix: S32. |
+| **P6-19** | **State words differ by list** (against flows.md "Waiting · Making… · Ready to check · Approved · Didn't finish · Refused · Out of date · Finished · changes waiting"): | Major | below; fix S24, M2, M19 |
+| | • Scripts chips: Writing · Ready to make · In production · Video done · Didn't finish | | `ScriptsPage.tsx:34–41` |
+| | • Videos: In production · Video done; filter "Making" | | `VideosPage.tsx:72–78, 150–151` |
+| | • History: Queued · Making · Ready · Didn't finish · credits returned · Cancelled · Not started | | `History.tsx:300–307` |
+| | • In production: a step name plus Didn't finish · Stuck · No activity | | `ProductionPage.tsx:23–27` |
+| | • Cast & places: Needs a sheet · ✓ Approved sheet | | `LibraryPage.tsx:106` |
+| | • Step names still say "Downloads" on Videos and In production (Final cut in flows) | | `VideosPage.tsx:45`; `ProductionPage.tsx:15` |
+| **P6-20** | **Small wording.** App screen tiles show tag slugs ("trading desktop", "app open +1"); Products' empty state says "so briefs can pick them" (there are no briefs on the new path); In production's search box says "Search scripts" on a list of videos; sign-in doesn't show the studio's name. | Minor | `brand/ScreensTab.tsx:226`; `ProductsTab.tsx:36`; `ProductionPage.tsx:170`; `auth/pages.tsx:21`. Fix: S28. |
+| **P6-21** | **Under 44 px at 390 (measured):** script titles 23 px (every Scripts list); Cast & places tabs 40 px and its buttons 42 px. **No sideways scroll** on any of the 42 screens at 390. | Minor | measured with Playwright on every `P6-*-390` shot. Fix: S27, S33. |
+| **P6-22** | **Approvals for a whole video can't be declined:** a held video says "To decline, ask Kel to shorten the plan." and calls itself "project". | Minor | `ApprovalsPage.tsx:274, 282`. Kept as a note: the page is almost always empty now (rule 4 sends no editor here). |
+
+What works and stays: the In production table (one row per video, flags with a reason, "Needs attention first"), the Usage brand tracker, the Team invite flow (copy a new link, Undo on remove), the invite page ("Reed invited you to Reed's studio as an editor. Your email is …"), Archive brand with Undo, and the Brand page's "leave without saving?".
+
+## 6.2 Card spec per list
+
+Fields in the order they read. **Badge** is the one state word (§2.5); **main press** is a tap on the card unless named; **"…"** holds the rest.
+
+| List | Fields, in order | Badge | Main press | In "…" |
+|---|---|---|---|---|
+| **Script card** (Scripts) | Poster (newest still, else the reel's thumbnail, else none) · title · one line: "{length} · {N} versions · from a reel" · owner only: "Reed · changed 2 h ago" · version chips (below) | Draft · Published · Archived (only when not Published, the usual case) | Owner: open the script. Editor: open the first Ready version's panel | Duplicate, Make a copy in another language, Delete / Archive (owner, or the editor's own draft) |
+| **Version chip** | Letter · state word · step · who (left out when it's you) | "A · Clips · Kel", "B · Final cut", "C · Ready to make", "A · Finished · changes waiting" | Ready: the version panel. Yours (or any, for Reed): the video at its step. Someone else's: the panel, saying who and where | — |
+| **Video card** (Videos, M17) | Poster · "{script} · {letter}" · badge · "62% of budget · 2 h ago" · "Kel" only when it isn't yours | The step and what waits: "Clips · 2 to check" (amber outline), "Storyboard · Making… 1:10", "Final cut ready", "Finished · changes waiting", "Waiting for the owner's OK" | Open at the step that needs you | Open the script, Release this version, Archive |
+| **Quick clip card** (History) | The clip (plays) · the prompt summary (2 lines) · "5 s · 9:16 · 480p · 5 credits · 2 h ago" · "by Kel" only in Everyone | Waiting · Making… 0:12 · Ready · Didn't finish · credits returned · Cancelled | Ready: play. Failed: **Try again · N**. Waiting: Cancel | Download, Make another like this (fills the form, nothing sent), Remove from history |
+| **Cast & places card** | Sheet (else the photo) · name · "Used in 3 scripts · fomo, Iron Paws" | Sheet approved · Needs a sheet · Making the sheet… | Open | Archive (owner) |
+| **Product** (Brand) | Group: "Bag · 2 flavours". Tile: the bag picture · flavour name | — | Open the flavour | Rename the product, Delete the flavour |
+| **App screen tile** (Brand) | Picture · name · "Used for: fomo mention, CTA" in words | — | Open | Delete (Undo) |
+| **Approvals card** | What, in plain words ("A new take of clip 3") · brand · video · who · when · "12 credits ($1.23) · takes it to 71% of budget" | — | **Approve** | Decline |
+| **In production row** | Poster · "{script} · {letter}" · brand · editor · step with state word ("Clips · 2 to check") · last activity · "3 of 54 credits · $0.31" · flag line | Didn't finish · Stuck · No activity (with the reason) | Open at the step | Release this version |
+| **Usage brand row** | Name · spent · finished · cost per video · in progress · scripts · versions left · last activity | Archived | Open the brand | Restore (archived) |
+| **Team row** | Initial · name · email · role · editors: "This week: 40 of 145 credits · 2 videos being made · active 2 h ago" | Owner / Editor | — | Make owner / editor, Remove (Undo) |
+
+## 6.3 Brand selection: a proposed organisation
+
+```
+┌ fomo ▾ ───────────────┐      Brands
+│ ● fomo        2 need you │  ← editor: what waits on you; Reed: "3 being made"
+│ ● Iron Paws            │
+│ ● Night Owl   not set up │  ← Reed only; editors don't see this note
+│ ─────────────────────── │
+│ ＋ New brand (Reed)       │
+└─────────────────────────┘
+```
+
+- **Where:** the switcher stays top left, the only place a brand is chosen. The rail's brand name and the page eyebrow stay as quiet labels.
+- **What it shows:** each brand with what's waiting for this person (N9). Nothing in another brand can wait unseen.
+- **On switch:** the same section in the new brand, as today (`Shell.tsx:26–31`). From a video, its list; from a Studio page, the brand's home.
+- **The brand's home:** Videos for editors (M6/M17), Scripts for Reed. Both open with what needs that person on top.
+- **Studio pages** (Approvals, In production, Usage, Team) are cross-brand, so the switcher reads **"All brands"** there and the rail keeps the last brand's sections under it.
+- **An editor with one brand:** today every editor sees every brand. If Reed wants editors limited to their brands, that's N12 (new behaviour, after stabilization). With one brand, the switcher becomes a plain label, with no menu.
+- **A new, empty brand:** Reed sees "Set up Night Owl" (S31) wherever he lands in it; editors don't see an empty brand's setup.
+
+## 6.4 The editor's home: what's available, what's done, what needs them
+
+| The editor asks | Where today | Proposed |
+|---|---|---|
+| **What needs me?** | Nowhere. Open each video. | **Videos › Needs you** (M17): a look to approve, prompts to check, takes to pick, "Finished · changes waiting". The top row is the amber ("Open: The altar reel · B"). |
+| **What am I making?** | Scripts › "Making now" shows the script card (P6-02, P6-03) | **Videos › Making**: each with its step and "Making… 1:10" |
+| **What can I make?** | Scripts, filtered to Ready to make without saying so | **Scripts**, the same list, with "Showing: Ready to make ×" and each script's free versions as "Make version C" |
+| **What have I done?** | Videos view (behind the switch); Quick clips mixed with everyone's | **Videos › Done**, with a **Quick clips** filter that shows *their* clips in this brand (S22) |
+| **How much is left this week?** | Quick clip's header only | The account menu (S30) and the cost bar inside a video (M1) |
+
+```
+┌ fomo ▾ ─────────────────────────── (M) ┐
+│ Videos                       [Filters] │
+│ NEEDS YOU                              │
+│  ▢ The altar reel · A   Storyboard · 1 to check   18% │
+│ MAKING                                 │
+│  (nothing)                             │
+│ DONE                                   │
+│  ▢ Mom's 3 days · C   Final cut ready              │
+│ ─ Ready to make in fomo: The altar reel · C  [Open] │  ← one line, links to Scripts
+├────────────────────────────────────────┤
+│ [ Open: The altar reel · A ]  (amber)  │
+├────────────────────────────────────────┤
+│ Videos Scripts Quick Cast Brand        │
+└────────────────────────────────────────┘
+```
+
+Reed's home stays Scripts. His "what needs me" is the Approvals bell plus In production's "Needs attention", as today.
+
+## 6.5 Screens, one line each (who it's for · the one main press today → proposed)
+
+| Screen | For | Main press today | Proposed | Shots |
+|---|---|---|---|---|
+| Sign in | everyone | Sign in | same; show the studio's name | `P6-01` |
+| Join from an invite | new editor | Create my account | same; land on Videos afterwards | `P6-02` |
+| Brand switcher | everyone | pick a brand | with counts (§6.3) | `P6-03`, `P6-32` |
+| Account menu | everyone | — | editor's week in it (S30) | `P6-04`, `P6-33` |
+| Scripts (owner) | Reed | New script | same | `P6-05`, `P6-06`, `P6-48` |
+| Scripts (editor) | editor | New script | Make version … (from Videos' "Ready to make" line) | `P6-30`, `P6-31`, `P6-45`, `P6-47` |
+| Version panel | editor | Make this version | the version card (M12) | `P6-07`, `P6-36`, `P6-37` |
+| Videos | both | — (row tap) | Open the top "Needs you" (M17) | `P6-08`, `P6-34`, `P6-35`, `P6-46` |
+| A published script | Reed | (none; step 6 is lit) | see H1/HO6: the versions show their videos | `P6-09` |
+| A video | editor | Next / the step's amber | Parts 1–5 | `P6-38`, `P6-39` |
+| Quick clip | both | Generate · N | same; History fixed (S22) | `P6-10`, `P6-23`, `P6-40` |
+| Cast & places | Reed (editors read) | New character | same, on the new look (S27) | `P6-11`, `P6-13`, `P6-41` |
+| A character | Reed | Save | same; "Used in" list | `P6-12` |
+| Brand: Look, Products, App screens | Reed (editors read, N11) | Save changes · Add product · Add screens | same; read-only for editors | `P6-14`–`P6-16`, `P6-42` |
+| Approvals | Reed | Approve all · N | same | `P6-17` |
+| In production | Reed | (row tap) | same; whole credits (S26) | `P6-18` |
+| Usage, Usage for a brand | Reed | (row tap) | same | `P6-19`, `P6-20` |
+| Team | Reed | Invite someone | same; activity per editor (S29) | `P6-21`, `P6-43` |
+| Empty brand | both | New script | Set up the brand (Reed) / Write your own script (editor) (S31) | `P6-22`, `P6-44` |
+
+## 6.6 What this walk could not check
+
+- **A failed or refused Quick clip, a stuck video, and Approvals with something waiting:** the stand-ins never fail, and editors aren't sent to Approvals any more.
+- **History losing clips past 200 jobs** was read in the code, not reproduced.
+- **Looks to approve at Assets** in this seed: the stand-in breakdown puts no character in a shot, so "Needs you" has nothing to show yet. The Videos proposal uses the states from Part 1.
+- **A song script and song video** (not in this seed); its cards follow §6.2 with the Song badge from screens.md.
+- **The test site** (`:8443`) is still unreachable from this session (see "Test site walk").
