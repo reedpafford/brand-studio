@@ -6,6 +6,7 @@ version, or to one video when it makes its own (rule 31: a published script stay
 is). In each, one take is Preferred: the first one ready, until someone picks another. Every
 failure says why and offers the press that helps (rule 22); nothing failed is charged."""
 
+import logging
 import math
 from decimal import Decimal
 
@@ -24,6 +25,7 @@ from app.models.songs import SongTake
 from app.prompts import check
 from app.prompts.check import sung_lines
 
+log = logging.getLogger(__name__)
 WAITING = (JobStatus.queued, JobStatus.running)
 GUESSED = "Timing guessed: the lines are spread evenly over the song, so check the shot times."
 OVER_CAP = "A video of this whole take would go over the {}-credit cap. {}"
@@ -70,11 +72,17 @@ def takes(db: Session, draft: ScriptDraft, project: Project | None = None) -> li
 
 
 def _request(
-    db: Session, user: User, draft: ScriptDraft, project: Project | None, free: bool = False
+    db: Session,
+    user: User,
+    draft: ScriptDraft,
+    project: Project | None,
+    free: bool = False,
+    kie: float = 0.0,
 ) -> Job:
     """One request for 2 songs of the version's words as they are now. One that can't be
     made says why (422); past an allowance or budget, enqueue declines with the reason.
-    `free`: a request already paid for (it gave back fewer songs than asked)."""
+    `free`: a request already paid for (it gave back fewer songs than asked). `kie`: the price
+    a real song through KIE counts at (0: not a real one)."""
     from app.routes.jobs import enqueue
 
     if narrated(db, draft):  # one voice call (flows N1)
@@ -88,16 +96,23 @@ def _request(
         job_input = music.job(draft.text, draft.style_line)
     except music.NotReady as no:
         raise HTTPException(422, str(no)) from None
-    job_input = {**job_input, "step": "song_take", **({"free_retry": True} if free else {})}
-    return enqueue(db, user, "music", job_input, project=project,
-                   provider=music.PROVIDER, units=0 if free else 1)  # fmt: skip
+    job_input = {**job_input, "step": "song_take", **({"free_retry": True} if free else {}),
+                 **({"kie": True} if kie else {})}  # fmt: skip
+    job = enqueue(db, user, "music", job_input, project=project,
+                  provider=music.PROVIDER, units=0 if free else 1)  # fmt: skip
+    if kie:  # each real song, for ops/SPEND.md (CLAUDE.md: every paid call is logged)
+        made = sum(1 for j in _real_jobs(db))
+        log.warning("Real song request: job %s, about $%.2f, %s so far (about $%.2f)", job.id,
+                 kie, made, made * kie)  # fmt: skip
+    return job
 
 
 def make(
-    db: Session, user: User, draft: ScriptDraft, project: Project | None = None
+    db: Session, user: User, draft: ScriptDraft, project: Project | None = None, kie=0.0
 ) -> list[SongTake]:
-    """Make 2 takes (one request) of the version's lyrics and style line."""
-    job = _request(db, user, draft, project)
+    """Make 2 takes (one request) of the version's lyrics and style line. `kie`: a real
+    song through KIE (KieSuno sings only those, never a request queued before)."""
+    job = _request(db, user, draft, project, kie=kie)
     numbered = select(func.max(SongTake.number)).where(
         SongTake.draft_id == draft.id, SongTake.project_id == (project.id if project else None)
     )
@@ -328,7 +343,7 @@ def retry_credits(db: Session, take: SongTake) -> Decimal:
     return price(db, db.get(Script, draft.script_id).workspace_id, draft)
 
 
-def try_again(db: Session, user: User, take: SongTake) -> None:
+def try_again(db: Session, user: User, take: SongTake, kie: float = 0.0) -> None:
     """A failed request is made again for its takes, with the version's lyrics and style
     line as they are now (a refusal says to change them first); charged only if it's made.
     A request that came back with only one song keeps that one and asks again for the other,
@@ -343,13 +358,50 @@ def try_again(db: Session, user: User, take: SongTake) -> None:
     project = db.get(Project, take.project_id) if take.project_id else None
     old = db.get(Job, take.job_id)
     short = old.status == JobStatus.succeeded  # it gave fewer songs than asked
-    job = _request(db, user, draft, project, free=_free_retry(old))
+    job = _request(db, user, draft, project, free=_free_retry(old), kie=kie)
     for pair in _by_job(db, SongTake.job_id, old):
         if short and pair.file_id is not None:  # a song that did arrive is kept as it is
             continue
         pair.job_id, pair.file_id = job.id, None
         pair.lyrics, pair.style_line = _sings(draft).values()
     db.commit()
+
+
+BUDGET_USED = "Real songs for this test are used up, so new takes are free stand-in songs."
+NO_MORE_REAL = "Real songs for this test are used up, so no more can be made here."
+
+
+def real_songs(db: Session, settings) -> float:
+    """The price a request counts at if it's a real song through KIE (0: not real). Once the
+    next one would take the test site's real-song spend past its budget (Reed's test budget),
+    it's a free stand-in song instead (the stand-ins are on there; elsewhere a plain 409).
+    Two presses at the same moment can both pass and go one request over (about $0.10): not
+    worth a lock at a $5 budget."""
+    if not settings.kie_suno:
+        return 0.0
+    made = len(_real_jobs(db))
+    if (made + 1) * settings.kie_usd_per_request > settings.kie_budget_usd:
+        log.warning("Real songs stopped at the test budget after %s requests.", made)
+        if not settings.fake_providers:
+            raise HTTPException(409, NO_MORE_REAL)
+        return 0.0
+    return settings.kie_usd_per_request
+
+
+def budget_used(db: Session, settings) -> bool:
+    """Real songs are on but used up: new takes are stand-in songs (said on the Song step)."""
+    if not settings.kie_suno:
+        return False
+    return (len(_real_jobs(db)) + 1) * settings.kie_usd_per_request > settings.kie_budget_usd
+
+
+def _real_jobs(db: Session) -> list[Job]:
+    """Every real request that's waiting or was sent to KIE: one sent counts whatever happens
+    to it after (a video put away mid-song is still paid for); only one cancelled before it
+    was sent doesn't."""
+    jobs = db.scalars(select(Job).where(Job.provider == music.PROVIDER, Job.kind == "music"))
+    return [j for j in jobs if j.input.get("kie")
+            and (j.status != JobStatus.cancelled or j.provider_ref is not None)]  # fmt: skip
 
 
 def spread(db: Session, user: User, take: SongTake) -> None:

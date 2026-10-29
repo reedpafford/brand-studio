@@ -189,6 +189,14 @@ def refuse_link(url: str, folder: Path) -> Path:
     raise Refused("blocked", BLOCKED)
 
 
+def study_link(url: str, folder: Path) -> Path:
+    """A song-ad study's link on the stand-ins: the 6 s test clip, so a walk reaches the
+    finished study; a reel id with "blocked" in it is refused, as Instagram would."""
+    if "blocked" in url:
+        return refuse_link(url, folder)
+    return two_scenes(folder / "reel.mp4")
+
+
 def png(aspect: str) -> bytes:
     out = io.BytesIO()
     Image.new("RGB", SIZES.get(aspect, (512, 512)), (128, 128, 128)).save(out, "PNG")

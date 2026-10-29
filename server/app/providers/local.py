@@ -28,9 +28,11 @@ class LocalProvider:
         hear_song: Callable[[Path, str], list[dict]] = song_timing.words,
         hear_voice: Callable[[Path, str], list[dict]] = song_timing.words,
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
+        fetch_study: Callable[[str, Path], Path] = reel.fetch,
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
         self.hear_song, self.hear_voice, self.hear_study = hear_song, hear_voice, hear_study
+        self.fetch_study = fetch_study  # a song-ad study's link (the stand-ins give a clip)
         self.root = Path(tempfile.mkdtemp(prefix="bs-local-"))
 
     def run(self, kind: str, input: dict) -> Result:
@@ -93,7 +95,7 @@ class LocalProvider:
         try:
             video = folder / "reel.mp4"
             if input.get("url"):
-                video = self.fetch_link(input["url"], folder)
+                video = self.fetch_study(input["url"], folder)
             else:
                 video.write_bytes(self.storage.get(input["video_key"]))
             found, frames = song_study.study(video, folder, hear=self.hear_study, watch=watch)

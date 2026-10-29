@@ -33,7 +33,7 @@ def song(owner):
 
 def _work(app, db):
     local = LocalProvider(app.state.storage, transcribe=transcript, fetch_link=refuse_link,
-                          hear_study=hear_study)  # fmt: skip
+                          hear_study=hear_study, fetch_study=refuse_link)  # fmt: skip
     run_once(db, {"local": local}, app.state.storage, allow_paid=False)  # free: runs with it off
 
 
@@ -324,3 +324,26 @@ def test_stop_as_the_worker_finishes_says_it_finished(app, db, owner, song, clip
     db.expire_all()
     assert db.get(Job, job["id"]).status == "succeeded"  # Stop never claims it stopped it
     assert not app.state.storage.exists(song_study.stop_key(job["id"]))
+
+
+def test_on_the_stand_ins_a_study_link_gives_the_test_clip(app, db, owner, song):
+    from app.providers import get_providers
+    from app.providers.fake_local import study_link
+
+    app.state.settings.fake_providers = True
+    local = get_providers(app.state.settings, app.state.storage)["local"]
+    assert local.fetch_study is study_link and local.fetch_link is refuse_link  # import: as is
+    url = f"/scripts/{song}/drafts/0/song-study"
+    assert (
+        owner.post(url, data={"url": "https://www.instagram.com/reel/DehudnaAmce/"}).status_code
+        == 201
+    )
+    run_once(db, {"local": local}, app.state.storage, allow_paid=False)
+    study = _study(owner, song)
+    assert study["status"] == "done" and study["source"] == "link" and len(study["frames"]) == 2
+    assert [p["name"] for p in study["sections"]][:2] == ["Verse", "Chorus"] and study["bpm"] >= 0
+
+    owner.post(url, data={"url": "https://www.instagram.com/reel/blocked123/"})
+    run_once(db, {"local": local}, app.state.storage, allow_paid=False)
+    attempt = _study(owner, song)["attempt"]
+    assert attempt["status"] == "failed" and attempt["problem_code"] == "blocked"
