@@ -269,3 +269,39 @@ def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, 
     refused = editor.post(f"{url}/make-missing")
     assert (refused.status_code, refused.json()["detail"]) == (409, said["reason"])
     assert (db.query(Job).count(), db.query(LibraryItem).count()) == (jobs, looks)
+
+
+def test_a_roles_own_house_look_holds_after_a_switch_and_is_back_with_house(owner, editor, db):
+    """Flow-QA on #967: a look made for this video in House is no picture of Nate once the
+    video is Disney Pixar (sheet_for), so nothing is drawn or charged with it in the wrong
+    look; switching back to House makes it usable again."""
+    import pytest
+    from fastapi import HTTPException
+
+    from app import clip_prompts, storyboard
+    from app.breakdown import would_show
+    from app.sheets import require_looks, sheet_for
+
+    _, pid, nate = _video(owner, editor, db)
+    look = editor.post(f"/projects/{pid}/assets/slots/{nate}/make-look").json()
+    look = next(r for r in look if r["slot_id"] == nate)["library_item_id"]
+    _drawn(db, editor, look)
+    editor.post(f"/library/character/{look}/sheet/approve")
+    project, item = db.get(Project, pid), db.get(LibraryItem, look)
+    assert sheet_for(db, project, item) == [item.sheet_file_id]
+
+    def shown():
+        db.expire_all()
+        return would_show(db, project, clip_prompts.newest(db, project).data)
+
+    switch = owner.post(f"/projects/{pid}/settings", json={"look": "disney-pixar"})
+    assert switch.status_code == 200, switch.text
+    db.refresh(project)
+    assert sheet_for(db, project, item) == []
+    with pytest.raises(HTTPException) as held:
+        require_looks(shown(), storyboard.assets(db, project))
+    assert held.value.detail == "Nate has no approved look yet. Approve one in Cast."
+    assert owner.post(f"/projects/{pid}/settings", json={"look": "house"}).status_code == 200
+    db.refresh(project)
+    assert sheet_for(db, project, item) == [item.sheet_file_id]
+    require_looks(shown(), storyboard.assets(db, project))  # House again: nothing held
