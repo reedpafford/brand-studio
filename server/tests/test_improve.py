@@ -64,7 +64,9 @@ def test_improve_then_generate_as_is(app, db, editor, fomo):  # noqa: F811
     assert clip.status_code == 201, clip.text
     replicate = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(replicate))
-    run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+    run_once(
+        db, {"replicate": ReplicateProvider(BASE, client, token="test-token")}, app.state.storage
+    )
     posted = next(q for q in replicate.requests if q.method == "POST")
     assert json.loads(posted.content)["input"]["prompt"] == result["prompt"]  # not doubled
     assert db.get(Job, clip.json()["id"]).input["request"]["improved"] is True

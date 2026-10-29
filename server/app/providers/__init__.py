@@ -9,6 +9,14 @@ class NetworkError(Exception):
     """The provider couldn't be reached. The only kind of error that is retried."""
 
 
+class NoKey(RuntimeError):
+    """A paid provider with no key refuses to send: a request without one could still be
+    signed on the way (a sandbox's network proxy adds credentials), and so cost money."""
+
+    def __init__(self, service: str):
+        super().__init__(f"{service} has no key here, so nothing was sent.")
+
+
 class NotStarted(Exception):
     """The provider certainly did not start the work (e.g. it said "too busy").
     Safe to try again later, even for paid work."""

@@ -77,7 +77,7 @@ def _work(app, db, fake):
     for _ in range(2):
         run_once(
             db,
-            {"replicate": ReplicateProvider(BASE, client)},
+            {"replicate": ReplicateProvider(BASE, client, token="test-token")},
             app.state.storage,
             only={"replicate"},
         )  # the video lane, as live: Claude's jobs wait for theirs

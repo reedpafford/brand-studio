@@ -116,7 +116,11 @@ def test_worker_sends_references_as_data_urls(app, editor, fomo, db):
     fake = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(fake))
     for _ in range(3):
-        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+        run_once(
+            db,
+            {"replicate": ReplicateProvider(BASE, client, token="test-token")},
+            app.state.storage,
+        )
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
     assert sent["prompt"].endswith("\nA cat starts trading at sunrise")
     assert sent["reference_images"][0] == f"data:image/png;base64,{base64.b64encode(PNG).decode()}"
@@ -128,7 +132,9 @@ def test_worker_sends_references_as_data_urls(app, editor, fomo, db):
 def _sent(app, db) -> dict:
     fake = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(fake))
-    run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+    run_once(
+        db, {"replicate": ReplicateProvider(BASE, client, token="test-token")}, app.state.storage
+    )
     return json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
 
 
@@ -191,7 +197,9 @@ def test_huge_images_fail_before_any_paid_call(app, editor, fomo, db, monkeypatc
     job = editor.post("/clips", json=body).json()["id"]
     fake = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(fake))
-    run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+    run_once(
+        db, {"replicate": ReplicateProvider(BASE, client, token="test-token")}, app.state.storage
+    )
     assert db.get(Job, job).status == "failed" and not fake.requests
 
 
@@ -257,7 +265,10 @@ def test_generation_switch_off_refuses_and_worker_holds_paid_jobs(app, editor, f
     fake = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(fake))
     run_once(
-        db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage, allow_paid=False
+        db,
+        {"replicate": ReplicateProvider(BASE, client, token="test-token")},
+        app.state.storage,
+        allow_paid=False,
     )
     db.refresh(queued)
     assert queued.status == "queued" and fake.requests == []  # nothing was sent

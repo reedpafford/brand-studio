@@ -2369,6 +2369,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Version Estimate
+         * @description Make this version's price line with the Video settings row's picks (VS1), each checked
+         *     as on produce (a bad pick: 422 or 409). The choices come from GET /models, /looks and the
+         *     brand's screens. Free.
+         */
+        post: operations["version_estimate_scripts__script_id__drafts__slot__estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/variations/estimate": {
         parameters: {
             query?: never;
@@ -6772,6 +6794,11 @@ export interface components {
             credits_per_unit: {
                 [key: string]: number;
             };
+            /**
+             * Lip Sync
+             * @default false
+             */
+            lip_sync: boolean;
         };
         /** ModelPriceOut */
         ModelPriceOut: {
@@ -9021,6 +9048,15 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** VersionEstimateOut */
+        VersionEstimateOut: {
+            /** Credits */
+            credits: number;
+            /** Over Cap */
+            over_cap: boolean;
+            /** Reason */
+            reason: string;
         };
         /** VersionSummary */
         VersionSummary: {
@@ -14506,6 +14542,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProduceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    version_estimate_scripts__script_id__drafts__slot__estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VideoSettingsIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionEstimateOut"];
                 };
             };
             /** @description Validation Error */
