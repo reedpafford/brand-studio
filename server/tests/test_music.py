@@ -194,3 +194,15 @@ def test_a_take_longer_than_any_ad_says_so(app, db, owner, monkeypatch):
     monkeypatch.setattr(song_timing, "length", too_long)
     _, timed = _run(app, db, "pop")
     assert (timed.status, timed.error) == (JobStatus.failed, music.TIMING_TOO_LONG)
+
+
+def test_lip_sync_marks_are_never_sung_or_sent():
+    marked = "[Chorus] [Lip-sync]\nGut so happy, tail so high [Lip-sync]\n[Lip-sync]\n\nIron Paws"
+    assert music.sung(marked) == ["Gut so happy, tail so high", "Iron Paws"]
+    assert music.job(marked, "pop")["input"]["lyrics"] == (
+        "[Chorus]\nGut so happy, tail so high\n\nIron Paws"
+    )
+    sung = song_timing.lines(marked, [], 10)
+    assert [(ln["section"], ln["text"]) for ln in sung] == [
+        ("Chorus", "Gut so happy, tail so high"), ("Chorus", "Iron Paws")
+    ]  # fmt: skip

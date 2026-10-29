@@ -15,7 +15,7 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
   const pressed = useRef(false); // set at once, before a re-render, so a fast double tap makes one draft
   const make = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text: "" } });
+      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text: "", kind: "story" } });
       if (!data) throw new Error(errorText(error));
       return data;
     },

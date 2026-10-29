@@ -108,7 +108,8 @@ export function ChangeBox(props: {
   const changing = change?.status === "changing" && !lost;
   const failed = change?.status === "failed" || lost;
   const price = useQuery({
-    queryKey: ["change-price", kind, projectId, id],
+    // A clip's first take adds the new take to the price (the rewrite alone before it): read it again when the takes change.
+    queryKey: ["change-price", kind, projectId, id, props.snapshot ?? null],
     queryFn: async () =>
       (kind === "frame"
         ? await api.GET("/projects/{project_id}/storyboard/frames/{frame_id}/change", { params: { path: { project_id: projectId, frame_id: id } } })
