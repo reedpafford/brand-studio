@@ -2,18 +2,16 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { useBrandPieces } from "../clip/BrandPieces";
-import { useJobs } from "../clip/History";
+import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Clapperboard, RotateCcw } from "lucide-react";
 import { Banner, Button, EmptyState, Skeleton } from "../components";
 import { WaitingBadge } from "./Meter";
-import { Elapsed } from "../clip/History";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 import { refName, useRoleNames } from "./names";
 import { BreakdownVersions } from "./VersionLists";
 
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
 /** The newest breakdown for the project, or null when there is none (or no script). */

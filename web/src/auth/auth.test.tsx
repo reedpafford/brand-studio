@@ -5,17 +5,12 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
+import { renderApp } from "../test/render";
 
 const me = { id: 1, email: "a@b.co", name: "Ada", role: "owner", workspace_id: 1 };
 
 function renderAt(path: string) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(path);
 }
 
 afterEach(() => vi.unstubAllGlobals());

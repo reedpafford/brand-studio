@@ -1,13 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
-import { Elapsed, useJobs } from "../clip/History";
+import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Sparkles } from "lucide-react";
 import { Badge, Banner, Button, Card, Skeleton } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** No script yet: Claude writes a few drafts from the brief, and you pick one to start from. */
 export function DraftsPanel({

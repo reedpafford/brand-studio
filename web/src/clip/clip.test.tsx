@@ -9,6 +9,7 @@ import { setViewport } from "../test/viewport";
 import { BrandPieces } from "./BrandPieces";
 import { elapsed } from "./History";
 import { blockedReason, clipCredits, fit, mentionsMoment, type Model } from "./logic";
+import { editor } from "../test/people";
 
 const seedance = {
   id: "seedance-2.5", name: "Seedance 2.5", kind: "video", default: true, duration: { min: 4, max: 30 },
@@ -16,7 +17,6 @@ const seedance = {
   credits_per_unit: { "480p": 1, "720p": 2.5 },
 } as unknown as Model;
 const older = { ...seedance, id: "seedance-2.0", name: "Seedance 2.0", default: false, duration: { min: 4, max: 15 }, resolutions: ["480p"], aspect_ratios: ["9:16"] } as unknown as Model;
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const buy = { id: 3, name: "Buy BTC", file_id: 9, tags: [], default_for: ["buy-moment"], brand_id: 1 };
 
 test("switching to a model with smaller limits says what changed", () => {

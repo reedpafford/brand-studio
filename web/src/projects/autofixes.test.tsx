@@ -1,13 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { editor } from "../test/people";
 
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
   cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 600, credits_used: 0, budget_pct: 0, created_by_id: 2,
@@ -39,13 +37,7 @@ const base: Record<string, [number, unknown]> = {
 };
 
 function open(query = "?stage=clips") {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[`/b/1/projects/9${query}`]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(`/b/1/projects/9${query}`);
 }
 
 afterEach(() => vi.unstubAllGlobals());

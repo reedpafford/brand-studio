@@ -6,8 +6,9 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { ...owner, id: 2, name: "Sam", role: "editor" };
 const script = (o: object = {}) => ({
   id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, reel_imported: false, new_lines: false, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
@@ -25,13 +26,7 @@ const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number
   ...o,
 });
 function open() {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/scripts/7?step=script"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp("/b/1/scripts/7?step=script");
 }
 afterEach(() => {
   vi.unstubAllGlobals();

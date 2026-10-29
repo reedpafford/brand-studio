@@ -1,13 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const project = (o: object = {}) => ({
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null,
   estimate_credits: 30, budget_credits: 600, credits_used: 84, budget_pct: 14, product_variants: {}, created_by_id: 2, script_draft_id: 5, ...o,
@@ -31,13 +29,7 @@ const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number
   ...o,
 });
 function open() {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/videos/9"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp("/b/1/videos/9");
 }
 afterEach(() => vi.unstubAllGlobals());
 

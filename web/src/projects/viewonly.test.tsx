@@ -6,9 +6,10 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
 // Eli looks at Sam's video: only Sam or the owner may change it (the server refuses the rest with a 403).
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const eli = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
@@ -44,13 +45,7 @@ const base: Record<string, [number, unknown]> = {
 };
 
 function open(step: string) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[`/b/1/videos/9?step=${step}`]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(`/b/1/videos/9?step=${step}`);
 }
 afterEach(() => vi.unstubAllGlobals());
 

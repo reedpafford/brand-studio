@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Ellipsis, Lock, Pencil, RotateCcw, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
-import { useJobs } from "../clip/History";
+import { GOING, useJobs } from "../clip/History";
 import { Badge, Banner, Button, Card, Dialog, Menu, MenuItem, Skeleton, Tabs, TextArea } from "../components";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
@@ -14,7 +14,6 @@ import { serverTime } from "../time";
 
 const LETTER = ["A", "B", "C"];
 const NAME = ["Original", "Variation", "Variation"];
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 type Version = Script["versions"][number];
 
