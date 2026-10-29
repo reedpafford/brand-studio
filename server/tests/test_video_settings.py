@@ -311,3 +311,26 @@ def test_make_this_versions_price_line_follows_the_picks(owner, editor, db):
     assert db.query(Project).count() == 0  # nothing is made
     models = {m["id"]: m["lip_sync"] for m in editor.get("/models?kind=video").json()}
     assert models["seedance-2.5"] and not models["seedance-2.0"]
+
+
+def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeypatch):
+    """QA-3: with no saved plan, 14.73 was quoted from 2 s of spoken words, but the video
+    plans for 15 s until its plan exists (28.06). The quote now uses the video's own rules,
+    plus a look for Nate, who speaks with no role yet (making the video adds him)."""
+    import pytest
+
+    import tests.test_script_produce as produce
+    from app.sheets import look_usual
+    from tests.test_script_library import SCRIPT, _make
+
+    monkeypatch.setattr(produce, "_make", lambda c, **kw: _make(c, text=SCRIPT))
+    nate = float(look_usual(db, 1))  # his look, once he's a role
+    for picks in ({}, {"look": "disney-pixar"}):
+        base, _ = _published(owner, db)  # Mom is Mia (a House sheet only); Nate has no role
+        quote = owner.post(f"{base}/drafts/0/estimate", json=picks).json()["credits"]
+        card = owner.get(base).json()["versions"][0]["estimate_credits"]
+        made = owner.post(f"{base}/drafts/0/produce", json=picks).json()["project_id"]
+        to_finish = float(vs.to_finish(db, db.get(Project, made)))
+        assert quote == pytest.approx(to_finish + nate, abs=0.01)
+        if not picks:  # the version card shows the same figure (in the script's own look)
+            assert card == pytest.approx(to_finish + nate, abs=0.01)
