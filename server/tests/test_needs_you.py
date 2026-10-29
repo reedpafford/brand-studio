@@ -47,3 +47,23 @@ def test_work_made_for_an_older_plan_says_changes_are_waiting(owner, editor, db)
                             data=bd.data, created_by_id=bd.created_by_id))  # fmt: skip
     db.commit()
     assert _row(editor, pid)["waiting_on"] == "Changes are waiting: bring it up to date"
+
+
+def test_an_advisory_check_or_an_unknown_step_never_hides_what_waits(owner, editor, db):
+    from app.models.jobs import Job
+    from app.models.projects import Project
+
+    pid = _video(owner, editor, db)
+    bd = db.query(BreakdownVersion).filter_by(project_id=pid).one()
+    db.add(StoryboardFrame(project_id=pid, breakdown_id=bd.id, clip_id="c1", shot_id="s1",
+                           prompt="p", file_id=upload(editor)))  # fmt: skip
+    project = db.get(Project, pid)
+    db.add(Job(workspace_id=project.workspace_id, kind="check-claude", provider="claude",
+               input={"step": "item_check"}, project_id=pid, credits=0,
+               status=JobStatus.failed))  # fmt: skip
+    db.commit()
+    assert _row(editor, pid)["waiting_on"] == "1 still ready to check"
+    _job(db, pid, JobStatus.failed, step="something_new")
+    assert _row(editor, pid)["waiting_on"] == "1 still ready to check"
+    _job(db, pid, JobStatus.failed, step="song_timing")
+    assert _row(editor, pid)["waiting_on"] == "The song's timing didn't finish"

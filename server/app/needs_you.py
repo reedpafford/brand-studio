@@ -13,11 +13,14 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 
-NAMES = {  # what a failed run was, as the editor knows it
+NAMES = {  # what a failed run was, as the editor knows it; a step not named here is left out
     "breakdown": "The shot plan", "song_breakdown": "The shot plan",
-    "narrated_breakdown": "The shot plan", "sheet": "A look", "storyboard": "The storyboard",
-    "frame": "A still", "clip_prompts": "The clip prompts", "clip_take": "A clip",
+    "narrated_breakdown": "The shot plan", "plan": "The scene plan", "plan_scene": "A scene",
+    "sheet": "A look", "storyboard": "The storyboard", "frame": "A still",
+    "clip_prompts": "The clip prompts", "clip_take": "A clip", "change": "A change",
+    "song_take": "The song", "song_timing": "The song's timing",
 }  # fmt: skip
+ADVISORY = "check-claude"  # a picture check that only advises: its failure never flags a video
 
 
 def _count(n: int, one: str, many: str) -> str:
@@ -31,7 +34,7 @@ def waiting_on(db: Session, projects: list[Project], old: set[int]) -> dict[int,
     if not ids:
         return {}
     newest_job = dict(db.execute(select(Job.project_id, func.max(Job.id))
-                                 .where(Job.project_id.in_(ids))
+                                 .where(Job.project_id.in_(ids), Job.kind != ADVISORY)
                                  .group_by(Job.project_id)).all())  # fmt: skip
     failed = {j.project_id: j for j in db.scalars(select(Job).where(
         Job.id.in_(newest_job.values()), Job.status == JobStatus.failed))}  # fmt: skip
@@ -57,8 +60,8 @@ def waiting_on(db: Session, projects: list[Project], old: set[int]) -> dict[int,
                 ready[pid][model] += 1
     out = {}
     for pid in ids:
-        if job := failed.get(pid):
-            out[pid] = f"{NAMES.get(job.input.get('step', ''), 'A step')} didn't finish"
+        if (job := failed.get(pid)) and (name := NAMES.get(job.input.get("step", ""))):
+            out[pid] = f"{name} didn't finish"
         elif looks.get(pid):
             out[pid] = f"Approve {_count(looks[pid], 'look', 'looks')}"
         elif counts := ready.get(pid):
