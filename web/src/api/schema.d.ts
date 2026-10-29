@@ -2733,7 +2733,7 @@ export interface paths {
          *     it (history only grows). Free: never refused over budget, and nothing is rewritten for it.
          *     Frames and clips made for the one gone back to are current again (they move to the copy);
          *     those made for the one it replaces read "made for an older breakdown", with their usual
-         *     redo. Undo is this press with `was_id`.
+         *     redo. Undo is this press with `was_id`. Whoever made the video, or the owner.
          */
         post: operations["use_version_projects__project_id__breakdown_versions__version_id__use_post"];
         delete?: never;
@@ -2840,6 +2840,7 @@ export interface paths {
          * Use Version
          * @description Go back to this: free, never refused over budget; Undo is index 0 (the one it replaced).
          *     Waits while a storyboard or a still is being made, so nothing lands on a frame that's gone.
+         *     Whoever made the video, or the owner.
          */
         post: operations["use_version_projects__project_id__storyboard_versions__index__use_post"];
         delete?: never;
@@ -2968,7 +2969,7 @@ export interface paths {
          * @description Use an earlier still again, with the prompt it was made from: OR3's Preferred still,
          *     and the Undo of a change. Free, never refused over budget. The one it replaces becomes an
          *     earlier still (`was_file_id`: pick it back to undo); a take made from the replaced still
-         *     reads Out of date (clip_prompts.older_still).
+         *     reads Out of date (clip_prompts.older_still). Whoever made the video, or the owner.
          */
         post: operations["pick_still_projects__project_id__storyboard_frames__frame_id__pick_post"];
         delete?: never;
@@ -3200,7 +3201,8 @@ export interface paths {
          * Use Version
          * @description Go back to this (OR3): an earlier version of the prompt is the one in hand again. Free,
          *     never refused over budget; Undo is index 1 (the one it replaced). Waits while a take or a
-         *     rewrite is being made for this clip, so nothing lands on the wrong version.
+         *     rewrite is being made for this clip, so nothing lands on the wrong version. Whoever made
+         *     the video, or the owner.
          */
         post: operations["use_version_projects__project_id__clips__clip_id__versions__index__use_post"];
         delete?: never;
