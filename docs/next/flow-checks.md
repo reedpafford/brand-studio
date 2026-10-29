@@ -57,7 +57,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
 | S4 (rule 3) | Trim → Preferred → Undo the trim leaves an over-cap take Preferred, and the script publishes (200) over the 729 cap | Un-trim hands Preferred back or refuses; `preferred()` and `use_in_video` skip over-cap takes | #748 at 3607b3d |
-| S4 U (UI) | After the trim's Undo the over-cap take stays Preferred and **Next: Cast** is enabled (the one toast and Undo are fixed) | Gate the step on `!over_cap` too, plus #748's server fix | #759 at 75d2ac8b |
 | S4 B before (rule 18) | "Keep the first N lines" can drop the brand's end line without saying so | Name a dropped end line in the confirm; end-line Advice after | #759 at a7dd6a94 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
@@ -108,3 +107,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #748 at 5c3d02f | `[Lip-sync]` section and line marks; untrim cap case | Lip-sync PASS; cap bypass through the trim's Undo still open |
 | 2026-10-29 | #759 at 75d2ac8b | Trim + Preferred + Undo at 1440 and 390 | One toast and Undo PASS; after Undo, Next: Cast is open on an over-cap song (FAIL) |
 | 2026-10-29 | #759 at a7dd6a94 | Keep the first N lines (cap lowered to 300 to reach it; lyrics alone top out at about 629 credits) | PASS at 1440 and 390 (notes: end line, over_cap gate) |
+| 2026-10-29 | #759 at 37344101 | Full song walk at 1440 and 390 (20 cases) | PASS; the screen holds the cap after a trim's Undo |
