@@ -43,6 +43,15 @@ test("an Off look offers Make a sample of the brand's hero at its price; House i
   expect(within(screen.getByLabelText("House")).getByText("The house look is always on.")).toBeInTheDocument();
 });
 
+test("on the test site, the sample says before the press whether it's real or a stand-in", async () => {
+  setViewport(390);
+  const note = "Test site: the budget for real samples is used up, so this sample will be a stand-in.";
+  fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ test_site: note })] }));
+  open();
+  const card = await screen.findByLabelText("Disney Pixar");
+  expect(await within(card).findByText(note)).toBeInTheDocument();
+});
+
 test("with no hero, Who's in the sample? offers the brand's characters or the look's own sample character", async () => {
   setViewport(390);
   const calls = fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ hero: null, characters: [{ id: 7, name: "Mia" }] })], "POST /looks/pixar/sample": [201, sample({ status: "making" })] }));

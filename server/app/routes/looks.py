@@ -85,6 +85,7 @@ class SampleOut(BaseModel):
     still_id: int | None
     clip_id: int | None
     look: LookOut
+    test_site: str | None = None  # real samples on: real, or a stand-in past their budget
 
 
 class SampleIn(BaseModel):
@@ -92,7 +93,7 @@ class SampleIn(BaseModel):
     character_id: int | None = None  # None: the hero, or else the look's own sample character
 
 
-def _sample(db: Session, owner: User, look_id: str, brand_id: int) -> SampleOut:
+def _sample(db: Session, owner: User, look_id: str, brand_id: int, settings) -> SampleOut:
     brand, look = get_brand(db, owner, brand_id), looks.get(look_id)
     status, reason = look_samples.state(db, owner.workspace_id, look_id)
     row = looks.switch(db, owner.workspace_id, look_id)
@@ -105,14 +106,19 @@ def _sample(db: Session, owner: User, look_id: str, brand_id: int) -> SampleOut:
         still_id=row.sample_still_id if row else None,
         clip_id=row.sample_clip_id if row else None,
         look=_out(db, owner.workspace_id, look),
+        test_site=look_samples.test_site_note(db, settings, owner.workspace_id, look_id),
     )  # fmt: skip
 
 
 @router.get("/{look_id}/sample", response_model=SampleOut)
 def sample(
-    look_id: str, brand_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)
+    look_id: str,
+    brand_id: int,
+    request: Request,
+    owner: User = Depends(owner_only),
+    db: Session = Depends(get_db),
 ):
-    return _sample(db, owner, look_id, brand_id)
+    return _sample(db, owner, look_id, brand_id, request.app.state.settings)
 
 
 @router.post("/{look_id}/sample", response_model=SampleOut, status_code=201,
@@ -127,5 +133,6 @@ def make_sample(
     """Make a sample (paid: one still, then a 5 s clip from it); again replaces it."""
     looks.get(look_id)
     brand = get_brand(db, owner, body.brand_id)
-    look_samples.make(db, owner, look_id, brand, body.character_id, request.app.state.settings)
-    return _sample(db, owner, look_id, brand.id)
+    settings = request.app.state.settings
+    look_samples.make(db, owner, look_id, brand, body.character_id, settings)
+    return _sample(db, owner, look_id, brand.id, settings)

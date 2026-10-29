@@ -36,6 +36,9 @@ NOT_THEIRS = "That character isn't one of this brand's."
 ALREADY = "This look's sample is already being made."
 HOUSE = "House is the default look: it needs no sample."
 NO_STILL = "The sample's still didn't come back. Make a sample to try again."
+REAL_NOTE = "Test site: this sample is made for real."
+USED_UP = ("Test site: the budget for real samples is used up, so this sample will be a "
+           "stand-in (a plain grey picture). Raise the budget to make real ones.")  # fmt: skip
 
 
 def characters(db: Session, brand: Brand) -> list[LibraryItem]:
@@ -145,12 +148,26 @@ def lane(db: Session, settings, credits: Decimal) -> str:
     real job counts once sent, whatever happens to it after."""
     if not (settings.fake_providers and settings.real_look_samples):
         return "replicate"
-    jobs = db.scalars(select(Job).where(Job.provider == REAL_SAMPLES))
-    spent = sum(j.credits for j in jobs if j.status != JobStatus.cancelled or j.provider_ref)
-    if (spent + credits) * USD_PER_CREDIT > Decimal(str(settings.look_samples_budget_usd)):
+    if not _fits(db, settings, credits):
         log.warning("Real look samples stopped at the test budget: this one is a stand-in.")
         return "replicate"
     return REAL_SAMPLES
+
+
+def _fits(db: Session, settings, credits: Decimal) -> bool:
+    jobs = db.scalars(select(Job).where(Job.provider == REAL_SAMPLES))
+    spent = sum(j.credits for j in jobs if j.status != JobStatus.cancelled or j.provider_ref)
+    return (spent + credits) * USD_PER_CREDIT <= Decimal(str(settings.look_samples_budget_usd))
+
+
+def test_site_note(db: Session, settings, ws: int, look_id: str) -> str | None:
+    """Said before the press while real samples are on (the test site): real, or a stand-in
+    because the next one would pass their budget."""
+    if not (settings.fake_providers and settings.real_look_samples):
+        return None
+    if _fits(db, settings, retry_price(db, ws, look_id)):
+        return REAL_NOTE
+    return USED_UP
 
 
 def make(db: Session, owner: User, look_id: str, brand: Brand, character_id: int | None,

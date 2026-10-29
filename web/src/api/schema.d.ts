@@ -7270,6 +7270,8 @@ export interface components {
             /** Clip Id */
             clip_id: number | null;
             look: components["schemas"]["LookOut"];
+            /** Test Site */
+            test_site?: string | null;
         };
         /** Scene */
         Scene: {

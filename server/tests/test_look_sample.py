@@ -131,6 +131,8 @@ def test_real_samples_on_the_test_site_go_real_until_the_budget(app, db, owner, 
     settings.fake_providers, settings.real_look_samples = True, True
     settings.look_samples_budget_usd = 0.6  # one sample (a still and a 5 s clip, about $0.55)
     brand = _brand(owner)
+    url = f"/looks/zack-d/sample?brand_id={brand}"
+    assert owner.get(url).json()["test_site"] == look_samples.REAL_NOTE  # said before the press
     owner.post("/looks/zack-d/sample", json={"brand_id": brand})
     still = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
     assert still.provider == REAL_SAMPLES
@@ -139,6 +141,8 @@ def test_real_samples_on_the_test_site_go_real_until_the_budget(app, db, owner, 
     db.commit()
     clip = db.query(Job).filter(Job.input["step"].as_string() == look_samples.CLIP).one()
     assert clip.provider == REAL_SAMPLES  # the clip follows its still, already paid for
+    shown = owner.get(f"/looks/skeleton/sample?brand_id={brand}").json()
+    assert shown["test_site"] == look_samples.USED_UP
     owner.post("/looks/skeleton/sample", json={"brand_id": brand})  # past the budget
     newest = db.query(Job).order_by(Job.id.desc()).first()
     assert newest.input["look_id"] == "skeleton" and newest.provider == "replicate"  # stand-in
