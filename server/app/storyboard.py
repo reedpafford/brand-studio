@@ -235,9 +235,10 @@ OLDER = "Advice: Drawn from an older look of "
 
 
 def older_looks(db: Session, known: dict, frame: StoryboardFrame) -> list[str]:
-    """Who in a frame's still was drawn from an earlier sheet than their approved one now
-    (QA-Live, video #17: 5 stills kept Goth GF 2's old look): the still's job sent other
-    pictures. None when its job isn't known (a still picked back, or from before)."""
+    """Who or what in a frame's still was drawn from an earlier sheet than its approved one
+    now (QA-Live, video #17: 5 stills kept Goth GF 2's old look; N6: a place's too): the
+    still's job sent other pictures. None when its job isn't known (a still picked back, or
+    from before)."""
     jobs = db.scalars(select(Job).where(Job.project_id == frame.project_id, Job.kind == "image",
                                         Job.status == JobStatus.succeeded))  # fmt: skip
     drew = [j for j in jobs if j.input.get("frame_id") == frame.id
@@ -245,7 +246,16 @@ def older_looks(db: Session, known: dict, frame: StoryboardFrame) -> list[str]:
     if not frame.file_id or not drew:
         return []
     sent = set(drew[-1].input.get("files", {}).get("image_input", []))
-    sheets = {r: known.get(r, ("", []))[-1][:1] for r in frame.reference_ids if r.startswith(CHAR)}
+    return drawn_from_older(known, frame.reference_ids, sent)
+
+
+SHEETS = (*CHAR, "place:", "prop:")  # Cast & places pictures a sheet change can make old
+
+
+def drawn_from_older(known: dict, refs: list[str], sent: set[int]) -> list[str]:
+    """Who or what among `refs` has an approved picture now that wasn't among the files a
+    still or take was made from (N6: a Cast & places sheet changed since)."""
+    sheets = {r: known.get(r, ("", []))[-1][:1] for r in refs if r.startswith(SHEETS)}
     return [_name(known, r) for r, f in sheets.items() if f and f[0] not in sent]
 
 
@@ -618,3 +628,5 @@ def save_still(db: Session, job: Job) -> None:
                 {"file_id": frame.file_id, "prompt": job.input.get("was_prompt", frame.prompt)},
             ]
         frame.file_id, frame.approved, frame.still_stale = file_ids[0], False, False
+        if job.id and (frame.change or {}).get("made_job_id") == job.id:  # Redo: now it's done
+            frame.change = {**frame.change, "status": "done"}

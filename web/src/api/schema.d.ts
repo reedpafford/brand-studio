@@ -5078,6 +5078,11 @@ export interface components {
             take_credits: number;
             /** Stale */
             stale: boolean;
+            /**
+             * Take Stale
+             * @default false
+             */
+            take_stale: boolean;
             /** Inserts */
             inserts: components["schemas"]["InsertOut"][];
             /** Change */
