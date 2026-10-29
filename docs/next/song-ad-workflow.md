@@ -75,3 +75,10 @@ Used for Reed's two narrated Iron Paws ads (pit bull and Frenchie, 2:23 and 2:22
 - **One scene plan for both videos** (`docs/next/ironpaws-vo/plan.py`): the dog's breed is the only change. Scenes with no dog or face in them (the ingredients on the counter, the bag hero, the stars over the bag) are made once and reused in the second video, fitted to its own narration times. That saved about $3.
 - **The reference's look carried the science part:** a translucent x-ray dog on a deep blue backdrop, hot spots glowing on the paw, skin and ear, then the gut. It made "the inflammation finds the skin, the yeast finds the ears" easy to follow.
 - **Two "looks too much like someone else's" refusals** (the x-ray dive into the gut, and the bag with ingredients swirling out) both went through on a plain retry, at no charge.
+
+### Narrated ads v2: the sound (Reed, 2026-10-29: "sound effects, conspiracy background music, cut any dead space, a more realistic voice")
+- **Voice:** Replicate `elevenlabs/v3`, voice "Sarah" (other natural options: Alexandra, Hope, Jane). It sounds more human than MiniMax. Call it without the `Prefer: wait` header, because a 2½-minute script takes about 40 s.
+- **No dead space:** measure the narration, then keep each sentence from its first word to its last plus a 0.18 s breath. That cut 10–12% (2:26 → 2:12, 2:24 → 2:06), and the pictures are re-timed to the new sentence starts. Clips only get trimmed, never slowed.
+- **Sound effects are free:** every app take already carries its own foley (licking, swipes, the scoop, a whoosh) and no voices or music, because the clip prompts say so. Keep the take audio at about 0.75 under the narration. Whisper on the effects track found no speech.
+- **Music:** Replicate `stability-ai/stable-audio-2.5`, 150 s instrumental. The prompt asked for a dark, mysterious conspiracy-documentary bed: a ticking pulse, low drones, a sparse tense piano, soft hits, and a lift to hopeful in the last third. It sits at 0.30 and ducks (sidechain) while the narrator speaks.
+- **Mix:** about -14 LUFS overall, the narration on top. It costs about $1.30 for both videos, with no new clips.
