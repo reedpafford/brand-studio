@@ -199,12 +199,10 @@ def own_script(db: Session, project: Project, user: User) -> bool:
     return author == user.id
 
 
-def quick_clip_used(db: Session, user: User) -> Decimal:
-    """This week's (Mon-Sun, UTC) credits on this person's own work: jobs outside any
-    project (Quick clips, script steps) and on videos from scripts they wrote, plus the
-    later steps of a reel read they pressed for, which are held until they run."""
-    from app.reel_read import held
-
+def week_jobs(user: User) -> tuple:
+    """What counts toward this person's week (Mon-Sun, UTC): their own jobs outside any
+    project (Quick clips, script steps, looks, checks) and on videos from scripts they wrote.
+    The allowance and the cost log's week both read through this, so they never drift."""
     own = (
         select(Project.id)
         # a released video keeps counting: releasing must not hand the credits back
@@ -215,12 +213,19 @@ def quick_clip_used(db: Session, user: User) -> Decimal:
         .join(Script, Script.id == ScriptDraft.script_id)
         .where(Script.created_by_id == user.id)
     )
-    return _sum_credits(
-        db,
+    return (
         or_(Job.project_id.is_(None), Job.project_id.in_(own)),
         Job.created_by_id == user.id,
         Job.created_at >= week_start(),
-    ) + held(db, user)
+    )
+
+
+def quick_clip_used(db: Session, user: User) -> Decimal:
+    """This week's credits on this person's own work (`week_jobs`), plus the later steps of
+    a reel read they pressed for, which are held until they run."""
+    from app.reel_read import held
+
+    return _sum_credits(db, *week_jobs(user)) + held(db, user)
 
 
 def credits_left(db: Session, user: User) -> Decimal | None:
