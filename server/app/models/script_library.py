@@ -16,6 +16,7 @@ class Script(Entity, Base):
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     kind: Mapped[str] = mapped_column(String(20), default="story")  # story | song (song ads)
+    look: Mapped[str] = mapped_column(String(40), default="house")  # how pictures are drawn (ST1)
     description: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     reference_id: Mapped[str | None] = mapped_column(String(80))  # a GET /references reel
@@ -48,7 +49,9 @@ class ScriptDraft(Entity, Base):
     # ([{title, concept, lyrics, style_line, visual_concept, recommended, unchecked_claims}])
     style_line: Mapped[str] = mapped_column(Text, default="")
     song_directions: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    song_study: Mapped[dict | None] = mapped_column(JSON)  # flows S3a, app/song_study.py
     singer: Mapped[str] = mapped_column(String(120), default="")  # a cast role; "": nobody seen
+    plan: Mapped[dict | None] = mapped_column(JSON)  # 1b: the owner's plan, each video's start
     # Rule 18: an end line spoken over the song's last seconds (music lowered), at the stitch
     spoken_end_line: Mapped[str] = mapped_column(Text, default="")
     approved_at: Mapped[datetime | None]

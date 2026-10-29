@@ -28,6 +28,8 @@ class ProjectClip(Entity, Base):
     # Fix this clip's prompt's free Claude rewrite was used for this prompt (once per prompt
     # version): cleared when the prompt changes any other way (`same_fix` keeps it).
     free_fix_used: Mapped[bool] = mapped_column(default=False)
+    # P3: wording fixed in code ({before, after, fixed: [what], undone}); Undo puts `before` back
+    auto_fix: Mapped[dict | None] = mapped_column(JSON)
     # Song ads: {start, end, sung_shots} of the video's song this clip covers, from its
     # breakdown row (song_breakdown.slice_of); None for a story video
     song_slice: Mapped[dict | None] = mapped_column(JSON)
@@ -49,6 +51,7 @@ class ClipTake(Entity, Base):
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
     prompt: Mapped[str | None] = mapped_column(Text)  # what it was made from; picked back with it
+    look: Mapped[str] = mapped_column(String(40), default="house")  # the video's look then (VS1)
 
 
 class FinalVideo(Entity, Base):

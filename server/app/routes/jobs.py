@@ -60,6 +60,8 @@ class JobOut(BaseModel):
     created_by_id: int | None = None  # who asked (for the owner's Approvals list)
     created_by_name: str = ""
     waiting: str = ""  # why a job hasn't started yet, once it has waited a while (plain)
+    retry_of_id: int | None = None  # P3: the failed take this automatic retry is for
+    auto: bool = False  # made on its own (the one automatic retry), not by a press
 
     @model_validator(mode="before")
     @classmethod
@@ -78,6 +80,8 @@ class JobOut(BaseModel):
                 "error",
                 "created_at",
                 "finished_at",
+                "retry_of_id",
+                "auto",
             )
         }
         extra = {

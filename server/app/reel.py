@@ -65,8 +65,10 @@ def fetch(url: str, folder: Path) -> Path:
     return out
 
 
-def probe(path: Path) -> float:
-    """The video's length in seconds, once it passes the caps (size, length, sound, type)."""
+def probe(path: Path, max_seconds: int | None = None) -> float:
+    """The video's length in seconds, once it passes the caps (size, length, sound, type);
+    longer than `max_seconds` (default: a reel's MAX_SECONDS) is refused."""
+    max_seconds = max_seconds or MAX_SECONDS
     if path.stat().st_size > MAX_MB * 1024 * 1024:
         raise Refused("bad_file", f"This video is over {MAX_MB} MB. Upload a smaller copy.")
     args = ["ffprobe", "-v", "error", "-show_entries", "format=duration,format_name"]
@@ -77,11 +79,10 @@ def probe(path: Path) -> float:
     if "mp4" not in fmt.get("format_name", "") or "video" not in kinds:
         raise Refused("bad_file", "That file isn't a video we can read. Use an MP4 or MOV.")
     seconds = float(fmt.get("duration") or 0)
-    if seconds > MAX_SECONDS + SLACK:
+    if seconds > max_seconds + SLACK:
         long = f"{seconds / 60:.0f} minutes" if seconds >= 120 else f"{seconds:.0f} seconds"
-        raise Refused(
-            "too_long", f"This video is {long} long; reels up to {MAX_SECONDS} seconds can be read."
-        )
+        most = f"{max_seconds // 60} minutes" if max_seconds >= 120 else f"{max_seconds} seconds"
+        raise Refused("too_long", f"This video is {long} long; reels up to {most} can be read.")
     if "audio" not in kinds:
         raise Refused("bad_file", "This video has no sound, so there's no dialogue to read.")
     return round(seconds, 2)

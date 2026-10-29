@@ -26,10 +26,17 @@ def explain(db: Session, job: Job) -> None:
 
 
 def step_failed(db: Session, job: Job) -> None:
-    """A step's job failed at the provider: the reel watch retries, then falls back."""
+    """A step's job failed at the provider: the reel watch retries, then falls back; a
+    refused or busy take is tried again once on its own (P3)."""
+    from app.clip_takes import retry
     from app.reel_read import watch_failed
 
     explain(db, job)
+    if job.input.get("step") == "clip_take":
+        try:
+            retry(db, job)
+        except Exception:  # never let a retry break the worker
+            log.exception("job %s: retrying the take failed", job.id)
     if job.input.get("step") == "reel_watch":
         try:
             watch_failed(db, job)
@@ -73,6 +80,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.script_variations import save_variations
     from app.script_write import save_written
     from app.song_directions import save as save_directions
+    from app.song_study import save as save_study
     from app.song_takes import save_take as save_song
     from app.song_takes import save_timing
     from app.storyboard import save_frames, save_still
@@ -97,6 +105,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "song_take": save_song,
         "song_directions": save_directions,
         "song_timing": save_timing,
+        "song_study": save_study,
     }
     handler = handlers.get(job.input.get("step", ""))
     if handler is None:

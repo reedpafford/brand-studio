@@ -2,7 +2,8 @@
 # Runs ON the VPS, piped in over SSH by .github/workflows/deploy-next.yml. Safe to run again.
 # Brand Studio Next (the test site): its own checkout (~/brand-studio-next, branch next), its own
 # Compose project (brand-studio-next) and deploy/.env. Never touches the live checkout or stack.
-# Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC (keys only when FAKE=false).
+# Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC (keys only when FAKE=false),
+# and KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on).
 set -euo pipefail
 
 main() {
@@ -41,9 +42,19 @@ main() {
       echo "BS_GENERATION_ENABLED=${GENERATION:-false}"
       echo "REPLICATE_API_TOKEN=$REPLICATE"
       echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
+    elif [ -n "${KIE:-}" ]; then  # stand-ins, but real songs: the one paid service here
+      echo "BS_FAKE_PROVIDERS=true"
+      echo "BS_GENERATION_ENABLED=true"
     else
       echo "BS_FAKE_PROVIDERS=true"
       echo "BS_GENERATION_ENABLED=false"
+    fi
+    if [ -n "${KIE:-}" ]; then  # Suno through KIE, stopped at the test budget
+      hosts=$(printf '%s' "${KIE_HOSTS:-}" | tr -d ' ' | sed 's/[^,][^,]*/"&"/g')
+      echo "BS_KIE_SUNO=true"
+      echo "KIE_API_KEY=$KIE"
+      echo "BS_KIE_BUDGET_USD=${KIE_BUDGET:-0}"
+      echo "BS_KIE_DELIVERY_HOSTS=[$hosts]"
     fi
   } > .env.new
   mv .env.new .env

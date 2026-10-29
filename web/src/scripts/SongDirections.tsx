@@ -6,18 +6,19 @@ import { api, errorText } from "../api/client";
 import { Badge, Button, Card, Dialog, Field, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import type { components } from "../api/schema";
 import { lengthNote, type Song } from "./SongStep";
 import { useAllowanceStop, type Script } from "./useScript";
 
 /** One song direction Claude wrote (flows S3): a suggestion only; nothing reaches the lyrics without Use this one (rule 19). */
-export type Direction = { id: number; title: string; concept: string; lyrics: string; style_line: string; visual_concept: string; recommended: boolean; left_out: string[]; unchecked_claims: string[]; length_note?: string; style_names?: string[]; made_at?: string };
+export type Direction = components["schemas"]["SongDirectionOut"];
 type Job = { id: number; status: "queued" | "running" | "failed"; reason: string | null; started_at: string };
 /** The S3 fields on a song script's version (Next-Server's directions route). */
-export type DirectionsDraft = { song_directions: Direction[]; directions_job: Job | null; directions_estimate_credits: number; directions_stop: string | null; claims_to_check: string[] };
+export type DirectionsDraft = { song_directions: Direction[]; directions_job: Job | null; directions_estimate_credits: number; directions_stop: string | null; directions_stop_kind: "no_facts" | "other" | null; claims_to_check: string[] };
 
 export const directionsOf = (v: unknown): DirectionsDraft => {
   const d = (v ?? {}) as Partial<DirectionsDraft>;
-  return { song_directions: d.song_directions ?? [], directions_job: d.directions_job ?? null, directions_estimate_credits: d.directions_estimate_credits ?? 0, directions_stop: d.directions_stop ?? null, claims_to_check: d.claims_to_check ?? [] };
+  return { song_directions: d.song_directions ?? [], directions_job: d.directions_job ?? null, directions_estimate_credits: d.directions_estimate_credits ?? 0, directions_stop: d.directions_stop ?? null, directions_stop_kind: d.directions_stop_kind ?? null, claims_to_check: d.claims_to_check ?? [] };
 };
 
 // The routes are Next-Server's; until they are in the generated schema they are called untyped.
@@ -64,7 +65,9 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
   const [source, setSource] = useState("");
   const [soundsLike, setSoundsLike] = useState("");
   const [asking, setAsking] = useState<Direction | null>(null);
-  const stop = useAllowanceStop(s, d.directions_estimate_credits) ?? d.directions_stop;
+  // "Nothing to go on" (no brand facts) lifts once a script is pasted to adapt; any other stop (an approved version) holds.
+  const serverStop = d.directions_stop_kind === "no_facts" && source.trim() ? null : d.directions_stop;
+  const stop = useAllowanceStop(s, d.directions_estimate_credits) ?? serverStop;
   const job = d.directions_job;
   const busy = job?.status === "queued" || job?.status === "running";
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
@@ -136,7 +139,7 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
               <Button variant="secondary" icon={Sparkles} price={d.directions_estimate_credits} disabled={stop !== null} reason={stop} busy={write.isPending} onClick={() => write.mutate()}>
                 {job?.status === "failed" ? "Try again" : any ? "Write 2 more" : "Write 2 song directions for me"}
               </Button>
-              {d.directions_stop && stop === d.directions_stop && <Link to={`/b/${brandId}/brand`} className="text-sm underline">Open the brand page</Link>}
+              {d.directions_stop_kind === "no_facts" && stop === d.directions_stop && <Link to={`/b/${brandId}/brand`} className="text-sm underline">Open the brand page</Link>}
             </div>
           </>
         )}
@@ -156,7 +159,10 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
                   <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-surface-2 p-3 type-script">{x.lyrics}</pre>
                   <p className="text-sm text-muted">{x.length_note ?? lengthNote(x.lyrics)}</p>
                   <p className="text-sm">Music style: {x.style_line}</p>
-                  {!!x.style_names?.length && <p className="text-sm text-warning">The style names "{x.style_names[0]}". Suno won't take names: after Use this one, describe the sound in the Style box instead.</p>}
+                  {!!x.style_names?.length && <p className="text-sm text-warning">The style names "{x.style_names[0]}". Suno won't take names: after Use this one, describe the sound in the Music style box instead.</p>}
+                  {(x.advice ?? []).map((t) => (
+                    <p key={t} className="text-sm text-muted">{t}</p>
+                  ))}
                   <p className="text-sm text-muted">On screen: {x.visual_concept}</p>
                   {x.left_out.length > 0 && <p className="text-sm">Leaves out: {x.left_out.join(", ")}</p>}
                   {x.unchecked_claims.length > 0 && <p className="text-sm text-warning">Not checked: {x.unchecked_claims.map((c) => `"${c}"`).join(", ")}</p>}

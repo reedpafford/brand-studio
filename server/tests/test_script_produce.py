@@ -284,7 +284,7 @@ def test_an_unlocked_slot_in_the_breakdown_is_known_and_waits_only_for_its_look(
     board = f"/projects/{pid}/storyboard"
     refused = editor.post(board, json={"per_shot": False})
     assert refused.status_code == 409
-    assert refused.json()["detail"] == "Nate has no approved look yet. Approve one in Assets."
+    assert refused.json()["detail"] == "Nate has no approved look yet. Approve one in Cast."
     look = {"library_item_id": _look(owner, db, "Nate look")}
     assert editor.put(f"/projects/{pid}/assets/slots/{nate}", json=look).status_code == 200
     assert editor.post(board, json={"per_shot": False}).status_code == 201
