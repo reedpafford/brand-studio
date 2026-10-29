@@ -27,7 +27,7 @@ export function useLooks() {
 }
 
 /** The picker: one card per look with its sample still, name and line. Off looks are greyed for editors; the owner may try one on their own work. */
-function LookPicker({ current, looks, onPick, busy, error, onClose }: { current: string; looks: Look[]; onPick: (l: Look) => void; busy: string | null; error: string | null; onClose: () => void }) {
+export function LookPicker({ current, looks, onPick, busy, error, onClose }: { current: string; looks: Look[]; onPick: (l: Look) => void; busy: string | null; error: string | null; onClose: () => void }) {
   const owner = useMe().data?.role === "owner";
   return (
     <Panel title="Look" onClose={onClose}>

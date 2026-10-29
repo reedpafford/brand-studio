@@ -348,3 +348,37 @@ test("a sheet that reads wrong on the character's page says so, and Fix it with 
   await userEvent.click(screen.getByRole("button", { name: "Fix it with a note" }));
   expect(await screen.findByLabelText("What should change? (optional)")).toHaveValue("Mia is a woman in her 30s");
 });
+
+const bag = { id: 8, kind: "prop", name: "Salmon bag", notes: "", brand_ids: [2], image_file_ids: [], outfits: [], version: 1, short_description: "", main_claim: "", advice: ["Scripts won't mention a claim for this product."] };
+const propRoutes = (me: object) => ({
+  "GET /auth/me": [200, me] as [number, unknown],
+  "GET /brands": [200, brands] as [number, unknown],
+  "GET /team/members": [200, []] as [number, unknown],
+  "GET /library/prop/8": [200, bag] as [number, unknown],
+  "GET /library/prop/8/versions": [200, []] as [number, unknown],
+  "PATCH /library/prop/8": [200, { ...bag, version: 2 }] as [number, unknown],
+});
+
+test("the owner gives a product its line and main claim; an empty claim is Advice (BR1)", async () => {
+  const calls = fakeServer(propRoutes(owner));
+  renderAt("/b/2/library/props/8");
+  expect(await screen.findByText("Scripts won't mention a claim for this product.")).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("What it is, in a line"), "Grain-free salmon kibble");
+  await userEvent.type(screen.getByLabelText("Main claim"), "Dogs finish the bowl");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /library/prop/8")?.body).toMatchObject({ short_description: "Grain-free salmon kibble", main_claim: "Dogs finish the bowl" }));
+});
+
+test("an editor sees a product's line and claim read only, and their save leaves them out", async () => {
+  const calls = fakeServer(propRoutes(editor));
+  renderAt("/b/2/library/props/8");
+  expect(await screen.findByText("Only the owner changes the brand.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Main claim")).toHaveAttribute("readonly");
+  await userEvent.type(screen.getByLabelText("Name"), " XL");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /library/prop/8")).toBeTruthy());
+  const body = calls.find((c) => c.key === "PATCH /library/prop/8")!.body as Record<string, unknown>;
+  expect(body).toMatchObject({ name: "Salmon bag XL" });
+  expect(body).not.toHaveProperty("main_claim");
+  expect(body).not.toHaveProperty("short_description");
+});

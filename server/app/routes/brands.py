@@ -9,7 +9,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import brand_setup, looks
+from app import brand_setup, languages, looks
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -106,6 +106,8 @@ def _apply(db: Session, user: User, brand: Brand, values: dict) -> None:
             values.pop(field, None)
     if "default_look" in values:
         looks.get(values["default_look"])
+    if "default_language" in values:
+        languages.check(values["default_language"])
     if "default_cast" in values:
         values["default_cast"] = brand_setup.check_cast(db, brand, values["default_cast"])
     legacy = {k: values.pop(k) for k in ("never_say", "end_line") if k in values}
