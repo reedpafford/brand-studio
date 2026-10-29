@@ -4,6 +4,9 @@ remove, all on the free stand-ins (no paid calls)."""
 import pytest
 
 from app import music, song_takes
+from app.models.jobs import Job
+from app.models.projects import Project
+from app.models.script_library import ScriptDraft
 from app.providers import get_providers
 from app.worker import run_once
 from tests.helpers import assert_no_dollars
@@ -80,6 +83,7 @@ def test_a_failed_take_says_why_and_try_again_makes_it(app, db, owner, song):
     assert [(t["status"], t["failed_reason"], t["retry_helps"]) for t in takes] == [
         ("failed", music.REFUSED, True)
     ] * 2  # fmt: skip
+    assert takes[0]["retry_credits"] == 1  # a new request
     take = takes[0]
     assert "E005" not in owner.get(f"{song}/songs").text  # the raw reason is owner-only
     _style(owner, song, "pop")  # the words are changed, as the reason says
@@ -110,6 +114,8 @@ def test_the_preferred_take_cant_be_removed_others_can_with_undo(app, db, owner,
 def test_lyrics_past_sunos_limit_are_refused_when_saved(owner, song):
     r = owner.put(song, json={"text": "la " * 1700})
     assert (r.status_code, r.json()["detail"]) == (422, music.TOO_LONG)
+    r = owner.put(song, json={"text": LYRICS, "style_line": "x" * 900})
+    assert (r.status_code, r.json()["detail"]) == (422, music.STYLE_TOO_LONG)
 
 
 def test_a_song_needs_lyrics_and_a_song_script(app, owner, song):
@@ -166,6 +172,70 @@ def test_a_timing_that_cant_be_heard_can_be_spread_evenly(app, db, owner, song, 
     assert take["advice"] == [song_takes.GUESSED]
 
 
+def _video(app, db, owner, editor, song):
+    """A published song version with two finished takes, made into a video by the editor."""
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    base = song.rsplit("/drafts", 1)[0]
+    owner.post(f"{song}/approve")
+    owner.post(f"{base}/publish")
+    made = editor.post(f"{song}/produce")
+    assert made.status_code == 201, made.text
+    _work(app, db)  # its breakdown (a stand-in)
+    return f"/projects/{made.json()['project_id']}"
+
+
+def test_a_video_starts_on_the_preferred_take_and_can_switch_with_undo(
+    app, db, owner, editor, song
+):
+    video = _video(app, db, owner, editor, song)
+    songs = editor.get(f"{video}/songs").json()
+    first, second = songs["takes"]
+    assert songs["song_take_id"] == first["id"] and first["preferred"]
+    assert not first["in_video"]
+    assert (
+        editor.get(video).json()["song"] and editor.get(video).json()["song_take_id"] == first["id"]
+    )
+    switched = editor.put(f"{video}/song", json={"take_id": second["id"]}).json()
+    assert switched == {"song_take_id": second["id"], "was_song_take_id": first["id"]}
+    editor.put(f"{video}/song", json={"take_id": first["id"]})  # Undo
+    assert editor.get(f"{video}/songs").json()["song_take_id"] == first["id"]
+    # The script's takes stay as they are: the published script is final (rule 31).
+    assert editor.post(f"/songs/{second['id']}/preferred").status_code in (403, 409)
+
+
+def test_a_video_makes_its_own_takes_on_its_budget(app, db, owner, editor, song):
+    video = _video(app, db, owner, editor, song)
+    made = editor.post(f"{video}/songs", json={})
+    assert made.status_code == 201, made.text
+    _work(app, db)
+    takes = editor.get(f"{video}/songs").json()["takes"]
+    own = takes[-1]
+    assert own["in_video"] and not any(t["preferred"] for t in takes[2:])  # videos use song
+    assert len(takes) == 4 and own["status"] == "ready" and own["number"] == 2
+    job = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
+    assert job.project_id == int(video.rsplit("/", 1)[1])  # charged to the video
+    editor.put(f"{video}/song", json={"take_id": own["id"]})
+    r = editor.delete(f"/songs/{own['id']}")
+    assert (r.status_code, r.json()["detail"]) == (409, song_takes.IN_USE)
+    editor.put(f"{video}/song", json={"take_id": takes[0]["id"]})
+    assert editor.delete(f"/songs/{own['id']}").status_code == 204
+
+
+def test_a_refused_take_in_a_video_doesnt_ask_to_change_final_lyrics(app, db, owner, editor, song):
+    video = _video(app, db, owner, editor, song)
+    project = db.get(Project, int(video.rsplit("/", 1)[1]))
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    draft.style_line = "pop fake:refuse"  # only to reach the refusal on the stand-in
+    db.commit()
+    editor.post(f"{video}/songs", json={})
+    _work(app, db)
+    own = editor.get(f"{video}/songs").json()["takes"][-1]
+    assert (own["status"], own["failed_reason"]) == ("failed", music.REFUSED_IN_VIDEO)
+    assert own["refused_for"] == "words"
+
+
 def test_a_take_over_the_cap_offers_its_first_part_with_undo(app, db, owner, song):
     _style(owner, song, "pop fake:long=800")
     owner.post(f"{song}/songs", json={})
@@ -217,6 +287,21 @@ def test_a_refusal_says_whether_to_change_the_words_or_the_style(
     assert owner.get(f"{song}/songs").json()["takes"][0]["refused_for"] == about
 
 
+def test_an_over_cap_take_becomes_the_videos_song_only_trimmed(app, db, owner, editor, song):
+    video = _video(app, db, owner, editor, song)
+    project = db.get(Project, int(video.rsplit("/", 1)[1]))
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    draft.style_line = "pop fake:long=800"  # only to make a long take on the stand-in
+    db.commit()
+    editor.post(f"{video}/songs", json={})
+    _work(app, db)
+    long = editor.get(f"{video}/songs").json()["takes"][-1]
+    r = editor.put(f"{video}/song", json={"take_id": long["id"]})
+    assert r.status_code == 409 and "Press Use the first 0:14" in r.json()["detail"]
+    assert editor.post(f"/songs/{long['id']}/trim").json()["trim_to"] == 14.25
+    assert editor.put(f"{video}/song", json={"take_id": long["id"]}).status_code == 200
+
+
 def test_marking_a_section_for_lip_sync_doesnt_date_the_takes(app, db, owner, song):
     _style(owner, song, "pop")
     owner.post(f"{song}/songs", json={})
@@ -233,3 +318,35 @@ def test_lyrics_too_long_for_the_cap_say_how_many_lines_to_keep(app, owner, song
     assert owner.put(song, json={"text": long, "style_line": "pop"}).status_code == 200
     body = owner.get(f"{song}/songs").json()
     assert body["video_estimate_credits"] > 729 and 0 < body["keep_lines"] < 160
+
+
+def test_a_reply_with_one_song_keeps_it_and_asks_again_free(app, db, owner, song):
+    from app.models.jobs import Job
+
+    _style(owner, song, "pop fake:one-song")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    kept, missing = owner.get(f"{song}/songs").json()["takes"]
+    assert (kept["status"], missing["status"]) == ("ready", "failed")
+    assert missing["failed_reason"] == music.MISSING
+    assert missing["retry_credits"] == 0  # the request was paid for both songs
+    assert owner.post(f"/songs/{missing['id']}/try-again").status_code == 200
+    again = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
+    assert again.credits == 0  # the first request was charged for both songs
+    _work(app, db)
+    takes = owner.get(f"{song}/songs").json()["takes"]
+    assert [t["id"] for t in takes] == [kept["id"], missing["id"]]
+    assert takes[0]["file_id"] == kept["file_id"]  # the song that came stays
+    # Short again on the free retry: the next Try again is charged (one free retry a request)
+    again_missing = owner.get(f"{song}/songs").json()["takes"][1]
+    assert (again_missing["status"], again_missing["retry_credits"]) == ("failed", 1)
+
+
+def test_a_videos_own_take_can_be_removed_unless_its_the_song(app, db, owner, editor, song):
+    video = _video(app, db, owner, editor, song)
+    editor.post(f"{video}/songs", json={})
+    _work(app, db)
+    first_own = editor.get(f"{video}/songs").json()["takes"][2]
+    assert editor.delete(f"/songs/{first_own['id']}").status_code == 204  # no dead end
+    r = editor.post(f"/songs/{first_own['id']}/preferred")
+    assert r.status_code == 409 and "Use in this video" in r.json()["detail"]

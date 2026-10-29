@@ -144,7 +144,8 @@ def save_changed(db: Session, job: Job) -> None:
     if isinstance(row, StoryboardFrame):
         frame = Frame(clip_id=row.clip_id, shot_id=row.shot_id, prompt=after,
                       reference_ids=row.reference_ids)  # fmt: skip
-        frame = storyboard.with_cast(db, project, frame, Breakdown.model_validate(bd.data))
+        frame = storyboard.with_cast(db, project, frame, Breakdown.model_validate(bd.data),
+                                     note=i["note"])  # "use the real bag": attached  # fmt: skip
         row.prompt, row.reference_ids = frame.prompt, frame.reference_ids
         row.problems = storyboard.frame_problems(db, project, frame, row.breakdown_id)
     else:
@@ -152,7 +153,7 @@ def save_changed(db: Session, job: Job) -> None:
         clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=after,
                           references=[Reference(**r) for r in row.references])  # fmt: skip
         breakdown = Breakdown.model_validate(bd.data)
-        clip = clip_prompts.with_cast(db, project, clip, breakdown, trim=False)
+        clip = clip_prompts.with_cast(db, project, clip, breakdown, trim=False, note=i["note"])
         clip = clip_prompts.repair_shape(clip, breakdown)  # what code can fix, free, first
         row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
         row.seconds = clip.seconds

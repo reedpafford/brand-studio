@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Banner, useToast } from "../components";
+import { Banner, Button, useToast } from "../components";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useJobs } from "../clip/History";
-import { btnPrimary, btnSecondary, card, errorText as errorClass } from "../ui";
+import { card, errorText as errorClass } from "../ui";
 import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
 import { blocking } from "./problems";
@@ -184,7 +184,6 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
   const list = clips.data;
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
-  const price = (n: number | undefined) => (n === undefined ? "" : ` · ${Math.round(n)} credits`);
   const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error ?? promptOk.error;
   const takeCost = (c: Clip) => c.take_credits;
   const busyFor = (c: Clip) => going(takeJob(c.id)?.id);
@@ -196,6 +195,10 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
   const stale = list.filter((c) => c.stale);
+  // Make the takes makes only prompts already checked; a clip's own Make clip checks its prompt and makes it in one press (#751).
+  const unreadWhy = `Check each prompt first: Prompt OK, or Make clip on its card (${unread} left).`;
+  // The rewrite comes first: a stale prompt is read again after it.
+  const makeWhy = stale.length > 0 ? `Rewrite the clips made for an older breakdown first (${stale.length}).` : unread > 0 ? unreadWhy : stopFor(allCost);
   const declined = stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
 
   if (writingNow && list.length === 0)
@@ -220,10 +223,9 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         )}
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
-        <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={write.isPending || !!stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
+        <Button dense price={writeCost} busy={write.isPending} disabled={!!stopFor(writeCost)} reason={stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
           Write clip prompts
-          {price(writeCost)}
-        </button>
+        </Button>
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
         {declined && <p className="text-sm text-warning">{declined}</p>}
       </section>
@@ -238,24 +240,26 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         <span className="flex w-full flex-wrap gap-2 sm:w-auto">
           {approveAll.button}
         {missing.length > 0 && (
-          <button
-            className={`${stale.length > 0 ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`} // the rewrite is the step's amber while any clip is stale
-            disabled={generate.isPending || unread > 0 || stale.length > 0 || !!stopFor(allCost)}
+          <Button
+            variant={stale.length > 0 ? "secondary" : "primary"} // the rewrite is the step's amber while any clip is stale
+            dense
+            price={allCost}
+            busy={generate.isPending}
+            disabled={!!makeWhy}
+            reason={makeWhy}
             onClick={async () => {
               for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
             }}
           >
             {props.review ? "Make the takes" : "Make missing"}
-            {price(allCost)}
-          </button>
+          </Button>
         )}
         </span>
       </div>
       {approveAll.line}
       {declined && <p className="text-sm text-warning">{declined}</p>}
       {stale.length > 0 && <RewriteNote projectId={projectId} count={stale.length} writing={writingNow} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(undefined)} />}
-      {stale.length > 0 && <p className="text-sm text-muted">Rewrite the clips made for an older breakdown first ({stale.length}).</p>}
-      {unread > 0 && <p className="text-sm text-muted">Read each prompt and press Looks good before the takes are made ({unread} left).</p>}
+      {unread > 0 && missing.length === 0 && stale.length === 0 && <p className="text-sm text-muted">{unreadWhy}</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       {waitingForSheet.length > 0 && (
         <p className="text-sm text-warning">
@@ -284,7 +288,6 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
               showPrompt={!!props.review && c.takes.length === 0}
               brandId={props.brandId}
               cost={takeCost(c)}
-              stopped={!!stopFor(takeCost(c))}
               stopFor={stopFor}
               review={!!props.review}
               onGenerate={(note) => generate.mutate({ clip: c, note })}

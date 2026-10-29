@@ -29,14 +29,14 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
 
   // Shots: scenes, clips and shots, with no problems.
   await stage("breakdown");
-  await page.getByRole("button", { name: /Make shots/ }).click();
+  await page.getByRole("button", { name: /Make the breakdown/ }).click();
   await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: /Next: Storyboard/ }).click();
 
   // Storyboard: a frame for each clip, a still for each, all approved.
-  await page.getByRole("button", { name: /Make storyboard/ }).click();
+  await page.getByRole("button", { name: /Make the storyboard/ }).click();
   await expect(page.getByRole("listitem", { name: "Frame c1" })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: /Make all stills/ }).click();
+  await page.getByRole("button", { name: /^Make \d+ stills?/ }).click();
   const approve = page.getByRole("button", { name: "Approve", exact: true });
   await expect(approve.first()).toBeVisible({ timeout: 60_000 });
   while (await approve.count()) {
@@ -49,8 +49,8 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
   await page.getByRole("button", { name: /Write clip prompts/ }).click();
   await expect(page.getByRole("listitem", { name: "Clip c1" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: /^Make clip/ }).first().click();
-  await expect(page.getByRole("button", { name: "✓ Looks good" }).first()).toBeVisible({ timeout: 90_000 });
-  await page.getByRole("button", { name: "✓ Looks good" }).first().click();
+  await expect(page.getByRole("button", { name: "Approve take" }).first()).toBeVisible({ timeout: 90_000 });
+  await page.getByRole("button", { name: "Approve take" }).first().click();
   await expect(page.getByRole("button", { name: "Undo approval" }).first()).toBeVisible();
   await page.getByRole("button", { name: /Next: Final video/ }).click();
   await page.getByRole("button", { name: "Make the video", exact: true }).click();

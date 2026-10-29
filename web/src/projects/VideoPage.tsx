@@ -20,6 +20,7 @@ import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
 import { StoryboardPane } from "./StoryboardPane";
+import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
@@ -84,7 +85,7 @@ export function VideoPage() {
   };
   const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
   const next = videoNext(step);
-  const reason = !next ? null : dirty && step === "breakdown" ? "Save your changes first." : step === "assets" && assetsLoading ? "Loading assets…" : step === "assets" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
+  const reason = !next ? null : dirty && step === "breakdown" ? "Save your changes first." : step === "assets" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
   const nextButton = next && !(step === "breakdown" && dirty && !rail) && (
     <Button disabled={reason !== null} reason={reason} onClick={() => pick(next.id)}>
       Next: {next.label}
@@ -94,7 +95,11 @@ export function VideoPage() {
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used };
   const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
-  const meta = step === "assets" ? (assetsLoading ? "Loading assets…" : `${all.assets.total} asset${all.assets.total === 1 ? "" : "s"} · ${all.assets.ready} approved`) : null;
+  // Until Assets' own read lands, the step picker, the heading line and Next wait under one skeleton: no counts from an older read.
+  const waiting = step === "assets" && assetsLoading;
+  const count = (n: number, noun: string, ok: number) => `${n} ${noun}${n === 1 ? "" : "s"} · ${ok} approved`;
+  const meta =
+    step === "assets" ? (waiting ? null : count(all.assets.total, "asset", all.assets.ready)) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : null;
 
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
@@ -128,7 +133,7 @@ export function VideoPage() {
       {p.status === "needs_owner_approval" && <WaitingBadge />}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <StepPicker steps={videoStepStates(step, all)} onPick={pick} />
+          {waiting ? <Skeleton className="h-control" /> : <StepPicker steps={videoStepStates(step, all)} onPick={pick} />}
         </div>
         <Button variant="secondary" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Show script">
           {rail ? "Script" : ""}
@@ -139,11 +144,14 @@ export function VideoPage() {
           <h2 className="type-section">{label}</h2>
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
         </div>
-        {rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
+        {waiting ? (
+          rail ? <Skeleton className="h-control w-40" /> : <ActionBar phone><Skeleton className="h-control w-full" /></ActionBar>
+        ) : rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
       </div>
       {step === "breakdown" && (
         <div className="space-y-4">
-          <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} hasFrames={all.frames.total > 0} />
+          <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
+          {p.song && <SongStrip project={p} hasShots={all.shots.made} hasClips={all.clips.total > 0} />}
           <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
         </div>
       )}

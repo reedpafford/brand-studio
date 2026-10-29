@@ -17,7 +17,12 @@ Sources: the spec (`docs/research/starpop-2026-10-28/spec.md`), Reed's changes (
 - **Where Sung starts** (Director, #755): the owner can mark a lyric line or a section `[Lip-sync]` in Song. Those lines start as Sung in every video, and everything else starts as B-roll. The mark is never sung: it's taken out before Suno. In a video, the editor's Sung / B-roll flips win (rule 31). The breakdown's "sung on camera, but the script doesn't ask" Advice only fires where neither the script's mark nor the video's flip asked for it, and never tells an editor to change the lyrics.
 - **A final cut while clips are out of date** (Flow-QA): never blocked and never silent. Final cut offers **Make the cut with what's approved** (free; out-of-date clips go in as they are, and the cut is labelled "Includes 2 out-of-date clips") beside **Update everything after this · N credits**. The download names which clips were out of date.
 - **Flavour at Publish, edge states** (Flow-QA): no product with flavours: the picker isn't shown. One flavour: it's picked by itself, shown as text. Several and none picked: Publish asks "Which flavour for Pitbull 1?" with the flavours as buttons (one press each); never blocked without that choice on the same screen. A product or flavour added after publishing: published versions keep theirs; new videos of them show "New flavour available: Chicken" in Video settings, Advice only.
-- **Redo one frame** (audit LW3): an out-of-date still has **Redo this frame · N credits** on its card (the same redraw as today, for that frame only, earlier one kept, Undo). "Redo storyboard" stays for redoing every still and says so in its confirm.
+- **Redo one frame** (audit LW3, M16): an out-of-date still has **Redo this frame · N credits** on its card. Because the frame was planned from the old breakdown, it rewrites that one frame's prompt from the new breakdown (one writing call for that shot only, with its neighbours' frames as context so the look and continuity hold), then draws it. It never redraws the old prompt.
+  - **Offered when** the shot still exists in the new breakdown. When shots themselves changed (split, joined, renumbered), the card says "This shot changed in the breakdown" and the step offers **Redo the changed frames · N credits** (only the frames whose shots changed; the others stay). **Redo storyboard** stays for redoing every still, and its confirm says so.
+  - **Price and limits:** the price covers the writing call plus the still. Over the video's budget or the editor's week, the press is disabled with the reason ("That's more than this video's budget." / "That's more than this week's N credits. It resets on Monday."), as every paid press.
+  - **The drawing fails or is refused after the rewrite worked:** the new prompt is kept. The card offers **Try again** (the drawing only, the still's price) or the free **Soften it** reword, as any refused still. The writing call isn't charged twice.
+  - **The rewrite fails:** "Didn't finish · nothing charged", with **Try again**.
+  - **Undo** puts back both the earlier still and its earlier prompt.
 - **Edit shot from a card** (audit M15): a frame or clip card has **Edit shot**, opening the breakdown's shot editor in a panel on the same screen. Saving changes this video's breakdown with the usual effects (that shot's still and clip go out of date, kept, Undo). Split and join on a song video stay in Breakdown.
 - **Flavour from the script** (audit M12, N5): at Publish the owner picks a flavour per product for each version ("Pitbull 1 · Peanut butter"). It's each new video's default flavour and still changeable per video in the Video settings row (VS1 Flavour). A video reads its script's notes live (the owner can still edit notes after publishing, rule 31).
 
@@ -99,13 +104,13 @@ Where: Script Library → **New script**.
 | U | Back leaves an untouched draft behind? No: an empty draft is not saved until the first word is typed (as today). | Browser back returns to the Library. |
 | Library | Song scripts carry a **Song** tag in the Library list and a "Song" filter chip. | Tapping one opens it on its first unfinished step. |
 
-Out for now: Bulk create and reel import make Story scripts only. A pasted reel that is a song ad is imported as a Story (its words become the script). **Decided here**; reel-to-song is a later item.
+Bulk create and reel import still make Story scripts. To learn from a song ad, the owner studies it inside Song (**S3a**): a study informs the directions, it never becomes the lyrics. **Decided here** (Reed's song workflow, #807 item 4).
 
 ## S2. Song: lyrics and style
 
 Two boxes and one button.
 
-- **Lyrics.** Paste or type. `[Verse]`, `[Chorus]`, `[Bridge]`, `[Outro]` tags are fine; they are not sung and don't count. Under the box, live: "About 30 s sung · 75 words" (2.5 words a second, Starpop's rule).
+- **Lyrics.** Paste or type. `[Verse]`, `[Chorus]`, `[Bridge]`, `[Outro]` tags are fine; they are not sung and don't count. Under the box, live, before anything is locked or made: "75 sung words: a song of about 0:31–0:38" (the pace Suno actually sang in Reed's pilot, 2.0–2.4 words a second; Director #794 `check.length_note`).
 - **Style.** One line: genre, voice, tempo, mood, sound. Pre-filled from the brand's music style (spec item 3). Until brand setup exists, it starts empty with an example placeholder: "pop, female lead, 120 BPM, upbeat, modern polished".
 - **"Write 2 song directions for me · about 3 credits"** (S3).
 
@@ -118,7 +123,7 @@ Two boxes and one button.
 | Nothing to go on | About is empty and the brand has no facts: the directions button is disabled with "Say what it's for in About first". | **Open About**. |
 | Style empty | Never a block. Next stays allowed and the takes use the brand's music style, else the default; Advice under the box: "No style yet: the song will be upbeat pop by default." | **Next: Takes**. |
 | Advice: long style | Over 25 words: "Suno follows short styles better. Keep it under 25 words." Advice only. | **Shorten it** (free, cuts in code to the first 25 words, Undo). |
-| Advice: long song | Over about 150 words: "About 70 s sung. That's a long ad: the video will be about that long too." Advice only. | — |
+| Advice: long song | Over about 150 words: "365 sung words: a song of about 2:32–3:02. That's a long ad: the video will be about that long too." Advice only. | — |
 | Advice: no end line (rule 18) | The lyrics don't name the brand or where to find it: "The song doesn't say fomo or where to find it." Advice only. Two ways to meet it, either one: | **Sing the end line** (free: adds the brand's end line as a last `[Outro]` line; the owner can edit it; Undo), or **Speak it over the end** (free: the brand's end line, editable, is spoken over the song's last seconds with the music lowered under it; see V6). |
 | Spoken end line set | Under the boxes: "Spoken at the end: 'Download fomo through the link in my bio.'" with **Edit** and **Remove** (Undo). | — |
 | B (too long for the cap) | The sung length would make a video over 729 credits: "A song this long would go over the video limit. Cut it to about N words." This blocks **Make the song** only. | The owner cuts words; the count updates live. |
@@ -130,12 +135,14 @@ Two boxes and one button.
 
 ## S3. Write 2 song directions (optional)
 
-Pressed on S2. Uses the brand, the product and anything already typed (as a brief, not as lyrics to keep).
+Pressed on S2. Uses the brand, the product and anything already typed (as a brief, not as lyrics to keep). Two optional boxes above the button (Director #794):
+- **From a script** (paste a script or voice-over): the directions adapt it into lyrics line by line, in order, keeping its beats, its claims and its key lines (hook, payoff, end line) as close to word for word as the rhyme allows, and adding no claims. The two directions become "the whole script as a song" and "cut to the planned length (or about 60 s)", and each card lists what it leaves out ("Leaves out: the vet quote"; nothing for a fresh song).
+- **Sounds like** (a song or artist): turned into a style line that describes the sound (genre, era, voice, tempo, instruments, mood) and never names it, because Suno refuses names. If a style line names it anyway: Advice "Suno won't take names: describe the sound instead", with **Use the described style** (free).
 
 | State | What they see | The one press |
 |---|---|---|
 | Q/R | "Writing 2 directions…" with a timer. "It shows here when it's ready. You can leave this page." | Cancel (before it starts). |
-| Done | Two cards side by side (stacked on a phone): title, concept, lyrics, style, visual concept. One is marked **Recommended**. | **Use this one** on a card. |
+| Done | Two cards side by side (stacked on a phone): title, concept, lyrics with their length ("about 2:32–3:02"), style, visual concept, and "Leaves out: …" when adapted from a script. One is marked **Recommended**. | **Use this one** on a card. |
 | Use this one, boxes empty | Its lyrics and style fill the boxes. Toast: "Option B's lyrics are in. They're yours now: the AI won't change them." Undo. | **Next**. |
 | Use this one, boxes have words | Confirm: "Replace your lyrics with option B's? Your words are kept in Undo." Not yet / Replace. | **Replace**. |
 | Claims not in the brand facts | A direction lists claims the brand block doesn't state (Director's `unchecked_claims`): on the card, "Not checked: 'vet-approved in 7 days'". After **Use this one**, the same line shows under the Lyrics box until the owner acts. Advice only, never a block. | **Keep it** (the owner vouches; the note goes), or **Edit lyrics** (the owner's own typing; rule 19). |
@@ -147,6 +154,22 @@ Pressed on S2. Uses the brand, the product and anything already typed (as a brie
 
 Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyrics without **Use this one**, and once in, only the owner changes them.
 
+## S3a. Study a song ad (a third box on S3)
+
+Reed's pilot needed a song ad's shape before writing his own: its words, its pace and where its parts fall. A third optional box above **Write 2 song directions**: **Study a song ad** (paste a reel link, or upload the video).
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "Paste a song ad to learn its shape: its words, beat and parts. Free." | **Study it** (free: download, cuts, frames and transcript are the reel import's free prep; the beat is read from the audio on our server). |
+| Q/R | "Studying the song ad…" with a timer. "You can leave this page." | Cancel. |
+| Done | A study card: length, **BPM**, the **sections** (intro, verse, chorus, bridge, outro, each with its times and its lines), the words with their times, and a frame strip, each frame marked with its time. | **Use as a guide** (on by default), or **Remove**. |
+| Used as a guide | **Write 2 song directions** follows the study's structure, section lengths and pace (and its BPM goes into the style line as a tempo, in words). The card says: "A guide only: the directions copy its shape, never its words." | **Write 2 song directions** (price as S3). |
+| F | "We couldn't open that reel: [the reason]. Nothing was charged." (private, too long, not a video) | **Try another**. |
+| U | The study stays on the version, collapsed under "Song ad studied", until removed. It never fills the lyrics or style boxes: only **Use this one** on a direction does (rule 19). | — |
+| B | None: studying is free. | — |
+
+The study's words are someone else's song. The directions never reuse its lines (Director: a check that no line of a direction repeats a line of the study), and nothing from it reaches the lyrics without the owner's press.
+
 ## S4. Takes: make the song
 
 | State | What they see | The one press |
@@ -155,7 +178,7 @@ Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyr
 | E | "Make 2 takes · N credits". Under it: "Each take is a full song. The song sets the video's length." | **Make 2 takes**. |
 | Q/R | Two player placeholders: "Making the song…" with a timer. | Cancel (before it starts). |
 | Reading timing | After a take arrives, free, on the local lane: "Reading the song's timing…" on that take. The player already plays. | — |
-| Done | Two players. Each shows its length ("0:31") and **Preferred** on one: the first take whose timing is read, until the owner picks. | **Next: Cast**, or **Make this Preferred**, or **Make 2 more · N credits**. |
+| Done | Two players. Each shows its length and **the video it implies**: "0:31 · a video of about 40 credits" (Reed's pilot: takes of the same words differ by up to 20 s, which is real money). **Preferred** is on one: the first take whose timing is read, until the owner picks. The same line shows on every take in Change song (V2a). | **Next: Cast**, or **Make this Preferred**, or **Make 2 more · N credits**. |
 | Timing still reading | That take's **Make this Preferred** is disabled with "Reading the song's timing…"; it turns on by itself when the timing is read. | — |
 | Timing failed (the words couldn't be read; the length is known) | "We couldn't read this song's timing. It's free to try again." | **Try again** (free; a slow read may pass next time), or **Use timing spread evenly** (free: the lines are spread over the take's length in order, each shot marked "Timing guessed"; the take can then be Preferred), or **Make this Preferred** on the other take. |
 | Timing failed (the file can't be read) | "This take's file can't be read, so its timing can't be measured." Trying again won't help, so it isn't offered. | **Make this Preferred** on the other take, or **Make 2 more · N credits**. The take can be deleted (Undo). |
@@ -266,12 +289,27 @@ Desktop: the song's waveform across the top, the shots as blocks under it, a pla
 | U | Every flip, split and join has Undo. | — |
 | S | The video's take changed (V2a): times re-flow for free; nothing else goes out of date in Breakdown. The owner can't change a published script, so an editor's video is never pulled out of date from outside. | — |
 | Timing guessed | A line the take skipped or slurred has no measured time: its shot shows "Timing guessed" (Advice). | **Change song** to another take, or keep it. |
+| Advice: off the line | The breakdown follows the measured line times: a shot holding a sung line starts and ends with it (Director #794). A shot that isn't on screen while its line is sung, or ends mid-line: "Shot 2.3 ends in the middle of 'every single bowl'." Advice only. | **Snap to the line** (free: moves that shot's edges to its line's start and end, Undo). |
 
 Clips follow scenes, not shots (rule 29): consecutive shots in one place and one action become one clip, as today. The song is sliced to fit each clip, never the clip to the song. A clip that holds a Sung shot lip-syncs only that shot's stretch; its other shots in the same clip are picture.
 
 ## V3. Assets
 
 As today. The Singer is a role like any other and needs an approved look (rule 8): Storyboard and Clips stay locked with "Approve every asset first (N left)" and the one press to Assets, exactly as today. Nothing new.
+
+## V3a. Use the looks from your other video (at Assets)
+
+Reed's pilot made a pair of videos from one song and drew the same dog and owner twice. On Assets, an unlocked role (rule 7) offers the looks already approved for the same role in the editor's other videos of the **same script**.
+
+| State | What they see | The one press |
+|---|---|---|
+| None to share | Nothing new: the role's look is made as today. | — |
+| Some to share | Under the role: "Approved in *Iron Paws · beach*: [the look]". | **Use this look** (free: a copy for this video). |
+| Used | The copy is this video's own look, approved, with "From *Iron Paws · beach*". Changing it later changes only this video. | **Make a new look** (as today). |
+| U | Removing or changing the look in the other video doesn't touch this one. | — |
+| P | An editor sees only their own videos; the owner sees all videos of the script. | — |
+
+Rule 12 holds: the copy belongs to this video and is never saved to Cast & places (no Save button). For a look many videos share, Reed still makes it in Cast & places and the script locks the role to it. **Needs Reed's OK** (it is a new reading of rule 12: a look moves between two videos of one script, never into the library).
 
 ## V4. Storyboard
 
@@ -301,7 +339,12 @@ As today, under the audit's names: the **Prompts** list (each checked with "Prom
 
 ## V6. Final cut: the song underneath
 
-The final video is stitched as today (free), and the preferred take's full song is laid underneath. The clips' own sound is dropped, so the song is the only sound: the lip-sync clips were made from the same song, so they match. The picture is trimmed to the song's length; if the picture is short, the last shot holds its final frame.
+The final video is made for free, with **the song as the only sound** (Reed's pilot, docs/next/song-pilot-notes.md):
+1. Each clip's picked take is trimmed to its own piece of the song (`song_slice`), counting from the take's start. Takes are made a little long, so nothing is slowed.
+2. The trimmed takes are joined in order.
+3. The takes' own sound is dropped, and the video's song (its take, trimmed if "Use the first…" was used) is laid under the whole picture.
+4. The end has a 1.5 s fade.
+The lip-sync clips were made from the same song, so they match. If the picture comes out short, the last shot holds its final frame. Today's "Make video" keeps the takes' sound, so for song videos this is new server work (Next-Server, after the song-timed breakdown).
 
 | State | What they see | The one press |
 |---|---|---|
@@ -310,6 +353,42 @@ The final video is stitched as today (free), and the preferred take's full song 
 | S | As today ("A clip changed since this video was made. It's free."), and also when the video's take or spoken end line changed. | **Make it again**. |
 | Spoken end line | When set (S2), it's spoken over the song's last seconds with the music lowered under it (free, in the stitch). | — |
 | Lengths | A take longer than its song stretch is trimmed to it; a shorter one holds its last frame to fill it. Never a gap, never silence. A clip with no approved take blocks the stitch as today: "Approve every clip to make the video (N left)." with the press to Clips. | — |
+
+## V6n. Narrated videos: the narrator track underneath (a variant of V6)
+
+Reed's narrated Iron Paws ads (docs/next/song-ad-workflow.md, "Narrated ads", #814) used the song recipe with a narrator: **one narrator track over silent clips**. It's a Story script whose spoken lines are all the narrator's voiceover (no one speaks on camera). It uses the same timing, trim, track-under and fade as a song video. **Decided here:** the track is the script version's, like a song take, so both videos of a pair share the same voice and the same timing.
+
+**N1. Narration (owner, on a Story script; a button on Write, not a step).** Shown when every spoken line is the narrator's (the cast read marks the narrator, as narrated looks do).
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "Narrated: one voice reads the whole script over silent clips." A voice picker (the catalogue's voices, each with a 5-second sample, free) and the pace ("about 3.4 words a second", from the words and the voice). | **Make the narration · N credits** (one paid voice call, catalogue price, rule 2). |
+| Q/R | "Making the narration…" with a timer. | Cancel (before it starts). |
+| Done | The player, its length, and each sentence's start time (measured free, one "line" per sentence, as a take is measured). | **Use this narration** (like Preferred). **Make another** keeps this one until the new one is used. |
+| Words changed | "Reads older words": it can't be used, and stays playable. | **Make the narration** again. |
+| F | "The narration didn't finish. Nothing was charged." | **Try again**. |
+| B | Past the week: the button says why and is disabled (rule 5). | — |
+| U | Without a narration in use, the script is a plain Story script: its videos are made as today. Nothing blocks. | — |
+
+**In the video:** the breakdown is timed to the narration's sentences (V2's song clock, with sentences as the lines). Every shot is B-roll: there's no Sung and no lip-sync. Clip prompts ask for no speech. The video can change its narration like V2a (**Change narration**: the version's, or one made in this video), with the same re-flow, Undo and out-of-date marks as a take change.
+
+**Final cut:** V6 steps 1–4 with the narration in place of the song: each take is trimmed to its sentences, the takes are joined, their own sound is dropped, the narration is laid under, and the end fades. The states are as V6, with "Narration: [voice], laid under the whole video" and **Download the narration**.
+
+**Reusing scenes across a pair** (the pilot reused shots with no dog or face in them in the second video) is held with V3a until Reed answers. Until then, each video makes its own clips.
+
+## Reed's song workflow: what's built (#807, "Building it into Next")
+
+| # | Reed's item | Flows | Built on `next` | Still to build | Owner |
+|---|---|---|---|---|---|
+| 1 | A song step: directions (with "adapt my script"), Suno takes, Preferred, each take's length beside its video cost | S1–S5, S7, V1, V2a | Song, Takes, Cast with the Singer, Publish, the video's own song (#748, #750, #759, #775, #781); the directions prompt with From a script and Sounds like (#794); length and video cost on takes (#810, open) | The **S3 route and screen** (no press yet writes directions; the prompt is ready); Suno's input from the Director's song request (#783, open); the **music adapter** (waits on the KIE decision, open question 4) | Next-Server (route, adapter), Next-Screens (S3 screen) |
+| 2 | The song as the breakdown's clock: measured line times, shots land on them, long clips with people split | S6, V2, V2a | Measuring a take (word times on the locked lyrics) | The song breakdown (#799, open: last edge is Sung clips going out of date on a take change); split and join, `n02`, song clip prompts after it. Long clips with people split by rule 29's existing checks | Next-Server |
+| 3 | The song as the only sound in Make video | V6 | Flow written (#796) | Trim each take to its slice, lay the song under, fade (`n02`'s `song_slice`, `final_videos.song_take_id`) | Next-Server, then Next-Screens for V6's screen |
+| 4 | A study of a song ad: transcript, BPM, sections, frames | S3a | The reel import's free prep (download, cuts, frames, transcript) | The study job (BPM, sections) and its card; the directions taking it as a guide, with the no-repeated-lines check | Next-Server (study), Next-Screens (card), Director (directions input) |
+| 5 | One cast for a pair of videos | V3a | — | **Use this look** at Assets, after Reed's OK on rule 12 | Next-Server, Next-Screens |
+| — | Narrated ads (#814): one narrator track over silent clips | N1, V6n | The timing, trim and stitch come with 2 and 3 | The voice provider (Replicate speech, a free stand-in first) and N1's job; the breakdown and stitch taking a narration where they take a song; reusing scenes, held with V3a | Next-Server (provider, job, timing, stitch), Next-Screens (N1, Change narration), Director (no-speech clip prompts, the narrator check) |
+| 6 | Smaller alarms: "Check the cast" on insert shots, "answer" read as a spoken line, the free clip-prompt fix with nothing to fix | — | — | Prompt and check fixes, live and Next | Director |
+
+Order: 1's S3 route and 2 (#799) first, then 3, then 4, then 5 once Reed says yes.
 
 ## Effects of changes (song ads)
 
@@ -498,4 +577,5 @@ The Designer draws it first (on the Screening room direction Reed picked); Reed 
 
 1. **Music is Suno** (Reed, 2026-10-28; MiniMax dropped). Its price per request comes from the account Reed connects; until then the buttons show the catalogue's price, and the test site runs on the free stand-in (two takes per request, like Suno).
 2. **Lip-sync without a first frame** is the spec's biggest risk. The one paid 15-second test (spec step 0) decides whether Sung shots ship as designed, or fall back to "the Singer sings in B-roll style" (picture only, no lip-sync).
-3. **Reel import of song ads** is left out (S1). Say if Reed wants it in this item.
+3. **Song-ad study** (S3a) is in, from Reed's workflow (#807 item 4). **Shared looks for a pair of videos** (V3a) needs Reed's OK on rule 12.
+4. **KIE for Suno.** Reed's workflow names KIE as the first way to reach Suno. `server/app/music.py` today says no unofficial wrapper is used until Suno's own API opens. KIE is a third party that resells Suno: Reed and the Producer decide before the adapter is written. The test site stays on the free stand-in either way.

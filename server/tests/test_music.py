@@ -9,6 +9,8 @@ from app import music, song_timing
 from app.models.accounts import User
 from app.models.files import StoredFile
 from app.models.jobs import JobStatus
+from app.prompts import song_request
+from app.prompts.check import sung_lines
 from app.providers import get_providers
 from app.providers.fake_local import SONG, hear_song, song
 from app.routes.jobs import enqueue
@@ -26,8 +28,9 @@ Iron Paws, my best ally
 
 def test_lyrics_are_sent_word_for_word_never_suno_s_own():
     job = music.job(LYRICS, " pop, female lead, 120 BPM ")
-    assert job == {"input": {"lyrics": LYRICS, "style": "pop, female lead, 120 BPM",
+    assert job == {"input": {**song_request(LYRICS, "pop, female lead, 120 BPM"),
                              "instrumental": False}}  # fmt: skip
+    assert LYRICS in job["input"]["lyrics"]
 
 
 @pytest.mark.parametrize(
@@ -36,7 +39,7 @@ def test_lyrics_are_sent_word_for_word_never_suno_s_own():
         ("", "pop", music.NO_LYRICS),
         ("[Verse]\n[Chorus]", "pop", music.NO_LYRICS),
         ("la " * 1700, "pop", music.TOO_LONG),
-        ("la la", "x" * 1001, music.STYLE_TOO_LONG),
+        ("la la", "x" * (music.MAX_OWN_STYLE + 1), music.STYLE_TOO_LONG),
     ],
 )
 def test_a_song_that_cant_be_made_says_why(lyrics, style, said):
@@ -102,7 +105,7 @@ def test_lines_whisper_missed_sit_between_the_ones_it_heard():
 
 def test_a_chorus_written_twice_and_sung_twice_is_no_repeat():
     twice = LYRICS + "\n[Chorus]\nGut so happy, tail so high\nIron Paws, my best ally"
-    words = [w for line in music.sung(twice) for w in line.split()]
+    words = [w for line in sung_lines(twice) for w in line.split()]
     heard = [{"word": w, "start": k, "end": k + 0.5} for k, w in enumerate(words)]
     assert [ln["times_sung"] for ln in song_timing.lines(twice, heard, 30)] == [1] * 6
     heard += [{"word": w, "start": 30 + k, "end": 30.5 + k}
@@ -196,12 +199,10 @@ def test_a_take_longer_than_any_ad_says_so(app, db, owner, monkeypatch):
     assert (timed.status, timed.error) == (JobStatus.failed, music.TIMING_TOO_LONG)
 
 
-def test_lip_sync_marks_are_never_sung_or_sent():
-    marked = "[Chorus] [Lip-sync]\nGut so happy, tail so high [Lip-sync]\n[Lip-sync]\n\nIron Paws"
-    assert music.sung(marked) == ["Gut so happy, tail so high", "Iron Paws"]
-    assert music.job(marked, "pop")["input"]["lyrics"] == (
-        "[Chorus]\nGut so happy, tail so high\n\nIron Paws"
-    )
+def test_lip_sync_marks_never_reach_suno():
+    marked = "[Chorus] [Lip-sync]\nGut so happy, tail so high [Lip-sync]\n\nIron Paws"
+    sent = music.job(marked, "pop")["input"]["lyrics"]
+    assert "lip" not in sent.lower() and "Gut so happy, tail so high" in sent
     sung = song_timing.lines(marked, [], 10)
     assert [(ln["section"], ln["text"]) for ln in sung] == [
         ("Chorus", "Gut so happy, tail so high"), ("Chorus", "Iron Paws")

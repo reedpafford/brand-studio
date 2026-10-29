@@ -11,32 +11,46 @@ does. Assumptions, to check against those docs:
 - A2 One request returns 2 songs (as in Suno's app), so "Make 2 takes" is one job.
 - A3 The songs come back as audio file links; we read the timing ourselves (free), so nothing
   depends on Suno's own timings.
-- A4 Price: unknown. Estimated at 1 credit a request until Suno gives a real one (rule 2)."""
+- A4 Price: unknown. Estimated at 1 credit a request until Suno gives a real one (rule 2).
+  A request that came back with one song is asked again free, so that second request is
+  real spend not counted in credits; recheck this once Suno's real price is known."""
 
 import re
+
+from app.prompts import SUNG_RATE, SUNO_PACE, song_request
+from app.prompts.check import sung_lines
 
 PROVIDER = "suno"
 TAKES = 2  # songs per request (A2)
 # Suno's Custom mode limits, as its app shows them (Starpop study, 2026-10-28)
+# What Suno is sent comes from prompts.song_request (the lyric format: our [Lip-sync] marks
+# out, the vocals opened and closed tight, the pacing words after the style line).
 MAX_STYLE = 1000
 MAX_LYRICS = 5000
-TAG = re.compile(r"^\s*\[([^\]]*)\]\s*$")  # [Verse 1], [Chorus]: directions, never sung
-TAGS_ONLY = re.compile(r"^\s*(\[[^\]]*\]\s*)+$")  # "[Chorus] [Lip-sync]": no words either
-LIP_SYNC = re.compile(r"\s*\[lip[- ]?sync[^\]]*\]", re.I)  # our mark, never sent to Suno
-# Before a song exists its length is a guess from the words (sung pop: about 2 words a
-# second, plus an intro and an outro); the take's measured length replaces it.
-WORDS_PER_SECOND = 2
+# The person's own style line leaves room for the pacing words song_request adds.
+MAX_OWN_STYLE = MAX_STYLE - len(SUNO_PACE)
+MAX_OWN_LYRICS = MAX_LYRICS - len(song_request("", "")["lyrics"])
+# Before a song exists its length is a guess from the words; the take's measured length
+# replaces it.
 INTRO_OUTRO_SECONDS = 8
 
 NO_LYRICS = "Add the lyrics first (or pick a song direction): the song sings them word for word."
-TOO_LONG = "The lyrics are too long for one song (5,000 characters at most). Cut a verse."
-STYLE_TOO_LONG = "The style line is too long (1,000 characters at most). Shorten it."
+TOO_LONG = (
+    f"The lyrics are too long for one song ({MAX_OWN_LYRICS:,} characters at most). Cut a verse."
+)
+STYLE_TOO_LONG = f"The style line is too long ({MAX_OWN_STYLE} characters at most). Shorten it."
 # What a failed request, or a take's timing, says (rule 22: the reason, nothing charged,
 # Try again).
 FAILED = "The songs couldn't be made this time. Nothing was charged; press Try again."
+MISSING = "This song didn't come back from the music service. Press Try again: it's free."
 REFUSED = (
     "The music service wouldn't sing these lyrics: it read some words as unsafe. Change those "
     "words, then press Try again. Nothing was charged."
+)
+# In a video the lyrics are final (rule 31), so the way out is another try or take.
+REFUSED_IN_VIDEO = (
+    "The music service wouldn't sing these lyrics: it read some words as unsafe. Press Try "
+    "again, or use another take. Nothing was charged."
 )
 QUOTED = 80  # characters of the style line a message repeats
 COPYRIGHT = (
@@ -61,46 +75,30 @@ class NotReady(ValueError):
     """The request can't be made as it is; the message says what to do."""
 
 
-def for_suno(lyrics: str) -> str:
-    """The lyrics as sung: our [Lip-sync] marks taken out (a line left with nothing goes)."""
-    kept = []
-    for line in lyrics.strip().splitlines():
-        bare = LIP_SYNC.sub("", line).rstrip()
-        if bare.strip() or not line.strip():  # blank lines stay; a lone mark goes
-            kept.append(bare)
-    return "\n".join(kept)
-
-
-def sung(lyrics: str) -> list[str]:
-    """The lyric lines that are sung: no lines made only of tags, no blank lines."""
-    return [ln.strip() for ln in for_suno(lyrics).splitlines()
-            if ln.strip() and not TAGS_ONLY.match(ln)]  # fmt: skip
-
-
 def guessed_seconds(lines: list[str]) -> int:
-    """About how long a song of these sung lines runs (see WORDS_PER_SECOND)."""
+    """About how long a song of these sung lines runs, at the slow end of prompts.SUNG_RATE
+    (words a second Suno sang), so the cap estimate is never short."""
     words = sum(len(ln.split()) for ln in lines)
-    return round(words / WORDS_PER_SECOND) + INTRO_OUTRO_SECONDS
+    return round(words / SUNG_RATE[0]) + INTRO_OUTRO_SECONDS
 
 
 def job(lyrics: str, style_line: str) -> dict:
     """The worker input for one request (2 takes). Raises NotReady with a plain reason."""
-    lyrics = for_suno(lyrics)
-    if not sung(lyrics):
+    if not sung_lines(lyrics):
         raise NotReady(NO_LYRICS)
-    if len(lyrics) > MAX_LYRICS:
+    if len(lyrics.strip()) > MAX_OWN_LYRICS:
         raise NotReady(TOO_LONG)
-    if len(style_line) > MAX_STYLE:
+    if len(style_line.strip()) > MAX_OWN_STYLE:
         raise NotReady(STYLE_TOO_LONG)
     # A1: Custom mode, our words only.
-    return {"input": {"lyrics": lyrics, "style": style_line.strip(), "instrumental": False}}
+    return {"input": {**song_request(lyrics, style_line), "instrumental": False}}
 
 
 def failure(detail: str, style_line: str = "") -> str:
     """A failed request's plain reason, from the service's raw error (kept owner-only): the
     style line to change, the lyrics to change, or just Try again."""
     if re.search(r"copyright|artist|trademark|infring", detail, re.I):
-        quoted = style_line.strip()
+        quoted = style_line.strip().removesuffix(SUNO_PACE)  # the person's own words
         quoted = quoted if len(quoted) <= QUOTED else quoted[:QUOTED].rsplit(" ", 1)[0] + "…"
         return COPYRIGHT.format(quoted)
     if re.search(r"sensitive|moderat|safety|unsafe|flagged|violat", detail, re.I):

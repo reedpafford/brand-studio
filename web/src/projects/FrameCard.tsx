@@ -4,10 +4,10 @@ import { fileUrl } from "../api/upload";
 import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } from "../ui";
 import { useMedia } from "../useMedia";
 import { Sheet } from "./Sheet";
-import { SheetWarning, type Blocker } from "./sheetBlocks";
+import { blockerNames, SheetWarning, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
-import { Badge, creditsLabel } from "../components";
+import { Badge, Button, creditsLabel } from "../components";
 import { RotateCcw } from "lucide-react";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
@@ -55,24 +55,28 @@ export function FrameCard(props: {
   const refusable = f.file_id === null && f.problems.some((p) => /may refuse/.test(p));
   const refused = f.problems.find((p) => /refused to draw/.test(p));
   const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
-  const price = props.cost !== undefined ? ` · ${creditsLabel(props.cost)}` : "";
+  const problems = blocking(f.problems).length > 0;
+  // A grey paid button always says why, naming the press that moves it on.
+  const why = props.blockers.length > 0 ? `Approve ${blockerNames(props.blockers)}'s sheet first.` : problems ? "Fix the problem above first." : props.busy ? "This one is still being made." : props.stopFor(props.cost);
+  const approveWhy = f.approved ? null : props.busy ? "This one is still being made." : f.stale ? "Make the storyboard again first." : problems ? "Fix the problem above first." : null;
   const redoForm = (
     <div className="space-y-2">
       <label className="block text-sm">
         What should change? (optional)
         <textarea className={input} rows={3} maxLength={500} value={redo ?? ""} onChange={(e) => setRedo(e.target.value)} />
       </label>
-      <button
-        className={`${btnPrimary} min-h-11 sm:min-h-9`}
+      <Button
+        dense
+        price={props.cost}
         disabled={props.stopped}
+        reason={props.stopFor(props.cost)}
         onClick={() => {
           props.onRender((redo ?? "").trim());
           setRedo(null);
         }}
       >
         Redo
-        {price}
-      </button>
+      </Button>
     </div>
   );
   return (
@@ -136,9 +140,9 @@ export function FrameCard(props: {
         <div className="flex flex-wrap items-center gap-2">
           {refused && <p className="w-full text-sm text-danger">{props.words(refused)}</p>}
           <SoftenIt busy={props.softening} onSoften={props.onSoften} />
-          <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
-            Draw it as is{price}
-          </button>
+          <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => props.onRender()}>
+            Draw it as is
+          </Button>
         </div>
       )}
       {editing !== null ? (
@@ -158,23 +162,17 @@ export function FrameCard(props: {
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {refusable ? null : f.file_id === null ? (
-              <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => props.onRender()}>
+              <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => props.onRender()}>
                 {verb}
-                {price}
-              </button>
+              </Button>
             ) : (
               <>
-                <button
-                  className={`${btnSecondary} min-h-11 sm:min-h-9`}
-                  disabled={props.busy || (!f.approved && (f.stale || blocking(f.problems).length > 0))}
-                  onClick={() => props.onApprove(!f.approved)}
-                >
+                <Button variant="secondary" dense disabled={props.busy || !!approveWhy} reason={approveWhy} onClick={() => props.onApprove(!f.approved)}>
                   {f.approved ? "Undo approve" : "Approve"}
-                </button>
-                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.stopped || props.busy || blocking(f.problems).length > 0 || props.blockers.length > 0} onClick={() => (props.oneStep ? props.onRender() : setRedo(redo === null ? "" : null))} aria-expanded={props.oneStep ? undefined : redo !== null}>
+                </Button>
+                <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => (props.oneStep ? props.onRender() : setRedo(redo === null ? "" : null))} aria-expanded={props.oneStep ? undefined : redo !== null}>
                   {props.oneStep ? "Make another" : verb}
-                  {price}
-                </button>
+                </Button>
               </>
             )}
             <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>

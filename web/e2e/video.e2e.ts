@@ -34,9 +34,9 @@ for (const width of [1440, 390]) {
 
     await page.goto(`/b/${brandId}/videos/${id}`);
     await expect(
-      page.getByRole("heading", { name: "Breakdown", level: 2 }),
+      page.getByRole("heading", { name: "Breakdown", level: 2, exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: /Make shots/ }).click();
+    await page.getByRole("button", { name: /Make the breakdown/ }).click();
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
@@ -52,7 +52,7 @@ for (const width of [1440, 390]) {
       page.getByRole("heading", { name: "Assets", level: 2 }),
     ).toBeVisible();
     if (width === 390) {
-      await expect(page.getByText("Loading assets…").first()).toBeVisible();
+      await expect(page.getByText("Loading assets…")).toHaveCount(1); // said once
       await expect(page.getByText(/^0 assets/)).toHaveCount(0);
       await expect(page.getByText("Not in this video's shots")).toHaveCount(0);
       await expect(page.getByText("Loading assets…")).toHaveCount(0, { timeout: 10_000 });
@@ -116,7 +116,7 @@ for (const width of [1440, 390]) {
     ).toBeTruthy();
 
     await page.goto(`/b/${brandId}/videos/${id}`);
-    await page.getByRole("button", { name: /Make shots/ }).click();
+    await page.getByRole("button", { name: /Make the breakdown/ }).click();
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
@@ -124,7 +124,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Next: Storyboard" }).click();
 
     // One press writes the frames and draws every still.
-    await page.getByRole("button", { name: /Make storyboard/ }).click();
+    await page.getByRole("button", { name: /Make the storyboard/ }).click();
     const approve = page.getByRole("button", { name: "Approve", exact: true });
     await expect(approve.first()).toBeVisible({ timeout: 90_000 });
     while (await approve.count()) {
@@ -133,7 +133,7 @@ for (const width of [1440, 390]) {
     }
     await page.getByRole("button", { name: /Next: Clips/ }).click();
 
-    // Each prompt is read and marked Looks good before the take is made; Make clip marks it for you (Reed's #32 c6).
+    // Each prompt is read and marked Prompt OK before the take is made; Make clip marks it for you (Reed's #32 c6).
     await page.getByRole("button", { name: /Write clip prompts/ }).click();
     await expect(page.getByRole("listitem", { name: "Clip c1" })).toBeVisible({
       timeout: 30_000,
@@ -160,16 +160,16 @@ for (const width of [1440, 390]) {
       await page.reload();
     }
     await page
-      .getByRole("button", { name: /^Prompt for c1 looks good$/ })
+      .getByRole("button", { name: /^Prompt OK for c1$/ })
       .click();
     await page
       .getByRole("button", { name: /^Make clip/ })
       .first()
       .click();
     await expect(
-      page.getByRole("button", { name: "✓ Looks good" }).first(),
+      page.getByRole("button", { name: "Approve take" }).first(),
     ).toBeVisible({ timeout: 90_000 });
-    await page.getByRole("button", { name: "✓ Looks good" }).first().click();
+    await page.getByRole("button", { name: "Approve take" }).first().click();
     await page.getByRole("button", { name: /Next: Downloads/ }).click();
     // The whole video is put together by itself.
     await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible({

@@ -7,7 +7,7 @@ from inspect import signature
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import prompts
+from app import prompts, song_breakdown
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
@@ -16,8 +16,9 @@ from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
+from app.models.songs import SongTake
 from app.prompts import check
-from app.prompts.schemas import Breakdown
+from app.prompts.schemas import Breakdown, SongBreakdown
 
 
 def video_model() -> CatalogueModel:
@@ -98,7 +99,10 @@ def payoffs_block(payoffs: list[tuple[str, list[str]]]) -> str:
 
 
 def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
-    system, context = project_context(db, project, "breakdown")
+    """The breakdown call; a song video's is timed to its song (song_breakdown)."""
+    take = song_breakdown.take_for(db, project)
+    step = "song_breakdown" if take else "breakdown"
+    system, context = project_context(db, project, step)
     if project.script_draft_id:  # from the library: its unlocked slots, cast at Assets
         from app import script_preview
         from app.models.script_library import ScriptDraft
@@ -114,8 +118,11 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
         parts.append(escape_block(ref))
     parts.append(f"<script>\n{escape(prompts.number_lines(version.text))}\n</script>")
+    if take:
+        parts.append(escape_block(prompts.song_block(song_breakdown.timing_used(take))))
     return {
-        "step": "breakdown",
+        "step": step,
+        **({"song_take_id": take.id} if take else {}),
         "project_id": project.id,
         "script_version": version.version,
         "system": system,
@@ -124,7 +131,16 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     }
 
 
-def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[str]:
+def problems(
+    db: Session,
+    project: Project,
+    script: str,
+    bd: Breakdown,
+    song: dict | None = None,
+    written: bool = False,
+) -> list[str]:
+    """The plan's problems. A song video's are checked with its song part (`song`, else the
+    newest row's) against its take; `written`: the AI wrote it (its Sung advice speaks)."""
     shown = project_screens(db, project)
     screens = {f"screen:{s.id}": s.default_for for s in shown}
     m = video_model()
@@ -139,7 +155,16 @@ def problems(db: Session, project: Project, script: str, bd: Breakdown) -> list[
     if "recent" in params:  # montage variety: the brand's other videos' payoffs
         recent = recent_payoffs(db, project.brand_id, project.id, viewer=project.created_by_id)
         extra["recent"] = [a for _, actions in recent for a in actions]
-    found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
+    if song is None:  # an edit: the song part it will be saved with (song_breakdown._carry)
+        order = [s.id for scene in bd.scenes for s in scene.shots]
+        song = song_breakdown.carried(db, project.id, order)
+    take = db.get(SongTake, song["take_id"]) if song else None
+    if take:
+        timed, timing = song_breakdown.joined(bd, song), song_breakdown.timing_used(take)
+        found = check.song_breakdown(script, timed, timing, screens, m.duration.min,
+                                     m.duration.max, written=written, **extra)  # fmt: skip
+    else:
+        found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     from app.advice import names, plain
     from app.storyboard import assets
 
@@ -255,7 +280,44 @@ def land(
                          "a role in this video.")  # fmt: skip
     bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
     bd, shown = cta_screen(db, project, bd)  # the end line's shot shows the brand's screen
-    return bd, notes + removed + shown
+    bd, bags = product_shots(db, project, bd)  # a shot that shows the product attaches it
+    return bd, notes + removed + shown + bags
+
+
+def products_of(db: Session, project: Project) -> list[dict]:
+    """The brand's product screens for check.product_shown: this video's chosen variants
+    first, then the others (a shot may name another flavour)."""
+    from app.enhance import screen_name, screens_of
+
+    chosen = {s.id for s in project_screens(db, project)}
+    every = [s for s in screens_of(db, db.get(Brand, project.brand_id)) if "product" in s.tags]
+    every.sort(key=lambda s: (s.id not in chosen, s.id))
+    return [{"id": f"screen:{s.id}", "name": screen_name(s), "product": s.product,
+             "variant": s.variant} for s in every]  # fmt: skip
+
+
+def product_shots(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdown, list[str]]:
+    """Any shot whose action shows the brand's product lists the real product screen, so the
+    still and the clip attach the real picture (Reed's #32 c9: an invented "Iron Paws" bag on
+    a shelf). Free, in code; said as advice. Doing it again changes nothing."""
+    products = products_of(db, project)
+    brand = db.get(Brand, project.brand_id)
+    ids = {p["id"]: p["name"] for p in products}
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    clip_of = {sid: c for c in bd.clips for sid in c.shot_ids}
+
+    def shown(clip) -> set[str]:  # a clip keeps to 3 screens (check.breakdown blocks a 4th)
+        return {x for sid in (clip.shot_ids if clip else []) for x in shots[sid].screen_ids}
+
+    notes = []
+    for shot in shots.values():
+        if any(s in ids for s in shot.screen_ids):
+            continue
+        found = check.product_shown(f"{shot.action} {shot.camera}", brand.name, products)
+        if found and len(shown(clip_of.get(shot.id)) | {found}) <= 3:
+            shot.screen_ids = [*shot.screen_ids, found]
+            notes.append(f"Advice: Shot {shot.id} now shows the real {ids[found]}.")
+    return bd, notes
 
 
 OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
@@ -492,7 +554,13 @@ def save_breakdown(db: Session, job: Job) -> None:
             ScriptVersion.version == job.input["script_version"],
         )
     )
-    bd, removed = land(db, project, Breakdown.model_validate(job.output))
+    if job.input.get("song_take_id"):  # the plan, and its song part beside it
+        plan, song = song_breakdown.split(
+            SongBreakdown.model_validate(job.output), job.input["song_take_id"]
+        )
+    else:
+        plan, song = Breakdown.model_validate(job.output), None
+    bd, removed = land(db, project, plan)
     record_length(project, bd)
     db.add(
         BreakdownVersion(
@@ -500,8 +568,8 @@ def save_breakdown(db: Session, job: Job) -> None:
             script_version=version.version,
             source="claude",
             job_id=job.id,
-            data=bd.model_dump(),
-            problems=problems(db, project, version.text, bd) + removed,
+            data={**bd.model_dump(), **({"song": song} if song else {})},
+            problems=problems(db, project, version.text, bd, song, written=True) + removed,
             created_by_id=job.created_by_id,
         )
     )
