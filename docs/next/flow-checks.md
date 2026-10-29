@@ -60,6 +60,8 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S3 approved version (#818) | Refused before any charge now, but the reason says "Duplicate it": no Duplicate before publish | Say "Undo approval on Publish" | #818 at 2911002c |
 | S3 names and copies (#818) | `check.finish_directions` (#819) is not yet called by the directions job: a sounds-like name still reaches Suno | Next-Server wires it: names out, copy check, one rewrite, else failed and not charged | #819 at 00c4f96b |
+| V6 song video (#829) | After a song switch, Make video uses clips made for the old take: a 24 s cut under a 40 s song, marked current | Refuse while a clip is out of date for the video's song | #829 at 81fcf9ec |
+| Names in the style (#831) | "country Taylor Swift" keeps the name; "beatles" leaves "like the" | Find names inside the sounds-like; take "the" with the lead-in | #831 at 08545fe2 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -150,4 +152,7 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #828 at f3d3a576 (N1 narrator signal, V6n narrated prompts) | 18 house prompts byte-identical; narrator on 12 scripts; test_narrated (3) | FAIL: title-case dialogue ("Mia: …") reads as narration; not wired yet |
 | 2026-10-29 | #818 at 2911002c (next in; one price; stop kind) | Song API walks + 4 song test files (74/75, the miss is my old setup) | One price PASS; still FAIL on "Duplicate it"; note: `video_credits` ignores a saved breakdown |
 | 2026-10-29 | #828 at b596b1b8 | Narrator on 14 scripts; test_narrated (3) | PASS; note: prose lines like "Day One: …" make it a story video (safe side) |
+| 2026-10-29 | #829 at 81fcf9ec (V6: Make video for a song video, n02) | Tests (15); switch to a 40 s take then Make video | FAIL: Make video uses clips made for the old song (24 s cut, new song under it, says current) |
+| 2026-10-29 | #831 at 08545fe2 (only real names leave the style) | 14 inputs; test_song (19) | FAIL: \"country Taylor Swift\" keeps the name; \"beatles\" leaves \"like the\" |
+| 2026-10-29 | next red since #821 (Assets tick test) | Bisected: each side passes, the merge fails; test kept a detached Steps list | Fixed on next by #832 (my #835 closed as duplicate) |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
