@@ -41,8 +41,14 @@ function useMakeStop(p: Project, price: number | undefined): string | null {
 }
 
 /** A narrated video's narrations are song takes of kind "narration" (Next-Server #858): the same panel, its own words (flows V6n). */
-const SONG = { take: "Take", thing: "song", change: "Change song", final: "The lyrics are final.", more: "Make 2 more takes", same: "Same lyrics and style.", marks: " and Sung marks" };
-const NARRATION = { take: "Narration", thing: "narration", change: "Change narration", final: "The words are final.", more: "Make another", same: "Same words and voice.", marks: "" };
+const SONG = {
+  take: "Take", thing: "song", change: "Change song", final: "The lyrics are final.", more: "Make 2 more takes", same: "Same lyrics and style.", marks: " and Sung marks",
+  inCut: (n: number) => `Song: take ${n}, laid under the whole video`, earlier: "Song: an earlier take, laid under the whole video", one: (n: number) => `take ${n}`, file: (n: number) => `song-take-${n}.mp3`,
+};
+const NARRATION = {
+  take: "Narration", thing: "narration", change: "Change narration", final: "The words are final.", more: "Make another", same: "Same words and voice.", marks: "",
+  inCut: (n: number) => `Narration ${n}, read over the whole video`, earlier: "An earlier narration, read over the whole video", one: (n: number) => `narration ${n}`, file: (n: number) => `narration-${n}.mp3`,
+};
 const wordsFor = (takes: SongTake[] | undefined) => (takes?.some((t) => (t as { kind?: string }).kind === "narration") ? NARRATION : SONG);
 
 /** Change song: every take this video can use, the current one marked, "Use this take" (Undo), Make 2 more, and the over-cap trim. */
@@ -249,7 +255,7 @@ export function SongShotTime({ part, shotId }: { part: components["schemas"]["So
   );
 }
 
-/** Final cut on a song video (flows V6): "Song: take 2, laid under the whole video", Download the song, and, when the video
+/** Final cut on a song or narrated video (flows V6, V6n): "Song: take 2, laid under the whole video" or "Narration 2, read over the whole video", the download, and, when the video
  * now uses another take, a line saying so (the server marks the video out of date; Make it again is free). */
 export function FinalSong({ projectId, madeWith }: { projectId: number; madeWith: number | null | undefined }) {
   const songs = useVideoSongs(projectId, madeWith != null); // a video without a song never asks
@@ -260,23 +266,24 @@ export function FinalSong({ projectId, madeWith }: { projectId: number; madeWith
   if (songs.isPending) return <Skeleton className="h-6 w-2/3" />;
   // The take in the cut may since have been deleted: the line about the take in use still shows.
   if (!t && !now) return null;
+  const W = wordsFor(takes);
   return (
-    <div className="space-y-2" aria-label="The song">
-      <p className="text-sm">{t ? `Song: take ${t.number}, laid under the whole video` : "Song: an earlier take, laid under the whole video"}</p>
-      {now && now.id !== madeWith && <p className="text-sm text-warning">This video now uses take {now.number}. Make it again to lay it under (free).</p>}
+    <div className="space-y-2" aria-label={`The ${W.thing}`}>
+      <p className="text-sm">{t ? W.inCut(t.number) : W.earlier}</p>
+      {now && now.id !== madeWith && <p className="text-sm text-warning">This video now uses {W.one(now.number)}. Make it again to lay it under (free).</p>}
       {t && t.file_id != null && (
-        <a className={buttonClass("secondary")} href={fileUrl(t.file_id)} download={`song-take-${t.number}.mp3`}>
+        <a className={buttonClass("secondary")} href={fileUrl(t.file_id)} download={W.file(t.number)}>
           <Download size={20} strokeWidth={1.75} aria-hidden />
-          Download the song
+          Download the {W.thing}
         </a>
       )}
     </div>
   );
 }
 
-/** Whether a song video's final cut is out of date because its song changed (the video now uses another take), for the banner's words. */
+/** Whether a song video's final cut is out of date because its song changed (the video now uses another take): "song" or "narration", for the banner's words. */
 export function useSongChanged(projectId: number, madeWith: number | null | undefined) {
   const songs = useVideoSongs(projectId, madeWith != null);
   const now = songs.data?.song_take_id;
-  return madeWith != null && now != null && now !== madeWith;
+  return madeWith != null && now != null && now !== madeWith ? wordsFor(songs.data?.takes).thing : null;
 }

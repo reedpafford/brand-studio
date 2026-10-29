@@ -31,8 +31,8 @@ export const NARRATED_STEPS = [
 
 type WritingStep = (typeof WRITING_STEPS)[number]["id"] | (typeof SONG_STEPS)[number]["id"] | (typeof NARRATED_STEPS)[number]["id"];
 
-/** The Narrated format (Next-Server #858). The kind is compared as a string until the generated types carry "narrated". */
-export const isNarrated = (s: Pick<Script, "kind">) => (s.kind as string) === "narrated";
+/** The Narrated format (Next-Server #858). */
+export const isNarrated = (s: Pick<Script, "kind">) => s.kind === "narrated";
 
 /** What the song steps need to know about the takes: is one Preferred, how many sing the lyrics as they are now, and how many sing older words. */
 export type SongState = { preferred: boolean; overCap?: boolean; takes: number; older: number };

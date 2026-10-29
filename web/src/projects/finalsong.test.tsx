@@ -89,3 +89,15 @@ test("if the take in the cut was deleted since, the line about the take in use s
   expect(await screen.findByText("Song: an earlier take, laid under the whole video")).toBeInTheDocument();
   expect(screen.getByText("This video now uses take 3. Make it again to lay it under (free).")).toBeInTheDocument();
 });
+
+test("a narrated video's final cut names its narration, downloads it, and the banner says the narration changed", async () => {
+  setViewport(390);
+  const narration = (o: object = {}) => songTake({ kind: "narration", voice: "Sarah", ...o });
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true, song_take_id: 1 }], "GET /projects/9/songs": [200, songs([narration(), narration({ id: 4, number: 3 })], 4)] });
+  open("?step=downloads");
+  const it = await screen.findByLabelText("The narration");
+  expect(within(it).getByText("Narration 2, read over the whole video")).toBeInTheDocument();
+  expect(within(it).getByText("This video now uses narration 3. Make it again to lay it under (free).")).toBeInTheDocument();
+  expect(within(it).getByRole("link", { name: /Download the narration/ })).toHaveAttribute("download", "narration-2.mp3");
+  expect(await screen.findByText(/The narration changed since this video was made\./)).toBeInTheDocument();
+});

@@ -152,7 +152,7 @@ export function DownloadsPane({
               </Button>
             }
           >
-            {songChanged && left === 0 ? "The song changed since this video was made." : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.
+            {songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.
           </Banner>
         )}
         {v ? (
