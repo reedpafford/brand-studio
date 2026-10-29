@@ -9,7 +9,17 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, languages, looks, merge_roles, music, narration, rewritten, song_study
+from app import (
+    advice,
+    languages,
+    looks,
+    merge_roles,
+    music,
+    narration,
+    plans,
+    rewritten,
+    song_study,
+)
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -151,6 +161,7 @@ class VersionOut(VersionSummary):
     # "Was:" marks until approval: [{line_index (0-based line of text), text, was}]
     rewritten: list[dict] = []
     has_breakdown: bool
+    preview_older_plan: bool = False  # "Made for an older plan. Make the preview again" (S6)
     approved_at: UtcTime | None
     variation_of: str | None = None  # "A": a variation of the original; null for the original
     estimate_credits: float = 0  # to make it, every step included: estimate.version_cost
@@ -286,7 +297,9 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
             for m in draft.rewritten or []
             if m["line_index"] < len(lines)
         ],
-        has_breakdown=draft.breakdown is not None,
+        # a preview made before the owner's plan isn't used, so starting is paid (Flow-QA)
+        has_breakdown=draft.breakdown is not None and plans.preview_follows(draft),
+        preview_older_plan=draft.breakdown is not None and not plans.preview_follows(draft),
         approved_at=draft.approved_at,
         variation_of="A" if draft.slot else None,
         estimate_credits=float(version_cost(db, draft)),
@@ -580,6 +593,40 @@ def update_script(
             setattr(script, field, value)
     db.commit()
     return _out(db, script)
+
+
+class LookChangeOut(BaseModel):
+    """ST1's confirm: "Change to Claymation? 3 roles need a new look. To finish: about N
+    credits (was M)." A script's look never moves a video's (VS1)."""
+
+    roles: list[str]  # the roles that would need a new look in it
+    to_finish_credits: int  # making those looks
+    was_credits: int  # the same on its look now
+    over_budget: bool  # the editor's week on their own script (the owner has no budget here)
+    reason: str  # why Change is held back, plainly ("" when it isn't)
+
+
+@router.get("/{script_id}/look-change", response_model=LookChangeOut)
+def look_change(
+    script_id: int, look: str, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """What changing this script's look would take, before the PATCH (free, read only)."""
+    from app.credits import credits_left, price
+    from app.sheets import look_price, roles_needing_look
+
+    script = lib.editable(user, lib.get_script(db, user, script_id))
+    new = looks.pick(db, user, look)
+    each = look_price(db, user.workspace_id)
+    roles = roles_needing_look(db, script, new)
+    now, was = len(roles) * each, len(roles_needing_look(db, script)) * each
+    left = None if user.is_owner else credits_left(db, user)
+    over = left is not None and now > left
+    return LookChangeOut(roles=roles, to_finish_credits=price(now) if now else 0,
+                         was_credits=price(was) if was else 0, over_budget=over,
+                         reason=LOOK_OVER if over else "")  # fmt: skip
+
+
+LOOK_OVER = "Making those looks would go over this week's credits. It resets on Monday."
 
 
 def _removable(db: Session, user: User, script_id: int, archived: bool = False) -> Script:

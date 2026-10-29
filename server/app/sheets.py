@@ -44,6 +44,44 @@ def sheet_for(db, project, item: LibraryItem) -> list[int]:
     return usable_files(copy) if copy and copy.sheet_look == look else []
 
 
+def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
+    """The roles that need a new look in `look` (default: the owner's own), for "3 roles need
+    a new look" (flows ST1) and their price in VS1's to_finish. `owner` is a video or an
+    unpublished script. A Cast & places character needs one when it has no approved sheet in
+    that look (on a video, not this video's own copy in it either); a role's own look (made
+    for this video or script) when it was drawn in another look. House needs none for a
+    Cast & places character: its House sheet is the one it always used."""
+    from sqlalchemy import select
+
+    from app import cast_roles
+    from app.models.projects import Project
+    from app.models.script_library import ScriptCastSlot
+
+    look = look or owner.look or "house"
+    if isinstance(owner, Project):
+        pairs = [(s, cast_roles.pick(db, owner, s)) for s in cast_roles.video_slots(db, owner)]
+    else:
+        slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == owner.id)
+                           .order_by(ScriptCastSlot.position, ScriptCastSlot.id))  # fmt: skip
+        pairs = [(s, s.library_item_id) for s in slots]
+    out = []
+    for slot, item_id in pairs:
+        item = db.get(LibraryItem, item_id or 0)
+        if item is None or item.archived or item.kind != Kind.character:
+            continue
+        if own(item):
+            missing = (item.sheet_look or "house") != look
+        elif look == "house":
+            missing = False
+        else:
+            sheet = (item.look_sheets or {}).get(look) or {}
+            copy = look_copy(db, owner, item) if isinstance(owner, Project) else None
+            missing = not sheet.get("approved") and not (copy and copy.sheet_look == look)
+        if missing:
+            out.append(slot.role)
+    return out
+
+
 def require_sheet(item: LibraryItem) -> None:
     """A plain 422 when a character or place has no approved sheet yet."""
     if item.kind in SHEET_KINDS and not usable_files(item):
