@@ -40,6 +40,10 @@ class Project(Entity, Base):
         ForeignKey("script_drafts.id", use_alter=True), unique=True
     )
 
+    # Song ads: the take this video is timed to (starts as its version's Preferred, rule 31)
+    song_take_id: Mapped[int | None] = mapped_column(ForeignKey("song_takes.id", use_alter=True))
+    singer: Mapped[str | None] = mapped_column(String(120))  # null: the version's singer
+
     # Assets step: unlocked cast slot id (as text) -> the library character the editor gave it.
     slot_cast: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
     slot_looks: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)  # slot -> own look
