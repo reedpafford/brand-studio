@@ -61,6 +61,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Made work locked by a look sheet (#930 + videoSteps) | A non-House video with stills or clips: its Cast & places rows read not ready (look_needed), and videoLock's "Approve the cast first" locks Storyboard and Clips, redirecting to Cast | `if (left > 0 && !kept)` in videoLock, with a videoHold line; land with or before #930 |
 | Owner's plan vs an older preview (#934) | Preview made before the owner's plan, plan approved, published: Make this version lands the old shots with "From Reed's plan", approved; nothing says they don't follow it | produce lands the preview only when its plan_version is the approved plan's; else the breakdown from the plan |
+| Looks page with no brand (#935) | No brand yet: every off look's card is a skeleton for ever (the sample query never runs) | "Make a brand first: the sample shows its hero." with a link |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -289,3 +290,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #932 at 686cf621 | PASS: the Products tab links to the props in Cast & places, where each product's line and claim live. Open row closed |
 | 2026-10-29 | 14:21 check-in; #925 51f8258e + #926 68522998 live | VS1 PASS at 1440 and 390: the row with prices, the confirm "To finish: about 22 credits (was 30)", Switch, Undo; over the cap 2.5 greyed, 2.0 fits, Undo back to Auto with no refusal; the phone sheet. Open row closed. Merged since 13:17: #916 #919 #920 #921 #922 #924 #927 #929. Holding #930, #933, #934 |
 | 2026-10-29 | #933 at 7bb57251 | PASS: the scene note stays through Not yet or a refusal; a scene job shows Making the plan… with Stop. Open row closed |
+| 2026-10-29 | #935 at c5de5658 (ST3 Looks page) | Owner only, House always on, make → making → ready → Switch on, failed → Try again, Switch off with Undo: PASS. FAIL: loading for ever with no brand (open above) |
