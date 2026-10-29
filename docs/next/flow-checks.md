@@ -255,3 +255,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #912 at a43c4046 (music off by default with a budget; true charge message; bed-only retry) | narration + needs_you (19) | PASS |
 | 2026-10-29 | #893 at 9afd850a (★ with no product or screen: 409 with the way out) | plan_route + plan (9) | PASS |
 | 2026-10-29 | #916 at 4133068a (merge of next after #910) | KitPage editor body | FAIL: editors still lose tone notes, never say, end line (Producer asked to keep them) |
+| 2026-10-29 | #918 at 2e459e39 (ST2: look words fixed in clip prompts and stills, with Undo; look fixes offered) | look_words + clip_takes + item_checks + storyboard (30) | PASS |
