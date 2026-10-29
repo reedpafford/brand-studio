@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     # this price until KIE's real one is known (music.py A4).
     kie_budget_usd: float = 0.0
     kie_usd_per_request: float = 0.1028
+    # Real look samples on the test site (Reed, 2026-10-29): with the stand-ins on, a look's
+    # sample (its still and 5 s clip) alone is made on Replicate, until the next one would
+    # take their spend past this budget; after that a sample is a stand-in again.
+    real_look_samples: bool = False
+    look_samples_budget_usd: float = 0.0
     # Real language tests on the test site (Reed, 2026-10-29): with the stand-ins on, a
     # language's sample script alone is written by Claude, until the next one would take
     # their spend past this budget; after that a test is a stand-in again.

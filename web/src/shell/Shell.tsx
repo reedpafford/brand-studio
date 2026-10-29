@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChartColumn, ChevronDown, Clapperboard, Film, Plus, FileText, Images, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, ChevronDown, Clapperboard, Film, Plus, FileText, Images, Languages, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
@@ -290,6 +290,12 @@ function AccountMenu() {
             </Link>
           )}
           {me?.role === "owner" && (
+            <Link to="/languages" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
+              <Languages size={20} strokeWidth={1.75} aria-hidden />
+              Languages
+            </Link>
+          )}
+          {me?.role === "owner" && (
             <Link to="/usage" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
               <ChartColumn size={20} strokeWidth={1.75} aria-hidden />
               Usage
@@ -375,6 +381,7 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
             {row("/production", "In production", Clapperboard, <Badge n={attention} word="need attention" />)}
             {row("/team", "Team", UserPlus)}
             {row("/looks", "Looks", Palette)}
+            {row("/languages", "Languages", Languages)}
             {row("/usage", "Usage", ChartColumn)}
           </div>
         </div>

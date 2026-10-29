@@ -39,7 +39,7 @@ def get_upload(db: Session, user: User, upload_id: int) -> VideoUpload:
 
 
 @router.post("/video", response_model=UploadOut, status_code=201)
-async def upload_video(
+def upload_video(
     request: Request,
     file: UploadFile,
     brand_id: int = Form(),
@@ -47,7 +47,7 @@ async def upload_video(
     db: Session = Depends(get_db),
 ):
     get_brand(db, user, brand_id)
-    stored = await _store_video(request, user, db, file)
+    stored = _store_video(request, user, db, file)
     storage = request.app.state.storage
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "video"
