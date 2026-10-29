@@ -3,14 +3,14 @@ character or place in other looks (House stays in sheet_file_id), the look a vid
 was drawn in, and a video's own copies of library characters drawn in its look.
 
 Revision ID: n10
-Revises: n08 (n09 once #925 is merged: re-pointed just before merge)
+Revises: n09
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n10"
-down_revision = "n08"
+down_revision = "n09"
 branch_labels = None
 depends_on = None
 
