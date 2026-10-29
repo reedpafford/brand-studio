@@ -59,7 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Narration with no words (#920 + screen) | NarrationStep ignores songs_note: "Make the narration · 0 credits", then refused | Disable the press with songs_note as its reason | #920 at 7e33b1a4 |
+| Music again past the week (#919) | An editor past their week sees a live "Try the music again · N credits" that the server refuses | useAllowanceStop(script, t.music_credits) as the press's disabled reason |
 | Stop names the wrong step (#917 + #921) | A frame with a problem to fix stops Update everything after this at clip_prompts: the banner says Stopped at Clips with Open Clips, but the work is on Storyboard (the redrawn-still stop is fixed by #922) | _stop(job, "stills", STOPPED) in update_after.follow |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -266,3 +266,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #921 at 4af7948b; #918 at 574cb4c2 | #921 PASS for its own presses (Updating…, done, over budget, one press in the bar, Stopped at {step}); flow FAIL on #917's stop that outlives its fix (open below). #918 PASS (next merged in only) |
 | 2026-10-29 | #898 at fc86b412; #916 at c4cadde9 | #898 PASS (next with #893 merged in; plan page unchanged; the non-409 note stays open, not blocking). #916 PASS: Default cast with no characters says so, with Add one in Cast & places |
 | 2026-10-29 | #922 at 61c156c0 | PASS: a still redrawn with its own press clears the Stopped banner (Out of date → Open Clips comes back). New: a frame to fix first stops the run at Clips, not Storyboard (open above) |
+| 2026-10-29 | #919 at 3bc09e40 | Narration with no words fixed (greyed, the reason, no price): that row closed. Music states PASS. FAIL: Try the music again past the editor's week (open above) |
