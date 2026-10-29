@@ -104,7 +104,7 @@ Where: Script Library → **New script**.
 | U | Back leaves an untouched draft behind? No: an empty draft is not saved until the first word is typed (as today). | Browser back returns to the Library. |
 | Library | Song scripts carry a **Song** tag in the Library list and a "Song" filter chip. | Tapping one opens it on its first unfinished step. |
 
-Out for now: Bulk create and reel import make Story scripts only. A pasted reel that is a song ad is imported as a Story (its words become the script). **Decided here**; reel-to-song is a later item.
+Bulk create and reel import still make Story scripts. To learn from a song ad, the owner studies it inside Song (**S3a**): a study informs the directions, it never becomes the lyrics. **Decided here** (Reed's song workflow, #807 item 4).
 
 ## S2. Song: lyrics and style
 
@@ -153,6 +153,22 @@ Pressed on S2. Uses the brand, the product and anything already typed (as a brie
 | U | The directions stay on the page (collapsed under "Directions") until the owner deletes them; they're never used without **Use this one**. | — |
 
 Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyrics without **Use this one**, and once in, only the owner changes them.
+
+## S3a. Study a song ad (a third box on S3)
+
+Reed's pilot needed a song ad's shape before writing his own: its words, its pace and where its parts fall. A third optional box above **Write 2 song directions**: **Study a song ad** (paste a reel link, or upload the video).
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "Paste a song ad to learn its shape: its words, beat and parts. Free." | **Study it** (free: download, cuts, frames and transcript are the reel import's free prep; the beat is read from the audio on our server). |
+| Q/R | "Studying the song ad…" with a timer. "You can leave this page." | Cancel. |
+| Done | A study card: length, **BPM**, the **sections** (intro, verse, chorus, bridge, outro, each with its times and its lines), the words with their times, and a frame strip, each frame marked with its time. | **Use as a guide** (on by default), or **Remove**. |
+| Used as a guide | **Write 2 song directions** follows the study's structure, section lengths and pace (and its BPM goes into the style line as a tempo, in words). The card says: "A guide only: the directions copy its shape, never its words." | **Write 2 song directions** (price as S3). |
+| F | "We couldn't open that reel: [the reason]. Nothing was charged." (private, too long, not a video) | **Try another**. |
+| U | The study stays on the version, collapsed under "Song ad studied", until removed. It never fills the lyrics or style boxes: only **Use this one** on a direction does (rule 19). | — |
+| B | None: studying is free. | — |
+
+The study's words are someone else's song. The directions never reuse its lines (Director: a check that no line of a direction repeats a line of the study), and nothing from it reaches the lyrics without the owner's press.
 
 ## S4. Takes: make the song
 
@@ -281,6 +297,20 @@ Clips follow scenes, not shots (rule 29): consecutive shots in one place and one
 
 As today. The Singer is a role like any other and needs an approved look (rule 8): Storyboard and Clips stay locked with "Approve every asset first (N left)" and the one press to Assets, exactly as today. Nothing new.
 
+## V3a. Use the looks from your other video (at Assets)
+
+Reed's pilot made a pair of videos from one song and drew the same dog and owner twice. On Assets, an unlocked role (rule 7) offers the looks already approved for the same role in the editor's other videos of the **same script**.
+
+| State | What they see | The one press |
+|---|---|---|
+| None to share | Nothing new: the role's look is made as today. | — |
+| Some to share | Under the role: "Approved in *Iron Paws · beach*: [the look]". | **Use this look** (free: a copy for this video). |
+| Used | The copy is this video's own look, approved, with "From *Iron Paws · beach*". Changing it later changes only this video. | **Make a new look** (as today). |
+| U | Removing or changing the look in the other video doesn't touch this one. | — |
+| P | An editor sees only their own videos; the owner sees all videos of the script. | — |
+
+Rule 12 holds: the copy belongs to this video and is never saved to Cast & places (no Save button). For a look many videos share, Reed still makes it in Cast & places and the script locks the role to it. **Needs Reed's OK** (it is a new reading of rule 12: a look moves between two videos of one script, never into the library).
+
 ## V4. Storyboard
 
 As today: one still per shot. For Sung shots the still is used as a reference picture, not the first frame (Seedance can't take a first frame and an audio slice together). The frame card says so: "Sung: used as a reference, not the first frame."
@@ -323,6 +353,19 @@ The lip-sync clips were made from the same song, so they match. If the picture c
 | S | As today ("A clip changed since this video was made. It's free."), and also when the video's take or spoken end line changed. | **Make it again**. |
 | Spoken end line | When set (S2), it's spoken over the song's last seconds with the music lowered under it (free, in the stitch). | — |
 | Lengths | A take longer than its song stretch is trimmed to it; a shorter one holds its last frame to fill it. Never a gap, never silence. A clip with no approved take blocks the stitch as today: "Approve every clip to make the video (N left)." with the press to Clips. | — |
+
+## Reed's song workflow: what's built (#807, "Building it into Next")
+
+| # | Reed's item | Flows | Built on `next` | Still to build | Owner |
+|---|---|---|---|---|---|
+| 1 | A song step: directions (with "adapt my script"), Suno takes, Preferred, each take's length beside its video cost | S1–S5, S7, V1, V2a | Song, Takes, Cast with the Singer, Publish, the video's own song (#748, #750, #759, #775, #781); the directions prompt with From a script and Sounds like (#794); length and video cost on takes (#810, open) | The **S3 route and screen** (no press yet writes directions; the prompt is ready); Suno's input from the Director's song request (#783, open); the **music adapter** (waits on the KIE decision, open question 4) | Next-Server (route, adapter), Next-Screens (S3 screen) |
+| 2 | The song as the breakdown's clock: measured line times, shots land on them, long clips with people split | S6, V2, V2a | Measuring a take (word times on the locked lyrics) | The song breakdown (#799, open: last edge is Sung clips going out of date on a take change); split and join, `n02`, song clip prompts after it. Long clips with people split by rule 29's existing checks | Next-Server |
+| 3 | The song as the only sound in Make video | V6 | Flow written (#796) | Trim each take to its slice, lay the song under, fade (`n02`'s `song_slice`, `final_videos.song_take_id`) | Next-Server, then Next-Screens for V6's screen |
+| 4 | A study of a song ad: transcript, BPM, sections, frames | S3a | The reel import's free prep (download, cuts, frames, transcript) | The study job (BPM, sections) and its card; the directions taking it as a guide, with the no-repeated-lines check | Next-Server (study), Next-Screens (card), Director (directions input) |
+| 5 | One cast for a pair of videos | V3a | — | **Use this look** at Assets, after Reed's OK on rule 12 | Next-Server, Next-Screens |
+| 6 | Smaller alarms: "Check the cast" on insert shots, "answer" read as a spoken line, the free clip-prompt fix with nothing to fix | — | — | Prompt and check fixes, live and Next | Director |
+
+Order: 1's S3 route and 2 (#799) first, then 3, then 4, then 5 once Reed says yes.
 
 ## Effects of changes (song ads)
 
@@ -511,4 +554,5 @@ The Designer draws it first (on the Screening room direction Reed picked); Reed 
 
 1. **Music is Suno** (Reed, 2026-10-28; MiniMax dropped). Its price per request comes from the account Reed connects; until then the buttons show the catalogue's price, and the test site runs on the free stand-in (two takes per request, like Suno).
 2. **Lip-sync without a first frame** is the spec's biggest risk. The one paid 15-second test (spec step 0) decides whether Sung shots ship as designed, or fall back to "the Singer sings in B-roll style" (picture only, no lip-sync).
-3. **Reel import of song ads** is left out (S1). Say if Reed wants it in this item.
+3. **Song-ad study** (S3a) is in, from Reed's workflow (#807 item 4). **Shared looks for a pair of videos** (V3a) needs Reed's OK on rule 12.
+4. **KIE for Suno.** Reed's workflow names KIE as the first way to reach Suno. `server/app/music.py` today says no unofficial wrapper is used until Suno's own API opens. KIE is a third party that resells Suno: Reed and the Producer decide before the adapter is written. The test site stays on the free stand-in either way.
