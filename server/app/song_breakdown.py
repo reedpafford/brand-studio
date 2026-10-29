@@ -56,25 +56,64 @@ def joined(bd: Breakdown, song: dict) -> SongBreakdown:
     return SongBreakdown.model_validate(data)
 
 
-def newest_song(db: Session, project_id: int) -> dict | None:
-    data = db.scalar(
-        select(BreakdownVersion.data).where(BreakdownVersion.project_id == project_id)
-        .order_by(BreakdownVersion.id.desc()).limit(1)
-    )  # fmt: skip
-    return (data or {}).get("song")
-
-
 @event.listens_for(BreakdownVersion, "before_insert")
 def _carry(mapper, connection, row: BreakdownVersion) -> None:
-    """A new row without a song part takes the newest row's, for the shots it keeps."""
+    """A new row without a song part (an edit, a fix, a recast) takes the newest row's, its
+    shots packed back to back over the same song, free (rule 22: an edit never leaves a gap
+    to fix by hand): see `repack`. A shot an edit brings back (Undo) gets its earlier times
+    from the rows before, so an Undo is exact."""
     if "song" in row.data:
         return
+    order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
     with Session(bind=connection) as db:
-        song = newest_song(db, row.project_id)
+        song = carried(db, row.project_id, order)
     if song:
-        kept = {s["id"] for scene in row.data["scenes"] for s in scene["shots"]}
-        shots = {k: v for k, v in song["shots"].items() if k in kept}
-        row.data = {**row.data, "song": {**song, "shots": shots}}
+        row.data = {**row.data, "song": song}
+
+
+def carried(db: Session, project_id: int, order: list[str]) -> dict | None:
+    """The song part a new plan with these shots (in order) gets from the rows before it:
+    each shot's newest time on the same take, packed back to back (`repack`)."""
+    datas = db.scalars(
+        select(BreakdownVersion.data).where(BreakdownVersion.project_id == project_id)
+        .order_by(BreakdownVersion.id.desc()).limit(HISTORY)
+    ).all()  # fmt: skip
+    songs = [d["song"] for d in datas if d.get("song")]
+    if not songs:
+        return None
+    take_id, known = songs[0]["take_id"], {}
+    for song in reversed([s for s in songs if s["take_id"] == take_id]):  # newest wins
+        known.update(song["shots"])
+    end = max(t["end"] for t in songs[0]["shots"].values())
+    timed = {sid: known[sid] for sid in order if sid in known}
+    return {"take_id": take_id, "shots": repack(order, timed, end)}
+
+
+HISTORY = 50  # rows looked back through for a shot an Undo brings back
+
+
+def repack(order: list[str], timed: dict[str, dict], end: float) -> dict[str, dict]:
+    """The shots in `order`, back to back from 0 to `end`. A timed shot keeps where it ends
+    (its place in the song); a deleted shot's time goes to the shot after it; shots with no
+    time (added by an edit) share the stretch up to the next timed shot's end."""
+    out, at, k = {}, 0.0, 0
+    while k < len(order):
+        sid = order[k]
+        if sid in timed:
+            stop = max(timed[sid]["end"] if k < len(order) - 1 else end, at)
+            out[sid] = {**timed[sid], "start": round(at, 2), "end": round(stop, 2)}
+            at, k = stop, k + 1
+            continue
+        run = k
+        while run < len(order) and order[run] not in timed:  # the untimed shots together
+            run += 1
+        stop = end if run == len(order) else timed[order[run]]["end"]
+        share = max(stop - at, 0) / (run - k + (run < len(order)))
+        for sid in order[k:run]:
+            out[sid] = {"start": round(at, 2), "end": round(at + share, 2), "sung": False}
+            at += share
+        k = run
+    return out
 
 
 def _anchors(old: dict, new: dict) -> list[tuple[float, float]]:

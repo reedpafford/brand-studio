@@ -147,3 +147,43 @@ def test_the_reflow_keeps_shots_on_their_lines():
         (17, 30),  # line 2 starts at 14 in the new take; 10 is its middle
     ]
     assert moved["1.2"]["sung"] is True
+
+
+def test_deleting_or_adding_a_shot_repacks_the_song_free_and_undo_is_exact(
+    app,
+    db,
+    owner,
+    editor,
+    song,  # noqa: F811
+):
+    import copy
+
+    video = _video(app, db, owner, editor, song)
+    original = editor.get(f"{video}/breakdown").json()
+    plan, times = original["breakdown"], original["song"]["shots"]
+    shots = plan["scenes"][0]["shots"]
+    assert len(shots) >= 3
+    gone = shots[1]["id"]
+    deleted = copy.deepcopy(plan)
+    deleted["scenes"][0]["shots"].pop(1)
+    for clip in deleted["clips"]:
+        clip["shot_ids"] = [s for s in clip["shot_ids"] if s != gone]
+    out = editor.put(f"{video}/breakdown", json=deleted).json()
+    after = out["song"]["shots"]
+    nxt = shots[2]["id"]
+    assert after[nxt]["start"] == times[gone]["start"]  # the next shot takes its time
+    assert not [p for p in out["problems"] if "back to back" in str(p)]
+
+    added = copy.deepcopy(plan)
+    extra = {**copy.deepcopy(shots[0]), "id": "1.99"}
+    added["scenes"][0]["shots"].insert(1, extra)
+    added["clips"][0]["shot_ids"].insert(1, "1.99")
+    out = editor.put(f"{video}/breakdown", json=added).json()
+    timed = out["song"]["shots"]
+    assert timed["1.99"]["end"] > timed["1.99"]["start"] == timed[shots[0]["id"]]["end"]
+    assert not [p for p in out["problems"] if "back to back" in str(p)]
+
+    back = editor.put(f"{video}/breakdown", json=plan).json()  # Undo: the plan as it was
+    assert {k: (v["start"], v["end"]) for k, v in back["song"]["shots"].items()} == {
+        k: (v["start"], v["end"]) for k, v in times.items()
+    }

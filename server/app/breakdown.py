@@ -155,7 +155,9 @@ def problems(
     if "recent" in params:  # montage variety: the brand's other videos' payoffs
         recent = recent_payoffs(db, project.brand_id, project.id, viewer=project.created_by_id)
         extra["recent"] = [a for _, actions in recent for a in actions]
-    song = song or song_breakdown.newest_song(db, project.id)
+    if song is None:  # an edit: the song part it will be saved with (song_breakdown._carry)
+        order = [s.id for scene in bd.scenes for s in scene.shots]
+        song = song_breakdown.carried(db, project.id, order)
     take = db.get(SongTake, song["take_id"]) if song else None
     if take:
         timed, timing = song_breakdown.joined(bd, song), song_breakdown.timing_used(take)
