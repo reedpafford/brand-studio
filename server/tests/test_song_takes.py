@@ -405,3 +405,28 @@ def test_a_song_videos_shots_and_clips_last_as_long_as_the_song(app, db, owner, 
     assert sum(spans) >= end and db.get(Project, pid).breakdown_seconds == sum(spans)
     stages = {s["stage"]: s for s in editor.get(f"{video}/estimate").json()["stages"]}
     assert stages["clips"]["credits"] == pytest.approx(sum(spans))  # 1 credit a second
+
+
+def test_a_song_on_a_short_model_is_split_into_clips_it_can_make(app, db, owner, song):
+    """The stand-in cuts a song's clips at the video model's longest by the song's own
+    times, so a 0:24 song on Seedance 2.0 (15 s a clip) is never one clip it can't make."""
+    from sqlalchemy import select
+
+    from app.models.breakdowns import BreakdownVersion
+
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    owner.post(f"{song}/approve")
+    owner.post(f"{song.rsplit('/drafts', 1)[0]}/publish")
+    made = owner.post(f"{song}/produce", json={"video_model": "seedance-2.0"}).json()
+    _work(app, db)  # the plan
+    _approve_plan(app, db, owner, f"/projects/{made['project_id']}")
+    mine = BreakdownVersion.project_id == made["project_id"]
+    row = db.scalars(
+        select(BreakdownVersion).where(mine).order_by(BreakdownVersion.id.desc())
+    ).first()
+    seconds = [c["seconds"] for c in row.data["clips"]]
+    end = max(t["end"] for t in row.data["song"]["shots"].values())
+    assert len(seconds) >= 2 and max(seconds) <= 15 and sum(seconds) >= end
+    assert not [p for p in row.problems if "is outside" in p]  # no clip over the limit
