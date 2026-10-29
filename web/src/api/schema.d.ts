@@ -6467,6 +6467,8 @@ export interface components {
             take_ids: number[];
             /** Out Of Date */
             out_of_date: boolean;
+            /** Song Take Id */
+            song_take_id?: number | null;
         };
         /** VideoSongIn */
         VideoSongIn: {
