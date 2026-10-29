@@ -106,7 +106,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
                 </Button>
               )}
               {t.retry_helps && !t.refused_for && (
-                <Button variant="secondary" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+                <Button variant="secondary" icon={RotateCcw} charge="fixed" price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
                   Try again
                 </Button>
               )}
@@ -115,7 +115,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
                 {t.refused_for === "words" ? "Edit lyrics" : t.refused_for === "style" ? "Edit music style" : "Edit lyrics or music style"}
               </Link>
               {t.retry_helps && t.refused_for && (
-                <Button variant="ghost" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+                <Button variant="ghost" icon={RotateCcw} charge="fixed" price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
                   Try again
                 </Button>
               )}
@@ -232,7 +232,7 @@ export function TakesStep({ script: s }: { script: Script }) {
       </div>
     ) : (
     <div className="space-y-1">
-      <Button variant={primary ? "primary" : "secondary"} icon={Music} price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+      <Button variant={primary ? "primary" : "secondary"} icon={Music} charge="fixed" price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={a.make.isPending} onClick={() => a.make.mutate()}>
         {label}
       </Button>
       {failed && <p role="alert" className={errorClass}>{failed}</p>}

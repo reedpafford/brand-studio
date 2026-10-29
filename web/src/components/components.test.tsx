@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { Clapperboard } from "lucide-react";
 import { afterEach, expect, test, vi } from "vitest";
-import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, MediaCard, Select, Sheet, SidePanel, Skeleton, StepPicker, Tabs, TextArea, ToastProvider, creditsLabel, roundUp, useToast, wholeCredits, type Step } from ".";
+import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, MediaCard, Select, Sheet, SidePanel, Skeleton, StepPicker, Tabs, TextArea, ToastProvider, creditsLabel, creditsText, pressLabel, roundUp, useToast, wholeCredits, type Step } from ".";
 
 afterEach(() => vi.useRealTimers());
 
@@ -24,10 +24,24 @@ test("prices are whole credits, rounded up, and zero is free", () => {
 });
 
 test("a paid button says its price inside", () => {
-  const { rerender } = render(<Button price={7.2}>Make the takes</Button>);
+  const { rerender } = render(<Button charge="fixed" price={7.2}>Make the takes</Button>);
   expect(screen.getByRole("button", { name: "Make the takes · 8 credits" })).toBeEnabled();
-  rerender(<Button price={0}>Make the video</Button>);
+  rerender(<Button charge="fixed" price={0}>Make the video</Button>);
   expect(screen.getByRole("button", { name: "Make the video · free" })).toBeInTheDocument();
+});
+
+test("rule 32: a press whose charge can be lower says up to; rates and totals read one decimal, rounded up", () => {
+  const { rerender } = render(<Button charge="estimate" price={2.04}>Write the script</Button>);
+  expect(screen.getByRole("button", { name: "Write the script · up to 3 credits" })).toBeInTheDocument();
+  rerender(<Button charge="estimate" price={3} usually={2}>Make the look</Button>);
+  expect(screen.getByRole("button", { name: "Make the look · up to 3 credits" })).toBeInTheDocument();
+  expect(screen.getByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
+  rerender(<Button charge="fixed" price={2.5}>Make still</Button>);
+  expect(screen.getByRole("button", { name: "Make still · 3 credits" })).toBeInTheDocument(); // a still is exact
+  expect(pressLabel(0, "estimate")).toBe("free"); // nothing to hold: never "up to free"
+  expect(creditsText(2.04)).toBe("2.1 credits");
+  expect(creditsText(0.33)).toBe("0.4 credits"); // a still's rate never reads 0
+  expect(creditsText(1)).toBe("1 credit");
 });
 
 test("a disabled button says why on the line under it, and a busy one cannot be pressed twice", async () => {
@@ -266,7 +280,7 @@ test("a banner says what happened and offers the next step; an empty state has o
       <Banner title="The breakdown didn't finish." action={<Button onClick={again}>Try again</Button>}>
         Nothing was charged.
       </Banner>
-      <EmptyState icon={Clapperboard} title="No clips yet" action={<Button price={3}>Write clip prompts</Button>}>
+      <EmptyState icon={Clapperboard} title="No clips yet" action={<Button charge="estimate" price={3}>Write clip prompts</Button>}>
         Each clip is made from its frame and the shots.
       </EmptyState>
       <Skeleton className="h-10" />
@@ -277,7 +291,7 @@ test("a banner says what happened and offers the next step; an empty state has o
   await userEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(again).toHaveBeenCalled();
   expect(screen.getByRole("heading", { name: "No clips yet" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Write clip prompts · 3 credits" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Write clip prompts · up to 3 credits" })).toBeInTheDocument();
 });
 
 const steps: Step[] = [
@@ -340,7 +354,7 @@ test("a toast stays while focus is inside it, even after the pointer leaves", as
 test("a price not known yet holds its place with a grey slot, and the press waits for it", async () => {
   const press = vi.fn();
   render(
-    <Button price={null} onClick={press}>
+    <Button charge="fixed" price={null} onClick={press}>
       Change it
     </Button>,
   );

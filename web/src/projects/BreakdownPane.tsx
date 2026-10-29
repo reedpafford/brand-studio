@@ -84,7 +84,7 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
     <Button
       variant={opts.primary ? "primary" : "secondary"}
       icon={label === "Redo" ? RotateCcw : undefined}
-      price={cost}
+      charge="estimate" price={cost}
       busy={make.isPending}
       disabled={running || asked || !!stop}
       reason={stop}

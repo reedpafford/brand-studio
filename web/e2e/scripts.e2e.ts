@@ -123,7 +123,7 @@ test("an empty script with a reel is written from the reference, at the price sh
   expect(made.ok()).toBeTruthy();
   await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=script`);
   await expect(page.getByText(/Includes finding the roles\./)).toBeVisible();
-  await page.getByRole("button", { name: /^Have Claude write it for me · \d+ credits?$/ }).click();
+  await page.getByRole("button", { name: /^Have Claude write it for me · up to \d+ credits?$/ }).click();
   await expect(page.getByLabel("Paste or write your script")).not.toHaveValue("", { timeout: 60_000 });
   // The write also found the roles, so the Cast step already has them.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();

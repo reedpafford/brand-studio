@@ -42,7 +42,7 @@ test("Directions opens with its card, the price on Suggest directions, and Next 
   open();
   expect(await screen.findByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.")).toBeInTheDocument();
   expect(await screen.findByRole("button", { name: "Next: Variations" })).toBeEnabled();
-  await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · 4 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · up to 4 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/enhance")).toBe(true));
 });
 

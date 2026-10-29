@@ -39,7 +39,7 @@ afterEach(() => vi.unstubAllGlobals());
 test("Enhance shows its cost and starts the run", async () => {
   const calls = fakeServer({ ...base, "POST /projects/9/script/enhance": [201, { id: 3, kind: "write-claude", status: "queued", credits: 3, project_id: 9 }] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · 3 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/enhance")).toBe(true));
 });
 

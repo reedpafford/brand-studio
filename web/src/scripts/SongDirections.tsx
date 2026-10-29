@@ -136,7 +136,7 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
             {job?.status === "failed" && <p role="alert" className={errorClass}>{job.reason ?? "The directions didn't finish. Nothing was charged."} You can also write your own lyrics.</p>}
             {latest.isError && <p role="alert" className={errorClass}>{latest.error.message}</p>}
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant="secondary" icon={Sparkles} price={d.directions_estimate_credits} disabled={stop !== null} reason={stop} busy={write.isPending} onClick={() => write.mutate()}>
+              <Button variant="secondary" icon={Sparkles} charge="estimate" price={d.directions_estimate_credits} disabled={stop !== null} reason={stop} busy={write.isPending} onClick={() => write.mutate()}>
                 {job?.status === "failed" ? "Try again" : any ? "Write 2 more" : "Write 2 song directions for me"}
               </Button>
               {d.directions_stop_kind === "no_facts" && stop === d.directions_stop && <Link to={`/b/${brandId}/brand`} className="text-sm underline">Open the brand page</Link>}

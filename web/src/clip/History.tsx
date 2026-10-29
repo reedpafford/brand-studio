@@ -188,7 +188,7 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
         {j.status === "failed" && j.error && <p className="text-danger">{j.error}</p>}
         <div className="flex flex-wrap items-center gap-2">
           {j.status === "failed" && (
-            <Button variant="secondary" dense price={j.credits} onClick={() => onTryAgain(j.id)}>
+            <Button variant="secondary" dense charge="fixed" price={j.credits} onClick={() => onTryAgain(j.id)}>
               Try again
             </Button>
           )}

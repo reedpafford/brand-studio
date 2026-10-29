@@ -105,7 +105,7 @@ export function DraftsPanel({
               variant={list.length ? "secondary" : "primary"}
               disabled={!!stop}
               reason={stop}
-              price={price}
+              charge="estimate" price={price}
               busy={write.isPending}
               onClick={() => write.mutate()}
             >

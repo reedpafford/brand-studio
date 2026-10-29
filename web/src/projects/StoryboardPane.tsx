@@ -12,7 +12,7 @@ import { blocking } from "./problems";
 import { refName, useRoleNames } from "./names";
 import { useProblemWords } from "./ProblemText";
 import { useOwnScriptStop } from "./useOwnScriptStop";
-import { Banner, Button, Dialog, useToast, wholeCredits } from "../components";
+import { Banner, Button, Dialog, pressLabel, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
@@ -244,7 +244,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       <Button
         variant={list.length ? "secondary" : "primary"}
         dense
-        price={makeTotal}
+        charge="estimate" price={makeTotal}
         busy={make.isPending}
         disabled={writingNow || stillOld || !!stopFor(makeTotal)}
         reason={stopFor(makeTotal)}
@@ -255,7 +255,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       {confirmRedo && (
         <Dialog
           title="Make the storyboard again?"
-          actionLabel={`${makeLabel}${makeTotal === undefined ? "" : ` · ${wholeCredits(makeTotal)} credits`}`}
+          actionLabel={`${makeLabel}${makeTotal === undefined ? "" : ` · ${pressLabel(makeTotal, "estimate")}`}`}
           danger={made > 0}
           cancelLabel="Not yet"
           onCancel={() => setConfirmRedo(false)}
@@ -311,13 +311,13 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
         )}
         <span className="flex w-full flex-wrap items-start gap-2 sm:w-auto">
           {!bar && outOfDate.length > 0 && (
-            <Button dense price={redrawCost} busy={render.isPending} disabled={redrawBlocked !== null} reason={redrawBlocked} onClick={() => void drawAll(outOfDate)}>
+            <Button dense charge="fixed" price={redrawCost} busy={render.isPending} disabled={redrawBlocked !== null} reason={redrawBlocked} onClick={() => void drawAll(outOfDate)}>
               Redraw {outOfDate.length} out-of-date still{outOfDate.length === 1 ? "" : "s"}
             </Button>
           )}
           {/* With Redraw in the bar, the missing stills that fit can still be made in one press here (grey). */}
           {(!bar || outOfDate.length > 0) && missing.length > 0 && (
-            <Button variant={outOfDate.length > 0 ? "secondary" : "primary"} dense price={allCost} busy={render.isPending} disabled={!!stopFor(allCost)} reason={stopFor(allCost)} onClick={() => void drawAll(missing)}>
+            <Button variant={outOfDate.length > 0 ? "secondary" : "primary"} dense charge="fixed" price={allCost} busy={render.isPending} disabled={!!stopFor(allCost)} reason={stopFor(allCost)} onClick={() => void drawAll(missing)}>
               Make {missing.length} still{missing.length === 1 ? "" : "s"}
             </Button>
           )}

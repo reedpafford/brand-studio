@@ -42,7 +42,7 @@ test("the script editor is open on an empty script, with Have Claude write it fo
   setViewport(1440);
   const calls = fakeServer(base({ "POST /scripts/7/write": [201, { id: 90, kind: "write-claude", status: "queued", script_id: 7 }] }));
   open();
-  const write = await screen.findByRole("button", { name: "Have Claude write it for me · 6 credits" });
+  const write = await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" });
   expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
   expect(screen.queryByRole("switch")).toBeNull();
   expect(screen.getByText(/Includes finding the roles\./)).toBeInTheDocument();
@@ -56,7 +56,7 @@ test("a script with a reference reel keeps the same-style switch, saved before w
   setViewport(1440);
   const calls = fakeServer(base({ "GET /scripts/7": [200, script({ reference_id: "altar" })], "PATCH /scripts/7": [200, script({ reference_id: "altar", new_lines: true })] }));
   open();
-  expect(await screen.findByRole("button", { name: "Have Claude write it for me · 6 credits" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" })).toBeInTheDocument();
   expect(screen.getByText("Keeps the reel's lines word for word and rewrites only what the brand swap needs.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("switch", { name: "Write new lines in the same style" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ new_lines: true }));
@@ -67,7 +67,7 @@ test("an editor past this week's allowance gets a disabled button and the reason
   setViewport(1440);
   fakeServer(base({ "GET /auth/me": [200, editor], "GET /scripts/7": [200, script({ created_by_id: 2 })], "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }] }));
   open();
-  const write = await screen.findByRole("button", { name: "Have Claude write it for me · 6 credits" });
+  const write = await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" });
   await vi.waitFor(() => expect(write).toBeDisabled());
   expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday.");
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
@@ -78,7 +78,7 @@ test("a write that didn't finish says so, says credits came back, and offers Try
   fakeServer(base({ "GET /jobs": [200, [{ id: 90, kind: "write-claude", status: "failed", script_id: 7 }]] }));
   open();
   expect(await screen.findByText("The last try didn't finish. Credits were returned.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Try again · 6 credits" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Try again · up to 6 credits" })).toBeEnabled();
   expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
 });
 
@@ -93,7 +93,7 @@ test("a script that already has words shows them in the editor; Claude's draft a
   const calls = fakeServer(routes);
   open();
   expect(await screen.findByLabelText("Paste or write your script")).toHaveValue("BO: Salmon?");
-  await userEvent.click(await screen.findByRole("button", { name: "Have Claude write it for me · 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" }));
   expect(await screen.findByRole("alertdialog", { name: "Write a new script?" })).toBeInTheDocument();
   phase = 1; // the job is done by the time the list is read again
   await userEvent.click(screen.getByRole("button", { name: "Write it" }));
@@ -108,7 +108,7 @@ test("an imported reel that isn't read yet offers Read this reel, never Have Cla
   const reel = { script_id: 7, status: "ready", source: "link", url: "https://www.instagram.com/reel/Abc123/", seconds: 45, shots: 50, transcript: [], video_file_id: 3, contact_file_id: 4, problem: "", problem_code: null, estimate: { credits: 7, credits_left: null } };
   fakeServer(base({ "GET /scripts/7": [200, script({ reel_imported: true })], "GET /scripts/7/import": [200, reel] }));
   open();
-  expect((await screen.findAllByRole("button", { name: "Read this reel · 7 credits" })).length).toBeGreaterThan(0);
+  expect((await screen.findAllByRole("button", { name: "Read this reel · up to 7 credits" })).length).toBeGreaterThan(0);
   expect(screen.queryByText(/Have Claude write it/)).toBeNull();
   expect(screen.queryByRole("button", { name: /^Have Claude write it/ })).toBeNull();
   expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
@@ -119,7 +119,7 @@ test("a script with a reel that is not read yet (reel_imported still false) show
   const reel = { steps_done: [], script_id: 7, status: "ready", source: "link", url: "https://www.instagram.com/reel/Abc123/", seconds: 45, shots: 50, transcript: [], video_file_id: 3, contact_file_id: 4, problem: "", problem_code: null, estimate: { credits: 7, credits_left: null } };
   fakeServer(base({ "GET /scripts/7/import": [200, reel] }));
   open();
-  expect((await screen.findAllByRole("button", { name: "Read this reel · 7 credits" })).length).toBeGreaterThan(0);
+  expect((await screen.findAllByRole("button", { name: "Read this reel · up to 7 credits" })).length).toBeGreaterThan(0);
   expect(screen.queryByRole("button", { name: /Have Claude write it/ })).toBeNull();
 });
 
@@ -207,5 +207,5 @@ test("a draft made by Bulk create opens on the Script screen with its descriptio
   open();
   expect(await screen.findByLabelText("Paste or write your script")).toBeInTheDocument();
   expect(screen.getByText(/Bo meets a kitten\./)).toBeInTheDocument(); // in About's line
-  expect(await screen.findByRole("button", { name: "Have Claude write it for me · 6 credits" })).toBeEnabled();
+  expect(await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" })).toBeEnabled();
 });

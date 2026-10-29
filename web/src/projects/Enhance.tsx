@@ -192,7 +192,7 @@ export function EnhanceBar({ e, stop }: { e: EnhanceState; stop?: string | null 
         <Button
           variant="secondary"
           icon={Sparkles}
-          price={e.cost}
+          charge="estimate" price={e.cost}
           disabled={e.running || e.start.isPending || !!stop}
           reason={stop}
           onClick={() => (pending === 0 || window.confirm(`Replace the ${pending} waiting suggestions?`)) && e.start.mutate()}

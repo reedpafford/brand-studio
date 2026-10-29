@@ -213,7 +213,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
             <TextArea label="Direction (optional)" rows={2} maxLength={2000} placeholder="e.g. swap the altar for a car showroom; keep the payoff about money" value={note} onChange={(e) => setNote(e.target.value)} />
             {error && <p role="alert" className={errorClass}>{error.message}</p>}
             <p className="text-sm text-muted">Writing variations makes A's words final.</p>
-            <Button busy={act.write.isPending} price={price.data} disabled={stop !== null} reason={stop} onClick={() => act.write.mutate({ slots: count === 1 ? [1] : [1, 2], note })}>
+            <Button busy={act.write.isPending} charge="estimate" price={price.data} disabled={stop !== null} reason={stop} onClick={() => act.write.mutate({ slots: count === 1 ? [1] : [1, 2], note })}>
               Write {count} variation{count === 1 ? "" : "s"}
             </Button>
           </>
@@ -388,7 +388,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
               </Menu>
             )}
             {asking === null && (
-              <Button variant="ghost" icon={RotateCcw} price={price} busy={writing} disabled={act.writing || stop !== null} reason={stop} onClick={() => setAsking("")}>
+              <Button variant="ghost" icon={RotateCcw} charge="estimate" price={price} busy={writing} disabled={act.writing || stop !== null} reason={stop} onClick={() => setAsking("")}>
                 Regenerate
               </Button>
             )}
@@ -397,7 +397,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
             <div className="space-y-2">
               <TextArea label="What should change? (optional)" rows={2} maxLength={2000} value={asking} onChange={(e) => setAsking(e.target.value)} />
               <div className="flex gap-2">
-                <Button icon={RotateCcw} busy={act.write.isPending || writing} disabled={act.writing || stop !== null} reason={stop} price={price} onClick={() => regenerate(asking)}>
+                <Button icon={RotateCcw} busy={act.write.isPending || writing} disabled={act.writing || stop !== null} reason={stop} charge="estimate" price={price} onClick={() => regenerate(asking)}>
                   Regenerate
                 </Button>
                 <Button variant="ghost" onClick={() => setAsking(null)}>

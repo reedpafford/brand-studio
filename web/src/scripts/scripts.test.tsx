@@ -1148,7 +1148,7 @@ test("Read it again opens a panel with the note box and the price first, sends t
   await userEvent.click(await screen.findByRole("button", { name: "Read it again" }));
   const panel = await screen.findByRole("dialog", { name: "Read it again" });
   await userEvent.type(within(panel).getByLabelText("What did it get wrong? (optional)"), "shot 3 is the groom");
-  await userEvent.click(within(panel).getByRole("button", { name: "Read it again · 7 credits" }));
+  await userEvent.click(within(panel).getByRole("button", { name: "Read it again · up to 7 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/import/read-again")?.body).toEqual({ note: "shot 3 is the groom" }));
   expect(await screen.findByRole("list", { name: "Reading the reel" })).toBeInTheDocument();
 });

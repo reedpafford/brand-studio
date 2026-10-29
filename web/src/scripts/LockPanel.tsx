@@ -66,7 +66,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
                 {status === "none" && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted">No approved sheet yet</p>
-                    <Button variant="secondary" dense className="w-full" price={cost} busy={make.isPending && make.variables?.id === c.id} disabled={stop !== null || make.isPending} reason={stop} onClick={() => make.mutate(c)}>
+                    <Button variant="secondary" dense className="w-full" charge="estimate" price={cost} busy={make.isPending && make.variables?.id === c.id} disabled={stop !== null || make.isPending} reason={stop} onClick={() => make.mutate(c)}>
                       Make sheet
                     </Button>
                   </div>
