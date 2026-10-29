@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Palette } from "lucide-react";
+import { api, errorText, must } from "../api/client";
+import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Button, Card, Panel, Skeleton } from "../components";
@@ -8,29 +10,17 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
 /** A look: how the pictures are drawn (flows ST1; Next-Server's GET /looks, #873). House first, then Reed's order. */
-export type Look = { id: string; name: string; blurb: string; on: boolean; sample_still_id?: number | null; sample_clip_id?: number | null };
+export type Look = components["schemas"]["LookOut"];
 
-// The routes are Next-Server's #873; until they are in the generated schema they are called with fetch.
-async function call<T>(method: "GET" | "PATCH", path: string, body?: object): Promise<T> {
-  const r = await fetch(`${location.origin}/api${path}`, { method, credentials: "include", ...(body ? { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } } : {}) });
-  if (!r.ok) {
-    const detail = await r.json().then((j: { detail?: unknown }) => j.detail, () => null);
-    throw Object.assign(new Error(typeof detail === "string" ? detail : "That didn't go through. Nothing changed; try again."), { status: r.status });
-  }
-  return (r.status === 204 ? null : await r.json()) as T;
-}
-
-/** The looks, or null where the server doesn't offer them yet (the pickers stay hidden: never a press with nothing behind it). */
+/** The looks, or null where the server doesn't offer them (the pickers stay hidden: never a press with nothing behind it). */
 export function useLooks() {
   return useQuery({
     queryKey: ["looks"],
     queryFn: async () => {
-      try {
-        return await call<Look[]>("GET", "/looks");
-      } catch (e) {
-        if ((e as { status?: number }).status === 404) return null;
-        throw e;
-      }
+      const { data, error, response } = await api.GET("/looks");
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(errorText(error));
+      return data ?? null;
     },
     staleTime: 60_000,
   });
@@ -75,13 +65,13 @@ function LookPicker({ current, looks, onPick, busy, error, onClose }: { current:
 }
 
 /** "Look: House ▾" for a script or a video: opens the picker, saves at once (free) with Undo. Read only once published. Hidden until the server offers looks. */
-export function LookSetting({ value, path, queryKey, readOnly }: { value: string | null | undefined; path: string; queryKey: unknown[]; readOnly?: boolean }) {
+export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: string | null | undefined; scriptId: number; queryKey: unknown[]; readOnly?: boolean }) {
   const looks = useLooks();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const save = useMutation({
-    mutationFn: (look: string) => call("PATCH", path, { look }),
+    mutationFn: (look: string) => must(api.PATCH("/scripts/{script_id}", { params: { path: { script_id: scriptId } }, body: { look } })),
     onSuccess: async (_r, look) => {
       await queryClient.invalidateQueries({ queryKey });
       return look;

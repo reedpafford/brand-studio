@@ -13,7 +13,7 @@ def test_create_and_edit_kit(owner, editor):
     assert r.status_code == 201
     brand = r.json()
     assert brand["slug"] == "night-owl"
-    r = editor.patch(
+    r = editor.patch(  # what editors edited before BR1 they still may
         f"/brands/{brand['id']}",
         json={
             "logo_file_id": logo,

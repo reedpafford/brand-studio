@@ -20,6 +20,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import brand_setup
 from app.filetypes import matches
 from app.models.accounts import Workspace
 from app.models.brands import Brand, BrandScreen
@@ -49,17 +50,11 @@ def seed_brands(db: Session, workspace_id: int, storage: Storage, assets_dir: st
         brand = db.scalar(
             select(Brand).where(Brand.workspace_id == workspace_id, Brand.slug == slug)
         )
-        if brand and not brand.end_line and END_LINES.get(name):
-            brand.end_line = END_LINES[name]  # a brand made before end lines existed
         if not brand:
-            db.add(
-                Brand(
-                    workspace_id=workspace_id,
-                    name=name,
-                    slug=slug,
-                    end_line=END_LINES.get(name, ""),
-                )
-            )
+            brand = Brand(workspace_id=workspace_id, name=name, slug=slug, cta_lines=[])
+            db.add(brand)
+        if not brand.cta_lines and END_LINES.get(name):  # never had one (a deleted one stays gone)
+            brand_setup.add_line(brand, END_LINES[name])
     db.commit()
     for name, folder in LAUNCH_BRANDS.items():
         screens = Path(assets_dir) / folder / "screens" if assets_dir else None
