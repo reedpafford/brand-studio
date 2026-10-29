@@ -829,8 +829,9 @@ export interface paths {
         put?: never;
         /**
          * Cancel Job
-         * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled: by
-         *     whoever asked for it, whoever made its video, or the owner.
+         * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
+         *     team may cancel any of them, except a video's: whoever made the video, whoever asked for
+         *     the job, or the owner (as every change to a video).
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
         delete?: never;
