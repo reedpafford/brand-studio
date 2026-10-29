@@ -260,6 +260,10 @@ def edit(
     if plan is None:
         raise HTTPException(404, "This video has no plan yet.")
     stars = plans.job_input(db, project, version)["stars"]
+    if not stars and any(x.star and not x.product for s in body.scenes for x in s.lines):
+        raise HTTPException(  # never drop a ★ silently (QA-2)
+            409, "This brand has no product or screen to show yet. Add one to the brand first."
+        )
     scenes = [PlanScene(id=i, part=s.part, place=" — ".join(x for x in (s.place, s.time) if x),
                         cast=s.cast_ids,
                         lines=[PlanLine(line=x.n, action=x.action,

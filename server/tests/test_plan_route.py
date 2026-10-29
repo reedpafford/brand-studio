@@ -82,6 +82,13 @@ def test_write_it_myself_earlier_plans_stop_and_the_time_limit(app, db, editor, 
     url = f"/projects/{pid}/plan"
     mine = editor.post(f"{url}/by-hand").json()
     assert mine["source"] == "hand"
+    from app.models.brands import BrandScreen
+
+    db.query(BrandScreen).delete()  # a brand with no product or screen yet
+    db.commit()
+    starred = [{**s, "lines": [{**x, "star": True} for x in s["lines"]]} for s in mine["scenes"]]
+    r = editor.put(url, json={"scenes": starred})
+    assert r.status_code == 409 and "Add one to the brand first" in r.json()["detail"]  # QA-2
     assert [x["action"] for x in mine["scenes"][0]["lines"]] == [""] * 3  # cards to fill in
     assert editor.post(f"{url}/approve").json()["detail"] == "Give every line an action first."
     job = editor.post(url, json={"note": "funnier"}).json()
