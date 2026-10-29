@@ -43,8 +43,11 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
   const restore = useMutation({
     mutationFn: () => must(api.POST("/projects/{project_id}/restore", { params: { path: { project_id: m.project_id! } } })),
     onSuccess: () => {
-      toast(`${m.video_name ?? "The video"} is back.`);
-      return queryClient.invalidateQueries({ queryKey: ["media"] });
+      const refresh = () => queryClient.invalidateQueries({ queryKey: ["media"] });
+      // Undo puts it back as it was, free: released again (its version back to Ready to make), or deleted again.
+      const again = m.deleted_video_released ? "/projects/{project_id}/release" : "/projects/{project_id}/archive";
+      toast(`${m.video_name ?? "The video"} is back.`, () => void must(api.POST(again, { params: { path: { project_id: m.project_id! } } })).then(refresh, (e: Error) => toast(e.message, undefined, "error")));
+      return refresh();
     },
     onError: (e: Error) => toast(e.message, undefined, "error"),
   });

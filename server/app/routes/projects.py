@@ -94,6 +94,7 @@ class ProjectOut(BaseModel):
     created_by_id: int | None  # who asked (for the owner's Approvals list)
     created_by_name: str
     script_draft_id: int | None = None  # made from a library version; null: an earlier-style video
+    released: bool = False  # archived by Release: its version went back to Ready to make
     own_script: bool = False  # from a script the viewer wrote: it runs on their weekly allowance
     archived_at: UtcTime | None = None  # put away; POST .../unarchive brings it back
     finished_at: UtcTime | None = None  # "Video done": the whole video was downloaded
@@ -181,6 +182,7 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         created_by_id=project.created_by_id,
         created_by_name=user_name(db, project.created_by_id),
         script_draft_id=project.script_draft_id,
+        released=project.released_draft_id is not None,
         own_script=own_script(db, project, user),
         archived_at=project.archived_at,
         finished_at=project.finished_at,

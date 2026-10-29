@@ -7,7 +7,7 @@ import { Dialog, Menu, MenuItem } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
-export type VideoTarget = { id: number; name: string; letter?: string; creditsUsed: number };
+export type VideoTarget = { id: number; name: string; letter?: string; creditsUsed: number; released?: boolean };
 
 /** Reed on any video; an editor on the ones they made. */
 export function useMayManageVideo() {
@@ -50,7 +50,13 @@ export function useVideoActions(onGone?: (kind: "release" | "archive") => void) 
     const { error, response } = await api.POST("/projects/{project_id}/restore", { params: { path: { project_id: t.id } } });
     if (!response.ok) return toast(errorText(error), undefined, "error");
     await refresh();
-    toast(`Brought back "${t.name}".`);
+    // Undo puts it back as it was: released again (its version back to Ready to make) or archived again. Free.
+    toast(`Brought back "${t.name}".`, async () => {
+      const { error, response } = await api.POST(t.released ? "/projects/{project_id}/release" : "/projects/{project_id}/archive", { params: { path: { project_id: t.id } } });
+      if (!response.ok) return toast(errorText(error) || `Couldn't put "${t.name}" back.`, undefined, "error");
+      await refresh();
+      toast(t.released ? `${t.letter ? `Version ${t.letter}` : "The version"} is ready to make again.` : `Archived "${t.name}".`, undo(t));
+    });
   };
   const dialog = ask && (
     <Dialog

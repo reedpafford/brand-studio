@@ -119,6 +119,26 @@ test("a deleted video's media names its maker; the owner can restore the video, 
   expect(await screen.findByText("Bo tries salmon is back.")).toBeInTheDocument();
 });
 
+test("Restore on Media has Undo: it deletes the video again, the same press as Delete", async () => {
+  setViewport(390);
+  const calls = fakeServer(base(owner, page([item({ from_deleted_video: true, deleted_video_by: { id: 3, name: "Sam" } })]), { "POST /projects/9/restore": [200, {}], "POST /projects/9/archive": [200, {}] }));
+  open();
+  await userEvent.click(await within(await screen.findByRole("list", { name: "Media" })).findByRole("button", { name: "Restore the video" }));
+  await screen.findByText("Bo tries salmon is back.");
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/archive")).toBe(true));
+});
+
+test("Restore on Media of a released video has Undo that releases it again, so its version is back to Ready to make", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base(owner, page([item({ from_deleted_video: true, deleted_video_by: { id: 3, name: "Sam" }, deleted_video_released: true })]), { "POST /projects/9/restore": [200, {}], "POST /projects/9/release": [200, {}] }));
+  open();
+  await userEvent.click(await within(await screen.findByRole("list", { name: "Media" })).findByRole("button", { name: "Restore the video" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/release")).toBe(true));
+  expect(calls.some((c) => c.key === "POST /projects/9/archive")).toBe(false);
+});
+
 test("the video's maker can restore it from Media too, even on a take someone else made in it", async () => {
   setViewport(390);
   const calls = fakeServer(base(editor, page([item({ from_deleted_video: true, made_by: { id: 3, name: "Sam" }, deleted_video_by: { id: 2, name: "Eli" } })]), { "POST /projects/9/restore": [200, {}] }));
