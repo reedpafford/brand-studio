@@ -47,6 +47,8 @@ class KieSuno:
 
     def submit(self, kind: str, input: dict) -> str:
         """`input` is music.job's: {"input": {lyrics, style, exclude_styles, instrumental}}."""
+        if not input.get("kie"):  # queued before real songs were on: never sung for real
+            raise RuntimeError("Not a real-song request; make it again.")
         song = input["input"]
         title = (sung_lines(song["lyrics"]) or ["Song"])[0][:80]  # Custom mode needs one
         body = {"model": MODEL, "input": {

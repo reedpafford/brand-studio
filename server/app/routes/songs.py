@@ -62,10 +62,8 @@ class SongPreferredOut(BaseModel):
 
 def songs_on(request: Request) -> bool:
     """The stand-ins, or Suno through KIE once Reed switches it on (app/providers/kie.py)."""
-    from app.providers import kie_on
-
     settings = request.app.state.settings
-    return bool(settings.fake_providers or kie_on(settings))
+    return bool(settings.fake_providers or settings.kie_suno)
 
 
 def _refused_for(reason: str | None) -> str | None:
@@ -144,7 +142,7 @@ def make_songs(
     if not songs_on(request):
         raise HTTPException(503, SONGS_OFF)
     draft = _song(db, user, script_id, slot, edit=True)
-    song_takes.make(db, user, draft)
+    song_takes.make(db, user, draft, kie=song_takes.real_songs(db, request.app.state.settings))
     return _songs(request, db, user, draft)
 
 
@@ -173,7 +171,9 @@ def try_again(
     if not songs_on(request):
         raise HTTPException(503, SONGS_OFF)
     take, draft = _get_take(db, user, take_id)
-    song_takes.try_again(db, user, take)
+    paid = song_takes.state(db, take)[0] == "failed"  # a timing is read again free
+    kie = paid and song_takes.real_songs(db, request.app.state.settings)
+    song_takes.try_again(db, user, take, kie=kie)
     return _take_out(db, take, draft)
 
 
@@ -275,7 +275,7 @@ def make_video_songs(
     if not songs_on(request):
         raise HTTPException(503, SONGS_OFF)
     project, draft = _song_video(db, user, project_id)
-    song_takes.make(db, user, draft, project)
+    song_takes.make(db, user, draft, project, song_takes.real_songs(db, request.app.state.settings))
     return _video_songs(request, db, user, project, draft)
 
 
