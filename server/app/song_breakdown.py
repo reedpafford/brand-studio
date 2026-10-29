@@ -13,6 +13,7 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from app.models.breakdowns import BreakdownVersion
+from app.models.clips import ProjectClip
 from app.models.projects import Project
 from app.models.songs import SongTake
 from app.prompts.schemas import Breakdown, SongBreakdown
@@ -69,6 +70,27 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
         song = carried(db, row.project_id, order)
     if song:
         row.data = {**row.data, "song": song}
+
+
+def slice_of(data: dict, clip_id: str) -> dict | None:
+    """The piece of the song a clip of this plan covers: {start, end, sung_shots} (V6)."""
+    song = data.get("song")
+    shots = next((c["shot_ids"] for c in data.get("clips", []) if c["id"] == clip_id), [])
+    timed = [(s, song["shots"][s]) for s in shots if song and s in song["shots"]]
+    if not timed:
+        return None
+    return {"start": min(t["start"] for _, t in timed), "end": max(t["end"] for _, t in timed),
+            "sung_shots": [s for s, t in timed if t.get("sung")]}  # fmt: skip
+
+
+@event.listens_for(ProjectClip, "before_insert")
+@event.listens_for(ProjectClip, "before_update")
+def _slice(mapper, connection, clip: ProjectClip) -> None:
+    """A clip's song slice follows the breakdown row it's made from, whichever route set it."""
+    if clip.breakdown_id:
+        data = connection.scalar(select(BreakdownVersion.data)
+                                 .where(BreakdownVersion.id == clip.breakdown_id))  # fmt: skip
+        clip.song_slice = slice_of(data or {}, clip.clip_id)
 
 
 def carried(db: Session, project_id: int, order: list[str]) -> dict | None:

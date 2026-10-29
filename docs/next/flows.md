@@ -527,7 +527,7 @@ It never blocks, never redoes anything on its own, and never changes an approval
 - **Look** is how the pictures are drawn: **House** (the default, our current look), **Disney Pixar**, **Zack D** or **Skeleton**, then the rest in Reed's order.
 - Any format goes with any look. "Song" is no longer in the styles list, and no look is "narrated" any more: narration is the Narrated format.
 
-A look is a config file in a `looks/` folder, not code. A look is **On** (editors can pick it) only after Reed has approved a sample. Below, "style" in ST2 and ST3 means a look.
+A look is a config file (in `server/app/prompts/styles/`, kind: look), not code. A look is **On** (editors can pick it) only after Reed has approved a sample. Below, "style" in ST2 and ST3 means a look.
 
 ## ST0. Changing the format (before publishing)
 
