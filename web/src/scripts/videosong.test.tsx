@@ -29,7 +29,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 test("the strip shows the video's song with Change song; Use this take asks first when shots exist, then has Undo", async () => {
   setViewport(1440);
-  const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: false, seconds: 28 })])], "PUT /projects/5/song": [200, { song_take_id: 2, was_song_take_id: 1 }] });
+  const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: false, seconds: 28, video_credits: 33.73 })])], "PUT /projects/5/song": [200, { song_take_id: 2, was_song_take_id: 1 }] });
   show();
   expect(await screen.findByText("Song: Take 1 · 0:31")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Change song" }));

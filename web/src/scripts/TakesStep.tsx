@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Ellipsis, Music, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Badge, Banner, Button, Card, Dialog, EmptyState, Menu, MenuItem, Skeleton, buttonClass } from "../components";
+import { Badge, Banner, Button, Card, Dialog, EmptyState, Menu, MenuItem, Skeleton, buttonClass, wholeCredits } from "../components";
 import { serverTime } from "../time";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
@@ -32,7 +32,11 @@ function Making() {
 }
 
 /** "· a video of about 40 credits": what this take's length means for a video (flows S4, V2a). */
-export const videoCost = (t: SongTake) => (t.video_credits != null ? ` · a video of about ${t.video_credits} credit${t.video_credits === 1 ? "" : "s"}` : "");
+export const videoCost = (t: SongTake) => {
+  if (t.video_credits == null) return "";
+  const c = wholeCredits(t.video_credits); // the server's figure can be fractional
+  return ` · a video of about ${c} credit${c === 1 ? "" : "s"}`;
+};
 
 /** One take: its player, its state in words, and the press each state needs (flows S4). */
 /** A failed request is made again for both its takes, so Try again costs a whole request (`requestPrice`). A timing failure that a retry can't fix leads to the other take or to Make 2 more under the cards. */
