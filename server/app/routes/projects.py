@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import brand_setup, looks, narration, needs_you, plans, reference
+from app import brand_setup, folders, looks, narration, needs_you, plans, reference
 from app.auth import current_user, owner_only, user_name
 from app.credits import credits_used, get_limits, lock, over_cap, own_script, price
 from app.db import get_db, utcnow
@@ -64,6 +64,7 @@ class ProjectPatch(BriefPatch):
 
 class ProjectOut(BaseModel):
     id: int
+    folder_id: int | None = None  # its project (OR1); null: No project
     plan_status: str = (
         "none"  # 1b: none, ready or approved (the Plan step, "Approve the plan first")
     )
@@ -147,6 +148,7 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
     return ProjectOut(
         final_out_of_date=project.id in (out_of_date(db, [project]) if old is None else old),
         id=project.id,
+        folder_id=project.live_folder_id,
         brand_id=project.brand_id,
         name=project.name,
         song=_is_song(db, project),
@@ -238,6 +240,7 @@ def list_projects(
     q: str = "",  # in the video's name (a script's title, and its version's)
     mine: bool = False,  # only the videos the caller started
     status: Literal["making", "done", "needs_you"] | None = None,  # done: "Video done"
+    folder: str | None = None,  # OR1: a project's id, or "none" for No project
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -247,6 +250,8 @@ def list_projects(
     )
     if brand_id is not None:
         query = query.where(Project.brand_id == brand_id)
+    if (filed := folders.where(Project.folder_id, folder)) is not None:
+        query = query.where(filed)
     if q.strip():
         query = query.where(Project.name.ilike(f"%{q.strip()}%"))
     if mine:

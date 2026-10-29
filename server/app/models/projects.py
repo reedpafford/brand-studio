@@ -8,6 +8,7 @@ from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, object_session
 
 from app.db import Base, Entity
+from app.models.folders import Filed
 
 PRE_BREAKDOWN_SECONDS = 15  # before any breakdown: the length the budget plans for
 
@@ -17,8 +18,9 @@ class ProjectStatus(StrEnum):
     needs_owner_approval = "needs_owner_approval"  # planned length over the editor limit
 
 
-class Project(Entity, Base):
+class Project(Filed, Entity, Base):
     __tablename__ = "projects"
+    folder_id: Mapped[int | None] = mapped_column(ForeignKey("folders.id"), index=True)  # OR1
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
     name: Mapped[str] = mapped_column(String(120))

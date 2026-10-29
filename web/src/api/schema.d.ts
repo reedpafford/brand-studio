@@ -297,6 +297,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brands/{brand_id}/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Folders
+         * @description The brand's projects, by name; "No project" is always there and isn't listed.
+         */
+        get: operations["list_folders_brands__brand_id__folders_get"];
+        put?: never;
+        /** Make Folder */
+        post: operations["make_folder_brands__brand_id__folders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/folders/{folder_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Folder
+         * @description Its items move to No project; nothing inside is deleted. Undo: POST …/restore.
+         */
+        delete: operations["delete_folder_folders__folder_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Folder */
+        patch: operations["rename_folder_folders__folder_id__patch"];
+        trace?: never;
+    };
+    "/folders/{folder_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Folder */
+        post: operations["restore_folder_folders__folder_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/folders/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * File Item
+         * @description Project: none ▾ → picked: filed (toast, Undo files it back to was_folder_id).
+         */
+        post: operations["file_item_folders_file_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/brands": {
         parameters: {
             query?: never;
@@ -5127,6 +5206,11 @@ export interface components {
             /** Default */
             default?: boolean | null;
         };
+        /** DeletedOut */
+        DeletedOut: {
+            /** Moved */
+            moved: number;
+        };
         /** DialogueLine */
         DialogueLine: {
             /** Line */
@@ -5267,6 +5351,18 @@ export interface components {
             /** Inferred */
             inferred: boolean;
         };
+        /** FileIn */
+        FileIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "script" | "video" | "clip";
+            /** Id */
+            id: number;
+            /** Folder Id */
+            folder_id: number | null;
+        };
         /** FileOut */
         FileOut: {
             /** Id */
@@ -5282,6 +5378,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** FiledOut */
+        FiledOut: {
+            /** Folder Id */
+            folder_id: number | null;
+            /** Was Folder Id */
+            was_folder_id: number | null;
         };
         /** FindingOut */
         FindingOut: {
@@ -5341,6 +5444,25 @@ export interface components {
             label: string;
             /** Findings */
             findings: number;
+        };
+        /** FolderIn */
+        FolderIn: {
+            /** Name */
+            name: string;
+        };
+        /** FolderOut */
+        FolderOut: {
+            /** Id */
+            id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Name */
+            name: string;
+            /** Created By Id */
+            created_by_id: number | null;
+            items: components["schemas"]["Items"];
+            /** Can Manage */
+            can_manage: boolean;
         };
         /** FrameIn */
         FrameIn: {
@@ -5755,6 +5877,15 @@ export interface components {
             /** Main Claim */
             main_claim?: string | null;
         };
+        /** Items */
+        Items: {
+            /** Scripts */
+            scripts: number;
+            /** Videos */
+            videos: number;
+            /** Clips */
+            clips: number;
+        };
         /**
          * JobDetailOut
          * @description Owner-only: includes the provider's raw error text and the cost in dollars (what was
@@ -5767,6 +5898,8 @@ export interface components {
             kind: string;
             /** Project Id */
             project_id: number | null;
+            /** Folder Id */
+            folder_id?: number | null;
             /** Credits */
             credits: number;
             status: components["schemas"]["JobStatus"];
@@ -5851,6 +5984,8 @@ export interface components {
             kind: string;
             /** Project Id */
             project_id: number | null;
+            /** Folder Id */
+            folder_id?: number | null;
             /** Credits */
             credits: number;
             status: components["schemas"]["JobStatus"];
@@ -6578,6 +6713,8 @@ export interface components {
         ProjectOut: {
             /** Id */
             id: number;
+            /** Folder Id */
+            folder_id?: number | null;
             /**
              * Plan Status
              * @default none
@@ -7112,6 +7249,8 @@ export interface components {
         ScriptRow: {
             /** Id */
             id: number;
+            /** Folder Id */
+            folder_id?: number | null;
             /** Brand Id */
             brand_id: number;
             /** Title */
@@ -8001,6 +8140,8 @@ export interface components {
         UsageScript: {
             /** Id */
             id: number;
+            /** Folder Id */
+            folder_id?: number | null;
             /** Brand Id */
             brand_id: number;
             /** Title */
@@ -8437,6 +8578,8 @@ export interface components {
         app__routes__script_library__ScriptOut: {
             /** Id */
             id: number;
+            /** Folder Id */
+            folder_id?: number | null;
             /** Brand Id */
             brand_id: number;
             /** Title */
@@ -9287,6 +9430,202 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                     "application/octet-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_folders_brands__brand_id__folders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_folder_brands__brand_id__folders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_folder_folders__folder_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folder_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_folder_folders__folder_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folder_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_folder_folders__folder_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folder_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_item_folders_file_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FiledOut"];
                 };
             };
             /** @description Validation Error */
@@ -10186,6 +10525,7 @@ export interface operations {
                 status?: components["schemas"]["JobStatus"] | null;
                 q?: string;
                 removed?: boolean;
+                folder?: string | null;
             };
             header?: never;
             path?: never;
@@ -10707,6 +11047,7 @@ export interface operations {
                 q?: string;
                 mine?: boolean;
                 status?: ("making" | "done" | "needs_you") | null;
+                folder?: string | null;
             };
             header?: never;
             path?: never;
@@ -11927,6 +12268,7 @@ export interface operations {
                 min_seconds?: number | null;
                 max_seconds?: number | null;
                 removed?: boolean;
+                folder?: string | null;
             };
             header?: never;
             path?: never;
