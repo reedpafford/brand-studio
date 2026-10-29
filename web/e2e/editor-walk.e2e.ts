@@ -113,13 +113,13 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
   if (await btn(ed, /^Write clip prompts/).count()) if (!(await clickWhenOn(ed, /^Write clip prompts/, 20_000))) { await block(ed, `${tag} clips`, "Write clip prompts not on"); return; }
   await expect(ed.getByRole("listitem", { name: /^Clip c1$/ })).toBeVisible({ timeout: 60_000 }).catch(async () => block(ed, `${tag} clips`, "no clips listed"));
   await ed.waitForTimeout(2000);
-  for (const b of await ed.getByRole("button", { name: /^Prompt for c\d+ looks good$/ }).all()) await b.click().catch(() => {});
+  for (const b of await ed.getByRole("button", { name: /^Prompt OK for c\d+$/ }).all()) await b.click().catch(() => {});
   await ed.waitForTimeout(1500);
   await state(ed, `${tag} clips read`);
   if (await btn(ed, /^Make the takes/).count()) { if (!(await clickWhenOn(ed, /^Make the takes/, 20_000))) await block(ed, `${tag} clips`, "Make the takes not on"); }
   else for (const b of await ed.locator("main").getByRole("button", { name: /^Make clip/ }).all()) await b.click().catch(() => {});
   if (!(await clickWhenOn(ed, /^Approve all$|^Approve \d+$/, 180_000))) {
-    const each = ed.getByRole("button", { name: "✓ Looks good" });
+    const each = ed.getByRole("button", { name: "Approve take" });
     if (await each.count()) for (const b of await each.all()) await b.click().catch(() => {});
     else await block(ed, `${tag} clips`, "no way to approve takes");
   }

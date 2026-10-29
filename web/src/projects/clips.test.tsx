@@ -80,7 +80,7 @@ test("clip cards show their status in words, with the frame as the poster and co
   expect(within(first).getByAltText("Storyboard frame for clip c1")).toHaveAttribute("src", "/api/files/40");
   expect(within(first).getByRole("button", { name: "Make clip · 24 credits" })).toBeInTheDocument(); // 8 s × 3
   const second = screen.getByLabelText("Clip c2");
-  expect(within(second).getByText("Ready")).toBeInTheDocument();
+  expect(within(second).getByText("Take 1 · ready to check")).toBeInTheDocument();
   expect(within(second).getByRole("button", { name: "Make another take · 18 credits" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make missing · 24 credits" })).toBeInTheDocument();
 });
@@ -157,7 +157,7 @@ test("a take still rendering shows on its own clip after a reload, with the time
     "GET /jobs": [200, [{ id: 21, kind: "video", step: "clip_take", status: "running", credits: 24, project_id: 9, project_clip_id: 2, created_at: new Date().toISOString() }]],
   });
   open();
-  expect(await within(await screen.findByLabelText("Clip c2")).findByText(/Rendering/)).toBeInTheDocument();
+  expect(await within(await screen.findByLabelText("Clip c2")).findByText(/Making…/)).toBeInTheDocument();
   expect(within(screen.getByLabelText("Clip c1")).getByText("Not made")).toBeInTheDocument();
 });
 
@@ -171,7 +171,7 @@ test("a take that has waited a while to start says why, in plain words", async (
   expect(await within(await screen.findByLabelText("Clip c2")).findByText(/isn't taking work right now/)).toBeInTheDocument();
 });
 
-test("takes can be picked, and Looks good approves the picked one", async () => {
+test("takes can be picked, and Approve take approves the picked one", async () => {
   const calls = fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({ file_id: 71, takes: [{ id: 5, number: 1, file_id: 70 }, { id: 6, number: 2, file_id: 71 }], picked_take_id: 6 })]],
@@ -183,7 +183,7 @@ test("takes can be picked, and Looks good approves the picked one", async () => 
   expect(within(card).getByLabelText("Take 2")).toBeChecked();
   await userEvent.click(within(card).getByLabelText("Take 1"));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/takes/5/pick")).toBe(true));
-  await userEvent.click(within(card).getByRole("button", { name: "✓ Looks good" }));
+  await userEvent.click(within(card).getByRole("button", { name: "Approve take" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/approve")).toBe(true));
   expect(within(card).getByRole("link", { name: "Download" })).toHaveAttribute("download", "Mia buys the dip-c1-take2.mp4");
 });
@@ -383,7 +383,7 @@ test("a refused take says why, and after two refusals the card warns before the 
   expect(screen.getByText(warning)).toBeInTheDocument();
 });
 
-test("pressing a take's Looks good shows Approved with Undo approval at once, before the server answers", async () => {
+test("pressing Approve take shows Approved with Undo approval at once, before the server answers", async () => {
   fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]] });
   const faked = globalThis.fetch;
   let release: (r: Response) => void = () => {};
@@ -394,9 +394,31 @@ test("pressing a take's Looks good shows Approved with Undo approval at once, be
   });
   open();
   const card = await screen.findByLabelText("Clip c1");
-  await userEvent.click(within(card).getByRole("button", { name: "✓ Looks good" }));
+  await userEvent.click(within(card).getByRole("button", { name: "Approve take" }));
   expect(await within(card).findByRole("button", { name: "Undo approval" })).toBeInTheDocument();
   expect(within(card).getByText("Approved")).toBeInTheDocument();
   release(new Response(JSON.stringify({ detail: "Pick a take first." }), { status: 409, headers: { "content-type": "application/json" } }));
-  expect(await within(card).findByRole("button", { name: "✓ Looks good" })).toBeInTheDocument(); // refused: back as it was
+  expect(await within(card).findByRole("button", { name: "Approve take" })).toBeInTheDocument(); // refused: back as it was
+});
+
+test("a grey Make clip always says why, on the line under it", async () => {
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ problems: ["The prompt names no camera."] })]] });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  const make = within(card).getByRole("button", { name: "Make clip · 24 credits" });
+  expect(make).toBeDisabled();
+  expect(make).toHaveAccessibleDescription("Fix the problems above first.");
+});
+
+test("a failed newest take never turns a card with a good picked take red, and never says Ask the owner", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]],
+    "GET /jobs": [200, [{ id: 40, kind: "video", step: "clip_take", status: "failed", credits: 5, project_id: 9, project_clip_id: 1, created_at: new Date().toISOString(), error: "The service couldn't finish this. Ask the owner for details." }]],
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).getByText("Take 1 · ready to check")).toBeInTheDocument();
+  expect(within(card).getByText("The service couldn't finish this. Credits returned; try again.")).toBeInTheDocument();
+  expect(within(card).queryByText(/Ask the owner/)).toBeNull();
 });

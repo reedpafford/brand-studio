@@ -5,7 +5,7 @@ import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Elapsed } from "../clip/History";
 import { btnPrimary, btnSecondary, input, linkText } from "../ui";
-import { SheetWarning, type Blocker } from "./sheetBlocks";
+import { blockerNames, SheetWarning, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
@@ -47,6 +47,10 @@ function PromptText({ clip }: { clip: Clip }) {
   );
 }
 
+/** A take's failure in plain words: never the server's "Ask the owner for details." (rule 4). */
+export const failureLine = (error: string | null | undefined) =>
+  !error || /ask the owner/i.test(error) ? "The service couldn't finish this. Credits returned; try again." : error;
+
 /** One video clip per breakdown clip: make takes, pick and approve one, then stitch them into the video. */
 export function ClipCard(props: {
   words: (p: string) => string;
@@ -65,7 +69,6 @@ export function ClipCard(props: {
   onUndoLooksGood: () => void;
   brandId: number;
   cost: number | undefined;
-  stopped: boolean;
   stopFor: (cost: number | undefined) => string | null;
   review: boolean;
   onGenerate: (note?: string) => void;
@@ -90,13 +93,21 @@ export function ClipCard(props: {
   // marks the clip as failed. The change's job_id is its rewrite's, or for a fix in code the project's newest job then.
   const failedBefore = props.job?.status === "failed" && lastChange?.status === "done" && (lastChange.job_id ?? 0) >= props.job.id;
   const failed = props.job?.status === "failed" && !failedBefore;
-  const status = c.approved ? "Approved" : props.busy ? null : failed ? "Failed · credits returned" : c.stale ? "Made for an older breakdown" : c.file_id ? "Ready" : "Not made";
-  const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
-  // Why it can't be pressed yet, in one plain line under it. A prompt only waiting for Looks good isn't a reason: the
-  // press marks it Looks good and makes the take.
-  const makeReason = props.busy ? "A take is on its way." : c.stale ? "Rewrite this clip's prompt first." : blocking(c.problems, c.kept).length > 0 ? "Fix the problems above first." : props.blockers.length > 0 ? "Approve the looks it needs first." : props.stopFor(props.cost);
-  const price = props.cost === undefined ? "" : ` · ${Math.round(props.cost)} credits`;
   const picked = c.takes.find((t) => t.id === c.picked_take_id);
+  // The chip says what the card holds now; a failed newest take is a line under it (it never hides a good picked take).
+  const status = c.approved ? "Approved" : props.busy ? null : c.stale ? "Out of date" : picked ? `Take ${picked.number} · ready to check` : failed ? "Didn't finish" : "Not made";
+  const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
+  const problems = blocking(c.problems, c.kept).length > 0;
+  // A grey paid button always says why, naming the press that moves it on.
+  const why = props.blockers.length > 0
+      ? `Approve ${blockerNames(props.blockers)}'s sheet first.`
+      : c.stale
+        ? "Rewrite this clip's prompt first."
+        : problems
+          ? "Fix the problems above first."
+          : props.busy
+            ? "A take is being made."
+            : props.stopFor(props.cost);
   // "Change this…" on a clip with no take only rewrites the prompt (no surprise paid take): say what to press next.
   // A change always clears "Looks good" (the prompt must be read again), so the line only shows while it is waiting to be read.
   const updated = props.review && props.toRead && c.takes.length === 0 && lastChange?.status === "done" && lastChange.note !== FIX_NOTE;
@@ -104,19 +115,19 @@ export function ClipCard(props: {
     <li className={`space-y-2 rounded-md bg-surface p-3 text-sm ${c.approved ? "border-2 border-success" : "border border-border"}`} aria-label={`Clip ${c.clip_id}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{c.clip_id} · {c.seconds} s</span>
-        <span className={`ml-auto rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : failed ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
+        <span className={`ml-auto rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : status === "Didn't finish" ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
           {status ?? (
             <>
-              {props.job?.status === "queued" ? "Queued " : "Rendering "}
+              {props.job?.status === "queued" ? "Waiting " : "Making… "}
               {props.job && <Elapsed since={props.job.created_at} />}
             </>
           )}
         </span>
       </div>
-      {failed && props.job?.error && (
+      {failed && !props.busy && (
         <p role="status" className="text-sm text-danger">
-          {c.takes.length > 0 && "The newest take failed; your other takes are below. "}
-          {props.job.error}
+          {c.takes.length > 0 && "The last try didn't finish; your other takes are below. "}
+          <span>{failureLine(props.job?.error)}</span>
         </p>
       )}
       {failedBefore && <p role="status" className="text-sm text-muted">The last take, before your change, failed.</p>}
@@ -134,7 +145,7 @@ export function ClipCard(props: {
       <SheetWarning blockers={props.blockers} brandId={props.brandId} />
       {props.showPrompt && (
         <div className="space-y-1">
-          {!props.toRead && <Badge tone="success" icon={Check}>Looks good</Badge>}
+          {!props.toRead && <Badge tone="success" icon={Check}>Prompt OK</Badge>}
           <PromptText clip={c} />
         </div>
       )}
@@ -188,17 +199,18 @@ export function ClipCard(props: {
             <textarea className={input} rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
           <div className="flex gap-2">
-            <button
-              className={`${btnPrimary} min-h-11 sm:min-h-9`}
-              disabled={props.stopped || props.busy || !note.trim()}
+            <Button
+              dense
+              price={props.cost}
+              disabled={!!props.stopFor(props.cost) || props.busy || !note.trim()}
+              reason={props.busy ? "A take is being made." : props.stopFor(props.cost) ?? (note.trim() ? null : "Say what's wrong first.")}
               onClick={() => {
                 props.onGenerate(note.trim());
                 setNote(null);
               }}
             >
               Redo
-              {price}
-            </button>
+            </Button>
             <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={() => setNote(null)}>
               Cancel
             </button>
@@ -249,9 +261,9 @@ export function ClipCard(props: {
             </p>
           )}
           {c.picked_take_id !== null && !c.approved && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={props.onApprove}>
-              ✓ Looks good
-            </button>
+            <Button variant="secondary" dense icon={Check} onClick={props.onApprove}>
+              Approve take
+            </Button>
           )}
           {c.approved && (
             <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={props.onUnapprove}>
@@ -259,14 +271,14 @@ export function ClipCard(props: {
             </button>
           )}
           {props.showPrompt && (
-            <Button variant="secondary" icon={props.toRead ? Check : undefined} aria-label={`Prompt for ${c.clip_id} ${props.toRead ? "looks good" : "undo looks good"}`} onClick={props.toRead ? props.onLooksGood : props.onUndoLooksGood}>
-              {props.toRead ? "Looks good" : "Undo"}
+            <Button variant="secondary" icon={props.toRead ? Check : undefined} aria-label={`${props.toRead ? "Prompt OK" : "Undo Prompt OK"} for ${c.clip_id}`} onClick={props.toRead ? props.onLooksGood : props.onUndoLooksGood}>
+              {props.toRead ? "Prompt OK" : "Undo Prompt OK"}
             </Button>
           )}
+          {/* A prompt only waiting for Prompt OK isn't a reason: the press marks it Prompt OK and makes the take (#751). */}
           {note === null && (
-            <Button variant="secondary" className="min-h-11 sm:min-h-9" disabled={!!makeReason} reason={makeReason} onClick={() => { if (props.toRead) props.onLooksGood(); props.onGenerate(); }}>
+            <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => { if (props.toRead) props.onLooksGood(); props.onGenerate(); }}>
               {verb}
-              {price}
             </Button>
           )}
           {c.takes.length > 0 && note === null && !props.review && (

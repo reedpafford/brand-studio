@@ -26,6 +26,8 @@ export function useApproveAllWith(opts: {
   target?: (skipped: Skipped) => string; // the card to scroll to, when it is called something else
   ready: number;
   waiting: number;
+  /** Approve all is the step's one amber when nothing else is left to make. */
+  primary?: boolean;
 }): { button: ReactNode; line: ReactNode } {
   const { noun } = opts;
   const toast = useToast();
@@ -58,7 +60,7 @@ export function useApproveAllWith(opts: {
 
   const button =
     opts.ready > 0 ? (
-      <Button variant="secondary" icon={Check} busy={run.isPending} className="w-full sm:w-auto" onClick={() => run.mutate()}>
+      <Button variant={opts.primary ? "primary" : "secondary"} icon={Check} busy={run.isPending} className="w-full sm:w-auto" onClick={() => run.mutate()}>
         {opts.ready === opts.waiting ? "Approve all" : `Approve ${opts.ready}`}
       </Button>
     ) : null;
@@ -87,7 +89,7 @@ export function useApproveAllWith(opts: {
 type Row = { id: number; clip_id: string };
 
 /** Approve all on Storyboard (frames) and Clips (clips). */
-export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "clips"; noun: "frame" | "clip"; rows: Row[]; ready: number; waiting: number }) {
+export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "clips"; noun: "frame" | "clip"; rows: Row[]; ready: number; waiting: number; primary?: boolean }) {
   const { projectId, kind, noun, rows } = opts;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -96,6 +98,7 @@ export function useApproveAll(opts: { projectId: number; kind: "storyboard" | "c
     noun,
     ready: opts.ready,
     waiting: opts.waiting,
+    primary: opts.primary,
     press: async () => {
       const { data, error } = kind === "storyboard" ? await api.POST("/projects/{project_id}/storyboard/approve-all", { params: { path } }) : await api.POST("/projects/{project_id}/clips/approve-all", { params: { path } });
       if (!data) throw new Error(errorText(error));

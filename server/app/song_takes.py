@@ -131,8 +131,11 @@ def save_timing(db: Session, job: Job) -> None:
     draft = db.get(ScriptDraft, take.draft_id)
     project = db.get(Project, take.project_id) if take.project_id else None
     usable = not out_of_date(take, draft) and not over_cap(db, take)
-    if usable and preferred(db, draft, project) is None:
-        for t in takes(db, draft, project):  # an older take's mark goes: it sings old words
+    if usable and project:  # a video picks its song by song_take_id, never Preferred
+        if project.song_take_id is None:
+            project.song_take_id = take.id
+    elif usable and preferred(db, draft) is None:
+        for t in takes(db, draft):  # an older take's mark goes: it sings old words
             t.preferred = t.id == take.id
 
 
@@ -154,7 +157,10 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
     if song.status in WAITING:
         return "making", None, False
     if song.status != JobStatus.succeeded or take.file_id is None:
-        return "failed", song.error or music.FAILED, True
+        reason = song.error or music.FAILED
+        if take.project_id and reason == music.REFUSED:  # a video can't change the words
+            reason = music.REFUSED_IN_VIDEO
+        return "failed", reason, True
     timing = db.get(Job, take.timing_job_id) if take.timing_job_id else None
     if take.timing is not None:
         return "ready", None, False
@@ -291,7 +297,10 @@ def spread(db: Session, user: User, take: SongTake) -> None:
 
 
 def prefer(db: Session, take: SongTake) -> int | None:
-    """Make this take Preferred; returns the one that was (for Undo)."""
+    """Make this take Preferred; returns the one that was (for Undo). Only a version's own
+    takes: a video's song is its song_take_id (PUT /projects/{id}/song)."""
+    if take.project_id:
+        raise HTTPException(409, "In a video, press Use in this video to make it the song.")
     if state(db, take)[0] != "ready":
         raise HTTPException(409, "Only a finished take can be Preferred.")
     draft = db.get(ScriptDraft, take.draft_id)
@@ -304,6 +313,27 @@ def prefer(db: Session, take: SongTake) -> int | None:
     return was
 
 
+def for_video(db: Session, project: Project) -> list[SongTake]:
+    """The takes a video can use: its version's, then its own."""
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    return [*takes(db, draft), *takes(db, draft, project)]
+
+
+def use_in_video(db: Session, project: Project, take: SongTake) -> int | None:
+    """Time this video to `take` (its version's or its own); returns the one before (Undo).
+    Shots keep their lines and Sung marks; their times follow the new take for free once
+    song breakdowns land (V2a)."""
+    if take.id not in {t.id for t in for_video(db, project)}:
+        raise HTTPException(404, "No such take for this video.")
+    if state(db, take)[0] != "ready":
+        raise HTTPException(409, "Only a finished take can be this video's song.")
+    _usable(db, take, db.get(ScriptDraft, take.draft_id))
+    was, project.song_take_id = project.song_take_id, take.id
+    db.commit()
+    return was
+
+
+IN_USE = "This take is the video's song. Pick another take for the video first."
 PREFERRED = "This is the Preferred take. Make another take Preferred first, then remove this one."
 
 
@@ -311,6 +341,8 @@ def remove(db: Session, take: SongTake) -> None:
     """Remove a take (Undo brings it back). Never the Preferred one (flows S4)."""
     if state(db, take)[0] in ("making", "timing"):
         raise HTTPException(409, "This take is still being made. Remove it once it's done.")
+    if db.scalar(select(Project.id).where(Project.song_take_id == take.id)):
+        raise HTTPException(409, IN_USE)
     if take.preferred:
         raise HTTPException(409, PREFERRED)
     take.deleted_at = utcnow()

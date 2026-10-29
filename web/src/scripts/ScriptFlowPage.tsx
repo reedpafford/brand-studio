@@ -15,7 +15,10 @@ import { VariationsStep, variationsReason } from "./VariationsStep";
 import { ScriptStep } from "./ScriptStep";
 import { ReadReelButton, useReelImport } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
-import { WRITING_STEPS, around, hasWords, lockReason, stepFromParam, stepStates } from "./flow";
+import { around, hasWords, lockReason, stepFromParam, stepStates, stepsFor } from "./flow";
+import { SongStep } from "./SongStep";
+import { TakesStep } from "./TakesStep";
+import { useSongs } from "./useSongs";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { useScript, usePatchScript } from "./useScript";
 
@@ -28,6 +31,7 @@ export function ScriptFlowPage() {
   const rail = useRail();
   const { data: me } = useMe();
   const script = useScript(id);
+  const songs = useSongs(id, script.data?.kind === "song");
   const patch = usePatchScript(id);
   const navigate = useNavigate();
   const mayDelete = useMayDelete();
@@ -50,7 +54,7 @@ export function ScriptFlowPage() {
     queryFn: async () => (await api.GET("/credits/me")).data ?? null,
   });
 
-  if (script.isPending)
+  if (script.isPending || (script.data?.kind === "song" && songs.isPending))
     return (
       <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8" role="status" aria-label="Loading">
         <Skeleton className="h-10 w-1/2" />
@@ -60,20 +64,27 @@ export function ScriptFlowPage() {
     );
   const s = script.data;
   if (!s) return <p className="p-6">That script doesn't exist.</p>;
-  const step = stepFromParam(params.get("step"));
-  if (lockReason(step, s) !== null) return <Navigate to="?" replace />;
+  const takes = songs.data?.takes ?? [];
+  // Only a Preferred take that sings the lyrics as they are now, and whose video fits the cap, counts: the screen holds the cap whatever the server says.
+  const tooLong = (t: (typeof takes)[number]) => t.over_cap && t.trim_to == null;
+  const fit = takes.find((t) => t.preferred && !t.out_of_date);
+  const song = s.kind === "song" ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date).length, older: takes.filter((t) => t.out_of_date).length } : undefined;
+  const step = stepFromParam(s, params.get("step"));
+  if (lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
+  const first = stepsFor(s)[0].id;
   const move = (to: string) => {
     setHold(null);
-    setParams(to === "script" ? {} : { step: to });
+    setParams(to === first ? {} : { step: to });
   };
   const go = (to: string) => (hold ? setLeaving(() => () => move(to)) : move(to));
-  const at = WRITING_STEPS.findIndex((x) => x.id === step);
-  const { prev, next } = around(step);
-  const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : null;
-  const label = WRITING_STEPS[at].label;
+  const { prev, next } = around(s, step);
+  const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : lockReason(next.id, s, song);
+  const label = stepsFor(s).find((x) => x.id === step)!.label;
   const toPublish = s.versions.filter((v) => v.text.trim() !== "").length;
+  const toApprove = s.versions.filter((v) => v.text.trim() !== "" && v.status === "draft").length; // approved on its card first, as Variations says
+  const publishReason = toPublish === 0 ? "Write the script first" : toApprove > 0 ? `Approve every version first (${toApprove} left)` : null;
   const publishButton = step === "publish" && !s.published && (
-    <Button disabled={toPublish === 0} reason={toPublish === 0 ? "Write the script first" : undefined} onClick={() => setAsking(true)}>
+    <Button disabled={!!publishReason} reason={publishReason} onClick={() => setAsking(true)}>
       Publish {toPublish} version{toPublish === 1 ? "" : "s"}
     </Button>
   );
@@ -116,7 +127,7 @@ export function ScriptFlowPage() {
             {published ? (
               <span className="min-w-0 break-words">{s.title}</span>
             ) : (
-              <button type="button" aria-label={`Rename ${s.title}`} onClick={() => setRenaming(s.title)} className="min-w-0 break-words text-left hover:underline">
+              <button type="button" aria-label={`Rename ${s.title}`} onClick={() => setRenaming(s.title)} className="min-h-control min-w-0 break-words text-left hover:underline sm:min-h-control-dense">
                 {s.title}
               </button>
             )}
@@ -169,7 +180,7 @@ export function ScriptFlowPage() {
           {hold?.body}
         </Dialog>
       )}
-      <StepPicker steps={stepStates(step, s)} onPick={(to) => go(to)} />
+      <StepPicker steps={stepStates(step, s, song)} onPick={(to) => go(to)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 className="type-section">{label}</h2>
         {rail ? (
@@ -186,6 +197,8 @@ export function ScriptFlowPage() {
           </ActionBar>
         )}
       </div>
+      {step === "song" && <SongStep script={s} brandId={brandId} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The lyrics you changed are not saved." } : null)} />}
+      {step === "takes" && <TakesStep script={s} />}
       {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
       {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They stay accepted but are not added to the script. Leaving doesn't add them." } : null)} onEditWords={() => go("script")} />}
       {step === "variations" && <VariationsStep script={s} own={mine} />}

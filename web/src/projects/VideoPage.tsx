@@ -20,6 +20,7 @@ import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
 import { StoryboardPane } from "./StoryboardPane";
+import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
@@ -96,7 +97,9 @@ export function VideoPage() {
   const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
   // Until Assets' own read lands, the step picker, the heading line and Next wait under one skeleton: no counts from an older read.
   const waiting = step === "assets" && assetsLoading;
-  const meta = step === "assets" && !waiting ? `${all.assets.total} asset${all.assets.total === 1 ? "" : "s"} · ${all.assets.ready} approved` : null;
+  const count = (n: number, noun: string, ok: number) => `${n} ${noun}${n === 1 ? "" : "s"} · ${ok} approved`;
+  const meta =
+    step === "assets" ? (waiting ? null : count(all.assets.total, "asset", all.assets.ready)) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : null;
 
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
@@ -147,7 +150,8 @@ export function VideoPage() {
       </div>
       {step === "breakdown" && (
         <div className="space-y-4">
-          <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} hasFrames={all.frames.total > 0} />
+          <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
+          {p.song && <SongStrip project={p} hasShots={all.shots.made} />}
           <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
         </div>
       )}

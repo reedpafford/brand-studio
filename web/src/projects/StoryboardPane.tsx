@@ -5,14 +5,14 @@ import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useJobs } from "../clip/History";
 import { fileUrl } from "../api/upload";
-import { btnPrimary, btnSecondary, card, errorText as errorClass } from "../ui";
+import { card, errorText as errorClass } from "../ui";
 import { Sheet } from "./Sheet";
 import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { refName, useRoleNames } from "./names";
 import { useProblemWords } from "./ProblemText";
 import { useOwnScriptStop } from "./useOwnScriptStop";
-import { Banner, creditsLabel, useToast, wholeCredits } from "../components";
+import { Banner, Button, Dialog, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
@@ -47,6 +47,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   // they must not be shown (or drawn on): pressing one answers "No such frame." until the page is reloaded.
   const [replaced, setReplaced] = useState<number[]>([]);
   const [lightbox, setLightbox] = useState<Frame | null>(null);
+  const [confirmRedo, setConfirmRedo] = useState(false);
   const auto = useRef(false);
   const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
@@ -186,6 +187,8 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     rows,
     ready: rows.filter((f) => f.file_id !== null && !f.approved && !f.stale && !f.still_stale && blocking(f.problems).length === 0).length,
     waiting: rows.filter((f) => !f.approved).length,
+    // The step's one amber goes, in order, to: make the storyboard, redraw what's out of date, make the missing stills, approve all.
+    primary: rows.length > 0 && !rows.some((f) => f.still_stale || (f.file_id === null && !blocking(f.problems).length && blocks.forShot(f.shot_id).length === 0)),
   });
   if (frames.isPending || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
@@ -206,31 +209,45 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const missing = list.filter((f) => f.file_id === null && !blocking(f.problems).length && !f.drawing && !drawingNow[f.id] && blocks.forShot(f.shot_id).length === 0);
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
-  const price = (n: number | undefined) => (n === undefined ? "" : ` · ${creditsLabel(n)}`);
   // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
   const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
-  const makeLabel = list.length ? "Redo storyboard" : "Make storyboard";
+  const makeLabel = list.length ? "Make the storyboard again" : "Make the storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
-  const declined = stopFor(makeTotal) ?? stopFor(allCost) ?? stopFor(imageCost);
   const err = make.error ?? approve.error;
   // A still or a saved prompt that was refused says why on its own frame, where it was pressed.
   const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || null;
   const approvedCount = list.filter((f) => f.approved).length;
 
+  const made = list.filter((f) => f.file_id !== null).length;
   const makeButton = (
-    <button
-      className={`${list.length ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`}
-      disabled={writingNow || stillOld || make.isPending || !!stopFor(makeTotal)}
-      onClick={() => {
-        const made = list.filter((f) => f.file_id !== null).length;
-        const ask = made > 0 ? `Replace these frames? The ${made} still${made === 1 ? "" : "s"} you've made will be dropped.` : "Replace these frames? New ones are written from the current breakdown.";
-        if (list.length && !window.confirm(ask)) return;
-        make.mutate();
-      }}
-    >
-      {makeLabel}
-      {price(makeTotal)}
-    </button>
+    <>
+      <Button
+        variant={list.length ? "secondary" : "primary"}
+        dense
+        price={makeTotal}
+        busy={make.isPending}
+        disabled={writingNow || stillOld || !!stopFor(makeTotal)}
+        reason={stopFor(makeTotal)}
+        onClick={() => (list.length ? setConfirmRedo(true) : make.mutate())}
+      >
+        {makeLabel}
+      </Button>
+      {confirmRedo && (
+        <Dialog
+          title="Make the storyboard again?"
+          actionLabel={`${makeLabel}${makeTotal === undefined ? "" : ` · ${wholeCredits(makeTotal)} credits`}`}
+          danger={made > 0}
+          cancelLabel="Not yet"
+          onCancel={() => setConfirmRedo(false)}
+          onConfirm={() => {
+            setConfirmRedo(false);
+            make.mutate();
+          }}
+        >
+          {made > 0 ? `Every frame is written again from the current breakdown, and the ${made} still${made === 1 ? "" : "s"} you've made are dropped.` : "Every frame is written again from the current breakdown."}
+        </Dialog>
+      )}
+    </>
   );
 
   if (writingNow || stillOld)
@@ -259,42 +276,36 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
         <p className="text-muted">One still per clip, so you can check the look before making video.</p>
         {makeButton}
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
-        {declined && <p className="text-sm text-warning">{declined}</p>}
       </section>
     );
 
   return (
     <div className="space-y-4" aria-label="Storyboard">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[length:var(--text-md)] font-semibold">
-          Storyboard <span className="font-normal text-muted">· {list.length} frame{list.length === 1 ? "" : "s"} · {approvedCount} approved</span>
-        </h2>
-        <span className="flex w-full flex-wrap gap-2 sm:w-auto">
-          {approveAll.button}
-          {missing.length > 0 && (
-            <button
-              className={`${outOfDate.length > 0 ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`}
-              disabled={render.isPending || !!stopFor(allCost)}
-              onClick={() => void drawAll(missing)}
-            >
-              Make all stills
-              {price(allCost)}
-            </button>
-          )}
+        {/* On the video page the step heading above already carries the counts. */}
+        {!props.oneStep && (
+          <h2 className="text-[length:var(--text-md)] font-semibold">
+            Storyboard <span className="font-normal text-muted">· {list.length} frame{list.length === 1 ? "" : "s"} · {approvedCount} approved</span>
+          </h2>
+        )}
+        <span className="flex w-full flex-wrap items-start gap-2 sm:w-auto">
           {outOfDate.length > 0 && (
-            <button className={`${btnPrimary} min-h-11 sm:min-h-9`} disabled={render.isPending || redrawBlocked !== null} onClick={() => void drawAll(outOfDate)}>
-              Redraw {outOfDate.length} still{outOfDate.length === 1 ? "" : "s"}
-              {price(redrawCost)}
-            </button>
+            <Button dense price={redrawCost} busy={render.isPending} disabled={redrawBlocked !== null} reason={redrawBlocked} onClick={() => void drawAll(outOfDate)}>
+              Redraw {outOfDate.length} out-of-date still{outOfDate.length === 1 ? "" : "s"}
+            </Button>
           )}
+          {missing.length > 0 && (
+            <Button variant={outOfDate.length > 0 ? "secondary" : "primary"} dense price={allCost} busy={render.isPending} disabled={!!stopFor(allCost)} reason={stopFor(allCost)} onClick={() => void drawAll(missing)}>
+              Make {missing.length} still{missing.length === 1 ? "" : "s"}
+            </Button>
+          )}
+          {approveAll.button}
           {makeButton}
         </span>
       </div>
       {approveAll.line}
       {castNote}
-      {redrawBlocked && redrawBlocked !== declined && <p className="text-sm text-warning">{redrawBlocked}</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
-        {declined && <p className="text-sm text-warning">{declined}</p>}
       {waitingForSheet.length > 0 && (
         <p className="text-sm text-warning">
           {waitingForSheet.length} frame{waitingForSheet.length === 1 ? " waits" : "s wait"} for a sheet ({blockerNames(waitingForSheet.flatMap((f) => blocks.forShot(f.shot_id)))}).
