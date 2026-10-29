@@ -28,14 +28,18 @@ class Refused(Exception):
 
 
 NAT64 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
+COMPATIBLE = ipaddress.ip_network("::/96")  # deprecated "IPv4-compatible" (::127.0.0.1)
 
 
 def _public(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Global and not multicast, and so is any IPv4 address carried inside an IPv6 one
-    (mapped, 6to4, Teredo, NAT64), which could otherwise reach a private one."""
+    (mapped, 6to4, Teredo, NAT64), which could otherwise reach a private one. The old
+    IPv4-compatible form (::/96) is refused outright."""
     if not ip.is_global or ip.is_multicast:
         return False
     if isinstance(ip, ipaddress.IPv6Address):
+        if ip in COMPATIBLE:  # deprecated, never a real site's address: refused outright
+            return False
         inner = [ip.ipv4_mapped, ip.sixtofour, *(ip.teredo or ())]
         if any(ip in net for net in NAT64):
             inner.append(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF))
