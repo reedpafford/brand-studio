@@ -144,13 +144,15 @@ def out_of_date(db: Session, project: Project) -> tuple[list, list]:
 
 def to_finish(db: Session, project: Project) -> Decimal:
     """Credits still to spend: the steps not done yet, plus redoing what's out of date."""
-    from app import clip_takes, storyboard
+    from app import clip_takes, sheets, storyboard
     from app.routes.estimate import _stages
 
     stills, clips = out_of_date(db, project)
     left = sum(Decimal(str(s.credits)) for s in _stages(db, project))
     redo = len(stills) * storyboard.still_price(db, project)
     redo += sum((clip_takes.take_credits(db, project, c) for c in clips), Decimal(0))
+    roles = len(sheets.roles_needing_look(db, project))  # a new look in this look (ST1, ST2)
+    redo += roles * sheets.look_price(db, project.workspace_id)
     return (left + redo).quantize(Decimal("0.01"))
 
 
@@ -174,13 +176,17 @@ def _sung(db: Session, project: Project) -> list[str]:
 def preview(db: Session, user: User, project: Project, values: dict) -> dict:
     """The confirm: what this one switch costs to finish and what goes out of date."""
     values = _check(db, user, project, values)
+    from app.sheets import roles_needing_look
+
     was = to_finish(db, project)
     stills_now, clips_now = out_of_date(db, project)
+    roles_now = roles_needing_look(db, project)
     flips = 0
     with trying(db, project, values):
         if lip_sync(project) is False and project.song_take_id:
             flips = len(_sung(db, project))
         stills, clips = out_of_date(db, project)
+        roles = [r for r in roles_needing_look(db, project) if r not in roles_now]
         now = to_finish(db, project)
     used = credits_used(db, project)
     cap = get_limits(db, project.workspace_id).per_video_max_credits
@@ -192,6 +198,7 @@ def preview(db: Session, user: User, project: Project, values: dict) -> dict:
         "to_finish_credits": float(now), "was_credits": float(was),
         "stills_out_of_date": len({s.id for s in stills} - {s.id for s in stills_now}),
         "clips_out_of_date": len({c.id for c in clips} - {c.id for c in clips_now}),
+        "roles_needing_look": roles,
         "sung_to_broll": flips, "over_budget": over_budget, "over_cap": over_cap,
         "reason": reason,
     }  # fmt: skip
