@@ -448,7 +448,7 @@ For every format, look and brand (fomo included). Built and tested on Next first
 
 | State | What they see | The one press |
 |---|---|---|
-| E (no plan yet) | "Turn the script into scenes: where each line happens and what we see." The price. If the published version has the owner's plan: it fills in at once, labelled "From Reed's plan" (free). | **Make the plan · N credits** (one Claude call; the price as every press, rule 22). |
+| E (no plan yet) | "Turn the script into scenes: where each line happens and what we see." The price. If the published version has the owner's approved plan, the video opens on Plan already **Approved**, labelled "From Reed's plan" (free); the editor re-approves only after changing it. | **Make the plan · N credits** (one Claude call; the price as every press, rule 22). |
 | Q/R | "Making the plan…" with a timer. "You can leave this page." | Cancel (before it starts). |
 | Ready to check | The structure line, the cast, then one card per scene (place, lines, actions, ★ marks, who's in it). A count: "9 scenes · every line used once · the product in 4". | **Approve the plan** (the step's one amber). |
 | Approved | ✓ on the step. "Approved by Ana · 2 min ago". Each card is still readable and editable (see Editing). | **Next: Breakdown**. |
