@@ -74,3 +74,10 @@ def test_nothing_to_go_on_says_what_to_add(app, owner):
     assert _version(owner, url)["directions_stop"] == song_directions.NOTHING
     r = owner.post(f"{url}/directions", json={})
     assert (r.status_code, r.json()["detail"]) == (409, song_directions.NOTHING)
+
+
+def test_a_length_note_never_reads_0_60():
+    from app.prompts import check
+
+    assert check._clock(59.6) == "1:00" and check._clock(119.7) == "2:00"
+    assert "0:60" not in check.length_note(" ".join(["la"] * 143))
