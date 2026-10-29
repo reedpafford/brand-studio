@@ -59,7 +59,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| #945 + #934 together | _out's new db.refresh(project) raises on #934's stand-in project: the owner's plan on a version returns 500 | `if project.id is not None: db.refresh(project)` on whichever merges second |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -308,3 +307,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #948 at 143d197d (ST1 look change confirm, web) | PASS with #943: roles and To finish (was), Change greyed over the week, Not yet keeps the picker for a cheaper look, Undo free; safe before #943 (404 → as before) |
 | 2026-10-29 | #944 at 56234904 | PASS: a failed copy says so with a priced Try again; Redo beside Approve this look. Open row closed |
 | 2026-10-29 | 16:35 check-in; #945 87aaad37; #949 ac39f43d | #949 PASS (test setup only). #945 alone is right, but FAIL merged with #934 (open above). Clear to merge: #934, #941+#942, #943, #944, #946, #947, #948, #949. None into main |
+| 2026-10-29 | #945 at b7c66d4d | PASS: the guard keeps #934's owner plan working; merged with #934, 26 tests pass. Open row closed |
