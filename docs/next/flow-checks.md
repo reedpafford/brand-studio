@@ -219,4 +219,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #892 at e2a47360 (Director: breakdown films the plan; check.follows_plan) | prompt read; test_plan (6) | PASS (follows_plan not wired yet: with or after #893) |
 | 2026-10-29 | #901 + next (#873) live | Playwright 390 + 1440: chip, picker, use, toast, Undo, server look | PASS |
 | 2026-10-29 | #897 at 666b7028 (copied-line message) | test_song_directions (12) | PASS |
-| 2026-10-29 | #858 at ec10d0f5 (next + #887 merged; n05 → n07) | 3 narration scripts via narration.job; narration + narrated + migrations (17) | PASS |
+| 2026-10-29 | #858 at a6002245 (next + #887 merged; n05 → n07) | 3 narration scripts via narration.job; narration + narrated + migrations (17) | PASS |
