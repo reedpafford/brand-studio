@@ -217,9 +217,9 @@ def test_made_looks_say_what_they_really_cost(owner, app, db, editor):
 
 
 def test_one_credit_is_said_as_one_credit(owner, editor, db):
-    """QA nit on #487: "this week's 1 free credit", never "1 free credits"."""
+    """QA nit on #487: "this week's 1 credit", never "1 credits"."""
     limits = owner.get("/credits/limits").json()
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 1})
     item = _look(editor, db, image_file_ids=[upload(editor)])
     refused = editor.post(f"/library/character/{item.id}/sheet", json={}).json()["detail"]
-    assert "this week's 1 free credit (" in refused
+    assert "this week's 1 credit (" in refused

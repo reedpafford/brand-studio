@@ -1,14 +1,20 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
-import { Select } from "../components";
+import { Dialog, Select } from "../components";
+import { useFrames } from "./StoryboardPane";
 import { errorText as errorClass } from "../ui";
 
 const SHAPES = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
 const PLATFORMS = ["TikTok", "Instagram Reels", "YouTube Shorts", "Other"];
 
-/** Shape and where it will be posted, above the shots. Changing the shape after frames exist redraws them, so it asks first. */
-export function ShapeRow({ projectId, aspect, platform, hasFrames }: { projectId: number; aspect: string; platform: string; hasFrames: boolean }) {
+/** Shape and where it will be posted, above the shots. Changing the shape after stills exist asks first: the stills keep their shape (nothing
+ *  is redrawn or charged); what's made next uses the new one. */
+export function ShapeRow({ projectId, aspect, platform }: { projectId: number; aspect: string; platform: string }) {
   const queryClient = useQueryClient();
+  const frames = useFrames(projectId);
+  const stills = (frames.data ?? []).filter((f) => f.file_id !== null);
+  const [asking, setAsking] = useState<(typeof SHAPES)[number] | null>(null);
   const save = useMutation({
     mutationFn: async (body: { aspect_ratio?: (typeof SHAPES)[number]; platform?: string }) => {
       const { response, error } = await api.PATCH("/projects/{project_id}", { params: { path: { project_id: projectId } }, body });
@@ -18,7 +24,7 @@ export function ShapeRow({ projectId, aspect, platform, hasFrames }: { projectId
   });
   const shape = (a: (typeof SHAPES)[number]) => {
     if (a === aspect) return;
-    if (hasFrames && !window.confirm(`Frames were drawn for ${aspect}. Changing the shape redraws them.`)) return;
+    if (stills.length > 0) return setAsking(a);
     save.mutate({ aspect_ratio: a });
   };
   return (
@@ -41,6 +47,20 @@ export function ShapeRow({ projectId, aspect, platform, hasFrames }: { projectId
         </Select>
       </div>
       {save.error && <p role="alert" className={errorClass}>{save.error.message}</p>}
+      {asking && (
+        <Dialog
+          title={`Change to ${asking}?`}
+          cancelLabel="Not yet"
+          actionLabel="Change the shape · free"
+          onCancel={() => setAsking(null)}
+          onConfirm={() => {
+            save.mutate({ aspect_ratio: asking });
+            setAsking(null);
+          }}
+        >
+          {`The ${stills.length} still${stills.length === 1 ? " was" : "s were"} drawn for ${aspect} and stay${stills.length === 1 ? "s" : ""} that way. New stills and takes are made in ${asking}. To redraw the old ones, use Make the storyboard again on Storyboard.`}
+        </Dialog>
+      )}
     </div>
   );
 }

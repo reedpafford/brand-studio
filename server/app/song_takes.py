@@ -66,7 +66,8 @@ def _request(
         job_input = music.job(draft.text, draft.style_line)
     except music.NotReady as no:
         raise HTTPException(422, str(no)) from None
-    return enqueue(db, user, "music", {**job_input, "step": "song_take"}, project=project,
+    job_input = {**job_input, "step": "song_take", **({"free_retry": True} if free else {})}
+    return enqueue(db, user, "music", job_input, project=project,
                    provider=music.PROVIDER, units=0 if free else 1)  # fmt: skip
 
 
@@ -271,11 +272,16 @@ def trim(db: Session, take: SongTake, on: bool) -> None:
     db.commit()
 
 
+def _free_retry(old: Job) -> bool:
+    """A request that came back short is asked again free, once: a free request that comes
+    back short again is charged like any (QA: free spend outside credits stays capped)."""
+    return old.status == JobStatus.succeeded and not old.input.get("free_retry")
+
+
 def retry_credits(db: Session, take: SongTake) -> Decimal:
     """What Try again on this take costs: nothing for a timing or for a request that came
     back short (already paid), else a new request."""
-    status = state(db, take)[0]
-    if status != "failed" or db.get(Job, take.job_id).status == JobStatus.succeeded:
+    if state(db, take)[0] != "failed" or _free_retry(db.get(Job, take.job_id)):
         return Decimal(0)
     script = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id)
     return estimate(db, script.workspace_id, "music", Decimal(1))
@@ -296,7 +302,7 @@ def try_again(db: Session, user: User, take: SongTake) -> None:
     project = db.get(Project, take.project_id) if take.project_id else None
     old = db.get(Job, take.job_id)
     short = old.status == JobStatus.succeeded  # it gave fewer songs than asked
-    job = _request(db, user, draft, project, free=short)
+    job = _request(db, user, draft, project, free=_free_retry(old))
     for pair in _by_job(db, SongTake.job_id, old):
         if short and pair.file_id is not None:  # a song that did arrive is kept as it is
             continue

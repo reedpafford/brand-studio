@@ -337,6 +337,9 @@ def test_a_reply_with_one_song_keeps_it_and_asks_again_free(app, db, owner, song
     takes = owner.get(f"{song}/songs").json()["takes"]
     assert [t["id"] for t in takes] == [kept["id"], missing["id"]]
     assert takes[0]["file_id"] == kept["file_id"]  # the song that came stays
+    # Short again on the free retry: the next Try again is charged (one free retry a request)
+    again_missing = owner.get(f"{song}/songs").json()["takes"][1]
+    assert (again_missing["status"], again_missing["retry_credits"]) == ("failed", 1)
 
 
 def test_a_videos_own_take_can_be_removed_unless_its_the_song(app, db, owner, editor, song):

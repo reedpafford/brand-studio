@@ -436,6 +436,12 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
           ) : (
             r.title
           )}
+          {r.kind === "song" && (
+            <>
+              {" "}
+              <Badge tone="accent">Song</Badge>
+            </>
+          )}
         </h3>
         {removed && (
           <p className="flex flex-wrap items-center gap-2">
