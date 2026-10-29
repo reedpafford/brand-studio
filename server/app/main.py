@@ -19,6 +19,7 @@ from app.routes import (
     improve,
     jobs,
     library,
+    looks,
     models,
     production,
     project_assets,
@@ -116,6 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         improve,
         clips,
         songs,
+        looks,
         song_study,
     ):
         app.include_router(module.router)
