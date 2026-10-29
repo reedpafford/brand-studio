@@ -4,7 +4,7 @@ and main claim. `never_say` and `end_line` stay (main still reads them) and are 
 `dont_list` and `cta_lines`; next writes them through until the move to main drops them.
 
 Revision ID: n08
-Revises: n07
+Revises: n05
 """
 
 import json
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "n08"
-down_revision = "n07"  # tracks next's head for CI; moves to n05 before merge (Next-Lead)
+down_revision = "n05"
 branch_labels = None
 depends_on = None
 

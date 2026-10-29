@@ -75,7 +75,7 @@ def test_n08_copies_never_say_and_end_line_and_keeps_them(tmp_path):
     url = f"sqlite:///{tmp_path}/m.db"
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "n07")
+    command.upgrade(cfg, "n05")
     engine = create_engine(url)
     with engine.begin() as conn:
         conn.execute(
@@ -95,7 +95,7 @@ def test_n08_copies_never_say_and_end_line_and_keeps_them(tmp_path):
     lines = json.loads(row.cta_lines)
     assert [(x["text"], x["default"]) for x in lines] == [("Link in bio", True)]
     assert row.end_line == "Link in bio" and json.loads(row.never_say)[0] == "cure"  # kept
-    command.downgrade(cfg, "n07")
+    command.downgrade(cfg, "n05")
     with engine.connect() as conn:
         row = conn.execute(text("SELECT never_say, end_line FROM brands")).one()
     assert json.loads(row.never_say) == ["cure", "guaranteed"] and row.end_line == "Link in bio"
