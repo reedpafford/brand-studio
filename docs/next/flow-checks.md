@@ -58,6 +58,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | V2a | Once #783 merges, #781 should show Delete on both of a video's own takes (today one is hidden as an interim) | Re-check after #783 | #781 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
+| Usage (live today, small) | With 25+ brands the list pages at 25 + Show more; with "Show archived" ticked, a just-archived brand can sit behind Show more (reachable, not a dead end) | Archived first when shown | 10+ brands check |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -120,3 +121,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #783 at 9bf8afbc (carries the V2a delete fix after #750 merged) | V2a, cap, un-trim API cases | PASS (14) |
 | 2026-10-29 | #783 at 9bf8afbc | Try again prices: one-song quoted 0, charged 0; whole request quoted 1, charged 1 | PASS |
 | 2026-10-29 | #759 at 16b9f166, #775 at bd184249, #781 at 2a3751ca | Full browser suite each (54/54/55 passed) + song walk 18/18 + V2a at 1440 and 390 | PASS |
+| 2026-10-29 | next (10+ brands, Producer's ask) | Switcher, landing brand, New brand, archive + Restore with 14 and 32 brands at 390 and 1440 | PASS: no screen problem; the suite failures were test setup (remembered last brand; Restore past 25 rows) |
