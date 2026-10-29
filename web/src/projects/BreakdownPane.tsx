@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useJobs } from "../clip/History";
@@ -50,8 +51,8 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
 
   const make = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/breakdown", { params: { path } });
-      if (!data) throw new Error(errorText(error));
+      const { data, error, response } = await api.POST("/projects/{project_id}/breakdown", { params: { path } });
+      if (!data) throw Object.assign(new Error(errorText(error)), { status: response.status });
       return data;
     },
     onSuccess: (job) => {
@@ -95,7 +96,19 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
       {label}
     </Button>
   );
-  const problem = make.error ? <p role="alert" className={errorClass}>{make.error.message}</p> : null;
+  // The shots wait for an approved plan (409, Builder-Server-8): never a dead end, the old project page included.
+  const needsPlan = (make.error as (Error & { status?: number }) | null)?.status === 409;
+  const problem = make.error ? (
+    <p role="alert" className={errorClass}>
+      {make.error.message}
+      {needsPlan && (
+        <>
+          {" "}
+          <Link className="underline" to={`/b/${brandId}/videos/${projectId}?step=plan&view=scenes`}>Open the plan</Link>
+        </>
+      )}
+    </p>
+  ) : null;
 
   if (running)
     return (

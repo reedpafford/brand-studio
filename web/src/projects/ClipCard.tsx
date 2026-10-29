@@ -12,6 +12,7 @@ import { AdviceList, useKeep } from "./Keep";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { FIX_NOTE, FixedNote, FixThisPrompt, refused } from "./FixClip";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
+import { LookTip } from "./LookFix";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -135,6 +136,7 @@ export function ClipCard(props: {
           <span>{failureLine(props.job?.error)}</span>
         </p>
       )}
+      <LookTip text={c.look_fix} />
       {picked && <CheckNotes check={check} projectId={props.projectId} label={`clip ${c.clip_id}`} onChange={(text) => (props.review && !c.stale ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setNote(text))} />}
       {failedBefore && <p role="status" className="text-sm text-muted">The last take, before your change, failed.</p>}
       {props.job?.waiting && <p role="status" className="text-sm text-muted">{props.job.waiting}</p>}

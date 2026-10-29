@@ -62,6 +62,14 @@ test("with no breakdown it offers to make one and shows the cost", async () => {
   expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
 });
 
+test("on the old project page, a breakdown refused until the plan is approved links to the plan", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "POST /projects/9/breakdown": [409, { detail: "Approve the plan first." }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Make the breakdown · 6 credits" }));
+  expect(await screen.findByText(/Approve the plan first\./)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Open the plan" })).toHaveAttribute("href", "/b/1/videos/9?step=plan&view=scenes");
+});
+
 test("with no set length, the breakdown says its own length, not \"22 s of 22 s planned\" (#749 LW9)", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, planned_seconds: null, breakdown_seconds: 5 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();

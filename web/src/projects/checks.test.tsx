@@ -162,3 +162,36 @@ test("Approve all approves items with Advice too, and says how many", async () =
   await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
   expect(await screen.findByText(/1 approved with Advice, listed under items with Advice\./)).toBeInTheDocument();
 });
+
+test("the look's own fixes: Fixed for the look with Undo before the still is drawn, and its tip beside a refusal and a note", async () => {
+  setViewport(390);
+  const fixed = { fixed: ["stage → world"], before: "On a stage, Bo grins.", after: "In a world, Bo grins." };
+  const calls = fakeServer(routes({
+    "GET /projects/9/storyboard": [200, [{ ...frame, file_id: null, prompt: fixed.after, look_fixed: fixed }, { ...frame, id: 2, clip_id: "c2", check: { ...advice, findings: [{ ...face, fix: "Make another first." }] } }]],
+    "GET /projects/9/storyboard/frames/2/change": [200, { credits: 2 }],
+    "PUT /projects/9/storyboard/frames/1": [200, { ...frame, file_id: null, prompt: fixed.before }],
+  }));
+  open("?step=storyboard");
+  const note = await screen.findByRole("note", { name: "Fixed for the look" });
+  expect(within(note).getByText("Fixed for the look: stage → world.")).toBeInTheDocument();
+  await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toMatchObject({ prompt: fixed.before }));
+  await userEvent.click(screen.getByRole("button", { name: "1 note on clip c2" }));
+  expect(within(screen.getByRole("dialog")).getByText("For this look: Make another first.")).toBeInTheDocument();
+});
+
+test("once the still is drawn, Fixed for the look shows what changed without an Undo that would redraw", async () => {
+  setViewport(1440);
+  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, look_fixed: { fixed: ["stage → world"], before: "a", after: "b" } }]] }));
+  open("?step=storyboard");
+  const note = await screen.findByRole("note", { name: "Fixed for the look" });
+  expect(within(note).queryByRole("button", { name: "Undo" })).toBeNull();
+});
+
+test("a refused take shows the look's fix beside its own press", async () => {
+  setViewport(1440);
+  const clips = [clip({ id: 4, clip_id: "c2", take_warning: "The video model refused this prompt.", look_fix: "Take out any studio or film name, then Make another take." })];
+  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, clips] }));
+  open("?step=clips");
+  expect(await within(await screen.findByLabelText("Clip c2")).findByText("For this look: Take out any studio or film name, then Make another take.")).toBeInTheDocument();
+});
