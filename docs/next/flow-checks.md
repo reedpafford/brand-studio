@@ -367,3 +367,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #996 Shown price = charge on the story steps | c1f42db0 | PASS at its head (key guard in): Make the shots shows its clip prompts' rewrite; N stills rounded once (3, not 9); 16/16. Conflicts with next in storyboard.py: needs a merge |
 | 2026-10-29 | #997 Media: a deleted video's maker restores it | 12b8af07 (+ next) | PASS: the badge names the video's maker; Restore for them or the owner (the video's maker, not the item's); 2/2 + 11/11 |
 | 2026-10-29 | #987 (re-walk) | 23e999fd (+ next) | PASS: quote = card = cost bar = to-finish at every step (28.06; 24.66 after Nate's look, charged 1.70 ≤ 3.40; Pixar 31.46; Not now kept); 45/45, 112/112 |
+| 2026-10-29 | #987 (re-check) | c1c14d0e | PASS: next merged; same figures (28.06 → 24.66 after Nate's look charged 1.70; Pixar 31.46), bar = to-finish |
