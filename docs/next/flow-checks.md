@@ -237,3 +237,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #909 at 29596fd2 (Narrated format: S1, N1, V6n screens) | code walk; vitest scripts + finalsong (243) | FAIL: Make another live while timing (server 409s) |
 | 2026-10-29 | #910 at c70a64c (BR1 server: owner-only edits, CTA lines, defaults) | brand_setup + brands + migrations + variants (24); Look tab fields | FAIL: PATCH /brands is owner-only for all fields, so editors lose logo, colours, fonts, tone, never say, legal, end line (Look tab) |
 | 2026-10-29 | #908 at 4643ed19 (negated matches skipped; not/never) | look_words on 7 prompts; styles + item_check + song (42) | PASS (notes: add "nothing"; a removal can leave "Notably .") |
+| 2026-10-29 | #906 at 31aeab1b (merge with #905) | vitest projects + videos (336) | PASS |
