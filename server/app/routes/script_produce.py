@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import breakdown, narration, plans, script_preview, song_takes
+from app import breakdown, credits, narration, plans, script_preview, song_takes
 from app import script_library as lib
 from app import video_settings as vs
 from app.auth import current_user
@@ -21,6 +21,7 @@ from app.models.script_library import ScriptCastSlot
 from app.models.scripts import ScriptVersion
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
+from app.routes.estimate import version_cost
 from app.routes.jobs import enqueue
 from app.routes.projects import _set_length
 from app.routes.references import for_script as script_reference
@@ -129,3 +130,38 @@ def produce(
     if shots:
         return ProduceOut(project_id=project.id, breakdown_job_id=job.id)
     return ProduceOut(project_id=project.id, breakdown_job_id=None, plan_job_id=job.id)
+
+
+class VersionEstimateOut(BaseModel):
+    credits: float  # "about N credits to make", every step: the version's estimate_credits
+    over_cap: bool  # over the video limit
+    reason: str  # why it can't be made like this ("" when nothing is in the way)
+
+
+@router.post("/estimate", response_model=VersionEstimateOut)
+def version_estimate(
+    script_id: int,
+    slot: Slot,
+    body: VideoSettingsIn | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Make this version's price line with the Video settings row's picks (VS1), each checked
+    as on produce (a bad pick: 422 or 409). The choices come from GET /models, /looks and the
+    brand's screens. Free."""
+    script = lib.get_script(db, user, script_id)
+    draft = lib.get_draft(db, script, slot)
+    video = Project(
+        workspace_id=user.workspace_id,
+        brand_id=script.brand_id,
+        look=script.look,
+        script_draft_id=draft.id,
+        created_by_id=user.id,
+    )  # never saved
+    for field, value in (body.model_dump(exclude_none=True) if body else {}).items():
+        setattr(video, *vs.check(db, user, video, {field: value}).popitem())
+    cost = version_cost(db, draft, video)
+    cap = credits.get_limits(db, user.workspace_id).per_video_max_credits
+    week = credits.over_allowance(db, user, video, cost)
+    reason = vs.OVER_CAP.format(cap) if cost > cap else week
+    return VersionEstimateOut(credits=float(cost), over_cap=cost > cap, reason=reason)
