@@ -1,6 +1,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { StrictMode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
@@ -25,12 +26,14 @@ const base = (me: object, rows: object[], extra: Record<string, [number, unknown
 const urls = () => (fetch as unknown as { mock: { calls: [Request | string][] } }).mock.calls.map(([r]) => (typeof r === "string" ? r : r.url)).filter((u) => u.includes("/projects?"));
 function open(at = "/b/1/videos") {
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[at]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+    <StrictMode>
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[at]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </StrictMode>,
+  ); // as in the app: StrictMode renders twice
 }
 afterEach(() => vi.unstubAllGlobals());
 

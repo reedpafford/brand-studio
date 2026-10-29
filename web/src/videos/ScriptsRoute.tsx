@@ -5,7 +5,8 @@ import { ScriptsPage } from "../scripts/ScriptsPage";
 export function ScriptsRoute() {
   const [params] = useSearchParams();
   if (params.get("view") !== "videos") return <ScriptsPage />;
-  params.delete("view");
-  const rest = params.toString();
-  return <Navigate to={`../videos${rest ? `?${rest}` : ""}`} relative="path" replace />;
+  const rest = new URLSearchParams(params); // a copy: the router's own params must not change during render
+  rest.delete("view");
+  const q = rest.toString();
+  return <Navigate to={`../videos${q ? `?${q}` : ""}`} relative="path" replace />;
 }
