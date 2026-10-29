@@ -16,6 +16,7 @@ import { AdviceList, useKeep } from "./Keep";
 import { useBreakdownFixes, useFixCast, useRemoveRef, type RefKind } from "./BreakdownFixes";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown } from "./breakdownEdit";
 import { EditableText, lineLabel, lines, ShotEditor, type Picks } from "./ShotEditor";
+import { SongShotTime } from "../scripts/VideoSong";
 import { videoQuery } from "./useProgress";
 
 export function BreakdownView(props: {
@@ -299,7 +300,7 @@ export function BreakdownView(props: {
                         <li key={s.id} id={`shot-${s.id}`} className={`space-y-1 px-4 py-3 ${ring(`shot-${s.id}`)} ${line !== null && s.script_lines.includes(line) ? "bg-accent-soft" : ""}`} aria-label={`Shot ${s.id}`}>
                           <div className="flex flex-wrap items-center gap-x-3 text-sm">
                             <span className="font-medium text-muted">{s.id}</span>
-                            <span className="tabular-nums">{s.seconds} s</span>
+                            {row.song ? <SongShotTime part={row.song} shotId={s.id} /> : <span className="tabular-nums">{s.seconds} s</span>}
                             <span className="text-muted">{s.camera}</span>
                             <span className="ml-auto flex items-center gap-1">
                               {s.script_lines.length > 0 &&
