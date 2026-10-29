@@ -31,6 +31,9 @@ export function useFrames(projectId: number) {
   });
 }
 
+/** How long ago a server time was, in ms (read when polling decides, never while drawing the page). */
+const msSince = (iso: string) => Date.now() - Date.parse(iso);
+
 /** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. */
 export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
@@ -62,10 +65,20 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const drawingNow = Object.fromEntries(Object.entries(drawing).map(([f, j]) => [f, going(j)]));
   const anyGoing = writingNow || stillsGoing > 0 || Object.values(drawingNow).some(Boolean);
 
+  // A redo I pressed is read again until it lands ("done"), its write job failed, or its write job ended a while ago
+  // (15 s, as Change it): one read caught between its rewrite and its still must not stop the reads (QA-2 on #803).
+  const [redoPressed, setRedoPressed] = useState<{ frame: number; job: number; at: string } | null>(null);
   const frames = useQuery({
     queryKey: ["storyboard", projectId],
     queryFn: async () => (await api.GET("/projects/{project_id}/storyboard", { params: { path } })).data ?? [],
-    refetchInterval: (q) => (anyGoing || q.state.data?.some((f) => f.drawing || (f.change as ChangeState)?.status === "changing") ? 3000 : false),
+    refetchInterval: (q) => {
+      if (anyGoing || q.state.data?.some((f) => f.drawing || (f.change as ChangeState)?.status === "changing")) return 3000;
+      if (!redoPressed || msSince(redoPressed.at) > 120_000) return false;
+      if ((q.state.data?.find((f) => f.id === redoPressed.frame)?.change as ChangeState)?.status === "done") return false;
+      const job = jobOf(redoPressed.job);
+      if (job?.status === "failed" || job?.status === "cancelled") return false;
+      return job?.status === "succeeded" && job.finished_at && msSince(job.finished_at) > 15_000 ? false : 3000;
+    },
   });
   // The run is done but the list on screen is still the old one: wait for the new frames.
   const stillOld = writing !== null && jobOf(writing)?.status === "succeeded" && (frames.data ?? []).some((f) => replaced.includes(f.id));
@@ -155,8 +168,10 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     mutationFn: async (frame: Frame) => {
       const { data, error } = await api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/redo", { params: { path: { ...path, frame_id: frame.id } } });
       if (!data) throw new Error(errorText(error));
+      return { frame: frame.id, job: data.id, at: data.created_at };
     },
-    onSuccess: async () => {
+    onSuccess: async (pressed) => {
+      setRedoPressed(pressed);
       await refresh();
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
