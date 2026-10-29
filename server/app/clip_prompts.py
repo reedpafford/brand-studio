@@ -55,6 +55,62 @@ MODERATED = "The video model refused this prompt: it read it as "  # clip_takes.
 
 OLDER_TAKE = "Advice: Its take was made from an older look of "
 OLDER_STILL = "Advice: Its take was made from an earlier still of this clip's frame."
+OLDER_PROMPT = "Advice: Its take was made from another version of this prompt."
+HISTORY = 10  # OR3: a clip's prompt versions kept, the one in hand first
+
+
+def _version(db: Session, row: ProjectClip, v: int, made_at, by_id: int | None) -> dict:
+    return {"v": v, "made_at": made_at.isoformat(), "made_by_id": by_id, "prompt": row.prompt,
+            "references": row.references, "breakdown_id": row.breakdown_id,
+            "seconds": row.seconds, "problems": row.problems, "kept": row.kept}  # fmt: skip
+
+
+def before_change(db: Session, row: ProjectClip) -> None:
+    """A prompt written before Versions (n13) becomes version 1 before it's replaced."""
+    if not row.prompt_history and row.prompt:
+        job = db.get(Job, row.job_id) if row.job_id else None
+        made = job.created_at if job else row.created_at
+        row.prompt_history = [_version(db, row, 1, made, job.created_by_id if job else None)]
+
+
+def log_prompt(db: Session, row: ProjectClip, by_id: int | None) -> None:
+    """The prompt in hand is a new version (a rewrite, a change note or an edit): Versions
+    keeps it first, at most HISTORY. A free code repair amends the version in hand instead."""
+    from app.db import utcnow
+
+    history = list(row.prompt_history or [])
+    v = max((e["v"] for e in history), default=0) + 1
+    row.prompt_history = [_version(db, row, v, utcnow(), by_id), *history][:HISTORY]
+
+
+def prompt_version(row: ProjectClip) -> int | None:
+    """The version in hand, which a take records it was made from (`made_with`)."""
+    return (row.prompt_history or [{}])[0].get("v")
+
+
+def use_prompt(row: ProjectClip, index: int) -> None:
+    """Go back to this (OR3): an earlier version is the prompt in hand again, its references
+    and breakdown with it; the one it replaces is index 1, so Undo is index 1. Free. It needs
+    reading again (Looks good); a version for an older breakdown reads Rewrite, as ever."""
+    history = list(row.prompt_history or [])
+    if index == 0:
+        raise HTTPException(409, "This is the prompt in use.")
+    if not 0 < index < len(history):
+        raise HTTPException(404, "There's no such earlier prompt.")
+    back = history.pop(index)
+    row.prompt_history = [back, *history]
+    row.prompt, row.references, row.seconds = back["prompt"], back["references"], back["seconds"]
+    row.breakdown_id, row.problems, row.kept = back["breakdown_id"], back["problems"], back["kept"]
+    row.approved = row.prompt_ok = False
+    row.change = row.auto_fix = None
+
+
+def older_prompt(db: Session, row: ProjectClip) -> bool:
+    """The clip's picked take was made from another version of its prompt than the one in
+    hand (OR3: Go back to this). Takes from before Versions carry no version: never said."""
+    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+    made = (take.made_with or {}).get("prompt_version") if take else None
+    return made is not None and made != prompt_version(row)
 
 
 def take_stale(row: ProjectClip) -> bool:
@@ -63,7 +119,7 @@ def take_stale(row: ProjectClip) -> bool:
     waiting" (LW2). Approved work stays approved: a sheet edit reaches every video, finished
     ones too."""
     kept = row.kept or []
-    return any(p.startswith((OLDER_TAKE, OLDER_STILL)) and p not in kept
+    return any(p.startswith((OLDER_TAKE, OLDER_STILL, OLDER_PROMPT)) and p not in kept
                for p in row.problems or [])  # fmt: skip
 
 
@@ -516,6 +572,8 @@ def repair(db: Session, project: Project) -> int:
             problems.append(f"{OLDER_TAKE}{', '.join(older)}. Make another take to show it.")
         if older_still(db, known, row):  # OR3: its frame's Preferred still moved
             problems.append(f"{OLDER_STILL} Make another take to show it.")
+        if older_prompt(db, row):  # OR3: the prompt went back to another version
+            problems.append(f"{OLDER_PROMPT} Make another take to show it.")
         if any(p.lower().startswith("more references than") for p in problems):
             now = repair_shape(_cap(with_cast(db, project, was, bd, known), known, project), bd)
             kept = {r.id for r in now.references}
@@ -583,9 +641,11 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             was = db.get(BreakdownVersion, row.breakdown_id)
             row.real_images = cut_in.still_shown(was.data if was else {}, bd_row.data,
                                                  row.real_images)  # fmt: skip
+        before_change(db, row)
         row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, c.seconds
         row.prompt, row.references = c.prompt, [r.model_dump() for r in c.references]
         row.problems, row.kept = problems, []
+        log_prompt(db, row, job.created_by_id)  # OR3: Versions
         row.approved, row.prompt_ok, row.change = False, False, None
         row.auto_fix = {"before": written_as, "after": c.prompt, "fixed": words[1],
                         "undone": False} if words[1] else None  # fmt: skip

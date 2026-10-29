@@ -9,6 +9,7 @@ from app.models.storyboards import StoryboardFrame
 from app.storyboard import save_still
 from tests.conftest import upload
 from tests.test_change_notes import _frame
+from tests.test_clip_takes import clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
 
@@ -125,3 +126,42 @@ def test_go_back_to_an_earlier_storyboard_with_undo(app, db, editor, setup):  # 
     assert [v["index"] for v in editor.get(f"{url}/versions").json()] == [None, 0]
     undo = editor.post(f"{url}/versions/0/use").json()  # Undo: storyboard 2 again
     assert undo[0]["file_id"] == second_still and _older(db, row)
+
+
+def test_go_back_to_an_earlier_clip_prompt_with_undo(app, db, editor, setup, clip):  # noqa: F811
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    assert [v["current"] for v in clip["versions"]] == [True]  # Claude's, version 1
+    edited = clip["prompt"].replace("Setting: cold morning light.", "Setting: warm dusk light.")
+    shown = editor.put(url, json={"prompt": edited, "references": clip["references"]}).json()
+    assert [v["index"] for v in shown["versions"]] == [0, 1] and shown["versions"][0]["made_by"]
+    from app import video_settings
+    from app.breakdown import video_model
+
+    row = db.get(ProjectClip, clip["id"])
+    project, video = db.get(Project, row.project_id), upload(editor)
+    take = ClipTake(
+        clip_id=row.id,
+        number=1,
+        job_id=row.job_id,
+        file_id=video,
+        prompt=edited,
+        made_with={
+            **video_settings.made_with(db, project, [], video_model(project).id),
+            "prompt_version": 2,
+        },
+    )  # made from the edit
+    db.add(take)
+    db.flush()
+    row.picked_take_id, row.file_id = take.id, take.file_id
+    db.commit()
+    listed = lambda: next(c for c in editor.get(url.rsplit("/", 1)[0]).json()  # noqa: E731
+                          if c["id"] == clip["id"])  # fmt: skip
+    assert listed()["take_stale"] is False
+
+    assert editor.post(f"{url}/versions/0/use").status_code == 409  # in use already
+    assert editor.post(f"{url}/versions/9/use").status_code == 404
+    back = editor.post(f"{url}/versions/1/use").json()  # Go back to this: free
+    assert back["prompt"] == clip["prompt"] and back["prompt_ok"] is False
+    assert listed()["take_stale"] is True  # its take was made from the other version
+    undo = editor.post(f"{url}/versions/1/use").json()  # Undo
+    assert undo["prompt"] == edited and listed()["take_stale"] is False
