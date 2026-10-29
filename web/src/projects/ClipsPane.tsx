@@ -21,7 +21,7 @@ import { useCostBarAction } from "./CostBar";
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
 
-export function ClipsPane(props: { hold?: string | null; ownScript?: boolean; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
+export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; ownScript?: boolean; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
   const { projectId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -211,7 +211,7 @@ export function ClipsPane(props: { hold?: string | null; ownScript?: boolean; re
   const bar = !!props.review && !loading && !clips.isError && !writingNow;
   const rewrite = { price: writeCost ?? null, reason: stopFor(writeCost), busy: write.isPending, onPress: () => write.mutate(undefined) };
   useCostBarAction(
-    !bar ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : approveAll.action,
+    !bar || props.barTaken ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : approveAll.action,
   );
   const barApproves = bar && list.length > 0 && stale.length === 0 && missing.length === 0;
   if (loading) return <p role="status" className="text-muted">Loading…</p>;
