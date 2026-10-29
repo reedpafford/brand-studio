@@ -26,10 +26,17 @@ def explain(db: Session, job: Job) -> None:
 
 
 def step_failed(db: Session, job: Job) -> None:
-    """A step's job failed at the provider: the reel watch retries, then falls back."""
+    """A step's job failed at the provider: the reel watch retries, then falls back; a
+    refused or busy take is tried again once on its own (P3)."""
+    from app.clip_takes import retry
     from app.reel_read import watch_failed
 
     explain(db, job)
+    if job.input.get("step") == "clip_take":
+        try:
+            retry(db, job)
+        except Exception:  # never let a retry break the worker
+            log.exception("job %s: retrying the take failed", job.id)
     if job.input.get("step") == "reel_watch":
         try:
             watch_failed(db, job)

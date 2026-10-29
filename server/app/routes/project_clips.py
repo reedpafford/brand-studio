@@ -5,6 +5,7 @@ picked takes into the finished video (free)."""
 import hashlib
 import logging
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -80,6 +81,11 @@ class InsertIn(BaseModel):
     use_real_image: bool
 
 
+class AutoFixOut(BaseModel):
+    fixed: list[str]  # 'removed "9:16"', 'changed "says" to "gestures"'
+    undone: bool
+
+
 class ProjectClipOut(BaseModel):
     id: int
     clip_id: str
@@ -100,6 +106,8 @@ class ProjectClipOut(BaseModel):
     change: dict | None  # the last Change it note, as on a frame (app/change.py)
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
     take_warning: str | None = None  # said before the next take: its last two were refused
+    retrying: Literal["refused", "busy"] | None = None  # P3: why its take is being tried again
+    auto_fix: AutoFixOut | None = None  # P3: wording fixed for you, with Undo
 
 
 def _takes(db: Session, row: ProjectClip) -> list[ClipTake]:
@@ -113,7 +121,7 @@ _stale = clip_prompts.is_stale
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
-                "take_stale")  # fmt: skip
+                "take_stale", "retrying", "auto_fix")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -132,6 +140,8 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         stale=_stale(db, row, newest),
         take_stale=clip_prompts.take_stale(row),
         take_warning=clip_takes.take_warning(db, row),
+        retrying=clip_takes.retrying(db, row),
+        auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
         change=asked or None,
     )
 
@@ -257,6 +267,29 @@ def fix_clip(
     return FixOut(fixed=None, before=was.prompt, job=job, clip=_out(db, row, newest))
 
 
+@router.post("/clips/{clip_id}/auto-fix/undo", response_model=ProjectClipOut)
+def undo_auto_fix(
+    project_id: int, clip_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Undo of a wording fix made for you (P3): the prompt's own words come back, free, and
+    the flags it fixed are Advice (never a block); it isn't fixed again until it changes."""
+    project, row = _clip(db, user, project_id, clip_id)
+    fix = row.auto_fix or {}
+    if not fix or fix.get("undone"):
+        raise HTTPException(409, "There's nothing to undo on this clip.")
+    if row.prompt != fix.get("after"):
+        raise HTTPException(409, "This prompt has changed since, so the fix can't be undone.")
+    bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
+    row.same_fix = True  # its own words back: a used free fix stays used
+    row.prompt, row.auto_fix = fix["before"], {**fix, "undone": True}
+    was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
+                     references=[Reference(**r) for r in row.references])  # fmt: skip
+    row.problems = clip_prompts.undone_flags(row, clip_prompts.clip_problems(db, project, bd, was))
+    row.prompt_ok = row.approved = False
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
+
+
 @router.get("/clips", response_model=list[ProjectClipOut])
 def list_clips(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project = get_project(db, user, project_id)
@@ -284,6 +317,11 @@ def edit_clip(
     clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, **body.model_dump())
     clip = clip_prompts.with_cast(db, project, clip, bd, trim=False)
     refused = clip_prompts.refusal(row.problems, row.prompt, clip.prompt)
+    if clip.prompt != row.prompt:  # new words: fixed as written, with an Undo for these words
+        typed, (fixed, said) = clip.prompt, clip_prompts.reword(clip.prompt)
+        clip = clip.model_copy(update={"prompt": fixed})
+        row.auto_fix = {"before": typed, "after": fixed, "fixed": said,
+                        "undone": False} if said else None  # fmt: skip
     row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
     row.prompt_ok = True
     row.problems = clip_prompts.clip_problems(db, project, bd, clip) + refused
