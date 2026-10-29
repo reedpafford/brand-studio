@@ -59,7 +59,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| A video's own look that didn't finish (#944) | The copy's draw fails: the Cast row has no press but Use a different character (Make 409s, Approve and the Cast & places link are hidden) | Try again on the copy (POST /library/character/{copy}/sheet, already allowed) with "didn't finish, nothing charged" |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -306,3 +305,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #946 at fa40fad6 (OR1 projects, server) | PASS: make (dup 409), file (editor own yes, others' 403, owner any, other brand 409), rename/delete rights, delete moves to No project, Undo restores |
 | 2026-10-29 | #947 at ce656821 | PASS: the cast-line hold on Update everything after this (same as walked at 60ac28b5; #939 merged without it) |
 | 2026-10-29 | #948 at 143d197d (ST1 look change confirm, web) | PASS with #943: roles and To finish (was), Change greyed over the week, Not yet keeps the picker for a cheaper look, Undo free; safe before #943 (404 → as before) |
+| 2026-10-29 | #944 at 56234904 | PASS: a failed copy says so with a priced Try again; Redo beside Approve this look. Open row closed |
