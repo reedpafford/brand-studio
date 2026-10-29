@@ -1,4 +1,5 @@
 import io
+import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +14,16 @@ from app.settings import Settings
 
 SETUP_TOKEN = "test-setup-token"
 PASSWORD = "correct horse battery"
+
+
+def pytest_configure(config):
+    """No test may reach a paid service: tester and CI machines can hold real keys, and the
+    test site has real lanes (Suno, look samples, the language test). Empty keys beat a .env
+    file (pydantic-settings reads environment variables first), and the stand-ins are on.
+    Settings are only read when a test makes them, so this runs before any are."""
+    for key in ("STUDIO_ANTHROPIC_KEY", "REPLICATE_API_TOKEN", "KIE_API_KEY"):
+        os.environ[key] = ""
+    os.environ["BS_FAKE_PROVIDERS"] = "true"
 
 
 @pytest.fixture
