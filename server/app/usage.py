@@ -351,3 +351,19 @@ def filed(db: Session, brand_id: int, when: Period, made_by: int | None = None,
             found["spend"] += Decimal(cost or 0)
             found["estimated"] = found["estimated"] or bool(est)
     return out
+
+
+def script_credits(db: Session, brand_id: int, when: Period, made_by: int) -> dict[int, Decimal]:
+    """Per script, in the period: that person's own calls writing it (its words, variations,
+    suggestions, previews), in credits. A video's jobs are the video's, never counted here."""
+    from app.credits import COUNTED
+
+    out: dict[int, Decimal] = {}
+    jobs = select(Job).where(Job.brand_id == brand_id, Job.project_id.is_(None),
+                             Job.created_by_id == made_by, Job.status.in_(COUNTED),
+                             *when.has(Job.created_at))  # fmt: skip
+    for job in db.scalars(jobs):
+        draft = db.get(ScriptDraft, job.input.get("script_draft_id") or 0)
+        if script_id := job.input.get("script_id") or (draft.script_id if draft else None):
+            out[script_id] = out.get(script_id, Decimal(0)) + Decimal(job.credits or 0)
+    return out
