@@ -195,7 +195,8 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
 
 def _current_clips(db: Session, project: Project, row: BreakdownVersion) -> None:
     """The clips made for exactly these song times move to `row` (current): those whose
-    shots didn't move, and, after an Undo, those made for the take before. Any other clip
+    shots didn't move (B-roll only: a Sung clip lip-syncs its own take's singing), and, after
+    an Undo, those made for the take before. Any other clip
     stays on the row it was made from, out of date (it holds the old take's slice)."""
     from app.models.clips import ProjectClip
 
@@ -206,9 +207,12 @@ def _current_clips(db: Session, project: Project, row: BreakdownVersion) -> None
         was = (made.data.get("song") or {}).get("shots", {}) if made else {}
         then = {c.id: c.shot_ids for c in Breakdown.model_validate(made.data).clips} if made else {}
         shots = now.get(clip.clip_id)
+        same_take = (made.data.get("song") or {}).get("take_id") == row.data["song"]["take_id"]
+        sung = any(times.get(s, {}).get("sung") for s in shots or [])
         if (
             shots
             and then.get(clip.clip_id) == shots
+            and (same_take or not sung)  # a Sung clip lip-syncs its own take only
             and all(was.get(s) == times.get(s) for s in shots)
         ):
             clip.breakdown_id = row.id

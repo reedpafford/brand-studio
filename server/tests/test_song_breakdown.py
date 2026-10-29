@@ -1,6 +1,8 @@
 """Song ads: the breakdown timed to the video's song, kept beside the plan, carried by edits
 and moved for free when the video's take changes (stand-ins only, no paid calls)."""
 
+import copy
+
 from sqlalchemy import select
 
 from app.models.breakdowns import BreakdownVersion
@@ -156,8 +158,6 @@ def test_deleting_or_adding_a_shot_repacks_the_song_free_and_undo_is_exact(
     editor,
     song,  # noqa: F811
 ):
-    import copy
-
     video = _video(app, db, owner, editor, song)
     original = editor.get(f"{video}/breakdown").json()
     plan, times = original["breakdown"], original["song"]["shots"]
@@ -187,3 +187,28 @@ def test_deleting_or_adding_a_shot_repacks_the_song_free_and_undo_is_exact(
     assert {k: (v["start"], v["end"]) for k, v in back["song"]["shots"].items()} == {
         k: (v["start"], v["end"]) for k, v in times.items()
     }
+
+
+def test_a_sung_clip_goes_out_of_date_on_any_take_change(app, db, owner, editor, song):  # noqa: F811
+    from app.models.clips import ProjectClip
+
+    video = _video(app, db, owner, editor, song)
+    project = db.get(Project, int(video.rsplit("/", 1)[1]))
+    made = _rows(db, video)[-1]
+    data = copy.deepcopy(made.data)
+    clip = data["clips"][0]
+    for sid in clip["shot_ids"]:
+        data["song"]["shots"][sid]["sung"] = True
+    made.data = data
+    db.add(ProjectClip(project_id=project.id, breakdown_id=made.id, clip_id=clip["id"],
+                       seconds=clip["seconds"], prompt="A sung clip."))  # fmt: skip
+    db.commit()
+    takes = editor.get(f"{video}/songs").json()["takes"]
+    first, other = takes[0]["id"], takes[1]["id"]  # the same stand-in song: nothing moves
+    editor.put(f"{video}/song", json={"take_id": other})
+    row = db.scalar(select(ProjectClip))
+    db.refresh(row)
+    assert row.breakdown_id == made.id  # out of date: it sings the other take
+    editor.put(f"{video}/song", json={"take_id": first})  # Undo
+    db.refresh(row)
+    assert row.breakdown_id == _rows(db, video)[-1].id
