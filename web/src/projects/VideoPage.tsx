@@ -22,6 +22,8 @@ import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
 import { VideoSettings, useVideoSettings } from "./VideoSettings";
+import { useUpdateAfter } from "./UpdateAfter";
+import { useOwnScriptStop } from "./useOwnScriptStop";
 import { StoryboardPane } from "./StoryboardPane";
 import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
@@ -56,6 +58,10 @@ export function VideoPage() {
   const week = p?.own_script && allowance.data ? { used: allowance.data.quick_clip_credits_used, allowed: allowance.data.quick_clip_credits_allowed } : null;
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
   const settings = useVideoSettings(id); // the row has Shape once the server offers settings
+  // The storyboard is out of date and the shots are current: one press brings it and the clip prompts up to date (audit M14 part 2).
+  const stopFor = useOwnScriptStop(p?.own_script, p ? { used: p.credits_used, budget: p.budget_credits } : undefined);
+  const updating = (step === "storyboard" || step === "clips") && !progress.shots.stale && (progress.frames.stale || progress.clips.stale);
+  const update = useUpdateAfter(id, updating, stopFor, (to) => setParams({ step: to }));
   // When this step was opened, the Assets list as it was then: a read since then is this step's own.
   const [opened, setOpened] = useState(() => ({ step, at: assets.dataUpdatedAt }));
   if (opened.step !== step) setOpened({ step, at: assets.dataUpdatedAt });
@@ -114,7 +120,7 @@ export function VideoPage() {
 
   return (
     // One cost bar at the bottom: the budget (or the editor's week), what finishing costs, and the step's press (audit M1).
-    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} fallback={waiting ? null : nextAction}>
+    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} fallback={waiting ? null : (update.action ?? nextAction)}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}
@@ -153,11 +159,12 @@ export function VideoPage() {
           {(step === "storyboard" || step === "clips" || step === "downloads") && <CheckSummary projectId={id} />}
         </div>
       </div>
-      {hold && (
+      {hold && !update.stopped && ( // a stopped update says where, with that step's own press
         <Banner tone="warning" title="Out of date" action={fixAt && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
           {hold}
         </Banner>
       )}
+      {update.note}
       {step === "plan" && (
         <PlanStep
           project={p as typeof p & { plan_status?: "none" | "ready" | "approved" | null }}
@@ -171,8 +178,8 @@ export function VideoPage() {
         />
       )}
       {step === "cast" && <AssetsPane bar projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} ownScript={p.own_script} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "storyboard" && <StoryboardPane hold={hold} castRedraw={p.cast_redraw} ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "clips" && <ClipsPane hold={hold} ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "storyboard" && <StoryboardPane barTaken={!!update.action} hold={hold} castRedraw={p.cast_redraw} ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "clips" && <ClipsPane barTaken={!!update.action} hold={hold} ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       {panel && (
         <ScriptPanel

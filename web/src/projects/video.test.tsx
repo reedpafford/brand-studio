@@ -1117,6 +1117,58 @@ test("with every take made, Clips' Approve all is the bar's press and not repeat
   expect(screen.getAllByRole("button", { name: "Approve all" })).toHaveLength(1);
 });
 
+const updatePlan = { credits: 16, steps: [{ step: "storyboard", what: "Make the storyboard again (1 frame, 1 still)", credits: 10 }, { step: "clip_prompts", what: "Rewrite 1 clip prompt", credits: 6 }], running: false, stopped_at: null, reason: null };
+
+test("held Clips offer Update everything after this in the cost bar, priced and listed, and it runs on the server (audit M14 part 2)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]],
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]],
+    "GET /projects/9/update-after?from=plan": [200, updatePlan],
+    "POST /projects/9/update-after?from=plan": [202, { ...updatePlan, running: true, steps: updatePlan.steps.map((s, i) => ({ ...s, status: i ? "waiting" : "started" })) }],
+  });
+  open("?step=clips");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  const update = await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" });
+  expect(within(bar).queryByRole("button", { name: /Make the takes/ })).toBeNull(); // the held press gives the bar up
+  expect(screen.getByText("Update everything after this: Make the storyboard again (1 frame, 1 still) · Rewrite 1 clip prompt.")).toBeInTheDocument();
+  await userEvent.click(update);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/update-after")).toBe(true));
+  expect(await within(bar).findByRole("button", { name: /Updating…/ })).toBeInTheDocument();
+});
+
+test("a run that stopped says where and why, with that step's own press", async () => {
+  setViewport(390);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]],
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]],
+    "GET /projects/9/update-after?from=plan": [200, { ...updatePlan, stopped_at: "storyboard", reason: "The storyboard didn't finish. Nothing was charged." }],
+  });
+  open("?step=clips");
+  expect(await screen.findByText("Stopped at Storyboard")).toBeInTheDocument();
+  expect(screen.getByText("The storyboard didn't finish. Nothing was charged.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Open Storyboard" }));
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+});
+
+test("an update over the budget is refused with the server's reason under the press", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]],
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]],
+    "GET /projects/9/update-after?from=plan": [200, updatePlan],
+    "POST /projects/9/update-after?from=plan": [409, { detail: "That's more than this video's budget." }],
+  });
+  open("?step=clips");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  await userEvent.click(await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" }));
+  const update = await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" });
+  await vi.waitFor(() => expect(update).toHaveAccessibleDescription("That's more than this video's budget."));
+});
+
 const staleClips = [clip({ id: 3, clip_id: "c1", stale: true, takes: [{ id: 5 }], picked_take_id: 5 }), clip({ id: 4, clip_id: "c2", stale: true })];
 const staleRoutes = {
   ...toClips,

@@ -28,3 +28,6 @@ a hand-sculpted claymation look with large almond eyes and matte clay skin
 
 ## clip
 - One gesture and one camera move per shot: stacked actions drift. Repeat the clay words in the action ("the clay dog's ears flop"), so the material survives the motion.
+
+## sample
+A sculpted clay woman in her thirties with a bob of brown hair and visible thumbprints, in one knitted green jumper.
