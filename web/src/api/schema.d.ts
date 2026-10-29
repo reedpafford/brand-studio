@@ -3800,6 +3800,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/looks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Looks
+         * @description House first, then Reed's order. Editors see the Off ones too, greyed (ST1).
+         */
+        get: operations["list_looks_looks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/looks/{look_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Switch Look
+         * @description Switch on for editors (only with a sample), or off (videos using it keep it); Undo is
+         *     the opposite press.
+         */
+        patch: operations["switch_look_looks__look_id__patch"];
+        trace?: never;
+    };
     "/scripts/{script_id}/drafts/{slot}/song-study": {
         parameters: {
             query?: never;
@@ -3840,6 +3881,26 @@ export interface paths {
         put?: never;
         /** Restore Study */
         post: operations["restore_study_scripts__script_id__drafts__slot__song_study_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/song-study/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Study
+         * @description Stop the study in hand, queued or running (free; a finished study stays).
+         */
+        post: operations["stop_study_scripts__script_id__drafts__slot__song_study_stop_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4255,6 +4316,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song";
+            /** Look */
+            look?: string | null;
             /** Reel Url */
             reel_url?: string | null;
             /** Upload Id */
@@ -5123,6 +5186,26 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** LookOut */
+        LookOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Blurb */
+            blurb: string;
+            /** On */
+            on: boolean;
+            /** Sample Still Id */
+            sample_still_id?: number | null;
+            /** Sample Clip Id */
+            sample_clip_id?: number | null;
+        };
+        /** LookSwitchIn */
+        LookSwitchIn: {
+            /** On */
+            on: boolean;
+        };
         /** MadeOut */
         MadeOut: {
             /** Looks */
@@ -5586,6 +5669,16 @@ export interface components {
             song: boolean;
             /** Song Take Id */
             song_take_id?: number | null;
+            /**
+             * Look
+             * @default house
+             */
+            look: string;
+            /**
+             * Look Redo Credits
+             * @default 0
+             */
+            look_redo_credits: number;
             /** Planned Seconds */
             planned_seconds: number | null;
             /** Breakdown Seconds */
@@ -5678,6 +5771,8 @@ export interface components {
             reference_id?: string | null;
             /** Name */
             name?: string | null;
+            /** Look */
+            look?: string | null;
             /** Planned Seconds */
             planned_seconds?: number | null;
         };
@@ -5978,6 +6073,8 @@ export interface components {
             reference_replace?: string | null;
             /** New Lines */
             new_lines?: boolean | null;
+            /** Look */
+            look?: string | null;
         };
         /** ScriptRef */
         ScriptRef: {
@@ -5999,6 +6096,11 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song";
+            /**
+             * Look
+             * @default house
+             */
+            look: string;
             /** Description */
             description: string;
             /** Reference Id */
@@ -6421,6 +6523,8 @@ export interface components {
             keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
+            /** Songs Note */
+            songs_note?: string | null;
         };
         /** StageOut */
         StageOut: {
@@ -6744,6 +6848,11 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song";
+            /**
+             * Look
+             * @default house
+             */
+            look: string;
             /** Description */
             description: string;
             /** Reference Id */
@@ -6965,6 +7074,8 @@ export interface components {
             keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
+            /** Songs Note */
+            songs_note?: string | null;
             /** Song Take Id */
             song_take_id: number | null;
         };
@@ -7129,6 +7240,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song";
+            /** Look */
+            look?: string | null;
         };
         /** ScriptOut */
         app__routes__script_library__ScriptOut: {
@@ -7143,6 +7256,11 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song";
+            /**
+             * Look
+             * @default house
+             */
+            look: string;
             /** Description */
             description: string;
             /** Reference Id */
@@ -14946,6 +15064,61 @@ export interface operations {
             };
         };
     };
+    list_looks_looks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookOut"][];
+                };
+            };
+        };
+    };
+    switch_look_looks__look_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                look_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LookSwitchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     study_song_ad_scripts__script_id__drafts__slot__song_study_post: {
         parameters: {
             query?: never;
@@ -15047,6 +15220,36 @@ export interface operations {
         };
     };
     restore_study_scripts__script_id__drafts__slot__song_study_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_study_scripts__script_id__drafts__slot__song_study_stop_post: {
         parameters: {
             query?: never;
             header?: never;

@@ -125,3 +125,15 @@ def test_the_narrator_reads_only_the_voiced_words():
     assert check.narration_text("My gut was a mess.\n\nThen came the greens.") == (
         "My gut was a mess.\nThen came the greens."
     )
+
+
+def test_prose_with_a_direction_or_a_name_and_colon_is_read_whole():
+    """Flow-QA on #858: prose ending "CTA: …" read as nothing; "Iron Paws: …" read alone."""
+    prose = "My gut was a mess.\nThen came the greens.\nCTA: Get Iron Paws."
+    assert check.narration_text(prose) == "My gut was a mess.\nThen came the greens."
+    named = "Iron Paws: the green scoop.\nMy gut was a mess.\nThen came the greens.\nSUPER: 20% off"
+    assert check.narration_text(named) == (
+        "Iron Paws: the green scoop.\nMy gut was a mess.\nThen came the greens."
+    )
+    vo = "BISCUIT (V.O.): Day one.\nHe sniffs.\nHe sighs.\nBiscuit (V.O.): Nope."
+    assert check.narration_text(vo) == "Day one.\nNope."  # a V.O. script, action lines aren't read

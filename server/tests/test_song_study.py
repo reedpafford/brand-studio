@@ -33,7 +33,7 @@ def song(owner):
 
 def _work(app, db):
     local = LocalProvider(app.state.storage, transcribe=transcript, fetch_link=refuse_link,
-                          hear_study=hear_study)  # fmt: skip
+                          hear_study=hear_study, fetch_study=refuse_link)  # fmt: skip
     run_once(db, {"local": local}, app.state.storage, allow_paid=False)  # free: runs with it off
 
 
@@ -160,12 +160,12 @@ def test_wrong_input_is_refused_in_plain_words(app, db, owner, song, clip, tmp_p
 
 def test_a_failed_job_shows_as_failed_and_a_silent_ad_has_no_shape(app, db, owner, song, clip):
     _upload(owner, song, clip)
-    local = LocalProvider(app.state.storage, hear_study=lambda path: [])
+    local = LocalProvider(app.state.storage, hear_study=lambda path, watch: [])
     run_once(db, {"local": local}, app.state.storage, allow_paid=False)
     study = _study(owner, song)
     assert (study["status"], study["problem"]) == ("failed", song_study.PROBLEMS["no_words"])
 
-    def broken(path):
+    def broken(path, watch):
         raise RuntimeError("Reading the song ad's words failed (1).")
 
     _upload(owner, song, clip)
@@ -213,13 +213,13 @@ def test_whisper_keeps_each_lines_words_for_a_study(monkeypatch, capsys):
 
 @pytest.mark.whisper
 def test_the_real_speech_model_studies(clip):  # opt in: uv run pytest -m whisper
-    heard = song_study.hear(clip)
+    heard = song_study.hear(clip, song_study.Watch())
     assert isinstance(heard, list) and all("words" in x for x in heard)
 
 
 def test_a_failed_studys_upload_is_tidied_when_replaced(app, db, owner, song, clip):
     made = _upload(owner, song, clip).json()
-    local = LocalProvider(app.state.storage, hear_study=lambda path: 1 / 0)  # the job fails
+    local = LocalProvider(app.state.storage, hear_study=lambda path, watch: 1 / 0)  # the job fails
     run_once(db, {"local": local}, app.state.storage, allow_paid=False)
     upload_id = db.get(Job, made["id"]).input["video_file_id"]
     assert db.get(StoredFile, upload_id) is not None  # its bytes are gone, its row isn't
@@ -250,3 +250,100 @@ def test_a_failed_or_cancelled_restudy_keeps_the_good_study(app, db, owner, song
     study = _study(owner, song)
     assert study["status"] == "done" and study["attempt"] is None
     assert owner.delete(url).status_code == 204  # nothing running now
+
+
+def test_reading_the_words_stops_at_stop_or_the_time_limit():
+    import sys
+    import time
+
+    from app import reel
+
+    slow = [sys.executable, "-c", "import time; time.sleep(30)"]
+    began = time.monotonic()
+    with pytest.raises(song_study.Stopped):
+        song_study.wait(slow, song_study.Watch(stopped=lambda: True))
+    with pytest.raises(reel.Refused) as no:
+        song_study.wait(slow, song_study.Watch(until=time.monotonic()))
+    assert no.value.code == "too_slow" and time.monotonic() - began < 5  # killed, not waited
+    assert song_study.wait([sys.executable, "-c", "print(1)"], song_study.Watch()) == b"1\n"
+
+
+def test_stop_ends_a_running_study_and_keeps_the_finished_one(app, db, owner, song, clip):
+    _upload(owner, song, clip)
+    _work(app, db)
+    good = _study(owner, song)
+    url = f"/scripts/{song}/drafts/0/song-study"
+    assert owner.post(f"{url}/stop").status_code == 409  # nothing is being studied
+
+    job = _upload(owner, song, clip).json()
+    marker = song_study.stop_key(job["id"])
+
+    def pressed_while_reading(path, watch):
+        assert owner.post(f"{url}/stop").status_code == 204  # Stop, mid-read
+        assert app.state.storage.exists(marker)
+        watch.check()  # what the real reader does every half second
+        raise AssertionError("not stopped")
+
+    local = LocalProvider(app.state.storage, hear_study=pressed_while_reading)
+    run_once(db, {"local": local}, app.state.storage, allow_paid=False)
+    db.expire_all()
+    assert db.get(Job, job["id"]).status == "cancelled" and db.get(Job, job["id"]).credits == 0
+    assert not app.state.storage.exists(marker)
+    study = _study(owner, song)
+    assert study["status"] == "done" and study["frames"] == good["frames"]
+    assert study["attempt"] is None  # as if never pressed
+
+    job = _upload(owner, song, clip).json()  # Stop before it starts: cancelled, no marker
+    assert owner.post(f"{url}/stop").status_code == 204
+    assert db.get(Job, job["id"]).status == "cancelled"
+    assert not app.state.storage.exists(song_study.stop_key(job["id"]))
+    assert _upload(owner, song, clip).status_code == 201  # a new study can start at once
+
+
+def test_a_study_past_the_time_limit_says_so(app, db, owner, song, clip, monkeypatch):
+    monkeypatch.setattr(song_study, "LIMIT", -1)
+    _upload(owner, song, clip)
+    _work(app, db)
+    study = _study(owner, song)
+    assert (study["status"], study["problem"]) == ("failed", song_study.PROBLEMS["too_slow"])
+    assert study["problem_code"] == "too_slow"
+
+
+def test_stop_as_the_worker_finishes_says_it_finished(app, db, owner, song, clip, monkeypatch):
+    job = _upload(owner, song, clip).json()
+    original = song_study.update
+
+    def worker_saves_first(*args, **kwargs):  # its save lands between Stop's read and update
+        db.query(Job).filter_by(id=job["id"]).update({"status": "succeeded"})
+        db.commit()
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(song_study, "update", worker_saves_first)
+    no = owner.post(f"/scripts/{song}/drafts/0/song-study/stop")
+    assert (no.status_code, no.json()["detail"]) == (409, song_study.JUST_DONE)
+    db.expire_all()
+    assert db.get(Job, job["id"]).status == "succeeded"  # Stop never claims it stopped it
+    assert not app.state.storage.exists(song_study.stop_key(job["id"]))
+
+
+def test_on_the_stand_ins_a_study_link_gives_the_test_clip(app, db, owner, song):
+    from app.providers import get_providers
+    from app.providers.fake_local import study_link
+
+    app.state.settings.fake_providers = True
+    local = get_providers(app.state.settings, app.state.storage)["local"]
+    assert local.fetch_study is study_link and local.fetch_link is refuse_link  # import: as is
+    url = f"/scripts/{song}/drafts/0/song-study"
+    assert (
+        owner.post(url, data={"url": "https://www.instagram.com/reel/DehudnaAmce/"}).status_code
+        == 201
+    )
+    run_once(db, {"local": local}, app.state.storage, allow_paid=False)
+    study = _study(owner, song)
+    assert study["status"] == "done" and study["source"] == "link" and len(study["frames"]) == 2
+    assert [p["name"] for p in study["sections"]][:2] == ["Verse", "Chorus"] and study["bpm"] >= 0
+
+    owner.post(url, data={"url": "https://www.instagram.com/reel/blocked123/"})
+    run_once(db, {"local": local}, app.state.storage, allow_paid=False)
+    attempt = _study(owner, song)["attempt"]
+    assert attempt["status"] == "failed" and attempt["problem_code"] == "blocked"

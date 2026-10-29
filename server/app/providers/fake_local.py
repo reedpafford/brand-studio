@@ -111,7 +111,7 @@ STUDY = [
 ]
 
 
-def hear_study(path: Path) -> list[dict]:
+def hear_study(path: Path, watch=None) -> list[dict]:
     """Stand-in Whisper for a song-ad study: STUDY's lines, a short pause after each pair."""
     from app.song_timing import length
 
@@ -133,6 +133,14 @@ def refuse_link(url: str, folder: Path) -> Path:
     from app.reel import BLOCKED, Refused
 
     raise Refused("blocked", BLOCKED)
+
+
+def study_link(url: str, folder: Path) -> Path:
+    """A song-ad study's link on the stand-ins: the 6 s test clip, so a walk reaches the
+    finished study; a reel id with "blocked" in it is refused, as Instagram would."""
+    if "blocked" in url:
+        return refuse_link(url, folder)
+    return two_scenes(folder / "reel.mp4")
 
 
 def png(aspect: str) -> bytes:
