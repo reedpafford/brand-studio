@@ -170,7 +170,7 @@ export function ScriptFlowPage() {
         )}
         <FormatSetting script={s} />
         <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
-        <ProjectPicker brandId={s.brand_id} kind="script" id={s.id} folderId={(s as { folder_id?: number | null }).folder_id} />
+        <ProjectPicker brandId={s.brand_id} kind="script" id={s.id} folderId={s.folder_id} />
         {allowance.data && (
           <p className="ml-auto text-sm tabular-nums text-muted">
             This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits

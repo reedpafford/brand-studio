@@ -203,7 +203,7 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
               Download
             </a>
           )}
-          {mine && j.brand_id != null && <ProjectPicker brandId={j.brand_id} kind="clip" id={j.id} folderId={(j as { folder_id?: number | null }).folder_id} />}
+          {mine && j.brand_id != null && j.project_id == null && <ProjectPicker brandId={j.brand_id} kind="clip" id={j.id} folderId={j.folder_id} />}
           {menu && <span className="ml-auto">{menu}</span>}
         </div>
       </div>

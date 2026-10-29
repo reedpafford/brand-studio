@@ -135,7 +135,7 @@ export function VideoPage() {
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="min-w-0 break-words type-page">{p.name}</h1>
           {menu}
-          {mayManage(p) && <ProjectPicker brandId={p.brand_id} kind="video" id={id} folderId={(p as { folder_id?: number | null }).folder_id} />}
+          {mayManage(p) && <ProjectPicker brandId={p.brand_id} kind="video" id={id} folderId={p.folder_id} />}
         </div>
       </div>
       {video.dialog}

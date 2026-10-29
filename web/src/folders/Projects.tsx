@@ -2,35 +2,22 @@ import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Ellipsis, Folder, Plus } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { errorText } from "../api/client";
+import { api, must } from "../api/client";
+import type { components } from "../api/schema";
 import { Button, Dialog, Field, Menu, MenuItem, Panel, useToast } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useMedia } from "../useMedia";
 
 /** A brand's project (flows OR1). Internally a "folder": the database already calls a video a project. People only see "Project". */
-export type FolderOut = { id: number; brand_id: number; name: string; created_by_id: number; items: { scripts: number; videos: number; clips: number }; can_manage: boolean };
+export type FolderOut = components["schemas"]["FolderOut"];
 export type FolderKind = "script" | "video" | "clip";
-
-// Next-Server's OR1 routes (n11). Not in the generated schema yet: swap to api.GET/POST after `npm run api`.
-async function call<T>(method: "GET" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
-  const res = await fetch(new Request(`${location.origin}/api${path}`, { method, credentials: "include", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined }));
-  const data = res.status === 204 ? null : await res.json().catch(() => null);
-  if (!res.ok) throw new Error(errorText(data));
-  return data as T;
-}
 
 /** The brand's projects, by name, with what's in each; null where the server doesn't offer them yet (then nothing shows). */
 export function useFolders(brandId: number) {
   return useQuery({
     enabled: brandId > 0,
     queryKey: ["folders", brandId],
-    queryFn: async () => {
-      try {
-        return await call<FolderOut[]>("GET", `/brands/${brandId}/folders`);
-      } catch {
-        return null;
-      }
-    },
+    queryFn: async () => (await api.GET("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } } })).data ?? null, // none where the server doesn't offer them
     retry: false,
   });
 }
@@ -40,8 +27,8 @@ export function useFolderFilter(): string | null {
   const [params] = useSearchParams();
   return params.get("folder");
 }
-/** Spread into a list's query: the generated schema doesn't know `folder` yet (a typed `{}` adds nothing to the type). */
-export const folderQuery = (folder: string | null): object => (folder ? { folder } : {});
+/** Spread into a list's query (/scripts, /projects, /jobs take ?folder=<id>|none). */
+export const folderQuery = (folder: string | null) => (folder ? { folder } : {});
 
 const count = (f: FolderOut) => f.items.scripts + f.items.videos + f.items.clips;
 const LISTS = ["scripts", "videos", "clip"]; // the lists a project filters
@@ -57,14 +44,14 @@ function ProjectMenu({ folder, brandId }: { folder: FolderOut; brandId: number }
   const refresh = useRefresh(brandId);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const rename = useMutation({ mutationFn: (name: string) => call("PATCH", `/folders/${folder.id}`, { name }), onSuccess: () => { setRenaming(null); return refresh(); } });
+  const rename = useMutation({ mutationFn: (name: string) => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: folder.id } }, body: { name } })), onSuccess: () => { setRenaming(null); return refresh(); } });
   const remove = useMutation({
-    mutationFn: () => call<{ moved: number }>("DELETE", `/folders/${folder.id}`),
+    mutationFn: () => must(api.DELETE("/folders/{folder_id}", { params: { path: { folder_id: folder.id } } })),
     onSuccess: async () => {
       setDeleting(false);
       await refresh();
       toast(`Deleted ${folder.name}.`, async () => {
-        await call("POST", `/folders/${folder.id}/restore`).catch((e: Error) => toast(e.message, undefined, "error")); // a live project took the name meanwhile
+        await must(api.POST("/folders/{folder_id}/restore", { params: { path: { folder_id: folder.id } } })).catch((e: Error) => toast(e.message, undefined, "error")); // a live project took the name meanwhile
         await refresh();
       });
     },
@@ -111,7 +98,7 @@ export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?
   const [params] = useSearchParams();
   const refresh = useRefresh(brandId);
   const [naming, setNaming] = useState<string | null>(null);
-  const make = useMutation({ mutationFn: (name: string) => call<FolderOut>("POST", `/brands/${brandId}/folders`, { name }), onSuccess: () => { setNaming(null); return refresh(); } });
+  const make = useMutation({ mutationFn: (name: string) => must(api.POST("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } }, body: { name } })), onSuccess: () => { setNaming(null); return refresh(); } });
   if (!folders.data) return null; // the server doesn't offer projects yet
   const current = params.get("folder");
   const section = /^\/b\/\d+\/([^/]+)$/.exec(pathname)?.[1];
@@ -182,7 +169,7 @@ export function ProjectPicker({ brandId, kind, id, folderId }: { brandId: number
   const folders = useFolders(brandId);
   const toast = useToast();
   const refresh = useRefresh(brandId);
-  const file = useMutation({ mutationFn: (to: number | null) => call<{ folder_id: number | null; was_folder_id: number | null }>("POST", "/folders/file", { kind, id, folder_id: to }) });
+  const file = useMutation({ mutationFn: (to: number | null) => must(api.POST("/folders/file", { body: { kind, id, folder_id: to } })).then((r) => r.data!) });
   if (!folders.data) return null;
   const nameOf = (fid: number | null | undefined) => (fid == null ? "none" : (folders.data!.find((f) => f.id === fid)?.name ?? "none")); // a deleted project reads as none
   const move = (to: number | null) =>
