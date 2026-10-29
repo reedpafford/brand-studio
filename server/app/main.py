@@ -8,6 +8,7 @@ from app.routes import (
     auth,
     brands,
     breakdown,
+    checks,
     clips,
     clips_zip,
     credits,
@@ -119,6 +120,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         songs,
         looks,
         song_study,
+        checks,
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)

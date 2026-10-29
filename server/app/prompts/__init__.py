@@ -486,6 +486,19 @@ def plan_input(
     return "\n".join(parts)
 
 
+# In the breakdown's user message, never its system prompt: the breakdown prompts stay as they
+# were for a video without a plan, and their cache with them (QA on #892).
+PLAN_RULE = (
+    "**The plan.** The <plan> below is the editor's approved plan: it is the story, and the "
+    "breakdown films it. Make its scenes, in order: each breakdown scene is one plan scene, with "
+    "its place and time as the heading (split a long one into two at a natural turn, never join "
+    "two). Its shots stage the plan's actions for those lines, made vivid and exact, and keep its "
+    "cast: nobody added, nobody dropped. A ★ line's shot shows that product or screen (list it in "
+    "`screen_ids`), the label or logo to camera. Everything in the step's rules still applies to "
+    "how you shoot it."
+)
+
+
 def plan_block(plan: schemas.ScenePlan, script: str) -> str:
     """A plan as later steps read it: the structure and cast, then each scene's place, who's
     in it, and each line's words with its action and ★ (the plan_scene step, the breakdown)."""
@@ -497,7 +510,7 @@ def plan_block(plan: schemas.ScenePlan, script: str) -> str:
         for x in sc.lines:
             star = f" ★ {x.product}" if x.product else ""
             out.append(f"{x.line}| {words.get(x.line, '').strip()}\n   → {x.action}{star}")
-    return "<plan>\n" + "\n".join(out) + "\n</plan>"
+    return f"{PLAN_RULE}\n<plan>\n" + "\n".join(out) + "\n</plan>"
 
 
 def plan_scene_input(

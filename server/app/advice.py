@@ -143,6 +143,12 @@ class ApproveAllOut(BaseModel):
     skipped: list[dict]  # [{id, reason}] in plain words ("no still yet")
 
 
+class ApproveAllChecked(ApproveAllOut):
+    """Stills and takes: also how many of those approved carry the check's Advice (P4)."""
+
+    approved_with_advice: int = 0
+
+
 class UndoIn(BaseModel):
     ids: list[int]
 

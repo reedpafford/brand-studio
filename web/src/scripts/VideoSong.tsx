@@ -42,7 +42,7 @@ function useMakeStop(p: Project, price: number | undefined): string | null {
 
 /** A narrated video's narrations are song takes of kind "narration" (Next-Server #858): the same panel, its own words (flows V6n). */
 const SONG = {
-  take: "Take", thing: "song", change: "Change song", final: "The lyrics are final.", more: "Make 2 more takes", same: "Same lyrics and style.", marks: " and Sung marks",
+  take: "Take", thing: "song", change: "Change song", final: "The lyrics are final.", more: "Make 2 more takes", same: "Same lyrics and music style.", marks: " and Sung marks",
   inCut: (n: number) => `Song: take ${n}, laid under the whole video`, earlier: "Song: an earlier take, laid under the whole video", one: (n: number) => `take ${n}`, file: (n: number) => `song-take-${n}.mp3`,
 };
 const NARRATION = {

@@ -10,6 +10,7 @@ import { AutoLooks } from "./AutoLooks";
 import { useAssetMerge } from "./AssetMerge";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
 import { AssetCard, InShots, notInShots } from "./AssetCard";
+import { useCostBarAction } from "./CostBar";
 
 type Asset = components["schemas"]["AssetOut"];
 
@@ -55,7 +56,10 @@ export function AssetsPane({
   ownScript,
   used,
   budget,
+  bar,
 }: {
+  /** On the video page: the step's one press (Approve all) sits in the cost bar (audit M1). */
+  bar?: boolean;
   projectId: number;
   brandId: number;
   variants: Record<string, string>;
@@ -94,6 +98,8 @@ export function AssetsPane({
     refresh: () => Promise.all([["assets", projectId], ["library", "character"], ["breakdown", projectId], ["storyboard", projectId], ["project-clips", projectId]].map((queryKey) => queryClient.invalidateQueries({ queryKey }))), // as a single Approve does
     name: (s) => s.label ?? "",
   });
+  const inBar = !!bar && assets.isFetchedAfterMount && !picks.loading && !!approveAll.action;
+  useCostBarAction(inBar ? approveAll.action : null);
   // Until the list is read again for this step (one cached from an earlier step can predate the shots) and the brand's
   // products are in, nothing is counted: never "Not in this video's shots" or empty bags worked out from missing data.
   if (!assets.isFetchedAfterMount || picks.loading)
@@ -150,7 +156,7 @@ export function AssetsPane({
         <section aria-label="Cast" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="type-section">Cast</h3>
-            {approveAll.button}
+            {!inBar && approveAll.button}
           </div>
           {approveAll.line}
           {merge.note}

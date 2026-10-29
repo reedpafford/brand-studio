@@ -1,3 +1,4 @@
+import { AutoFixLine, RetryLine } from "./AutoFixes";
 import { useState, type ReactNode } from "react";
 import { Check, TriangleAlert } from "lucide-react";
 import { Badge, Button } from "../components";
@@ -132,6 +133,7 @@ export function ClipCard(props: {
       )}
       {failedBefore && <p role="status" className="text-sm text-muted">The last take, before your change, failed.</p>}
       {props.job?.waiting && <p role="status" className="text-sm text-muted">{props.job.waiting}</p>}
+      <RetryLine clip={c} />
       {c.take_warning && !props.busy && <p role="status" className="text-sm text-warning">{c.take_warning}</p>}
       <div className="grid place-items-center overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: ratio(props.aspect), maxHeight: "24rem" }}>
         {c.file_id ? (
@@ -149,6 +151,7 @@ export function ClipCard(props: {
           <PromptText clip={c} />
         </div>
       )}
+      <AutoFixLine projectId={props.projectId} clip={c} />
       {blocking(c.problems, c.kept).length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
           {blocking(c.problems, c.kept).map((p) => (
