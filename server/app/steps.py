@@ -128,6 +128,10 @@ def save_step_result(db: Session, job: Job) -> None:
             explain(db, job)
     if job.input.get("reel_step"):  # a step of reading an imported reel: queue the next
         follow_on(db, job, saved)
+    if saved and job.input.get("update_run"):  # Update everything after this: the next step
+        from app import update_after
+
+        update_after.follow(db, job)
     elif saved and job.input.get("then_cast"):  # Write or variations: the cast read next
         from app.script_cast_read import after
 

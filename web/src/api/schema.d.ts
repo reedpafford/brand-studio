@@ -3107,6 +3107,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/update-after": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Update Price */
+        get: operations["update_price_projects__project_id__update_after_get"];
+        put?: never;
+        /**
+         * Update Now
+         * @description Paid: the whole price is checked first (409 with why, and nothing starts).
+         */
+        post: operations["update_now_projects__project_id__update_after_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/clips.zip": {
         parameters: {
             query?: never;
@@ -6856,6 +6877,33 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** UpdateOut */
+        UpdateOut: {
+            /** Credits */
+            credits: number;
+            /** Steps */
+            steps: components["schemas"]["UpdateStep"][];
+            /** Running */
+            running: boolean;
+            /** Stopped At */
+            stopped_at: ("storyboard" | "stills" | "clip_prompts") | null;
+            /** Reason */
+            reason: string | null;
+        };
+        /** UpdateStep */
+        UpdateStep: {
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "storyboard" | "stills" | "clip_prompts";
+            /** What */
+            what: string;
+            /** Credits */
+            credits: number;
+            /** Status */
+            status?: ("started" | "waiting") | null;
         };
         /** UploadOut */
         UploadOut: {
@@ -13957,6 +14005,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_price_projects__project_id__update_after_get: {
+        parameters: {
+            query?: {
+                from?: "plan" | "storyboard" | "clips";
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_now_projects__project_id__update_after_post: {
+        parameters: {
+            query?: {
+                from?: "plan" | "storyboard" | "clips";
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateOut"];
                 };
             };
             /** @description Validation Error */
