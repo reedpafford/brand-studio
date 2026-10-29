@@ -4069,6 +4069,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/plan/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update
+         * @description Update the plan (made for older words): a new plan that keeps the scenes whose lines
+         *     didn't change, at the plan's price; the one in hand goes to Earlier plans.
+         */
+        post: operations["update_projects__project_id__plan_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/plan/scenes/{scene_id}/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Scene
+         * @description Change this scene…: a note rewrites only that scene's actions (its lines stay), one
+         *     small paid call; the plan before goes to Earlier plans.
+         */
+        post: operations["change_scene_projects__project_id__plan_scenes__scene_id__change_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/plan/stop": {
         parameters: {
             query?: never;
@@ -6160,6 +6202,11 @@ export interface components {
             estimate_credits: number;
             /** Approve Credits */
             approve_credits: number;
+            /**
+             * Change Scene Credits
+             * @default 0
+             */
+            change_scene_credits: number;
             /** Stop */
             stop?: string | null;
             /**
@@ -16688,6 +16735,73 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["NoteIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_projects__project_id__plan_update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_scene_projects__project_id__plan_scenes__scene_id__change_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                scene_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteIn"];
             };
         };
         responses: {
