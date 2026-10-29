@@ -72,7 +72,7 @@ export function DraftsPanel({
   const err = write.error ?? use.error;
   const list = drafts.data ?? [];
 
-  const price = cost === undefined ? undefined : Math.round(cost * 10) / 10;
+  const price = cost; // the Button rounds it up: never below the charge
   return (
     <section className="space-y-4" aria-label="Script drafts">
       <div className="grid gap-4 lg:grid-cols-2">

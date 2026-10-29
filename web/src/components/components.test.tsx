@@ -3,9 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { Clapperboard } from "lucide-react";
 import { afterEach, expect, test, vi } from "vitest";
-import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, MediaCard, Select, Sheet, SidePanel, Skeleton, StepPicker, Tabs, TextArea, ToastProvider, creditsLabel, useToast, wholeCredits, type Step } from ".";
+import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, MediaCard, Select, Sheet, SidePanel, Skeleton, StepPicker, Tabs, TextArea, ToastProvider, creditsLabel, roundUp, useToast, wholeCredits, type Step } from ".";
 
 afterEach(() => vi.useRealTimers());
+
+test("a price with decimals rounds up at its places, never below the charge", () => {
+  expect(roundUp(2.44, 1)).toBe(2.5);
+  expect(roundUp(2.4, 1)).toBe(2.4);
+  expect(roundUp(0.331, 2)).toBe(0.34);
+  expect(roundUp(1.5, 2)).toBe(1.5);
+});
 
 test("prices are whole credits, rounded up, and zero is free", () => {
   expect(wholeCredits(67.5)).toBe(68);
