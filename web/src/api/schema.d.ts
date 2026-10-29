@@ -6756,6 +6756,7 @@ export interface components {
              * @default false
              */
             from_deleted_video: boolean;
+            deleted_video_by?: components["schemas"]["Maker"] | null;
         };
         /** MediaPage */
         MediaPage: {

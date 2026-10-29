@@ -106,33 +106,35 @@ test("an editor gets no who-made-it filter (the server shows them their own work
   expect(screen.queryByLabelText("Made by")).toBeNull();
 });
 
-test("a deleted video's media says so; the owner can restore the video, an editor can still download", async () => {
+test("a deleted video's media names its maker; the owner can restore the video, and Download stays", async () => {
   setViewport(1440);
-  const calls = fakeServer(base(owner, page([item({ from_deleted_video: true })]), { "POST /projects/9/restore": [200, {}] }));
+  const calls = fakeServer(base(owner, page([item({ from_deleted_video: true, deleted_video_by: { id: 3, name: "Sam" } })]), { "POST /projects/9/restore": [200, {}] }));
   open();
   const tile = within(await screen.findByRole("list", { name: "Media" })).getByRole("listitem");
-  expect(tile).toHaveTextContent("From a deleted video");
+  expect(tile).toHaveTextContent("From Sam's deleted video");
   expect(within(tile).queryByRole("link", { name: /Open in/ })).toBeNull();
+  expect(within(tile).getByRole("link", { name: /Download/ })).toBeInTheDocument();
   await userEvent.click(within(tile).getByRole("button", { name: "Restore the video" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/restore")).toBe(true));
   expect(await screen.findByText("Bo tries salmon is back.")).toBeInTheDocument();
 });
 
-test("the video's maker can restore it from Media too, as the Archived list offers", async () => {
-  setViewport(1440);
-  const calls = fakeServer(base(editor, page([item({ from_deleted_video: true })]), { "POST /projects/9/restore": [200, {}] })); // Eli made it
+test("the video's maker can restore it from Media too, even on a take someone else made in it", async () => {
+  setViewport(390);
+  const calls = fakeServer(base(editor, page([item({ from_deleted_video: true, made_by: { id: 3, name: "Sam" }, deleted_video_by: { id: 2, name: "Eli" } })]), { "POST /projects/9/restore": [200, {}] }));
   open();
   const list = await screen.findByRole("list", { name: "Media" });
+  expect(within(list).getByText("From your deleted video")).toBeInTheDocument();
   await userEvent.click(within(list).getByRole("button", { name: "Restore the video" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/restore")).toBe(true));
 });
 
-test("an editor sees no Restore on a deleted video's media someone else made", async () => {
-  setViewport(1440);
-  fakeServer(base(editor, page([item({ from_deleted_video: true, made_by: { id: 3, name: "Sam" } })])));
+test("an editor sees no Restore on someone else's deleted video, even on a take they made in it", async () => {
+  setViewport(390);
+  fakeServer(base(editor, page([item({ from_deleted_video: true, made_by: { id: 2, name: "Eli" }, deleted_video_by: { id: 3, name: "Sam" } })])));
   open();
   const list = await screen.findByRole("list", { name: "Media" });
-  expect(within(list).getByText("From a deleted video")).toBeInTheDocument();
+  expect(within(list).getByText("From Sam's deleted video")).toBeInTheDocument();
   expect(within(list).queryByRole("button", { name: "Restore the video" })).toBeNull();
   expect(within(list).getByRole("link", { name: /Download/ })).toBeInTheDocument();
 });
