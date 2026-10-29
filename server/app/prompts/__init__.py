@@ -34,6 +34,7 @@ SCHEMAS = {
     "plan_scene": schemas.PlanScene,  # P1's "Change this scene…"
     "item_check": schemas.ItemCheck,  # flows P4: the advisory check on a still or a take
     "narration_music": schemas.NarrationMusic,  # flows N1: the bed under the narrator
+    "site_read": schemas.SiteRead,  # flows BR2: Import from website
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
@@ -47,6 +48,7 @@ NO_RULES = {
     "look_fit",
     "narration_music",
     "item_check",
+    "site_read",
 }  # not script writers: the rules would only add tokens
 
 
