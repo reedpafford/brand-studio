@@ -65,8 +65,10 @@ export function ScriptFlowPage() {
   const s = script.data;
   if (!s) return <p className="p-6">That script doesn't exist.</p>;
   const takes = songs.data?.takes ?? [];
-  // Only a Preferred take that sings the lyrics as they are now counts: after an edit the old Preferred one "Sings older words".
-  const song = s.kind === "song" ? { preferred: takes.some((t) => t.preferred && !t.out_of_date), takes: takes.filter((t) => !t.out_of_date).length, older: takes.filter((t) => t.out_of_date).length } : undefined;
+  // Only a Preferred take that sings the lyrics as they are now, and whose video fits the cap, counts: the screen holds the cap whatever the server says.
+  const tooLong = (t: (typeof takes)[number]) => t.over_cap && t.trim_to == null;
+  const fit = takes.find((t) => t.preferred && !t.out_of_date);
+  const song = s.kind === "song" ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date).length, older: takes.filter((t) => t.out_of_date).length } : undefined;
   const step = stepFromParam(s, params.get("step"));
   if (lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
   const first = stepsFor(s)[0].id;

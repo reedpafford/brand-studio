@@ -23,7 +23,7 @@ export const SONG_STEPS = [
 type WritingStep = (typeof WRITING_STEPS)[number]["id"] | (typeof SONG_STEPS)[number]["id"];
 
 /** What the song steps need to know about the takes: is one Preferred, how many sing the lyrics as they are now, and how many sing older words. */
-export type SongState = { preferred: boolean; takes: number; older: number };
+export type SongState = { preferred: boolean; overCap?: boolean; takes: number; older: number };
 
 export const stepsFor = (s: Pick<Script, "kind">) => (s.kind === "song" ? SONG_STEPS : WRITING_STEPS);
 
@@ -40,6 +40,7 @@ export function lockReason(step: WritingStep, s: Script, song?: SongState): stri
     if (!hasWords(s)) return "Write or pick the lyrics first";
     if (step === "takes") return null;
     // Cast, Breakdown and Publish follow the Preferred take (flows S5–S7).
+    if (song?.overCap) return "The Preferred take is too long for a video. Use the first part of it first";
     if (!song?.preferred) return song && song.takes > 0 ? "Pick the preferred take first" : song && song.older > 0 ? "Make takes of the new lyrics first" : "Make the song first";
     return null;
   }
