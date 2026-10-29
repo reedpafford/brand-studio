@@ -17,11 +17,13 @@ const setup = {
 };
 const brand = { id: 1, name: "fomo", slug: "fomo", colours: ["#112233"], fonts: ["Inter"], tone_notes: "Punchy", never_say: ["cure"], legal_line: "", end_line: lines[0].text, logo_file_id: null, ...setup };
 const looks = [{ id: "house", name: "House", blurb: "", on: true }, { id: "pixar", name: "Disney Pixar", blurb: "", on: false }];
+const languages = [{ id: "en", name: "English", on: true }, { id: "es", name: "Spanish", on: true }, { id: "id", name: "Indonesian", on: false }];
 const character = (id: number, name: string, o: object = {}) => ({ id, kind: "character", name, owner_project_id: null, owner_script_id: null, ...o });
 const routes = (me: object, b: object = brand) => ({
   "GET /auth/me": [200, me] as [number, unknown],
   "GET /brands": [200, [b]] as [number, unknown],
   "GET /looks": [200, looks] as [number, unknown],
+  "GET /languages": [200, languages] as [number, unknown],
   "GET /library/character": [200, [character(5, "Bo"), character(7, "Mia"), character(8, "Own look", { owner_project_id: 3 })]] as [number, unknown],
   "GET /brands/1/screens": [200, []] as [number, unknown],
 });
@@ -47,6 +49,27 @@ test("the owner edits voice and tone and the defaults; one save sends them, neve
   expect(body).toMatchObject({ audience: "Dog owners, busy ones", do_list: ["Say the flavour", "Show the bag"], dont_list: ["cure"], default_look: "pixar", default_cast: [5, 6] });
   expect(body).not.toHaveProperty("never_say");
   expect(body).not.toHaveProperty("end_line");
+});
+
+test("the default language offers the languages that are on; one switched off since is said plainly", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...routes(owner), "PATCH /brands/1": [200, brand] });
+  renderAt("/b/1/brand");
+  const picker = await screen.findByLabelText("Language");
+  expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["English", "Spanish"]); // Indonesian is off
+  await userEvent.selectOptions(picker, "es");
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await vi.waitFor(() => expect((calls.find((c) => c.key === "PATCH /brands/1")?.body as Record<string, unknown>)?.default_language).toBe("es"));
+});
+
+test("a brand whose default language was switched off shows it with a way to pick another", async () => {
+  setViewport(1440);
+  fakeServer(routes(owner, { ...brand, default_language: "id" }));
+  renderAt("/b/1/brand");
+  const picker = await screen.findByLabelText("Language");
+  expect(within(picker).getByRole("option", { name: "Indonesian, switched off" })).toBeInTheDocument();
+  expect(screen.getByText("Switched off: new scripts start in English. Pick a language that's on.")).toBeInTheDocument();
+  expect(within(picker).getByRole("option", { name: "Spanish" })).toBeInTheDocument();
 });
 
 test("a deleted default character says so, with Pick another and Remove; only workspace characters are offered", async () => {
