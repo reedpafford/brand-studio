@@ -236,3 +236,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #908 at 3afac6ce (ST2 banned words per look) | look_words on 7 prompts; styles + song (40) | FAIL: safeguards rewritten ("no blood, no gore" → "no glow, no ,"; "not floating" → "not resting"; "Not photorealistic" → "Not stylised") |
 | 2026-10-29 | #906 at 03c0ad93 (archive lands on Videos with Undo) | vitest projects + videos (334) | PASS |
 | 2026-10-29 | #909 at 29596fd2 (Narrated format: S1, N1, V6n screens) | code walk; vitest scripts + finalsong (243) | FAIL: Make another live while timing (server 409s) |
+| 2026-10-29 | #910 at c70a64c (BR1 server: owner-only edits, CTA lines, defaults) | brand_setup + brands + migrations + variants (24) | PASS (merge with the read-only Brand page for editors) |
