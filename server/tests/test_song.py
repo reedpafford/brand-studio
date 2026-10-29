@@ -206,3 +206,18 @@ def test_each_shot_plays_while_its_line_is_sung():
     found = _check(_breakdown(late))
     assert "Advice: shot 1.1: line 2 is sung at 0.10–1.90 s, but the shot runs 0.00–0.50 s" in found
     assert "the measured line times in <song> are that clock" in prompts.system("song_breakdown")
+
+
+def test_the_prompts_carry_what_made_reeds_song_ads_good():
+    """docs/next/song-ad-workflow.md: the reference's shape, the chanted symptom hook, the
+    visual shape, cartoon exaggeration, the four product moments, and 16 s clips with people."""
+    sent = prompts.song_directions_input("Goal: x", [], reference="Transcript: ... 100 BPM")
+    assert "<reference>\nTranscript: ... 100 BPM\n</reference>" in sent
+    directions = prompts.system("song_directions")
+    assert "**Following a reference.**" in directions and "Never copy its lyrics" in directions
+    assert "the symptom list, chanted" in directions
+    breakdown = prompts.system("song_breakdown")
+    for part in ("**The shape that sells.**", "mid-air leap", "nudges the product to the lens",
+                 "never gross", "at four moments", "16 s at most"):  # fmt: skip
+        assert part in breakdown, part
+    assert "## Style:" not in prompts.system("breakdown")  # story breakdowns untouched

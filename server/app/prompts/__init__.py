@@ -346,16 +346,20 @@ def song_directions_input(
     note: str = "",
     source: str = "",
     sounds_like: str = "",
+    reference: str = "",
 ) -> str:
     """The user message for the song_directions step (with brand_block in the system prompt).
     `music_style` is the brand's genre line; `seconds` only when the editor asked for a length;
     `source` a script or voice-over to adapt into lyrics; `sounds_like` a song or artist the
-    editor wants it to feel like (the style line describes it, never names it)."""
+    editor wants it to feel like (the style line describes it, never names it); `reference` a
+    winning song ad's study (its transcript, tempo and sections) whose shape to follow."""
     parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
     if music_style:
         parts.append(f"<music_style>{music_style}</music_style>")
     if sounds_like:
         parts.append(f"<sounds_like>{sounds_like}</sounds_like>")
+    if reference.strip():
+        parts.append(f"<reference>\n{reference.strip()}\n</reference>")
     if source.strip():
         parts.append(f"<source>\n{number_lines(source.strip())}\n</source>")
     if seconds:
