@@ -31,14 +31,26 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 | QA / QA-2 | Review PRs into `next` as they do for `main` |
 
 ## Queued (Next-Lead keeps this list)
-- **Builder-Server-7:** after #925, a languages list (English on, others off until a sample test), `GET /languages`, and checks on a script's and a brand's language. Then the settings on Make this version, once Builder-Server-8's plan-first change to that press is on `next`.
-- **Next-Server:** after #927 and #930, the cost confirm when a script's look changes (ST1), using #925's estimate. Then organization (item 5).
-- **Not assigned:** "Make a copy in another language" (a paid translation into a new, unpublished script). It's its own item.
+Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA, QA-3 or QA-4) with the lightest queue.
+- **Builder-Server-7:** BR2 import from website (#971, stand-ins only; the real read sits behind `BS_SITE_READ_REAL`, off). Then the version card's estimate made equal to Make this version's (after #965).
+- **Builder-Server-8:** #964 (only a video's maker or the owner changes it), merging together with Next-Layout's read-only screens.
+- **Next-Server:** the own-look fix (after #967), then `projects.own_looks` (n12), then `script_credits` on an editor's credits page, then the "drawing" look in a character's details.
+- **Next-Layout:** the read-only video screens (with #964), then Restore on Media for a video's maker, then the BR2 screens (after #971).
+- **Next-Screens:** the Video settings row on Make this version (after #965), and #963 (the OR3 screens).
+- **Switch-On:** real look samples (#970), the language test (#972, n14), the Languages page (LG1).
+- **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
+- **Dropped by Reed (2026-10-29):** new formats (Podcast, Vox, Whiteboard). Song stays as is.
+
+## Paid tests Reed approved (2026-10-29)
+Test site only; Reed presses the buttons himself once the switches are deployed; every real call goes in ops/SPEND.md.
+- **Look samples:** $6. Repo variables `NEXT_REAL_LOOK_SAMPLES=true` and `NEXT_LOOK_SAMPLES_BUDGET_USD=6` (the Replicate key travels only while the first is true). Only a look's sample still and clip go real; past the budget a sample is a stand-in, said before the press.
+- **Language test:** $2, by its own switch (#972).
+- **Both together:** at most $10.
 
 ## Moving to main: changes that must travel together
 When Reed says to bring Next to live, these go to `main` in one move, never split (Next-Lead keeps this list):
 - **Five editor steps (#871).** The screens (Plan → Cast → Storyboard → Clips → Final cut, the redirects) and four server messages that now say "Approve one in Cast" instead of "in Assets" (server/app/sheets.py, storyboard.py, clip_prompts.py). Live's screens say Assets until then, so the messages must not go alone.
 - **Rule 11 → the advisory check (1b P4).** DECISIONS.md rule 11 changes on live only when the check itself ships.
 - **Brand setup (n08).** `brands.never_say` and `brands.end_line` stay on next, written through from `dont_list` and the default CTA line, because main still reads them. At the move, main's readers switch to the new fields and one migration drops the two columns.
-- **Migrations n01–n10.** They join main's 00xx chain with one merge migration at the move (data.md, "Migration rules").
+- **Migrations n01–n14.** They join main's 00xx chain with one merge migration at the move (data.md, "Migration rules").
 
