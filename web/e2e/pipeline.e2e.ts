@@ -34,9 +34,9 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
   await page.getByRole("button", { name: /Next: Storyboard/ }).click();
 
   // Storyboard: a frame for each clip, a still for each, all approved.
-  await page.getByRole("button", { name: /Make storyboard/ }).click();
+  await page.getByRole("button", { name: /Make the storyboard/ }).click();
   await expect(page.getByRole("listitem", { name: "Frame c1" })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: /Make all stills/ }).click();
+  await page.getByRole("button", { name: /^Make \d+ stills?/ }).click();
   const approve = page.getByRole("button", { name: "Approve", exact: true });
   await expect(approve.first()).toBeVisible({ timeout: 60_000 });
   while (await approve.count()) {
