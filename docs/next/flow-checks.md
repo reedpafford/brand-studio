@@ -61,7 +61,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Drawn-words-only shot Advice (#886) | Fixed in #890 (line kept), but text_on_screen_advice is not wired yet | Wire it in reword, on the fixed prompt | #890 at 6820b8f3 |
 | Plan versions (#893) | Earlier plans → use v1: shots from v2 not "older"; an edit reuses v2's number | One _next() for _set, edit, use_earlier | #893 at b7f56c4d |
-| Look banned words (#908) | Negated safeguards are rewritten or left dangling | Skip negated matches (_negated; add not/never) | #908 at 3afac6ce |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -237,3 +236,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #906 at 03c0ad93 (archive lands on Videos with Undo) | vitest projects + videos (334) | PASS |
 | 2026-10-29 | #909 at 29596fd2 (Narrated format: S1, N1, V6n screens) | code walk; vitest scripts + finalsong (243) | FAIL: Make another live while timing (server 409s) |
 | 2026-10-29 | #910 at c70a64c (BR1 server: owner-only edits, CTA lines, defaults) | brand_setup + brands + migrations + variants (24); Look tab fields | FAIL: PATCH /brands is owner-only for all fields, so editors lose logo, colours, fonts, tone, never say, legal, end line (Look tab) |
+| 2026-10-29 | #908 at 4643ed19 (negated matches skipped; not/never) | look_words on 7 prompts; styles + item_check + song (42) | PASS (notes: add "nothing"; a removal can leave "Notably .") |
