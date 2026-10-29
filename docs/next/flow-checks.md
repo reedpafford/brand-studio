@@ -58,8 +58,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| VS1 Look (#873) | A video's look changed: stills and clips stay current and approved, no redo price | Mark them out of date (Undo makes them current again) and price the redo | #873 at 8e86ba8a |
-| Look Off message (#873, rule 4) | "… or ask the owner to switch it on" to editors | Drop the clause | #873 at 8e86ba8a |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -178,5 +176,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #851 at b01bbc99 (next merged in, n04 after n02) | One alembic head; study, directions, final cut tests (24) | PASS |
 | 2026-10-29 | #873 at 8e86ba8a (Format and Look step 1: ST1, ST3, VS1) | test_looks (4); code read for VS1 | FAIL: a video's look change marks nothing out of date (same as VS1 Shape); "ask the owner" in the editor's message |
 | 2026-10-29 | #871 at 699c1e47 | Messages and link say Cast; server tests (15) | PASS |
+| 2026-10-29 | #873 at 2be90844 | Look change: stills and clips out of date, redo price, Make video 409, Undo restores; Off message; tests (25) | PASS; n07 must be re-pointed to next's newest migration before merge |
 | 2026-10-29 | #858 at 2055786a (next merged in) | test_narration, test_song_takes, test_kie, publish with old narration (36) | PASS |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
