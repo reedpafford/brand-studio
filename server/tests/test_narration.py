@@ -103,3 +103,76 @@ def test_a_narrated_videos_plan_is_timed_to_its_sentences(app, db, owner, editor
     assert "Iron Paws fixes it." in job.input["prompt"]  # the sentences are the clock
     plan = editor.get(f"{video}/breakdown").json()
     assert plan["song"] and not any(s["sung"] for s in plan["song"]["shots"].values())
+
+
+def test_the_music_bed_follows_the_narration_and_a_failed_one_keeps_it(app, db, owner, narrated):
+    from app import narration_music
+
+    owner.post(f"{narrated}/songs", json={})
+    _work(app, db, ticks=8)
+    (take,) = owner.get(f"{narrated}/songs").json()["takes"]
+    assert take["status"] == "ready" and take["music_status"] == "ready" and take["music_file_id"]
+    bed = db.query(Job).filter(Job.kind == "music_bed").one()
+    assert bed.input["input"]["duration"] >= int(take["seconds"])  # the narration's length
+    assert bed.input["input"]["prompt"].endswith(
+        "Instrumental only: no vocals, no choir, no spoken word."
+    )
+
+    bed.status, bed.error = "failed", narration_music.FAILED  # as if the music model failed
+    from app.models.songs import SongTake
+
+    row = db.get(SongTake, take["id"])
+    row.music_file_id = None
+    db.commit()
+    failed = owner.get(f"{narrated}/songs").json()["takes"][0]
+    assert failed["status"] == "ready" and failed["music_status"] == "failed"  # narration kept
+    assert failed["music_reason"] == narration_music.FAILED and failed["music_credits"] > 0
+    assert owner.post(f"/songs/{take['id']}/music-again").json()["music_status"] == "making"
+    db.expire_all()  # the route changed the take in its own session
+    _work(app, db, ticks=8)
+    assert owner.get(f"{narrated}/songs").json()["takes"][0]["music_status"] == "ready"
+
+
+def test_a_music_prompt_asking_for_vocals_is_written_again_once(app, db, owner, narrated):
+    from app.models.script_library import ScriptDraft
+
+    owner.post(f"{narrated}/songs", json={})
+    _work(app, db, ticks=3)  # the narration and its timing
+    job = db.query(Job).filter(Job.input["step"].as_string() == "narration_music").one()
+    job.input = {**job.input, "prompt": job.input["prompt"] + "\n<note>fake:vocals</note>"}
+    db.commit()
+    _work(app, db, ticks=4)
+    db.refresh(job)
+    assert job.status == "succeeded" and "choir sings" not in str(job.output)
+    assert db.query(ScriptDraft).count() >= 1
+
+
+def test_a_narrated_cut_keeps_each_takes_sound_under_the_voice_and_the_music(tmp_path):
+    import subprocess
+
+    from app import clip_takes
+    from tests.test_song_final_cut import _clip, _probe, _song
+
+    silent = tmp_path / "silent.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",  # noqa: S603, S607
+                    "testsrc=s=160x284:d=2:r=10", "-pix_fmt", "yuv420p", str(silent)],
+                   check=True)  # fmt: skip
+    clips, voice = [_clip(3, tmp_path), silent.read_bytes()], _song(4, tmp_path)
+    for music in (_song(2, tmp_path), None):  # a short bed loops; no bed: voice and takes only
+        got = _probe(clip_takes.song_cut(clips, [3.0, 2.0], voice, True, music), tmp_path)
+        assert abs(got["seconds"] - 5.0) < 0.2 and got["streams"] == ["audio", "video"]
+
+
+def test_a_narrated_video_is_cut_with_its_narration_and_music(app, db, owner, editor, narrated):
+    from tests.test_song_final_cut import _clips_made
+
+    owner.post(f"{narrated}/songs", json={})
+    _work(app, db, ticks=8)
+    owner.post(f"{narrated}/approve")
+    owner.post(f"{narrated.rsplit('/drafts', 1)[0]}/publish")
+    video = f"/projects/{editor.post(f'{narrated}/produce').json()['project_id']}"
+    _work(app, db)
+    _clips_made(app, db, editor, video)
+    made = editor.post(f"{video}/video")
+    assert made.status_code == 201, made.text
+    assert made.json()["narration"] == {"voice": "Sarah", "music": True}

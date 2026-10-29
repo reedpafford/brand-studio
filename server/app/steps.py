@@ -45,21 +45,29 @@ def step_failed(db: Session, job: Job) -> None:
 
 
 def recheck(job_input: dict, result, ask):
-    """Song directions: the Director's check on the answer; with fixes, the one rewrite
-    inside the same job (`ask` runs it; charged once: credits never pass the shown price),
-    and if that still needs fixing the job fails, so nothing is shown or charged (rule 22)."""
+    """Song directions and a narration's music prompt: the Director's check on the answer;
+    with fixes, the one rewrite inside the same job (`ask` runs it; charged once: credits
+    never pass the shown price), and if that still needs fixing the job fails, so nothing is
+    shown or charged (rule 22)."""
+    from app import narration_music as nm
     from app import song_directions as sd
     from app.providers import Result
 
-    if job_input.get("step") != sd.STEP or result.state != "succeeded":
+    if result.state != "succeeded":
         return result
-    output, fixes = sd.checked(job_input, result.output)
+    if job_input.get("step") == sd.STEP:
+        check, again = (lambda out: sd.checked(job_input, out)), sd.again
+    elif job_input.get("step") == nm.STEP:
+        check, again = nm.checked, nm.again
+    else:
+        return result
+    output, fixes = check(result.output)
     if fixes:
-        second = ask(sd.again(job_input, fixes))
+        second = ask(again(job_input, fixes))
         second.usage = [*result.usage, *second.usage]  # both calls' dollars are listed
         if second.state != "succeeded":
             return second
-        result, (output, fixes) = second, sd.checked(job_input, second.output)
+        result, (output, fixes) = second, check(second.output)
     if fixes:
         return Result("failed", error=sd.STILL + "; ".join(fixes), usage=result.usage)
     result.output = output
@@ -72,6 +80,8 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_prompts import save_clip_prompts
     from app.clip_takes import save_take
     from app.enhance import save_suggestions
+    from app.narration_music import save_bed
+    from app.narration_music import save_prompt as save_music_prompt
     from app.reel_read import follow_on, save_watch
     from app.routes.improve import save_improved
     from app.routes.script_import import save_prepared
@@ -105,6 +115,8 @@ def save_step_result(db: Session, job: Job) -> None:
         "reel_watch": save_watch,
         "song_take": save_song,
         "song_directions": save_directions,
+        "narration_music": save_music_prompt,
+        "narration_bed": save_bed,
         "song_timing": save_timing,
         "song_study": save_study,
     }

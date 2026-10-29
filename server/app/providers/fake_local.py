@@ -121,6 +121,17 @@ def narration(text: str) -> bytes:
         return path.read_bytes()
 
 
+def bed(seconds: int) -> bytes:
+    """The stand-in music bed: a soft low chord the length asked for."""
+    tone = "0.2*sin(2*PI*110*t)+0.15*sin(2*PI*165*t)"
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "bed.mp3"
+        source = ["-f", "lavfi", "-i", f"aevalsrc='{tone}':s=22050:d={seconds}"]
+        command = ["ffmpeg", "-v", "error", *source, "-c:a", "libmp3lame", "-b:a", "64k"]
+        subprocess.run([*command, str(path)], check=True, timeout=120)  # noqa: S603
+        return path.read_bytes()
+
+
 def hear_voice(path: Path, text: str) -> list[dict]:
     """Stand-in Whisper for the stand-in narrator: each run of sound is a sentence, its words
     spread evenly over it."""
@@ -309,6 +320,8 @@ class FakeMedia:
             return mp4(aspect, int(job.get("duration", 5))), "video/mp4"
         if job["kind"] == "speech":
             return narration(job["prompt"]), "audio/mpeg"
+        if job["kind"] == "music_bed":
+            return bed(int(job.get("duration", 10))), "audio/mpeg"
         return png(aspect), "image/png"
 
 
@@ -514,6 +527,17 @@ class FakeWriter:
         return plan
 
     _narrated_breakdown = _song_breakdown  # the narration's sentences are the clock
+
+    def _narration_music(self, prompt):
+        """A plain instrumental bed; a note with fake:vocals asks for a choir until it's fixed."""
+        sing = "fake:vocals" in _tag(prompt, "note") and "<fix>" not in prompt
+        words = (
+            "Warm acoustic documentary bed: soft piano, light strings, brushed drums and a "
+            "low bass, about 90 BPM. Starts calm and curious, lifts in the middle third and "
+            "lands hopeful in the last third. Steady and low under the narration."
+        )
+        return {"prompt": words + (" A choir sings the hook." if sing else ""),
+                "arc": "Calm, then hopeful"}  # fmt: skip
 
     def _storyboard(self, prompt):
         bd = json.loads(_tag(prompt, "breakdown") or "{}")
