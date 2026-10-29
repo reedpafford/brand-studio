@@ -257,3 +257,37 @@ test("with no plan yet, Make the plan is priced from the video's plan_credits", 
   open();
   expect(await screen.findByRole("button", { name: /Make the plan · 9 credits/ })).toBeInTheDocument();
 });
+
+test("Change this scene… sends its note at its price; it needs a note first (#928)", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, change_scene_credits: 2 })], "POST /projects/9/plan/scenes/s2/change": [201, { id: 41 }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Change scene 2…" }));
+  const press = screen.getByRole("button", { name: /^Change this scene · 2 credits/ });
+  expect(press).toBeDisabled();
+  expect(press).toHaveAccessibleDescription("Say what to change in this scene");
+  await userEvent.type(screen.getByLabelText("What should change in scene 2?"), "funnier");
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/plan/scenes/s2/change")?.body).toEqual({ note: "funnier" }));
+});
+
+test("on an approved plan, Change this scene asks first", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...withPlan("approved"), "GET /projects/9/plan": [200, plan({ status: "approved", scenes: two, change_scene_credits: 2 })], "POST /projects/9/plan/scenes/s1/change": [201, { id: 41 }] });
+  open("?step=plan&view=scenes");
+  await userEvent.click(await screen.findByRole("button", { name: "Change scene 1…" }));
+  await userEvent.type(screen.getByLabelText("What should change in scene 1?"), "calmer");
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  expect(calls.some((c) => c.key === "POST /projects/9/plan/scenes/s1/change")).toBe(false);
+  await userEvent.click(within(screen.getByRole("alertdialog", { name: "Change the plan?" })).getByRole("button", { name: "Change" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/scenes/s1/change")).toBe(true));
+});
+
+test("out of date with #928: Update the plan keeps the unchanged scenes", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, change_scene_credits: 2 })], "POST /projects/9/plan/update": [201, { id: 42 }] });
+  open();
+  expect(await screen.findByText(/Updating keeps the scenes whose lines didn't change/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Update the plan · 6 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/update")).toBe(true));
+});

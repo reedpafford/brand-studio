@@ -30,6 +30,7 @@ export type Plan = {
   out_of_date?: boolean;
   earlier?: { id: number; version: number; source: string; made_at: string | null }[];
   after?: { shots: number; clips: number } | null;
+  change_scene_credits?: number; // #928: Change this scene… and Update the plan exist when the plan carries it
 };
 type Project = { id: number; plan_status?: "none" | "ready" | "approved" | null; plan_credits?: number | null };
 
@@ -78,7 +79,11 @@ const ago = (iso: string) => {
 /** One scene: its part, one place and time, its lines read only with each line's action, ★ product marks, and who's in it.
  *  Each line has a "…" (a sheet at 390, PL1): Move to scene N−1 / N+1 (across its edge only), Start a new scene here, ★. The card's
  *  own "…" has Join with next, and Edit opens the place, time and actions to type. */
-function SceneCard({ scene, si, count, cast, advice, change }: { scene: Scene; si: number; count: number; cast: Plan["cast"]; advice: Plan["advice"]; change?: (fn: (s: Scene[]) => Scene[], said: string, done?: () => void) => void }) {
+/** Change this scene…: a note rewrites that scene's actions, one small paid call (#928). */
+type SceneRewrite = { credits: number; stop: string | null; busy: boolean; run: (sceneId: string, note: string) => void };
+
+function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene: Scene; si: number; count: number; cast: Plan["cast"]; advice: Plan["advice"]; change?: (fn: (s: Scene[]) => Scene[], said: string, done?: () => void) => void; rewrite?: SceneRewrite }) {
+  const [asked, setAsked] = useState<string | null>(null); // Change this scene…'s note, while its box is open
   const who = scene.cast_ids.map((id) => cast.find((c) => c.ref_id === id)?.name ?? id);
   const [editing, setEditing] = useState<{ place: string; time: string; part: string; actions: string[] } | null>(null);
   const n = si + 1;
@@ -139,6 +144,7 @@ function SceneCard({ scene, si, count, cast, advice, change }: { scene: Scene; s
         </span>
         {change && (
           <span className="ml-auto flex items-center gap-1">
+            {rewrite && <Button variant="ghost" dense aria-expanded={asked !== null} aria-label={`Change scene ${n}…`} onClick={() => setAsked(asked === null ? "" : null)}>Change this scene…</Button>}
             <Button variant="ghost" dense icon={Pencil} aria-label={`Edit scene ${n}`} onClick={() => setEditing({ place: scene.place, time: scene.time, part: scene.part, actions: scene.lines.map((l) => l.action) })}>Edit</Button>
             {si < count - 1 && (
               <Menu
@@ -156,6 +162,16 @@ function SceneCard({ scene, si, count, cast, advice, change }: { scene: Scene; s
           </span>
         )}
       </div>
+      {rewrite && asked !== null && (
+        <div className="space-y-2">
+          <TextArea label={`What should change in scene ${n}?`} rows={2} maxLength={500} placeholder="Make it funnier: he's a drama queen" value={asked} onChange={(e) => setAsked(e.target.value)} />
+          <p className="text-sm text-muted">Its lines stay; only what we see changes. This plan is kept under Earlier plans.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button price={rewrite.credits} disabled={!asked.trim() || !!rewrite.stop} reason={!asked.trim() ? "Say what to change in this scene" : rewrite.stop} busy={rewrite.busy} onClick={() => { rewrite.run(scene.id, asked.trim()); setAsked(null); }}>Change this scene</Button>
+            <Button variant="ghost" onClick={() => setAsked(null)}>Cancel</Button>
+          </div>
+        </div>
+      )}
       <ol className="space-y-2">
         {scene.lines.map((l, li) => (
           <li key={l.n} className="flex items-start gap-2">
@@ -193,7 +209,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   const [note, setNote] = useState("");
   // An approved plan asks "Change the plan?" first, for an edit or an earlier plan alike.
   const [noProduct, setNoProduct] = useState<string | null>(null); // a ★ the brand has nothing to show for
-  const [asking, setAsking] = useState<{ next: Scene[]; said: string; done?: () => void } | { earlier: number } | null>(null);
+  const [asking, setAsking] = useState<{ next: Scene[]; said: string; done?: () => void } | { earlier: number } | { run: () => void } | null>(null);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["plan", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
   const make = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan`, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); return refresh(); } });
   // Stop works queued or running and is never charged (#893).
@@ -201,6 +217,8 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   const byHand = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan/by-hand`), onSuccess: refresh });
   const useEarlier = useMutation({ mutationFn: (i: number) => call("POST", `/projects/${projectId}/plan/earlier/${i}/use`), onSuccess: refresh });
   const save = useMutation({ mutationFn: (scenes: Scene[]) => call<Plan>("PUT", `/projects/${projectId}/plan`, toPut(scenes)), onSuccess: refresh });
+  const changeScene = useMutation({ mutationFn: (v: { id: string; note: string }) => call("POST", `/projects/${projectId}/plan/scenes/${encodeURIComponent(v.id)}/change`, { note: v.note }), onSuccess: refresh });
+  const update = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan/update`), onSuccess: refresh });
   const approve = useMutation({
     mutationFn: () => call("POST", `/projects/${projectId}/plan/approve`),
     onSuccess: async () => {
@@ -210,7 +228,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   });
   // With no plan yet, the video carries the plan's price (#893); else it's one Claude call, priced from the rates.
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
-  const latest = [make, stopMaking, byHand, useEarlier, save, approve].reduce((a, m) => (m.submittedAt > a.submittedAt ? m : a));
+  const latest = [make, stopMaking, byHand, useEarlier, save, approve, changeScene, update].reduce((a, m) => (m.submittedAt > a.submittedAt ? m : a));
   const refused = latest.isError && !(latest === save && noProduct) ? latest.error.message : null;
 
   if (plan.isPending)
@@ -295,6 +313,10 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
     done?.();
   };
   const earlier = p.earlier ?? [];
+  // A paid rewrite of an approved plan asks first, as an edit does.
+  const askFirst = (run: () => void) => (approved ? setAsking({ run }) : run());
+  const canRewrite = p.change_scene_credits !== undefined;
+  const rewrite: SceneRewrite | undefined = canRewrite ? { credits: p.change_scene_credits!, stop: stop ?? null, busy: changeScene.isPending, run: (id, note) => askFirst(() => changeScene.mutate({ id, note })) } : undefined;
   // What a change to an approved plan puts out of date (#893's `after`; null before there are shots): "3 shots and 2 clips".
   const outOfDate = [[p.after?.shots ?? 0, "shot"], [p.after?.clips ?? 0, "clip"]].filter(([k]) => (k as number) > 0).map(([k, w]) => `${k} ${w}${k === 1 ? "" : "s"}`).join(" and ");
   return (
@@ -310,8 +332,20 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
       )}
       <p className="text-sm text-muted">{summary}</p>
       {p.out_of_date && (
-        <Banner tone="warning" title="Made for older words." action={makeButton("Make a new plan", false)}>
-          The script's words changed since this plan was made. A new plan is made from the new words; this one is kept under Earlier plans.
+        <Banner
+          tone="warning"
+          title="Made for older words."
+          action={
+            canRewrite ? (
+              <Button variant="secondary" price={price} disabled={!!stop} reason={stop} busy={update.isPending} onClick={() => askFirst(() => update.mutate())}>Update the plan</Button>
+            ) : (
+              makeButton("Make a new plan", false)
+            )
+          }
+        >
+          {canRewrite
+            ? "The script's words changed since this plan was made. Updating keeps the scenes whose lines didn't change; this one is kept under Earlier plans."
+            : "The script's words changed since this plan was made. A new plan is made from the new words; this one is kept under Earlier plans."}
         </Banner>
       )}
       {approved ? (
@@ -335,7 +369,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
       <ul className="grid gap-3 [&>li]:min-w-0">
         {p.scenes.map((s, i) => (
           <li key={s.id} aria-label={`Scene ${i + 1}`}>
-            <SceneCard scene={s} si={i} count={p.scenes.length} cast={p.cast} advice={p.advice.filter((a) => a.scene_id === s.id)} change={change} />
+            <SceneCard scene={s} si={i} count={p.scenes.length} cast={p.cast} advice={p.advice.filter((a) => a.scene_id === s.id)} change={change} rewrite={rewrite} />
           </li>
         ))}
       </ul>
@@ -366,7 +400,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
         </details>
       )}
       {asking && (
-        <Dialog title="Change the plan?" cancelLabel="Not yet" actionLabel="Change" busy={save.isPending || useEarlier.isPending} onCancel={() => setAsking(null)} onConfirm={() => { const a = asking; setAsking(null); if ("earlier" in a) useEarlier.mutate(a.earlier); else { commit(a.next, a.said); a.done?.(); } }}>
+        <Dialog title="Change the plan?" cancelLabel="Not yet" actionLabel="Change" busy={save.isPending || useEarlier.isPending || changeScene.isPending || update.isPending} onCancel={() => setAsking(null)} onConfirm={() => { const a = asking; setAsking(null); if ("earlier" in a) useEarlier.mutate(a.earlier); else if ("run" in a) a.run(); else { commit(a.next, a.said); a.done?.(); } }}>
           It goes back to Ready to check, and its shots are made again from the new plan once you approve it.
           {outOfDate && ` This puts ${outOfDate} out of date.`} Your current final cut stays downloadable.
         </Dialog>
