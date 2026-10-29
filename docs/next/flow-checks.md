@@ -363,3 +363,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #970 (re-walk) | ffdf755c (+ next) | PASS: a still counts with its held clip; on a $1 budget the 2nd and 3rd quick presses say stand-in before the press and go stand-in; 16/16 |
 | 2026-10-29 | #992 Languages page (owner, LG1) | ec4f03e3 (+ next) | PASS at 1440 and 390: Test · 3 credits (charge capped at it), making, the words, Reject + Undo, Switch on, Switch off + Undo, Try again, editors no page; 30/30. Note: say "up to" on Test (a Claude call can cost less) |
 | 2026-10-29 | #987 (re-walk) | 85d4aa10 (+ next) | FAIL: to_finish right (quote = card = to_finish 28.06; charge 1.70 ≤ 3.40; Not now kept); the visible cost bar (/estimate) still 24.66 |
+| 2026-10-29 | #991 A version marks a deleted default flavour | 378f93aa (+ next) | PASS: flavours_gone lists it, so the screens show Auto; 3/3 |
+| 2026-10-29 | #996 Shown price = charge on the story steps | c1f42db0 | PASS at its head (key guard in): Make the shots shows its clip prompts' rewrite; N stills rounded once (3, not 9); 16/16. Conflicts with next in storyboard.py: needs a merge |
+| 2026-10-29 | #997 Media: a deleted video's maker restores it | 12b8af07 (+ next) | PASS: the badge names the video's maker; Restore for them or the owner (the video's maker, not the item's); 2/2 + 11/11 |
