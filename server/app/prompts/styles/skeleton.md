@@ -54,3 +54,6 @@ refused: Soften it: bones and glow, never wounds, blood or anything gory. Then M
 face: Change this… "the skeleton exactly as its sheet: same eyes, bones and proportions".
 outfit: Change this… naming what the skeleton wears on its sheet.
 product: Change this… "the real product from its image in the skeleton's hand, the label facing the camera".
+
+## sample
+One lovable cartoon skeleton with big round eye sockets and a soft white glow, in a small red cap, waving.

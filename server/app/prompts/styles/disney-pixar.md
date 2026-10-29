@@ -46,3 +46,6 @@ refused: Take out any studio or film name, Soften it, then Make another: a frame
 face: Make another first. If it drifts again, Change this… "big glossy eyes and sculpted hair exactly as the sheet, adult proportions".
 outfit: Change this… naming the sheet's key pieces in the shot.
 product: Change this… "the real product from its image, the label facing the camera and readable, under the scene's soft light".
+
+## sample
+A cheerful man in his thirties with sculpted wavy brown hair and big glossy eyes, in one plain teal jacket, adult proportions.

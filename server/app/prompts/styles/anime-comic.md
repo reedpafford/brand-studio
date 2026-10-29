@@ -27,3 +27,6 @@ an original cel-shaded anime look with clean ink lines
 
 ## clip
 - Animate pose to pose: hold the key pose, snap to the next on the beat, with a restrained camera move. A reveal or a power-up can land on an impact frame.
+
+## sample
+A determined young adult with spiky black hair and bright eyes, in one plain navy jacket, in a strong key pose.

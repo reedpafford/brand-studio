@@ -26,3 +26,6 @@ an original watercolour painted look with soft ink accents
 
 ## clip
 - Animate gently: the forms stay recognisable and only the soft pigment edges move. Turns can use the medium (a bloom spreading into the next place, a wash wiping across, a brush stroke revealing the product), to show the selling idea, never as constant decoration.
+
+## sample
+A gentle woman in her thirties with loose auburn hair, in one plain blue dress, painted in soft washes.
