@@ -310,27 +310,53 @@ test("the picker locks Characters and Publish until the script has words", async
   expect(within(steps).getByRole("button", { name: "Publish" })).toHaveAccessibleDescription("Write the script first");
 });
 
-test("Publish: a card for the version, then Publish asks, approves the words and publishes", async () => {
-  setViewport(1440);
+test("Publish waits for every version to be approved, as Variations says; its card approves it in one press, then Publish asks and publishes", async () => {
+  setViewport(390);
+  const approved = withWords({ versions: [{ ...withWords().versions[0], status: "approved" }] });
   const calls = fakeServer({
     ...base,
     "GET /scripts/7": [200, withWords()],
     "GET /scripts/7/cast": [200, [slot({ locked: true, library_item_id: 4, sheet_file_id: 11 })]],
     "GET /scripts": [200, []],
-    "POST /scripts/7/drafts/0/approve": [200, withWords()],
+    "POST /scripts/7/drafts/0/approve": [200, approved],
     "POST /scripts/7/publish": [200, withWords({ published: true, status: "published" })],
   });
   open("/b/1/scripts/7?step=publish");
   const card = await screen.findByLabelText("Version A");
   expect(within(card).getByText("MIA: Hell no!")).toBeInTheDocument();
-  expect(within(card).getByText("Runs when an editor starts")).toBeInTheDocument();
+  expect(within(card).getByText("Not approved yet")).toBeInTheDocument();
+  const publish = screen.getByRole("button", { name: "Publish 1 version" });
+  expect(publish).toBeDisabled();
+  expect(publish).toHaveAccessibleDescription("Approve every version first (1 left)");
+  await userEvent.click(within(card).getByRole("button", { name: "Approve version A" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/approve")).toBe(true));
+  expect(await within(card).findByText("Approved")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Publish 1 version" }));
   const ask = await screen.findByRole("alertdialog", { name: "Publish 1 version of Bo tries salmon?" });
-  expect(calls.some((c) => c.key === "POST /scripts/7/publish")).toBe(false);
   await userEvent.click(within(ask).getByRole("button", { name: "Publish" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/publish")).toBe(true));
-  expect(calls.findIndex((c) => c.key === "POST /scripts/7/drafts/0/approve")).toBeLessThan(calls.findIndex((c) => c.key === "POST /scripts/7/publish"));
+  expect(calls.filter((c) => c.key === "POST /scripts/7/drafts/0/approve")).toHaveLength(1); // Publish itself approves nothing
   expect(await screen.findByText("Published. 1 version is ready to make.")).toBeInTheDocument();
+});
+
+test("an approval on a Publish card can be undone before publishing (#764 QA-2)", async () => {
+  setViewport(390);
+  const approved = withWords({ versions: [{ ...withWords().versions[0], status: "approved" }] });
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, approved],
+    "GET /scripts/7/cast": [200, []],
+    "GET /scripts": [200, []],
+    "DELETE /scripts/7/drafts/0/approve": [200, withWords()],
+  });
+  open("/b/1/scripts/7?step=publish");
+  const card = await screen.findByLabelText("Version A");
+  expect(screen.getByRole("button", { name: "Publish 1 version" })).toBeEnabled();
+  await userEvent.click(within(card).getByRole("button", { name: "Undo approval of version A" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/approve")).toBe(true));
+  expect(await within(card).findByText("Not approved yet")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Approve version A" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Publish 1 version" })).toHaveAccessibleDescription("Approve every version first (1 left)");
 });
 
 test("a published script's Publish page is read-only, with Duplicate script", async () => {
@@ -528,7 +554,7 @@ test("an editor past the week's allowance on their own script can't make it, and
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
   const own = await within(panel).findByRole("button", { name: /Make this version.*3 credits/ });
   await vi.waitFor(() => expect(own).toBeDisabled());
-  expect(within(panel).getByText("That's more than this week's 145 free credits (144 used). It resets on Monday.")).toBeInTheDocument();
+  expect(within(panel).getByText("That's more than this week's 145 credits (144 used). It resets on Monday.")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/Ask Reed/);
   unmount();
 
@@ -594,7 +620,7 @@ test("Variations: an editor on their own script past the week's allowance can't 
   await userEvent.click(await screen.findByRole("radio", { name: "1" }));
   const write = await screen.findByRole("button", { name: /Write 1 variation/ });
   await vi.waitFor(() => expect(write).toBeDisabled());
-  expect(write).toHaveAccessibleDescription("That's more than this week's 145 free credits (144 used). It resets on Monday.");
+  expect(write).toHaveAccessibleDescription("That's more than this week's 145 credits (144 used). It resets on Monday.");
 });
 
 test("the version panel says what it is a variation of, who planned the breakdown, how many clips, and about what it costs", async () => {
@@ -848,7 +874,7 @@ test("Bulk create for an editor: past the week's allowance Write all is disabled
   const done = await screen.findByRole("dialog", { name: "Drafts made" });
   const write = await within(done).findByRole("button", { name: /Write all scripts.*12 credits/ });
   await vi.waitFor(() => expect(write).toBeDisabled());
-  expect(write).toHaveAccessibleDescription("That's more than this week's 145 free credits (140 used). It resets on Monday.");
+  expect(write).toHaveAccessibleDescription("That's more than this week's 145 credits (140 used). It resets on Monday.");
   expect(document.body.textContent).not.toMatch(/Ask Reed/);
 });
 
@@ -1014,7 +1040,7 @@ test("an editor who can't cover the read can't press it, and there is no Ask Ree
   open("/b/1/scripts/7");
   const button = await screen.findByRole("button", { name: /Read this reel.*7 credits/ });
   await vi.waitFor(() => expect(button).toBeDisabled());
-  expect(button).toHaveAccessibleDescription("That's more than this week's 145 free credits (142 used). It resets on Monday.");
+  expect(button).toHaveAccessibleDescription("That's more than this week's 145 credits (142 used). It resets on Monday.");
   expect(document.body.textContent).not.toMatch(/Ask Reed/);
 });
 
@@ -1037,7 +1063,7 @@ test("Next waits until the reel is read, so Read this reel is the one amber butt
 test("when the whole week is used the stop says so; when only this price doesn't fit it says how much is used", async () => {
   const { weekStop } = await import("./useScript");
   expect(weekStop({ quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }, 3)).toBe("You've used this week's 145 credits. It resets on Monday.");
-  expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 7)).toBe("That's more than this week's 10 free credits (7 used). It resets on Monday.");
+  expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 7)).toBe("That's more than this week's 10 credits (7 used). It resets on Monday.");
   expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 3)).toBeNull();
 });
 
@@ -1355,12 +1381,12 @@ test("Read it again is disabled past an editor's week, with the plain reason, an
   await userEvent.click(await screen.findByRole("button", { name: "Read it again" }));
   const go = await within(await screen.findByRole("dialog", { name: "Read it again" })).findByRole("button", { name: /Read it again · / });
   await vi.waitFor(() => expect(go).toBeDisabled());
-  expect(go).toHaveAccessibleDescription(/145 free credits.*resets on Monday/);
+  expect(go).toHaveAccessibleDescription(/145 credits.*resets on Monday/);
   expect(calls.some((c) => c.key === "POST /scripts/7/import/read-again")).toBe(false);
 });
 
-test("a week with one free credit says so in the singular, as the server does", () => {
-  expect(weekStop({ quick_clip_credits_used: 0.4, quick_clip_credits_allowed: 1 }, 2)).toBe("That's more than this week's 1 free credit (0 used). It resets on Monday.");
+test("a week with one credit says so in the singular, as the server does", () => {
+  expect(weekStop({ quick_clip_credits_used: 0.4, quick_clip_credits_allowed: 1 }, 2)).toBe("That's more than this week's 1 credit (0 used). It resets on Monday.");
 });
 
 test("approved words can't be edited, so the Script step shows Words final with Undo approval to edit (never a dead Edit)", async () => {
