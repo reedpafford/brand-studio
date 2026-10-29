@@ -1,13 +1,13 @@
 """Song takes for a song script's version (song ads, spec §1): list, make 2 (or 1), Try again,
 Preferred (with Undo), remove (with Undo). Rules: app/song_takes.py."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 from sqlalchemy.orm import Session
 
-from app import music, narration, song_takes
+from app import music, narration, song_directions, song_takes
 from app import script_library as lib
 from app.auth import current_user
 from app.db import get_db
@@ -15,9 +15,11 @@ from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
+from app.routes.clips import generation_on
+from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.script_library import Slot
-from app.schemas import UtcTime
+from app.schemas import LongText, UtcTime
 
 router = APIRouter(tags=["songs"])
 SONGS_OFF = "Songs aren't switched on here."
@@ -64,11 +66,14 @@ class SongPreferredOut(BaseModel):
 
 
 def songs_on(request: Request, db: Session | None = None, draft: ScriptDraft | None = None):
-    """Only the stand-ins make songs until Suno is connected (app/music.py). A narration's
-    voice is on Replicate, so it's on wherever paid generation is."""
+    """The stand-ins, or Suno through KIE once Reed switches it on (app/providers/kie.py). A
+    narration's voice is on Replicate, so it's on wherever paid generation is."""
+    from app.providers import kie_on
+
     settings = request.app.state.settings
-    voice = draft is not None and song_takes.narrated(db, draft) and settings.generation_enabled
-    return bool(settings.fake_providers or voice)
+    if draft is not None and song_takes.narrated(db, draft):
+        return bool(settings.fake_providers or settings.generation_enabled)
+    return bool(settings.fake_providers or kie_on(settings))
 
 
 def _refused_for(reason: str | None) -> str | None:
@@ -304,3 +309,91 @@ def use_video_song(
     song_breakdown.follow_take(db, project, user.id)  # the shots move to the new take, free
     db.commit()
     return VideoSongOut(song_take_id=take.id, was_song_take_id=was)
+
+
+class DirectionsIn(BaseModel):
+    source: LongText = ""  # a script or voice-over to adapt into lyrics
+    sounds_like: Annotated[str, StringConstraints(max_length=300)] = ""
+    note: LongText = ""
+
+
+class DirectionUsed(BaseModel):
+    was_text: str  # Undo: PUT the version back with these
+    was_style_line: str
+
+
+def _song_version(db: Session, user: User, script_id: int, slot: int):
+    draft = _song(db, user, script_id, slot, edit=True)
+    return db.get(Script, draft.script_id), draft
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/directions", response_model=JobOut,
+             status_code=201, dependencies=[Depends(generation_on)])  # fmt: skip
+def write_directions(
+    script_id: int,
+    slot: Slot,
+    body: DirectionsIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Write 2 song directions (one paid Claude call); a press again writes 2 more."""
+    script, draft = _song_version(db, user, script_id, slot)
+    if reason := song_directions.stop(db, script, draft, body.source):
+        raise HTTPException(409, reason)
+    if lib.writing(db, script.id, song_directions.STEP):
+        raise HTTPException(409, "Song directions are already being written for this version.")
+    data = song_directions.job_input(db, script, draft, body.source, body.sounds_like, body.note)
+    return enqueue(db, user, "write-claude", data, provider="claude")
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/directions/{direction_id}/use",
+             response_model=DirectionUsed)  # fmt: skip
+def use_direction(
+    script_id: int,
+    slot: Slot,
+    direction_id: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Its lyrics and style line become the version's (Undo: PUT the was_ values back)."""
+    _, draft = _song_version(db, user, script_id, slot)
+    was_text, was_style = song_directions.use(db, draft, direction_id)
+    return DirectionUsed(was_text=was_text, was_style_line=was_style)
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/claims/keep", status_code=204)
+def keep_claims(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """The owner vouches for the used direction's claims ("Keep it")."""
+    _, draft = _song_version(db, user, script_id, slot)
+    song_directions.keep_claims(db, draft)
+    return Response(status_code=204)
+
+
+@router.delete("/scripts/{script_id}/drafts/{slot}/directions/{direction_id}", status_code=204)
+def remove_direction(
+    script_id: int,
+    slot: Slot,
+    direction_id: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    _, draft = _song_version(db, user, script_id, slot)
+    song_directions.remove(db, draft, direction_id)
+    return Response(status_code=204)
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/directions/{direction_id}/restore",
+             status_code=204)  # fmt: skip
+def restore_direction(
+    script_id: int,
+    slot: Slot,
+    direction_id: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo a remove."""
+    _, draft = _song_version(db, user, script_id, slot)
+    song_directions.remove(db, draft, direction_id, back=True)
+    return Response(status_code=204)

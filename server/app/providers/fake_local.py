@@ -429,6 +429,38 @@ class FakeWriter:
         scene = {"id": 1, "heading": "INT. TEST — DAY", "look": "Plain grey.", "shots": shots}
         return {"hook": "Local test breakdown.", "scenes": [scene], "clips": clips}
 
+    def _song_directions(self, prompt):
+        """Two plain directions; adapting a <source>, its lines become the first one's lyrics
+        and the second leaves its last line out. The first style line names the "sounds
+        like" (as a model might). A note with fake:three answers 3 directions until it's
+        asked to fix them; fake:three-always never fixes them."""
+        source = [ln.split("| ", 1)[-1] for ln in _tag(prompt, "source").splitlines() if ln]
+        lines = source or ["Wake up hungry, bowl is bright", "Iron Paws, it feels so right"]
+        like = f" like {_tag(prompt, 'sounds_like')}" if _tag(prompt, "sounds_like") else ""
+
+        def song(rows):
+            return "[Verse 1]\n" + "\n".join(rows)
+
+        note = _tag(prompt, "note")
+        three = "fake:three-always" in note or ("fake:three" in note and "<fix>" not in prompt)
+        answer = {
+            "directions": [
+                {"title": "Local song A", "concept": "A practice song.", "lyrics": song(lines),
+                 "style_line": f"indie pop{like}, warm female lead, 104 BPM, playful",
+                 "visual_concept": "Plain test B-roll.", "left_out": [],
+                 "unchecked_claims": []},
+                {"title": "Local song B", "concept": "A shorter practice song.",
+                 "lyrics": song(lines[:-1] or lines), "style_line": "folk, male lead, 90 BPM",
+                 "visual_concept": "Plain test B-roll.",
+                 "left_out": [lines[-1]] if len(lines) > 1 else [],
+                 "unchecked_claims": ["It feels so right"]},
+            ],
+            "recommended": 1,
+        }  # fmt: skip
+        if three:
+            answer["directions"].append({**answer["directions"][1], "title": "Local song C"})
+        return answer
+
     def _song_breakdown(self, prompt):
         """The story stand-in's plan, its shots back to back over the song's beats, all
         B-roll (no [Lip-sync] asked)."""

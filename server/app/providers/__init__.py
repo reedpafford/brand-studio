@@ -84,4 +84,16 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
 
     claude = ClaudeProvider(settings.anthropic_key.get_secret_value())
     local = LocalProvider(storage)
-    return {"fake": FakeProvider(), "replicate": replicate, "claude": claude, "local": local}
+    providers = {"fake": FakeProvider(), "replicate": replicate, "claude": claude, "local": local}
+    if kie_on(settings):  # Suno through KIE: only once Reed switches it on
+        from app.providers.kie import KieSuno
+
+        providers["suno"] = KieSuno(
+            settings.kie_base_url, settings.kie_api_key.get_secret_value(),
+            tuple(settings.kie_delivery_hosts), settings.max_download_mb,
+        )  # fmt: skip
+    return providers
+
+
+def kie_on(settings) -> bool:
+    return bool(settings.kie_suno and settings.kie_api_key.get_secret_value())
