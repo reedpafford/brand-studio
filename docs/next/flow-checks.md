@@ -375,3 +375,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #1001 Server delete pass | 687414da (+ next) | PASS: full suite 1049 |
 | 2026-10-29 | #1002 Restore has Undo | df16d884 (+ next) | PASS: release → restore → Undo releases again (version back to Ready to make); 18/18 |
 | 2026-10-29 | #1008 Prices as charged (web) | 6f9a015b (+ next) | FAIL: one figure rounds two ways (29 vs 28.1). "Up to" in the four places, Make the shots from /breakdown/price, stills totals rounded once; 674/674 |
+| 2026-10-29 | #1009 Look rewrite (prompt text, read only) | bbb4b1fb | Text passes (no names but Disney Pixar, no "exactly", Skeleton own sample, Zack D its own style); but sample_still_prompt/own_sample aren't wired: look_samples.py:72 still sends "exactly as in [Image1]" with the hero, Skeleton too |
