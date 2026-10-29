@@ -61,6 +61,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Redraw after a look switch (next a627db21; fixed by #962 screen + #967 server, both PASS; closes on merge) | House to Disney Pixar, then Storyboard's "Redraw 1 out-of-date still": no hold shows, and the paid redraw is drawn with no picture of the person | Server: count a locked character with no sheet in the video's look as having no look, so the redraw is refused. Screen: refresh the cast list after a switch, so the cast hold shows |
 | Make this version's price line (#965) | Picking Disney Pixar shows the same price as House although a cast character has no Disney Pixar look (11.33 vs VS1's 14.73) | Add a look's price for each role needing a new look in the picked look, as VS1's confirm does |
+| Another editor's video (#964) | The server now refuses every change by a second editor (403), but the screen still shows Approve, Approve all, Make… live on their video | Screens: when the viewer didn't make the video and isn't the owner, one banner says who can change it and the step presses are greyed; merge with #964 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -328,3 +329,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #944 Per-look sheets (web, ST2) | ea705c65 | PASS: a first sheet reads Drawing… with one POST; a failed one says nothing was charged, with Try again. Note: after a reload Make shows again and gets 409 (server should list a waiting look as drawing) |
 | 2026-10-29 | #957 Preferred and going back (OR3, server) | cfd1bc9d | PASS: Go back (breakdown) waits (409 with the reason) while a storyboard, still, clip prompts or update run is being made; role guards and Undo pass |
 | 2026-10-29 | #967 A cast character with no picture in the video's look holds the still (server) | 8aaa2b92 | PASS: redraw refused 422 before any charge; storyboard, update and redo too; 41/41. Note: a role's own House look still draws after a switch |
+| 2026-10-29 | #964 Owner-or-maker check on every video write (server) | 4eaf08ea | FAIL until the screens follow: maker flows pass (61/61); a second editor sees live presses that all get 403 |
