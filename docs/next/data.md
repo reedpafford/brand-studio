@@ -22,6 +22,19 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n05 | Narrated (N1, V6n): `song_takes.kind`, `voice`, `music_file_id`, `music_job_id`, `trimmed`; `scripts.kind` gains `narrated` (validation only) | Next-Server | — |
 | n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, new `item_checks`; existing videos planned from their breakdown | Builder-Server-8 | — |
 
+## Merge order (the chain on `next`)
+
+Numbers are names, not an order. Each migration's `down_revision` is the head on `next` when it merges, so the chain stays one line. When one merges, Next-Lead tells the next owner to set their `down_revision` to it.
+
+| Turn | Migration | PR | `down_revision` | State |
+|---|---|---|---|---|
+| — | n01 | #748 | 0053 | On `next` |
+| 1 | n02 | #829 | n01 | Open, merges first |
+| 2 | n04 | #851 | n02 (currently says n01: change it when #829 lands) | Open |
+| 3 | n05 | Next-Server, narrated PR 1 | the head then (n04 if #851 is in) | Not open |
+| 4 | n06 | Builder-Server-8, 1b PR 1 | the head then | Not open |
+| — | n03 | Next-Server, flavours | the head when it's built | Not started |
+
 ## 1. Song ads
 
 | Where | Change | Notes |
