@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -31,21 +31,21 @@ function renderAt(path: string) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/** The earlier videos live on Scripts, under "Videos made before scripts" (the old list redirects to Videos). */
+async function openLegacy(n: number) {
+  renderAt("/b/1/scripts");
+  await userEvent.click(await screen.findByText(`Videos made before scripts (${n})`));
+}
+const scripts: Record<string, [number, unknown]> = { "GET /scripts": [200, []], "GET /references": [200, []], "GET /jobs": [200, []] };
+
 test("the list shows each video with its credits, says when it is nearly or over budget, and marks one held from before as waiting for the owner", async () => {
-  fakeServer({ ...base, "GET /projects": [200, [project, { ...project, id: 10, name: "Long one", status: "needs_owner_approval", budget_pct: 110 }]] });
-  renderAt("/b/1/projects");
+  fakeServer({ ...base, ...scripts, "GET /projects": [200, [project, { ...project, id: 10, name: "Long one", status: "needs_owner_approval", budget_pct: 110 }]] });
+  await openLegacy(2);
   expect(await screen.findByText("Mia buys the dip")).toBeInTheDocument();
   expect(screen.getByText("412 of 660 credits")).toBeInTheDocument();
   expect(screen.getByText(/Over budget/)).toBeInTheDocument();
   expect(screen.getByText("Waiting for the owner's OK")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
-});
-
-test("an empty brand invites a first video", async () => {
-  fakeServer({ ...base, "GET /projects": [200, []] });
-  renderAt("/b/1/projects");
-  expect(await screen.findByText("No videos for fomo yet")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "New video" })).toHaveAttribute("href", "/b/1/projects/new");
 });
 
 test("the brief is sent with the cast and shape, then you land on the project", async () => {
@@ -84,8 +84,8 @@ test("a refused brief shows the server's reason", async () => {
 });
 
 test("the meter says 'Almost at budget' from 75% and has a bar", async () => {
-  fakeServer({ ...base, "GET /projects": [200, [{ ...project, budget_pct: 81, credits_used: 620, budget_credits: 765 }]] });
-  renderAt("/b/1/projects");
+  fakeServer({ ...base, ...scripts, "GET /projects": [200, [{ ...project, budget_pct: 81, credits_used: 620, budget_credits: 765 }]] });
+  await openLegacy(1);
   expect(await screen.findByText("620 of 765 credits · Almost at budget")).toBeInTheDocument();
 });
 
@@ -141,48 +141,14 @@ test("the upload is called Your own example video and says how it is used, so it
   expect(screen.queryByText("Reference video (optional)")).not.toBeInTheDocument();
 });
 
-test("the owner sees a banner when requests are waiting, and it goes to Approvals; editors never do", async () => {
-  fakeServer({
-    ...base,
-    "GET /auth/me": [200, { ...editor, role: "owner" }],
-    "GET /projects": [200, [project]],
-    "GET /jobs": [200, [{ id: 1, kind: "video", status: "needs_owner_approval", credits: 20, project_id: 9, brand_id: 1 }]],
-  });
-  renderAt("/b/1/projects");
-  expect(await screen.findByText("1 request is waiting for you")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/approvals");
-});
-
-test("each video is one link to its page, and a failed load says so and offers Try again", async () => {
-  fakeServer({ ...base, "GET /projects": [200, [project]] });
-  renderAt("/b/1/projects");
-  const card = await screen.findByRole("link", { name: "Mia buys the dip, Brief, Brief written" });
-  expect(card).toHaveAttribute("href", "/b/1/projects/9");
-  expect(screen.queryByText(/waiting for you/)).not.toBeInTheDocument();
+test("an earlier video's card is one link to its page and says the step it is at; the old list lands on Videos", async () => {
+  fakeServer({ ...base, ...scripts, "GET /projects": [200, [project]] });
+  await openLegacy(1);
+  expect(await screen.findByRole("link", { name: "Mia buys the dip, Brief, Brief written" })).toHaveAttribute("href", "/b/1/projects/9");
+  expect(screen.getByRole("link", { name: "New video (the earlier way)" })).toHaveAttribute("href", "/b/1/projects/new");
+  cleanup();
   vi.unstubAllGlobals();
-  document.body.innerHTML = "";
-  fakeServer({ ...base, "GET /projects": [500, { detail: "boom" }] });
+  fakeServer({ ...base, ...scripts, "GET /projects": [200, [project]] });
   renderAt("/b/1/projects");
-  expect(await screen.findByText("Couldn't load your videos.", {}, { timeout: 10_000 })).toBeInTheDocument(); // the query retries first
-  expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
-}, 20_000);
-
-test("each video says the step it is at and one plain line, and finished videos sit in their own section, newest first", async () => {
-  const ok = (extra: object) => ({ id: 1, script_version: 1, source: "claude", stale: false, problems: [], breakdown: { hook: "", scenes: [], clips: [{ id: "c1", shot_ids: [], seconds: 8, seam: "end" }, { id: "c2", shot_ids: [], seconds: 8, seam: "end" }] }, ...extra });
-  const frame = (id: number, approved: boolean) => ({ id, clip_id: `c${id}`, shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], file_id: 40 + id, stale: false, approved });
-  fakeServer({
-    ...base,
-    "GET /projects": [200, [project, { ...project, id: 10, name: "Done one" }]],
-    "GET /projects/9/script": [200, { version: 1, source: "paste", words: 20, created_by_id: 2, created_at: "2026-10-23T10:00:00Z", text: "x" }],
-    "GET /projects/9/breakdown": [200, ok({})],
-    "GET /projects/9/storyboard": [200, [frame(1, true), frame(2, false)]],
-    "GET /projects/10/video": [200, { file_id: 90, take_ids: [], out_of_date: true }],
-  });
-  renderAt("/b/1/projects");
-  const inProgress = await screen.findByRole("region", { name: "In progress" });
-  expect(await within(inProgress).findByText("1 of 2 frames approved")).toBeInTheDocument();
-  expect(within(inProgress).getByText("Storyboard")).toBeInTheDocument();
-  const finished = await screen.findByRole("region", { name: "Finished" });
-  expect(within(finished).getByText("Done one")).toBeInTheDocument();
-  expect(within(finished).getByText("Out of date")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Videos", level: 1 })).toBeInTheDocument();
 });

@@ -31,7 +31,7 @@ export function ProjectPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const mayManage = useMayManageVideo();
-  const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`)) // a released version is ready to make again in Scripts; an archived video is under Videos;
+  const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`)); // a released version is ready to make again in Scripts; an archived video is under Videos
   const [panel, setPanel] = useState(false);
   const [highlight, setHighlight] = useState<number[]>([]);
   const [line, setLine] = useState<number | null>(null);
@@ -97,7 +97,7 @@ export function ProjectPage() {
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : step === "shots" && dirty ? "pb-48" : "pb-28"}`}>
       {rail ? (
-        <Link to={`/b/${brandId}/projects`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
+        <Link to={`/b/${brandId}/videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
           <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
           Videos
         </Link>
@@ -105,7 +105,7 @@ export function ProjectPage() {
         // On a phone the video's own line replaces the brand bar: back, name, how much is used, and a thin meter.
         <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-border bg-bg">
           <div className="flex h-14 items-center gap-1 px-2">
-            <Link to={`/b/${brandId}/projects`} aria-label="Videos" className="grid size-control shrink-0 place-items-center rounded-md text-accent-text hover:bg-surface-2">
+            <Link to={`/b/${brandId}/videos`} aria-label="Videos" className="grid size-control shrink-0 place-items-center rounded-md text-accent-text hover:bg-surface-2">
               <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
             </Link>
             {renaming === null ? (

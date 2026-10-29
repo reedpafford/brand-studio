@@ -26,7 +26,7 @@ class Price(BaseModel):
 class CatalogueModel(BaseModel):
     id: str
     name: str
-    kind: Literal["video", "image", "watch", "text", "speech"]
+    kind: Literal["video", "image", "watch", "text", "speech", "music"]
     provider_model: str
     provider_version: str
     default: bool = False

@@ -456,3 +456,26 @@ def test_an_edit_while_a_retry_waits_cancels_it_uncharged(app, db, editor, setup
     (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
     assert shown["takes"] == [] and shown["retrying"] is None
     assert credits_used(db, project) == before
+
+
+def test_reword_takes_out_words_drawn_on_screen_but_never_the_spoken_ones():
+    from app.clip_prompts import reword
+
+    prompt = ('Shot 1 | 0-2 s. Mom holds the bag up, big text "SALE" pops, captions below. '
+              'No one speaks.\nShot 2 | 2-4 s. Mom says "Add captions, darling."')  # fmt: skip
+    fixed, said = reword(prompt)
+    assert "captions below" not in fixed and 'Mom says "Add captions, darling."' in fixed
+    assert 'removed "captions"' in said
+    assert reword(fixed) == (fixed, [])  # fixed once: nothing more to do
+
+
+def test_a_shot_that_is_only_drawn_words_stays_and_gets_advice(app, db, editor, setup, clip):  # noqa: F811
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    lines = clip["prompt"].splitlines()
+    keep = next(i for i, x in enumerate(lines) if x.startswith("Keep: "))
+    words = "\n".join([*lines[:keep], "Shot 3 | 5-6 s. Title card: SALE.",
+                        *lines[keep:]])  # a wordless shot that is only drawn words  # fmt: skip
+    body = {"prompt": words, "references": clip["references"]}
+    shown = editor.put(url, json=body).json()
+    assert "Title card: SALE." in shown["prompt"]  # never emptied (#890)
+    assert any(p.startswith("Advice: ") and "only words on screen" in p for p in shown["problems"])

@@ -43,7 +43,7 @@ test("a video has a header with the credits, six steps with ticks, and one Next 
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });
   open();
   expect(await screen.findByRole("heading", { name: /Mia buys the dip/ })).toBeInTheDocument();
-  expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/projects");
+  expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
   expect(screen.getByText(/0 \/ 60 credits/)).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Brief" })).toBeInTheDocument();
   expect(screen.getByText("Show the buy flow")).toBeInTheDocument();
@@ -248,7 +248,7 @@ test("on a phone the video's own line replaces the brand bar: back, name, percen
   open("?stage=script");
   expect(await screen.findByRole("heading", { level: 1, name: "Mia buys the dip" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Brand: / })).not.toBeInTheDocument();
-  expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/projects");
+  expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
   expect(screen.getByText(/of the budget used/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Next: Shots" }).closest("div")).toHaveClass("[&_button]:w-full");
 });
