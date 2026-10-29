@@ -12,6 +12,11 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   await page.getByRole("button", { name: "New script" }).first().click();
   await page.getByRole("menuitem", { name: /Dialogue/ }).click();
+  // Nothing is saved until the first word (flows S1 U).
+  await expect(page.getByText("Dialogue · saved when you type the first word.")).toBeVisible();
+  await page.getByLabel("Paste or write your script").fill("BO: Salmon? Again?\nMIA: Try it.");
+  await page.getByRole("button", { name: "Save script" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
   await page.getByRole("button", { name: "Rename Untitled script" }).click();
   await page.getByRole("textbox", { name: "Title" }).fill("Bo tries salmon");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -23,9 +28,6 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   await expect(page.getByRole("heading", { name: "Script", exact: true, level: 2 })).toBeVisible();
   await expect(page.getByText("Draft · only you can see it")).toBeVisible();
-  await page.getByLabel("Paste or write your script").fill("BO: Salmon? Again?\nMIA: Try it.");
-  await page.getByRole("button", { name: "Save script" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Next: Directions" })).toBeEnabled();
 
   // Back in the library it is listed as Writing.

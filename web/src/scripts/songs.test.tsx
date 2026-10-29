@@ -27,14 +27,18 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-test("New script → Song makes a song draft that opens on its Song step: five steps, Next waits for lyrics", async () => {
+test("New script → Song waits for a word, or for Start from what it's for, then opens on its Song step: five steps, Next waits for lyrics", async () => {
   setViewport(1440);
   const empty = song({ title: "Untitled script" }, { text: "", style_line: "" });
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, empty], "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Song/ }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song" }));
+  expect(await screen.findByLabelText("Lyrics")).toHaveValue("");
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
+  await userEvent.click(screen.getByRole("button", { name: "Start from what it's for" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song", text: "" }));
+  expect(await screen.findByRole("list", { name: "Steps" })).toBeInTheDocument();
   expect(await screen.findByLabelText("Lyrics")).toHaveValue("");
   const steps = screen.getByRole("list", { name: "Steps" });
   expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Song", "Takes", "Cast", "Plan", "Publish"]);

@@ -11,6 +11,7 @@ import { errorText as errorClass } from "../ui";
 import { DescriptionForm } from "./DescriptionForm";
 import { ReelBlock, useReelImport } from "./ReelImport";
 import { useAllowanceStop, usePatchScript, useWriteWords, type Script } from "./useScript";
+import { useTypingOn } from "./NewScriptButton";
 
 const GOING = ["queued", "running"];
 
@@ -169,6 +170,7 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
   const approved = original?.status === "approved";
   // The editor's words once changed; null follows the saved ones. Kept for this tab, so no way out of the page (a tab, the brand menu, a reload) loses them.
   const memory = `script-words-${s.id}`;
+  const typingOn = useTypingOn();
   const [draft, setDraftNow] = useState<string | null>(() => {
     try {
       const kept = sessionStorage.getItem(memory);
@@ -246,7 +248,7 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
         </div>
       ) : (
         <Card className="max-w-[680px] space-y-3">
-          <TextArea label="Paste or write your script" rows={14} maxLength={50000} placeholder="Paste or write the script here" value={draft ?? text} onChange={(e) => setDraft(e.target.value)} />
+          <TextArea {...typingOn} label="Paste or write your script" rows={14} maxLength={50000} placeholder="Paste or write the script here" value={draft ?? text} onChange={(e) => setDraft(e.target.value)} />
           {write.isError && <p role="alert" className={errorClass}>{write.error.message}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <Button

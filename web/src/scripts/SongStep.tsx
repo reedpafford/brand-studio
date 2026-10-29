@@ -12,6 +12,7 @@ import { ClaimsNote, SongDirections, directionsOf } from "./SongDirections";
 import { SongStudy } from "./SongStudy";
 import { clock } from "./TakePlayer";
 import { useSongs } from "./useSongs";
+import { useTypingOn } from "./NewScriptButton";
 
 export const MAX_LYRICS = 4960; // Suno's limits less the pacing words the server adds (app/music.py)
 const MAX_STYLE = 893;
@@ -151,6 +152,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
   // "Edit lyrics or style" from a refused take opens the boxes at once (no lock, no confirm: it already knows).
   const [params, setParams] = useSearchParams();
   const asked = params.get("edit") === "1" && !s.published;
+  const typingOn = useTypingOn();
   const [draft, setDraftNow] = useState<{ text: string; style: string } | null>(() => {
     try {
       const kept = sessionStorage.getItem(memory);
@@ -238,6 +240,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
     <div className="space-y-4">
       <Card className="max-w-[680px] space-y-3">
         <TextArea
+          {...typingOn}
           label="Lyrics"
           rows={12}
           placeholder={"[Verse]\nPaste or write the lyrics here"}

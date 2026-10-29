@@ -111,19 +111,36 @@ const full = (o: object = {}) => ({
   notes: "Keep it warm.", reference_replace: "", cast: [], versions: [{ slot: 0, status: "draft", title: "Bo tries salmon", seconds: 0, project_id: null, text: "", words: 0, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }], ...o,
 });
 
-test("New script asks Story or Song; Story makes an untitled draft at once and opens the Script screen, with the editor first", async () => {
+test("New script: picking Dialogue saves nothing; the first word typed saves it and opens its page with the words still being typed, not yet saved", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
-  await userEvent.dblClick(screen.getByRole("menuitem", { name: /Dialogue/ })); // a fast double tap
+  await userEvent.click(screen.getByRole("menuitem", { name: /Dialogue/ }));
+  expect(await screen.findByText("Dialogue · saved when you type the first word.")).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
+  await userEvent.type(screen.getByLabelText("Paste or write your script"), "B");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "", kind: "story" }));
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
-  expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
+  const editor = screen.getByLabelText("Paste or write your script");
+  expect(editor).toHaveFocus(); // the cursor came along, so typing goes on where it was
+  await userEvent.keyboard("o");
+  expect(editor).toHaveValue("Bo");
+  expect(screen.getByText("Not saved yet")).toBeInTheDocument();
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
   // The title is one tap away in the header.
   await userEvent.click(screen.getByRole("button", { name: "Rename Untitled script" }));
   expect(screen.getByLabelText("Title")).toHaveValue("Untitled script");
+});
+
+test("New script: backing out before a word is typed leaves nothing behind (flows S1 U)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts/new?kind=story");
+  await userEvent.type(await screen.findByLabelText("Paste or write your script"), "   "); // spaces aren't a word
+  await userEvent.click(within(screen.getByRole("main")).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("button", { name: "New script" })).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
 });
 
 test("a draft script's page: title, a draft badge, six steps, and About this script closed but there to edit", async () => {
