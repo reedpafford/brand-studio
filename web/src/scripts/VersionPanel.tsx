@@ -8,6 +8,7 @@ import { Badge, Button, Panel, Skeleton, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
+import { SongRow } from "./SongParts";
 import { beingMade } from "./ScriptsPage";
 import { useAllowanceStop, useScript, useWeek } from "./useScript";
 
@@ -55,6 +56,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
       ) : (
         <div className="space-y-5">
           {v.variation_of && <p className="-mt-2 text-sm text-muted">Variation of {v.variation_of}</p>}
+          {s.kind === "song" && <section aria-label="Song"><SongRow scriptId={scriptId} /></section>}
           <section aria-label="The words" className="space-y-2">
             <p className="whitespace-pre-wrap font-script leading-[1.6] [overflow-wrap:anywhere]">{(all ? lines : lines.slice(0, SHOWN)).join("\n")}</p>
             {lines.length > SHOWN && (
