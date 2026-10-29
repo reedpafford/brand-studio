@@ -20,3 +20,16 @@ Pixar-style 3D animation, warm amber key against cool blue shadows, shallow dept
 
 ## fit_look
 a stylised 3D cartoon look with expressive eyes
+
+## banned
+photorealistic → stylised
+photo-realistic → stylised
+live-action →
+in the style of Pixar →
+Pixar-style → animated-feature
+
+## fixes
+refused: Soften it (the free fix rewords the picture, never the lines), then Make another.
+face: Make another first: the same prompt often lands. If it drifts again, Change this… "keep the face exactly as the sheet".
+outfit: Change this… naming the sheet's key pieces in the shot ("the red beanie, the grey hoodie").
+product: Change this… "the real bag from its image, the label facing the camera and readable".

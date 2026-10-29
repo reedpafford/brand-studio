@@ -103,3 +103,52 @@ def test_a_narrated_videos_plan_is_timed_to_its_sentences(app, db, owner, editor
     assert "Iron Paws fixes it." in job.input["prompt"]  # the sentences are the clock
     plan = editor.get(f"{video}/breakdown").json()
     assert plan["song"] and not any(s["sung"] for s in plan["song"]["shots"].values())
+
+
+def test_a_script_switches_between_dialogue_and_narrated_before_publishing(owner, narrated):
+    from app.routes.script_library import SONG_STAYS
+
+    base = narrated.rsplit("/drafts", 1)[0]
+    assert owner.patch(base, json={"kind": "story"}).json()["kind"] == "story"
+    assert owner.get(base).json()["versions"][0]["reads_narrated"]  # all one voice (ST0 Advice)
+    assert owner.patch(base, json={"kind": "narrated"}).json()["kind"] == "narrated"  # Undo
+    assert owner.patch(base, json={"kind": "song"}).status_code == 422  # never to a song
+    brand = owner.get("/brands").json()[0]["id"]
+    song = owner.post("/scripts", json={"brand_id": brand, "title": "S", "kind": "song"}).json()
+    no = owner.patch(f"/scripts/{song['id']}", json={"kind": "narrated"})
+    assert (no.status_code, no.json()["detail"]) == (409, SONG_STAYS)
+
+
+def test_a_narrated_version_names_the_lines_spoken_on_camera(owner, narrated):
+    _words(owner, narrated, "Your dog's gut is a mess.\nMIA: I fixed it with Iron Paws.")
+    lines = owner.get(narrated.rsplit("/drafts", 1)[0]).json()["versions"][0]["dialogue_lines"]
+    assert lines == [{"line": 2, "text": "MIA: I fixed it with Iron Paws."}]
+
+
+def test_a_narration_shows_its_sentences_and_voice_and_only_one_is_made_at_a_time(
+    app, db, owner, narrated
+):
+    assert owner.post(f"{narrated}/songs", json={}).status_code == 201
+    again = owner.post(f"{narrated}/songs", json={})
+    assert (again.status_code, again.json()["detail"]) == (409, narration.MAKING)
+    assert db.query(Job).filter(Job.kind == "speech").count() == 1  # charged once
+    _work(app, db)
+    songs = owner.get(f"{narrated}/songs").json()
+    assert songs["voice"] == "Sarah"
+    (take,) = songs["takes"]
+    assert [x["text"] for x in take["sentences"]] == narration.sentences(WORDS)
+    assert take["sentences"][0]["start"] < take["sentences"][-1]["start"]
+
+
+def test_a_narrated_videos_clips_keep_their_own_sound(app, db, owner, editor, narrated):
+    from app import prompts
+
+    owner.post(f"{narrated}/songs", json={})
+    _work(app, db)
+    owner.post(f"{narrated}/approve")
+    owner.post(f"{narrated.rsplit('/drafts', 1)[0]}/publish")
+    video = f"/projects/{editor.post(f'{narrated}/produce').json()['project_id']}"
+    _work(app, db)
+    editor.post(f"{video}/clips/prompts")
+    job = db.query(Job).filter(Job.input["step"].as_string() == "clip_prompts").one()
+    assert job.input["system"][0] == prompts.system("narrated_clip_prompts")
