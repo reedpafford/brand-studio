@@ -34,7 +34,7 @@ export function keepFirst(lyrics: string, n: number): { kept: string; dropped: n
 const words = (s: string) => s.split(/\s+/).filter(Boolean);
 const n = (x: number) => x.toLocaleString("en-GB");
 
-export type Song = { text: string; style_line: string; spoken_end_line: string };
+export type Song = { text: string; style_line: string; spoken_end_line: string; singer?: string }; // singer left out: kept as it is
 
 /** Save the lyrics, style line and spoken end line of a song script's version (slot 0). */
 export function useSaveSong(id: number) {

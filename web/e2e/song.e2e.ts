@@ -3,7 +3,7 @@ import { emptyBrand, signIn } from "./helpers";
 
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean, Iron Paws";
 
-/** New script → Song, lyrics and style saved, then two takes made on the free stand-in until one is Preferred. */
+/** New script → Song, lyrics and style saved, two takes made on the free stand-in until one is Preferred, then Cast asks who sings. */
 async function walk(page: Page, brand: string) {
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
@@ -22,6 +22,9 @@ async function walk(page: Page, brand: string) {
   await expect(page.getByText("Preferred", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Play Take 1" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Next: Cast" })).toBeEnabled();
+  await page.getByRole("button", { name: "Next: Cast" }).click();
+  await expect(page.getByRole("group", { name: "Who sings on camera?" })).toBeVisible();
+  await page.getByRole("radio", { name: "Nobody on camera" }).check();
 }
 
 test("a song script: lyrics saved, 2 takes made on the stand-in, one Preferred, Cast opens (desktop)", async ({ page }) => {
@@ -32,6 +35,6 @@ test("a song script: lyrics saved, 2 takes made on the stand-in, one Preferred, 
 test("the same song walk at 390: no sideways scroll, steps in one button", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await walk(page, "Song Shop Phone");
-  await expect(page.getByRole("button", { name: /Step 2 of 5 · Takes/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Step 3 of 5 · Cast/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });

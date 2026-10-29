@@ -7,6 +7,7 @@ import { Badge, Button, Card, Dialog } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
+import { SongFacts } from "./SongParts";
 import type { Script } from "./useScript";
 
 const LETTER = ["A", "B", "C"];
@@ -68,7 +69,7 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
       ) : (
         <p className="flex max-w-[680px] items-start gap-2 text-sm text-muted">
           <Info size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />
-          Publishing makes these versions ready to make. After that their words can't change. To change one, duplicate the script.
+          {s.kind === "song" ? "Publishing makes this ready to make. After that the lyrics can't change (each video still picks its own take). To change the lyrics, duplicate the script." : "Publishing makes these versions ready to make. After that their words can't change. To change one, duplicate the script."}
         </p>
       )}
       {(publish.isError || duplicate.isError || approve.isError) && <p role="alert" className={errorClass}>{(publish.error ?? duplicate.error ?? approve.error)?.message}</p>}
@@ -81,6 +82,7 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
               </h3>
               <p className="line-clamp-4 whitespace-pre-wrap font-script [overflow-wrap:anywhere]">{v.text}</p>
               <dl className="space-y-2">
+                {s.kind === "song" && <SongFacts script={s} />}
                 <div>
                   <dt className="font-medium text-muted">Words</dt>
                   <dd className="flex flex-wrap items-center gap-2">
@@ -122,7 +124,7 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
       </ul>
       {asking && !s.published && (
         <Dialog title={`Publish ${versions.length} version${versions.length === 1 ? "" : "s"} of ${s.title}?`} cancelLabel="Not yet" actionLabel="Publish" busy={publish.isPending} onCancel={() => onAsking(false)} onConfirm={() => publish.mutate()}>
-          Their words become final.
+          {s.kind === "song" ? "Its lyrics become final." : "Their words become final."}
         </Dialog>
       )}
     </div>
