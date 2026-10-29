@@ -208,3 +208,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #889 at 9e8e7e1f (Final cut banner names the song; one full stop) | finalsong + songstudy + downloads (17) | PASS |
 | 2026-10-29 | #881 at 95e50919 (Make N stills kept grey; "The plan changed"; "1 credit") | vitest projects (321); step name check | PASS (old ProjectPage EstimateNote says "Breakdown", "1 credits": owner to delete or rename) |
 | 2026-10-29 | #890 at 1914e0f0 (drawn words in quotes) | text_on_screen on 9 prompts; test_item_check (2) | FAIL: a shot that is only drawn text is emptied ("Shot 1 | 0-3 s."); on next since #869 (missed in my #869 walk) |
+| 2026-10-29 | #891 at a1928c52 (P4 advisory check, server) | checking/ok/advice/Looks fine/review/skipped/failed; test_item_checks + migrations (6) | PASS (notes: a queued check holds 0.2 credits; check cost to show in Video settings before real checks) |
