@@ -153,6 +153,23 @@ def test_n09_fills_in_what_stills_and_takes_were_made_with(tmp_path):
     ]
 
 
+def test_n12_keeps_each_roles_own_look_under_the_look_it_was_drawn_in(tmp_path):
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n11")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        _row(conn, "library_items", id=4, kind="character", sheet_look="disney-pixar")
+        _row(conn, "projects", id=1, slot_looks={"7": 4, "8": None, "9": 99})  # 99: gone
+        _row(conn, "projects", id=2)
+    command.upgrade(cfg, "n12")
+    with engine.connect() as conn:
+        rows = [json.loads(r[0]) for r in conn.execute(text("SELECT own_looks FROM projects"))]
+    assert rows == [{"7": {"disney-pixar": 4}}, {}]
+    command.downgrade(cfg, "n11")
+
+
 def test_a_migration_run_leaves_the_app_loggers_on(tmp_path):
     """fileConfig in env.py must not switch off loggers made before it. It did by default, so
     test_clip_prompts_finish's log check failed whenever it ran after this file."""

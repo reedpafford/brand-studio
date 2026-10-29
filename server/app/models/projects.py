@@ -62,6 +62,9 @@ class Project(Filed, Entity, Base):
     # Assets step: unlocked cast slot id (as text) -> the library character the editor gave it.
     slot_cast: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
     slot_looks: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)  # slot -> own look
+    # n12: every own look made for a role here, per look ({slot: {look: item}}), so switching
+    # back re-casts the role to the one it has in that look (VS1 Undo), never made again
+    own_looks: Mapped[dict[str, dict[str, int]]] = mapped_column(JSON, default=dict)
     # ST2: a locked role's library character -> this video's own copy drawn in its look ("Make
     # a {look} look for this video"). Not slot_looks, which is for unlocked roles' own looks.
     look_copies: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
