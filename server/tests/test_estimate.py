@@ -1,6 +1,6 @@
 """The project estimate: credits still to spend, stage by stage."""
 
-from tests.helpers import approved_plan, assert_hidden, assert_no_dollars
+from tests.helpers import assert_hidden, assert_no_dollars
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
@@ -21,7 +21,6 @@ def test_estimate_follows_the_project(app, db, owner, editor, outsider, setup): 
     assert body["remaining_credits"] == round(3 + 3 + 1.32 + 3 + 30, 2)
     assert body["budget_credits"] >= 2 * body["remaining_credits"]  # rule 3: twice all of it
 
-    approved_plan(db, f"/projects/{project}")  # shots come from a plan (1b)
     editor.post(f"/projects/{project}/breakdown")
     _run(app, db, FakeClaude(BREAKDOWN))  # one 5 s clip
     stages, body = _stages(editor, project)

@@ -8,7 +8,6 @@ from app.models.brands import Brand, BrandScreen
 from app.models.projects import Project
 from app.prompts import check
 from tests.conftest import upload
-from tests.helpers import approved_plan
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
@@ -65,7 +64,6 @@ def test_a_breakdown_shot_showing_the_bag_gets_the_real_one(app, db, editor, own
     shots = data["scenes"][0]["shots"]
     shots[0]["action"] = "Mom glares; an Iron Paws bag sits on the shelf behind her."
     shots[1]["action"] = "Nate holds up the chicken bag."
-    approved_plan(db, f"/projects/{project.id}")  # shots come from a plan (1b)
     editor.post(f"/projects/{project.id}/breakdown")
     _run(app, db, FakeClaude(data))
     got = editor.get(f"/projects/{project.id}/breakdown").json()

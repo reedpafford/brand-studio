@@ -11,7 +11,7 @@ import httpx2 as httpx
 
 from app.credits import usd_to_credits
 from app.models.jobs import Job, Usage
-from tests.helpers import approved_plan, claude_stream
+from tests.helpers import claude_stream
 from tests.test_breakdown import BREAKDOWN, _shot
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
@@ -63,7 +63,6 @@ class Writer:
 
 def test_a_long_video_finishes_and_the_clip_that_ran_out_gets_a_free_fix(app, db, editor, setup):  # noqa: E501, F811
     base = f"/projects/{setup['project']}"
-    approved_plan(db, f"{base}")  # shots come from a plan (1b)
     editor.post(f"{base}/breakdown")
     _run(app, db, FakeClaude(_long_breakdown()))
     price = editor.get(f"{base}/clips/prompts/price").json()["credits"]
@@ -99,7 +98,6 @@ def test_a_long_video_finishes_and_the_clip_that_ran_out_gets_a_free_fix(app, db
 
 def test_a_failed_run_names_its_cause(app, db, editor, setup, caplog):  # noqa: F811
     base = f"/projects/{setup['project']}"
-    approved_plan(db, f"{base}")  # shots come from a plan (1b)
     editor.post(f"{base}/breakdown")
     _run(app, db, FakeClaude(BREAKDOWN))
     job = editor.post(f"{base}/clips/prompts").json()

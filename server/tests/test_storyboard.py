@@ -12,7 +12,7 @@ from app.models.storyboards import StoryboardFrame
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import PNG, upload
-from tests.helpers import approved_plan, assert_hidden, assert_no_dollars, with_sheet
+from tests.helpers import assert_hidden, assert_no_dollars, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_replicate import BASE
@@ -32,7 +32,6 @@ def _frames(char: str, screen: str) -> dict:
 
 
 def _with_breakdown(app, db, editor, setup):  # noqa: F811
-    approved_plan(db, f"/projects/{setup['project']}")  # shots come from a plan (1b)
     editor.post(f"/projects/{setup['project']}/breakdown")
     _run(app, db, FakeClaude(BREAKDOWN))
 

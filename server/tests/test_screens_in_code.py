@@ -16,7 +16,7 @@ from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts, Frame, Reference
 from tests.conftest import upload
-from tests.helpers import approved_plan, with_sheet
+from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_project_clips import _prompt
@@ -48,7 +48,6 @@ def test_the_end_lines_shot_shows_the_balance_screen_on_the_heros_phone(app, db,
     project, mom = _cast(editor, db, setup)
     db.get(Brand, project.brand_id).name = "Dip"  # the closing line names the brand (rules 18)
     db.commit()
-    approved_plan(db, f"/projects/{project.id}")  # shots come from a plan (1b)
     editor.post(f"/projects/{project.id}/breakdown")
     _run(app, db, FakeClaude(_bd(mom)))
     got = editor.get(f"/projects/{project.id}/breakdown").json()
@@ -147,7 +146,6 @@ def test_saved_trading_prompts_stills_and_cut_ins_are_repaired_for_free(
     setup,  # noqa: F811
 ):
     project, mom, _, (up, down, home), data = _trading(db, editor, owner, setup)
-    approved_plan(db, f"/projects/{project.id}")  # shots come from a plan (1b)
     editor.post(f"/projects/{project.id}/breakdown")
     _run(app, db, FakeClaude(data))
     bd = db.scalars(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)).one()

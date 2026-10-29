@@ -12,7 +12,7 @@ from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.models.script_library import ScriptCastSlot
 from tests.conftest import upload
-from tests.helpers import approved_plan, with_sheet
+from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_script_library import SCRIPT, _make
@@ -68,7 +68,6 @@ def test_kels_deleted_look_leaves_the_role_uncast_and_a_redo_puts_the_role_back(
     assert (row["ref"], row["library_deleted"], row["ready"]) == (f"slot:{friend}", True, False)
     assert editor.get(f"{url}/assets/missing-looks").json()["slot_ids"] == [friend]
     # A Redo offers the role, never the deleted look; the cast fix doesn't put it back.
-    approved_plan(db, f"{url}")  # shots come from a plan (1b)
     editor.post(f"{url}/breakdown")
     prompt = (
         db.query(Job).filter(Job.input["step"].as_string() == "breakdown").one().input["prompt"]
@@ -106,7 +105,6 @@ def test_a_deleted_look_in_a_plain_video_is_never_offered_and_is_taken_out_by_na
     look = db.get(LibraryItem, mia)
     look.owner_project_id, look.archived = pid, True  # this video's own look, deleted
     db.commit()
-    approved_plan(db, f"/projects/{pid}")  # shots come from a plan (1b)
     editor.post(f"/projects/{pid}/breakdown")
     job = db.query(Job).filter(Job.input["step"].as_string() == "breakdown").one()
     assert f"char:{mia}" not in job.input["prompt"]  # never offered
@@ -119,7 +117,6 @@ def test_a_deleted_look_in_a_plain_video_is_never_offered_and_is_taken_out_by_na
 def test_another_workspaces_look_is_never_named(db, editor, outsider, setup):  # noqa: F811
     pid = setup["project"]
     theirs = outsider.post("/library/character", json={"name": "Secret"}).json()["id"]
-    approved_plan(db, f"/projects/{pid}")  # shots come from a plan (1b)
     editor.post(f"/projects/{pid}/breakdown")
     saved = editor.put(f"/projects/{pid}/breakdown", json=_naming(f"char:{theirs}"))
     assert saved.status_code == 200 and "Secret" not in saved.text

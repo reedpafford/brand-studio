@@ -10,7 +10,7 @@ from PIL import Image
 
 from app.cut_in import apply
 from tests.conftest import png, upload
-from tests.helpers import approved_plan, with_sheet
+from tests.helpers import with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_clip_takes import FakeSeedance, _mp4, _work
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
@@ -66,7 +66,6 @@ def approved(app, db, editor, setup):  # noqa: F811
     bd = json.loads(json.dumps(BREAKDOWN))
     bd["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mom}"]
     bd["scenes"][0]["shots"][1]["screen_ids"] = [f"screen:{setup['screen']}"]
-    approved_plan(db, f"{base}")  # shots come from a plan (1b)
     editor.post(f"{base}/breakdown")
     _run(app, db, FakeClaude(bd))
     editor.post(f"{base}/clips/prompts")
@@ -126,7 +125,6 @@ def test_a_replaced_shot_loses_its_real_image(app, db, editor, setup, approved):
     bd = editor.get(f"{base}/breakdown").json()["breakdown"]
 
     def again(plan: dict) -> bool:
-        approved_plan(db, f"{base}")  # shots come from a plan (1b)
         editor.post(f"{base}/breakdown")
         _run(app, db, FakeClaude(plan))
         editor.post(f"{base}/clips/prompts")

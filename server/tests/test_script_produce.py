@@ -242,7 +242,6 @@ def test_a_video_can_be_archived_and_brought_back(app, owner, editor, db):
     two, _ = _second_editor(app, owner, db)
     assert two.post(f"/projects/{pid}/archive").status_code == 403
     assert editor.post(f"/projects/{pid}/archive").json()["archived_at"]
-    approved_plan(db, f"/projects/{pid}")  # shots come from a plan (1b)
     paid = editor.post(f"/projects/{pid}/breakdown")  # nothing new runs on an archived video
     assert paid.status_code == 409 and "archived" in paid.json()["detail"]
     assert [p["id"] for p in editor.get("/projects").json()] == []
@@ -325,3 +324,21 @@ def test_a_versions_length_is_its_videos_once_it_has_a_breakdown(owner, editor, 
     db.get(Project, made["project_id"]).breakdown_seconds = 22
     db.commit()
     assert owner.get(base).json()["versions"][0]["seconds"] == 22
+
+
+def test_only_a_video_made_from_a_script_waits_for_its_plan(owner, editor, db):
+    """flows 1b: a script video's shots come from an approved plan; an earlier-way video (no
+    script version, the old video page) keeps making its breakdown as before."""
+    base, _ = _published(owner, db, target=40)
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    db.query(Job).update({"status": JobStatus.cancelled})
+    db.commit()
+    refused = editor.post(f"/projects/{pid}/breakdown")
+    assert (refused.status_code, refused.json()["detail"]) == (409, "Approve the plan first.")
+    approved_plan(db, pid)
+    assert editor.post(f"/projects/{pid}/breakdown").status_code == 201
+    fomo = owner.get("/brands").json()[0]["id"]
+    older = editor.post("/projects", json={"brand_id": fomo, "name": "Old way"}).json()["id"]
+    editor.put(f"/projects/{older}/script", json={"text": SCRIPT})
+    made = editor.post(f"/projects/{older}/breakdown")
+    assert made.status_code == 201, made.text  # no plan asked for

@@ -6,7 +6,6 @@ import copy
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.library import LibraryItem
-from tests.helpers import approved_plan
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
@@ -59,7 +58,6 @@ def test_a_name_the_video_doesnt_have_is_taken_out(app, db, editor, setup):  # n
     mia = editor.post("/library/character", json={"name": "Mia"}).json()["id"]  # not cast
     made = copy.deepcopy(BREAKDOWN)
     made["scenes"][0]["shots"][1]["character_ids"] = [f"char:{mia}"]
-    approved_plan(db, f"{url}")  # shots come from a plan (1b)
     editor.post(f"{url}/breakdown")
     _run(app, db, FakeClaude(made))
     got = editor.get(f"{url}/breakdown").json()
@@ -156,7 +154,6 @@ def test_edit_shot_can_name_what_the_video_doesnt_have(app, db, editor, outsider
     from tests.conftest import upload
 
     url = f"/projects/{setup['project']}/breakdown"
-    approved_plan(db, setup["project"])
     editor.post(url)
     _run(app, db, FakeClaude(BREAKDOWN))
     mia = editor.post("/library/character", json={"name": "Mia"}).json()["id"]  # not cast

@@ -3,7 +3,7 @@
 import copy
 
 from app.models.jobs import Job
-from tests.helpers import approved_plan, assert_hidden, assert_no_dollars
+from tests.helpers import assert_hidden, assert_no_dollars
 from tests.test_enhance import SCRIPT, FakeClaude, _run, setup  # noqa: F401 - fixture
 
 
@@ -44,9 +44,6 @@ BREAKDOWN = {
 def test_breakdown_made_checked_and_edited(app, db, editor, setup):  # noqa: F811
     url = f"/projects/{setup['project']}/breakdown"
     assert editor.get(url).status_code == 404
-    refused = editor.post(url)  # flows 1b: the shots are made from an approved plan
-    assert (refused.status_code, refused.json()["detail"]) == (409, "Approve the plan first.")
-    approved_plan(db, setup["project"])
     job = editor.post(url)
     assert job.status_code == 201 and job.json()["credits"] == 3
     assert editor.post(url).status_code == 409  # one at a time
