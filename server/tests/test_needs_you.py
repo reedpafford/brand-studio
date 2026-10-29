@@ -67,3 +67,17 @@ def test_an_advisory_check_or_an_unknown_step_never_hides_what_waits(owner, edit
     assert _row(editor, pid)["waiting_on"] == "1 still ready to check"
     _job(db, pid, JobStatus.failed, step="song_timing")
     assert _row(editor, pid)["waiting_on"] == "The song's timing didn't finish"
+
+
+def test_a_failed_narration_is_named_as_the_narration(owner, editor, db):
+    from app.models.jobs import Job
+    from app.models.projects import Project
+
+    pid = _video(owner, editor, db)
+    ws = db.get(Project, pid).workspace_id
+    for kind, step in (("narration_timing", "song_timing"), ("speech", "song_take")):
+        db.add(Job(workspace_id=ws, kind=kind, provider="replicate", input={"step": step},
+                   project_id=pid, credits=0, status=JobStatus.failed))  # fmt: skip
+        db.commit()
+        name = "The narration's timing" if kind == "narration_timing" else "The narration"
+        assert _row(editor, pid)["waiting_on"] == f"{name} didn't finish"

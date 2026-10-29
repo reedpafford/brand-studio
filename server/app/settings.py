@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     # The advisory check on stills and takes (flows 1b, P4) costs real calls: off until the
     # Producer approves a real test; with the stand-ins on, it always runs (free).
     item_checks_paid: bool = False
+    # The music bed under a narration (N1) is a Claude call and a Stable Audio file: off until
+    # the Producer approves a real test; with the stand-ins on, it always runs (free). Real
+    # runs stop before their spend would pass the budget, each counted at its rough price.
+    narration_music_paid: bool = False
+    narration_music_budget_usd: float = 0.0
+    narration_music_usd_per_run: float = 0.25  # the bed's $0.20 and the prompt's call
     # Which items are checked (Producer, 2026-10-29, to fit "a few cents a video"):
     # key_takes (default): takes of ★-product or speaking clips, one frame each; all_takes:
     # every take, one frame; everything: stills too, and three frames a take.

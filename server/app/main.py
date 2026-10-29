@@ -22,6 +22,7 @@ from app.routes import (
     library,
     looks,
     models,
+    plan,
     production,
     project_assets,
     project_clips,
@@ -44,6 +45,7 @@ from app.routes import (
     songs,
     storyboard,
     team,
+    update_after,
     uploads,
     usage,
     workspace,
@@ -113,6 +115,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         breakdown,
         storyboard,
         project_clips,
+        update_after,
         clips_zip,
         project_assets,
         improve,
@@ -120,6 +123,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         songs,
         looks,
         song_study,
+        plan,
         checks,
     ):
         app.include_router(module.router)
