@@ -12,12 +12,13 @@ Sources: the spec (`docs/research/starpop-2026-10-28/spec.md`), Reed's changes (
 - **One Video settings row** at the top of every video and on Make this version holds every per-video choice: shape, flavour, look, models, language, and for a song video the song ("Change song", V2a).
 - **Videos is its own section** (audit M6), first in the menu and the phone tabs, at `/b/:id/videos`. An editor's brand opens on Videos and Reed's on Scripts (one constant, `HOME`, until Reed says otherwise). A video's back link says **‹ Videos** and goes there. Old `?view=videos` links land on Videos with their filters. With no Status picked, Videos is grouped **Needs you** (each row says what it waits on, from the server's `waiting_on`) · **Making** · **Done**. The old `/b/:id/projects` list lands on Videos; videos made before scripts stay under Scripts.
 - **State words, every step:** Waiting · Making… 0:42 · Ready to check · Approved · Didn't finish · nothing charged (or "credits returned" when they were held) · Refused, with its free fix (for a song: the style line or another take, never the words) · Out of date.
+- **Who changes a video** (Producer, 2026-10-29, #964): only the editor who made it, or the owner. Other editors can open and read it: a banner says "This is {maker}'s video. You can look, but only {maker} or the owner can change it.", every press that changes or spends is greyed with that reason, and Open, Download and the step links still work. Lists that only exist to change things (earlier stills, versions) are hidden from them.
 - **Old links:** every old `/projects/…` address redirects to the same video in its new place, never a 404.
 - **Out of date is viewable, never locked** (audit M14). A step that already has work but is out of date opens read only, with a banner: "Out of date: the breakdown changed after these were made." Its paid presses are disabled with that reason. One press runs the existing redo presses in order: **Update everything after this · N credits** (the same redraws and rewrites as today, priced first; it stops at the first step over budget or failed, saying which, with that step's own press). A step with nothing made yet still opens on the step that blocks it, as today.
 - **A finished video stays finished until its new cut exists** (audit LW1, LW2). Any change that puts made work out of date on a video with a final cut (breakdown, look, flavour, the song take, Sung / B-roll, model or shape) warns first, naming what goes out of date, for example: "This video is finished. Changing the breakdown puts 3 clips out of date; your current final cut stays downloadable until you make a new one." Not yet / Change. After the change, Final cut opens (read only, M14) with the old cut and **Download MP4** working, labelled "Older cut: made before the breakdown changed". Lists and In production show **"Finished · changes waiting"** (never "Video done" or "0 being made") with the press **Open** to the first out-of-date step.
 - **Where Sung starts** (Director, #755): the owner can mark a lyric line or a section `[Lip-sync]` in Song. Those lines start as Sung in every video, and everything else starts as B-roll. The mark is never sung: it's taken out before Suno. In a video, the editor's Sung / B-roll flips win (rule 31). The breakdown's "sung on camera, but the script doesn't ask" Advice only fires where neither the script's mark nor the video's flip asked for it, and never tells an editor to change the lyrics.
 - **A final cut while clips are out of date** (Flow-QA): never blocked and never silent. Final cut offers **Make the cut with what's approved** (free; out-of-date clips go in as they are, and the cut is labelled "Includes 2 out-of-date clips") beside **Update everything after this · N credits**. The download names which clips were out of date.
-- **Flavour at Publish, edge states** (Flow-QA): no product with flavours: the picker isn't shown. One flavour: it's picked by itself, shown as text. Several and none picked: Publish asks "Which flavour for Pitbull 1?" with the flavours as buttons (one press each); never blocked without that choice on the same screen. A product or flavour added after publishing: published versions keep theirs; new videos of them show "New flavour available: Chicken" in Video settings, Advice only.
+- **Flavour at Publish, edge states** (Flow-QA): no product with flavours: the picker isn't shown. One flavour: it's picked by itself, shown as text. Several and none picked: the version shows "Flavour: Auto" with its picker; Publish never stops to ask (Next-Lead, 2026-10-29: a brand with many products would be asked on every publish). The flavour is a default, not words, so it stays changeable after publishing (rule 31 covers words only); changing it never touches a video that already exists. A flavour deleted since is dropped from new videos (that product starts on Auto). A flavour picked in Make this version's row wins.
 - **Redo one frame** (audit LW3, M16): an out-of-date still has **Redo this frame · N credits** on its card. Because the frame was planned from the old breakdown, it rewrites that one frame's prompt from the new breakdown (one writing call for that shot only, with its neighbours' frames as context so the look and continuity hold), then draws it. It never redraws the old prompt.
   - **Offered when** the shot still exists in the new breakdown. When shots themselves changed (split, joined, renumbered), the card says "This shot changed in the breakdown" and the step offers **Redo the changed frames · N credits** (only the frames whose shots changed; the others stay). **Redo storyboard** stays for redoing every still, and its confirm says so.
   - **Price and limits:** the price covers the writing call plus the still. Over the video's budget or the editor's week, the press is disabled with the reason ("That's more than this video's budget." / "That's more than this week's N credits. It resets on Monday."), as every paid press.
@@ -25,7 +26,7 @@ Sources: the spec (`docs/research/starpop-2026-10-28/spec.md`), Reed's changes (
   - **The rewrite fails:** "Didn't finish · nothing charged", with **Try again**.
   - **Undo** puts back both the earlier still and its earlier prompt.
 - **Edit shot from a card** (audit M15): a frame or clip card has **Edit shot**, opening the breakdown's shot editor in a panel on the same screen. Saving changes this video's breakdown with the usual effects (that shot's still and clip go out of date, kept, Undo). Split and join on a song video stay in Breakdown.
-- **Flavour from the script** (audit M12, N5): at Publish the owner picks a flavour per product for each version ("Pitbull 1 · Peanut butter"). It's each new video's default flavour and still changeable per video in the Video settings row (VS1 Flavour). A video reads its script's notes live (the owner can still edit notes after publishing, rule 31).
+- **Flavour from the script** (audit M12, N5): at Publish, or later on the version, the owner picks a flavour per product for each version ("Pitbull 1 · Peanut butter"). It's each new video's default flavour and still changeable per video in the Video settings row (VS1 Flavour). A video reads its script's notes live (the owner can still edit notes after publishing, rule 31).
 
 ## How to read a step
 
@@ -551,7 +552,7 @@ Where: the script's header, next to the title ("Look: House ▾"), for every for
 | Picker | Cards with one sample still each, name, one line ("Soft 3D feature-film look"). House first, then Reed's order. Off entries show **Off** for editors and are greyed: "Not switched on yet". | **Use this look** on a card. |
 | Owner sees Off entries | Owner can pick an Off entry on their own draft to try it, labelled "Off for editors: only you can use it". | **Use this look**, or **Switch on for editors** (only once a sample is approved, ST3). |
 | Publishing on an Off look | Publish says first: "Claymation is off for editors, so they couldn't make this." | **Publish on House instead** (free, Undo), or **Make a sample** (ST3) and switch it on, then publish. |
-| Change after looks exist | Confirm with the whole price of redoing: "Change to Claymation? 3 roles need a new look, 9 stills and 4 clips go out of date. To finish: about N credits (was M)." Not yet / Change. | **Change**. |
+| Change after looks exist | Confirm with the whole price of redoing the script's own cast looks (an unpublished script has no videos yet): "Change to Claymation? 3 roles need a new look. To finish: up to N credits (was M)." Not yet / Change. A script's look never moves a video's look: a video's look is its own (VS1), and its look switch shows the stills and clips too. | **Change**. |
 | B | The estimate updates before the confirm; an editor over budget sees the reason and the picker stays on the current look. | — |
 | P | Cards in one column, sample still full width, the button under each. | — |
 | U | Undo in the toast after a change; changing back is free and the earlier looks come back (they're kept per look). | — |
@@ -563,7 +564,7 @@ Where the pickers show: the script header ("Dialogue ▾ · House ▾", ST0), Ne
 
 | Step | Effect |
 |---|---|
-| Assets | A sheet is per look. A library character with no approved sheet in the video's look: the editor gets "Make a {look} look for this video · N credits", a per-video look that stays with the video and is never saved to Cast & places (rule 12). Only the owner adds a sheet in another look to a library character, in Cast & places ("Make a {look} sheet", a new version on the item; the House one is kept). Unlocked roles get a per-video look in the video's look automatically, as today. (Producer, 2026-10-28) |
+| Assets | A sheet is per look. A library character with no approved sheet in the video's look: the editor gets "Make a {look} look for this video · N credits", a per-video look that stays with the video and is never saved to Cast & places (rule 12). Only the owner adds a sheet in another look to a library character, in Cast & places ("Make a {look} sheet", a new version on the item; the House one is kept). Unlocked roles get a per-video look in the video's look automatically, as today. (Producer, 2026-10-28) **After a look switch** (Flow-QA, 2026-10-29): a character with no picture in the video's new look (only a House sheet, or a role's own look drawn in the old look) is never drawn without it. Every paid press that would draw it refuses before charging, "Mia has no approved look yet. Approve one in Cast.", the step shows "A look in the cast isn't ready. Make or approve it in Cast first.", and Cast offers **Make a look · N credits** in the new look. Switching back makes each role's earlier own look in that look current again, free (nothing is drawn twice). |
 | Storyboard | Stills use the look's paragraphs (look, character when people are in frame, camera) and the video's picture model (Auto: the look's default). |
 | Clips | Prompts open with the look's motion line. Banned words from the look are repaired in code (free), never a block, and only in the picture descriptions: the script's spoken lines are never touched (rule 19). A banned word inside a spoken line is Advice only. |
 | Refusals | The look's failure/fix list drives the free fix offered on a refused or broken still ("Make another" before rewording, per the entry). |
@@ -579,6 +580,22 @@ Where the pickers show: the script header ("Dialogue ▾ · House ▾", ST0), Ne
 | On | "On · editors can pick it". | **Switch off** (Undo). Videos already using it keep it. |
 
 **Out of date (ST):** changing a video's look marks its stills and clips "Out of date" (kept, with the usual redo press), like any Video settings switch (VS1).
+
+## LG1. Switching a language on (owner, the Languages page)
+
+Reached from the owner menu next to Looks. Editors don't see the page; the New script picker hides Off languages from them.
+
+| State | What they see | The one press |
+|---|---|---|
+| List | A card per language: its name and "On · editors can pick it" or "Off for editors". English: "English is always on." | — |
+| Off, no sample | A brand picker (when there's more than one brand). On the test site with real tests on, a line above the press: "Test site: made for real" or "budget used up, stand-in". | **Test Spanish · 3 credits**. |
+| Making | "Writing a short Spanish script…" (refreshes). | — |
+| Ready | The sample script's words. | **Switch on for editors**, **Reject**, or **Test again · 3 credits**. |
+| Rejected | The words greyed: "Rejected: Spanish stays off." | Undo (toast), or **Test again · 3 credits**. |
+| F | "The test didn't finish. Nothing was charged for it." | **Try again**. |
+| On | "On · editors can pick it". | **Switch off** (Undo). Scripts already in it keep it; new scripts start in English. |
+| Refused | The allowance or "already being made", on the card. | — |
+| P | Cards stack, buttons full width. | — |
 
 ---
 
@@ -614,9 +631,14 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 |---|---|---|
 | E | "Paste the brand's website" box. | **Read the site · about 3 credits** (owner only). |
 | R | "Reading the site…" | — |
-| Done | A review screen: each found item (logo, colours, description, products) with a tick, nothing saved yet. | **Save the ticked ones**, or **Cancel**. |
-| F | "Couldn't read that site. Nothing was charged." | **Try again**, or fill it in by hand. |
-| Nothing found | "Nothing useful on that page. Try the home page." | — |
+| Done | A review screen: each found item (logo, colours, products) with a tick, nothing saved yet. A colour the brand already has reads "Already in your colours", with no tick; ticked colours are added to the brand's, never replacing them. A product is new, or "fills an empty description" for one already in the library (never overwriting). There's no description item: the brand has no such field. | **Save the ticked ones** (toast, Undo), or **Cancel**. |
+| Logo didn't come | At Save: "Couldn't get the logo from the site." The rest is saved. | — |
+| Editor | The section isn't shown. | — |
+| F | "Couldn't read that site. Nothing was charged." (also a private or internal address, a page too big or too slow, or too many redirects). | **Try again**, or fill it in by hand. |
+| Bad address | "Paste a web address (https://…)" | — |
+| Nothing found | "Nothing useful on that page. Try the home page." Nothing is charged. | — |
+
+The price shown is the most it costs. On the test site the read is a stand-in unless its real switch is on.
 
 **Effects:** one brand summary built in code from these fields feeds every writing and prompting step. It replaces the per-prompt copies (rule 26).
 
@@ -624,7 +646,7 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 
 # 4. Video settings (build fourth)
 
-The **Video settings** row at the top of every video and on "Make this version" (the UX audit's one row for every per-video choice): Shape · Flavour · Look · Video model · Picture model · Language, and the Song on a song video (V2a). Each shows its choice ("Auto" by default) and price. On Make this version the row follows once the create route takes the settings (follow-up after the plan-first change); until then it's on the video page only.
+The **Video settings** row at the top of every video and on "Make this version" (the UX audit's one row for every per-video choice): Shape · Flavour · Look · Video model · Picture model · Language, and the Song on a song video (V2a). Each shows its choice ("Auto" by default) and price. On Make this version there's no video yet: the row holds its picks (defaults: the script's look, Auto models, the brand's shape, the version's flavours), the price line under the button follows them, and Make this version sends them. The price there equals the version card's.
 
 ## VS1. Changing a setting
 
@@ -638,13 +660,13 @@ The **Video settings** row at the top of every video and on "Make this version" 
 | Cap | A choice that would push the video over 729 credits is greyed: "Over the video limit". | — |
 | O/Ed | Editors see credits only. The owner picks for any video; an editor for their videos. | — |
 | P | The row collapses to one line "Settings: House · Auto…"; tapping opens a sheet with the four pickers. | — |
-| U | Undo after a switch. Switching back makes the old takes current again (they were kept). | — |
+| U | Undo after a switch, never refused (it puts back what was there). Switching back makes the old takes current again (they were kept), and each role's own look in that look comes back. | — |
 | S | Model or look switch: later stills or clips "Out of date". | — |
 | Flavour | Stays changeable after the video starts. The confirm names what changes: "Switch to Chicken? 4 stills and 2 clips that show the bag go out of date. To finish: about N credits (was M)." Not yet / Switch. Kept, with the usual redo; Undo. | **Switch**. |
 | Shape | Stays changeable (locking it would be new behaviour). Everything made is in the old shape, so the confirm gives the whole redo: "Change to 1:1? All 9 stills and 4 clips go out of date. To finish: about N credits (was M)." Over budget or the cap: Switch disabled with the reason. Undo; switching back makes the old ones current again. | **Switch**. |
 | Language (Reed, 2026-10-28) | A video follows its script's language, shown read only in Video settings: "Spanish (from the script)". The language is chosen when the script is written. To make another language, the owner presses **Make a copy in another language** on the script: a new, unpublished, translated script for the owner to review and publish (rule 19 holds: the published words never change). | — |
 
-**Language:** the script is written in the chosen language, every spoken line in a clip prompt says "in Spanish", and the English-only checks follow the language. Each language is switched on only after a sample test.
+**Language:** the script is written in the chosen language, every spoken line in a clip prompt says "in Spanish", and the English-only checks follow the language. Each language is switched on only after a sample test (LG1). Until then a script is in English; a brand whose default language is off starts an editor's new scripts in English.
 
 ---
 
@@ -660,7 +682,7 @@ A brand holds projects ("November launch"). A project holds scripts, videos and 
 | Moving | On any script, video or clip: "Project: none ▾". | Pick → moved (toast, Undo). |
 | Delete project | "Delete November launch? Its 6 items move to No project." | **Delete** (Undo). Nothing inside is deleted. |
 | Editor | Sees the projects of the brands they work on; files their own items into them and can make a project. Only the owner renames or deletes a project made by someone else. The owner files anything. | — |
-| P | Projects are a list in the left tab (item 6). | — |
+| P | Projects are a list in the rail at 1280+, and a "Project: All ▾" sheet on a phone. | — |
 
 ## OR2. Media
 
@@ -671,18 +693,21 @@ One page with every still, sheet, take, song and final video. Filters: brand, pr
 | E | "Nothing made yet in {brand}." | **Make a quick clip**. |
 | L | Grey tiles. | — |
 | Item | Thumbnail, kind, when, who. | **Open in {step}** (e.g. "Open in Clips"), or **Download**. |
-| Owner vs editor | The owner sees everything. An editor sees what they can already open today (their own work and published scripts' videos); nothing new becomes visible through Media. | — |
-| Deleted video | Its media is listed as "From a deleted video" until it's purged. | **Restore the video** (owner). |
-| P | Two-column grid, filters in a sheet. | — |
+| Owner vs editor | The owner sees everything. An editor sees their own videos' media, their own quick clips, and the brand's Cast & places sheets, the same as their Videos list; nothing new becomes visible through Media. "Made by" is an owner filter. | — |
+| Item | A take's tile shows the still it was made from (else a video tile). | — |
+| Deleted video | Its media is listed as "From a deleted video" until it's purged. | **Restore the video** (the owner, or the video's maker). |
+| Filtered to nothing | "Nothing here with these filters." | Clear the filters. |
+| P | Two-column grid, filters in a sheet. Five phone tabs stay as they are: Media is a "Media ›" link in the Videos header. | — |
 
 ## OR3. Preferred and going back
 
 - **Preferred** (already on takes and song takes) also goes on stills and looks. Later steps use the preferred one. Moving Preferred marks later steps "Out of date" (kept, with the usual redo).
-- **Versions** on storyboards and clip prompts, as breakdowns have. "Versions" lists them with **Go back to this** (Undo). Going back to an older breakdown marks later steps out of date: never a dead end (rule 22).
+- **Versions** on storyboards, clip prompts and breakdowns. "Versions" lists them (when, who) with **Go back to this** (free, never refused over budget, Undo). Going back copies the old one as the newest, so history only grows; stills and clips made for it are current again, and the rest read Out of date with their usual redo: never a dead end (rule 22). Going back waits while that step's jobs are running. Each list keeps the newest 10; older files are never deleted.
+- Preferred on a look is the sheet in use for a Cast & places item (owner only, rule 12).
 
 ## OR4. Cost log
 
-Usage adds per-project and per-video rows: dollars for the owner, credits for editors (who only see their own videos).
+Usage adds per-project and per-video rows: dollars for the owner (spend follows where each item is filed now; a script's own writing counts in its project). Editors get their own credits page: their videos, their quick clips and their own scripts' writing, in credits only, never another person's.
 
 ---
 

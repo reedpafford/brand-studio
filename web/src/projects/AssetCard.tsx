@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ellipsis, Lock, Merge, Trash2, Users, Wand2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { api, errorText } from "../api/client";
+import { api, errorText, must } from "../api/client";
 import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
 import { Badge, Button, Card, Menu, MenuItem, TextArea, useToast, Select, wholeCredits } from "../components";
@@ -168,6 +168,37 @@ export function AssetCard({
       });
     },
   });
+  // ST2 (#930): a Cast & places character with no sheet in the video's look gets its own copy for this video, drawn in the
+  // look ("Make a Disney Pixar look for this video · N"); the row's sheet is then the copy's, approved by its own id.
+  const lookNeeded = asset.look_needed ?? null;
+  const copyId = asset.look_copy_id ?? null;
+  const copy = useMutation({
+    mutationFn: () => must(api.POST("/projects/{project_id}/assets/looks/{item_id}/copy", { params: { path: { project_id: projectId, item_id: id! } } })),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refresh();
+    },
+  });
+  // A copy that didn't draw (or one to draw again) is drawn on its own id; the editor may, it's their video's look.
+  const drawCopy = useMutation({
+    mutationFn: () => must(api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind: "character", item_id: copyId! } }, body: { model_id: model, change: "" } })),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refresh();
+    },
+  });
+  const copyFailed = copyId !== null && (asset.sheet_status === "none" || asset.sheet_status === "missing");
+  const copyCost = asset.look_credits ?? price;
+  const approveCopy = useMutation({
+    mutationFn: () => must(api.POST("/library/{kind}/{item_id}/sheet/approve", { params: { path: { kind: "character", item_id: copyId! } } })),
+    onSuccess: async () => {
+      await refresh();
+      toast(`${asset.role || asset.name}'s look for this video approved.`, async () => {
+        await api.DELETE("/library/{kind}/{item_id}/sheet/approve", { params: { path: { kind: "character", item_id: copyId! } } });
+        await refresh();
+      });
+    },
+  });
   // A look's sheet may get one automatic redo, so the press holds the most it can cost; the usual price is the sheet alone.
   const makeUpTo = asset.look_credits ?? undefined;
   const makeUsual = asset.look_usual_credits ?? price;
@@ -234,6 +265,7 @@ export function AssetCard({
             {using && <Badge>{asset.only_here === "script" ? "This script only" : "This video only"}</Badge>}
             {/* The step is Cast; the library is Cast & places. A look from the library says where it lives, so the two never read as one. */}
             {asset.kind === "character" && id != null && !own && !deleted && <Badge>From Cast &amp; places</Badge>}
+            {copyId !== null && <Badge>This video's own look</Badge>}
           </div>
           {deleted && <p className="text-sm text-muted">The character this role used was deleted from Cast &amp; places.</p>}
           {sameAs}
@@ -350,7 +382,7 @@ export function AssetCard({
           )}
           {using && !asset.locked && (
             <div className="space-y-2">
-              {asset.sheet_status === "needs_approval" && (
+              {asset.sheet_status === "needs_approval" && copyId === null && (
                 <Button variant="secondary" busy={approve.isPending} onClick={() => approve.mutate()}>
                   Approve
                 </Button>
@@ -361,9 +393,34 @@ export function AssetCard({
               </Button>
             </div>
           )}
+          {lookNeeded && id !== null && !deleted && (
+            <Button variant="secondary" busy={copy.isPending} price={asset.look_credits ?? price} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(asset.look_credits ?? price)} reason={stopFor(asset.look_credits ?? price)} onClick={() => copy.mutate()}>
+              Make {/^[aeiou]/i.test(lookNeeded) ? "an" : "a"} {lookNeeded} look for this video
+            </Button>
+          )}
+          {copyFailed && (
+            <div className="space-y-2">
+              <p role="alert" className={errorClass}>The look didn't finish. Nothing was charged.</p>
+              <Button variant="secondary" busy={drawCopy.isPending} price={copyCost} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(copyCost)} reason={stopFor(copyCost)} onClick={() => drawCopy.mutate()}>
+                Try again
+              </Button>
+            </div>
+          )}
+          {copyId !== null && asset.sheet_status === "needs_approval" && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" busy={approveCopy.isPending} onClick={() => approveCopy.mutate()}>
+                Approve this look
+              </Button>
+              <Button variant="ghost" busy={drawCopy.isPending} price={copyCost} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(copyCost)} reason={stopFor(copyCost)} onClick={() => drawCopy.mutate()}>
+                Redo
+              </Button>
+            </div>
+          )}
           {!asset.locked &&
             id !== null &&
             !own &&
+            !lookNeeded &&
+            copyId === null &&
             asset.sheet_status !== "approved" && (
               <Link
                 to={`/b/${brandId}/library/${kind === "place" ? "places" : "characters"}/${id}?back=${encodeURIComponent(here.pathname + here.search)}`}
@@ -372,9 +429,9 @@ export function AssetCard({
                 Make its look in Cast &amp; places
               </Link>
             )}
-          {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error) && (
+          {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error ?? copy.error ?? approveCopy.error ?? drawCopy.error) && (
             <p role="alert" className={errorClass}>
-              {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error)!.message}
+              {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error ?? copy.error ?? approveCopy.error ?? drawCopy.error)!.message}
             </p>
           )}
         </div>
