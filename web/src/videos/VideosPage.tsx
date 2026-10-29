@@ -136,7 +136,7 @@ export function VideosPage() {
           <option value="">Any</option>
           <option value="needs_you">Needs you</option>
           <option value="making">Making</option>
-          <option value="done">Finished</option>
+          <option value="done">Done</option>
         </Select>
       </div>
       <Button variant={archived ? "primary" : "secondary"} aria-pressed={archived} onClick={() => set("archived", archived ? "" : "1")}>
