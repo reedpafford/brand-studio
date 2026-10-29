@@ -239,3 +239,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #910 at 48072c78 (403 only for BR1 fields) | brand_setup + brands + variants (21) | PASS (Reed: editor never say/end line write through to BR1) |
 | 2026-10-29 | #893 at 4d2b36f7 (one next version; follows_plan wired, leftovers as Advice) | version repro; plan_route + plan (10) | PASS |
 | 2026-10-29 | #886 at 624a68da (text_on_screen_advice on the fixed prompt) | reword on 2 prompts; clip_takes + item_check (18) | PASS |
+| 2026-10-29 | #909 at 04350686 (Make another waits while timing; "Wait for the narration to finish") | vitest scripts + projects (587) | PASS |
