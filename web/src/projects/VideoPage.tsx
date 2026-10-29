@@ -24,7 +24,7 @@ import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
 
-/** A video made from a library version: Breakdown · Assets · Storyboard · Clips · Downloads. */
+/** A video made from a library version: Breakdown · Assets · Storyboard · Clips · Final cut. */
 export function VideoPage() {
   const { brandId = "", projectId } = useParams();
   const id = Number(projectId);
@@ -99,9 +99,10 @@ export function VideoPage() {
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
-        <Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
+        {/* The back link names where it goes: this brand's videos. */}
+        <Link to={`/b/${brandId}/scripts?view=videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
           <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
-          Scripts
+          Videos
         </Link>
       </div>
       <div className="flex flex-wrap items-start justify-between gap-3">

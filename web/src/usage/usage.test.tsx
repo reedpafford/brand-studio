@@ -135,7 +135,7 @@ test("One brand's Videos: a row per video with who, status in words, the whole v
   expect(await screen.findByRole("tab", { name: "Scripts 12" })).toBeInTheDocument();
   const done = (await screen.findByRole("link", { name: "Bo tries salmon · B" })).closest("tr")!;
   expect(within(done).getByText("Sam")).toBeInTheDocument();
-  expect(within(done).getByText("Video done")).toBeInTheDocument();
+  expect(within(done).getByText("Finished")).toBeInTheDocument();
   expect(within(done).getByText("$11.80")).toBeInTheDocument();
   expect(within(done).getByText("134")).toBeInTheDocument();
   expect(screen.getByText("(earlier way)")).toBeInTheDocument();
@@ -153,7 +153,7 @@ test("One brand's Scripts tab: author, version chips that open what the library 
   expect(within(script).getByText("Reed")).toBeInTheDocument();
   expect(within(script).getByText("1 left")).toBeInTheDocument();
   expect(within(script).getByText("$19.40")).toBeInTheDocument();
-  expect(within(script).getByLabelText("Version A, video done").closest("a")).toHaveAttribute("href", "/b/1/projects/31");
+  expect(within(script).getByLabelText("Version A, finished").closest("a")).toHaveAttribute("href", "/b/1/projects/31");
   expect(within(script).getByLabelText("Version B, in production by Sam")).toBeInTheDocument();
   expect(within(script).getByLabelText("Version C, ready to make").closest("a")).toHaveAttribute("href", "/b/1/scripts?make=7.2");
 });

@@ -46,7 +46,7 @@ test("Scripts · Videos switch: Videos lists the brand's videos with their statu
   expect(within(old).getByText("Archived")).toBeInTheDocument();
   expect(screen.getByText(/On your week/)).toBeInTheDocument();
   expect(screen.getAllByText("In production").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("Video done").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("Finished").length).toBeGreaterThan(0);
   expect(screen.getByText("3 videos")).toBeInTheDocument();
   expect(screen.getByRole("navigation", { name: "View" })).toBeInTheDocument();
 });
@@ -58,7 +58,7 @@ test("a row shows its newest still as the poster and the step it is at, or when 
   const row = (await screen.findByRole("link", { name: /Bo tries salmon · B/ })) as HTMLElement;
   expect(within(row).getByText(/At Storyboard/)).toBeInTheDocument();
   expect(row.querySelector("img")?.getAttribute("src")).toContain("/files/77");
-  expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).getByText(/Video done · /)).toBeInTheDocument();
+  expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).getByText(/Finished · /)).toBeInTheDocument();
   const bare = screen.getByRole("link", { name: /No stills yet/ });
   expect(within(bare).getByText(/At Breakdown/)).toBeInTheDocument();
   expect(bare.querySelector("img")).toBeNull();

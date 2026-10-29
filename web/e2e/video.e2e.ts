@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { emptyBrand, signIn } from "./helpers";
 
-// The new video page (Breakdown · Assets · Storyboard · Clips · Downloads) on the free stand-ins.
+// The new video page (Breakdown · Assets · Storyboard · Clips · Final cut) on the free stand-ins.
 const SCRIPT = [
   "SCENE 1 - KITCHEN",
   "Max stares at the empty bowl.",
@@ -170,7 +170,7 @@ for (const width of [1440, 390]) {
       page.getByRole("button", { name: "✓ Looks good" }).first(),
     ).toBeVisible({ timeout: 90_000 });
     await page.getByRole("button", { name: "✓ Looks good" }).first().click();
-    await page.getByRole("button", { name: /Next: Downloads/ }).click();
+    await page.getByRole("button", { name: /Next: Final cut/ }).click();
     // The whole video is put together by itself.
     await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible({
       timeout: 60_000,

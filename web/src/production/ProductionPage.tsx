@@ -12,7 +12,7 @@ import { useRail } from "../useMedia";
 import { useProduction, useProductionSummary, type Row, type Sort, type Step } from "./useProduction";
 import { serverTime } from "../time";
 
-const STEPS: Record<Step, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
+const STEPS: Record<Step, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
 const SORTS: { id: Sort; label: string }[] = [
   { id: "attention", label: "Needs attention first" },
   { id: "activity", label: "Last activity" },

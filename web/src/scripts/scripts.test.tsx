@@ -44,10 +44,10 @@ test("a script is one row: its title, description, reference, length range and a
   expect(await screen.findByRole("heading", { name: "Bo tries salmon" })).toBeInTheDocument();
   expect(screen.getByText("Show a picky dog finally loving Iron Paws salmon.")).toBeInTheDocument();
   expect(screen.getByText(/Ref: The altar reel · about 24–30 s · 2 versions left to make/)).toBeInTheDocument();
-  expect(screen.getByText("A · Video done")).toBeInTheDocument();
+  expect(screen.getByText("A · Finished")).toBeInTheDocument();
   expect(screen.getByText("B · Ready to make")).toBeInTheDocument();
   expect(screen.getByText("C · In production")).toBeInTheDocument();
-  expect(screen.getByLabelText("Version A, video done").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
+  expect(screen.getByLabelText("Version A, finished").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
   expect(screen.getByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
   expect(screen.getByText("1 script")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\bv\d\b|project/i);

@@ -10,7 +10,6 @@ import {
   Card,
   Skeleton,
   buttonClass,
-  useToast,
 } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
@@ -25,7 +24,7 @@ const slug = (name: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "") || "video";
 
-/** Downloads (there is no upload): the whole video, every clip's picked take, and the older takes. */
+/** Final cut (there is no upload): the whole video, every clip's picked take, and the older takes. Download MP4 is the step's amber. */
 export function DownloadsPane({
   projectId,
   aspect,
@@ -36,7 +35,6 @@ export function DownloadsPane({
   projectName: string;
 }) {
   const queryClient = useQueryClient();
-  const toast = useToast();
   const rail = useRail();
   const clips = useProjectClips(projectId);
   const video = useProjectVideo(projectId);
@@ -76,6 +74,13 @@ export function DownloadsPane({
     })
     .filter(Boolean)
     .join(", ");
+  // The finished video is the one thing to take away: its download is the step's one amber.
+  const mp4Link = v && (
+    <a className={buttonClass("primary")} href={fileUrl(v.file_id)} download={`${base}.mp4`}>
+      <Download size={20} strokeWidth={1.75} aria-hidden />
+      Download MP4
+    </a>
+  );
   const save = (
     fileId: number,
     name: string,
@@ -94,25 +99,23 @@ export function DownloadsPane({
   );
 
   const zipLink = (
-    <a
-      className={buttonClass("primary")}
-      href={`/api/projects/${projectId}/clips.zip`}
-      download={`${base}-clips.zip`}
-      onClick={() => toast("Video done. Downloads stay here.")}
-    >
+    <a className={buttonClass("secondary")} href={`/api/projects/${projectId}/clips.zip`} download={`${base}-clips.zip`}>
       <Download size={20} strokeWidth={1.75} aria-hidden />
       Download all clips (.zip)
     </a>
   );
 
   return (
-    <div className="space-y-6" aria-label="Downloads">
+    <div className="space-y-6" aria-label="Final cut">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted tabular-nums">
           {list.length} clip{list.length === 1 ? "" : "s"} · {seconds} s ·{" "}
           {aspect} · every clip approved
         </p>
-        {rail && zipLink}
+        <span className="flex flex-wrap gap-2">
+          {zipLink}
+          {rail && mp4Link}
+        </span>
       </div>
       <section aria-label="The whole video" className="space-y-3">
         <h3 className="type-section">The whole video</h3>
@@ -152,7 +155,7 @@ export function DownloadsPane({
             />
             <div className="space-y-3">
               <Badge tone={v.out_of_date ? "warning" : "success"}>
-                {v.out_of_date ? "Out of date" : "Ready"}
+                {v.out_of_date ? "Out of date" : "Final cut ready"}
               </Badge>
               <p className="text-sm text-muted tabular-nums">
                 {base}.mp4 · {seconds} s
@@ -160,14 +163,6 @@ export function DownloadsPane({
               {madeFrom && (
                 <p className="text-sm text-muted">Made from: {madeFrom}</p>
               )}
-              <a
-                className={buttonClass("secondary")}
-                href={fileUrl(v.file_id)}
-                download={`${base}.mp4`}
-              >
-                <Download size={20} strokeWidth={1.75} aria-hidden />
-                Download MP4
-              </a>
             </div>
           </Card>
         ) : (
@@ -252,7 +247,7 @@ export function DownloadsPane({
           })}
         </ul>
       </section>
-      {!rail && <ActionBar phone>{zipLink}</ActionBar>}
+      {!rail && mp4Link && <ActionBar phone>{mp4Link}</ActionBar>}
     </div>
   );
 }
