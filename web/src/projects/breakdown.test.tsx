@@ -239,6 +239,14 @@ test("Discard throws the draft away", async () => {
   expect(screen.queryByText(/EXTRA/)).not.toBeInTheDocument();
 });
 
+test("with a finished video, unsaved edits say what saving them marks out of date (#749 LW1)", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
+  await userEvent.type(screen.getByLabelText("Shot 1.1 camera"), " EXTRA");
+  expect(await screen.findByText(/Saving them marks Clips and Final cut out of date; your finished video stays downloadable\./)).toBeInTheDocument();
+});
+
 test("on desktop Next waits, disabled, while edits are unsaved, and says why", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()] });

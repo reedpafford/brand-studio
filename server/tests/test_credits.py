@@ -152,7 +152,7 @@ def test_quick_clips_use_a_weekly_allowance_per_editor(editor, ed, db):
         enqueue(db, ed, "video-480p", {}, units=60)
     assert err.value.status_code == 409
     assert err.value.detail == (
-        "That's more than this week's 145 free credits (100 used). It resets on Monday."
+        "That's more than this week's 145 credits (100 used). It resets on Monday."
     )
     assert db.query(Job).count() == 1  # nothing queued or held
     assert enqueue(db, ed, "video-480p", {}, units=45).status == "queued"  # exactly 145
