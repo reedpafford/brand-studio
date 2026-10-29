@@ -22,7 +22,9 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n05 | Narrated (N1, V6n): `song_takes.kind`, `voice`, `music_file_id`, `music_job_id`, `trimmed`; `scripts.kind` gains `narrated` (validation only) | Next-Server | — |
 | n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, `project_clips.auto_fix`, new `item_checks`; existing videos are planned from their breakdown in code, when read | Builder-Server-8 | — |
 | n07 | Format and Look step 1: `scripts.look`, `projects.look` (text, default `house`), new `look_switches` {workspace_id, look_id, on, sample_still_id, sample_clip_id, switched_by_id, switched_at} | Next-Server | — |
-| n08 | Brand setup (BR1): new `brands` columns and product description/claim, below | Builder-Server-7 | — |
+| n08 | Brand setup (BR1): new `brands` columns and product description/claim, below | Builder-Server-7 | #910 |
+| n09 | Video settings (VS1): `projects.video_model`, `projects.image_model`, `projects.sung_flipped`, `storyboard_frames.made_with`, `clip_takes.made_with`, `scripts.language`, below | Builder-Server-7 | #925 |
+| n10 | Per-look sheets (ST2): `library_items.look_sheets`, `library_items.sheet_look`, `projects.look_copies`, below | Next-Server | #930 |
 
 ## Merge order (the chain on `next`)
 
@@ -36,7 +38,9 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 3 | n06 | #862 | n04 | On `next` |
 | 4 | n07 | #873 | n06 | On `next` (merged before n05) |
 | 5 | n05 | #858 | n07 | On `next` (ade1a9f1) |
-| 6 | n08 | #910 | n05 | Open: its turn, ready |
+| 6 | n08 | #910 | n05 | On `next` (c098abd9) |
+| 7 | n09 | #925 | n08 | Open: its turn |
+| 8 | n10 | #930 | n09 (points at n08 for CI until #925 merges) | Open: after #925 |
 | — | n03 | Next-Server, flavours | the head when it's built | Not started |
 
 ## 1. Song ads
@@ -82,6 +86,24 @@ Code notes for Next-Server (not tables):
 | `library_items` (products) | `short_description` text "", `main_claim` text "" | Empty claim: Advice "Scripts won't mention a claim for this product." |
 | BR1's S state | No brand write touches a script, version or video; later steps read the brand live | Tested: a published script and a made video are unchanged after brand edits. |
 
-## 2–6. Later items
+## 2. Looks: per-look sheets (ST2)
 
-Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; looks read from the existing `server/app/prompts/styles/` files (kind: look; the folder keeps its name, the screens say Look), `look` text on `scripts` and `projects`, default `house`, `look_switches` for On/Off (n07), and per-look sheets as library versions; Format is `scripts.kind`, above), video settings (`video_model`, `image_model`, `language` on videos), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).
+| Where | Change | Notes |
+|---|---|---|
+| `library_items.look_sheets` | JSON {} : `{look_id: {"file_id", "approved"}}`, the owner's sheets of a Cast & places character or place in other looks | n10. House stays in `sheet_file_id`/`sheet_approved`, so nothing existing moves. Making one is a new version of the item (Undo and versions as today). |
+| `library_items.sheet_look` | String(40) "house": the look a video's own look was drawn in | n10. After the video's look changes, an own look in another look reads as out of date (ST1 counts it as "needs a new look"). |
+| `projects.look_copies` | JSON {} : `{"<library item id>": <this video's own copy>}`, from "Make a {look} look for this video" | n10. For locked roles' library characters, never saved to Cast & places (rule 12). Not `slot_looks`, which is for unlocked roles. The rule is `sheets.sheet_for(db, project, item)`. |
+
+## 4. Video settings (VS1)
+
+| Where | Change | Notes |
+|---|---|---|
+| `projects.video_model`, `projects.image_model` | String(40), null = Auto (the catalogue default) | n09. The price and the job follow the pick. `catalogue.json` marks `lip_sync` on video models (no migration). |
+| `projects.sung_flipped` | JSON [] : `[{shot, print}]`, the song shots a no-lip-sync model turned to B-roll | n09. Switching to a lip-sync model flips exactly those back, unless the shot's print (its plan and song timing) changed since. |
+| `storyboard_frames.made_with`, `clip_takes.made_with` | JSON {} : the model, shape and products (product → variant actually attached) a still or take was made with; a take also keeps its Sung shots | n09. Out of date = any recorded value differs from the video's now; switching back makes it current again (nothing deleted). n09 fills in older rows from their job, else today's default and the video's shape. `look` keeps its own column. |
+| `scripts.language` | String(10) "en", filled from the brand's `default_language` when a script is made (every create path; a copy keeps its original's) | n09. A video reads it, read only. "Make a copy in another language" is its own (paid) item. A languages registry (English on, others off until a sample test) validates it next. |
+| Brand `default_cast` | No column: a new video with no cast starts with the brand's live default cast | — |
+
+## 5–6. Later items
+
+Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; looks read from the existing `server/app/prompts/styles/` files (kind: look; the folder keeps its name, the screens say Look), `look` text on `scripts` and `projects`, default `house`, `look_switches` for On/Off (n07), and per-look sheets as library versions; Format is `scripts.kind`, above), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).
