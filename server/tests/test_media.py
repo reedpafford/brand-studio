@@ -86,6 +86,7 @@ def test_media_lists_what_was_made_and_who_sees_it(app, db, owner, editor, setup
     assert [i["from_deleted_video"] for i in gone] == [True]
     maker = {"id": project.created_by_id, "name": "Ed"}  # who may restore it, with the owner
     assert [i["deleted_video_by"] for i in gone] == [maker]
+    assert [i["deleted_video_released"] for i in gone] == [False]  # deleted, not released
     assert [i["deleted_video_by"] for i in _media(owner, brand, kind="final")["items"]] == [maker]
     everything = _media(owner, brand)["items"]
     assert not [i for i in everything if i["deleted_video_by"] and not i["from_deleted_video"]]

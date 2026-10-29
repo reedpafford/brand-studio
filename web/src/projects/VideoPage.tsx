@@ -114,7 +114,7 @@ export function VideoPage() {
   const nextAction: CostAction | null = next && !(step === "plan" && dirty && !rail) ? { label: `Next: ${next.label}`, reason, onPress: () => pick(next.id) } : null;
   // Release while it is being made; Archive once it is done. An archived video is read-only until it is restored.
   const finished = isDone("final", progress);
-  const target = { id, name: p.name, creditsUsed: p.credits_used };
+  const target = { id, name: p.name, creditsUsed: p.credits_used, released: p.released };
   const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
   // Only its maker or the owner may change a video (the server refuses the rest): anyone else can look, with every press greyed out.
   const maker = p.created_by_name || "someone else";

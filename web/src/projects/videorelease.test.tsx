@@ -76,6 +76,28 @@ test("an archived video says so with Restore, and has no menu; an editor who did
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/restore")).toBe(true));
 });
 
+test("Restore on an archived video has Undo: it archives the video again", async () => {
+  setViewport(390);
+  const calls = fakeServer(base({ "GET /projects/9": [200, project({ archived_at: "2026-10-25T10:00:00Z" })], "POST /projects/9/restore": [200, {}], "POST /projects/9/archive": [200, {}] }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Restore" }));
+  await screen.findByText(/^Brought back "/);
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/archive")).toBe(true));
+  expect(await screen.findByText(/^Archived "/)).toBeInTheDocument();
+});
+
+test("Restore on a released video has Undo that releases it again, so its version is back to Ready to make", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({ "GET /projects/9": [200, project({ archived_at: "2026-10-25T10:00:00Z", released: true })], "POST /projects/9/restore": [200, {}], "POST /projects/9/release": [200, {}] }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Restore" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/release")).toBe(true));
+  expect(calls.some((c) => c.key === "POST /projects/9/archive")).toBe(false);
+  expect(await screen.findByText("The version is ready to make again.")).toBeInTheDocument();
+});
+
 test("an editor who didn't make the video sees no menu", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /auth/me": [200, { ...owner, id: 3, role: "editor" }] }));

@@ -52,6 +52,7 @@ class MediaItem(BaseModel):
     open_step: Step
     from_deleted_video: bool = False
     deleted_video_by: Maker | None = None  # that deleted video's maker: they or the owner restore
+    deleted_video_released: bool = False  # it went by Release: Undo of Restore releases it again
 
 
 class MediaPage(BaseModel):
@@ -188,6 +189,7 @@ def list_media(
             **r, content_type=files[r["file_id"]].content_type, made_by=maker(by_id),
             video_name=video.name if video else None,
             from_deleted_video=gone,
-            deleted_video_by=maker(video.created_by_id) if gone else None))  # fmt: skip
+            deleted_video_by=maker(video.created_by_id) if gone else None,
+            deleted_video_released=gone and video.released_draft_id is not None))  # fmt: skip
     last = page[-1] if len(rows) > PAGE else None
     return MediaPage(items=items, next=last and _cursor(last["made_at"], last["key"]))

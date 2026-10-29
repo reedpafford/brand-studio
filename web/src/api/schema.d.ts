@@ -6787,6 +6787,11 @@ export interface components {
              */
             from_deleted_video: boolean;
             deleted_video_by?: components["schemas"]["Maker"] | null;
+            /**
+             * Deleted Video Released
+             * @default false
+             */
+            deleted_video_released: boolean;
         };
         /** MediaPage */
         MediaPage: {
@@ -7552,6 +7557,11 @@ export interface components {
             created_by_name: string;
             /** Script Draft Id */
             script_draft_id?: number | null;
+            /**
+             * Released
+             * @default false
+             */
+            released: boolean;
             /**
              * Own Script
              * @default false
