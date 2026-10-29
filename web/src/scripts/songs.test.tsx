@@ -227,8 +227,12 @@ test("a failed take that isn't a refusal leads with Try again; the Edit link com
 
 test("trimming a take when nothing else is Preferred makes it the Preferred one", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ seconds: 72, over_cap: true, fits_until: 55 })])], "POST /songs/1/trim": [200, take({ seconds: 72, trim_to: 55 })], "POST /songs/1/preferred": [200, { take: take({ preferred: true, trim_to: 55 }), was_preferred_id: null }] });
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ seconds: 72, over_cap: true, fits_until: 55 })])], "POST /songs/1/trim": [200, take({ seconds: 72, trim_to: 55 })], "POST /songs/1/preferred": [200, { take: take({ preferred: true, trim_to: 55 }), was_preferred_id: null }], "DELETE /songs/1/trim": [200, take({ seconds: 72, over_cap: true, fits_until: 55 })] });
   open("/b/1/scripts/7?step=takes");
   await userEvent.click(await screen.findByRole("button", { name: /Use the first 0:55/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/1/preferred")).toBe(true));
+  // One toast with one Undo for both: Undo puts the whole take back.
+  expect(await screen.findByText("Take 1 now uses its first 0:55 and is Preferred. The whole take is kept.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /songs/1/trim")).toBe(true));
 });
