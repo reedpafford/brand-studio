@@ -130,12 +130,21 @@ def batches(bd: Breakdown, clip_ids: list[str] | None = None) -> list[list[str]]
     return out
 
 
+def _prompts_step(db: Session, project: Project) -> str:
+    """The Director's rules for this video's clips: a narrated video's keep the action's own
+    sound, with no voice or music of their own (flows V6n). The job's step stays clip_prompts."""
+    from app import narration, song_breakdown
+
+    take = song_breakdown.take_for(db, project)
+    return "narrated_clip_prompts" if take and take.kind == narration.KIND else "clip_prompts"
+
+
 def job_input(
     db: Session, project: Project, bd: BreakdownVersion, clip_ids: list[str] | None = None
 ) -> dict:
     """One job, one price: Claude is asked a few clips at a time (`parts`), so no answer runs
     out of room."""
-    system, _ = project_context(db, project, "clip_prompts")
+    system, _ = project_context(db, project, _prompts_step(db, project))
     groups = batches(Breakdown.model_validate(bd.data), clip_ids)
     lines = "\n".join(dict.fromkeys(line for line, _, _ in assets(db, project).values()))
     prompt = "\n".join(
