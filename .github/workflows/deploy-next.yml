@@ -7,6 +7,9 @@ name: deploy-next
 # Real Suno songs through KIE (Reed, 2026-10-29: test site only, with a test budget): set repo
 # variable NEXT_KIE_SUNO to true and NEXT_KIE_BUDGET_USD to the budget, with the KIE_API_KEY
 # secret. Everything else stays on the stand-ins.
+# Real language tests (Reed, 2026-10-29: test site only, with a test budget): set repo variable
+# NEXT_REAL_LANGUAGE_SAMPLES to true and NEXT_LANGUAGE_SAMPLES_BUDGET_USD to the budget; they use
+# the STUDIO_ANTHROPIC_KEY secret. Only a language's sample script is written for real.
 on:
   push:
     branches: [next]
@@ -71,14 +74,17 @@ jobs:
           GENERATION: ${{ vars.NEXT_GENERATION_ENABLED || 'false' }}
           # Keys travel only when the stand-ins are switched off for an approved paid test.
           REPLICATE: ${{ vars.NEXT_FAKE_PROVIDERS == 'false' && secrets.REPLICATE_API_TOKEN || '' }}
-          ANTHROPIC: ${{ vars.NEXT_FAKE_PROVIDERS == 'false' && secrets.STUDIO_ANTHROPIC_KEY || '' }}
+          ANTHROPIC: ${{ (vars.NEXT_FAKE_PROVIDERS == 'false' || vars.NEXT_REAL_LANGUAGE_SAMPLES == 'true') && secrets.STUDIO_ANTHROPIC_KEY || '' }}
           # Real songs: the key travels only while NEXT_KIE_SUNO is true.
           KIE: ${{ vars.NEXT_KIE_SUNO == 'true' && secrets.KIE_API_KEY || '' }}
           KIE_BUDGET: ${{ vars.NEXT_KIE_BUDGET_USD || '0' }}
           KIE_HOSTS: ${{ vars.NEXT_KIE_DELIVERY_HOSTS || '' }}
+          # Real language tests: the Claude key travels only while this is true.
+          LANGUAGE_TESTS: ${{ vars.NEXT_REAL_LANGUAGE_SAMPLES || 'false' }}
+          LANGUAGE_BUDGET: ${{ vars.NEXT_LANGUAGE_SAMPLES_BUDGET_USD || '0' }}
         run: |
           {
-            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS; do
+            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS LANGUAGE_TESTS LANGUAGE_BUDGET; do
               printf 'export %s=%q\n' "$name" "${!name}"
             done
             cat deploy/next/remote-deploy.sh

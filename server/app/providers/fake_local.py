@@ -398,6 +398,12 @@ class FakeWriter:
             ]
         }
 
+    def _language_sample(self, prompt):
+        """A practice script that names the language it was asked for."""
+        said = _tag(prompt, "language")
+        line = f"[Hook]\nHERO: ({said}) A practice line."
+        return {"drafts": [{"hook_idea": f"Test hook {n}", "script": line} for n in "AB"]}
+
     def _variations(self, prompt):
         """The original with each spoken line's words turned around (the second variation
         also starts mid-line), keeping headings, action, ★ lines and the last line as-is."""
