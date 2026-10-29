@@ -551,6 +551,14 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
     if len(lines) > 1 and not AUDIO_LINE.match(lines[0]) and AUDIO_LINE.match(lines[-1]):
         if lines[0].startswith("Audio: "):  # the opening line grew a phrase (Reed's pilot)
             lines[0] = lines[-1]
+    audio = lines[0] if AUDIO_LINE.match(lines[0]) else ""
+    end = max((i for i, x in enumerate(lines) if i and audio and x.startswith(audio)), default=0)
+    tail = [t.strip() for t in [lines[end][len(audio) :], *lines[end + 1 :]] if t.strip()]
+    if end and tail:
+        # an editor's words after the closing line move above its Keep line, never dropped
+        body = lines[:end]
+        keep = [body.pop()] if body[-1].startswith("Keep: ") else []
+        lines = [*body, *tail, *keep, audio]
     if AUDIO_LINE.match(lines[0]) and (len(lines) < 2 or lines[-1] != lines[0]):
         if len(lines) > 1 and lines[-1].startswith("Audio: "):  # a different closing line
             lines[-1] = lines[0]  # (Reed's c4): the same as the opening one, never a second
