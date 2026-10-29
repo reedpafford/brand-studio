@@ -197,18 +197,27 @@ def test_a_sung_clip_goes_out_of_date_on_any_take_change(app, db, owner, editor,
     made = _rows(db, video)[-1]
     data = copy.deepcopy(made.data)
     clip = data["clips"][0]
-    for sid in clip["shot_ids"]:
+    sung, rest = clip["shot_ids"][:1], clip["shot_ids"][1:]
+    assert rest  # the stand-in's one clip, split: a Sung shot, then B-roll
+    data["clips"] = [{**clip, "shot_ids": sung}, {**clip, "id": "c9", "shot_ids": rest}]
+    clip, b_roll = data["clips"]
+    for sid in sung:
         data["song"]["shots"][sid]["sung"] = True
     made.data = data
     db.add(ProjectClip(project_id=project.id, breakdown_id=made.id, clip_id=clip["id"],
                        seconds=clip["seconds"], prompt="A sung clip."))  # fmt: skip
+    db.add(ProjectClip(project_id=project.id, breakdown_id=made.id, clip_id=b_roll["id"],
+                       seconds=b_roll["seconds"], prompt="A B-roll clip."))  # fmt: skip
     db.commit()
     takes = editor.get(f"{video}/songs").json()["takes"]
     first, other = takes[0]["id"], takes[1]["id"]  # the same stand-in song: nothing moves
     editor.put(f"{video}/song", json={"take_id": other})
-    row = db.scalar(select(ProjectClip))
+    row, kept = db.scalars(select(ProjectClip).order_by(ProjectClip.id)).all()
     db.refresh(row)
+    db.refresh(kept)
     assert row.breakdown_id == made.id  # out of date: it sings the other take
+    assert kept.breakdown_id == _rows(db, video)[-1].id  # B-roll whose shots didn't move: current
+    assert kept.song_slice and not kept.song_slice["sung_shots"]
     editor.put(f"{video}/song", json={"take_id": first})  # Undo
     db.refresh(row)
     assert row.breakdown_id == _rows(db, video)[-1].id
