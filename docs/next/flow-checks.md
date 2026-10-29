@@ -154,4 +154,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #831 at 08545fe2 (only real names leave the style) | 14 inputs; test_song (19) | FAIL: "country Taylor Swift" keeps the name; "beatles" leaves "like the" |
 | 2026-10-29 | next red since #821 (Assets tick test) | Bisected: each side passes, the merge fails; test kept a detached Steps list | Fixed on next by #832 (my #835 closed as duplicate) |
 | 2026-10-29 | #818 at 6252911a (wording; names and one rewrite in the job) | 19 checks: names out (3 inputs), fake:three (one rewrite, charged once), fake:three-always (failed, not charged), approved wording, earlier states | PASS; S3a's copy check waits for the study route |
+| 2026-10-29 | #842 at 6695ab56 (KIE adapter for Suno, off) | Off unless BS_KIE_SUNO and KIE_API_KEY; no key in code; mocked network; song tests + my song walks | PASS |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
