@@ -5834,6 +5834,13 @@ export interface components {
              * @default false
              */
             final_out_of_date: boolean;
+            /**
+             * Needs You
+             * @default false
+             */
+            needs_you: boolean;
+            /** Waiting On */
+            waiting_on?: string | null;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -9404,7 +9411,7 @@ export interface operations {
                 archived?: boolean;
                 q?: string;
                 mine?: boolean;
-                status?: ("making" | "done") | null;
+                status?: ("making" | "done" | "needs_you") | null;
             };
             header?: never;
             path?: never;
