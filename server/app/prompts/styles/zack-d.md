@@ -38,3 +38,18 @@ a friendly stylised 3D cartoon look with rounded forms
 ## script
 - One surprising thing, explained in short, plain, factual sentences (by a narrator in a Narrated script, by the cast in a Dialogue one), the register of someone calmly explaining something odd, never ad copy. Every line must be something you can show: a concrete object, action or change. The first line gets the strongest picture.
 - This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (to have one voice read it all, the editor makes the script Narrated).
+
+## banned
+stage → world
+on a stage → in the world
+floating → resting
+floats → rests
+hovering → resting
+hovers → rests
+photorealistic → stylised
+
+## fixes
+refused: Soften it, then Make another.
+face: Make another: the one recurring character never changes while the world changes scale around them.
+outfit: Change this… naming the sheet's one outfit colour.
+product: Change this… "the real product centred in the open world on the glowing floor ring, the label facing the camera".

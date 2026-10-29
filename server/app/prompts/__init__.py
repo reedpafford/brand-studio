@@ -83,6 +83,23 @@ def styles() -> list[dict]:
     return sorted(out, key=lambda s: s["order"])
 
 
+# A look's data, never sent to a model (flows ST2): words repaired in its picture descriptions,
+# and the fix offered for each failure (Next-Server's ids and the advisory check's kinds).
+DATA = {"banned", "fixes"}
+
+
+def look_banned(look_id: str) -> list[tuple[str, str]]:
+    """The look's banned words and their replacements ("" deletes): its `## banned` lines."""
+    lines = style(look_id)["sections"].get("banned", "").splitlines()
+    return [(a.strip(), b.strip()) for a, _, b in (x.partition("→") for x in lines if "→" in x)]
+
+
+def look_fixes(look_id: str) -> dict[str, str]:
+    """The look's fix for each failure id (refused, face, outfit, product): `## fixes`."""
+    lines = style(look_id)["sections"].get("fixes", "").splitlines()
+    return {a.strip(): b.strip() for a, _, b in (x.partition(":") for x in lines if ":" in x)}
+
+
 def style(style_id: str) -> dict:
     found = [s for s in styles() if s["id"] == style_id]
     if not found:

@@ -1436,3 +1436,35 @@ def follows_plan(plan: ScenePlan, bd: Breakdown) -> list[str]:
                 if n in star and star[n] not in shot.screen_ids:
                     problems.append(f"shot {shot.id}: line {n} is ★ {star[n]} in the plan; show it")
     return problems
+
+
+def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
+    """A picture prompt with the look's banned words repaired (flows ST2, free): the prompt,
+    what changed ("stage → world"), and Advice for a banned word inside quotes, which is
+    never changed (rule 19). The audio lines are left alone."""
+    from app.prompts import look_banned
+
+    changed, advice, out = [], [], []
+    for line in prompt.splitlines():
+        if line.startswith("Audio:"):
+            out.append(line)
+            continue
+        parts = re.split(r'(["“][^"”]*["”])', line)  # outside, “a quote”, outside, …
+        quotes = parts[1::2]
+        for word, new in sorted(look_banned(look_id), key=lambda x: -len(x[0])):  # phrases first
+            found = re.compile(rf"\b{re.escape(word)}\b\s?", re.I)
+            for i in range(0, len(parts), 2):
+                if found.search(parts[i]):
+                    parts[i] = found.sub(lambda m, n=new: _same_case(m.group(0), n), parts[i])
+                    changed.append(f"{word} → {new}" if new else f"{word} → (taken out)")
+            if any(found.search(q) for q in quotes):
+                advice.append(f"{ADVICE}“{word}” is in a quoted line; the look avoids it")
+        out.append(re.sub(r" {2,}", " ", "".join(parts)))
+    return "\n".join(out), list(dict.fromkeys(changed)), list(dict.fromkeys(advice))
+
+
+def _same_case(old: str, new: str) -> str:
+    """The replacement in the old word's case ("Stage " → "World "), keeping its space."""
+    tail = old[len(old.rstrip()) :]
+    new = new[:1].upper() + new[1:] if old[:1].isupper() and new else new
+    return new + tail if new else ""

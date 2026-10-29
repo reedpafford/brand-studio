@@ -38,3 +38,19 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 - Second person, present tense, short punchy sentences, one concrete physical picture per line, each rung more intense than the last. Say what physically happens; never corporate words ("revolutionary", "seamless").
 - In a Narrated script the narrator is the only voice; in a Dialogue one, the skeleton speaks its own rungs.
 - This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (to have one voice read it all, the editor makes the script Narrated).
+
+## banned
+gory →
+gore →
+blood → glow
+bloody → glowing
+wound → crack
+wounds → cracks
+corpse → skeleton
+rotting → dusty
+
+## fixes
+refused: Soften it: bones and glow, never wounds, blood or anything gory. Then Make another.
+face: Change this… "the skeleton exactly as its sheet: same eyes, bones and proportions".
+outfit: Change this… naming what the skeleton wears on its sheet.
+product: Change this… "the real product from its image in the skeleton's hand, the label facing the camera".
