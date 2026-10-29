@@ -505,7 +505,7 @@ test("a Ready to make chip opens the version panel, and Make this version reserv
     "GET /scripts/7": [200, full],
     "GET /scripts/7/cast": [200, [{ id: 1, role: "Bo", locked: true, sheet_file_id: null }]],
     "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
-    "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: 3 }],
+    "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: null, plan_job_id: 3 }],
     "GET /projects/55": [404, { detail: "x" }],
   });
   open();
@@ -513,11 +513,12 @@ test("a Ready to make chip opens the version panel, and Make this version reserv
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
   expect(within(panel).getByText(/Bo sniffs the salmon/)).toBeInTheDocument();
   expect(within(panel).getByText("Bo · Locked look")).toBeInTheDocument();
-  expect(within(panel).getByText("Planned automatically when you start")).toBeInTheDocument();
-  expect(within(panel).getByText("Starting costs 3 (the breakdown) · the whole video about 21 credits")).toBeInTheDocument(); // one line (#749 LW5)
+  expect(within(panel).getByText("The plan is made when you start")).toBeInTheDocument();
+  expect(within(panel).getByText("Starting costs 3 (the plan) · the whole video about 21 credits")).toBeInTheDocument(); // one line (#749 LW5)
   // No saved breakdown: starting one is a paid call, so the button says its price.
   await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
+  expect(await screen.findByText("Version A is yours. Next: the plan.")).toBeInTheDocument(); // #941: the plan is made first
 });
 
 test("Make this version is free when a breakdown is already saved", async () => {
