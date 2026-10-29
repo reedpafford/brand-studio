@@ -15,7 +15,7 @@ for (const width of [1440, 390]) {
     const other = before.video_models.find((m: { default: boolean; over_cap: boolean }) => !m.default && !m.over_cap);
     await page.getByRole("button", { name: new RegExp(other.name) }).first().click();
     const ask = page.getByRole("alertdialog", { name: `Switch to ${other.name}?` });
-    await expect(ask.getByText(/To finish: about/)).toBeVisible();
+    await expect(ask.getByText(/To finish: up to/)).toBeVisible();
     await ask.getByRole("button", { name: "Switch" }).click();
     await expect(ask).toBeHidden();
     expect((await (await page.request.get(`/api/projects/${id}/settings`)).json()).video_model).toBe(other.id);

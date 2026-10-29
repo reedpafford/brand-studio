@@ -40,7 +40,7 @@ export function EstimateNote({
       <summary className="min-h-11 cursor-pointer py-2 sm:min-h-0 sm:py-0">
         {e.remaining_credits === 0
           ? "Nothing left to spend."
-          : `To finish: about ${credits(e.remaining_credits)}`}{" "}
+          : `To finish: up to ${credits(e.remaining_credits)}`}{" "}
         · {credits(left)} left in the budget
       </summary>
       {/* From sm up the list floats under the meter, so opening it doesn't push the workspace down. */}
