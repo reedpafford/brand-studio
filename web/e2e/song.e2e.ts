@@ -13,7 +13,7 @@ async function walk(page: Page, brand: string) {
   await page.getByRole("menuitem", { name: /Song/ }).click();
 
   await page.getByLabel("Lyrics").fill(LYRICS);
-  await page.getByLabel("Style").fill("pop, female lead, upbeat");
+  await page.getByLabel("Music style").fill("pop, female lead, upbeat");
   await page.getByRole("button", { name: "Save lyrics" }).click();
   await expect(page.getByText("Sung word for word")).toBeVisible();
   await page.getByRole("button", { name: "Next: Takes" }).click();
