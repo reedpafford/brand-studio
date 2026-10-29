@@ -47,12 +47,12 @@ test("empty: Study it is free and sends the reel link", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/song-study")).toBe(true));
 });
 
-test("studying: in words with Cancel before it starts", async () => {
+test("studying: in words with Stop, queued or running", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song({ song_study: { ...done(), status: "studying", seconds: null, sections: [], lines: [], frames: [], job: { id: 5, status: "queued", started_at: new Date().toISOString() } } })] });
   open();
   expect(await screen.findByText(/Studying the song ad…/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
 });
 
 test("done: length, BPM, sections with their own guessed mark, the words, frames, the guide switch, and Remove with Undo", async () => {
@@ -120,4 +120,31 @@ test("a failed upload reads in the same words, not as a reel", async () => {
   open();
   expect(await screen.findByText("We couldn't study it: it's longer than 4 minutes. Nothing was charged.")).toBeInTheDocument();
   expect(screen.queryByText(/open that reel/)).toBeNull();
+});
+
+test("Stop on a running study: if it just finished, the server's sentence shows and the card is read again", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song({ song_study: { ...done(), status: "studying", seconds: null, sections: [], lines: [], frames: [], job: { id: 5, status: "running", started_at: new Date().toISOString() } } })], "POST /scripts/7/drafts/0/song-study/stop": [409, { detail: "It just finished, so there's nothing to stop." }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Stop" }));
+  expect(await screen.findByText("It just finished, so there's nothing to stop.")).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /scripts/7").length).toBeGreaterThan(1));
+});
+
+test("a newer try that failed shows above the kept study; a newer try running shows Stop above it", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ song_study: done({ attempt: { status: "failed", job: null, source: "link", link: "https://x.co/r", problem: "it's private or was removed" } }) })] });
+  open();
+  expect(await screen.findByText("We couldn't study the new one: it's private or was removed. Nothing was charged. The study below is kept.")).toBeInTheDocument();
+  expect(screen.getByText("Song ad studied · 0:31 · 98 BPM")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Try another · free" })).toBeInTheDocument();
+});
+
+test("while a newer try runs over a kept study, it says so with Stop", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ song_study: done({ attempt: { status: "studying", job: { id: 6, status: "running", started_at: new Date().toISOString() }, source: "link", problem: "" } }) })] });
+  open();
+  expect(await screen.findByText(/Studying a new song ad…/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+  expect(screen.getByText("Song ad studied · 0:31 · 98 BPM")).toBeInTheDocument();
 });

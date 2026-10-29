@@ -1093,15 +1093,17 @@ const staleRoutes = {
   "POST /projects/9/clips/prompts": [201, { id: 7, kind: "write-claude", step: "clip_prompts", status: "queued", credits: 6, project_id: 9 }] as [number, unknown],
 };
 
-test("clips made for an older breakdown offer one priced rewrite for all, and Make the takes waits for it", async () => {
+test("clips made for an older breakdown offer one priced rewrite for all, in the cost bar, and Make the takes waits for it", async () => {
   setViewport(1440);
-  // A third clip is fine but has no take yet, so Make the takes is on screen beside the rewrite.
+  // A third clip is fine but has no take yet: Make the takes comes once the rewrite is done.
   const calls = fakeServer({ ...staleRoutes, "GET /projects/9/clips": [200, [...staleClips, clip({ id: 5, clip_id: "c3", prompt_ok: true })]] });
   open("?step=clips");
   expect(await screen.findByText("2 clips were made for an older breakdown. Rewrite their prompts so they match.")).toBeInTheDocument();
-  expect(screen.getByText("Rewrite the clips made for an older breakdown first (2).")).toBeInTheDocument();
+  const bar = screen.getByRole("region", { name: "Cost" });
+  expect(await within(bar).findByRole("button", { name: "Rewrite clip prompts · 6 credits" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Make the takes/ })).toBeNull();
   expect(screen.getAllByRole("button", { name: /credits/ }).filter((b) => b.className.includes("bg-accent"))).toHaveLength(1); // one amber: the rewrite
-  await userEvent.click(await screen.findByRole("button", { name: "Rewrite clip prompts · 6 credits" }));
+  await userEvent.click(within(bar).getByRole("button", { name: "Rewrite clip prompts · 6 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")).toBeDefined());
   expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toBeUndefined(); // every stale clip
   expect(await screen.findByText("Rewriting clip prompts…")).toBeInTheDocument();
@@ -1452,4 +1454,16 @@ test("a look from the library says it comes from Cast & places, so the Cast step
   open("?step=assets");
   expect(await screen.findByRole("heading", { name: "Cast", level: 2 })).toBeInTheDocument();
   expect(await screen.findByText("From Cast & places")).toBeInTheDocument();
+});
+
+test("Clips' one amber is in the cost bar: Make the takes, with its price and what it leaves; nothing else on the step is amber", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]], "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 24, project_id: 9 }] });
+  open("?step=clips");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  const make = await within(bar).findByRole("button", { name: "Make the takes · 24 credits" });
+  expect(within(bar).getByText(/This press leaves/)).toBeInTheDocument();
+  expect(screen.getAllByRole("button").filter((b) => b.className.includes("bg-accent ") && !bar.contains(b) && /credit/.test(b.textContent ?? ""))).toHaveLength(0);
+  await userEvent.click(make);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/generate")).toBe(true));
 });

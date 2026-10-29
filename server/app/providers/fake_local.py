@@ -111,7 +111,7 @@ STUDY = [
 ]
 
 
-def hear_study(path: Path) -> list[dict]:
+def hear_study(path: Path, watch=None) -> list[dict]:
     """Stand-in Whisper for a song-ad study: STUDY's lines, a short pause after each pair."""
     from app.song_timing import length
 

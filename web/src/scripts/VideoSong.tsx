@@ -216,6 +216,13 @@ export function SongSetting({ project: p, hasShots = true, hasClips = true }: { 
   );
 }
 
+/** "0:00–0:04"; a shot under 2 s gets tenths ("0:03.2–0:03.8"), so it never reads "0:03–0:03" (Flow-QA on #826). */
+const tenths = (x: number) => {
+  const r = Math.round(x * 10) / 10; // rounded first, so 59.97 reads 1:00.0, never 0:60.0
+  return `${Math.floor(r / 60)}:${(r % 60).toFixed(1).padStart(4, "0")}`;
+};
+const span = (start: number, end: number) => (end - start < 2 ? `${tenths(start)}–${tenths(end)}` : `${clock(start)}–${clock(end)}`);
+
 /** A song shot's place in the song, in the Breakdown row: "0:00–0:04", Sung or B-roll, and Timing guessed (flows V2).
  * A shot the timing doesn't cover yet (just added or split) says "Needs timing" instead of a made-up time. */
 export function SongShotTime({ part, shotId }: { part: components["schemas"]["SongPart"]; shotId: string }) {
@@ -223,7 +230,7 @@ export function SongShotTime({ part, shotId }: { part: components["schemas"]["So
   if (!t) return <Badge tone="warning">Needs timing</Badge>;
   return (
     <>
-      <span className="tabular-nums">{clock(t.start)}–{clock(t.end)}</span>
+      <span className="tabular-nums">{span(t.start, t.end)}</span>
       <Badge tone={t.sung ? "accent" : undefined}>{t.sung ? "Sung" : "B-roll"}</Badge>
       {t.guessed && <Badge tone="warning">Timing guessed</Badge>}
     </>

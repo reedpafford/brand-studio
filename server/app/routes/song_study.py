@@ -93,3 +93,16 @@ def restore_study(
 ):
     song_study.remove(db, _version(db, user, script_id, slot), back=True)
     return Response(status_code=204)
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/song-study/stop", status_code=204)
+def stop_study(
+    script_id: int,
+    slot: Slot,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Stop the study in hand, queued or running (free; a finished study stays)."""
+    song_study.stop(db, request.app.state.storage, _version(db, user, script_id, slot))
+    return Response(status_code=204)
