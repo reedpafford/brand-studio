@@ -25,8 +25,8 @@ export type VideoProgress = Progress & { assets: { total: number; ready: number;
 export function videoLock(step: VideoStepId, now: VideoProgress): string | null {
   if (step === "plan") return null;
   if (step === "downloads" && now.video.made) return null; // the finished video is always reachable (#749 LW1)
-  // Work already made stays open when an earlier step changes: it says "out of date" there. Problems and assets to
-  // approve still come first.
+  // Work already made stays open when an earlier step changes: it says "out of date" there, and its paid presses
+  // wait (videoHold). Problems in the shots still come first.
   const kept = (step === "storyboard" && now.frames.total > 0) || (step === "clips" && now.clips.total > 0);
   // (Out-of-date frames read as unapproved, so clips already made don't wait on them either.)
   const frames = step === "clips" ? { ...now.frames, stale: false, approved: now.frames.total } : { ...now.frames, stale: false };
@@ -35,16 +35,20 @@ export function videoLock(step: VideoStepId, now: VideoProgress): string | null 
   const shots = lockReason("storyboard", p)?.replace("in Shots first", "in Plan first").replace("Make the shots first", "Make the shots in Plan first").replace("Make new shots first", "Make new shots in Plan first") ?? null;
   if (shots || step === "cast") return shots;
   const left = p.assets.total - p.assets.ready;
-  if (left > 0) return `Approve the cast first (${left} left)`;
+  if (left > 0 && !kept) return `Approve the cast first (${left} left)`; // made work stays open: its presses wait instead (videoHold)
   return lockReason(VIDEO_STEPS.find((s) => s.id === step)!.old, p);
 }
 
-/** Why a step's paid presses wait while its work stays viewable: an earlier step changed after it was made (audit M14). */
-export function videoHold(step: VideoStepId, now: VideoProgress): string | null {
+/** Why a step's paid presses wait while its work stays viewable, and the step that puts it right: an earlier step changed
+ *  after it was made (audit M14). */
+export function videoHold(step: VideoStepId, now: VideoProgress): { why: string; at: VideoStepId } | null {
   const made = (step === "storyboard" && now.frames.total > 0) || (step === "clips" && now.clips.total > 0);
   if (!made) return null;
-  if (now.shots.stale) return "The plan changed after these were made. Make new shots in Plan first.";
-  if (step === "clips" && now.frames.stale) return "The plan changed after these were made. Make the storyboard again first.";
+  if (now.shots.stale) return { why: "The plan changed after these were made. Make new shots in Plan first.", at: "plan" };
+  if (step === "clips" && now.frames.stale) return { why: "The plan changed after these were made. Make the storyboard again first.", at: "storyboard" };
+  // A look the cast needs isn't ready (one added, or the video's look changed and a sheet isn't made in it yet).
+  const left = now.assets.total - now.assets.ready;
+  if (left > 0) return { why: `${left === 1 ? "A look in the cast isn't" : `${left} looks in the cast aren't`} ready. Make or approve ${left === 1 ? "it" : "them"} in Cast first.`, at: "cast" };
   return null;
 }
 
