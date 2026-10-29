@@ -235,3 +235,57 @@ def test_picking_back_an_earlier_still_brings_back_what_it_was_made_with(owner, 
     assert picked.status_code == 200 and picked.json()["still_stale"]  # made in 1:1, video 9:16
     db.expire_all()
     assert db.get(StoryboardFrame, frame.id).earlier[0]["made_with"]["aspect_ratio"] == "9:16"
+
+
+def test_make_this_version_takes_the_settings_and_a_no_lip_sync_plan_has_no_sung_shots(
+    app,
+    db,
+    owner,
+    editor,
+    song,  # noqa: F811
+    monkeypatch,
+):
+    from app import song_breakdown
+    from tests.test_song_takes import _approve_plan, _style
+
+    split = song_breakdown.split
+
+    def one_sung(bd, take_id):  # the stand-in plan has no Sung shot: make its first one Sung
+        plan, part = split(bd, take_id)
+        first = next(iter(part["shots"]))
+        return plan, {
+            **part,
+            "shots": {**part["shots"], first: {**part["shots"][first], "sung": True}},
+        }
+
+    monkeypatch.setattr(song_breakdown, "split", one_sung)
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    owner.post(f"{song}/approve")
+    owner.post(f"{song.rsplit('/drafts', 1)[0]}/publish")
+    assert editor.post(f"{song}/produce", json={"video_model": "nope"}).status_code == 422
+    made = editor.post(
+        f"{song}/produce", json={"video_model": "seedance-2.0", "aspect_ratio": "1:1"}
+    )
+    assert made.status_code == 201, made.text  # the refused try left the version free
+    pid = made.json()["project_id"]
+    _work(app, db)  # the plan
+    _approve_plan(app, db, editor, f"/projects/{pid}")  # its shots
+    db.expire_all()
+    project = db.get(Project, pid)
+    assert (project.video_model, project.aspect_ratio) == ("seedance-2.0", "1:1")
+    rows = db.scalars(select(BreakdownVersion).where(BreakdownVersion.project_id == pid)).all()
+    assert rows and not any(
+        t["sung"] for r in rows for t in r.data.get("song", {}).get("shots", {}).values()
+    )
+    assert len(project.sung_flipped) == 1  # remembered: Auto (lip-sync) turns it back
+
+
+def test_make_this_version_refuses_an_off_look_for_an_editor(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    off = editor.post(f"{base}/drafts/0/produce", json={"look": "zack-d"})
+    assert off.status_code == 409
+    made = editor.post(f"{base}/drafts/0/produce", json={"image_model": "nano-banana-pro"})
+    assert made.status_code == 201
+    assert db.get(Project, made.json()["project_id"]).image_model == "nano-banana-pro"
