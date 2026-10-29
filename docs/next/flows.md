@@ -8,7 +8,7 @@ Sources: the spec (`docs/research/starpop-2026-10-28/spec.md`), Reed's changes (
 
 - **Owner, story:** Write → Cast → Plan → Publish. Directions sit in Write as a Suggestions panel, Variations as a Versions section, and "Approve the words" is in Write. Editing approved words asks first: "Edit version A? It goes back to draft. Approve the words again before Next. Roles already found are kept." (today's un-approve, said in advance).
 - **Owner, song:** Song → Takes → Cast → Plan → Publish, with no Suggestions or Versions panels.
-- **Editor:** Plan → Breakdown → Assets → Storyboard → Clips → Final cut (Plan added 2026-10-29, item 1b). Clips has two lists on one step, **Prompts** (each prompt checked, "Prompt OK", rule 21) then **Takes** (make, pick, "Approve take"), with Approve all on both.
+- **Editor:** Plan → Cast → Storyboard → Clips → Final cut (item 1b, 2026-10-29). Plan has two views, **Scenes** (the plan) and **Shots** (what was the Breakdown step). **Cast** is what was the Assets step; the library keeps its name, **Cast & places**. Clips has two lists on one step, **Prompts** (each prompt checked, "Prompt OK", rule 21) then **Takes** (make, pick, "Approve take"), with Approve all on both.
 - **One Video settings row** at the top of every video and on Make this version holds every per-video choice: shape, flavour, look, models, language, and for a song video the song ("Change song", V2a).
 - **State words, every step:** Waiting · Making… 0:42 · Ready to check · Approved · Didn't finish · nothing charged (or "credits returned" when they were held) · Refused, with its free fix (for a song: the style line or another take, never the words) · Out of date.
 - **Old links:** every old `/projects/…` address redirects to the same video in its new place, never a 404.
@@ -90,7 +90,7 @@ flowchart LR
 
 Owner steps on a song script: **Song → Takes → Cast → Plan → Publish** (the names Next-Screens uses in docs/next/screens.md). "Write 2 song directions" is a button inside Song, not a step. Variations are not offered on a song script (they would rewrite the words); to try other lyrics, the owner duplicates the script. **Decided here.**
 
-Editor steps: the same six as a story video (**Plan → Breakdown → Assets → Storyboard → Clips → Final cut**, item 1b).
+Editor steps: the same five as a story video (**Plan → Cast → Storyboard → Clips → Final cut**, item 1b; the song breakdown below is Plan's Shots view, and V3 Assets is the Cast step).
 
 ## S1. New script: choosing the format (Dialogue, Song or Narrated)
 
@@ -266,7 +266,7 @@ In the video's settings row, shown again as a strip above the shots in Breakdown
 | B | The make button is disabled with the reason; the existing takes stay usable. | **Use this take** on an existing one. |
 | P | The strip is one row (play, "0:31", Change song); the sheet is full screen, takes stacked. | — |
 
-## V2. Breakdown on the song
+## V2. Breakdown on the song (now Plan → Shots, item 1b)
 
 The shots are built from the preferred take's word timings. Each shot covers a stretch of the song, from one word boundary to another (never mid-word), and is marked **Sung** or **B-roll**. Default: every shot is B-roll (Reed: song ads are mostly B-roll; lip-sync is a rare extra). Sung is only where someone flips it. Instrumental stretches get B-roll shots of their own ("Music · 0:12–0:16"). The shots cover the song from its first word to its end with no gaps.
 
@@ -293,7 +293,7 @@ Desktop: the song's waveform across the top, the shots as blocks under it, a pla
 
 Clips follow scenes, not shots (rule 29): consecutive shots in one place and one action become one clip, as today. The song is sliced to fit each clip, never the clip to the song. A clip that holds a Sung shot lip-syncs only that shot's stretch; its other shots in the same clip are picture.
 
-## V3. Assets
+## V3. Assets (now the Cast step, item 1b)
 
 As today. The Singer is a role like any other and needs an approved look (rule 8): Storyboard and Clips stay locked with "Approve every asset first (N left)" and the one press to Assets, exactly as today. Nothing new.
 
@@ -429,7 +429,12 @@ For every format, look and brand (fomo included). Built and tested on Next first
 ## The new step order
 
 - **Owner, any format:** the owner's **Plan** step (S6, and the story Plan step) now makes the **scene plan** first. The breakdown preview follows from it. Both stay optional for the owner, as the breakdown preview is today.
-- **Editor:** **Plan → Breakdown → Assets → Storyboard → Clips → Final cut** (six steps). Plan comes first. Breakdown can't start until the plan is approved: "Approve the plan first", with the press to Plan.
+- **Editor:** **Plan → Cast → Storyboard → Clips → Final cut** (five steps; Producer, 2026-10-29).
+  - **Plan** has two views at its top, **Scenes | Shots**. Scenes is the plan (P1). Shots is what was the Breakdown step: every Breakdown flow in this file (V2, V2a, the song clock, Sung/B-roll, split and join, "Made for an older plan") now lives in Shots. Shots is greyed until the plan is approved: "Approve the plan first".
+  - **Cast** is what was the Assets step (V3, the looks to approve). The step says **Cast**; the library stays **Cast & places**, and a library look on a role says "From Cast & places", so the two never read as one place.
+  - Wherever this file says "the Breakdown step", read Plan → Shots; "Assets", read Cast.
+  - **Old links:** `?step=breakdown` opens Plan on Shots, `?step=assets` opens Cast, and bookmarks, notifications and "Needs you" links follow. A link to Shots before the plan is approved opens Scenes, with "Approve the plan first".
+  - **The step's ✓:** Plan is done when the plan is approved and its shots are made.
 - **Existing videos** (made before this ships, on Next and later on live): a video that already has a breakdown gets a plan read from that breakdown, in code and free (one scene per breakdown scene, its lines and its actions as written). The plan is marked "Approved · from the breakdown", and nothing goes out of date. Its Plan step shows ✓, so no existing video is blocked or charged. A video with no breakdown yet opens on Plan.
 
 ## P1. The scene plan (Plan step)
@@ -450,7 +455,7 @@ For every format, look and brand (fomo included). Built and tested on Next first
 |---|---|---|
 | E (no plan yet) | "Turn the script into scenes: where each line happens and what we see." The price. If the published version has the owner's approved plan, the video opens on Plan already **Approved**, labelled "From Reed's plan" (free); the editor re-approves only after changing it. | **Make the plan · N credits** (one Claude call; the price as every press, rule 22). |
 | Q/R | "Making the plan…" with a timer. "You can leave this page." | Cancel (before it starts). |
-| Ready to check | The structure line, the cast, then one card per scene (place, lines, actions, ★ marks, who's in it). A count: "9 scenes · every line used once · the product in 4". | **Approve the plan** (the step's one amber). |
+| Ready to check | The structure line, the cast, then one card per scene (place, lines, actions, ★ marks, who's in it). A count: "9 scenes · every line used once · the product in 4". | **Approve the plan · makes the shots · N credits** (the step's one amber: it approves and makes the shots in one press, at the breakdown's price as today). Then Shots opens. |
 | Approved | ✓ on the step. "Approved by Ana · 2 min ago". Each card is still readable and editable (see Editing). | **Next: Breakdown**. |
 | Editing (free) | On a card: **Edit** (type the place, an action, who's in it), **★ / un-★** a line, and **Move this line to the next scene** or **to the previous scene**. **Split here** and **Join with next** keep every line in order. The words themselves are read only, with "The words are the script's: change them in the script" for the owner. Saving is free, with Undo. An approved plan goes back to "Ready to check" when edited. | **Approve the plan**. |
 | Change one scene | **Change this scene…**: a note ("make it funnier, he's a drama queen") rewrites only that scene's actions (one small paid call, price on the button). | **Change · N credits**. |
@@ -470,8 +475,8 @@ For every format, look and brand (fomo included). Built and tested on Next first
 
 | Step | Effect |
 |---|---|
-| Breakdown | Made from the approved plan: its shots follow the scenes, in order, one place and one action each, with the ★ marks carried over as product shots. Same price and states as today. "Made for an older plan" when the plan changes after it (with **Update everything after this**, as today). Editing the breakdown doesn't change the plan. |
-| Assets | The cast comes from the plan's cast list, so the same people are drawn once and used throughout. The product images are the ★ products. Approving the looks is one press (**Approve all looks**). |
+| Shots (inside Plan) | Made from the approved plan: its shots follow the scenes, in order, one place and one action each, with the ★ marks carried over as product shots. Same price and states as today. "Made for an older plan" when the plan changes after it (with **Update everything after this**, as today). Editing the shots doesn't change the plan. If the owner's plan came with a published breakdown preview, the shots come from it, free. |
+| Cast (was Assets) | The cast comes from the plan's cast list, so the same people are drawn once and used throughout. The product images are the ★ products. Approving the looks is one press (**Approve all looks**). |
 | Storyboard | Each still is drawn from its scene's action and place, with the product image attached on ★ shots. |
 | Clips | Each clip is one scene's continuous action (rule 29). Its prompt opens from the plan's action. A clip whose scene changed goes "Out of date" as today. |
 | Final cut | Unchanged. |
