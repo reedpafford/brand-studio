@@ -34,7 +34,11 @@ export function useUpdateAfter(projectId: number, on: boolean, stopFor: (cost: n
   const stopped = d.stopped_at && d.reason && !d.running ? STEP[d.stopped_at] : null;
   // Only when the storyboard itself is to be redone; a clip rewrite alone is the Clips step's own press.
   const redo = d.steps.some((s) => s.step !== "clip_prompts");
-  const note = stopped ? (
+  // A refusal (the budget, the week, a run already going) says why above the work; the press stays pressable, so a fix
+  // elsewhere (a cheaper model, more budget) can be tried again without a reload (QA-2 on #921).
+  const note = press.isError && !d.running ? (
+    <p role="alert" className="text-sm text-danger">{press.error.message}</p>
+  ) : stopped ? (
     <Banner tone="warning" title={`Stopped at ${stopped.label}`} action={<Button variant="secondary" onClick={() => open(stopped.go)}>Open {stopped.label}</Button>}>
       {d.reason}
     </Banner>
@@ -44,7 +48,7 @@ export function useUpdateAfter(projectId: number, on: boolean, stopFor: (cost: n
   const action: CostAction | null = d.running
     ? { label: "Updating…", busy: true, onPress: () => {} }
     : redo && d.credits > 0
-      ? { label: "Update everything after this", price: d.credits, reason: press.error?.message ?? stopFor(d.credits), busy: press.isPending, onPress: () => press.mutate() }
+      ? { label: "Update everything after this", price: d.credits, reason: stopFor(d.credits), busy: press.isPending, onPress: () => press.mutate() }
       : null;
   return { action, note, stopped: !!stopped };
 }

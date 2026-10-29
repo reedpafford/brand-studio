@@ -44,7 +44,10 @@ async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: obje
   return (r.status === 204 ? null : await r.json()) as T;
 }
 
-function usePlan(projectId: number, enabled: boolean) {
+/** The plan, read again every 3 s while its job runs. After a press (`since`), it keeps reading until a plan or a failed
+ *  job comes back: the server answers 404 between a job that just ended and its plan being there, and that once stopped
+ *  the reading for good, leaving "No plan yet" with the plan made (Next-Layout, QA-2). It gives up after two minutes. */
+function usePlan(projectId: number, enabled: boolean, since: number | null = null) {
   return useQuery({
     enabled,
     queryKey: ["plan", projectId],
@@ -56,7 +59,12 @@ function usePlan(projectId: number, enabled: boolean) {
         throw e;
       }
     },
-    refetchInterval: (q) => (q.state.data?.job && q.state.data.job.status !== "failed" ? 3000 : false),
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      if (d?.job && d.job.status !== "failed") return 3000;
+      const waiting = since !== null && Date.now() - since < 120_000 && !d?.scenes?.length && d?.job?.status !== "failed";
+      return waiting ? 2000 : false;
+    },
   });
 }
 
@@ -202,7 +210,8 @@ function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene:
 
 /** The Scenes view: every P1 state, editing with Undo, and the step's one amber, "Approve the plan · makes the shots". */
 function Scenes({ projectId, planCredits, onApproved }: { projectId: number; planCredits?: number | null; onApproved: () => void }) {
-  const plan = usePlan(projectId, true);
+  const [pressed, setPressed] = useState<number | null>(null); // when a plan job was last started here
+  const plan = usePlan(projectId, true, pressed);
   const { brandId } = useParams();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -211,7 +220,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   const [noProduct, setNoProduct] = useState<string | null>(null); // a ★ the brand has nothing to show for
   const [asking, setAsking] = useState<{ next: Scene[]; said: string; done?: () => void } | { earlier: number } | { run: () => void } | null>(null);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["plan", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
-  const make = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan`, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); return refresh(); } });
+  const make = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan`, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); setPressed(Date.now()); return refresh(); } });
   // Stop works queued or running and is never charged (#893).
   const stopMaking = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan/stop`), onSettled: refresh });
   const byHand = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan/by-hand`), onSuccess: refresh });
