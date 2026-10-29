@@ -33,6 +33,25 @@ def test_on_screen_words_are_taken_out_but_never_a_spoken_line_or_the_brands_lab
         "Keep: No text on screen.",
     ):
         assert check.text_on_screen(safe) == (safe, []), safe
+    # Flow-QA on #886: quoted words to be drawn go; a quoted line that is spoken stays
+    drawn = check.text_on_screen('Shot 1 | 0-2 s. Close-up. Big text "SALE" pops, Mom grins.')
+    assert drawn == ("Shot 1 | 0-2 s. Close-up. Mom grins.", ["Big text"])
+    over = 'Shot 2 | 2-4 s. The words "IRON PAWS" appear on screen over the bowl. Mom: "Yes!"'
+    assert check.text_on_screen(over) == ('Shot 2 | 2-4 s. Mom: "Yes!"', ["words appear on screen"])
+    said = 'Shot 3 | 4-6 s. She says "no captions, ever", laughing.'
+    # Flow-QA on #890: a shot that is only drawn words is never emptied; it's Advice instead
+    only = 'Shot 1 | 0-3 s. The words "IRON PAWS" appear on screen over the bowl.'
+    assert check.text_on_screen(only) == (only, [])
+    assert check.text_on_screen_advice(only) == [
+        "Advice: shot 1 is only words on screen (“words appear on screen”); show the moment "
+        "instead, or the model draws the words"
+    ]
+    card = "Shot 2 | 3-5 s. A title card reads WEEK 2."
+    assert check.text_on_screen(card) == (card, [])
+    capital = check.text_on_screen("Shot 3 | 5-7 s. A caption pops up, then she smiles.")
+    assert capital == ("Shot 3 | 5-7 s. Then she smiles.", ["caption"])
+    assert check.text_on_screen_advice(capital[0]) == []
+    assert check.text_on_screen(said) == (said, [])
     curly = check.text_on_screen("Shot 1 | 0-2 s. A caption pops up, Mom: “Hi, you.” No one else.")
     assert curly == ("Shot 1 | 0-2 s. Mom: “Hi, you.” No one else.", ["caption"])
 

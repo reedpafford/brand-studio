@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import breakdown, script_preview, song_takes
+from app import breakdown, narration, script_preview, song_takes
 from app import script_library as lib
 from app.auth import current_user
 from app.db import get_db
@@ -67,7 +67,7 @@ def produce(
         script_draft_id=draft.id,
         look=script.look,  # the video's own from here on (VS1)
     )
-    if script.kind == "song" and (take := song_takes.preferred(db, draft)):
+    if script.kind in narration.TIMED and (take := song_takes.preferred(db, draft)):
         project.song_take_id = take.id  # the video's own choice from here on (rule 31)
     _set_length(db, user, project, draft.target_seconds)
     draft.reserved_by_id = user.id
