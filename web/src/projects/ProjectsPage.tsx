@@ -70,7 +70,7 @@ function VideoCard({ p, brandId, job }: { p: Project; brandId: number; job?: Job
               ? c.total === 0 ? "Ready for clips" : `${c.approved} of ${plural(c.total, "clip")} approved`
               : `Ready · ${media.seconds || p.planned_seconds} s · ${shape}`;
   const second =
-    p.status === "needs_owner_approval" ? <Badge>Not started</Badge>
+    p.status === "needs_owner_approval" ? <Badge>Waiting for the owner's OK</Badge>
     : job?.status === "failed" ? <Badge tone="danger">Didn't finish · credits returned</Badge>
     : step === "final" && progress.video.outOfDate ? <Badge>Out of date</Badge>
     : null;

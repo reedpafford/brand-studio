@@ -211,7 +211,7 @@ export function BreakdownView(props: {
   return (
     <div className="space-y-4" aria-label="Breakdown">
       {row.stale && (
-        <Banner tone="warning" title={preview ? "This plan was made for older words. Make it again so the shots match." : "These shots were made for an older script."} action={preview ? preview.again : makeButton("Make new shots", { primary: true })} />
+        <Banner tone="warning" title={preview ? "This plan was made for older words. Make it again so the shots match." : "This breakdown was made for older words."} action={preview ? preview.again : makeButton("Make it again", { primary: true })} />
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">

@@ -15,6 +15,12 @@ export function Meter({ used, budget, pct }: { used: number; budget: number; pct
   );
 }
 
+/** Work held for the owner says what it waits for and why, never a bare "Not started". */
 export function WaitingBadge() {
-  return <span className="inline-block rounded-sm bg-surface-3 px-2 py-0.5 text-xs font-medium text-muted">Not started</span>;
+  return (
+    <span className="block space-y-0.5">
+      <span className="inline-block rounded-sm bg-surface-3 px-2 py-0.5 text-xs font-medium text-muted">Waiting for the owner's OK</span>
+      <span className="block text-sm text-muted">This would go past the video's budget.</span>
+    </span>
+  );
 }

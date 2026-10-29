@@ -513,7 +513,9 @@ test("Assets waits for its list and the brand's products: no 0 assets, no Not in
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  expect(await screen.findAllByText("Loading assets…")).not.toHaveLength(0);
+  expect(await screen.findAllByText("Loading assets…")).toHaveLength(1); // said once; the picker, heading line and Next wait under skeletons
+  expect(screen.queryByRole("list", { name: "Steps" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Next/ })).toBeNull();
   expect(screen.queryByText(/Not in this video's shots/)).toBeNull();
   expect(screen.queryByText(/^0 assets/)).toBeNull();
   expect(screen.queryByText(/flavour first/)).toBeNull();
