@@ -25,6 +25,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n08 | Brand setup (BR1): new `brands` columns and product description/claim, below | Builder-Server-7 | #910 |
 | n09 | Video settings (VS1): `projects.video_model`, `projects.image_model`, `projects.sung_flipped`, `storyboard_frames.made_with`, `clip_takes.made_with`, `scripts.language`, below | Builder-Server-7 | #925 |
 | n10 | Per-look sheets (ST2): `library_items.look_sheets`, `library_items.sheet_look`, `projects.look_copies`, below | Next-Server | #930 |
+| n14 | Language tests (VS1): new `language_switches` {workspace_id, language_id, on, sample_job_id, rejected, switched_by_id, switched_at}; a row overrides `app/languages.py`'s `on`, as `look_switches` does a look file's | Switch-On | — |
 
 ## Merge order (the chain on `next`)
 

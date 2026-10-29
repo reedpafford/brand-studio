@@ -50,7 +50,8 @@ def _language(mapper, connection, script: Script) -> None:
         found = connection.scalar(select(Brand.default_language)
                                   .where(Brand.id == script.brand_id))  # fmt: skip
         role = connection.scalar(select(User.role).where(User.id == script.created_by_id))
-        script.language = starting(found, role in (None, Role.owner))
+        script.language = starting(connection, script.workspace_id, found,
+                                   role in (None, Role.owner))  # fmt: skip
 
 
 class ScriptDraft(Entity, Base):

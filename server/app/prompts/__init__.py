@@ -34,6 +34,7 @@ SCHEMAS = {
     "plan_scene": schemas.PlanScene,  # P1's "Change this scene…"
     "item_check": schemas.ItemCheck,  # flows P4: the advisory check on a still or a take
     "narration_music": schemas.NarrationMusic,  # flows N1: the bed under the narrator
+    "language_sample": schemas.ScriptDrafts,  # flows VS1: a language's sample test
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
@@ -42,6 +43,7 @@ EXTENDS = {
     "narrated_breakdown": "breakdown",
     "narrated_clip_prompts": "clip_prompts",
     "plan_scene": "plan",
+    "language_sample": "script_draft",
 }
 NO_RULES = {
     "look_fit",
