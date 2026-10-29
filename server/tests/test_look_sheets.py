@@ -75,3 +75,15 @@ def test_a_house_video_is_unchanged(app, db, owner, editor):
     assert storyboard.assets(db, project)[f"char:{mia}"][1] == [house]
     no = editor.post(f"/projects/{project.id}/assets/looks/{mia}/copy")
     assert no.status_code == 409
+
+
+def test_a_cast_character_with_only_a_house_sheet_is_lookless_in_another_look():
+    """Flow-QA: Mia has only a House sheet and the video is Pixar, so `known` (sheet_for) has
+    no picture of her and marks it; she's named, and nothing is drawn without her. One with
+    no sheet at all (Bo) is left to require_sheet's "Approve Bo's sheet first"."""
+    from app.sheets import NO_LOOK, lookless
+
+    known = {"char:5": (f"char:5 | character | Mia | plays Mom | {NO_LOOK}", []),
+             "char:6": ("char:6 | character | Bo", []),
+             "char:7": ("char:7 | character | Ann", [9])}  # fmt: skip
+    assert lookless([["char:5", "char:6"], ["char:7"], ["char:5"]], known) == ["Mia"]
