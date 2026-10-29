@@ -4507,6 +4507,13 @@ export interface components {
              */
             skip_screen_ids: number[];
         };
+        /** DialogueLine */
+        DialogueLine: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+        };
         /** DirectionUsed */
         DirectionUsed: {
             /** Was Text */
@@ -5862,6 +5869,13 @@ export interface components {
              * @default false
              */
             final_out_of_date: boolean;
+            /**
+             * Needs You
+             * @default false
+             */
+            needs_you: boolean;
+            /** Waiting On */
+            waiting_on?: string | null;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -6204,6 +6218,8 @@ export interface components {
             reference_replace?: string | null;
             /** New Lines */
             new_lines?: boolean | null;
+            /** Kind */
+            kind?: ("story" | "narrated") | null;
             /** Look */
             look?: string | null;
         };
@@ -6274,6 +6290,15 @@ export interface components {
              * @default false
              */
             running: boolean;
+        };
+        /** Sentence */
+        Sentence: {
+            /** Text */
+            text: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
         };
         /** SetupIn */
         SetupIn: {
@@ -6667,6 +6692,11 @@ export interface components {
              * @default 0
              */
             music_credits: number;
+            /**
+             * Sentences
+             * @default []
+             */
+            sentences: components["schemas"]["Sentence"][];
             /** Untrimmed Seconds */
             untrimmed_seconds?: number | null;
         };
@@ -6682,6 +6712,11 @@ export interface components {
             keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
+            /**
+             * Voice
+             * @default
+             */
+            voice: string;
             /** Songs Note */
             songs_note?: string | null;
         };
@@ -7235,6 +7270,11 @@ export interface components {
             keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
+            /**
+             * Voice
+             * @default
+             */
+            voice: string;
             /** Songs Note */
             songs_note?: string | null;
             /** Song Take Id */
@@ -7564,6 +7604,16 @@ export interface components {
              * @default []
              */
             claims_to_check: string[];
+            /**
+             * Reads Narrated
+             * @default false
+             */
+            reads_narrated: boolean;
+            /**
+             * Dialogue Lines
+             * @default []
+             */
+            dialogue_lines: components["schemas"]["DialogueLine"][];
             song_study?: components["schemas"]["SongStudyOut"] | null;
         };
         /** EstimateOut */
@@ -9448,7 +9498,7 @@ export interface operations {
                 archived?: boolean;
                 q?: string;
                 mine?: boolean;
-                status?: ("making" | "done") | null;
+                status?: ("making" | "done" | "needs_you") | null;
             };
             header?: never;
             path?: never;

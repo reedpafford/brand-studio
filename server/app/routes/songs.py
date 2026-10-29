@@ -26,6 +26,12 @@ SONGS_OFF = "Songs aren't switched on here."
 NOT_A_SONG = "This script isn't a song. Start a Song script to make songs."
 
 
+class Sentence(BaseModel):
+    text: str
+    start: float
+    end: float
+
+
 class SongTakeOut(BaseModel):
     id: int
     number: int
@@ -55,6 +61,7 @@ class SongTakeOut(BaseModel):
     music_reason: str | None = None
     music_file_id: int | None = None
     music_credits: float = 0
+    sentences: list[Sentence] = []  # a narration's sentences, each with its measured times
     untrimmed_seconds: float | None = None  # a narration whose pauses were trimmed: "2:26 → 2:19"
 
 
@@ -64,6 +71,7 @@ class SongsOut(BaseModel):
     video_estimate_credits: float  # about what a video of these lyrics costs (a guess)
     keep_lines: int | None  # over the cap: keep the first this-many sung lines to fit
     takes: list[SongTakeOut]
+    voice: str = ""  # a Narrated version's narrator ("Sarah"); "" for a song
     songs_note: str | None = None  # e.g. real songs for this test are used up: stand-ins now
 
 
@@ -137,6 +145,12 @@ def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
         kind=take.kind,
         voice=take.voice,
         **_music(db, take),
+        sentences=[
+            Sentence(text=x["text"], start=x["start"], end=x["end"])
+            for x in (take.timing or {}).get("lines", [])
+        ]
+        if take.kind == narration.KIND
+        else [],
         untrimmed_seconds=(take.timing or {}).get("untrimmed_seconds") if take.trimmed else None,
     )
 
@@ -154,6 +168,7 @@ def _songs(request: Request, db: Session, user: User, draft: ScriptDraft) -> Son
     video, keep = song_takes.lyrics_estimate(db, draft)
     return SongsOut(
         songs_on=songs_on(request, db, draft),
+        voice=narration.VOICE if song_takes.narrated(db, draft) else "",
         estimate_credits=float(song_takes.price(db, user.workspace_id, draft)),
         video_estimate_credits=float(video),
         keep_lines=keep,

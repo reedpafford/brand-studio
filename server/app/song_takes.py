@@ -114,12 +114,14 @@ def make(
 ) -> list[SongTake]:
     """Make 2 takes (one request) of the version's lyrics and style line. `kie`: a real
     song through KIE (KieSuno sings only those, never a request queued before)."""
+    voice = {"kind": narration.KIND, "voice": narration.VOICE} if narrated(db, draft) else {}
+    if voice and any(state(db, t)[0] in ("making", "timing") for t in takes(db, draft, project)):
+        raise HTTPException(409, narration.MAKING)  # one at a time: never two charged at once
     job = _request(db, user, draft, project, kie=kie)
     numbered = select(func.max(SongTake.number)).where(
         SongTake.draft_id == draft.id, SongTake.project_id == (project.id if project else None)
     )
     number = db.scalar(numbered) or 0
-    voice = {"kind": narration.KIND, "voice": narration.VOICE} if narrated(db, draft) else {}
     made = [
         SongTake(draft_id=draft.id, project_id=project.id if project else None,
                  number=number + k + 1, track=k, job_id=job.id, created_by_id=user.id,
