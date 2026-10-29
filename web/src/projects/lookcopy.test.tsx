@@ -74,3 +74,26 @@ test("the video's own look is approved by its own id, with Undo", async () => {
   expect(calls.some((c) => c.key === "POST /library/character/12/sheet/approve")).toBe(true);
   expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(false);
 });
+
+test("a video's own look that didn't draw says so and offers Try again on the copy, priced", async () => {
+  setViewport(390);
+  const failed = asset({ sheet_status: "none", ready: false, shots: 3, look_needed: null, look_copy_id: 12, look_credits: 4, look_usual_credits: 2 });
+  const calls = fakeServer({ ...base, ...looks, "GET /projects/9/assets": [200, [failed]], "POST /library/character/12/sheet": [201, {}] });
+  open();
+  const card = await screen.findByLabelText("Bo");
+  expect(within(card).getByRole("alert")).toHaveTextContent("The look didn't finish. Nothing was charged.");
+  const again = within(card).getByRole("button", { name: /Try again/ });
+  expect(again).toHaveTextContent("4");
+  fireEvent.click(again);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/12/sheet")?.body).toMatchObject({ change: "" }));
+});
+
+test("beside Approve this look, Redo draws the copy again", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, ...looks, "GET /projects/9/assets": [200, [copied]], "POST /library/character/12/sheet": [201, {}] });
+  open();
+  const card = await screen.findByLabelText("Bo");
+  fireEvent.click(within(card).getByRole("button", { name: /Redo/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/12/sheet")).toBe(true));
+  expect(calls.some((c) => c.key === "POST /library/character/5/sheet")).toBe(false);
+});

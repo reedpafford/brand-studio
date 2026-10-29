@@ -179,6 +179,16 @@ export function AssetCard({
       await refresh();
     },
   });
+  // A copy that didn't draw (or one to draw again) is drawn on its own id; the editor may, it's their video's look.
+  const drawCopy = useMutation({
+    mutationFn: () => must(api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind: "character", item_id: copyId! } }, body: { model_id: model, change: "" } })),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refresh();
+    },
+  });
+  const copyFailed = copyId !== null && (asset.sheet_status === "none" || asset.sheet_status === "missing");
+  const copyCost = asset.look_credits ?? price;
   const approveCopy = useMutation({
     mutationFn: () => must(api.POST("/library/{kind}/{item_id}/sheet/approve", { params: { path: { kind: "character", item_id: copyId! } } })),
     onSuccess: async () => {
@@ -388,10 +398,23 @@ export function AssetCard({
               Make a {lookNeeded} look for this video
             </Button>
           )}
+          {copyFailed && (
+            <div className="space-y-2">
+              <p role="alert" className={errorClass}>The look didn't finish. Nothing was charged.</p>
+              <Button variant="secondary" busy={drawCopy.isPending} price={copyCost} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(copyCost)} reason={stopFor(copyCost)} onClick={() => drawCopy.mutate()}>
+                Try again
+              </Button>
+            </div>
+          )}
           {copyId !== null && asset.sheet_status === "needs_approval" && (
-            <Button variant="secondary" busy={approveCopy.isPending} onClick={() => approveCopy.mutate()}>
-              Approve this look
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" busy={approveCopy.isPending} onClick={() => approveCopy.mutate()}>
+                Approve this look
+              </Button>
+              <Button variant="ghost" busy={drawCopy.isPending} price={copyCost} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(copyCost)} reason={stopFor(copyCost)} onClick={() => drawCopy.mutate()}>
+                Redo
+              </Button>
+            </div>
           )}
           {!asset.locked &&
             id !== null &&
@@ -406,9 +429,9 @@ export function AssetCard({
                 Make its look in Cast &amp; places
               </Link>
             )}
-          {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error ?? copy.error ?? approveCopy.error) && (
+          {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error ?? copy.error ?? approveCopy.error ?? drawCopy.error) && (
             <p role="alert" className={errorClass}>
-              {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error ?? copy.error ?? approveCopy.error)!.message}
+              {(choose.error ?? makeLook.error ?? approve.error ?? redraw.error ?? remove.error ?? copy.error ?? approveCopy.error ?? drawCopy.error)!.message}
             </p>
           )}
         </div>
