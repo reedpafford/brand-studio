@@ -116,16 +116,18 @@ def test_a_still_with_no_picture_says_so_and_can_be_made_again(app, db, owner):
 def test_real_samples_on_the_test_site_go_real_until_the_budget(app, db, owner, monkeypatch):
     """Reed, 2026-10-29: with the stand-ins on, only a look's sample goes to real Replicate
     (still, then its clip), and only while it fits the test budget; nothing is sent here."""
+    from app import providers as lanes
     from app.providers import REAL_SAMPLES, get_providers, samples_on
     from app.settings import Settings
     from app.steps import save_step_result
 
+    real = object()  # a stub: a real provider is never built in tests (the proxy adds a key)
+    monkeypatch.setattr(lanes, "_replicate", lambda settings: real)
     monkeypatch.setenv("REPLICATE_API_TOKEN", "test-token")
     assert not samples_on(Settings(fake_providers=True))  # off until switched on
     assert not samples_on(Settings(real_look_samples=True))  # live: everything is real anyway
-    on = Settings(fake_providers=True, real_look_samples=True)
-    providers = get_providers(on)
-    assert providers[REAL_SAMPLES].paid and not providers["replicate"].paid  # the rest: stand-ins
+    providers = get_providers(Settings(fake_providers=True, real_look_samples=True))
+    assert providers[REAL_SAMPLES] is real and not providers["replicate"].paid  # rest: stand-ins
 
     settings = app.state.settings
     settings.fake_providers, settings.real_look_samples = True, True
