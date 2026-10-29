@@ -276,7 +276,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
     // Undo puts the scenes back, not an approval: the plan waits for Approve again, and the toast says so.
     save.mutate(next, {
       // #893 refuses a ★ with nothing to show (409): its sentence shows with the way to add a product, and nothing is said saved.
-      onError: (e) => { if ((e as Error & { status?: number }).status === 409) setNoProduct(e.message); },
+      onError: (e) => setNoProduct((e as Error & { status?: number }).status === 409 ? e.message : null), // a later, different refusal isn't hidden
       onSuccess: (saved) => {
         // A ★ is kept only when the brand has a product to show (QA-2): only what was saved is said.
         const kept = starred(saved?.scenes ?? next);
@@ -329,7 +329,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
       {noProduct && (
         <p role="alert" className="text-sm text-warning">
           {noProduct}{" "}
-          {brandId && <Link className="underline" to={`/b/${brandId}/brand?tab=products`}>Add a product to the brand</Link>}
+          {brandId && <Link className="underline" to={`/b/${brandId}/brand`}>Add a product or screen to the brand</Link>}
         </p>
       )}
       <ul className="grid gap-3 [&>li]:min-w-0">
