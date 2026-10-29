@@ -315,3 +315,20 @@ def test_lyrics_too_long_for_the_cap_say_how_many_lines_to_keep(app, owner, song
     assert owner.put(song, json={"text": long, "style_line": "pop"}).status_code == 200
     body = owner.get(f"{song}/songs").json()
     assert body["video_estimate_credits"] > 729 and 0 < body["keep_lines"] < 160
+
+
+def test_a_reply_with_one_song_keeps_it_and_asks_again_free(app, db, owner, song):
+    from app.models.jobs import Job
+
+    _style(owner, song, "pop fake:one-song")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    kept, missing = owner.get(f"{song}/songs").json()["takes"]
+    assert (kept["status"], missing["status"]) == ("ready", "failed")
+    assert owner.post(f"/songs/{missing['id']}/try-again").status_code == 200
+    again = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
+    assert again.credits == 0  # the first request was charged for both songs
+    _work(app, db)
+    takes = owner.get(f"{song}/songs").json()["takes"]
+    assert [t["id"] for t in takes] == [kept["id"], missing["id"]]
+    assert takes[0]["file_id"] == kept["file_id"]  # the song that came stays
