@@ -90,7 +90,7 @@ test("CTA lines: deleting the Default says which line is Default now, with Undo;
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1/cta-lines/b")?.body).toEqual({ default: true }));
   await userEvent.type(screen.getByLabelText("Add a line"), "Link in bio.");
   await userEvent.click(screen.getByRole("button", { name: "Add line" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/cta-lines")?.body).toEqual({ text: "Link in bio." }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/cta-lines")?.body).toEqual({ text: "Link in bio.", default: false }));
 });
 
 test("no CTA line left: the Advice says videos end without one", async () => {

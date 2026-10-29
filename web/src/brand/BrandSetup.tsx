@@ -1,42 +1,22 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Star, Trash2, X } from "lucide-react";
-import { api } from "../api/client";
+import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Button, Card, Field, Select } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
 /** Brand setup (flows BR1; Builder-Server-7's #910): the brand's voice, CTA lines and defaults. */
-export type CtaLine = { id: string; text: string; default: boolean };
-export type CastPick = { id: number; name: string; deleted: boolean };
-export type Setup = {
-  audience: string;
-  do_list: string[];
-  dont_list: string[];
-  music_style: string;
-  default_language: string;
-  default_look: string;
-  default_cast: number[];
-  cta_lines: CtaLine[];
-  cast: CastPick[];
-  advice: string[];
-};
+export type CtaLine = components["schemas"]["CtaLine"];
+export type CastPick = components["schemas"]["CastPick"];
 type Brand = components["schemas"]["BrandOut"];
 
-/** The server has brand setup when the brand carries its CTA lines; until then the page stays as it was. */
-export const setupOf = (b: Brand) => ("cta_lines" in b ? (b as Brand & Setup) : null);
+/** The server has brand setup when the brand carries its CTA lines (#910); without them the page stays as it was. */
+export const setupOf = (b: Brand) => ("cta_lines" in b ? (b as Required<Brand>) : null);
 
 export const OWNER_ONLY = "Only the owner changes the brand.";
 export const LANGUAGES: Record<string, string> = { en: "English" }; // more once the server lists the tested ones
-
-// The CTA routes are Builder-Server-7's #910; until they are in the generated schema they are called with fetch.
-async function call<T>(method: "POST" | "PATCH" | "DELETE", path: string, body?: object): Promise<T> {
-  const r = await fetch(`${location.origin}/api${path}`, { method, credentials: "include", ...(body ? { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } } : {}) });
-  const data = await r.json().catch(() => null);
-  if (!r.ok) throw new Error(typeof data?.detail === "string" ? data.detail : "That didn't go through. Nothing changed; try again.");
-  return data as T;
-}
 
 /** CTA lines: several, one marked Default; each change saves at once, and every delete has Undo (BR1). Read only for editors. */
 export function CtaLines({ brandId, lines, advice, owner }: { brandId: number; lines: CtaLine[]; advice: string[]; owner: boolean }) {
@@ -44,16 +24,17 @@ export function CtaLines({ brandId, lines, advice, owner }: { brandId: number; l
   const toast = useToast();
   const [text, setText] = useState("");
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
-  const base = `/brands/${brandId}/cta-lines`;
+  const path = { brand_id: brandId };
+  const line = (line_id: string) => ({ params: { path: { ...path, line_id } } });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["brands"] });
-  const add = useMutation({ mutationFn: () => call("POST", base, { text: text.trim() }), onSuccess: () => { setText(""); return refresh(); } });
-  const edit = useMutation({ mutationFn: (v: { id: string; text?: string; default?: boolean }) => call("PATCH", `${base}/${v.id}`, { text: v.text, default: v.default }), onSuccess: () => { setEditing(null); return refresh(); } });
+  const add = useMutation({ mutationFn: () => must(api.POST("/brands/{brand_id}/cta-lines", { params: { path }, body: { text: text.trim(), default: false } })), onSuccess: () => { setText(""); return refresh(); } });
+  const edit = useMutation({ mutationFn: (v: { id: string; text?: string; default?: boolean }) => must(api.PATCH("/brands/{brand_id}/cta-lines/{line_id}", { ...line(v.id), body: { text: v.text, default: v.default } })), onSuccess: () => { setEditing(null); return refresh(); } });
   const remove = useMutation({
-    mutationFn: (line: CtaLine) => call<{ promoted_id: string | null }>("DELETE", `${base}/${line.id}`),
-    onSuccess: async (r, line) => {
+    mutationFn: async (l: CtaLine) => (await must(api.DELETE("/brands/{brand_id}/cta-lines/{line_id}", line(l.id)))).data!,
+    onSuccess: async (r, l) => {
       await refresh();
-      const next = lines.find((l) => l.id === r.promoted_id);
-      const undo = () => void call("POST", `${base}/${line.id}/restore`).then(refresh, (e: Error) => toast(e.message, undefined, "error"));
+      const next = lines.find((x) => x.id === r.promoted_id);
+      const undo = () => void must(api.POST("/brands/{brand_id}/cta-lines/{line_id}/restore", line(l.id))).then(refresh, (e: Error) => toast(e.message, undefined, "error"));
       toast(next ? `Deleted. "${next.text}" is now the Default.` : "Deleted.", undo);
     },
   });
