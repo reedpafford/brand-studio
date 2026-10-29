@@ -165,3 +165,28 @@ def test_go_back_to_an_earlier_clip_prompt_with_undo(app, db, editor, setup, cli
     assert listed()["take_stale"] is True  # its take was made from the other version
     undo = editor.post(f"{url}/versions/1/use").json()  # Undo
     assert undo["prompt"] == edited and listed()["take_stale"] is False
+
+
+def test_go_back_to_an_earlier_breakdown_with_undo(app, db, editor, setup):  # noqa: F811
+    url, frame = _frame(app, db, editor, setup)
+    base = f"/projects/{setup['project']}/breakdown"
+    first = editor.get(base).json()
+    edited = {**first["breakdown"], "hook": "A new hook."}
+    second = editor.put(base, json=edited).json()
+    stale = lambda: next(f for f in editor.get(url).json() if f["clip_id"] == frame.clip_id)[  # noqa: E731
+        "stale"
+    ]
+    assert stale()  # its frame was made for the first breakdown
+
+    shown = editor.get(f"{base}/versions").json()
+    assert [(v["id"], v["current"]) for v in shown] == [(second["id"], True), (first["id"], False)]
+    assert shown[0]["made_by"]["name"] and shown[0]["source"] == "edit"
+    assert editor.post(f"{base}/versions/{second['id']}/use").status_code == 409  # in use
+    assert editor.post(f"{base}/versions/999/use").status_code == 404
+
+    back = editor.post(f"{base}/versions/{first['id']}/use").json()  # Go back to this: free
+    assert back["breakdown"]["hook"] == first["breakdown"]["hook"]
+    assert back["was_id"] == second["id"] and back["id"] > second["id"]  # history only grows
+    assert not stale()  # made for the one gone back to: current again, nothing to redo
+    undo = editor.post(f"{base}/versions/{back['was_id']}/use").json()
+    assert undo["breakdown"]["hook"] == "A new hook." and stale()
