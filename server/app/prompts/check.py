@@ -995,7 +995,7 @@ def without_names(result: SongDirections, sounds_like: str) -> list[str]:
     notes = []
     for n, d in enumerate(result.directions, 1):
         d.style_line, taken = strip_names(d.style_line, sounds_like)
-        notes += [f"{ADVICE}direction {n}: took “{name}” out of the style line "
+        notes += [f"{ADVICE}direction {n}: took “{name}” out of the music style "
                   "(the music service refuses names)" for name in taken]  # fmt: skip
     return notes
 
@@ -1057,12 +1057,12 @@ def song_directions(
             problems.append(f"direction {n} has no lyrics")
             continue
         if len(d.style_line.split()) > 25:
-            problems.append(f"{ADVICE}direction {n}: the style line is over 25 words")
+            problems.append(f"{ADVICE}direction {n}: the music style is over 25 words")
         if not says_brand(sung[-1], brand):
             problems.append(f"{ADVICE}direction {n}: {NO_CTA}")
         if named := [x for x in names if f" {_words(x)} " in f" {_words(d.style_line)} "]:
             problems.append(
-                f"{ADVICE}direction {n}: the style line names “{named[0]}”; the music service "
+                f"{ADVICE}direction {n}: the music style names “{named[0]}”; the music service "
                 "refuses artist and song names, so describe the sound instead"
             )
         words, short, long = sung_length(d.lyrics)
