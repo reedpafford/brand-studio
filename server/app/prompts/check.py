@@ -939,11 +939,30 @@ def without_names(result: SongDirections, sounds_like: str) -> list[str]:
     return notes
 
 
+def copied_lines(result: SongDirections, study: dict | None) -> list[str]:
+    """A direction's line that repeats a line of the song-ad study, word for word or nearly
+    (flows S3a: the study is someone else's song). A fix: the directions are written again."""
+    theirs = [_words(str(t)) for x in (study or {}).get("sections", [])
+              for t in (x.get("lines") if isinstance(x.get("lines"), list) else [])]  # fmt: skip
+    theirs = [t for t in theirs if len(t.split()) >= 4]
+    problems = []
+    for n, d in enumerate(result.directions, 1):
+        for line in sung_lines(d.lyrics):
+            mine = _words(line)
+            if len(mine.split()) >= 4 and any(_close(mine, t) for t in theirs):
+                problems.append(f"direction {n}: “{line}” repeats a line of the reference song")
+    return problems
+
+
 def song_directions(
-    result: SongDirections, brand: str, seconds: int | None = None, sounds_like: str = ""
+    result: SongDirections,
+    brand: str,
+    seconds: int | None = None,
+    sounds_like: str = "",
+    study: dict | None = None,
 ) -> list[str]:
     names = _names(sounds_like)
-    problems = []
+    problems = copied_lines(result, study)
     if len(result.directions) != 2:
         problems.append(f"{len(result.directions)} directions; write exactly 2")
     for n, d in enumerate(result.directions, 1):

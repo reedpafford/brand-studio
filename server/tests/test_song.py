@@ -221,3 +221,42 @@ def test_the_prompts_carry_what_made_reeds_song_ads_good():
                  "never gross", "at four moments", "16 s at most"):  # fmt: skip
         assert part in breakdown, part
     assert "## Style:" not in prompts.system("breakdown")  # story breakdowns untouched
+
+
+STUDY = {
+    "seconds": 128.0,
+    "bpm": 97.6,
+    "sections": [
+        {
+            "name": "Hook",
+            "start": 0.0,
+            "end": 9.0,
+            "lines": [
+                "Scratching all night, that's my belly crying out",
+                "Licking my paws, that's my belly crying out",
+            ],
+        },
+        {"name": "Verse", "start": 9.0, "end": 30.0, "lines": ["You fed me chicken every day"]},
+    ],  # fmt: skip
+    "words": [{"word": "Scratching", "start": 0.1, "end": 0.6}],
+}
+
+
+def test_a_song_ad_study_guides_the_shape_and_its_lines_are_never_reused():
+    """flows S3a: the study gives the structure, section lengths, pace and tempo; its words
+    are someone else's song."""
+    block = prompts.song_study_block(STUDY)
+    assert block.startswith("A song ad that works: 2:08 long, about 98 BPM.")
+    assert "- 0–9 s Hook: 2 lines, 16 words" in block
+    assert "  | Scratching all night, that's my belly crying out" in block
+    assert "Scratching" in block and "0.6" not in block  # its words' times stay out
+    text = prompts.system("song_directions")
+    assert "no line of yours repeats one of its lines" in text and "about 98 BPM" in text
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    assert check.song_directions(result, "Iron Paws", 30, study=STUDY) == []
+    result.directions[1].lyrics += "\n[Bridge]\nScratching all night, that's my belly crying out"
+    problems = check.song_directions(result, "Iron Paws", 30, study=STUDY)
+    assert ("direction 2: “Scratching all night, that's my belly crying out” repeats a line of "
+            "the reference song") in problems  # fmt: skip
+    assert not problems[0].startswith("Advice: ")  # a fix: written again
