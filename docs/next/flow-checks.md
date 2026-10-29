@@ -59,7 +59,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | V2a | Once #783 merges, #781 should show Delete on both of a video's own takes (today one is hidden as an interim) | Re-check after #783 | #781 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Usage (live today, small) | With 25+ brands the list pages at 25 + Show more; with "Show archived" ticked, a just-archived brand can sit behind Show more (reachable, not a dead end) | Archived first when shown | 10+ brands check |
-| V2a effects | A song switch carries every clip over as current and approved (old lengths, old Sung slices); flows.md and #781's confirm say they go out of date | Clips whose song range changed stay stale; final video Out of date | #799 at 1a1ac61e |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -129,4 +128,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #794 at dc146653 (song pilot follow-ups) | Story prompts identical; 32 tests; sounds-like handling | PASS (note: the artist name in the style is Advice, better as a fix) |
 | 2026-10-29 | #799 at 1a1ac61e (song timing, re-flow) | Re-flow free; Undo exact (7/7); effect on clips | FAIL: clips not marked out of date after a song switch |
 | 2026-10-29 | #802 at db5c0c58 (video takes never Preferred) | V2a API cases | PASS (6/6); #799 at dc121c63 still has the clips-not-out-of-date FAIL |
+| 2026-10-29 | #799 at 51f7525e (re-flow by the line clock; old clips out of date) | A to B to A three times: times exact each round; clips made on A are Out of date on B and current again after Undo; a clip made on B is Out of date back on A; Timing guessed shown; 765 server tests, ruff | PASS |
+| 2026-10-29 | #800 at its head (data.md: song part beside the plan) | Matches #799 | PASS (note: between lines an edge is placed by share, not always on a word edge) |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
