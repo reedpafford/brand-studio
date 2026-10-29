@@ -111,3 +111,34 @@ def test_a_still_with_no_picture_says_so_and_can_be_made_again(app, db, owner):
     assert (shown["status"], shown["reason"]) == ("failed", look_samples.NO_STILL)
     assert owner.post("/looks/zack-d/sample", json={"brand_id": brand}).status_code == 201
     assert db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).count() == 2
+
+
+def test_real_samples_on_the_test_site_go_real_until_the_budget(app, db, owner, monkeypatch):
+    """Reed, 2026-10-29: with the stand-ins on, only a look's sample goes to real Replicate
+    (still, then its clip), and only while it fits the test budget; nothing is sent here."""
+    from app.providers import REAL_SAMPLES, get_providers, samples_on
+    from app.settings import Settings
+    from app.steps import save_step_result
+
+    monkeypatch.setenv("REPLICATE_API_TOKEN", "test-token")
+    assert not samples_on(Settings(fake_providers=True))  # off until switched on
+    assert not samples_on(Settings(real_look_samples=True))  # live: everything is real anyway
+    on = Settings(fake_providers=True, real_look_samples=True)
+    providers = get_providers(on)
+    assert providers[REAL_SAMPLES].paid and not providers["replicate"].paid  # the rest: stand-ins
+
+    settings = app.state.settings
+    settings.fake_providers, settings.real_look_samples = True, True
+    settings.look_samples_budget_usd = 0.6  # one sample (a still and a 5 s clip, about $0.55)
+    brand = _brand(owner)
+    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    still = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
+    assert still.provider == REAL_SAMPLES
+    still.status, still.output = "succeeded", {"file_ids": [upload(owner)]}
+    save_step_result(db, still)
+    db.commit()
+    clip = db.query(Job).filter(Job.input["step"].as_string() == look_samples.CLIP).one()
+    assert clip.provider == REAL_SAMPLES  # the clip follows its still, already paid for
+    owner.post("/looks/skeleton/sample", json={"brand_id": brand})  # past the budget
+    newest = db.query(Job).order_by(Job.id.desc()).first()
+    assert newest.input["look_id"] == "skeleton" and newest.provider == "replicate"  # stand-in

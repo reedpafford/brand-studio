@@ -3,7 +3,7 @@ owner's switch. Rules: app/looks.py."""
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -118,10 +118,14 @@ def sample(
 @router.post("/{look_id}/sample", response_model=SampleOut, status_code=201,
              dependencies=[Depends(generation_on)])  # fmt: skip
 def make_sample(
-    look_id: str, body: SampleIn, owner: User = Depends(owner_only), db: Session = Depends(get_db)
+    look_id: str,
+    body: SampleIn,
+    request: Request,
+    owner: User = Depends(owner_only),
+    db: Session = Depends(get_db),
 ):
     """Make a sample (paid: one still, then a 5 s clip from it); again replaces it."""
     looks.get(look_id)
     brand = get_brand(db, owner, body.brand_id)
-    look_samples.make(db, owner, look_id, brand, body.character_id)
+    look_samples.make(db, owner, look_id, brand, body.character_id, request.app.state.settings)
     return _sample(db, owner, look_id, brand.id)

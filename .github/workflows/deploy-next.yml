@@ -7,6 +7,9 @@ name: deploy-next
 # Real Suno songs through KIE (Reed, 2026-10-29: test site only, with a test budget): set repo
 # variable NEXT_KIE_SUNO to true and NEXT_KIE_BUDGET_USD to the budget, with the KIE_API_KEY
 # secret. Everything else stays on the stand-ins.
+# Real look samples (Reed, 2026-10-29: test site only, with a test budget): set repo variable
+# NEXT_REAL_LOOK_SAMPLES to true and NEXT_LOOK_SAMPLES_BUDGET_USD to the budget; they use the
+# REPLICATE_API_TOKEN secret. Only a look's sample (still and 5 s clip) goes real.
 on:
   push:
     branches: [next]
@@ -70,15 +73,18 @@ jobs:
           FAKE: ${{ vars.NEXT_FAKE_PROVIDERS || 'true' }}
           GENERATION: ${{ vars.NEXT_GENERATION_ENABLED || 'false' }}
           # Keys travel only when the stand-ins are switched off for an approved paid test.
-          REPLICATE: ${{ vars.NEXT_FAKE_PROVIDERS == 'false' && secrets.REPLICATE_API_TOKEN || '' }}
+          REPLICATE: ${{ (vars.NEXT_FAKE_PROVIDERS == 'false' || vars.NEXT_REAL_LOOK_SAMPLES == 'true') && secrets.REPLICATE_API_TOKEN || '' }}
           ANTHROPIC: ${{ vars.NEXT_FAKE_PROVIDERS == 'false' && secrets.STUDIO_ANTHROPIC_KEY || '' }}
           # Real songs: the key travels only while NEXT_KIE_SUNO is true.
           KIE: ${{ vars.NEXT_KIE_SUNO == 'true' && secrets.KIE_API_KEY || '' }}
           KIE_BUDGET: ${{ vars.NEXT_KIE_BUDGET_USD || '0' }}
           KIE_HOSTS: ${{ vars.NEXT_KIE_DELIVERY_HOSTS || '' }}
+          # Real look samples: the Replicate key travels only while this is true.
+          LOOK_SAMPLES: ${{ vars.NEXT_REAL_LOOK_SAMPLES || 'false' }}
+          LOOK_BUDGET: ${{ vars.NEXT_LOOK_SAMPLES_BUDGET_USD || '0' }}
         run: |
           {
-            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS; do
+            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET; do
               printf 'export %s=%q\n' "$name" "${!name}"
             done
             cat deploy/next/remote-deploy.sh
