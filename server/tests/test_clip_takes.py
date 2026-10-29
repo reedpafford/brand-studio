@@ -75,7 +75,12 @@ def clip(app, db, editor, setup):  # noqa: F811
 def _work(app, db, fake):
     client = httpx.Client(transport=httpx.MockTransport(fake))
     for _ in range(2):
-        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+        run_once(
+            db,
+            {"replicate": ReplicateProvider(BASE, client)},
+            app.state.storage,
+            only={"replicate"},
+        )  # the video lane, as live: Claude's jobs wait for theirs
 
 
 def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F811
@@ -248,18 +253,22 @@ def test_a_copyright_refusal_says_what_to_do_and_warns_after_two(app, db, editor
     url = f"/projects/{setup['project']}/clips/{clip['id']}"
     before = credits_used(db, db.get(Project, setup["project"]))
     editor.post(f"{url}/generate")
-    _work(app, db, Refusing([]))
-    jobs = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
-    assert jobs[0]["error"] == (
-        "The video model thinks this clip looks too much like someone else's character or "
-        "video. Try another look for Mom, or use Change this… on the opening shot. "
-        "Nothing was charged."
+    _work(app, db, Refusing([]))  # refused: tried again once on its own (P3)
+    assert editor.get(f"/projects/{setup['project']}/clips").json()[0]["retrying"] == "refused"
+    _work(app, db, Refusing([]))  # refused again: nothing more runs on its own
+    retry, first = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
+    assert (retry["auto"], retry["retry_of_id"], first["auto"]) == (True, first["id"], False)
+    assert (
+        retry["error"]
+        == first["error"]
+        == (
+            "The video model thinks this clip looks too much like someone else's character or "
+            "video. Try another look for Mom, or use Change this… on the opening shot. "
+            "Nothing was charged."
+        )
     )  # never "Ask the owner"
     shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
-    assert shown["take_warning"] is None  # one refusal: no warning yet
-    editor.post(f"{url}/generate")
-    _work(app, db, Refusing([]))
-    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
+    assert shown["retrying"] is None
     assert shown["take_warning"].startswith("The last two takes of this clip were refused")
     assert credits_used(db, db.get(Project, setup["project"])) == before  # refused takes: free
 
@@ -275,20 +284,30 @@ class Busy(FakeSeedance):
         return super().__call__(request)
 
 
-def test_a_busy_service_says_to_try_again_never_ask_the_owner(app, db, editor, setup, clip):  # noqa: F811
+def test_a_busy_service_waits_then_tries_once_more_on_its_own(app, db, editor, setup, clip):  # noqa: F811
     from app.credits import credits_used
     from app.models.projects import Project
 
     url = f"/projects/{setup['project']}/clips/{clip['id']}"
-    before = credits_used(db, db.get(Project, setup["project"]))
+    project = db.get(Project, setup["project"])
+    before = credits_used(db, project)
     editor.post(f"{url}/generate")
+    price = credits_used(db, project) - before
+    _work(app, db, Busy([]))
+    retry = db.query(Job).filter(Job.auto.is_(True)).one()
+    assert retry.status == "queued" and "wait_until" in retry.input  # a short wait first
+    assert editor.get(f"/projects/{setup['project']}/clips").json()[0]["retrying"] == "busy"
+    assert credits_used(db, project) == before + price  # held once, not twice
+    retry.input = {**retry.input, "wait_until": ""}
+    db.commit()
     _work(app, db, Busy([]))
     jobs = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
+    assert [j["status"] for j in jobs] == ["failed", "failed"]  # never a second retry
     assert jobs[0]["error"] == (
         "The video service was busy and couldn't finish this. Nothing was charged; press "
         "Make clip to try again."
     )
-    assert credits_used(db, db.get(Project, setup["project"])) == before
+    assert credits_used(db, project) == before  # both failed: the credits come back
 
 
 class Flagged(FakeSeedance):
@@ -332,10 +351,12 @@ def test_a_moderation_refusal_says_why_and_offers_a_free_reword(app, db, editor,
         "The video model refused this prompt: it read it as sexual. Keep the story and the "
         "spoken lines; remove what reads as sexual."
     ]
-    assert shown["free_fix_used"] is False  # one free press: Fix this clip's prompt
+    # P3: the free reword runs on its own (the press finds it), then the one retry
+    assert (shown["free_fix_used"], shown["retrying"]) == (True, "refused")
     again = editor.post(f"{url}/generate")
     assert again.status_code == 409  # never the same prompt again
     fix = editor.post(f"{url}/fix").json()
+    assert db.get(Job, fix["job"]["id"]).input["then_take"] == job["id"]
     queued = db.get(Job, fix["job"]["id"])
     assert "remove what reads as sexual" in queued.input["prompt"] and fix["job"]["credits"] == 0
     assert credits_used(db, db.get(Project, setup["project"])) == before
@@ -346,18 +367,63 @@ def test_a_moderation_refusal_says_why_and_offers_a_free_reword(app, db, editor,
     assert editor.put(url, json=body).json()["problems"] == []  # new words: the refusal goes
 
 
-def test_a_take_flagged_sensitive_can_be_made_again_then_reworded(app, db, editor, setup, clip):  # noqa: F811
+def test_a_reworded_refusal_is_made_again_on_its_own_once(app, db, editor, setup, clip):  # noqa: F811
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    editor.post(f"{url}/generate")
+    _work(app, db, Flagged([]))
+    mom = int(clip["references"][0]["id"].split(":")[1])
+    reworded = clip["prompt"].replace("Close-up, push in.", "Close-up.")
+    _run(app, db, FakeClaude(_answer(mom, setup["screen"], reworded)))  # the free reword lands
+    retry = db.query(Job).filter(Job.auto.is_(True)).one()
+    assert retry.input["clip_prompt"] == reworded and retry.input["step"] == "clip_take"
+    _work(app, db, FakeSeedance([_mp4("red")]))
+    (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
+    assert len(shown["takes"]) == 1 and shown["retrying"] is None
+
+
+def test_a_take_flagged_sensitive_is_made_again_on_its_own_then_reworded(
+    app, db, editor, setup, clip
+):  # noqa: F811, E501
     from app.clip_takes import SENSITIVE
 
     url = f"/projects/{setup['project']}/clips/{clip['id']}"
     clips = f"/projects/{setup['project']}/clips"
     editor.post(f"{url}/generate")
+    _work(app, db, Sensitive([]))  # at random: made again on its own, as it is
+    assert editor.get(clips).json()[0]["problems"] == []
     _work(app, db, Sensitive([]))
-    assert [j["error"] for j in editor.get("/jobs").json() if j["kind"] == "video"] == [SENSITIVE]
-    assert editor.get(clips).json()[0]["problems"] == []  # at random: making it again is fair
-    assert editor.post(f"{url}/generate").status_code == 201
-    _work(app, db, Sensitive([]))
+    jobs = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
+    assert [j["error"] for j in jobs] == [SENSITIVE, SENSITIVE] and jobs[0]["auto"]
     (shown,) = editor.get(clips).json()  # it keeps failing: Reword it to pass
     assert shown["problems"][0].startswith("The video model refused this prompt: it read it as "
                                            "sensitive.")  # fmt: skip
     assert shown["free_fix_used"] is False and editor.post(f"{url}/generate").status_code == 409
+
+
+def test_wording_flags_fix_themselves_with_undo(app, db, editor, setup, clip):  # noqa: F811
+    clips = f"/projects/{setup['project']}/clips"
+    url = f"{clips}/{clip['id']}"
+    flagged = clip["prompt"].replace("Summary: ", "Summary: Vertical 9:16, 480p. ")
+    editor.put(url, json={"prompt": flagged, "references": clip["references"]})
+    (shown,) = editor.get(clips).json()  # fixed in code when Clips opens, free
+    assert shown["prompt"] == clip["prompt"].replace("Summary: ", "Summary: Vertical. ")
+    assert shown["auto_fix"] == {"fixed": ['removed "9:16"', 'removed "480p"'], "undone": False}
+    assert shown["problems"] == []
+    undone = editor.post(f"{url}/auto-fix/undo").json()
+    assert undone["prompt"] == flagged and undone["auto_fix"]["undone"] is True
+    assert undone["problems"] == ["Advice: Writes aspect or resolution (those are settings)"]
+    (shown,) = editor.get(clips).json()  # their words stay, as Advice: never a block
+    assert shown["prompt"] == flagged and shown["problems"] == undone["problems"]
+    assert editor.post(f"{url}/auto-fix/undo").status_code == 409
+    assert editor.post(f"{url}/generate").status_code == 201
+
+
+def test_reword_never_touches_the_spoken_words():
+    from app.clip_prompts import reword
+
+    prompt = ('Shot 1 | 0-2 s. Mom says no and Dad refuses. No one speaks.\n'
+              'Shot 2 | 2-4 s. Mom says "Say it in 9:16, I refuse."')  # fmt: skip
+    fixed, said = reword(prompt)
+    assert fixed == ('Shot 1 | 0-2 s. Mom gestures no and Dad waves it off. No one speaks.\n'
+                     'Shot 2 | 2-4 s. Mom says "Say it in 9:16, I refuse."')  # fmt: skip
+    assert said == ['changed "says" to "gestures"', 'changed "refuses" to "waves it off"']

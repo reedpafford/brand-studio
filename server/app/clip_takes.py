@@ -1,9 +1,11 @@
 """Generating a project's clips (Seedance, one take per run) and stitching the picked takes
 into the finished video (ffmpeg, free)."""
 
+import logging
 import re
 import subprocess
 import tempfile
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -11,10 +13,12 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.advice import names
+from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets
-from app.credits import estimate
+from app.credits import estimate, fits
+from app.db import utcnow
+from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus
@@ -24,6 +28,7 @@ from app.references import LONG_SIDE
 from app.sheets import require_cast_sheets, require_looks, require_sheet
 from app.storyboard import say_logo
 
+log = logging.getLogger(__name__)
 RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
 KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "reference_audios"}
 
@@ -150,6 +155,92 @@ def refused(db: Session, job: Job) -> None:
     lead = item.name if item else "the main character"
     job.error = (f"{REFUSED} Try another look for {lead}, or use Change this… on the opening "
                  "shot. Nothing was charged.")  # fmt: skip
+
+
+BUSY_SAID = re.compile(r"service is (temporarily|currently) unavailable|^No answer within", re.I)
+RETRY_WAIT = timedelta(seconds=30)  # a busy service gets a moment before the one retry
+WAITING = ("queued", "running", "needs_owner_approval")
+
+
+def why_failed(job: Job) -> str:
+    """ "busy" (the service was busy or didn't answer), "refused" (its content check or
+    copyright refusal: never charged), or "" for anything else."""
+    detail = job.error_detail or ""
+    if BUSY_SAID.search(detail):
+        return "busy"
+    return "refused" if moderated(detail) or "copyright" in detail.lower() else ""
+
+
+def retry(db: Session, job: Job) -> None:
+    """P3 (flows.md 1b): a take refused or not finished because the service was busy is
+    tried again once on its own. A busy service gets a short wait; a refusal read as
+    something ("flagged for: sexual") is reworded first by the free fix, then retried
+    (`after_fix`). Never a second automatic retry, never on a video that's gone, and never
+    past the video's limit, budget or the editor's week. The failed take isn't counted, so
+    the credits are held once and come back if the retry fails too."""
+    from app.clip_prompts import fix_job, is_stale, newest
+
+    why = why_failed(job)
+    if job.auto or not why or job.input.get("discard") or not job.project_id:
+        return
+    if db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
+        return
+    project = db.get(Project, job.project_id)
+    row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+    if not row or project.archived_at is not None or row.prompt != job.input.get("clip_prompt"):
+        return
+    term = moderated(job.error_detail or "")
+    if why == "refused" and term and term != "sensitive":
+        if row.free_fix_used or is_stale(db, row, newest(db, project)):
+            return
+        user = db.get(User, job.created_by_id)
+        fix = fix_job(db, user, project, row, stops(row))
+        fix.input = {**fix.input, "then_take": job.id}
+        row.free_fix_used = True
+        return
+    _again(db, job, job.input, wait=why == "busy")
+
+
+def after_fix(db: Session, row: ProjectClip, failed_id: int) -> None:
+    """The free rewording of a refused take landed: its one retry, from the new prompt, if
+    nothing else stops it."""
+    failed = db.get(Job, failed_id)
+    project = db.get(Project, row.project_id)
+    if not failed or stops(row) or project.archived_at is not None:
+        return
+    if db.scalar(select(Job.id).where(Job.retry_of_id == failed.id)):
+        return
+    try:
+        again = take_input(db, project, row)
+    except HTTPException as exc:  # e.g. a look unapproved since: the editor decides
+        log.info("clip %s: no automatic retry: %s", row.id, exc.detail)
+        return
+    _again(db, failed, again, wait=False)
+
+
+def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
+    project = db.get(Project, job.project_id)
+    user = db.get(User, job.created_by_id)
+    if not user or fits(db, project, user, job.credits):
+        return  # it would go over: nothing more runs on its own
+    if wait:
+        data = {**data, "wait_until": (utcnow() + RETRY_WAIT).isoformat()}
+    db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
+               provider=job.provider, input=data, project_id=job.project_id,
+               brand_id=job.brand_id, credits=job.credits, approved_by_id=job.approved_by_id,
+               status="queued", retry_of_id=job.id, auto=True))  # fmt: skip
+    db.flush()
+
+
+def retrying(db: Session, row: ProjectClip) -> str | None:
+    """Why this clip's take is being tried again on its own ("refused" or "busy"), while it is."""
+    jobs = db.scalars(select(Job).where(Job.project_id == row.project_id, Job.status.in_(WAITING)))
+    for j in jobs:
+        if j.auto and j.input.get("project_clip_id") == row.id:
+            return why_failed(db.get(Job, j.retry_of_id)) or None
+        if j.input.get("then_take") and j.input.get("clip_ids") == [row.clip_id]:
+            return "refused"
+    return None
 
 
 def take_warning(db: Session, row: ProjectClip) -> str | None:

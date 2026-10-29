@@ -324,7 +324,9 @@ def start_next(
     if not allow_paid:
         paid = [name for name, p in providers.items() if p.paid]
         query = query.where(Job.provider.not_in(paid))
-    job = db.scalar(query.order_by(Job.id).limit(1))
+    now = utcnow().isoformat()  # an automatic retry after a busy service waits a moment (P3)
+    job = next((j for j in db.scalars(query.order_by(Job.id))
+                if (j.input or {}).get("wait_until", "") <= now), None)  # fmt: skip
     if not job:
         return False
     if not _move(
