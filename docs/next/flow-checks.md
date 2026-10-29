@@ -331,3 +331,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #964 Owner-or-maker check on every video write (server) | 4eaf08ea | FAIL until the screens follow: maker flows pass (61/61); a second editor sees live presses that all get 403 |
 | 2026-10-29 | #965 Make this version's price line (VS1) | 4006096e | PASS: a Disney Pixar pick adds the look Mia needs (14.73, as VS1); {} equals the card |
 | 2026-10-29 | #967 (re-check) | eba5d522 | PASS: a test case only |
+| 2026-10-29 | #966 Media (web, OR2) | 8076c329 | PASS: rail and phone entry, Open in {step} lands on real steps, filters, empty and no-match states, editors see only their own; e2e 8/8 at 1440 and 390. Note: the maker of a deleted video gets no Restore on its tile (the server would allow it) |
