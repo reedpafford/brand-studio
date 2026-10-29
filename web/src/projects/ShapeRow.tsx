@@ -8,9 +8,9 @@ import { errorText as errorClass } from "../ui";
 const SHAPES = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
 const PLATFORMS = ["TikTok", "Instagram Reels", "YouTube Shorts", "Other"];
 
-/** Shape and where it will be posted, above the shots. Changing the shape after stills exist asks first: the stills keep their shape (nothing
+/** Shape and where it will be posted, above the shots (the shape moves to the Video settings row once the server offers it). Changing the shape after stills exist asks first: the stills keep their shape (nothing
  *  is redrawn or charged); what's made next uses the new one. */
-export function ShapeRow({ projectId, aspect, platform }: { projectId: number; aspect: string; platform: string }) {
+export function ShapeRow({ projectId, aspect, platform, shape: withShape = true }: { projectId: number; aspect: string; platform: string; shape?: boolean }) {
   const queryClient = useQueryClient();
   const frames = useFrames(projectId);
   const stills = (frames.data ?? []).filter((f) => f.file_id !== null);
@@ -29,7 +29,7 @@ export function ShapeRow({ projectId, aspect, platform }: { projectId: number; a
   };
   return (
     <div className="flex flex-wrap items-end gap-4">
-      <fieldset className="space-y-1 text-sm">
+      {withShape && <fieldset className="space-y-1 text-sm">
         <legend className="font-medium">Shape</legend>
         <div className="flex flex-wrap gap-2">
           {SHAPES.map((a) => (
@@ -38,7 +38,7 @@ export function ShapeRow({ projectId, aspect, platform }: { projectId: number; a
             </button>
           ))}
         </div>
-      </fieldset>
+      </fieldset>}
       <div className="w-56 max-w-full">
         <Select label="Where will it be posted?" value={PLATFORMS.includes(platform) ? platform : "Other"} onChange={(e) => save.mutate({ platform: e.target.value })}>
           {PLATFORMS.map((p) => (
