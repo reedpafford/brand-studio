@@ -59,7 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Owner's plan vs an older preview (#934) | Preview made before the owner's plan, plan approved, published: Make this version lands the old shots with "From Reed's plan", approved; nothing says they don't follow it | produce lands the preview only when its plan_version is the approved plan's; else the breakdown from the plan |
+| Owner's plan vs an older preview (#934) | Fixed at 90b344d5 (the old preview isn't landed; the shots film the plan), but the version still says has_breakdown, so Make this version reads "Starting is free" and charges ~3 credits | has_breakdown only when the preview follows the approved plan |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -294,3 +294,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #936 at eb32ed12 with #930 at 724e0a9d | PASS: made work in another look stays open; its paid presses wait with "Waiting on the cast" and Open Cast. Open row closed. Follow-up (not blocking): hold #921's Update everything after this on the same cast line |
 | 2026-10-29 | #937 at d997cb0b (languages list, VS1/BR1) | PASS: English on, others off; an editor's off language refused with the way on, the owner's allowed; unknown 422; brand default off → an editor's script starts in English; the check only on create |
 | 2026-10-29 | #926 at 0cf5d8af (next with #925 merged in) | PASS: settings code unchanged; its videosettings.e2e 6 passed; over the cap, switch to fit and Undo back to Auto at 1440 and 390 |
+| 2026-10-29 | #934 at 90b344d5 | The older preview no longer lands; the breakdown films the owner's plan. FAIL: its price goes unsaid ("Starting is free") (open above) |
