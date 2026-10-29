@@ -183,6 +183,16 @@ test("Usage cards say '1 version left' and '1 script' in the singular, and a bra
   expect(card.querySelector("span[aria-hidden].bg-faint")).not.toBeNull();
 });
 
+test("a finished video whose clips changed since says Finished · changes waiting in Usage, not plain Finished (#749 LW2)", async () => {
+  setViewport(390);
+  fakeServer(brandBase({ "GET /usage/brands/1/videos": [200, { total: 2, next_cursor: null, people: [], items: [video({ title: "Bo tries salmon · B", status: "done", finished_at: "2026-10-24T10:00:00Z", final_out_of_date: true }), video({ project_id: 33, title: "Bo tries cod · C", status: "done", finished_at: "2026-10-24T10:00:00Z", final_out_of_date: false })] }] }));
+  open("/usage/brands/1");
+  const changed = await screen.findByRole("link", { name: /Bo tries salmon · B/ });
+  expect(within(changed).getByText("Finished · changes waiting")).toBeInTheDocument();
+  expect(within(changed).queryByText("Finished")).toBeNull();
+  expect(within(screen.getByRole("link", { name: /Bo tries cod · C/ })).getByText("Finished")).toBeInTheDocument();
+});
+
 test("a video title doesn't double its letter when the server already put it there", async () => {
   setViewport(1440);
   fakeServer(brandBase({ "GET /usage/brands/1/videos": [200, { total: 1, next_cursor: null, people: [], items: [video({ title: "Bo tries salmon · B" })] }] }));

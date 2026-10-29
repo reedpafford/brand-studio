@@ -85,7 +85,11 @@ def test_flags_and_the_attention_order(owner, editor, db):
     assert [r["project_id"] for r in owner.get("/production?attention=true").json()] == [
         failed, stuck, idle
     ]  # fmt: skip
-    assert owner.get("/production/summary").json() == {"in_production": 4, "needs_attention": 3}
+    assert owner.get("/production/summary").json() == {
+        "in_production": 4,
+        "needs_attention": 3,
+        "changes_waiting": 0,
+    }
     page = owner.get("/production", params={"limit": 2, "offset": 1})
     assert [r["project_id"] for r in page.json()] == [stuck, idle]
     assert page.headers["x-total-count"] == "4"

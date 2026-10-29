@@ -9,6 +9,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
 import { weekStop } from "./useScript";
+import { videoCost } from "./TakesStep";
 import type { SongTake } from "./useSongs";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -38,7 +39,7 @@ function useMakeStop(p: Project, price: number | undefined): string | null {
 }
 
 /** Change song: every take this video can use, the current one marked, "Use this take" (Undo), Make 2 more, and the over-cap trim. */
-function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClose: () => void; hasShots: boolean }) {
+function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Project; onClose: () => void; hasShots: boolean; hasClips: boolean }) {
   const songs = useVideoSongs(p.id);
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -110,7 +111,7 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
                   <Card className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="type-card">Take {t.number}</h3>
-                      {length(t) != null && <span className="text-sm tabular-nums text-muted">{clock(length(t)!)}</span>}
+                      {length(t) != null && <span className="text-sm tabular-nums text-muted">{clock(length(t)!)}{videoCost(t)}</span>}
                       {inUse && <Badge tone="accent">In this video</Badge>}
                       {t.in_video && <Badge>Made in this video</Badge>}
                       {t.trim_to != null && <Badge>Uses the first {clock(t.trim_to)}</Badge>}
@@ -138,8 +139,8 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
                         Use the first {clock(t.fits_until)} · free
                       </Button>
                     )}
-                    {/* Only takes this video made can be deleted, and not the one it uses or its Preferred one (flows V2a); Undo brings it back. */}
-                    {t.in_video && !inUse && !t.preferred && t.status !== "making" && (
+                    {/* Only takes this video made can be deleted, and not the one it uses (flows V2a); Undo brings it back. */}
+                    {t.in_video && !inUse && t.status !== "making" && (
                       <Button variant="ghost" icon={Trash2} busy={remove.isPending && remove.variables?.id === t.id} onClick={() => remove.mutate(t)}>
                         Delete take
                       </Button>
@@ -164,7 +165,7 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
       )}
       {asking && (
         <Dialog title={`Use take ${asking.number}?`} cancelLabel="Not yet" actionLabel="Use it" busy={use.isPending} onCancel={() => setAsking(null)} onConfirm={() => use.mutate(asking)}>
-          The shots keep their lines and Sung marks; their times move to take {asking.number} (free).{current ? ` Clips already made for take ${current.number} go out of date.` : ""}
+          The shots keep their lines and Sung marks; their times move to take {asking.number} (free).{current && hasClips ? ` Clips already made for take ${current.number} go out of date.` : ""}
         </Dialog>
       )}
     </Panel>
@@ -172,7 +173,7 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
 }
 
 /** The video's song as one row above the shots: play, "Song: Take 2 · 0:31", Change song (flows V2a). */
-export function SongStrip({ project: p, hasShots }: { project: Project; hasShots: boolean }) {
+export function SongStrip({ project: p, hasShots, hasClips = false }: { project: Project; hasShots: boolean; hasClips?: boolean }) {
   const songs = useVideoSongs(p.id);
   const [open, setOpen] = useState(false);
   const t = songs.data?.takes.find((x) => x.id === songs.data?.song_take_id);
@@ -193,14 +194,14 @@ export function SongStrip({ project: p, hasShots }: { project: Project; hasShots
       <Button variant="secondary" icon={Music} onClick={() => setOpen(true)}>
         Change song
       </Button>
-      {open && <ChangeSong project={p} hasShots={hasShots} onClose={() => setOpen(false)} />}
+      {open && <ChangeSong project={p} hasShots={hasShots} hasClips={hasClips} onClose={() => setOpen(false)} />}
     </Card>
   );
 }
 
 /** The video's song as one inline control for the Video settings row: "Song: Take 2 · 0:31 ▾", opening Change song.
- * No frame of its own; the row gives it. Without knowing whether shots exist, Use this take always asks first. */
-export function SongSetting({ project: p, hasShots = true }: { project: Project; hasShots?: boolean }) {
+ * No frame of its own; the row gives it. Without knowing whether shots or clips exist, Use this take asks first and warns about clips. */
+export function SongSetting({ project: p, hasShots = true, hasClips = true }: { project: Project; hasShots?: boolean; hasClips?: boolean }) {
   const songs = useVideoSongs(p.id);
   const [open, setOpen] = useState(false);
   const t = songs.data?.takes.find((x) => x.id === songs.data?.song_take_id);
@@ -210,7 +211,7 @@ export function SongSetting({ project: p, hasShots = true }: { project: Project;
       <Button variant="secondary" icon={Music} trailing={ChevronDown} onClick={() => setOpen(true)} aria-haspopup="dialog">
         {label}
       </Button>
-      {open && <ChangeSong project={p} hasShots={hasShots} onClose={() => setOpen(false)} />}
+      {open && <ChangeSong project={p} hasShots={hasShots} hasClips={hasClips} onClose={() => setOpen(false)} />}
     </>
   );
 }

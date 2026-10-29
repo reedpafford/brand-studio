@@ -34,9 +34,9 @@ for (const width of [1440, 390]) {
 
     await page.goto(`/b/${brandId}/videos/${id}`);
     await expect(
-      page.getByRole("heading", { name: "Breakdown", level: 2 }),
+      page.getByRole("heading", { name: "Breakdown", level: 2, exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: /Make shots/ }).click();
+    await page.getByRole("button", { name: /Make the breakdown/ }).click();
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
@@ -52,7 +52,7 @@ for (const width of [1440, 390]) {
       page.getByRole("heading", { name: "Assets", level: 2 }),
     ).toBeVisible();
     if (width === 390) {
-      await expect(page.getByText("Loading assets…").first()).toBeVisible();
+      await expect(page.getByText("Loading assets…")).toHaveCount(1); // said once
       await expect(page.getByText(/^0 assets/)).toHaveCount(0);
       await expect(page.getByText("Not in this video's shots")).toHaveCount(0);
       await expect(page.getByText("Loading assets…")).toHaveCount(0, { timeout: 10_000 });
@@ -116,7 +116,7 @@ for (const width of [1440, 390]) {
     ).toBeTruthy();
 
     await page.goto(`/b/${brandId}/videos/${id}`);
-    await page.getByRole("button", { name: /Make shots/ }).click();
+    await page.getByRole("button", { name: /Make the breakdown/ }).click();
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });

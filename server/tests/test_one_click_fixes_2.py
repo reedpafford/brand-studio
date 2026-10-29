@@ -222,3 +222,19 @@ def test_c4s_format_problems_are_fixed_in_code_with_no_claude_call(app, db, edit
     assert after[-1] == after[0] == lines[0] and "Shot 2 | 2-5 s. " in out["after"]
     assert [x for x in after if not x.startswith("Shot 2")] == [
         x for x in lines[:-1] if not x.startswith("Shot 2")] + [lines[0]]  # fmt: skip
+
+
+def test_an_opening_audio_line_with_an_extra_phrase_is_fixed_free():
+    """Reed's song pilot: the opening audio line grew a phrase, so "the same audio line first
+    and last" failed and the free fix had nothing it could do."""
+    from app import clip_prompts
+    from app.prompts.schemas import Breakdown, ClipPrompt
+    from tests.test_breakdown import BREAKDOWN
+    from tests.test_project_clips import AUDIO
+
+    bd = Breakdown.model_validate(BREAKDOWN)
+    grown = _prompt().replace(AUDIO, AUDIO.replace("No subtitles.", "No subtitles, ever."), 1)
+    clip = ClipPrompt(clip_id="c1", seconds=5, prompt=grown, references=[])
+    fixed = clip_prompts.repair_shape(clip, bd)
+    lines = fixed.prompt.splitlines()
+    assert lines[0] == lines[-1] == AUDIO

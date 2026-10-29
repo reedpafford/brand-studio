@@ -160,7 +160,7 @@ export function BreakdownView(props: {
   const bar = (
     <div className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2"} role="group" aria-label="Unsaved changes">
       <span className={rail ? "flex-1 text-sm" : "block text-sm text-muted"}>
-        You have unsaved changes.
+        Edits wait for Save. Fixes and flips save at once.
         {made && " Saving them marks Clips and Final cut out of date; your finished video stays downloadable."}
       </span>
       <Button busy={save.isPending} onClick={() => save.mutate()}>
@@ -217,11 +217,11 @@ export function BreakdownView(props: {
   return (
     <div className="space-y-4" aria-label="Breakdown">
       {row.stale && (
-        <Banner tone="warning" title={preview ? "This plan was made for older words. Make it again so the shots match." : "These shots were made for an older script."} action={preview ? preview.again : makeButton("Make new shots", { primary: true })} />
+        <Banner tone="warning" title={preview ? "This plan was made for older words. Make it again so the shots match." : "This breakdown was made for older words."} action={preview ? preview.again : makeButton("Make it again", { primary: true })} />
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
-          {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s{preview ? "" : ` of ${props.plannedSeconds} s planned`}
+          {bd.scenes.length} scene{bd.scenes.length === 1 ? "" : "s"} · {shots.length} shot{shots.length === 1 ? "" : "s"} · {bd.clips.length} clip{bd.clips.length === 1 ? "" : "s"} · {total} s{preview || !props.plannedSeconds ? "" : ` of ${props.plannedSeconds} s planned`}
           <span className="sr-only"> · {row.source === "edit" ? "edited" : "made by Claude"}</span>
         </p>
         {!row.stale && makeButton("Redo", { ask: row.source === "edit" || dirty ? "Replace this breakdown? Your edits are kept in History." : undefined })}

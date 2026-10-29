@@ -67,3 +67,11 @@ What the pilot had to do by hand, in the order it hurt:
 4. **A reference study for song ads:** the reel import should return the transcript, the BPM and the sections with the frames.
 5. **A shared cast for a pair of videos,** so the same dog and owner aren't drawn twice.
 6. Smaller: false "Check the cast" alarms on insert shots; the word "answer" flagged as a spoken line; the free clip-prompt fix often has nothing to fix.
+
+## Narrated ads (the same recipe, a narrator instead of a song)
+Used for Reed's two narrated Iron Paws ads (pit bull and Frenchie, 2:23 and 2:22, $32.62 for both). The strategist asked for: a narrator (not the dog) throughout, every action in the script shown, and the same owner and dog in every shot.
+- **One narrator track, made once,** with Replicate `minimax/speech-2.6-hd` (about $0.25 per 2½-minute script; voice `English_captivating_female1`, the reference ad's pace of about 3.4 words a second). It goes over silent clips like the song. Takes made in the app would each voice it differently.
+- **`measure` works on the narration as is:** one "line" per sentence gives each sentence's start and end, and each scene is timed to the sentences it shows.
+- **One scene plan for both videos** (`docs/next/ironpaws-vo/plan.py`): the dog's breed is the only change. Scenes with no dog or face in them (the ingredients on the counter, the bag hero, the stars over the bag) are made once and reused in the second video, fitted to its own narration times. That saved about $3.
+- **The reference's look carried the science part:** a translucent x-ray dog on a deep blue backdrop, hot spots glowing on the paw, skin and ear, then the gut. It made "the inflammation finds the skin, the yeast finds the ears" easy to follow.
+- **Two "looks too much like someone else's" refusals** (the x-ray dive into the gut, and the bag with ingredients swirling out) both went through on a plain retry, at no charge.

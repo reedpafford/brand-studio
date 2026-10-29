@@ -124,7 +124,7 @@ function KitForm({ brand }: { brand: Brand }) {
         <TextArea label="How we sound" rows={6} value={kit.tone_notes} onChange={(e) => set("tone_notes", e.target.value)} />
         <ChipList label="Never say" items={kit.never_say} onChange={(v) => set("never_say", v)} placeholder="A word or phrase" />
         <Field label="Legal line" value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
-        <Field label="End line" value={kit.end_line} onChange={(e) => set("end_line", e.target.value)} hint={'The last clip of every video says this. Example: "Want to trade like me? Download fomo through the link in my bio."'} />
+        <Field label="End line" value={kit.end_line} onChange={(e) => set("end_line", e.target.value)} hint={`The last clip of every video says this. Example: "Find ${kit.name || "us"} through the link in my bio."`} />
         {save.isError && (
           <p role="alert" className={errorClass}>
             {save.error.message}

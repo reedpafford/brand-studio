@@ -103,6 +103,7 @@ test("Takes: Preferred in words; one being made, one still being timed (can't be
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, list] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("Preferred")).toBeInTheDocument();
+  expect(screen.getAllByText("0:31 · a video of about 34 credits")).toHaveLength(4); // every take with a length says what its video would cost
   expect(screen.getByText(/^Making…/)).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: "Make this Preferred" })[0]).toBeDisabled();
   expect(screen.getByText("This take's file can't be read, so its timing can't be measured.")).toBeInTheDocument();
