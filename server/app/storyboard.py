@@ -629,3 +629,7 @@ def save_still(db: Session, job: Job) -> None:
         frame.look = db.get(Project, frame.project_id).look  # drawn in the video's look now
         if job.id and (frame.change or {}).get("made_job_id") == job.id:  # Redo: now it's done
             frame.change = {**frame.change, "status": "done"}
+        from app.item_checks import queue_safely  # P4: Advice only, never a block
+
+        queue_safely(db, job, "frame", frame.id, file_ids[0], frame.reference_ids or [],
+                     frame.breakdown_id, [frame.shot_id])  # fmt: skip
