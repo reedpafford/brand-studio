@@ -3950,6 +3950,27 @@ export interface paths {
         patch: operations["switch_look_looks__look_id__patch"];
         trace?: never;
     };
+    "/looks/{look_id}/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sample */
+        get: operations["sample_looks__look_id__sample_get"];
+        put?: never;
+        /**
+         * Make Sample
+         * @description Make a sample (paid: one still, then a 5 s clip from it); again replaces it.
+         */
+        post: operations["make_sample_looks__look_id__sample_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/drafts/{slot}/song-study": {
         parameters: {
             query?: never;
@@ -6642,6 +6663,36 @@ export interface components {
             why: string;
             /** Undo Token */
             undo_token?: number | null;
+        };
+        /** SampleIn */
+        SampleIn: {
+            /** Brand Id */
+            brand_id: number;
+            /** Character Id */
+            character_id?: number | null;
+        };
+        /**
+         * SampleOut
+         * @description ST3: Make a sample · credits; "Who's in the sample?" when the brand has no hero.
+         */
+        SampleOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "making" | "ready" | "failed";
+            /** Reason */
+            reason: string | null;
+            /** Credits */
+            credits: number;
+            hero: components["schemas"]["Person"] | null;
+            /** Characters */
+            characters: components["schemas"]["Person"][];
+            /** Still Id */
+            still_id: number | null;
+            /** Clip Id */
+            clip_id: number | null;
+            look: components["schemas"]["LookOut"];
         };
         /** Scene */
         Scene: {
@@ -16152,6 +16203,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LookOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sample_looks__look_id__sample_get: {
+        parameters: {
+            query: {
+                brand_id: number;
+            };
+            header?: never;
+            path: {
+                look_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_sample_looks__look_id__sample_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                look_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SampleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleOut"];
                 };
             };
             /** @description Validation Error */
