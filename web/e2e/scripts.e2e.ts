@@ -87,7 +87,7 @@ test("a script is made in the library: describe it, write its words, and it is l
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   await page.goto(library.pathname + library.search);
 
-  // A ready version opens its panel; Make this version reserves it and opens the video at Breakdown.
+  // A ready version opens its panel; Make this version reserves it and opens the video at its Plan.
   await page.getByRole("link", { name: "Version A, ready to make" }).click();
   const panel = page.getByRole("dialog", { name: "Bo tries salmon · Version A" });
   await expect(panel).toContainText("Salmon? Again?");
