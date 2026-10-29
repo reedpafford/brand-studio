@@ -163,7 +163,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
               Make 2 more takes
             </Button>
           )}
-          <p className="text-sm text-muted">Same lyrics and style. {p.own_script ? "Counted in your week." : "Counted in this video's budget."}</p>
+          <p className="text-sm text-muted">Same lyrics and music style. {p.own_script ? "Counted in your week." : "Counted in this video's budget."}</p>
         </div>
       )}
       {asking && (
