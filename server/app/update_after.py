@@ -124,9 +124,10 @@ def _prompts(db, user, project, tag, prepaid=True) -> None:
         clip_prompts.queue_rewrite(db, user, project, ids, extra=tag, prepaid=prepaid)
 
 
-def _stop(job: Job, step: str, reason: str) -> None:
-    """The run stops here: `step` (the next one) didn't start, and why."""
-    job.input = {**job.input, STOP: {"at": step, "reason": reason}}
+def _stop(job: Job, step: str, reason: str, frames: list[int] = ()) -> None:
+    """The run stops here: `step` (the next one) didn't start, and why; `frames`: the stills
+    it waits on (all drawn: the stop is over)."""
+    job.input = {**job.input, STOP: {"at": step, "reason": reason, "frames": list(frames)}}
 
 
 def follow(db: Session, job: Job) -> None:
@@ -142,10 +143,11 @@ def follow(db: Session, job: Job) -> None:
             from app import advice
 
             frames = [f for f in _frames(db, project) if not advice.blocking(f.problems)]
-            if fix := [f.shot_id for f in _frames(db, project) if f not in frames]:
+            if fix := [f for f in _frames(db, project) if f not in frames]:
                 tag = {RUN: run, THEN: []}  # a frame to fix first: no clip prompts after
-                shots = ", ".join(f"shot {s}" for s in fix)
-                _stop(job, "stills", STOPPED.format(shots, "it" if len(fix) == 1 else "them"))
+                shots = ", ".join(f"shot {f.shot_id}" for f in fix)
+                said = STOPPED.format(shots, "it" if len(fix) == 1 else "them")
+                _stop(job, "stills", said, [f.id for f in fix])
             _draw(db, user, project, frames, tag, prepaid=True)
         elif then[0] == "clip_prompts" and not _others(db, job, run):
             _prompts(db, user, project, tag)
@@ -179,19 +181,19 @@ def last_run(db: Session, project: Project) -> dict:
     stop, at = (stopped.input[STOP], stopped) if stopped else (None, None)
     if failed:
         stop, at = {"at": NAMES.get(failed.input.get("step", "")), "reason": failed.error}, failed
-    if stop and _put_right(rows, at, failed is not None, stop["at"]):
+    frames = [failed.input.get("frame_id")] if failed else (stop or {}).get("frames") or []
+    if stop and _put_right(rows, at, stop["at"], [f for f in frames if f]):
         stop = None
     return {"running": any(j.status in WAITING for j in mine),
             "stopped_at": stop and stop["at"], "reason": stop and stop["reason"]}  # fmt: skip
 
 
-def _put_right(rows: list[Job], at: Job, failed: bool, step: str) -> bool:
-    """A job for the same work succeeded after the stop: the failed still's own frame, or
-    the failed or unstarted step."""
+def _put_right(rows: list[Job], at: Job, step: str, frames: list[int]) -> bool:
+    """Jobs for the same work succeeded after the stop: every still it waited on (the failed
+    one, or each frame to fix), or else the failed or unstarted step."""
     kind = {v: k for k, v in NAMES.items()}[step]
-    frame = at.input.get("frame_id") if failed and kind == "frame" else None
-
-    def same(j: Job) -> bool:
-        return j.input.get("step") == kind and (frame is None or j.input.get("frame_id") == frame)
-
-    return any(j.id > at.id and j.status == JobStatus.succeeded and same(j) for j in rows)
+    done = [j for j in rows if j.id > at.id and j.status == JobStatus.succeeded
+            and j.input.get("step") == kind]  # fmt: skip
+    if kind == "frame" and frames:
+        return all(any(j.input.get("frame_id") == f for j in done) for f in frames)
+    return bool(done)

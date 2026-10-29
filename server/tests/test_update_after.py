@@ -140,3 +140,14 @@ def test_a_frame_to_fix_stops_at_the_stills(app, db, editor, setup, monkeypatch)
     assert shown["stopped_at"] == "stills" and "on Storyboard" in shown["reason"]
     shot = db.query(StoryboardFrame).first().shot_id
     assert f"shot {shot}" in shown["reason"]
+
+
+def test_a_stop_waiting_on_two_stills_is_over_only_when_both_are_drawn():
+    from app.models.jobs import JobStatus
+
+    stop = Job(id=1, input={})
+    drew = [Job(id=2, status=JobStatus.succeeded, input={"step": "frame", "frame_id": 10})]
+    assert not update_after._put_right(drew, stop, "stills", [11])  # one fine, one to fix (QA)
+    assert not update_after._put_right(drew, stop, "stills", [10, 11])  # one of two
+    drew.append(Job(id=3, status=JobStatus.succeeded, input={"step": "frame", "frame_id": 11}))
+    assert update_after._put_right(drew, stop, "stills", [10, 11])
