@@ -315,3 +315,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #954 at 60cabd90 (OR2 Media, server) | PASS: empty list, items with Open in {step} and Download, editor sees only what they can already open, deleted video flagged, filters. Note: sheets have no made_by |
 | 2026-10-29 | 17:27 check-in; #950 at 0fab818b (OR1 screens) | Projects list, New/Rename/Delete with Undo, filters, phone sheet, pickers on videos and clips: PASS. FAIL: the script picker for editors (open above). Clear to merge: #944 #945 #947 #948 #952 #954. None into main |
 | 2026-10-29 | #955 at b4337442 (S6 screens) | PASS: a version's Scenes (optional, free Approve) then Shots; "Made for an older plan." with Make the preview again; video-only parts hidden; published read only. scripts.e2e live 9 |
+| 2026-10-29 | #950 at 29874519 | Owner walk PASS live (projects-or1.e2e 1440 and 390); the script-page picker guard still open |
