@@ -13,14 +13,16 @@ def _brand(owner):
     return owner.get("/brands").json()[0]
 
 
-def test_only_the_owner_changes_the_brand_and_editors_read_it(owner, editor):
+def test_only_the_owner_changes_brand_setup_and_editors_read_it(owner, editor):
     brand = _brand(owner)
     url = f"/brands/{brand['id']}"
     body = {"audience": "Dog owners over 40", "do_list": ["Warm", "Plain words", "Warm"],
             "dont_list": ["guaranteed"], "music_style": "breezy pop, 100 BPM",
             "default_language": "es"}  # fmt: skip
-    no = editor.patch(url, json={"audience": "x"})
+    no = editor.patch(url, json={"audience": "x", "colours": ["#000000"]})
     assert (no.status_code, no.json()["detail"]) == (403, OWNER_ONLY)
+    assert editor.post(f"{url}/cta-lines", json={"text": "x"}).status_code == 403
+    assert editor.patch(url, json={"colours": ["#112233"]}).status_code == 200  # as before BR1
     saved = owner.patch(url, json=body).json()
     assert saved["audience"] == "Dog owners over 40" and saved["do_list"] == ["Warm", "Plain words"]
     assert saved["music_style"] == "breezy pop, 100 BPM" and saved["default_language"] == "es"
@@ -124,3 +126,14 @@ def test_a_products_description_and_claim(owner, editor):
 def test_a_brand_with_no_lines_upload_still_works(owner):
     url = f"/brands/{_brand(owner)['id']}"
     assert owner.patch(url, json={"logo_file_id": upload(owner)}).status_code == 200
+
+
+def test_an_editor_editing_never_say_or_end_line_changes_dont_and_the_default(owner, editor):
+    """The one path from an editor into the new sections (Next-Lead): they edit these two
+    today, and they write through. Reed's open "editor brand edits" question may close it."""
+    url = f"/brands/{_brand(owner)['id']}"
+    got = editor.patch(url, json={"never_say": ["cure"], "end_line": "Find us, link in bio"})
+    assert got.status_code == 200
+    got = got.json()
+    assert got["dont_list"] == ["cure"]
+    assert [x["text"] for x in got["cta_lines"] if x["default"]] == ["Find us, link in bio"]

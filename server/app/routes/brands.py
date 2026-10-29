@@ -1,6 +1,6 @@
-"""Brands and their kit (flows BR1). Everyone reads a brand; only the owner adds, changes or
-archives one ("Only the owner changes the brand."). Voice, CTA lines and defaults:
-app/brand_setup.py."""
+"""Brands and their kit (flows BR1). Everyone reads a brand. Only the owner adds or archives
+one, and changes BR1's new sections (voice, CTA lines, defaults: app/brand_setup.py; "Only the
+owner changes the brand."); editors still edit what they could before BR1 (Next-Lead)."""
 
 from typing import Annotated
 
@@ -164,12 +164,17 @@ def read_brand(brand_id: int, user: User = Depends(current_user), db: Session = 
 def update_brand(
     brand_id: int,
     body: BrandPatch,
-    user: User = Depends(brand_owner),
+    user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Change the brand (owner only). Nothing already made or published changes (BR1)."""
+    """Change the brand. BR1's new sections are the owner's; what editors changed before BR1
+    (name, logo, colours, fonts, notes, never_say, legal and end line) they still may, until
+    Reed decides. Nothing already made or published changes (BR1)."""
     brand = get_brand(db, user, brand_id)
-    _apply(db, user, brand, body.model_dump(exclude_unset=True))
+    values = body.model_dump(exclude_unset=True)
+    if not user.is_owner and any(values.get(k) is not None for k in SetupIn.model_fields):
+        raise HTTPException(403, OWNER_ONLY)
+    _apply(db, user, brand, values)
     db.commit()
     return brand_out(db, brand)
 
