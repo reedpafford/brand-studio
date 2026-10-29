@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, looks, merge_roles, music, rewritten, song_study
+from app import advice, looks, merge_roles, music, narration, rewritten, song_study
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -49,7 +49,7 @@ class ScriptIn(BaseModel):
     reference_replace: LongText = ""
     new_lines: bool | None = None  # write new lines in the reel's style, not its own
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
-    kind: Literal["story", "song"] = "story"  # song: the text is lyrics (song ads)
+    kind: Literal["story", "song", "narrated"] = "story"  # song: lyrics; narrated: one voice
     look: str | None = None  # how the pictures are drawn (ST1); None: House
 
 
@@ -168,7 +168,7 @@ class ScriptRow(BaseModel):
     id: int
     brand_id: int
     title: str
-    kind: Literal["story", "song"]
+    kind: Literal["story", "song", "narrated"]
     look: str = "house"
     description: str
     reference_id: str | None
@@ -748,11 +748,14 @@ def publish(script_id: int, user: User = Depends(current_user), db: Session = De
         raise HTTPException(409, "Approve or remove every version first.")
     if lib.writing(db, script.id):
         raise HTTPException(409, "Claude is still writing for this script. Publish when it's done.")
-    if script.kind == "song":  # its videos are timed to the song: one must exist (#750)
+    if script.kind in narration.TIMED:  # its videos are timed to the take: one must exist
         from app import song_takes
 
         if songless := [d for d in versions if song_takes.preferred(db, d) is None]:
             name = "ABC"[songless[0].slot]
+            if script.kind == "narrated":
+                said = f"Make the narration first: version {name} has none of its words in use."
+                raise HTTPException(409, f"{said} Press Make the narration.")
             raise HTTPException(409, f"Make the song first: version {name} has no Preferred take "
                                      "of its lyrics. Press Make 2 takes.")  # fmt: skip
     script.published = True

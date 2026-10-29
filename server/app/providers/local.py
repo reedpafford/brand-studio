@@ -9,10 +9,10 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from app import reel, song_study, song_timing
+from app import narration, reel, song_study, song_timing
 from app.providers import Result
 
-TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg"}
+TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg"}
 
 
 class LocalProvider:
@@ -26,17 +26,20 @@ class LocalProvider:
         transcribe: Callable[[Path], list[dict]] = reel.transcribe,
         fetch_link: Callable[[str, Path], Path] = reel.fetch,
         hear_song: Callable[[Path, str], list[dict]] = song_timing.words,
+        hear_voice: Callable[[Path, str], list[dict]] = song_timing.words,
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
-        self.hear_song, self.hear_study = hear_song, hear_study
+        self.hear_song, self.hear_voice, self.hear_study = hear_song, hear_voice, hear_study
         self.fetch_study = fetch_study  # a song-ad study's link (the stand-ins give a clip)
         self.root = Path(tempfile.mkdtemp(prefix="bs-local-"))
 
     def run(self, kind: str, input: dict) -> Result:
         if kind == "song_timing":
             return self._time_song(input)
+        if kind == "narration_timing":
+            return self._time_narration(input)
         if kind == "song_study":
             return self._study(input)
         if kind != "reel_prepare":
@@ -65,6 +68,22 @@ class LocalProvider:
             hear = (lambda path, lyrics: []) if input.get("spread") else self.hear_song
             timing = song_timing.measure(song, input["lyrics"], hear=hear)
         return Result("succeeded", output={"timing": timing})
+
+    def _time_narration(self, input: dict) -> Result:
+        """Pauses trimmed (kept if the trim would clip a word), then each sentence timed."""
+        folder = Path(tempfile.mkdtemp(dir=self.root))
+        voice = folder / "narration.mp3"
+        voice.write_bytes(self.storage.get(input["song_key"]))
+        try:
+            timing, trimmed = narration.measure(voice, input["lyrics"], hear=self.hear_voice)
+        except Exception:
+            shutil.rmtree(folder, ignore_errors=True)
+            raise
+        voice.unlink()
+        if trimmed is None:
+            shutil.rmtree(folder, ignore_errors=True)
+            return Result("succeeded", output={"timing": timing})
+        return Result("succeeded", output={"timing": timing}, files=[f"local://{trimmed}"])
 
     def _study(self, input: dict) -> Result:
         """A song ad's study and its frames; a plain reason when it can't be read. An
