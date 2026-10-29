@@ -335,3 +335,23 @@ def test_an_approved_sheet_beats_the_role_text_in_stills_and_clips(owner, editor
         role="Biscuit, the golden dog",
     )
     assert "even where the words above describe them differently" in redo
+
+
+def test_an_insert_shot_is_never_a_cast_problem(owner, db):
+    """Reed's song pilot: a close-up of a thing (the vacuum's canister), with no speaker and no
+    one named in its action, raised "Check the cast" and needed "Keep anyway"."""
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    mia = owner.post("/library/character", json={"name": "Mia", "image_file_ids": [upload(owner)]})
+    mia = mia.json()["id"]
+    with_sheet(db, mia)
+    mom = owner.post(f"{base}/cast", json={"role": "Mom"}).json()[0]["id"]
+    owner.post(f"{base}/cast", json={"role": "Nate"})
+    owner.post(f"{base}/cast/{mom}/lock", json={"library_item_id": mia})
+    bd = copy.deepcopy(BREAKDOWN)
+    bd["scenes"][0]["shots"][1].update(
+        character_ids=[f"char:{mia}"], speaker=None, line=None,
+        action="Extreme close-up: the vacuum's canister fills with a fur mountain.",
+    )  # fmt: skip
+    problems = owner.put(f"{base}/drafts/0/breakdown", json=bd).json()["problems"]
+    assert not [p for p in problems if p.startswith("Check the cast")]
