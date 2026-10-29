@@ -66,15 +66,22 @@ def _products(db: Session, project: Project) -> set[str]:
             or "product" in (s.tags or [])}  # fmt: skip
 
 
+def video_format(db: Session, project: Project) -> str:
+    """The video's format from its script: dialogue, song or narrated."""
+    from app.models.script_library import Script, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    kind = db.get(Script, draft.script_id).kind if draft else "story"
+    return {"song": "song", "narrated": "narrated"}.get(kind, "dialogue")
+
+
 def key(db: Session, project: Project, shots: list[dict], refs: list[str]) -> bool:
-    """A ★-product or speaking item: the ones checked by default (key_takes)."""
+    """A ★-product or speaking item: the ones checked by default (key_takes). A narrated
+    video's lines are the narrator's, heard over the picture: they don't make a clip key."""
     products = _products(db, project)
     shown = {x for s in shots for x in s.get("screen_ids", [])} | set(refs)
-    return (
-        any(s.get("line") for s in shots)
-        or bool(shown & products)
-        or any(r.startswith("prop:") for r in refs)
-    )
+    speaking = video_format(db, project) != "narrated" and any(s.get("line") for s in shots)
+    return speaking or bool(shown & products) or any(r.startswith("prop:") for r in refs)
 
 
 def _one_take(db: Session, project: Project, breakdown_id: int, shot_ids: list[str]) -> Decimal:
@@ -100,8 +107,13 @@ def per_video(db: Session, project: Project) -> Decimal:
         return Decimal(0)
     shots = _shots(db, row.id)
     clips = [[shots[i] for i in c["shot_ids"] if i in shots] for c in row.data.get("clips", [])]
-    if scope() == "key_takes":
-        count = sum(key(db, project, c, []) for c in clips)
+    if scope() == "key_takes":  # with each clip's own pictures, props too (Flow-QA)
+        from app.models.clips import ProjectClip
+
+        rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id))
+        refs = {r.clip_id: [x["id"] for x in r.references or []] for r in rows}
+        ids = [c["id"] for c in row.data.get("clips", [])]
+        count = sum(key(db, project, c, refs.get(i, [])) for c, i in zip(clips, ids, strict=True))
     else:
         count = len(clips) * (2 if scope() == "everything" else 1)
     return price(db, project) * count
