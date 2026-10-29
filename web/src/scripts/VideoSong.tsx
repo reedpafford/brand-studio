@@ -138,8 +138,8 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
                         Use the first {clock(t.fits_until)} · free
                       </Button>
                     )}
-                    {/* Only takes this video made can be deleted, and not the one it uses (flows V2a); Undo brings it back. */}
-                    {t.in_video && !inUse && t.status !== "making" && (
+                    {/* Only takes this video made can be deleted, and not the one it uses or its Preferred one (flows V2a); Undo brings it back. */}
+                    {t.in_video && !inUse && !t.preferred && t.status !== "making" && (
                       <Button variant="ghost" icon={Trash2} busy={remove.isPending && remove.variables?.id === t.id} onClick={() => remove.mutate(t)}>
                         Delete take
                       </Button>
