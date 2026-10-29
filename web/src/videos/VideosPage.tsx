@@ -40,6 +40,7 @@ function Row({ p, mineView }: { p: Project; mineView: boolean }) {
         <span className="min-w-0 flex-1 space-y-1">
           <span className="block break-words type-card">{p.name}</span>
           <span className="block text-sm text-muted">{meta}</span>
+          {p.needs_you && p.waiting_on && <span className="block text-sm font-medium text-warning">{p.waiting_on}</span>}
           <span className="flex flex-wrap gap-2">
             {done && p.final_out_of_date ? (
               <Badge tone="warning" icon={Clock}>
@@ -80,7 +81,8 @@ export function VideosPage() {
       },
       { replace: true },
     );
-  const status = params.get("status") === "making" || params.get("status") === "done" ? (params.get("status") as "making" | "done") : "";
+  const asked = params.get("status");
+  const status = asked === "making" || asked === "done" || asked === "needs_you" ? asked : "";
   const archived = params.get("archived") === "1";
   const mine = !owner || params.get("mine") === "1"; // an editor only ever sees their own
   const [text, setText] = useState(params.get("q") ?? "");
@@ -109,6 +111,14 @@ export function VideosPage() {
   };
   const brand = brands?.find((b) => b.id === brandId);
   const rows = videos.data ?? [];
+  // With no status picked, the list is in three groups: what waits on you, what's being made, what's done (audit M6).
+  const groups: [string, Project[]][] = status
+    ? [["", rows]]
+    : ([
+        ["Needs you", rows.filter((p) => p.needs_you)],
+        ["Making", rows.filter((p) => !p.needs_you && !p.finished_at)],
+        ["Done", rows.filter((p) => !p.needs_you && !!p.finished_at)],
+      ] as [string, Project[]][]).filter(([, ps]) => ps.length > 0);
 
   const search = (
     <div className="w-full sm:w-[360px]">
@@ -124,6 +134,7 @@ export function VideosPage() {
       <div className="w-full lg:w-44">
         <Select label="Status" value={status} onChange={(e) => set("status", e.target.value)}>
           <option value="">Any</option>
+          <option value="needs_you">Needs you</option>
           <option value="making">Making</option>
           <option value="done">Finished</option>
         </Select>
@@ -189,13 +200,22 @@ export function VideosPage() {
               </EmptyState>
             )
           ) : (
-            <Card className="p-0 sm:p-0">
-              <ul className="divide-y divide-border">
-                {rows.map((p) => (
-                  <Row key={p.id} p={p} mineView={mine} />
-                ))}
-              </ul>
-            </Card>
+            groups.map(([title, ps]) => (
+              <section key={title} aria-label={title || undefined} className="space-y-2">
+                {title && (
+                  <h2 className="type-section">
+                    {title} <span className="font-normal text-muted tabular-nums">· {ps.length}</span>
+                  </h2>
+                )}
+                <Card className="p-0 sm:p-0">
+                  <ul className="divide-y divide-border">
+                    {ps.map((p) => (
+                      <Row key={p.id} p={p} mineView={mine} />
+                    ))}
+                  </ul>
+                </Card>
+              </section>
+            ))
           )}
         </>
       )}
