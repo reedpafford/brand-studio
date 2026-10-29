@@ -93,6 +93,15 @@ test("CTA lines: deleting the Default says which line is Default now, with Undo;
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/cta-lines")?.body).toEqual({ text: "Link in bio.", default: false }));
 });
 
+test("with no characters in Cast & places, Default cast says so and offers a way to add one", async () => {
+  setViewport(390);
+  fakeServer({ ...routes(owner, { ...brand, default_cast: [], cast: [] }), "GET /library/character": [200, [character(8, "Own look", { owner_project_id: 3 })]] });
+  renderAt("/b/1/brand");
+  expect(await screen.findByText("No characters yet.")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Add one in Cast & places" })).toHaveAttribute("href", "/b/1/library");
+  expect(screen.queryByLabelText("Add to the default cast")).toBeNull();
+});
+
 test("no CTA line left: the Advice says videos end without one", async () => {
   setViewport(1440);
   fakeServer(routes(owner, { ...brand, cta_lines: [], advice: ["Videos will end without a saved call to action."] }));

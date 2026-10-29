@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Star, Trash2, X } from "lucide-react";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
-import { Badge, Button, Card, Field, Select } from "../components";
+import { Link } from "react-router-dom";
+import { Badge, Button, Card, Field, Select, buttonClass } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
@@ -91,7 +92,8 @@ export function DefaultCast({ brandId, value, picks, onChange, readOnly }: { bra
     enabled: !readOnly,
   });
   // Only workspace characters, never a look made for one video or script.
-  const choices = (library.data ?? []).filter((c) => !c.owner_project_id && !c.owner_script_id && !value.includes(c.id));
+  const workspace = (library.data ?? []).filter((c) => !c.owner_project_id && !c.owner_script_id);
+  const choices = workspace.filter((c) => !value.includes(c.id));
   const nameOf = (id: number) => library.data?.find((c) => c.id === id)?.name ?? picks.find((p) => p.id === id)?.name ?? "A character";
   const gone = (id: number) => picks.find((p) => p.id === id)?.deleted ?? false;
   const picker = (label: string, onPick: (id: number) => void) => (
@@ -118,7 +120,14 @@ export function DefaultCast({ brandId, value, picks, onChange, readOnly }: { bra
           </li>
         ))}
       </ul>
-      {!readOnly && picker("Add to the default cast", (pick) => onChange([...value, pick]))}
+      {!readOnly && library.data && workspace.length === 0 ? (
+        <p className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">No characters yet.</span>
+          <Link className={buttonClass("secondary")} to={`/b/${brandId}/library`}>Add one in Cast & places</Link>
+        </p>
+      ) : (
+        !readOnly && picker("Add to the default cast", (pick) => onChange([...value, pick]))
+      )}
     </fieldset>
   );
 }
