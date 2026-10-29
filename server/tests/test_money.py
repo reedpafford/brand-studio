@@ -46,7 +46,7 @@ def test_releasing_a_version_stops_its_running_work(owner, editor, db):
     base, _ = _published(owner, db)
     made = editor.post(f"{base}/drafts/0/produce").json()
     fake = FakeProvider()
-    job = db.get(Job, made["breakdown_job_id"])
+    job = db.get(Job, made["plan_job_id"])
     job.provider = "fake"
     db.commit()
     run_once(db, {"fake": fake})  # handed to the provider: running
@@ -72,7 +72,7 @@ def test_a_released_job_from_a_silent_provider_is_listed_and_keeps_no_files(app,
 
     base, _ = _published(owner, db)
     made = editor.post(f"{base}/drafts/0/produce").json()
-    job = db.get(Job, made["breakdown_job_id"])
+    job = db.get(Job, made["plan_job_id"])
     job.provider, job.credits = "fake", Decimal(2)
     db.commit()
     silent = Silent(polls_until_done=1)
@@ -95,7 +95,7 @@ def test_restoring_a_video_never_leaves_stopped_work_running(owner, editor, db):
     made = editor.post(f"{base}/drafts/0/produce").json()
     pid = made["project_id"]
     fake = FakeProvider(polls_until_done=1)
-    job = db.get(Job, made["breakdown_job_id"])
+    job = db.get(Job, made["plan_job_id"])
     job.provider = "fake"
     db.commit()
     run_once(db, {"fake": fake})  # at the provider

@@ -61,14 +61,14 @@ def test_assets_list_slots_and_cast_an_unlocked_one(owner, editor, db):
 
 
 def test_a_paid_breakdown_names_the_unlocked_slots(owner, editor, db):
-    """QA #220: without a saved breakdown, the one made at produce lists unlocked slots
+    """QA #220: without a saved breakdown, the plan made at produce lists unlocked slots
     (slot:N) so the Assets step has them to cast."""
     made = _make(owner, text=SCRIPT)
     base = f"/scripts/{made['id']}"
     nate = owner.post(f"{base}/cast", json={"role": "Nate", "description": "teen"}).json()[0]
     owner.post(f"{base}/drafts/0/approve")
     owner.post(f"{base}/publish")
-    job_id = editor.post(f"{base}/drafts/0/produce").json()["breakdown_job_id"]
+    job_id = editor.post(f"{base}/drafts/0/produce").json()["plan_job_id"]
     assert f"slot:{nate['id']} | Nate | teen (no look yet)" in db.get(Job, job_id).input["prompt"]
 
 

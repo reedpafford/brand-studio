@@ -6565,6 +6565,8 @@ export interface components {
             project_id: number;
             /** Breakdown Job Id */
             breakdown_job_id: number | null;
+            /** Plan Job Id */
+            plan_job_id?: number | null;
         };
         /** ProductionRow */
         ProductionRow: {
