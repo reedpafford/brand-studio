@@ -74,6 +74,40 @@ def test_a_new_take_moves_the_shots_free_and_undo_moves_them_back(
     assert _rows(db, video)[-1].data["song"]["take_id"] == first
 
 
+def test_clips_made_for_the_old_take_go_out_of_date_and_undo_brings_them_back(
+    app,
+    db,
+    owner,
+    editor,
+    song,  # noqa: F811
+):
+    from app.models.clips import ProjectClip
+
+    video = _video(app, db, owner, editor, song)
+    project = db.get(Project, int(video.rsplit("/", 1)[1]))
+    made = _rows(db, video)[-1]
+    clip = made.data["clips"][0]
+    db.add(ProjectClip(project_id=project.id, breakdown_id=made.id, clip_id=clip["id"],
+                       seconds=clip["seconds"], prompt="A test clip."))  # fmt: skip
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    draft.style_line = "pop fake:long=40"
+    db.commit()
+    editor.post(f"{video}/songs", json={})
+    _work(app, db)
+    draft.style_line = "pop"
+    longest = db.query(SongTake).order_by(SongTake.id.desc()).first()
+    longest.style_line = "pop"
+    db.commit()
+    first = editor.get(f"{video}/songs").json()["song_take_id"]
+    editor.put(f"{video}/song", json={"take_id": longest.id})
+    row = db.scalar(select(ProjectClip))
+    db.refresh(row)
+    assert row.breakdown_id == made.id != _rows(db, video)[-1].id  # out of date
+    editor.put(f"{video}/song", json={"take_id": first})  # Undo: the clip is current again
+    db.refresh(row)
+    assert row.breakdown_id == _rows(db, video)[-1].id
+
+
 def test_a_shot_whose_line_wasnt_heard_says_its_timing_is_guessed(
     app,
     db,
@@ -96,3 +130,20 @@ def test_a_shot_whose_line_wasnt_heard_says_its_timing_is_guessed(
     plan = editor.get(f"{video}/breakdown").json()
     flags = {sid: s["guessed"] for sid, s in plan["song"]["shots"].items()}
     assert any(flags.values()) and not all(flags.values())
+
+
+def test_the_reflow_keeps_shots_on_their_lines():
+    from app.song_breakdown import reflow
+
+    old = {"seconds": 20, "lines": [{"start": 2, "end": 6}, {"start": 8, "end": 12}]}
+    new = {"seconds": 30, "lines": [{"start": 3, "end": 10}, {"start": 14, "end": 20}]}
+    song = {"take_id": 1, "shots": {"1.1": {"start": 0, "end": 8, "sung": False},
+                                    "1.2": {"start": 8, "end": 10, "sung": True},
+                                    "1.3": {"start": 10, "end": 20, "sung": False}}}  # fmt: skip
+    moved = reflow(song, old, new, 2)["shots"]
+    assert [(moved[s]["start"], moved[s]["end"]) for s in ("1.1", "1.2", "1.3")] == [
+        (0, 14),
+        (14, 17),
+        (17, 30),  # line 2 starts at 14 in the new take; 10 is its middle
+    ]
+    assert moved["1.2"]["sung"] is True

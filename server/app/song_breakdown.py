@@ -77,28 +77,41 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
         row.data = {**row.data, "song": {**song, "shots": shots}}
 
 
-def _move(t: float, old: list[dict], new: list[dict], new_end: float) -> float:
-    """Where time `t` of the old take falls in the new one: the same share of the same
-    section (by order), so a shot over the second chorus stays over the second chorus."""
-    starts = [s["start"] for s in old]
-    k = max(bisect.bisect_right(starts, t) - 1, 0)
-    if k >= len(new):
-        return new_end
-    a, b = old[k]["start"], old[k]["end"]
-    share = (t - a) / (b - a) if b > a else 0.0
-    return new[k]["start"] + share * (new[k]["end"] - new[k]["start"])
+def _anchors(old: dict, new: dict) -> list[tuple[float, float]]:
+    """Matching points of the two takes, in time order: the start, each sung line's measured
+    start and end (the same lyrics, so line n is line n), and the end. When the line lists
+    don't match, each section's start and end instead."""
+    pairs = list(zip(old.get("lines", []), new.get("lines", []), strict=False))
+    if not pairs or len(old.get("lines", [])) != len(new.get("lines", [])):
+        pairs = list(zip(old.get("sections", []), new.get("sections", []), strict=False))
+    points = [(0.0, 0.0)]
+    for a, b in pairs:
+        points += [(a["start"], b["start"]), (a["end"], b["end"])]
+    points.append((old["seconds"], new["seconds"]))
+    kept = []
+    for x, y in sorted(points):  # never backwards, so the shots stay in order
+        if not kept or (x > kept[-1][0] and y >= kept[-1][1]):
+            kept.append((x, y))
+    return kept
+
+
+def _move(t: float, anchors: list[tuple[float, float]]) -> float:
+    """Where time `t` of the old take falls in the new one: an edge on a line's start or end
+    lands on that line's start or end in the new take; between them, the same share."""
+    xs = [x for x, _ in anchors]
+    k = min(max(bisect.bisect_right(xs, t) - 1, 0), len(anchors) - 2)
+    (x0, y0), (x1, y1) = anchors[k], anchors[k + 1]
+    return y0 + (t - x0) / (x1 - x0) * (y1 - y0) if x1 > x0 else y0
 
 
 def reflow(song: dict, old: dict, new: dict, take_id: int) -> dict:
-    """The song part moved from the old take's timing to the new one's: each shot edge to
-    the same place in its section, on the new take's nearest beat, back to back to the end."""
+    """The song part moved from the old take's timing to the new one's by the measured line
+    times (the line clock, so no shot newly cuts a line), back to back to the new end."""
     order = sorted(song["shots"].items(), key=lambda kv: kv[1]["start"])
-    beats, end = new.get("beats", []), new["seconds"]
+    anchors, end = _anchors(old, new), new["seconds"]
     starts = []
     for _, timed in order:
-        t = _move(timed["start"], old.get("sections", []), new.get("sections", []), end)
-        t = min(beats, key=lambda b: abs(b - t)) if beats else t
-        starts.append(max(t, starts[-1] if starts else 0.0))
+        starts.append(max(_move(timed["start"], anchors), starts[-1] if starts else 0.0))
     starts[0] = 0.0
     ends = [*starts[1:], end]
     shots = {sid: {**timed, "start": round(a, 2), "end": round(b, 2)}
@@ -108,7 +121,9 @@ def reflow(song: dict, old: dict, new: dict, take_id: int) -> dict:
 
 def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion | None:
     """The video's take changed: its newest song breakdown, retimed to the new take, as a new
-    row (free, no model call). Stills and clips carry over; nothing is redone."""
+    row (free, no model call). Stills carry over; a clip whose shots moved in the song is out
+    of date (made for the old take's slice). Going back to an earlier take (Undo) makes the
+    clips made for it current again."""
     from app import breakdown, cast_roles
     from app.models.scripts import ScriptVersion
 
@@ -135,8 +150,29 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
     db.add(again)
     db.flush()
     cast_roles.carry_frames(db, project, row, again)
-    cast_roles.carry_clips(db, project, row, again)
+    _current_clips(db, project, again)
     return again
+
+
+def _current_clips(db: Session, project: Project, row: BreakdownVersion) -> None:
+    """The clips made for exactly these song times move to `row` (current): those whose
+    shots didn't move, and, after an Undo, those made for the take before. Any other clip
+    stays on the row it was made from, out of date (it holds the old take's slice)."""
+    from app.models.clips import ProjectClip
+
+    now = {c.id: c.shot_ids for c in Breakdown.model_validate(row.data).clips}
+    times = row.data["song"]["shots"]
+    for clip in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)):
+        made = db.get(BreakdownVersion, clip.breakdown_id)
+        was = (made.data.get("song") or {}).get("shots", {}) if made else {}
+        then = {c.id: c.shot_ids for c in Breakdown.model_validate(made.data).clips} if made else {}
+        shots = now.get(clip.clip_id)
+        if (
+            shots
+            and then.get(clip.clip_id) == shots
+            and all(was.get(s) == times.get(s) for s in shots)
+        ):
+            clip.breakdown_id = row.id
 
 
 def guessed(bd: Breakdown, text: str, timing: dict) -> set[str]:
