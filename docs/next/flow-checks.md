@@ -60,7 +60,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | A video's "to finish" leaves out looks (VS1; #987) | Fixed for uncast roles and new speakers at cbddf5ab; but "Not now" on a role its shots still show takes its look off the bar (13.03 → 11.33) while the storyboard refuses until it has one | Count a declined role while the newest shots show it |
-| Real look samples' budget (#970) | Two quick presses each count only the still, not the held clip: about $1.10 committed on a $1 test budget | The budget check counts the held clip (the still's `hold`) too |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -361,3 +360,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #980 Import from website screens (re-walk) | 1bdf8c19 (+ next) | PASS: a reload comes back to the read (reading or review); Save, Cancel, fail/empty or a gone read clear it; Cancel says it drops a paid read; the logo isn't loaded from the site; 42/42, e2e 6/6 |
 | 2026-10-29 | #970 (QA-3; my PASS corrected) | 0556c9d3 | FAIL: the real-sample budget counts each still but not its held clip, so two quick presses commit past it ($1.10 on $1). Switch-On has the fix; re-walk |
 | 2026-10-29 | #987 A video's to-finish counts first looks (VS1) | cbddf5ab (+ next) | FAIL: "Not now" drops a still-needed look from the bar. Quote = bar before and after Cast (26.36); Nate's look charged 1.70 = the bar's drop; look switch and back; 44/44 |
+| 2026-10-29 | #970 (re-walk) | ffdf755c (+ next) | PASS: a still counts with its held clip; on a $1 budget the 2nd and 3rd quick presses say stand-in before the press and go stand-in; 16/16 |
