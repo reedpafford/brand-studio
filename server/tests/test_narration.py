@@ -251,3 +251,11 @@ def test_the_music_is_off_unless_switched_on_and_stops_at_its_budget(db, monkeyp
     assert not narration_music.on(db)  # the next run would pass the budget
     monkeypatch.setattr(settings, "fake_providers", True)
     assert narration_music.on(db)  # the stand-ins are free
+
+
+def test_with_nothing_to_read_the_press_says_so_instead_of_a_price(owner, narrated):
+    _words(owner, narrated, "SCENE 1\n★ Iron Paws")  # headings only: nothing to read aloud
+    shown = owner.get(f"{narrated}/songs").json()
+    assert (shown["songs_note"], shown["estimate_credits"]) == (narration.NO_WORDS, 0)
+    _words(owner, narrated, WORDS)
+    assert owner.get(f"{narrated}/songs").json()["songs_note"] is None

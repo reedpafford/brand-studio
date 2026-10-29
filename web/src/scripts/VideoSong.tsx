@@ -257,7 +257,7 @@ export function SongShotTime({ part, shotId }: { part: components["schemas"]["So
 
 /** Final cut on a song or narrated video (flows V6, V6n): "Song: take 2, laid under the whole video" or "Narration 2, read over the whole video", the download, and, when the video
  * now uses another take, a line saying so (the server marks the video out of date; Make it again is free). */
-export function FinalSong({ projectId, madeWith }: { projectId: number; madeWith: number | null | undefined }) {
+export function FinalSong({ projectId, madeWith, narration }: { projectId: number; madeWith: number | null | undefined; narration?: { voice: string; music: boolean } | null }) {
   const songs = useVideoSongs(projectId, madeWith != null); // a video without a song never asks
   if (madeWith == null) return null; // not a song video
   const takes = songs.data?.takes ?? [];
@@ -270,6 +270,7 @@ export function FinalSong({ projectId, madeWith }: { projectId: number; madeWith
   return (
     <div className="space-y-2" aria-label={`The ${W.thing}`}>
       <p className="text-sm">{t ? W.inCut(t.number) : W.earlier}</p>
+      {narration && <p className="text-sm text-muted">Narration: {narration.voice}{narration.music ? " · music under it" : ""}</p>}
       {now && now.id !== madeWith && <p className="text-sm text-warning">This video now uses {W.one(now.number)}. Make it again to lay it under (free).</p>}
       {t && t.file_id != null && (
         <a className={buttonClass("secondary")} href={fileUrl(t.file_id)} download={W.file(t.number)}>

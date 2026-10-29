@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Mic, RotateCcw, Trash2 } from "lucide-react";
+import { fileUrl } from "../api/upload";
 import { Badge, Banner, Button, Card, EmptyState, Skeleton } from "../components";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
@@ -7,8 +8,8 @@ import { useAllowanceStop, type Script } from "./useScript";
 import { useSongActions, useSongs, type SongTake } from "./useSongs";
 
 /** A narration is a song take of kind "narration" (Next-Server #858), with its voice and, when pauses were trimmed, its length before. */
-type Narration = SongTake & { voice?: string; untrimmed_seconds?: number | null };
-const VOICE = "Sarah"; // the one voice for now (flows N1: choosing the voice comes later)
+type Narration = SongTake;
+const VOICE = "Sarah"; // until the server names the version's voice (SongsOut.voice, #907); choosing it comes later
 const WORDS = { noun: "Narration", picked: "is the one used" };
 
 function Elapsed() {
@@ -21,7 +22,10 @@ function Elapsed() {
 }
 
 /** One narration: its player, length, pauses trimmed, its state in words and the press each state needs (flows N1). */
-function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<typeof useSongActions>; readOnly: boolean; price: number }) {
+function NarrationCard({ t, a, readOnly, price, script }: { t: Narration; a: ReturnType<typeof useSongActions>; readOnly: boolean; price: number; script: Script }) {
+  // Past the week (rule 5) a paid press says why and waits, as Make the narration does (Flow-QA).
+  const musicStop = useAllowanceStop(script, t.music_credits);
+  const tryStop = useAllowanceStop(script, t.status === "failed" ? price : 0);
   const label = `Narration ${t.number}`;
   const length = t.seconds;
   return (
@@ -41,7 +45,35 @@ function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<
       ) : t.file_id !== null && t.seconds !== null ? (
         <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={label} />
       ) : null}
+      {/* The music bed under the narration (#912); where music is switched off it stays "none" and nothing shows. */}
+      {t.status === "ready" && t.music_status === "making" && <p role="status" className="text-sm text-muted">Making the music…<Elapsed /></p>}
+      {t.music_status === "ready" && (
+        <div className="space-y-1">
+          <p className="text-sm text-muted">With music under it.</p>
+          {t.music_file_id != null && <audio controls preload="none" src={fileUrl(t.music_file_id)} aria-label={`The music for ${label}`} className="w-full" />}
+        </div>
+      )}
+      {t.music_status === "failed" && (
+        <div className="space-y-2">
+          <p role="alert" className="text-sm text-warning">{t.music_reason || "The music didn't finish. Nothing was charged for it."} The narration is kept.</p>
+          {!readOnly && (
+            <Button variant="secondary" icon={RotateCcw} price={t.music_credits} disabled={musicStop !== null} reason={musicStop} busy={a.musicAgain.isPending && a.musicAgain.variables === t.id} onClick={() => a.musicAgain.mutate(t.id)}>
+              Try the music again
+            </Button>
+          )}
+        </div>
+      )}
       {t.untrimmed_seconds != null && length != null && <p className="text-sm text-muted">Pauses trimmed: {clock(t.untrimmed_seconds)} → {clock(length)}</p>}
+      {(t.sentences ?? []).length > 0 && (
+        <details>
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm">Each sentence's start · {t.sentences.length}</summary>
+          <ul className="space-y-1 text-sm">
+            {t.sentences.map((x, i) => (
+              <li key={i} className="flex gap-3"><span className="w-10 shrink-0 tabular-nums text-muted">{clock(x.start)}</span><span className="min-w-0 break-words">{x.text}</span></li>
+            ))}
+          </ul>
+        </details>
+      )}
       {t.advice.map((x) => (
         <p key={x} className="text-sm text-muted">{x}</p>
       ))}
@@ -49,7 +81,7 @@ function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<
         <div className="space-y-2">
           <p role="alert" className={errorClass}>{t.failed_reason ?? "The narration didn't finish. Nothing was charged."}</p>
           {!readOnly && t.retry_helps && (
-            <Button variant="secondary" icon={RotateCcw} price={t.status === "failed" ? price : 0} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+            <Button variant="secondary" icon={RotateCcw} price={t.status === "failed" ? price : 0} disabled={tryStop !== null} reason={tryStop} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
               Try again
             </Button>
           )}
@@ -94,26 +126,29 @@ export function NarrationStep({ script: s }: { script: Script }) {
     );
   const readOnly = s.published;
   const narrations = data.takes as Narration[];
-  const latest = [a.make, a.tryAgain, a.prefer, a.remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
+  const latest = [a.make, a.tryAgain, a.musicAgain, a.prefer, a.remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
   const refused = latest.isError ? latest.error.message : null;
   const making = narrations.some((t) => t.status === "making" || t.status === "timing"); // the server refuses a second one meanwhile
   const used = narrations.find((t) => t.preferred && !t.out_of_date);
   const older = narrations.length > 0 && narrations.every((t) => t.out_of_date);
+  const noWords = !!data.songs_note && !data.estimate_credits;
   const make = (label: string, primary: boolean) => (
-    <Button variant={primary ? "primary" : "secondary"} icon={Mic} price={data.estimate_credits} disabled={stop !== null || making} reason={stop ?? (making ? "One is being made" : null)} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+    // With nothing for the narrator to read, the server sends why (songs_note) and no price (#920): the press says it, greyed.
+    <Button variant={primary ? "primary" : "secondary"} icon={Mic} price={noWords ? undefined : data.estimate_credits} disabled={noWords || stop !== null || making} reason={noWords ? data.songs_note! : stop ?? (making ? "One is being made" : null)} busy={a.make.isPending} onClick={() => a.make.mutate()}>
       {label}
     </Button>
   );
   return (
     <div className="max-w-[720px] space-y-4">
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
+      {data.songs_note && !noWords && <p className="text-sm text-muted">{data.songs_note}</p>}
       {!data.songs_on && <Banner tone="info" title="Narration isn't switched on here.">The words still save. A narration can be made where it's on.</Banner>}
       {narrations.length === 0 ? (
         readOnly ? (
           <EmptyState icon={Mic} title="No narration">This script was published without a narration.</EmptyState>
         ) : (
           <EmptyState icon={Mic} title="Make the narration" action={data.songs_on ? make("Make the narration", true) : undefined}>
-            One voice reads the whole script. Voice: {VOICE}.
+            One voice reads the whole script. Voice: {data.voice || VOICE}.
           </EmptyState>
         )
       ) : (
@@ -122,7 +157,7 @@ export function NarrationStep({ script: s }: { script: Script }) {
           <ul className="grid gap-4 [&>li]:min-w-0">
             {narrations.map((t) => (
               <li key={t.id}>
-                <NarrationCard t={t} a={a} readOnly={readOnly} price={data.estimate_credits} />
+                <NarrationCard t={t} a={a} readOnly={readOnly} price={data.estimate_credits} script={s} />
               </li>
             ))}
           </ul>
