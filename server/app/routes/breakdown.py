@@ -166,6 +166,16 @@ def _newest(db: Session, project) -> BreakdownVersion:
     return row
 
 
+class MakePriceOut(BaseModel):
+    credits: float  # Make the shots · N: its call, plus the clip prompts it rewrites itself
+
+
+@router.get("/price", response_model=MakePriceOut)
+def make_price(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """What Make the shots charges (breakdown.make_price)."""
+    return MakePriceOut(credits=float(breakdown.make_price(db, get_project(db, user, project_id))))
+
+
 @router.get("", response_model=BreakdownOut)
 def read(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project, version = _working(db, user, project_id)
