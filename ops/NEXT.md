@@ -34,11 +34,11 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 
 ## Queued (Next-Lead keeps this list)
 Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA, QA-3 or QA-4) with the lightest queue.
-- **Builder-Server-7:** the video's own "to finish" counts a look for every role that has none yet (Flow-QA on #986), sharing one rule with Make this version's quote.
-- **Builder-Server-8:** price shown = charge, a test per press: clips, final cut, update-after, Quick clip, scripts.
+- **Builder-Server-7:** the video's own "to finish" counts a look for every role that has none yet (#987, Flow-QA on #986), sharing one rule with Make this version's quote; then a song version's quote adds the same looks, so quote and bar agree (rule 32).
+- **Builder-Server-8:** Improve and Drafts never round a price down on screen; then the price-check tests for clips, final cut, update-after, Quick clip and scripts; then the storyboard estimate prices stills by the job's own inputs.
 - **Next-Server:** a version's flavours mark a deleted flavour as gone (QA-3 on #968); then price shown = charge, a test per press: plan, breakdown, cast and looks, storyboard.
-- **Next-Layout:** the BR2 screens (#980): a read survives a reload, and no logo is loaded from another site.
-- **Next-Screens:** Escape with one overlay over another (QA-3).
+- **Next-Layout:** the BR2 screens (#980); then Media's "From a deleted video" tile names the video's maker.
+- **Next-Screens:** Escape with one overlay over another (#988, QA-3); then the price sweep's two screen fixes: Make the shots reads the server's price, and the storyboard's totals round once.
 - **Switch-On:** real look samples (#970), the language test (#972, n14), then the Languages page (LG1).
 - **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
 - **Dropped by Reed (2026-10-29):** new formats (Podcast, Vox, Whiteboard). Song stays as is.
