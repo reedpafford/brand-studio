@@ -167,4 +167,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #863 at 7929c28c (P3 screen: retry line, Fixed for you + Undo) | Code and vitest (303), tsc; Undo after an edit | FAIL: auto_fix survives an edit (#862), Undo 409s and the card says "try again" forever |
 | 2026-10-29 | #858 at 237f6527 (N1 narration step 1) | test_narration (6), song regressions (73/74, my old setup), publish with old narration, editor over week, quote vs charge, double press | PASS; notes: double press makes two narrations; wording; ~0.06 shows "free" |
 | 2026-10-29 | #864 (real Suno on the test site) | Not walkable until Reed sets the key; no paid call from Flow-QA | — |
+| 2026-10-29 | #865 at 0324c487 (cost bar, part 1) | vitest 718, tsc, Playwright full at 1440 and 390 (55 passed, 1 skipped) | PASS |
+| 2026-10-29 | #863 at 3eb91b26 | Undo shows the server's reason | Half fixed; waits on #862 clearing auto_fix on an edit |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
