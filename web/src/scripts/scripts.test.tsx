@@ -1436,3 +1436,77 @@ test("an old /scripts/new link goes to the Scripts list", async () => {
   open("/b/1/scripts/new");
   expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
 });
+
+// VS1 on Make this version (#956): the video's settings row, its picks held in the panel and sent with the press.
+const catalogue = [
+  { id: "seedance", kind: "video", name: "Seedance", default: true, credits_per_unit: { "480p": 1 }, lip_sync: true },
+  { id: "kling", kind: "video", name: "Kling", default: false, credits_per_unit: { "480p": 2.5 }, lip_sync: false },
+  { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } },
+];
+const makeServer = (o: Record<string, [number, unknown]> = {}) => ({
+  ...base,
+  "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]] as [number, unknown],
+  "GET /scripts/7": [200, script({ look: "house", language: "en", versions: [v(0, "approved", { has_breakdown: false, estimate_credits: 21 })] })] as [number, unknown],
+  "GET /scripts/7/cast": [200, []] as [number, unknown],
+  "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]] as [number, unknown],
+  "GET /models": [200, catalogue] as [number, unknown],
+  "GET /brands/1/screens": [200, [{ id: 1, product: "Iron Paws", variant: "Salmon" }, { id: 2, product: "Iron Paws", variant: "Chicken" }]] as [number, unknown],
+  "POST /scripts/7/drafts/0/estimate": [200, { credits: 21, over_cap: false, reason: null }] as [number, unknown],
+  "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: null }] as [number, unknown],
+  "GET /projects/55": [404, { detail: "x" }] as [number, unknown],
+  ...o,
+});
+
+test("Make this version shows the video's settings, and a pick moves the price line", async () => {
+  setViewport(1440);
+  fakeServer(makeServer());
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  const row = await within(panel).findByRole("region", { name: "Video settings" });
+  expect(within(row).getByText("Language: English (from the script)")).toBeInTheDocument();
+  expect(within(row).getByRole("button", { name: /Flavour: Salmon/ })).toBeInTheDocument();
+  // The estimate for the new pick; Kling can't lip-sync, and says so in the picker.
+  fakeServer(makeServer({ "POST /scripts/7/drafts/0/estimate": [200, { credits: 34, over_cap: false, reason: null }] }));
+  await userEvent.click(within(row).getByRole("button", { name: /Video model: Auto/ }));
+  const models = await screen.findByRole("dialog", { name: "Video model" });
+  expect(within(models).getByRole("button", { name: /Kling/ })).toHaveTextContent("No lip-sync");
+  await userEvent.click(within(models).getByRole("button", { name: /Kling/ }));
+  expect(await within(panel).findByText("Starting costs 3 (the plan) · the whole video about 34 credits")).toBeInTheDocument();
+  expect(within(row).getByRole("button", { name: /Video model: Kling/ })).toBeInTheDocument();
+});
+
+test("Make this version sends the picks as its body, and none when nothing was changed", async () => {
+  setViewport(1440);
+  const calls = fakeServer(makeServer());
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  const row = await within(panel).findByRole("region", { name: "Video settings" });
+  await userEvent.click(within(row).getByRole("button", { name: /Flavour: Salmon/ }));
+  await userEvent.click(within(await screen.findByRole("dialog", { name: "Flavour" })).getByRole("button", { name: "Chicken" }));
+  await userEvent.click(await within(panel).findByRole("button", { name: /Make this version/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/produce")?.body).toEqual({ product_variants: { "Iron Paws": "Chicken" } }));
+});
+
+test("over the video limit, Make this version is held back with the reason", async () => {
+  setViewport(1440);
+  const reason = "That would go over the video limit of 729 credits.";
+  fakeServer(makeServer({ "POST /scripts/7/drafts/0/estimate": [200, { credits: 800, over_cap: true, reason }] }));
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  const make = await within(panel).findByRole("button", { name: /Make this version/ });
+  await vi.waitFor(() => expect(make).toBeDisabled());
+  expect(panel).toHaveTextContent(reason);
+});
+
+test("on a phone the settings are one line that opens a sheet", async () => {
+  setViewport(390);
+  fakeServer(makeServer());
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  await userEvent.click(await within(panel).findByRole("button", { name: /^Settings: 9:16 · Salmon · .*Auto · Auto$/ }));
+  expect(await screen.findByRole("dialog", { name: "Video settings" })).toBeInTheDocument();
+});

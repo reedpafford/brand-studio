@@ -11,6 +11,7 @@ import { useCast } from "./useCast";
 import { SongRow, useSongLength } from "./SongParts";
 import { beingMade } from "./ScriptsPage";
 import { useAllowanceStop, useScript, useWeek } from "./useScript";
+import { MakeSettings, useMakeEstimate, type Picks } from "./MakeSettings";
 
 const LETTER = ["A", "B", "C"];
 const SHOWN = 8;
@@ -25,12 +26,15 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const queryClient = useQueryClient();
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const [all, setAll] = useState(false);
+  const [picks, setPicks] = useState<Picks>({}); // the Video settings row's picks (VS1), sent with the press
   const s = script.data;
   const v = s?.versions.find((x) => x.slot === slot);
   const letter = LETTER[slot] ?? String(slot + 1);
   const make = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/produce", { params: { path: { script_id: scriptId, slot } } });
+      // #956 takes the picks as an optional body; until it is in the generated schema the body is passed untyped.
+      const init = { params: { path: { script_id: scriptId, slot } }, ...(Object.keys(picks).length ? { body: picks } : {}) };
+      const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/produce", init as { params: typeof init.params });
       if (!data) throw new Error(errorText(error));
       return data;
     },
@@ -50,6 +54,10 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const songLength = useSongLength(scriptId, s?.kind === "song");
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
+  // The whole video's price follows the picks (#956's estimate); over the video limit, the press says why.
+  const estimate = useMakeEstimate(scriptId, slot, picks, readyToMake);
+  const whole = estimate.data?.credits ?? v?.estimate_credits ?? 0;
+  const held = stop ?? (estimate.data?.over_cap ? estimate.data.reason || "Over the video limit." : null);
   return (
     <Panel title={s ? `${s.title} · Version ${letter}` : "Version"} onClose={onClose}>
       {!s || !v ? (
@@ -90,17 +98,19 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
                 : "The plan is made when you start"}
             </p>
           </section>
-          {readyToMake && v.estimate_credits > 0 && (
+          {readyToMake && <MakeSettings script={s} picks={picks} onPick={setPicks} />}
+          {readyToMake && whole > 0 && (
             <p className="text-sm text-muted">
               {/* One line that ties the button's price to the whole video's (#749 LW5). */}
-              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the plan) · the whole video about ${wholeCredits(v.estimate_credits)} credits` : `Starting is free · the whole video about ${wholeCredits(v.estimate_credits)} credits`}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the plan) · the whole video about ${wholeCredits(whole)} credits` : `Starting is free · the whole video about ${wholeCredits(whole)} credits`}
               {songLength && ` · ${songLength} song`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
           )}
+          {estimate.isError && <p role="alert" className={errorClass}>{estimate.error.message}</p>}
           {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
           {readyToMake ? (
-            <Button price={cost} disabled={stop !== null} reason={stop} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
+            <Button price={cost} disabled={held !== null} reason={held} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
               Make this version
             </Button>
           ) : (
