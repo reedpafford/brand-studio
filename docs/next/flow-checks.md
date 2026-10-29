@@ -217,3 +217,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #888 at e2d2d666 (old-link fix) | Playwright 390 + 1440 | PASS |
 | 2026-10-29 | #897 at 0a8380e5 (S3a: study used as a guide for directions) | guide on/off/removed; copied line → one re-ask → fail; 26 tests | FAIL: copied-line failure shows the general message; say why and "Try again, or turn off Use as a guide" |
 | 2026-10-29 | #898 at c63dde4a (P1 web: edit, Stop, Earlier plans, Out of date) | code walk; plan + planEdits (17) | FAIL: "Update the plan" is a paid new plan promising kept scenes; Use this one on an approved plan has no confirm |
+| 2026-10-29 | #901 at 47d1494e (ST0 format chip, ST1 look picker, "Music style") | code walk; vitest scripts (234) | PASS (hidden until #873; server still says "style line" in 3 messages; live walk after #873) |
