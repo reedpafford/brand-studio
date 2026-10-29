@@ -199,3 +199,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #882 at a904afb9 (V6 song on Final cut) | code walk; take removal after a switch | FAIL: removing the final's take hides "now uses take N"; non-song videos fetch /songs (409 ×4) |
 | 2026-10-29 | #882 at ca27118b (both fixes) | finalsong + videosong (13) | PASS |
 | 2026-10-29 | #881 at adb76baa (cost bar: Storyboard) | Playwright 1440 + 390: empty, Approve all, Redraw in bar; vitest projects (317) | FAIL: while Redraw is in the bar, bulk "Make N stills" is hidden (over-budget redraw leaves only per-card presses) |
+| 2026-10-29 | #885 at 3cef0f71 (S3a study link on the stand-ins) | test_song_study + test_reel_import (30); failure state on screen | PASS (walk on the test site once deployed) |
