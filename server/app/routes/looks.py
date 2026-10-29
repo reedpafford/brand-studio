@@ -99,7 +99,7 @@ def _sample(db: Session, owner: User, look_id: str, brand_id: int) -> SampleOut:
     hero = look_samples.hero(db, brand)
     return SampleOut(
         status=status, reason=reason,
-        credits=credits.price(look_samples.price(db, owner.workspace_id)),
+        credits=credits.price(look_samples.retry_price(db, owner.workspace_id, look_id)),
         hero=Person(id=hero.id, name=hero.name) if hero else None,
         characters=[Person(id=c.id, name=c.name) for c in look_samples.characters(db, brand)],
         still_id=row.sample_still_id if row else None,

@@ -111,14 +111,38 @@ def state(db: Session, ws: int, look_id: str) -> tuple[str, str | None]:
     return "failed", job.error or "The sample didn't finish. Nothing was charged for it."
 
 
+def _failed_clip(db: Session, ws: int, look_id: str) -> dict | None:
+    """A clip that didn't finish (or was refused) after its still was kept: the clip's job
+    input to make again from that still, or None."""
+    job, row = newest(db, ws, look_id), looks.switch(db, ws, look_id)
+    if not (job and row and row.sample_still_id) or state(db, ws, look_id)[0] != "failed":
+        return None
+    if job.input["step"] == CLIP:
+        return {k: v for k, v in job.input.items() if k != "clip_refused"}
+    if job.input.get("clip_refused"):  # refused before it started: from the still's job
+        return clip_input(look_id, job.input["brand_id"], row.sample_still_id, job.input["name"])
+    return None
+
+
+def retry_price(db: Session, ws: int, look_id: str) -> Decimal:
+    """Make a sample's price now: only the clip when its still is kept, else both."""
+    if again := _failed_clip(db, ws, look_id):
+        return estimate(db, ws, "video", SECONDS, again)
+    return price(db, ws)
+
+
 def make(db: Session, owner: User, look_id: str, brand: Brand, character_id: int | None) -> None:
-    """The still now, checked with the clip's price too (`hold`); the clip follows it."""
+    """The still now, checked with the clip's price too (`hold`); the clip follows it. After
+    a clip that didn't finish, only the clip again, from the kept still (as Clips' Try again)."""
     from app.routes.jobs import enqueue
 
     if look_id == looks.DEFAULT:
         raise HTTPException(409, HOUSE)
     if state(db, owner.workspace_id, look_id)[0] == "making":
         raise HTTPException(409, ALREADY)
+    if again := _failed_clip(db, owner.workspace_id, look_id):
+        enqueue(db, owner, "video", again, units=SECONDS, provider="replicate")
+        return
     job = still_input(db, brand, look_id, character_id)
     clip = estimate(db, owner.workspace_id, "video", SECONDS, clip_input(look_id, 0, 0, ""))
     enqueue(db, owner, "image", job, provider="replicate", hold=clip)

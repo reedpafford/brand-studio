@@ -68,3 +68,30 @@ def test_with_no_hero_the_owner_picks_one_or_the_look_brings_its_own(app, db, ow
     assert picked.status_code == 201
     house = owner.post("/looks/house/sample", json={"brand_id": brand})
     assert (house.status_code, house.json()["detail"]) == (409, look_samples.HOUSE)
+
+
+def test_after_a_clip_that_didnt_finish_only_the_clip_is_made_again(app, db, owner):
+    from app.credits import estimate, price
+    from app.models.looks import LookSwitch
+
+    app.state.settings.fake_providers = True
+    brand = _brand(owner)
+    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    _work(app, db, ticks=4)
+    clip = db.query(Job).filter(Job.input["step"].as_string() == look_samples.CLIP).one()
+    clip.status, clip.error = "failed", "The clip didn't finish. Nothing was charged."
+    row = db.query(LookSwitch).one()
+    kept, row.sample_clip_id = row.sample_still_id, None
+    db.commit()
+    url = f"/looks/zack-d/sample?brand_id={brand}"
+    shown = owner.get(url).json()
+    assert shown["status"] == "failed" and shown["still_id"] == kept
+    ws = owner.get("/auth/me").json()["workspace_id"]
+    assert shown["credits"] == price(estimate(db, ws, "video", 5, clip.input))  # the clip alone
+    jobs = db.query(Job).count()
+    assert owner.post("/looks/zack-d/sample", json={"brand_id": brand}).status_code == 201
+    assert db.query(Job).count() == jobs + 1  # only the clip, no new still
+    db.expire_all()
+    _work(app, db, ticks=3)
+    ready = owner.get(url).json()
+    assert ready["status"] == "ready" and ready["still_id"] == kept and ready["clip_id"]
