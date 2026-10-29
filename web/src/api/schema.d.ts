@@ -5996,6 +5996,8 @@ export interface components {
             failed_reason: string | null;
             /** Retry Helps */
             retry_helps: boolean;
+            /** Retry Credits */
+            retry_credits: number;
             /** File Id */
             file_id: number | null;
             /** Seconds */

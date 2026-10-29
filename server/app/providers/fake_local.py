@@ -15,7 +15,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from app.prompts import SCHEMAS
+from app.prompts import SCHEMAS, check
 from app.prompts.check import DIALOGUE
 from app.providers import Result
 
@@ -52,7 +52,8 @@ def transcript(path: Path) -> list[dict]:
 # A marker in the style line picks another outcome, so every state can be walked (Flow-QA):
 # fake:fail, fake:refuse (unsafe words), fake:copyright (the style names an artist),
 # fake:drop-line (the last line isn't sung), fake:repeat-line (it's sung twice) or
-# fake:long (150 s; fake:long=800 for a song whose video goes over the cap).
+# fake:long (150 s; fake:long=800 for a song whose video goes over the cap) or
+# fake:one-song (the reply holds only one of the two songs).
 SONG = {"seconds": 24, "bpm": 120, "first_beat": 0.25, "first_word_beat": 4}
 OUTCOMES = {
     "fake:fail": "Internal error while generating music",
@@ -82,7 +83,7 @@ def hear_song(path: Path, lyrics: str) -> list[dict]:
     """Stand-in Whisper for the stand-in song: every lyric word, one a beat, 0.3 s each (the
     last line left out, or sung twice, for those markers)."""
     beat = 60 / SONG["bpm"]
-    sung_lines = [line.split() for line in lyrics.splitlines() if not line.startswith("[")]
+    sung_lines = [line.split() for line in check.sung_lines(lyrics)]
     head = path.read_bytes()[:256]  # the ID3 tag song() wrote
     if b"fake:drop-line" in head:
         sung_lines = sung_lines[:-1]
@@ -233,7 +234,8 @@ class FakeSuno:
         style = self._styles[ref]
         if failed := next((e for marker, e in OUTCOMES.items() if marker in style), None):
             return Result("failed", error=failed)
-        return Result("succeeded", files=[f"fake://{ref}/{n}" for n in (1, 2)])
+        count = 1 if "fake:one-song" in style else 2  # a reply with fewer songs than asked
+        return Result("succeeded", files=[f"fake://{ref}/{n}" for n in range(1, count + 1)])
 
     def fetch(self, url: str) -> tuple[bytes, str]:
         return song(self._styles[url.removeprefix("fake://").split("/")[0]]), "audio/mpeg"
