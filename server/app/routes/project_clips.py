@@ -24,6 +24,7 @@ from app import (
     looks,
     narration,
     narration_music,
+    prompts,
 )
 from app.advice import Said
 from app.auth import current_user
@@ -130,6 +131,7 @@ class ProjectClipOut(BaseModel):
     retrying: Literal["refused", "busy"] | None = None  # P3: why its take is being tried again
     retried: Literal["refused", "busy"] | None = None  # P3: its newest take was the retry
     auto_fix: AutoFixOut | None = None  # P3: wording fixed for you, with Undo
+    look_fix: str | None = None  # the look's fix to offer when its takes are refused (ST2)
 
 
 def _takes(db: Session, row: ProjectClip) -> list[ClipTake]:
@@ -143,7 +145,8 @@ _stale = clip_prompts.is_stale
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
-                "take_stale", "approved", "retrying", "retried", "auto_fix")  # fmt: skip
+                "take_stale", "approved", "retrying", "retried", "auto_fix",
+                "look_fix")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -170,9 +173,12 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         stale=_stale(db, row, newest),
         take_stale=clip_prompts.take_stale(row) or looks.take_other(db, project, row),
         approved=row.approved and not looks.take_other(db, project, row),
-        take_warning=clip_takes.take_warning(db, row),
-        retrying=clip_takes.retrying(db, row),
+        take_warning=(warning := clip_takes.take_warning(db, row)),
+        retrying=(retrying := clip_takes.retrying(db, row)),
         retried=clip_takes.retried(db, row),
+        look_fix=prompts.look_fixes(project.look).get("refused")
+        if retrying == "refused" or warning
+        else None,
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
         change=asked or None,
     )
@@ -352,7 +358,7 @@ def edit_clip(
     clip = clip_prompts.with_cast(db, project, clip, bd, trim=False)
     refused = clip_prompts.refusal(row.problems, row.prompt, clip.prompt)
     if clip.prompt != row.prompt:  # new words: fixed as written, with an Undo for these words
-        typed, (fixed, said) = clip.prompt, clip_prompts.reword(clip.prompt)
+        typed, (fixed, said) = clip.prompt, clip_prompts.reword(clip.prompt, project.look)
         clip = clip.model_copy(update={"prompt": fixed})
         row.auto_fix = {"before": typed, "after": fixed, "fixed": said,
                         "undone": False} if said else None  # fmt: skip
