@@ -508,6 +508,33 @@ def says_brand(line: str, brand: str) -> bool:
     return bool(_words(brand)) and f" {_words(brand)} " in f" {_spoken(line)} "
 
 
+PACKAGING = {"bag", "product", "packet", "pack", "pouch", "tub", "jar", "bottle", "box", "can",
+             "tin", "package", "packaging", "sachet", "carton"}  # fmt: skip
+
+
+def product_shown(text: str, brand: str, products: list[dict]) -> str | None:
+    """The product screen a shot's words show, or None (Reed's #32 c9: "an Iron Paws bag on a
+    shelf" was drawn invented because the shot didn't list the real bag). `products` are the
+    brand's product screens, {id, name, product, variant}, the video's chosen variant first:
+    a shot naming one ("the peanut butter bag") gets that one; the brand's name with a
+    packaging word ("an Iron Paws bag") gets the first."""
+    words = f" {_words(text)} "
+
+    def has(phrase: str) -> bool:
+        w = _words(phrase)
+        return bool(w) and (f" {w} " in words or f" {w}s " in words)
+
+    for p in products:
+        if has(p["name"]) or (
+            p.get("variant") and has(p["variant"]) and has(p.get("product") or "bag")
+        ):
+            return p["id"]
+    nouns = PACKAGING | {_words(p.get("product") or "") for p in products} - {""}
+    if products and has(brand) and any(has(n) for n in nouns):
+        return products[0]["id"]
+    return None
+
+
 SPEAKER = re.compile(r"^\s*[A-Z][A-Z .'-]*(?:\([^)]*\))?:")  # "NATE:" or "NATE (V.O.):"
 
 
