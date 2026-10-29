@@ -33,6 +33,7 @@ class SongTakeOut(BaseModel):
     seconds: float | None
     made_at: UtcTime | None
     preferred: bool
+    in_video: bool  # made in this video (not one of its version's takes)
     out_of_date: bool  # "Sings older words": other lyrics or style line than the version's now
     peaks: list[float]  # the waveform, 0 to 1 (empty until its timing is read)
     advice: list[str]  # e.g. "Timing guessed: …" (never blocks)
@@ -81,6 +82,7 @@ def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
         seconds=take.seconds,
         made_at=db.get(Job, take.job_id).finished_at if take.file_id else None,
         preferred=take.preferred,
+        in_video=take.project_id is not None,
         out_of_date=song_takes.out_of_date(take, draft),
         peaks=(take.timing or {}).get("peaks", []),
         advice=take.advice or [],
