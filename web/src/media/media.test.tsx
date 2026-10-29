@@ -118,9 +118,18 @@ test("a deleted video's media says so; the owner can restore the video, an edito
   expect(await screen.findByText("Bo tries salmon is back.")).toBeInTheDocument();
 });
 
-test("an editor sees no Restore on a deleted video's media", async () => {
+test("the video's maker can restore it from Media too, as the Archived list offers", async () => {
   setViewport(1440);
-  fakeServer(base(editor, page([item({ from_deleted_video: true })])));
+  const calls = fakeServer(base(editor, page([item({ from_deleted_video: true })]), { "POST /projects/9/restore": [200, {}] })); // Eli made it
+  open();
+  const list = await screen.findByRole("list", { name: "Media" });
+  await userEvent.click(within(list).getByRole("button", { name: "Restore the video" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/restore")).toBe(true));
+});
+
+test("an editor sees no Restore on a deleted video's media someone else made", async () => {
+  setViewport(1440);
+  fakeServer(base(editor, page([item({ from_deleted_video: true, made_by: { id: 3, name: "Sam" } })])));
   open();
   const list = await screen.findByRole("list", { name: "Media" });
   expect(within(list).getByText("From a deleted video")).toBeInTheDocument();

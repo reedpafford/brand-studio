@@ -4,6 +4,7 @@ video, the script's language and the brand's default cast. Free, on the stand-in
 
 from sqlalchemy import select
 
+from app import sheets
 from app import video_settings as vs
 from app.models.brands import BrandScreen
 from app.models.breakdowns import BreakdownVersion
@@ -289,3 +290,24 @@ def test_make_this_version_refuses_an_off_look_for_an_editor(owner, editor, db):
     made = editor.post(f"{base}/drafts/0/produce", json={"image_model": "nano-banana-pro"})
     assert made.status_code == 201
     assert db.get(Project, made.json()["project_id"]).image_model == "nano-banana-pro"
+
+
+def test_make_this_versions_price_line_follows_the_picks(owner, editor, db):
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    url = f"{base}/drafts/0/estimate"
+    auto = editor.post(url).json()
+    shown = editor.get(base).json()["versions"][0]["estimate_credits"]
+    assert auto == {"credits": shown, "over_cap": False, "reason": ""}  # the card's figure
+    look = owner.post(url, json={"look": "disney-pixar"}).json()  # Mia has only House: one look
+    assert look["credits"] == round(auto["credits"] + float(sheets.look_price(db, 1)), 2)
+    cheaper = editor.post(url, json={"video_model": "seedance-2.0"}).json()
+    assert 0 < cheaper["credits"] < auto["credits"]
+    assert editor.post(url, json={"look": "zack-d"}).status_code == 409  # Off for editors
+    assert editor.post(url, json={"video_model": "nope"}).status_code == 422
+    db.add(CreditLimits(workspace_id=1, per_video_max_credits=1))
+    db.commit()
+    over = editor.post(url).json()
+    assert over["over_cap"] and over["reason"] == vs.OVER_CAP.format(1)
+    assert db.query(Project).count() == 0  # nothing is made
+    models = {m["id"]: m["lip_sync"] for m in editor.get("/models?kind=video").json()}
+    assert models["seedance-2.5"] and not models["seedance-2.0"]

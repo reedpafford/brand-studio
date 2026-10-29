@@ -11,7 +11,7 @@ and is never logged."""
 import httpx2 as httpx
 
 from app.prompts.check import sung_lines
-from app.providers import NetworkError, NotStarted, Result
+from app.providers import NetworkError, NoKey, NotStarted, Result
 
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 RUNNING = ("waiting", "queuing", "generating")
@@ -33,9 +33,11 @@ class KieSuno:
         self.client = client or httpx.Client(timeout=TIMEOUT)  # never follows redirects itself
         self.delivery_hosts = delivery_hosts
         self.max_download = max_download_mb * 1024 * 1024
-        self._auth = {"Authorization": f"Bearer {key}"}
+        self._auth = {"Authorization": f"Bearer {key}"} if key else {}
 
     def _call(self, method: str, path: str, **kwargs) -> dict:
+        if not self._auth:
+            raise NoKey("KIE")
         try:
             r = self.client.request(method, f"{self.base_url}{path}", headers=self._auth, **kwargs)
         except httpx.TransportError as exc:

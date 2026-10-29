@@ -78,9 +78,9 @@ def test_stills_are_checked_only_when_the_scope_is_everything(app, db, editor, s
     def draw():
         editor.post(f"{url}/frames/{frame['id']}/render")
         client = httpx.Client(transport=httpx.MockTransport(FakeNanoBanana()))
+        replicate = ReplicateProvider(BASE, client, token="test-token")
         for _ in range(2):
-            run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage,
-                     only={"replicate"})  # fmt: skip
+            run_once(db, {"replicate": replicate}, app.state.storage, only={"replicate"})
         _check(app, db)
 
     draw()
