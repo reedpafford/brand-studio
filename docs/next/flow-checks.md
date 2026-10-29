@@ -221,3 +221,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #897 at 666b7028 (copied-line message) | test_song_directions (12) | PASS |
 | 2026-10-29 | #858 at a6002245 (next + #887 merged; n05 → n07) | 3 narration scripts via narration.job; narration + narrated + migrations (17) | PASS |
 | 2026-10-29 | #892 at 693e7cdd (plan rule in the message) | breakdown system prompts byte-identical to next; test_plan + test_prompts (115) | PASS |
+| 2026-10-29 | #891 at 5092a41f (scope key_takes, check_credits_per_video, approved_with_advice) | item_checks + approve_all + migrations (8) | PASS (notes: estimate skips prop-only key clips; V.O. counts as speaking; approved_with_advice over all picked) |
