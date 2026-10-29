@@ -261,6 +261,28 @@ def older_looks(db: Session, known: dict, frame: StoryboardFrame) -> list[str]:
 SHEETS = (*CHAR, "place:", "prop:")  # Cast & places pictures a sheet change can make old
 
 
+def stills(db: Session, frame: StoryboardFrame) -> list[dict]:
+    """The frame's earlier stills (OR3, Preferred: the one in use is `file_id`), newest last,
+    each with when and who: the file's time, and whoever asked for the job that drew it."""
+    from app.auth import user_name
+
+    drew = Job.input["frame_id"].as_integer() == frame.id
+    jobs = db.scalars(select(Job).where(Job.project_id == frame.project_id, drew))
+    by = {((j.output or {}).get("file_ids") or [None])[0]: j.created_by_id for j in jobs}
+    out = []
+    for e in frame.earlier or []:
+        made = db.get(StoredFile, e["file_id"])
+        who = by.get(e["file_id"])
+        out.append(
+            {
+                **e,
+                "made_at": made.created_at.isoformat() if made else None,
+                "made_by": {"id": who, "name": user_name(db, who)} if who else None,
+            }
+        )
+    return out
+
+
 def drawn_from_older(known: dict, refs: list[str], sent: set[int]) -> list[str]:
     """Who or what among `refs` has an approved picture now that wasn't among the files a
     still or take was made from (N6: a Cast & places sheet changed since)."""

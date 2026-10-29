@@ -54,27 +54,44 @@ MODERATED = "The video model refused this prompt: it read it as "  # clip_takes.
 
 
 OLDER_TAKE = "Advice: Its take was made from an older look of "
+OLDER_STILL = "Advice: Its take was made from an earlier still of this clip's frame."
 
 
 def take_stale(row: ProjectClip) -> bool:
-    """Its picked take shows an older sheet (N6), and nobody kept it anyway: "Out of date",
-    and its finished video's "changes waiting" (LW2). Approved work stays approved: a sheet
-    edit reaches every video, finished ones too."""
+    """Its picked take shows an older sheet (N6) or an earlier still than its frame's Preferred
+    one (OR3), and nobody kept it anyway: "Out of date", and its finished video's "changes
+    waiting" (LW2). Approved work stays approved: a sheet edit reaches every video, finished
+    ones too."""
     kept = row.kept or []
-    return any(p.startswith(OLDER_TAKE) and p not in kept for p in row.problems or [])
+    return any(p.startswith((OLDER_TAKE, OLDER_STILL)) and p not in kept
+               for p in row.problems or [])  # fmt: skip
+
+
+def _sent(db: Session, row: ProjectClip) -> set[int]:
+    """The files the clip's picked take was made from; empty with no take, or when not known."""
+    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+    job = db.get(Job, take.job_id) if take else None
+    return {f for ids in ((job.input.get("files") or {}) if job else {}).values() for f in ids}
 
 
 def older_take(db: Session, known: dict, row: ProjectClip) -> list[str]:
     """Who or what the clip's picked take was made from an earlier sheet of (N6: a Cast &
     places sheet changed since): its job sent other pictures. [] with no take, or when what
     it was made from isn't known."""
-    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
-    job = db.get(Job, take.job_id) if take else None
-    sent = {f for ids in ((job.input.get("files") or {}) if job else {}).values() for f in ids}
-    if not sent:
+    if not (sent := _sent(db, row)):
         return []
     refs = [r["id"] for r in row.references or [] if r["kind"] == "image"]
     return drawn_from_older(known, refs, sent)
+
+
+def older_still(db: Session, known: dict, row: ProjectClip) -> bool:
+    """The clip's picked take was made from another still than its frame's Preferred one now
+    (OR3: Use this still, or a storyboard gone back to). Picking that still back clears it."""
+    key = f"frame:{row.clip_id}"
+    if not any(r["id"] == key for r in row.references or []) or not (sent := _sent(db, row)):
+        return False
+    now = known.get(key, ("", "", []))[-1][:1]
+    return bool(now) and now[0] not in sent
 
 
 def refusal(problems: list[str] | None, before: str, after: str) -> list[str]:
@@ -497,6 +514,8 @@ def repair(db: Session, project: Project) -> int:
         problems = undone_flags(row, problems)
         if older := older_take(db, known, row):  # said, never unapproved: a sheet edit
             problems.append(f"{OLDER_TAKE}{', '.join(older)}. Make another take to show it.")
+        if older_still(db, known, row):  # OR3: its frame's Preferred still moved
+            problems.append(f"{OLDER_STILL} Make another take to show it.")
         if any(p.lower().startswith("more references than") for p in problems):
             now = repair_shape(_cap(with_cast(db, project, was, bd, known), known, project), bd)
             kept = {r.id for r in now.references}

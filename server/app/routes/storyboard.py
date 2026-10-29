@@ -65,7 +65,9 @@ class FrameOut(BaseModel):
     stale: bool  # made from an older breakdown, or the breakdown is for an older script
     still_stale: bool  # the still shows the old cast (its redraw wasn't covered): "Out of date"
     redrawn: bool  # redrawn for a new cast and not approved yet: "Redrawn"
-    earlier: list[dict]  # older stills, newest last: [{file_id, prompt}]
+    # older stills, newest last (OR3: the one in use, `file_id`, is the Preferred one):
+    # [{file_id, prompt, made_at, made_by: {id, name} | null}]
+    earlier: list[dict]
     # The last Change it note: {note, status: changing | done | unchanged | failed, before,
     # after, unchanged, error}; cleared on Approve or the next note ("What your note changed").
     change: dict | None
@@ -81,6 +83,7 @@ class FrameOut(BaseModel):
     redo_credits: int | None = None
     redo_blocked: str | None = None
     check: CheckOut | None = None  # P4: the advisory check on its newest still (Advice only)
+    was_file_id: int | None = None  # Use this still: the one it replaced (Undo picks it back)
 
 
 class SoftenOut(BaseModel):
@@ -139,7 +142,7 @@ def _out(
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
                 "redo_credits", "redo_blocked", "still_stale", "check", "look_fixed",
-                "look_fix")  # fmt: skip
+                "look_fix", "earlier", "was_file_id")  # fmt: skip
     other = looks.frame_other(project, frame) or video_settings.frame_stale(project, frame)  # VS1
     newest = _newest_breakdown(db, project)
     redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
@@ -155,6 +158,7 @@ def _out(
         **{f: getattr(frame, f) for f in FrameOut.model_fields if f not in computed},
         approved=frame.approved and not stale and not other,
         stale=stale,
+        earlier=storyboard.stills(db, frame),
         still_stale=frame.still_stale or other,
         change=asked or None,
         drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
@@ -384,13 +388,15 @@ def pick_still(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Use an earlier still again, with the prompt it was made from (free; the Undo of a
-    change). The one it replaces becomes an earlier still."""
+    """Use an earlier still again, with the prompt it was made from: OR3's Preferred still,
+    and the Undo of a change. Free, never refused over budget. The one it replaces becomes an
+    earlier still (`was_file_id`: pick it back to undo); a take made from the replaced still
+    reads Out of date (clip_prompts.older_still)."""
     project, frame = _frame(db, user, project_id, frame_id)
     old = next((e for e in frame.earlier or [] if e["file_id"] == body.file_id), None)
     if old is None:
         raise HTTPException(404, "No such earlier still.")
-    rest = [e for e in frame.earlier if e is not old]
+    rest, was = [e for e in frame.earlier if e is not old], frame.file_id
     if frame.file_id:
         rest.append({"file_id": frame.file_id, "prompt": frame.prompt,
                      **({"made_with": frame.made_with} if frame.made_with else {})})  # fmt: skip
@@ -398,7 +404,7 @@ def pick_still(
     frame.made_with = old.get("made_with") or {}  # VS1: what that still was made with
     frame.approved = frame.still_stale = False
     db.commit()
-    return _out(db, project, frame)
+    return _out(db, project, frame).model_copy(update={"was_file_id": was})
 
 
 @router.post("/frames/{frame_id}/approve", response_model=FrameOut)
