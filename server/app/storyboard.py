@@ -542,7 +542,12 @@ def still_refused(db: Session, job: Job) -> None:
 
 
 def save_frames(db: Session, job: Job) -> None:
-    """Replace the project's frames with Claude's new ones (a new storyboard was asked for)."""
+    """Replace the project's frames with Claude's new ones (a new storyboard was asked for), or
+    the one frame Redo this frame wrote again."""
+    if job.input.get("redo_frame_id"):
+        from app import redo_frame
+
+        return redo_frame.save(db, job)
     project = db.get(Project, job.input["project_id"])
     result = StoryboardFrames.model_validate(job.output)
     db.execute(delete(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
