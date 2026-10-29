@@ -3,6 +3,7 @@ their out-of-date still is refused before any charge, never drawn without them (
 QA-3's note on #947). All on the free stand-ins."""
 
 from app.models.jobs import Job
+from app.models.library import LibraryItem
 from app.providers import get_providers
 from tests.conftest import upload
 from tests.helpers import with_sheet
@@ -11,7 +12,7 @@ from tests.test_look_sheets import _video
 
 
 def test_a_redraw_after_a_look_switch_waits_for_the_casts_look(app, db, editor, owner):
-    project, _ = _video(app, owner, editor, db, look="house")
+    project, mia_id = _video(app, owner, editor, db, look="house")
     providers = get_providers(app.state.settings)
     url = f"/projects/{project.id}"
     nate = owner.post(
@@ -42,3 +43,9 @@ def test_a_redraw_after_a_look_switch_waits_for_the_casts_look(app, db, editor, 
     redo = editor.post(f"{url}/storyboard/frames/{frame['id']}/redo")
     assert redo.status_code == 409, redo.text  # refused too: its breakdown is unchanged
     assert db.query(Job).count() == jobs  # nothing charged
+
+    # With an approved Disney Pixar sheet of her, the same redraw goes through
+    mia = db.get(LibraryItem, mia_id)
+    mia.look_sheets = {"disney-pixar": {"file_id": upload(owner), "approved": True}}
+    db.commit()
+    assert editor.post(f"{url}/storyboard/frames/{frame['id']}/render").status_code == 201
