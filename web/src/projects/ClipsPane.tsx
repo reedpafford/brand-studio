@@ -13,6 +13,7 @@ import { usePressed } from "./usePressed";
 import { useProblemWords } from "./ProblemText";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
+import { ReviewChip } from "./Checks";
 import { RewriteNote, RewriteOne, useRewritePrice } from "./RewriteClips";
 import { ClipCard } from "./ClipCard";
 import { useCostBarAction } from "./CostBar";
@@ -248,6 +249,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   return (
     <div className="space-y-4" aria-label="Clips">
       <div className="flex flex-wrap items-center justify-between gap-2">
+        {props.review && <ReviewChip projectId={projectId} />}
         {/* On the video page the step heading above already carries the counts (audit S14). */}
         {!props.review && (
           <h2 className="text-[length:var(--text-md)] font-semibold">

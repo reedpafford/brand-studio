@@ -16,6 +16,7 @@ import { Banner, Button, Dialog, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
+import { ReviewChip } from "./Checks";
 import { type Softened } from "./Soften";
 import { FrameCard } from "./FrameCard";
 
@@ -282,6 +283,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   return (
     <div className="space-y-4" aria-label="Storyboard">
       <div className="flex flex-wrap items-center justify-between gap-2">
+        {props.oneStep && <ReviewChip projectId={projectId} />}
         {/* On the video page the step heading above already carries the counts. */}
         {!props.oneStep && (
           <h2 className="text-[length:var(--text-md)] font-semibold">

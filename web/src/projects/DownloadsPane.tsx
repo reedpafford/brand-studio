@@ -15,6 +15,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { useProjectClips, useProjectVideo } from "./useProgress";
 import { serverTime } from "../time";
+import { ReviewChip } from "./Checks";
 import { FinalSong } from "../scripts/VideoSong";
 
 /** When a take was made, as the person's clock reads it: "10:42". */
@@ -173,6 +174,7 @@ export function DownloadsPane({
               {madeFrom && (
                 <p className="text-sm text-muted">Made from: {madeFrom}</p>
               )}
+              <ReviewChip projectId={projectId} open />
               <FinalSong projectId={projectId} madeWith={v.song_take_id} />
             </div>
           </Card>

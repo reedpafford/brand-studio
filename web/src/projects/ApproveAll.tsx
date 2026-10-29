@@ -8,7 +8,7 @@ type Skipped = { id: number | null; reason: string; label?: string };
 export type ApproveAllResult = { approved: number[]; skipped: Skipped[] };
 
 /** Scrolls to a card and outlines it for a moment. */
-function show(label: string) {
+export function show(label: string) {
   const card = document.querySelector<HTMLElement>(`[aria-label="${label}"]`);
   card?.scrollIntoView?.({ block: "center", behavior: "smooth" });
   card?.classList.add("outline", "outline-2", "outline-accent");

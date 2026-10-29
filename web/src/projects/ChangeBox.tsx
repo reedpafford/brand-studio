@@ -83,6 +83,8 @@ export function ChangeBox(props: {
   label: string;
   /** What the button says (a clip with a take: "Change it and make a new take"; with none: "Change the prompt"). */
   action?: string;
+  /** A ready note to put in the box (an AI check's "Change this…"); a new n puts it in again. */
+  seed?: { text: string; n: number };
 }) {
   const { kind, projectId, id, change } = props;
   const queryClient = useQueryClient();
@@ -91,6 +93,16 @@ export function ChangeBox(props: {
   const [edited, setEdited] = useState(false);
   const [whole, setWhole] = useState(false);
   const was = useRef<number | null>(null); // what was picked when the note was sent
+  const box = useRef<HTMLDivElement>(null);
+  const [seeded, setSeeded] = useState<number>();
+  if (props.seed && props.seed.n !== seeded) {
+    setSeeded(props.seed.n);
+    setNote(props.seed.text);
+    setEdited(true);
+  }
+  useEffect(() => {
+    if (seeded) box.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [seeded]);
   // "Changing…" never outlasts its rewrite: a job that failed, was stopped or is gone (or finished a while ago while the
   // note still says changing, so its answer wasn't saved) reads as a change that didn't finish.
   const lost = useQuery({
@@ -149,7 +161,7 @@ export function ChangeBox(props: {
   const said = press.error && (press.error as Error & { status?: number }).status === 422;
   const snippets = change && change.status === "done" && change.before !== undefined && change.after !== undefined ? changedSnippets(change.before, change.after) : [];
   return (
-    <div className="space-y-2">
+    <div ref={box} className="space-y-2">
       <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={changing ? change!.note : text} readOnly={changing} onChange={(e) => { setNote(e.target.value); setEdited(true); press.reset(); }} aria-label={`Change this… ${props.label}`} />
       <Button variant="secondary" icon={Wand2} busy={changing || press.isPending} price={changing ? undefined : price.isPending ? null : credits} reason={reason} disabled={!changing && !!reason} onClick={() => { was.current = props.snapshot ?? null; press.mutate(text.trim()); }}>
         {changing ? "Changing…" : failed && text.trim() === change?.note ? "Try again" : props.action ?? "Change it"}

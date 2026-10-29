@@ -11,6 +11,7 @@ import { AssetsPane, useAssets } from "./AssetsPane";
 import { notInShots } from "./AssetCard";
 import { BreakdownPane } from "./BreakdownPane";
 import { PlanStep } from "./PlanStep";
+import { CheckSummary } from "./Checks";
 import { useBriefChoices } from "./BriefPickers";
 import { ClipsPane } from "./ClipsPane";
 import { DownloadsPane } from "./DownloadsPane";
@@ -142,6 +143,7 @@ export function VideoPage() {
         <div>
           <h2 className="type-section">{label}</h2>
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
+          {(step === "storyboard" || step === "clips" || step === "downloads") && <CheckSummary projectId={id} />}
         </div>
       </div>
       {step === "plan" && (
