@@ -268,11 +268,11 @@ def in_production(
 
 @router.get("/summary", response_model=Summary)
 def summary(user: User = Depends(_owner), db: Session = Depends(get_db)):
-    from app.routes.project_clips import final_out_of_date
+    from app.routes.project_clips import out_of_date
 
     found = rows(db, user)
     done = db.scalars(select(Project).where(Project.workspace_id == user.workspace_id,
                                             Project.finished_at.is_not(None),
                                             Project.archived_at.is_(None)))  # fmt: skip
     return Summary(in_production=len(found), needs_attention=sum(1 for r in found if r.flag),
-                   changes_waiting=sum(final_out_of_date(db, p) for p in done))  # fmt: skip
+                   changes_waiting=len(out_of_date(db, list(done))))  # fmt: skip

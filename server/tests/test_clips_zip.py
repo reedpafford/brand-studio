@@ -100,6 +100,9 @@ def test_a_finished_video_with_changed_clips_says_so(app, db, owner, editor, set
 
     def listed():
         (row,) = editor.get("/projects", params={"status": "done"}).json()
+        brand = f"/usage/brands/{row['brand_id']}/videos"
+        (used,) = owner.get(brand, params={"period": "all", "status": "done"}).json()["items"]
+        assert used["final_out_of_date"] == row["final_out_of_date"]  # Usage says the same
         return row["final_out_of_date"]
 
     assert listed() is False and editor.get(base).json()["final_out_of_date"] is False
@@ -107,3 +110,28 @@ def test_a_finished_video_with_changed_clips_says_so(app, db, owner, editor, set
     editor.delete(f"{base}/clips/{clip['id']}/approve")  # a clip changed since
     assert listed() is True and editor.get(base).json()["final_out_of_date"] is True
     assert owner.get("/production/summary").json()["changes_waiting"] == 1
+
+
+def test_a_list_reads_out_of_date_once_not_per_video(app, db, editor, setup, clip):  # noqa: F811
+    """No N+1: the same queries for one finished video or many."""
+    from sqlalchemy import event
+
+    from app.routes.project_clips import out_of_date
+
+    project = db.get(Project, setup["project"])
+    project.finished_at = project.created_at
+    db.commit()
+    counted = []
+
+    def count(*_):
+        counted.append(1)
+
+    event.listen(db.get_bind(), "before_cursor_execute", count)
+    try:
+        out_of_date(db, [project])
+        one = len(counted)
+        counted.clear()
+        out_of_date(db, [project] * 20)
+        assert len(counted) <= one
+    finally:
+        event.remove(db.get_bind(), "before_cursor_execute", count)

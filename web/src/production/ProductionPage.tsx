@@ -116,7 +116,10 @@ export function ProductionPage() {
   };
   const all = summary.data?.in_production;
   const needs = summary.data?.needs_attention ?? 0;
-  const count = summary.data && (filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : `${all} video${all === 1 ? "" : "s"} being made${needs > 0 ? ` · ${needs} need${needs === 1 ? "s" : ""} attention` : ""}`);
+  // Finished videos whose clips changed since are not being made, but they aren't done either (#749 LW2).
+  const waiting = summary.data?.changes_waiting ?? 0;
+  const waitingText = waiting > 0 ? `${waiting} finished video${waiting === 1 ? " has" : "s have"} changes waiting` : "";
+  const count = summary.data && (filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : [`${all} video${all === 1 ? "" : "s"} being made`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : "", waitingText].filter(Boolean).join(" · "));
 
   const brandSelect = (
     <Select label="Brand" value={brand} onChange={(e) => set("brand", e.target.value)}>
