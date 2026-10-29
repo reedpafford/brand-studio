@@ -182,8 +182,17 @@ def _video(app, db, owner, editor, song):
     owner.post(f"{base}/publish")
     made = editor.post(f"{song}/produce")
     assert made.status_code == 201, made.text
-    _work(app, db)  # its breakdown (a stand-in)
-    return f"/projects/{made.json()['project_id']}"
+    video = f"/projects/{made.json()['project_id']}"
+    _work(app, db)  # its plan (flows 1b), then the shots from it (stand-ins)
+    _approve_plan(app, db, editor, video)
+    return video
+
+
+def _approve_plan(app, db, editor, video):
+    """Approve the video's plan: the shots are made from it."""
+    approved = editor.post(f"{video}/plan/approve")
+    assert approved.status_code == 200, approved.text
+    _work(app, db)
 
 
 def test_a_video_starts_on_the_preferred_take_and_can_switch_with_undo(
