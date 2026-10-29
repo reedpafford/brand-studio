@@ -23,6 +23,7 @@ PAUSE, QUIET = 0.25, "-40dB"
 
 NO_WORDS = "Write the words first: the narrator reads them as written."
 FAILED = "The narration didn't finish. Nothing was charged."
+MAKING = "A narration is being made. It's ready in a moment."
 KEPT_PAUSES = "Kept the pauses: trimming would have clipped a word."
 TIMING_FAILED = "We couldn't read this narration's timing. It's free to try again."
 TIMING_UNREADABLE = "This narration's file can't be read. Make the narration again."
