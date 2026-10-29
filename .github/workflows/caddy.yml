@@ -1,0 +1,20 @@
+name: caddy
+# The web server's config is checked before it can reach the live server: a Caddyfile that
+# doesn't parse would take the site down until a revert deployed (deploy.yml runs this first).
+on:
+  pull_request:
+    paths: ["deploy/**", ".github/workflows/caddy.yml"]
+  workflow_call:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: caddy validate (the same image the web server is built on)
+        run: |
+          for file in deploy/Caddyfile deploy/next/Caddyfile; do
+            [ -f "$file" ] || continue
+            docker run --rm -e DOMAIN=studio.example.com -v "$PWD/$file:/etc/caddy/Caddyfile:ro" \
+              caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          done

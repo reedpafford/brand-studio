@@ -1,0 +1,25 @@
+# The test site's web server. Live's Caddy terminates HTTPS on port 8443 and forwards here, so
+# this one speaks plain http and trusts the forwarded headers from the private network only.
+{
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	handle_path /api/* {
+		reverse_proxy api:8000 {
+			lb_try_duration 30s
+			lb_try_interval 500ms
+		}
+	}
+	handle /health {
+		reverse_proxy api:8000
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

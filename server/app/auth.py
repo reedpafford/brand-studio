@@ -14,7 +14,6 @@ from app.advice import REQUEST
 from app.db import get_db, utcnow
 from app.models.accounts import LoginSession, User
 
-COOKIE = "bs_session"
 _hasher = PasswordHasher()
 _DUMMY_HASH = _hasher.hash("timing-equaliser")
 
@@ -48,7 +47,7 @@ def start_session(db: Session, request: Request, response: Response, user: User)
     db.add(LoginSession(token_hash=digest, user_id=user.id, expires_at=expires))
     db.commit()
     response.set_cookie(
-        COOKIE,
+        settings.cookie_name,
         raw,
         max_age=settings.session_days * 86400,
         httponly=True,
@@ -58,17 +57,18 @@ def start_session(db: Session, request: Request, response: Response, user: User)
 
 
 def end_session(db: Session, request: Request, response: Response) -> None:
-    raw = request.cookies.get(COOKIE)
+    cookie = request.app.state.settings.cookie_name
+    raw = request.cookies.get(cookie)
     if raw:
         session = db.scalar(select(LoginSession).where(LoginSession.token_hash == hash_token(raw)))
         if session:
             db.delete(session)
             db.commit()
-    response.delete_cookie(COOKIE)
+    response.delete_cookie(cookie)
 
 
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    raw = request.cookies.get(COOKIE)
+    raw = request.cookies.get(request.app.state.settings.cookie_name)
     if raw:
         user = db.scalar(
             select(User)
