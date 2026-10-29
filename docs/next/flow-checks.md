@@ -284,3 +284,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #919 b798db49; #925 51f8258e; #926 91576f5a; #929 c825f460 | #919 PASS (paid retries wait past the week): row closed. #925 PASS (Undo never refused with undo:true): row closed. #926 shapes match #925; Undo flag still missing. #929 link dropped (fix 1 closed); fix 2 open |
 | 2026-10-29 | #923 at 91e56824 | PASS: only a video made from a script waits for its approved plan; the earlier way makes its breakdown as before. Open row closed |
 | 2026-10-29 | #932 at 7bc1f85a (BR1 product line and claim) | The prop page PASS (owner edits, editor read only with the reason, Advice). FAIL: no way there from the Brand page (open above) |
+| 2026-10-29 | #927 at 5ae09626 | PASS: a still with no picture reads failed with the way on, never "making" for ever. Note: that job stays succeeded, so it's charged; fail it uncharged if the worker allows |
