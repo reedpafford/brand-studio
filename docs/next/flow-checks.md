@@ -49,13 +49,10 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
-| S4 | Too long (after): an 800 s take comes back ready and Preferred. Not built yet: comes with the song breakdown (#748's body says so) | Can't be Preferred, with the reason; **Use the first N:NN** | #748 (not built) |
-| S7 | A song script with no take can be published; its videos get no song and no way to get one | 409 "Make the song first" | #750 at b4ef028e |
-| V2a | An over-cap take can become the video's song | 409 "Too long for this video" + **Use the first N:NN** | #750 at b4ef028e |
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | Clips (story videos) | The new "Songs" paragraph is in clip_prompts.md, so every story video's clip-prompt text grows and the cache resets once | A song-only extension (EXTENDS) | #755 at 3a72323e |
 | V2 | The `[Lip-sync]` Advice fires on an editor's own Sung flips, telling them to edit final lyrics | Check only when the breakdown is written | #755 at 3a72323e |
-| S4 | Adding or removing a `[Lip-sync]` mark dates every take (whole-text compare) | Compare sung lines only | #748 vs #755 |
+| S4 | A section-level `[Lip-sync]` mark ("[Chorus] [Lip-sync]") still dates the takes and is sent to Suno to sing (line-level marks too) | Skip tag-only lines and strip inline marks, as #755's `check.sung_lines` does | #748 at 3607b3d |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
@@ -93,3 +90,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-28 | #759 at 19bbca56 | Playwright at 1440 and 390, 6 walk cases + song.e2e | PASS |
 | 2026-10-28 | #750 at cb1c556d | V2a, S7 through the API | FAIL: same 2 (publish with no take, over-cap take) |
 | 2026-10-28 | #759 at ba7852eb | Playwright at 1440 and 390 (refused → boxes open) | PASS, 12/12 |
+| 2026-10-29 | #748 at 3607b3d, #750 at 0ae5902 | 13 API walk cases (cap + trim + Undo, publish guard, video song) | FAIL on 1: section `[Lip-sync]` dates takes; the rest pass |
