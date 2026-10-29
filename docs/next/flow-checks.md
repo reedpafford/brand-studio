@@ -56,10 +56,10 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
-| V2a | Once #783 merges, #781 should show Delete on both of a video's own takes (today one is hidden as an interim) | Re-check after #783 | #781 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Usage (live today, small) | With 25+ brands the list pages at 25 + Show more; with "Show archived" ticked, a just-archived brand can sit behind Show more (reachable, not a dead end) | Archived first when shown | 10+ brands check |
-| Song breakdown edit (#799) | Delete the last shot, then Undo: the last shot comes back 0 seconds long (the shot before keeps the stretched end); no problem shown. A reorder gives 0-second shots too | Undo exact; a 0-second shot is a problem | #799 at a7cb3567 |
+| Video song cost (#810) | A take card can read "about 33.73 credits" (raw number) | `wholeCredits` | #810 at 50859f17 |
+| Song breakdown edit (#799) | Delete the last shot, then Undo: the last shot comes back 0 seconds long (the shot before keeps the stretched end); no problem shown. A reorder gives 0-second shots too | Undo exact; a 0-second shot is a problem | #799 at a7cb3567, still at 106e9061 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -132,4 +132,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #799 at 51f7525e (re-flow by the line clock; old clips out of date) | A to B to A three times: times exact each round; clips made on A are Out of date on B and current again after Undo; a clip made on B is Out of date back on A; Timing guessed shown; 765 server tests, ruff | PASS |
 | 2026-10-29 | #800 at its head (data.md: song part beside the plan) | Matches #799 | PASS (note: between lines an edge is placed by share, not always on a word edge) |
 | 2026-10-29 | #799 at a7cb3567 (an edit repacks the song shots) | Delete a middle shot and Undo; two deletes and Undo; add a shot; delete the first or last shot | FAIL: delete the last shot, then Undo: the last shot comes back 0 seconds long, no problem shown. A reorder (API only) gives 0-second shots too |
+| 2026-10-29 | #799 at 106e9061 (Sung clips out of date on any take change) | Same 12 checks | FAIL: same last-shot Undo state; the other 11 pass |
+| 2026-10-29 | #810 at 50859f17 (take video cost, Delete on own takes, clips note) | Full suite + Change song walk at 1440 and 390 (57 passed); vitest 201 | PASS; fix expected: the cost isn't rounded (`wholeCredits`) |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
