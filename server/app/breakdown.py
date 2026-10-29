@@ -98,10 +98,14 @@ def payoffs_block(payoffs: list[tuple[str, list[str]]]) -> str:
     return f"<recent_payoffs>\n{escape(chr(10).join(lines))}\n</recent_payoffs>" if lines else ""
 
 
+TIMED_STEP = {"narration": "narrated"}  # a take's kind -> its breakdown step's prefix
+
+
 def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
-    """The breakdown call; a song video's is timed to its song (song_breakdown)."""
+    """The breakdown call; a song video's is timed to its song (song_breakdown), a narrated
+    one's to its narration's sentences (narrated_breakdown: every shot B-roll)."""
     take = song_breakdown.take_for(db, project)
-    step = "song_breakdown" if take else "breakdown"
+    step = "breakdown" if not take else f"{TIMED_STEP.get(take.kind, 'song')}_breakdown"
     system, context = project_context(db, project, step)
     if project.script_draft_id:  # from the library: its unlocked slots, cast at Assets
         from app import script_preview
@@ -128,7 +132,14 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     return {
         "step": step,
         **({"song_take_id": take.id} if take else {}),
-        **({"plan_version": planned[1]} if planned else {}),
+        **(
+            {
+                "plan_version": planned[1],
+                "plan": {k: plans.current(db, project)[k] for k in ("structure", "cast", "scenes")},
+            }
+            if planned
+            else {}
+        ),
         "project_id": project.id,
         "script_version": version.version,
         "system": system,
@@ -579,7 +590,9 @@ def save_breakdown(db: Session, job: Job) -> None:
                 **({"song": song} if song else {}),
                 **({"plan_version": v} if (v := job.input.get("plan_version")) else {}),
             },
-            problems=problems(db, project, version.text, bd, song, written=True) + removed,
+            problems=problems(db, project, version.text, bd, song, written=True)
+            + removed
+            + (job.output or {}).get("plan_advice", []),  # P2: what still doesn't follow the plan
             created_by_id=job.created_by_id,
         )
     )

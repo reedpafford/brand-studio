@@ -97,6 +97,60 @@ def hear_song(path: Path, lyrics: str) -> list[dict]:
     ]
 
 
+# The stand-in narrator: each sentence a tone, 0.3 s a word, with 0.8 s of silence after it
+# (so the pause trim has something to shorten). "fake:fail" in the words fails the voice
+# call; "fake:clip-word" makes the trimmed narration lose its last word when heard again
+# (so it's kept untrimmed: "Kept the pauses").
+WORD, GAP = 0.3, 0.8
+
+
+def narration(text: str) -> bytes:
+    from app.narration import sentences
+
+    parts, t = [], GAP
+    for sentence in sentences(text):
+        end = t + WORD * len(sentence.split())
+        parts.append(f"between(t,{t:.2f},{end:.2f})")
+        t = end + GAP
+    tone = f"sin(2*PI*220*t)*({'+'.join(parts) or '0'})"
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "voice.mp3"
+        source = ["-f", "lavfi", "-i", f"aevalsrc='{tone}':s=22050:d={t:.2f}"]
+        command = ["ffmpeg", "-v", "error", *source, "-c:a", "libmp3lame", "-b:a", "64k"]
+        subprocess.run([*command, str(path)], check=True, timeout=120)  # noqa: S603
+        return path.read_bytes()
+
+
+def hear_voice(path: Path, text: str) -> list[dict]:
+    """Stand-in Whisper for the stand-in narrator: each run of sound is a sentence, its words
+    spread evenly over it."""
+    from app import song_timing
+    from app.narration import sentences
+
+    samples, step = song_timing._samples(path), song_timing.RATE // 100
+    loud = [max(map(abs, samples[i : i + step]), default=0) > 1000
+            for i in range(0, len(samples), step)]  # fmt: skip
+    runs, start = [], None
+    for k, on in enumerate([*loud, False]):
+        if on and start is None:
+            start = k
+        elif not on and start is not None:
+            runs.append((start / 100, k / 100))
+            start = None
+    said = sentences(text)
+    if len(runs) != len(said):  # not one run a sentence: share the words over the whole file
+        runs, said = [(0.0, song_timing.length(path))], [" ".join(said)]
+    heard = []
+    for (a, b), sentence in zip(runs, said, strict=True):
+        words = sentence.split()
+        each = (b - a) / len(words)
+        heard += [{"word": w, "start": round(a + n * each, 2), "end": round(a + (n + 1) * each, 2)}
+                  for n, w in enumerate(words)]  # fmt: skip
+    if "fake:clip-word" in text and path.name == "trimmed.mp3":
+        heard = heard[:-1]
+    return heard
+
+
 # The stand-in song ad's words (no model download): verse, chorus, verse, chorus, so every
 # section of a study shows. Its lines are spread over the video's first 90 %.
 STUDY = [
@@ -244,6 +298,8 @@ class FakeMedia:
                 FakeMedia.video_failures -= 1
                 return Result("failed", error="ModelError: Failed to upload video (E001)")
             return Result("succeeded", output={"text": json.dumps(watch(self._jobs[ref]))})
+        if self._jobs[ref]["kind"] == "speech" and "fake:fail" in self._jobs[ref]["prompt"]:
+            return Result("failed", error="The voice service failed (stand-in)")
         return Result("succeeded", output={"url": f"fake://{ref}"}, files=[f"fake://{ref}"])
 
     def fetch(self, url: str) -> tuple[bytes, str]:
@@ -251,6 +307,8 @@ class FakeMedia:
         aspect = job.get("aspect_ratio", "9:16")
         if job["kind"] == "video":
             return mp4(aspect, int(job.get("duration", 5))), "video/mp4"
+        if job["kind"] == "speech":
+            return narration(job["prompt"]), "audio/mpeg"
         return png(aspect), "image/png"
 
 
@@ -449,10 +507,13 @@ class FakeWriter:
         seconds = float(re.search(r'<song seconds="([\d.]+)"', prompt).group(1))
         beats = [float(b) for b in re.search(r"Beats: ([\d. ]*)", prompt).group(1).split()]
         shots = [s for scene in plan["scenes"] for s in scene["shots"]]
+        beats = beats or [seconds * k / len(shots) for k in range(len(shots))]  # a narration
         edges = [0.0, *(beats[len(beats) * k // len(shots)] for k in range(1, len(shots)))]
         for shot, a, b in zip(shots, edges, [*edges[1:], seconds], strict=True):
             shot.update(song_start=a, song_end=b, sung=False)
         return plan
+
+    _narrated_breakdown = _song_breakdown  # the narration's sentences are the clock
 
     def _storyboard(self, prompt):
         bd = json.loads(_tag(prompt, "breakdown") or "{}")

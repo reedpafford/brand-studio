@@ -51,8 +51,12 @@ def test_make_check_edit_and_approve_the_plan(app, db, editor, setup):  # noqa: 
     assert "<plan>" in queued.input["prompt"] and queued.input["plan_version"] == 3
     assert editor.get(f"/projects/{pid}").json()["plan_status"] == "approved"
     assert editor.post(f"{url}/approve").status_code == 409
-    _run(app, db, FakeClaude(BREAKDOWN))
+    fake = FakeClaude(BREAKDOWN)
+    _run(app, db, fake)
     shots = editor.get(f"/projects/{pid}/breakdown").json()
+    # #892: the ★ line's shot doesn't show the bag: asked once more inside the job, then Advice
+    assert len(fake.requests) == 2 and "<fix>" in str(fake.requests[1]["messages"])
+    assert any(p.startswith("Advice: ") and "in the plan" in p for p in shots["problems"])
     assert shots["breakdown"].get("plan_version") is None or shots["older_plan"] is False
     editor.put(url, json={"scenes": split[::1]})  # an edit after: the shots are older
     assert editor.get(f"/projects/{pid}/breakdown").json()["older_plan"] is True

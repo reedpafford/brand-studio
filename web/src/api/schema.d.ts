@@ -3538,7 +3538,8 @@ export interface paths {
         put?: never;
         /**
          * Make Songs
-         * @description Make 2 takes (one request) of the version's lyrics in its style line.
+         * @description Make 2 takes (one request) of the version's lyrics in its style line; on a Narrated
+         *     script, one narration of its words (flows N1).
          */
         post: operations["make_songs_scripts__script_id__drafts__slot__songs_post"];
         delete?: never;
@@ -4143,6 +4144,8 @@ export interface components {
             fixed: string[];
             /** Undone */
             undone: boolean;
+            /** Before */
+            before: string;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -4443,7 +4446,7 @@ export interface components {
              * @default story
              * @enum {string}
              */
-            kind: "story" | "song";
+            kind: "story" | "song" | "narrated";
             /** Look */
             look?: string | null;
             /** Reel Url */
@@ -5865,6 +5868,8 @@ export interface components {
             take_warning?: string | null;
             /** Retrying */
             retrying?: ("refused" | "busy") | null;
+            /** Retried */
+            retried?: ("refused" | "busy") | null;
             auto_fix?: components["schemas"]["AutoFixOut"] | null;
         };
         /** ProjectEstimateOut */
@@ -6402,7 +6407,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "story" | "song";
+            kind: "story" | "song" | "narrated";
             /**
              * Look
              * @default house
@@ -6817,6 +6822,19 @@ export interface components {
             fits_until: number | null;
             /** Trim To */
             trim_to: number | null;
+            /**
+             * Kind
+             * @default song
+             * @enum {string}
+             */
+            kind: "song" | "narration";
+            /**
+             * Voice
+             * @default
+             */
+            voice: string;
+            /** Untrimmed Seconds */
+            untrimmed_seconds?: number | null;
         };
         /** SongsOut */
         SongsOut: {
@@ -7154,7 +7172,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "story" | "song";
+            kind: "story" | "song" | "narrated";
             /**
              * Look
              * @default house
@@ -7546,7 +7564,7 @@ export interface components {
              * @default story
              * @enum {string}
              */
-            kind: "story" | "song";
+            kind: "story" | "song" | "narrated";
             /** Look */
             look?: string | null;
         };
@@ -7562,7 +7580,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "story" | "song";
+            kind: "story" | "song" | "narrated";
             /**
              * Look
              * @default house

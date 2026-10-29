@@ -53,6 +53,8 @@ def recheck(job_input: dict, result, ask):
     from app import song_directions as sd
     from app.providers import Result
 
+    if job_input.get("plan") and result.state == "succeeded":  # shots made from a plan (P2)
+        return _shots_follow(job_input, result, ask)
     step = {sd.STEP: sd, plans.STEP: plans}.get(job_input.get("step"))
     if step is None or result.state != "succeeded":
         return result
@@ -66,6 +68,27 @@ def recheck(job_input: dict, result, ask):
     if fixes:
         return Result("failed", error=step.STILL + "; ".join(fixes), usage=result.usage)
     result.output = output
+    return result
+
+
+def _shots_follow(job_input: dict, result, ask):
+    """Shots made from an approved plan: the Director's follows_plan check, the one rewrite
+    inside the same job (charged once), and what it still finds is kept as Advice on the
+    breakdown, never a failed job (rule 22: the shots are there, with a free fix)."""
+    from app import plans
+    from app.prompts.check import ADVICE
+
+    _, fixes = plans.shots_checked(job_input, result.output)
+    if fixes:
+        second = ask(plans.shots_again(job_input, fixes))
+        second.usage = [*result.usage, *second.usage]
+        if second.state == "succeeded":
+            result.output, result.usage = second.output, second.usage
+            _, fixes = plans.shots_checked(job_input, result.output)
+        else:
+            result.usage = second.usage
+    if fixes:
+        result.output = {**result.output, "plan_advice": [f"{ADVICE}{f}" for f in fixes]}
     return result
 
 
@@ -94,6 +117,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "breakdown": save_breakdown,
         "plan": save_plan,
         "song_breakdown": save_breakdown,
+        "narrated_breakdown": save_breakdown,
         "storyboard": save_frames,
         "improve": save_improved,
         "change": save_changed,

@@ -163,7 +163,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
               Make 2 more takes
             </Button>
           )}
-          <p className="text-sm text-muted">Same lyrics and style. {p.own_script ? "Counted in your week." : "Counted in this video's budget."}</p>
+          <p className="text-sm text-muted">Same lyrics and music style. {p.own_script ? "Counted in your week." : "Counted in this video's budget."}</p>
         </div>
       )}
       {asking && (
@@ -263,4 +263,11 @@ export function FinalSong({ projectId, madeWith }: { projectId: number; madeWith
       )}
     </div>
   );
+}
+
+/** Whether a song video's final cut is out of date because its song changed (the video now uses another take), for the banner's words. */
+export function useSongChanged(projectId: number, madeWith: number | null | undefined) {
+  const songs = useVideoSongs(projectId, madeWith != null);
+  const now = songs.data?.song_take_id;
+  return madeWith != null && now != null && now !== madeWith;
 }

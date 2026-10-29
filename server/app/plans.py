@@ -297,9 +297,23 @@ def block(db: Session, project: Project, version: ScriptVersion) -> tuple[str, i
     plan = current(db, project)
     if not plan or not plan.get("approved_at") or plan.get("source") == "from_breakdown":
         return None
-    return escape_block(prompts.plan_block(ScenePlan.model_validate(plan), version.text)), plan[
-        "version"
-    ]
+    rule, tag, rest = prompts.plan_block(ScenePlan.model_validate(plan), version.text).partition(
+        "<plan>"
+    )  # the Director's rule first, then the <plan> block: only its inside is escaped
+    return f"{rule}{escape_block(tag + rest)}", plan["version"]
+
+
+def shots_checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
+    """The Director's check that the shots follow the approved plan (#892): fixes for a
+    breakdown scene that mixes plan scenes, or a ★ line whose shot doesn't show its product."""
+    plan = ScenePlan.model_validate(job_input["plan"])
+    return output, check.follows_plan(plan, Breakdown.model_validate(output))
+
+
+def shots_again(job_input: dict, fixes: list[str]) -> dict:
+    said = "\n".join(f"- {f}" for f in fixes)
+    fix = f"<fix>\nYour shots don't follow the approved plan:\n{said}\nWrite them again.\n</fix>"
+    return {**job_input, "prompt": f"{job_input['prompt']}\n{fix}"}
 
 
 def older(db: Session, project: Project, row: BreakdownVersion) -> bool:

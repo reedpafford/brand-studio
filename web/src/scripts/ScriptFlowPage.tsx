@@ -21,6 +21,7 @@ import { TakesStep } from "./TakesStep";
 import { useSongs } from "./useSongs";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { useScript, usePatchScript } from "./useScript";
+import { FormatChip, LookSetting } from "./Looks";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
@@ -163,6 +164,8 @@ export function ScriptFlowPage() {
         ) : (
           <Badge tone="neutral">{draftNote}</Badge>
         )}
+        <FormatChip kind={s.kind} />
+        <LookSetting value={(s as { look?: string | null }).look} path={`/scripts/${s.id}`} queryKey={["script-lib", s.id]} readOnly={published} />
         {allowance.data && (
           <p className="ml-auto text-sm tabular-nums text-muted">
             This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits

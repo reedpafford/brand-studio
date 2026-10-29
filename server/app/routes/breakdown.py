@@ -111,7 +111,10 @@ def make(project_id: int, user: User = Depends(current_user), db: Session = Depe
 
 def queue(db: Session, user: User, project, version) -> Job:
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
-    if any(j.input.get("step") in ("breakdown", "song_breakdown") for j in pending):
+    if any(
+        j.input.get("step") in ("breakdown", "song_breakdown", "narrated_breakdown")
+        for j in pending
+    ):
         raise HTTPException(409, "A breakdown is already being made for this project.")
     return enqueue(
         db,

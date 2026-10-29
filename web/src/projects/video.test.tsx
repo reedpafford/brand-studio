@@ -1024,6 +1024,44 @@ test("the Approve all result line goes away on the next action, but not when its
   await vi.waitFor(() => expect(screen.queryByText(/Approved 1\./)).toBeNull());
 });
 
+test("Storyboard's one amber is in the cost bar: Make 1 still, then Approve 1 once it's drawing", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [waiting(1, { still_credits: 4 }), waiting(2, { file_id: null, still_credits: 4 })]],
+    "POST /projects/9/storyboard/frames/2/render": [201, { id: 31, kind: "image", status: "queued", credits: 4, project_id: 9 }],
+  });
+  open("?step=storyboard");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  const make = await within(bar).findByRole("button", { name: "Make 1 still · 4 credits" });
+  expect(screen.getAllByRole("button").filter((b) => b.className.includes("bg-accent ") && !bar.contains(b) && /credit|Approve/.test(b.textContent ?? ""))).toHaveLength(0);
+  expect(screen.getByRole("button", { name: "Approve 1" })).not.toHaveClass("bg-accent"); // still offered, grey, beside the frames
+  await userEvent.click(make);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/2/render")).toBe(true));
+  expect(await within(bar).findByRole("button", { name: "Approve 1" })).toBeInTheDocument(); // the still is drawing: approving is what's left
+  expect(screen.getAllByRole("button", { name: "Approve 1" })).toHaveLength(1);
+});
+
+test("with Redraw in the bar, the missing stills can still be made in one grey press in the step", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [waiting(1, { still_stale: true, still_credits: 4 }), waiting(2, { file_id: null, still_credits: 4 })]] });
+  open("?step=storyboard");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(await within(bar).findByRole("button", { name: "Redraw 1 out-of-date still · 4 credits" })).toBeInTheDocument();
+  const make = screen.getByRole("button", { name: "Make 1 still · 4 credits" });
+  expect(bar.contains(make)).toBe(false);
+  expect(make).not.toHaveClass("bg-accent");
+});
+
+test("with every still drawn, Approve all is the bar's press and not repeated in the step", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [waiting(1), waiting(2)]] });
+  open("?step=storyboard");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(await within(bar).findByRole("button", { name: "Approve all" })).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Approve all" })).toHaveLength(1);
+});
+
 test("Approve all is not offered when every frame is approved or has no still", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }, waiting(2, { file_id: null })]] });
@@ -1363,7 +1401,7 @@ test("the video's back link says where it goes: this brand's videos", async () =
   setViewport(390);
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
-  expect(await screen.findByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/scripts?view=videos");
+  expect(await screen.findByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
   expect(screen.queryByRole("button", { name: /^Brand: |Choose a brand/ })).toBeNull(); // no brand bar inside a video on a phone
 });
 

@@ -86,15 +86,19 @@ def _plain(job: Job, detail: str) -> str:
     """What everyone sees when a job fails; song steps say their own reason (rule 22)."""
     if job.kind == "music":
         return music.failure(detail, (job.input.get("input") or {}).get("style", ""))
+    if job.kind == "narration_timing":  # app/narration.py
+        from app import narration
+
+        if detail.startswith("ValueError"):
+            return narration.TIMING_UNREADABLE
+        return narration.TIMING_FAILED
     if job.kind == "song_timing":  # a ValueError: the file itself (app/song_timing.py)
         if detail.startswith("TooLong"):
             return music.TIMING_TOO_LONG
         return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
     from app import song_directions
 
-    if detail.startswith(song_directions.STILL):
-        return song_directions.UNFINISHED
-    return FAILED
+    return song_directions.failure(detail) or FAILED
 
 
 def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
