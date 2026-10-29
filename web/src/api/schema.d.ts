@@ -3631,6 +3631,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/songs/{take_id}/music-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Music Again
+         * @description A narration's music failed: Try the music again (the prompt and the bed, at
+         *     music_credits); the narration is kept as it is.
+         */
+        post: operations["music_again_songs__take_id__music_again_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/songs/{take_id}/spread-timing": {
         parameters: {
             query?: never;
@@ -5672,6 +5693,13 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** NarrationOut */
+        NarrationOut: {
+            /** Voice */
+            voice: string;
+            /** Music */
+            music: boolean;
+        };
         /** NewInviteOut */
         NewInviteOut: {
             /** Id */
@@ -6856,6 +6884,21 @@ export interface components {
              */
             voice: string;
             /**
+             * Music Status
+             * @default none
+             * @enum {string}
+             */
+            music_status: "none" | "making" | "ready" | "failed";
+            /** Music Reason */
+            music_reason?: string | null;
+            /** Music File Id */
+            music_file_id?: number | null;
+            /**
+             * Music Credits
+             * @default 0
+             */
+            music_credits: number;
+            /**
              * Sentences
              * @default []
              */
@@ -7407,6 +7450,7 @@ export interface components {
             out_of_date: boolean;
             /** Song Take Id */
             song_take_id?: number | null;
+            narration?: components["schemas"]["NarrationOut"] | null;
         };
         /** VideoSongIn */
         VideoSongIn: {
@@ -15100,6 +15144,37 @@ export interface operations {
         };
     };
     try_again_songs__take_id__try_again_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    music_again_songs__take_id__music_again_post: {
         parameters: {
             query?: never;
             header?: never;
