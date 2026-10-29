@@ -144,6 +144,11 @@ def cast_out(db: Session, brand: Brand) -> list[dict]:
     return out
 
 
+def live_cast(db: Session, brand: Brand) -> list[int]:
+    """The default cast still in the library (deleted or archived picks are skipped)."""
+    return sorted(x["id"] for x in cast_out(db, brand) if not x["deleted"])
+
+
 def check_cast(db: Session, brand: Brand, ids: list[int]) -> list[int]:
     """Characters from this workspace's library (not a look made for one video or script)."""
     from app.models.library import Kind, LibraryItem

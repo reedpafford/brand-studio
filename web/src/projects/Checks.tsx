@@ -6,9 +6,10 @@ import { useToast } from "../toast";
 import { useMedia } from "../useMedia";
 import { show } from "./ApproveAll";
 import { Sheet } from "./Sheet";
+import { LookTip } from "./LookFix";
 
 /** The advisory check on a still or a take (flows P4; Builder-Server-8's CheckOut, #891). Advice only: it never blocks. */
-export type Finding = { index: number; kind: string; text: string; note: string };
+export type Finding = { index: number; kind: string; text: string; note: string; fix?: string };
 export type ItemCheck = { id: number; status: "checking" | "ok" | "advice" | "failed" | "skipped"; findings: Finding[] } | null | undefined;
 type Flagged = { kind: "still" | "take"; id: number; clip_id: string; label: string; findings: number };
 type Review = { on: boolean; credits_per_check: number; items: Flagged[]; paused?: boolean };
@@ -63,6 +64,7 @@ export function CheckNotes({ check, projectId, label, onChange }: { check: ItemC
       {findings.map((f) => (
         <li key={f.index} className="space-y-1">
           <p>{f.text}</p>
+          <LookTip text={f.fix} />
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" dense onClick={() => { setOpen(false); onChange(f.note); }}>
               Change this…
