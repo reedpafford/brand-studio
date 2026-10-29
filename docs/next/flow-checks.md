@@ -117,3 +117,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #750 at 837b659b | V2a API cases + delete a take the video made | Cap holds; FAIL: deleting a video's own non-song take gives 409 "Preferred" |
 | 2026-10-29 | #750 at fd599553, #783 at f8a3199a | Delete a video's own take; 893 style message; one-song wording | PASS |
 | 2026-10-29 | Next-Layout heads #766 5f5cb3bb, #771 e2a1defd, #773 4a6152a9, #777 98752ad8, #778 3b783a65, #779 9755e861 | node_modules symlink and .gitignore | PASS: no symlink on any; .gitignore fixed (5 of 6, #766 never had the link) |
+| 2026-10-29 | #783 at 9bf8afbc (carries the V2a delete fix after #750 merged) | V2a, cap, un-trim API cases | PASS (14) |
