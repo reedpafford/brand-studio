@@ -205,3 +205,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #886 at 80f9ec50 (P3: on-screen text out of clip prompts) | reword on 6 prompts; 18 tests | PASS (Director: quoted drawn text "big text \"SALE\"" is kept) |
 | 2026-10-29 | #863 at 30eab39e (Undo fix, newest-take line) | autofixes + clips (34) | PASS (nit: "(busy)" raw code) |
 | 2026-10-29 | #888 at b8050325 (Videos in the menu, homes) | Playwright 390 + 1440: homes, tab, back link, old link; shell + phone e2e (11) | FAIL: old ?view=videos link stays on Scripts (params mutated in render; StrictMode) |
+| 2026-10-29 | #889 at 9e8e7e1f (Final cut banner names the song; one full stop) | finalsong + songstudy + downloads (17) | PASS |
