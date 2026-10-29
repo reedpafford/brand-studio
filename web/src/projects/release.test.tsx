@@ -73,6 +73,8 @@ test("a video made before scripts offers Archive video, with its own wording, an
   await userEvent.click(screen.getByRole("menuitem", { name: "Archive video" }));
   const archive = await screen.findByRole("alertdialog", { name: 'Archive "Bo tries salmon — B"?' });
   expect(archive).toHaveTextContent("It leaves the lists. Its clips and downloads are kept, and you can restore it. Anything still being made stops and isn't brought back.");
+  await userEvent.click(within(archive).getByRole("button", { name: "Archive" }));
+  expect(await screen.findByRole("heading", { name: "Videos", level: 1 })).toBeInTheDocument(); // it lands on Videos, where Archived finds it
 });
 
 test("an editor sees no menu on a video they didn't make, and a refused release keeps the dialog with the reason", async () => {

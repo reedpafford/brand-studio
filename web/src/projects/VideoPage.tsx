@@ -39,7 +39,7 @@ export function VideoPage() {
   const [dirty, setDirty] = useState(false); // unsaved edits in Plan's shots
   const navigate = useNavigate();
   const mayManage = useMayManageVideo();
-  const video = useVideoActions(() => navigate(`/b/${brandId}/scripts`));
+  const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`)) // a released version is ready to make again in Scripts; an archived video is under Videos;
   useFreshProject(id);
   const project = useQuery({
     queryKey: ["project", id],
