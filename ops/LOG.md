@@ -1,4 +1,12 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 01:50 · Into `next`: #750 a video's own song take; #748 song data and takes; #770 flow map (narrated looks, who edits the Brand page); #755 Director song ads; #772 UX audit part 6; #746 music interface (Suno); #742 screens.md; #758 Flow-QA checklist; #743 flow map for styles, brand setup, video settings, organization, layout
+- 2026-10-29 01:42 · #786 Breakdown says "of N s planned" only when a length was set; Assets gets its tick only once looked at merged
+- 2026-10-29 01:34 · #784 Small live fixes: one price line on the version panel, the End line example names the brand, Improve prompt says why it's grey merged
+- 2026-10-29 01:26 · #782 Clips: a failed newest take doesn't mark a clip Failed while an earlier take is picked merged
+- 2026-10-29 01:17 · #765 The real bag goes in when a shot or a Change note shows it, old breakdowns too merged
+- 2026-10-29 01:09 · #767 Week limit says "credits", not "free credits"; the script title is 44 px on a phone merged
+- 2026-10-29 00:53 · #764, #761, #760 Publish: every version is approved first; a finished video stays reachable after a breakdown edit; a shot that shows the brand's product attaches the real one, merged
+- 2026-10-28 23:48 · #762 ops: HANDOFF/LOG refresh as of 90e952a merged (by the Producer)
 - 2026-10-28 23:44 · Into `next`: #753 the rest of the styles and per-style sample tests; #749 UX audit; #756 deploy lock; #736 Flow-QA checklist; #740 flow map and data plan; #741 test site as its own Compose project; #745 style registry; #737 song-ad screen plan
 - 2026-10-28 23:42 · #754 Clips: Change it's price is read again when a take is made (rewrite + take) merged
 - 2026-10-28 23:33 · #751 Clips: Make clip says why it can't be pressed, and marks Looks good for you merged
