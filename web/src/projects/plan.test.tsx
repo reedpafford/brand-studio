@@ -210,7 +210,7 @@ test("a ★ the server couldn't keep (the brand has no product) says so, with a 
   await userEvent.click(await screen.findByRole("button", { name: "More for line 2" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "★ Show the product here" }));
   expect(await screen.findByText(/The ★ wasn't kept: the brand has no product to show yet\./)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Add a product to the brand" })).toHaveAttribute("href", "/b/1/brand?tab=products");
+  expect(screen.getByRole("link", { name: "Add a product or screen to the brand" })).toHaveAttribute("href", "/b/1/brand");
   expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
 });
 
@@ -222,7 +222,7 @@ test("a ★ refused for want of a product (409) shows the server's sentence with
   await userEvent.click(screen.getByRole("menuitem", { name: "★ Show the product here" }));
   expect(await screen.findByText(/This brand has no product or screen to show yet\. Add one to the brand first\./)).toBeInTheDocument();
   expect(screen.getAllByText(/This brand has no product or screen/)).toHaveLength(1);
-  expect(screen.getByRole("link", { name: "Add a product to the brand" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Add a product or screen to the brand" })).toBeInTheDocument();
   expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
 });
 
@@ -256,4 +256,60 @@ test("with no plan yet, Make the plan is priced from the video's plan_credits", 
   fakeServer({ ...withPlan("none"), "GET /projects/9": [200, { ...project, plan_status: "none", plan_credits: 9 }], "GET /projects/9/plan": [404, { detail: "none" }] });
   open();
   expect(await screen.findByRole("button", { name: /Make the plan · 9 credits/ })).toBeInTheDocument();
+});
+
+test("Change this scene… sends its note at its price; it needs a note first (#928)", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, change_scene_credits: 2 })], "POST /projects/9/plan/scenes/s2/change": [201, { id: 41 }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Change scene 2…" }));
+  const press = screen.getByRole("button", { name: /^Change this scene · 2 credits/ });
+  expect(press).toBeDisabled();
+  expect(press).toHaveAccessibleDescription("Say what to change in this scene");
+  await userEvent.type(screen.getByLabelText("What should change in scene 2?"), "funnier");
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/plan/scenes/s2/change")?.body).toEqual({ note: "funnier" }));
+});
+
+test("on an approved plan, Change this scene asks first", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...withPlan("approved"), "GET /projects/9/plan": [200, plan({ status: "approved", scenes: two, change_scene_credits: 2 })], "POST /projects/9/plan/scenes/s1/change": [201, { id: 41 }] });
+  open("?step=plan&view=scenes");
+  await userEvent.click(await screen.findByRole("button", { name: "Change scene 1…" }));
+  await userEvent.type(screen.getByLabelText("What should change in scene 1?"), "calmer");
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  expect(calls.some((c) => c.key === "POST /projects/9/plan/scenes/s1/change")).toBe(false);
+  await userEvent.click(within(screen.getByRole("alertdialog", { name: "Change the plan?" })).getByRole("button", { name: "Not yet" }));
+  expect(screen.getByLabelText("What should change in scene 1?")).toHaveValue("calmer");
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  await userEvent.click(within(screen.getByRole("alertdialog", { name: "Change the plan?" })).getByRole("button", { name: "Change" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/scenes/s1/change")).toBe(true));
+});
+
+test("out of date with #928: Update the plan keeps the unchanged scenes", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, change_scene_credits: 2 })], "POST /projects/9/plan/update": [201, { id: 42 }] });
+  open();
+  expect(await screen.findByText(/Updating keeps the scenes whose lines didn't change/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Update the plan · 6 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/update")).toBe(true));
+});
+
+test("a refused scene change keeps the note; a scene job in progress shows Making the plan with Stop", async () => {
+  setViewport(390);
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, change_scene_credits: 2 })], "POST /projects/9/plan/scenes/s2/change": [409, { detail: "A plan is already being made." }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Change scene 2…" }));
+  await userEvent.type(screen.getByLabelText("What should change in scene 2?"), "funnier");
+  await userEvent.click(screen.getByRole("button", { name: /^Change this scene · 2 credits/ }));
+  expect(await screen.findByText("A plan is already being made.")).toBeInTheDocument();
+  expect(screen.getByLabelText("What should change in scene 2?")).toHaveValue("funnier");
+});
+
+test("while a scene is being changed the plan shows Making the plan… with Stop", async () => {
+  setViewport(1440);
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, change_scene_credits: 2, job: { id: 41, status: "running", reason: null, started_at: new Date().toISOString() } })] });
+  open();
+  expect(await screen.findByText(/Making the plan…/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
 });

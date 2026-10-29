@@ -60,7 +60,7 @@ def test_over_the_image_models_limit_the_nearest_are_kept(app, db, editor, setup
     row, nate, mom = _people(app, db, editor, setup)
     project = db.get(storyboard.Project, setup["project"])
     one = storyboard.image_model().model_copy(update={"max_character_images": 1})
-    monkeypatch.setattr(storyboard, "image_model", lambda: one)
+    monkeypatch.setattr(storyboard, "image_model", lambda project=None: one)
     picked = Frame(clip_id="c1", shot_id="1.1", reference_ids=[nate],
                    prompt="Generate a still of the boy from image 1.")  # fmt: skip
     done = storyboard.with_cast(db, project, picked, Breakdown.model_validate(row.data))

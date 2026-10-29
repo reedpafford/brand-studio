@@ -24,6 +24,11 @@ class Project(Entity, Base):
     name: Mapped[str] = mapped_column(String(120))
     # How its pictures are drawn (ST1): its script's at Make this version, then its own (VS1)
     look: Mapped[str] = mapped_column(String(40), default="house")
+    # Video settings (VS1, n09): the models it's made with; null is Auto (the catalogue default)
+    video_model: Mapped[str | None] = mapped_column(String(40))
+    image_model: Mapped[str | None] = mapped_column(String(40))
+    # Song shot ids a no-lip-sync video model turned to B-roll; a lip-sync one flips them back
+    sung_flipped: Mapped[list[str]] = mapped_column(JSON, default=list)
     planned_seconds: Mapped[int | None]  # a set length; null: the breakdown decides
     breakdown_seconds: Mapped[int | None]  # the newest breakdown's clips added up
     # "Video done": the first final video, or the first full download of the picked takes.

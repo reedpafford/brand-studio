@@ -43,6 +43,7 @@ class CatalogueModel(BaseModel):
     first_frame: bool = False
     last_frame: bool = False
     audio: Literal["switch", "always"] | None = None
+    lip_sync: bool = False  # video models: can take a song slice for Sung shots (VS1)
     price: Price
     price_source: str
 

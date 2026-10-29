@@ -2524,7 +2524,9 @@ export interface paths {
         put: operations["save_projects__project_id__breakdown_put"];
         /**
          * Make
-         * @description Queue a breakdown call (a paid Claude call, counted against the project budget).
+         * @description Queue a breakdown call (a paid Claude call, counted against the project budget). The
+         *     shots of a video made from a script come from an approved plan (flows.md 1b): "Approve
+         *     the plan first" until then. A video made the earlier way makes its breakdown as before.
          */
         post: operations["make_projects__project_id__breakdown_post"];
         delete?: never;
@@ -3950,6 +3952,27 @@ export interface paths {
         patch: operations["switch_look_looks__look_id__patch"];
         trace?: never;
     };
+    "/looks/{look_id}/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sample */
+        get: operations["sample_looks__look_id__sample_get"];
+        put?: never;
+        /**
+         * Make Sample
+         * @description Make a sample (paid: one still, then a 5 s clip from it); again replaces it.
+         */
+        post: operations["make_sample_looks__look_id__sample_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/drafts/{slot}/song-study": {
         parameters: {
             query?: never;
@@ -4040,6 +4063,48 @@ export interface paths {
          *     Claude call at the price shown.
          */
         post: operations["make_projects__project_id__plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/plan/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update
+         * @description Update the plan (made for older words): a new plan that keeps the scenes whose lines
+         *     didn't change, at the plan's price; the one in hand goes to Earlier plans.
+         */
+        post: operations["update_projects__project_id__plan_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/plan/scenes/{scene_id}/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Scene
+         * @description Change this scene…: a note rewrites only that scene's actions (its lines stay), one
+         *     small paid call; the plan before goes to Earlier plans.
+         */
+        post: operations["change_scene_projects__project_id__plan_scenes__scene_id__change_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6137,6 +6202,11 @@ export interface components {
             estimate_credits: number;
             /** Approve Credits */
             approve_credits: number;
+            /**
+             * Change Scene Credits
+             * @default 0
+             */
+            change_scene_credits: number;
             /** Stop */
             stop?: string | null;
             /**
@@ -6654,6 +6724,36 @@ export interface components {
             why: string;
             /** Undo Token */
             undo_token?: number | null;
+        };
+        /** SampleIn */
+        SampleIn: {
+            /** Brand Id */
+            brand_id: number;
+            /** Character Id */
+            character_id?: number | null;
+        };
+        /**
+         * SampleOut
+         * @description ST3: Make a sample · credits; "Who's in the sample?" when the brand has no hero.
+         */
+        SampleOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "making" | "ready" | "failed";
+            /** Reason */
+            reason: string | null;
+            /** Credits */
+            credits: number;
+            hero: components["schemas"]["Person"] | null;
+            /** Characters */
+            characters: components["schemas"]["Person"][];
+            /** Still Id */
+            still_id: number | null;
+            /** Clip Id */
+            clip_id: number | null;
+            look: components["schemas"]["LookOut"];
         };
         /** Scene */
         Scene: {
@@ -16329,6 +16429,74 @@ export interface operations {
             };
         };
     };
+    sample_looks__look_id__sample_get: {
+        parameters: {
+            query: {
+                brand_id: number;
+            };
+            header?: never;
+            path: {
+                look_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_sample_looks__look_id__sample_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                look_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SampleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     study_song_ad_scripts__script_id__drafts__slot__song_study_post: {
         parameters: {
             query?: never;
@@ -16567,6 +16735,73 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["NoteIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_projects__project_id__plan_update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_scene_projects__project_id__plan_scenes__scene_id__change_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                scene_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteIn"];
             };
         };
         responses: {

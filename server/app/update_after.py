@@ -27,7 +27,7 @@ RUN, THEN, STOP = "update_run", "update_then", "update_stopped"
 FROM = {"plan": 0, "storyboard": 0, "clips": 2}  # where each held step's press starts
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 NOTHING = "Nothing after this is out of date."
-STOPPED = "Stopped before the clip prompts: draw the stills that are left first."
+STOPPED = "Fix {} on Storyboard and draw {}: the clip prompts wait for every still."
 
 
 def _frames(db: Session, project: Project) -> list[StoryboardFrame]:
@@ -124,9 +124,10 @@ def _prompts(db, user, project, tag, prepaid=True) -> None:
         clip_prompts.queue_rewrite(db, user, project, ids, extra=tag, prepaid=prepaid)
 
 
-def _stop(job: Job, step: str, reason: str) -> None:
-    """The run stops here: `step` (the next one) didn't start, and why."""
-    job.input = {**job.input, STOP: {"at": step, "reason": reason}}
+def _stop(job: Job, step: str, reason: str, frames: list[int] = ()) -> None:
+    """The run stops here: `step` (the next one) didn't start, and why; `frames`: the stills
+    it waits on (all drawn: the stop is over)."""
+    job.input = {**job.input, STOP: {"at": step, "reason": reason, "frames": list(frames)}}
 
 
 def follow(db: Session, job: Job) -> None:
@@ -142,9 +143,11 @@ def follow(db: Session, job: Job) -> None:
             from app import advice
 
             frames = [f for f in _frames(db, project) if not advice.blocking(f.problems)]
-            if len(frames) < len(_frames(db, project)):
+            if fix := [f for f in _frames(db, project) if f not in frames]:
                 tag = {RUN: run, THEN: []}  # a frame to fix first: no clip prompts after
-                _stop(job, "clip_prompts", STOPPED)
+                shots = ", ".join(f"shot {f.shot_id}" for f in fix)
+                said = STOPPED.format(shots, "it" if len(fix) == 1 else "them")
+                _stop(job, "stills", said, [f.id for f in fix])
             _draw(db, user, project, frames, tag, prepaid=True)
         elif then[0] == "clip_prompts" and not _others(db, job, run):
             _prompts(db, user, project, tag)
@@ -166,14 +169,31 @@ NAMES = {"storyboard": "storyboard", "frame": "stills", "clip_prompts": "clip_pr
 
 
 def last_run(db: Session, project: Project) -> dict:
-    """The newest run's state, for the banner: running, or where it stopped and why."""
+    """The newest run's state, for the banner: running, or where it stopped and why. A stop
+    the editor has since put right with that step's own press (the same still, or the step
+    that didn't start, made since) is over: nothing is said."""
     rows = list(db.scalars(select(Job).where(Job.project_id == project.id)
                            .order_by(Job.id.desc()).limit(200)))  # fmt: skip
     run = next((j.input[RUN] for j in rows if j.input.get(RUN)), None)
     mine = [j for j in rows if run and j.input.get(RUN) == run]
     failed = next((j for j in mine if j.status == JobStatus.failed), None)
-    stop = next((j.input[STOP] for j in mine if j.input.get(STOP)), None)
+    stopped = next((j for j in mine if j.input.get(STOP)), None)
+    stop, at = (stopped.input[STOP], stopped) if stopped else (None, None)
     if failed:
-        stop = {"at": NAMES.get(failed.input.get("step", "")), "reason": failed.error}
+        stop, at = {"at": NAMES.get(failed.input.get("step", "")), "reason": failed.error}, failed
+    frames = [failed.input.get("frame_id")] if failed else (stop or {}).get("frames") or []
+    if stop and _put_right(rows, at, stop["at"], [f for f in frames if f]):
+        stop = None
     return {"running": any(j.status in WAITING for j in mine),
             "stopped_at": stop and stop["at"], "reason": stop and stop["reason"]}  # fmt: skip
+
+
+def _put_right(rows: list[Job], at: Job, step: str, frames: list[int]) -> bool:
+    """Jobs for the same work succeeded after the stop: every still it waited on (the failed
+    one, or each frame to fix), or else the failed or unstarted step."""
+    kind = {v: k for k, v in NAMES.items()}[step]
+    done = [j for j in rows if j.id > at.id and j.status == JobStatus.succeeded
+            and j.input.get("step") == kind]  # fmt: skip
+    if kind == "frame" and frames:
+        return all(any(j.input.get("frame_id") == f for j in done) for f in frames)
+    return bool(done)

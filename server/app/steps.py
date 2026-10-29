@@ -70,6 +70,9 @@ def recheck(job_input: dict, result, ask):
     elif job_input.get("step") == plans.STEP:
         check, again = (lambda out: plans.checked(job_input, out)), plans.again
         still = plans.STILL
+    elif job_input.get("step") == plans.SCENE_STEP:
+        check, again = (lambda out: plans.scene_checked(job_input, out)), plans.scene_again
+        still = plans.STILL
     else:
         return result
     output, fixes = check(result.output)
@@ -113,9 +116,12 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_takes import save_take
     from app.enhance import save_suggestions
     from app.item_checks import save as save_check
+    from app.look_samples import save_clip as save_sample_clip
+    from app.look_samples import save_still as save_sample_still
     from app.narration_music import save_bed
     from app.narration_music import save_prompt as save_music_prompt
     from app.plans import save as save_plan
+    from app.plans import save_scene
     from app.reel_read import follow_on, save_watch
     from app.routes.improve import save_improved
     from app.routes.script_import import save_prepared
@@ -133,6 +139,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "enhance": save_suggestions,
         "breakdown": save_breakdown,
         "plan": save_plan,
+        "plan_scene": save_scene,
         "song_breakdown": save_breakdown,
         "narrated_breakdown": save_breakdown,
         "storyboard": save_frames,
@@ -142,6 +149,8 @@ def save_step_result(db: Session, job: Job) -> None:
         "look_fit": save_fit,
         "frame": save_still,
         "item_check": save_check,
+        "look_sample": save_sample_still,
+        "look_sample_clip": save_sample_clip,
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,
         "variations": save_variations,

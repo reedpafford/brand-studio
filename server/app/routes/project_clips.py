@@ -25,6 +25,7 @@ from app import (
     narration,
     narration_music,
     prompts,
+    video_settings,
 )
 from app.advice import Said
 from app.auth import current_user
@@ -171,8 +172,12 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
-        take_stale=clip_prompts.take_stale(row) or looks.take_other(db, project, row),
-        approved=row.approved and not looks.take_other(db, project, row),
+        take_stale=clip_prompts.take_stale(row)
+        or looks.take_other(db, project, row)
+        or video_settings.take_stale(db, project, row),
+        approved=row.approved
+        and not looks.take_other(db, project, row)
+        and not video_settings.take_stale(db, project, row),
         take_warning=(warning := clip_takes.take_warning(db, row)),
         retrying=(retrying := clip_takes.retrying(db, row)),
         retried=clip_takes.retried(db, row),
@@ -405,7 +410,7 @@ def generate(
         if wrong := check.redo_note(note, bd, row.clip_id):
             raise HTTPException(422, " ".join(wrong))
     job_input = clip_takes.take_input(db, project, row, note)
-    model = clip_takes.video_model()
+    model = clip_takes.video_model(project)
     files = {k: job_input["files"].get(k, []) for k in clip_takes.KEYS.values()}
     _check_media_length(db, request.app.state.storage, model, files)
     return enqueue(
@@ -646,7 +651,8 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
         bd, rows = bds.get(p.id), clips.get(p.id, [])
         moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
         if any(not c.approved or moved or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
-               or looks.take_other(db, p, c) for c in rows):  # fmt: skip
+               or looks.take_other(db, p, c) or video_settings.take_stale(db, p, c)
+               for c in rows):  # fmt: skip
             old.add(p.id)
         elif (video := videos.get(p.id)) and (
             video.take_ids != [c.picked_take_id for c in rows]
@@ -687,6 +693,9 @@ def make_video(
     if other := sum(looks.take_other(db, project, c) for c in clips):  # VS1: never mixed looks
         raise HTTPException(409, looks.OTHER.format("1 clip was" if other == 1
                                                     else f"{other} clips were"))  # fmt: skip
+    if other := sum(video_settings.take_stale(db, project, c) for c in clips):  # nor settings
+        said = "1 clip was" if other == 1 else f"{other} clips were"
+        raise HTTPException(409, video_settings.OTHER.format(said))
     storage = request.app.state.storage
     song = db.get(SongTake, project.song_take_id) if project.song_take_id else None
     if song and not all(c.song_slice for c in clips):
