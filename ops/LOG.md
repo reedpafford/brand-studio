@@ -1,4 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 07:02 · Into `next`: #829 song final cut; #818 Write 2 song directions; #857 Study a song ad (web); #826 shot times; #853 narrated clips keep their own sound; #831 real names in style lines; #865 cost bar on the video page; #870, #867 data.md merge order and n07 (Format and Look)
+- 2026-10-29 06:08 · #859 Downloads: an older look says so in the Out of date banner, not "Clips changed since" merged
+- 2026-10-29 05:56 · Agents (#861): the sessions table adds Builder-Server-7/8, Builder-Screens-4, Next-Layout, UX-Auditor and Song-Producer merged (by the Producer)
+- 2026-10-29 05:55 · #860 ops: HANDOFF/LOG refresh as of 3f93bf0 merged (by the Producer)
 - 2026-10-29 06:00 · Into `next`: #816 Write 2 song directions (web); #828 Director narrated videos; #834 narrated-ad sound mix; #825 Usage archived brands first; #842 Suno through KIE (written, switched off); #849 UX audit part 7; #844, #846, #848, #850, #855 flow map for narrated formats, Format and Look, the creative plan and the AI check; #852 migration merge order
 - 2026-10-29 05:50 · #803 Storyboard: an out-of-date frame has its own Redo this frame · N, or says why not with Redo storyboard merged
 - 2026-10-29 05:34 · #847 gitignore: match .venv and node_modules links too merged
