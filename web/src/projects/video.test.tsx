@@ -205,6 +205,19 @@ test("after a breakdown edit, the finished video stays downloadable and Clips st
   expect(screen.getByText("Out of date.")).toBeInTheDocument();
 });
 
+test("the server's video still matches its takes, but a clip is unapproved: Downloads says Out of date and the real count (#761 QA-2)", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+  expect(screen.getByText("Out of date", { selector: "span" })).toBeInTheDocument();
+  expect(screen.queryByText("Ready")).not.toBeInTheDocument();
+  expect(screen.getByText(/0 of 1 clips approved/)).toBeInTheDocument();
+  expect(screen.queryByText(/every clip approved/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Approve every clip first (1 left)");
+});
+
 test("after a breakdown edit, Clips already made stays open (out of date), not sent back to Storyboard", async () => {
   setViewport(390);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] });
