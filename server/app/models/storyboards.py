@@ -22,6 +22,8 @@ class StoryboardFrame(Entity, Base):
     approved: Mapped[bool] = mapped_column(default=False)  # cleared on edit or a new still
     still_stale: Mapped[bool] = mapped_column(default=False)  # the still shows the old cast
     look: Mapped[str] = mapped_column(String(40), default="house")  # its still's look (VS1)
+    # What its still was made with (VS1, n09): {image_model, aspect_ratio, products}; {} = before
+    made_with: Mapped[dict] = mapped_column(JSON, default=dict)
     redrawn: Mapped[bool] = mapped_column(default=False)  # redrawn for a new cast, not approved
     earlier: Mapped[list[dict]] = mapped_column(JSON, default=list)  # [{file_id, prompt}]
     change: Mapped[dict | None] = mapped_column(JSON)  # the last note: app/change.py

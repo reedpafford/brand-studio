@@ -115,3 +115,39 @@ def test_write_it_myself_earlier_plans_stop_and_the_time_limit(app, db, editor, 
                                                 "stopped. Nothing was charged.")  # fmt: skip
     db.expire_all()
     assert db.get(Job, slow["id"]).status == "cancelled"  # never counted
+
+
+def test_change_this_scene_and_update_the_plan(app, db, editor, setup):  # noqa: F811
+    pid = setup["project"]
+    url = f"/projects/{pid}/plan"
+    editor.post(url, json={})
+    _write(app, db)
+    plan = editor.get(url).json()
+    assert editor.post(f"{url}/scenes/1/change", json={"note": " "}).status_code == 422
+    assert editor.post(f"{url}/scenes/9/change", json={"note": "funnier"}).status_code == 404
+    job = editor.post(f"{url}/scenes/1/change", json={"note": "funnier"}).json()
+    assert job["credits"] == plan["change_scene_credits"]  # the price shown is the charge
+    assert "<note>funnier</note>" in db.get(Job, job["id"]).input["prompt"]
+    busy = editor.put(url, json={"scenes": plan["scenes"]})  # Flow-QA: never lost to the job
+    assert (busy.status_code, busy.json()["detail"]) == (409, "A plan is already being made.")
+    _write(app, db)
+    changed = editor.get(url).json()
+    assert {x["action"] for x in changed["scenes"][0]["lines"]} == {
+        "Bigger: they react twice as hard."
+    }
+    assert [x["n"] for x in changed["scenes"][0]["lines"]] == [2, 3, 4]  # its lines stay
+    assert (
+        changed["version"] > plan["version"] and changed["earlier"][0]["version"] == plan["version"]
+    )
+
+    assert editor.post(f"{url}/update").status_code == 409  # up to date: nothing to update
+    script = editor.get(f"/projects/{pid}/script").json()["text"]
+    editor.put(f"/projects/{pid}/script", json={"text": script + "\nMOM: Fine."})
+    assert editor.get(url).json()["out_of_date"] is True  # "Made for older words"
+    job = editor.post(f"{url}/update").json()
+    assert "The script's words changed" in db.get(Job, job["id"]).input["prompt"]
+    _write(app, db)
+    after = editor.get(url).json()
+    assert after["out_of_date"] is False and [
+        x["n"] for s in after["scenes"] for x in s["lines"]
+    ] == [2, 3, 4, 5]

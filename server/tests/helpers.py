@@ -4,6 +4,7 @@
 """
 
 import json
+import re
 import struct
 
 MP3 = b"ID3" + b"0" * 32
@@ -108,4 +109,21 @@ def with_sheet(db, item_id: int) -> None:
 
     item = db.get(LibraryItem, item_id)
     item.sheet_file_id, item.sheet_approved = item.image_file_ids[0], True
+    db.commit()
+
+
+def approved_plan(db, project) -> None:
+    """Give a video an approved scene plan (flows 1b: the shots are made from one), as if an
+    editor had written and approved it: one card per scene, an action on every line."""
+    from app import plans
+    from app.models.projects import Project
+
+    if isinstance(project, str):  # "/projects/12", as a test's url names it
+        project = int(re.search(r"/projects/(\d+)", project)[1])
+    project = db.get(Project, project)
+    plans.by_hand(db, project, plans.script(db, project))
+    for scene in project.plan["scenes"]:
+        for line in scene["lines"]:
+            line["action"] = "It happens, big."
+    plans.approve(project, None)
     db.commit()

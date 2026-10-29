@@ -104,8 +104,12 @@ def _working(db: Session, user: User, project_id: int):
 
 @router.post("", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)])
 def make(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Queue a breakdown call (a paid Claude call, counted against the project budget)."""
+    """Queue a breakdown call (a paid Claude call, counted against the project budget). The
+    shots of a video made from a script come from an approved plan (flows.md 1b): "Approve
+    the plan first" until then. A video made the earlier way makes its breakdown as before."""
     project, version = _working(db, user, project_id)
+    if project.script_draft_id:
+        plans.require_approved(db, project)
     return queue(db, user, project, version)
 
 
@@ -272,7 +276,7 @@ def fix(
     row = _newest(db, project)
     every = [f["problem"] for f in breakdown_fix.fixes(row.problems)]
     asked = (body.problems if body else []) or every
-    m = breakdown.video_model()
+    m = breakdown.video_model(project)
     from app.cast_roles import fix as cast
 
     fixed, done = breakdown_fix.repair(
