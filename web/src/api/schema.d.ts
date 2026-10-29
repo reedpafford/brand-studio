@@ -333,7 +333,12 @@ export interface paths {
         delete: operations["archive_brand_brands__brand_id__delete"];
         options?: never;
         head?: never;
-        /** Update Brand */
+        /**
+         * Update Brand
+         * @description Change the brand. BR1's new sections are the owner's; what editors changed before BR1
+         *     (name, logo, colours, fonts, notes, never_say, legal and end line) they still may, until
+         *     Reed decides. Nothing already made or published changes (BR1).
+         */
         patch: operations["update_brand_brands__brand_id__patch"];
         trace?: never;
     };
@@ -351,6 +356,67 @@ export interface paths {
          * @description Undo an archive: the brand and everything in it come back.
          */
         post: operations["restore_brand_brands__brand_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/cta-lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Cta Line
+         * @description Add a call to action line (the first one is the Default).
+         */
+        post: operations["add_cta_line_brands__brand_id__cta_lines_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/cta-lines/{line_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Cta Line
+         * @description Delete a line; deleting the Default makes the next line the Default (Undo: restore).
+         */
+        delete: operations["delete_cta_line_brands__brand_id__cta_lines__line_id__delete"];
+        options?: never;
+        head?: never;
+        /** Edit Cta Line */
+        patch: operations["edit_cta_line_brands__brand_id__cta_lines__line_id__patch"];
+        trace?: never;
+    };
+    "/brands/{brand_id}/cta-lines/{line_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Cta Line
+         * @description Undo a delete: the line comes back, and the Default again if it was.
+         */
+        post: operations["restore_cta_line_brands__brand_id__cta_lines__line_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4246,6 +4312,20 @@ export interface components {
         };
         /** BrandIn */
         BrandIn: {
+            /** Audience */
+            audience?: string | null;
+            /** Do List */
+            do_list?: string[] | null;
+            /** Dont List */
+            dont_list?: string[] | null;
+            /** Music Style */
+            music_style?: string | null;
+            /** Default Language */
+            default_language?: string | null;
+            /** Default Look */
+            default_look?: string | null;
+            /** Default Cast */
+            default_cast?: number[] | null;
             /** Logo File Id */
             logo_file_id?: number | null;
             /** Style Board File Id */
@@ -4329,12 +4409,76 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
+            /**
+             * Audience
+             * @default
+             */
+            audience: string;
+            /**
+             * Do List
+             * @default []
+             */
+            do_list: string[];
+            /**
+             * Dont List
+             * @default []
+             */
+            dont_list: string[];
+            /**
+             * Music Style
+             * @default
+             */
+            music_style: string;
+            /**
+             * Default Language
+             * @default en
+             */
+            default_language: string;
+            /**
+             * Default Look
+             * @default house
+             */
+            default_look: string;
+            /**
+             * Default Cast
+             * @default []
+             */
+            default_cast: number[];
+            /**
+             * Cta Lines
+             * @default []
+             */
+            cta_lines: components["schemas"]["CtaLine"][];
+            /**
+             * Cast
+             * @default []
+             */
+            cast: components["schemas"]["CastPick"][];
+            /**
+             * Advice
+             * @default []
+             */
+            advice: string[];
         };
         /**
          * BrandPatch
          * @description Send only the fields you want to change.
          */
         BrandPatch: {
+            /** Audience */
+            audience?: string | null;
+            /** Do List */
+            do_list?: string[] | null;
+            /** Dont List */
+            dont_list?: string[] | null;
+            /** Music Style */
+            music_style?: string | null;
+            /** Default Language */
+            default_language?: string | null;
+            /** Default Look */
+            default_look?: string | null;
+            /** Default Cast */
+            default_cast?: number[] | null;
             /** Logo File Id */
             logo_file_id?: number | null;
             /** Style Board File Id */
@@ -4518,6 +4662,15 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CastPick */
+        CastPick: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Deleted */
+            deleted: boolean;
+        };
         /** ChangeIn */
         ChangeIn: {
             /** Note */
@@ -4622,6 +4775,38 @@ export interface components {
              * @default []
              */
             skip_screen_ids: number[];
+        };
+        /** CtaDeleted */
+        CtaDeleted: {
+            /** Promoted Id */
+            promoted_id: string | null;
+            brand: components["schemas"]["BrandOut"];
+        };
+        /** CtaIn */
+        CtaIn: {
+            /** Text */
+            text: string;
+            /**
+             * Default
+             * @default false
+             */
+            default: boolean;
+        };
+        /** CtaLine */
+        CtaLine: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /** Default */
+            default: boolean;
+        };
+        /** CtaPatch */
+        CtaPatch: {
+            /** Text */
+            text?: string | null;
+            /** Default */
+            default?: boolean | null;
         };
         /** DialogueLine */
         DialogueLine: {
@@ -5121,6 +5306,10 @@ export interface components {
             voice_file_id?: number | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -5150,6 +5339,10 @@ export interface components {
             voice_file_id?: number | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
@@ -5182,6 +5375,11 @@ export interface components {
              * @default 0
              */
             change_credits: number;
+            /**
+             * Advice
+             * @default []
+             */
+            advice: string[];
         };
         /**
          * ItemPatch
@@ -5202,6 +5400,10 @@ export interface components {
             voice_file_id?: number | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
         };
         /**
          * JobDetailOut
@@ -5702,6 +5904,10 @@ export interface components {
             voice_file_id?: number | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -8652,6 +8858,141 @@ export interface operations {
             header?: never;
             path: {
                 brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_cta_line_brands__brand_id__cta_lines_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CtaIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_cta_line_brands__brand_id__cta_lines__line_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                line_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CtaDeleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_cta_line_brands__brand_id__cta_lines__line_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                line_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CtaPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_cta_line_brands__brand_id__cta_lines__line_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                line_id: string;
             };
             cookie?: never;
         };
