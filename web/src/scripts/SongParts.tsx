@@ -57,6 +57,13 @@ export function SongRow({ scriptId }: { scriptId: number }) {
   );
 }
 
+/** The Preferred take's length as "0:31" (its trimmed part, if trimmed), or null: for price lines like "About 40 credits to make · 0:31 song". */
+export function useSongLength(scriptId: number, enabled: boolean) {
+  const take = useSongs(scriptId, enabled).data?.takes.find((t) => t.preferred && !t.out_of_date);
+  const seconds = take?.trim_to ?? take?.seconds;
+  return seconds != null ? clock(seconds) : null;
+}
+
 /** The song's lines on a Publish card: the song, its style and who sings (flows S7). */
 export function SongFacts({ script: s }: { script: Script }) {
   const now = songOf(s);

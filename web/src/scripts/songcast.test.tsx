@@ -60,7 +60,7 @@ test("Publish on a song lists the song, its style and the singer, and says the l
   expect(screen.getByText(/After that the lyrics can't change \(each video still picks its own take\)/)).toBeInTheDocument();
 });
 
-test("at 390, Make this version on a song shows its song with a 44px play button", async () => {
+test("at 390, Make this version on a song shows its song with a 44px play button, and its length in the price line", async () => {
   setViewport(390);
   const ready = song({ published: true, status: "published" }, { status: "approved", estimate_credits: 40 });
   fakeServer({ ...base, "GET /scripts": [200, [{ ...ready, versions: [{ slot: 0, status: "approved", title: "Bowl song", seconds: 31, project_id: null }] }]], "GET /scripts/7": [200, ready], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true })])], "GET /scripts/7/cast": [200, []], "GET /credits/rates": [200, []] });
@@ -68,4 +68,5 @@ test("at 390, Make this version on a song shows its song with a 44px play button
   const row = await screen.findByRole("region", { name: "Song" });
   expect(await within(row).findByText("Song: Take 1 · 0:31")).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: "Play Take 1" })).toBeInTheDocument();
+  expect(screen.getByText(/About 40 credits to make · 0:31 song/)).toBeInTheDocument();
 });

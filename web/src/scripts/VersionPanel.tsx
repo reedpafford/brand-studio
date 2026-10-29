@@ -8,7 +8,7 @@ import { Badge, Button, Panel, Skeleton, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
-import { SongRow } from "./SongParts";
+import { SongRow, useSongLength } from "./SongParts";
 import { beingMade } from "./ScriptsPage";
 import { useAllowanceStop, useScript, useWeek } from "./useScript";
 
@@ -44,6 +44,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
   const stop = useAllowanceStop(s, cost);
   const week = useWeek(s); // an editor making their own script sees how much of the week is used
+  const songLength = useSongLength(scriptId, s?.kind === "song");
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
   return (
@@ -89,6 +90,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           {readyToMake && v.estimate_credits > 0 && (
             <p className="text-sm text-muted">
               About {wholeCredits(v.estimate_credits)} credits to make
+              {songLength && ` · ${songLength} song`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
           )}
