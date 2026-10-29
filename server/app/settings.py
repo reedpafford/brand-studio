@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # Outputs are only downloaded over https from these hosts (and their subdomains).
     replicate_delivery_hosts: list[str] = ["replicate.delivery"]
     max_download_mb: int = 500
+    # Suno through KIE (app/providers/kie.py). Off until Reed says so; key from KIE_API_KEY
+    # only (never in code or logs). Songs download only over https from these hosts.
+    kie_suno: bool = False
+    kie_base_url: str = "https://api.kie.ai/api/v1"
+    kie_api_key: SecretStr = Field(SecretStr(""), validation_alias="KIE_API_KEY")
+    kie_delivery_hosts: list[str] = []  # set with the switch, from a real song link
     # Claude: key from STUDIO_ANTHROPIC_KEY only (never in code or logs).
     anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
     # Paid generation (Replicate, Claude). Off by default: the owner turns it on at deploy.

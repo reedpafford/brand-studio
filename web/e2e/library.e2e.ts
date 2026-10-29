@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   await page.getByRole("link", { name: "Cast & places" }).click();
-  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cast & places" })).toBeVisible();
 });
 
 async function newCharacter(page: import("@playwright/test").Page, name: string, withImage = false) {

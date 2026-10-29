@@ -59,7 +59,7 @@ test("lyrics: the sung length counts words not tags; over 4,960 characters says 
   const box = await screen.findByLabelText("Lyrics");
   await userEvent.click(box);
   await userEvent.paste("[Verse]\n" + "la ".repeat(25));
-  expect(screen.getByText(/About 10 s sung · 25 words/)).toBeInTheDocument();
+  expect(screen.getByText(/25 sung words: a song of about 0:10–0:13/)).toBeInTheDocument();
   await userEvent.paste("x".repeat(4960));
   expect(screen.getAllByText(/Cut \d+ characters/).length).toBeGreaterThan(0);
   expect(screen.getByRole("button", { name: "Save lyrics" })).toBeDisabled();

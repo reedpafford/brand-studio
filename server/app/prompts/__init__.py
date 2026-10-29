@@ -28,9 +28,16 @@ SCHEMAS = {
     "song_directions": schemas.SongDirections,
     "song_breakdown": schemas.SongBreakdown,
     "song_clip_prompts": schemas.ClipPrompts,
+    "narrated_breakdown": schemas.SongBreakdown,  # flows V6n: the narration is the clock
+    "narrated_clip_prompts": schemas.ClipPrompts,
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
-EXTENDS = {"song_breakdown": "breakdown", "song_clip_prompts": "clip_prompts"}
+EXTENDS = {
+    "song_breakdown": "breakdown",
+    "song_clip_prompts": "clip_prompts",
+    "narrated_breakdown": "breakdown",
+    "narrated_clip_prompts": "clip_prompts",
+}
 NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
 
 
@@ -38,8 +45,8 @@ NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only 
 # the {{tokens}} in the step files instead.
 GUIDES = {
     "still": ["storyboard"],
-    "clip": ["clip_prompts", "song_clip_prompts", "improve"],
-    "breakdown": ["breakdown", "song_breakdown"],
+    "clip": ["clip_prompts", "song_clip_prompts", "narrated_clip_prompts", "improve"],
+    "breakdown": ["breakdown", "song_breakdown", "narrated_breakdown"],
     "script": ["script_draft", "enhance", "variations"],
 }
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
@@ -346,16 +353,20 @@ def song_directions_input(
     note: str = "",
     source: str = "",
     sounds_like: str = "",
+    reference: str = "",
 ) -> str:
     """The user message for the song_directions step (with brand_block in the system prompt).
     `music_style` is the brand's genre line; `seconds` only when the editor asked for a length;
     `source` a script or voice-over to adapt into lyrics; `sounds_like` a song or artist the
-    editor wants it to feel like (the style line describes it, never names it)."""
+    editor wants it to feel like (the style line describes it, never names it); `reference` a
+    winning song ad's study (its transcript, tempo and sections) whose shape to follow."""
     parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
     if music_style:
         parts.append(f"<music_style>{music_style}</music_style>")
     if sounds_like:
         parts.append(f"<sounds_like>{sounds_like}</sounds_like>")
+    if reference.strip():
+        parts.append(f"<reference>\n{reference.strip()}\n</reference>")
     if source.strip():
         parts.append(f"<source>\n{number_lines(source.strip())}\n</source>")
     if seconds:
@@ -364,6 +375,26 @@ def song_directions_input(
     if note:
         parts.append(f"<note>{note}</note>")
     return "\n".join(parts)
+
+
+def song_study_block(study: dict) -> str:
+    """A song-ad study (flows S3a), for song_directions_input(reference=...): its length,
+    tempo and sections, each with its lines (someone else's song: a guide to the shape, never
+    words to reuse; check.copied_lines holds that). `study` is {seconds, bpm, sections:
+    [{name, start, end, lines}], words}; words are left out."""
+    head = f"A song ad that works: {study['seconds'] / 60:.0f}:{study['seconds'] % 60:02.0f} long"
+    if study.get("bpm"):
+        head += f", about {round(study['bpm'])} BPM"
+    out = [head + ".", "Sections (follow their order, their lengths and their pace):"]
+    for x in study.get("sections", []):
+        lines = x.get("lines") or []
+        lines = lines if isinstance(lines, list) else []
+        words = sum(len(str(t).split()) for t in lines)
+        out.append(f"- {x['start']:.0f}–{x['end']:.0f} s {x['name']}: {len(lines)} lines, "
+                   f"{words} words")  # fmt: skip
+        out += [f"  | {t}" for t in lines]
+    out.append("Its lines are someone else's song: never reuse one, word for word or nearly.")
+    return "\n".join(out)
 
 
 def song_block(song: dict) -> str:

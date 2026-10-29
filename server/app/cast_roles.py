@@ -158,6 +158,10 @@ def mismatches(db: Session, project: Project, script: str, bd) -> list[tuple]:
             missing = [(s.role, r) for r, s in wanted.items() if r not in here]
             wrong = [(roles[r][0].role, r) for r in here if r in roles and r not in wanted]
             seen = f"{shot.action} {shot.reaction or ''}"  # "Lexi takes the hit": her reaction
+            insert = not shot.speaker and not any(named(s.role, seen) for v in roles.values()
+                                                  for s in v)  # fmt: skip
+            if insert:  # a close-up of a thing (the vacuum's canister): nobody to swap
+                continue
             if missing and wrong and not any(named(role, seen) for role, _ in wrong):
                 found.append((shot, missing, wrong))
     return found

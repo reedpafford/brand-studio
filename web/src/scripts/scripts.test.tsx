@@ -44,10 +44,10 @@ test("a script is one row: its title, description, reference, length range and a
   expect(await screen.findByRole("heading", { name: "Bo tries salmon" })).toBeInTheDocument();
   expect(screen.getByText("Show a picky dog finally loving Iron Paws salmon.")).toBeInTheDocument();
   expect(screen.getByText(/Ref: The altar reel · about 24–30 s · 2 versions left to make/)).toBeInTheDocument();
-  expect(screen.getByText("A · Video done")).toBeInTheDocument();
+  expect(screen.getByText("A · Finished")).toBeInTheDocument();
   expect(screen.getByText("B · Ready to make")).toBeInTheDocument();
   expect(screen.getByText("C · In production")).toBeInTheDocument();
-  expect(screen.getByLabelText("Version A, video done").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
+  expect(screen.getByLabelText("Version A, finished").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
   expect(screen.getByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
   expect(screen.getByText("1 script")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\bv\d\b|project/i);
@@ -496,7 +496,7 @@ test("Variations: the lines that differ from the original are found by their wor
 
 test("a Ready to make chip opens the version panel, and Make this version reserves it and opens the video at Breakdown", async () => {
   setViewport(1440);
-  const full = { ...script({ versions: [v(0, "approved", { text: "INT. KITCHEN\nBo sniffs the salmon.", has_breakdown: false })] }) };
+  const full = { ...script({ versions: [v(0, "approved", { text: "INT. KITCHEN\nBo sniffs the salmon.", has_breakdown: false, estimate_credits: 21 })] }) };
   const calls = fakeServer({
     ...base,
     "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]],
@@ -512,6 +512,7 @@ test("a Ready to make chip opens the version panel, and Make this version reserv
   expect(within(panel).getByText(/Bo sniffs the salmon/)).toBeInTheDocument();
   expect(within(panel).getByText("Bo · Locked look")).toBeInTheDocument();
   expect(within(panel).getByText("Planned automatically when you start")).toBeInTheDocument();
+  expect(within(panel).getByText("Starting costs 3 (the breakdown) · the whole video about 21 credits")).toBeInTheDocument(); // one line (#749 LW5)
   // No saved breakdown: starting one is a paid call, so the button says its price.
   await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
@@ -637,7 +638,7 @@ test("the version panel says what it is a variation of, who planned the breakdow
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" });
   expect(await within(panel).findByText("Variation of A")).toBeInTheDocument();
   expect(within(panel).getByText("Planned by Reed · 28 s · 4 clips")).toBeInTheDocument();
-  expect(within(panel).getByText("The whole video costs about 210 credits")).toBeInTheDocument();
+  expect(within(panel).getByText("Starting is free · the whole video about 210 credits")).toBeInTheDocument();
   expect(within(panel).getByRole("button", { name: "Make this version" })).not.toHaveTextContent(/credit/); // a saved breakdown is free
 });
 

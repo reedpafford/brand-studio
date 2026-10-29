@@ -69,7 +69,9 @@ function Frame() {
   const held = useHeld();
   const { count, setNode } = useActionBarSlot();
   // Inside one video on a phone, the video's own header line replaces the brand bar.
-  const video = useMatch("/b/:brandId/projects/:projectId");
+  const oldVideo = useMatch("/b/:brandId/projects/:projectId");
+  const newVideo = useMatch("/b/:brandId/videos/:projectId");
+  const video = newVideo ?? oldVideo;
   const inVideo = !rail && video !== null && /^\d+$/.test(video.params.projectId ?? "");
 
   useEffect(() => {

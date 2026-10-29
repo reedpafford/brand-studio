@@ -57,7 +57,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
-| Usage (live today, small) | With 25+ brands the list pages at 25 + Show more; with "Show archived" ticked, a just-archived brand can sit behind Show more (reachable, not a dead end) | Archived first when shown | 10+ brands check |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
@@ -135,4 +134,25 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #810 at 50859f17 (take video cost, Delete on own takes, clips note) | Full suite + Change song walk at 1440 and 390 (57 passed); vitest 201 | PASS; fix expected: the cost isn't rounded (`wholeCredits`) |
 | 2026-10-29 | #810 at e2efd06b | The cost rounding fix | PASS |
 | 2026-10-29 | #799 at 8e20e1fa (a stretch is never a shot's own time; 0.5 s floor) | 15 checks: last-shot Undo, last two shots, one-step Undo, reorder, song switch | PASS (14/15); a reorder's Undo is not exact, API only |
+| 2026-10-29 | 03:50 check-in: #783 at dd8efec0 (next merged in), #777 at 87f75a6c (next merged in), #773 at 4a6152a9 | Song API walks (71 of 72; the one miss is my old S4 U setup), no node_modules link | PASS; #814 is a tool and docs, no app flow |
+| 2026-10-29 | #816 at c7a06758 (S2 length at the pilot's pace; S3 Write 2 song directions, hidden until the route) | Code and vitest (208), tsc, eslint | FAIL: Use this one drops unsaved typing though it says "kept in Undo"; Replace doesn't say takes go out of date |
+| 2026-10-29 | #818 at c3960556 (S3 server: write, use, keep, remove) | API walk on stand-ins: write, Remove/Undo, Write 2 more, empty About, editor over week, failed job, approved version, Undo of Use | FAIL: Undo of Use leaves the claims note; on an approved version the paid press works but Use is refused |
+| 2026-10-29 | #819 at a6867f29 (Director: names out of the style line; study copy check) | Code paths; name removal on 6 inputs; test_song (16) | FAIL: nothing calls the new checks (not #818 either); lowercase names kept; leftovers like "pop , upbeat" |
+| 2026-10-29 | #816 at 41c3b02a | Unsaved typing kept in Undo; takes sentence; vitest 210, tsc | PASS on both; the refusal reason is still dropped |
+| 2026-10-29 | #816 at 3e288df5 | Refusal reason; song price on Make this version | Reason PASS; FAIL: the press now shows the take's cost (no looks for uncast roles), under the version's price (40 → 34 in its test) |
+| 2026-10-29 | #816 at 5c4a1cb8 | Price change reverted; only the song step files | PASS |
+| 2026-10-29 | #819 at 00c4f96b | Name removal on 9 inputs (lowercase, leftovers), length note at minute edges, test_song (18) | PASS; note: a one-word song title ("Happy") also drops that word from the style. Wiring waits on #818 |
+| 2026-10-29 | #818 at 6d9f12f9 | Same 6 API checks + the PR's tests (12) | Both fails fixed; FAIL on wording: approved says "Duplicate it", but Duplicate shows only once published (the way on is Undo approval) |
+| 2026-10-29 | #825 at 6e0ca043 (Usage: archived first) | Sort before paging; test_usage (7), storyboard vitest (42); no node_modules link | PASS |
+| 2026-10-29 | #826 at 75d7016b (V2: song times, Sung/B-roll, Timing guessed on shot rows) | vitest 499, tsc, Playwright auth+song (7) | PASS; notes: Needs timing / Timing guessed get their press when Snap lands; a sub-second shot reads 0:03–0:03 |
+| 2026-10-29 | #828 at f3d3a576 (N1 narrator signal, V6n narrated prompts) | 18 house prompts byte-identical; narrator on 12 scripts; test_narrated (3) | FAIL: title-case dialogue ("Mia: …") reads as narration; not wired yet |
+| 2026-10-29 | #818 at 2911002c (next in; one price; stop kind) | Song API walks + 4 song test files (74/75, the miss is my old setup) | One price PASS; still FAIL on "Duplicate it"; note: `video_credits` ignores a saved breakdown |
+| 2026-10-29 | #828 at b596b1b8 | Narrator on 14 scripts; test_narrated (3) | PASS; note: prose lines like "Day One: …" make it a story video (safe side) |
+| 2026-10-29 | #829 at 81fcf9ec (V6: Make video for a song video, n02) | Tests (15); switch to a 40 s take then Make video | FAIL: Make video uses clips made for the old song (24 s cut, new song under it, says current) |
+| 2026-10-29 | #831 at 08545fe2 (only real names leave the style) | 14 inputs; test_song (19) | FAIL: "country Taylor Swift" keeps the name; "beatles" leaves "like the" |
+| 2026-10-29 | next red since #821 (Assets tick test) | Bisected: each side passes, the merge fails; test kept a detached Steps list | Fixed on next by #832 (my #835 closed as duplicate) |
+| 2026-10-29 | #818 at 6252911a (wording; names and one rewrite in the job) | 19 checks: names out (3 inputs), fake:three (one rewrite, charged once), fake:three-always (failed, not charged), approved wording, earlier states | PASS; S3a's copy check waits for the study route |
+| 2026-10-29 | #842 at 6695ab56 (KIE adapter for Suno, off) | Off unless BS_KIE_SUNO and KIE_API_KEY; no key in code; mocked network; song tests + my song walks | PASS |
+| 2026-10-29 | #831 at d510f8e5 | 18 inputs (name after a genre word, "the", lowercase bands); test_song (20) | PASS |
+| 2026-10-29 | #829 at 88bbf0ad, #818 at 58d5c209 | Song switch to 40 s then Make video (409, way on), rewrite + remake (40.07 s, current); #818 next merged only | PASS both; note: "1 of the clips were" |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |

@@ -13,9 +13,12 @@ const videoTitle = (v: { title: string; version_letter: string | null }) => (v.v
 
 const VIDEO_STATUS: Record<string, { label: string; tone: Tone; icon: typeof Check }> = {
   in_production: { label: "In production", tone: "warning", icon: Clock },
-  done: { label: "Video done", tone: "success", icon: Check },
+  done: { label: "Finished", tone: "success", icon: Check },
   failed: { label: "Didn't finish", tone: "danger", icon: CircleAlert },
 };
+// A finished video whose clips changed since isn't "done" any more, but it isn't being made either (#749 LW2).
+const WAITING = { label: "Finished · changes waiting", tone: "warning" as Tone, icon: Clock };
+const statusOf = (v: { status: string; final_out_of_date?: boolean }) => (v.status === "done" && v.final_out_of_date ? WAITING : VIDEO_STATUS[v.status]);
 
 /** A small hook for one list's filters, kept in the address under its own names. */
 function useParam(key: string, fallback: string) {
@@ -83,7 +86,7 @@ function VideosTab({ brandId, period }: { brandId: number; period: Period }) {
       <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
         <option value="any">Any</option>
         <option value="in_production">In production</option>
-        <option value="done">Video done</option>
+        <option value="done">Finished</option>
         <option value="failed">Didn't finish</option>
       </Select>
       <Select label="Who" value={who} onChange={(e) => setWho(e.target.value)}>
@@ -139,7 +142,7 @@ function VideosTab({ brandId, period }: { brandId: number; period: Period }) {
             </thead>
             <tbody className="divide-y divide-border">
               {items.map((v) => {
-                const s = VIDEO_STATUS[v.status];
+                const s = statusOf(v);
                 return (
                   <tr key={v.project_id} className="relative text-right hover:bg-surface-2">
                     <th scope="row" className="px-4 py-3 text-left font-medium">
@@ -163,7 +166,7 @@ function VideosTab({ brandId, period }: { brandId: number; period: Period }) {
       ) : (
         <ul className="space-y-3">
           {items.map((v) => {
-            const s = VIDEO_STATUS[v.status];
+            const s = statusOf(v);
             return (
               <li key={v.project_id}>
                 <Link to={`/b/${brandId}/projects/${v.project_id}`} className="block space-y-2 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
@@ -215,7 +218,7 @@ function ScriptsTab({ brandId }: { brandId: number }) {
         <option value="writing">Writing</option>
         <option value="ready">Ready to make</option>
         <option value="in_production">In production</option>
-        <option value="done">Video done</option>
+        <option value="done">Finished</option>
       </Select>
       <Select label="Author" value={author} onChange={(e) => setAuthor(e.target.value)}>
         <option value="">Anyone</option>

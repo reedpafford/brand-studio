@@ -25,7 +25,7 @@ import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
 
-/** A video made from a library version: Breakdown · Assets · Storyboard · Clips · Downloads. */
+/** A video made from a library version: Breakdown · Assets · Storyboard · Clips · Final cut. */
 export function VideoPage() {
   const { brandId = "", projectId } = useParams();
   const id = Number(projectId);
@@ -55,6 +55,9 @@ export function VideoPage() {
   // When this step was opened, the Assets list as it was then: a read since then is this step's own.
   const [opened, setOpened] = useState(() => ({ step, at: assets.dataUpdatedAt }));
   if (opened.step !== step) setOpened({ step, at: assets.dataUpdatedAt });
+  // Assets counts as looked at once opened here, or once the storyboard is started (it comes after).
+  const [assetsSeen, setAssetsSeen] = useState(step === "assets");
+  if (step === "assets" && !assetsSeen) setAssetsSeen(true);
 
   if (project.isPending || loading || assets.isPending)
     return (
@@ -70,7 +73,7 @@ export function VideoPage() {
   // check wait. Later reads (after an Approve, say) keep showing the counts.
   // A read that failed since then ends the wait too: the old counts show rather than "Loading assets…" for ever.
   const assetsLoading = (opened.at > 0 && assets.dataUpdatedAt <= opened.at && assets.errorUpdatedAt <= opened.at) || flavours.loading;
-  const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length } };
+  const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length, seen: assetsSeen || progress.frames.total > 0 } };
   // A link to a step that is locked lands on the step that blocks it (Storyboard when its frames are out of date, say).
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
 
@@ -103,9 +106,10 @@ export function VideoPage() {
     <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} fallback={waiting ? null : nextAction}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
-        <Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
+        {/* The back link names where it goes: this brand's videos. */}
+        <Link to={`/b/${brandId}/scripts?view=videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
           <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
-          Scripts
+          Videos
         </Link>
       </div>
       <div className="flex flex-wrap items-start justify-between gap-3">

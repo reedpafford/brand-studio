@@ -8,12 +8,12 @@ Sources: the spec (`docs/research/starpop-2026-10-28/spec.md`), Reed's changes (
 
 - **Owner, story:** Write → Cast → Plan → Publish. Directions sit in Write as a Suggestions panel, Variations as a Versions section, and "Approve the words" is in Write. Editing approved words asks first: "Edit version A? It goes back to draft. Approve the words again before Next. Roles already found are kept." (today's un-approve, said in advance).
 - **Owner, song:** Song → Takes → Cast → Plan → Publish, with no Suggestions or Versions panels.
-- **Editor:** Breakdown → Assets → Storyboard → Clips → Final cut. Clips has two lists on one step, **Prompts** (each prompt checked, "Prompt OK", rule 21) then **Takes** (make, pick, "Approve take"), with Approve all on both.
-- **One Video settings row** at the top of every video and on Make this version holds every per-video choice: shape, flavour, style, models, language, and for a song video the song ("Change song", V2a).
+- **Editor:** Plan → Cast → Storyboard → Clips → Final cut (item 1b, 2026-10-29). Plan has two views, **Scenes** (the plan) and **Shots** (what was the Breakdown step). **Cast** is what was the Assets step; the library keeps its name, **Cast & places**. Clips has two lists on one step, **Prompts** (each prompt checked, "Prompt OK", rule 21) then **Takes** (make, pick, "Approve take"), with Approve all on both.
+- **One Video settings row** at the top of every video and on Make this version holds every per-video choice: shape, flavour, look, models, language, and for a song video the song ("Change song", V2a).
 - **State words, every step:** Waiting · Making… 0:42 · Ready to check · Approved · Didn't finish · nothing charged (or "credits returned" when they were held) · Refused, with its free fix (for a song: the style line or another take, never the words) · Out of date.
 - **Old links:** every old `/projects/…` address redirects to the same video in its new place, never a 404.
 - **Out of date is viewable, never locked** (audit M14). A step that already has work but is out of date opens read only, with a banner: "Out of date: the breakdown changed after these were made." Its paid presses are disabled with that reason. One press runs the existing redo presses in order: **Update everything after this · N credits** (the same redraws and rewrites as today, priced first; it stops at the first step over budget or failed, saying which, with that step's own press). A step with nothing made yet still opens on the step that blocks it, as today.
-- **A finished video stays finished until its new cut exists** (audit LW1, LW2). Any change that puts made work out of date on a video with a final cut (breakdown, look, flavour, the song take, Sung / B-roll, style, model or shape) warns first, naming what goes out of date, for example: "This video is finished. Changing the breakdown puts 3 clips out of date; your current final cut stays downloadable until you make a new one." Not yet / Change. After the change, Final cut opens (read only, M14) with the old cut and **Download MP4** working, labelled "Older cut: made before the breakdown changed". Lists and In production show **"Finished · changes waiting"** (never "Video done" or "0 being made") with the press **Open** to the first out-of-date step.
+- **A finished video stays finished until its new cut exists** (audit LW1, LW2). Any change that puts made work out of date on a video with a final cut (breakdown, look, flavour, the song take, Sung / B-roll, model or shape) warns first, naming what goes out of date, for example: "This video is finished. Changing the breakdown puts 3 clips out of date; your current final cut stays downloadable until you make a new one." Not yet / Change. After the change, Final cut opens (read only, M14) with the old cut and **Download MP4** working, labelled "Older cut: made before the breakdown changed". Lists and In production show **"Finished · changes waiting"** (never "Video done" or "0 being made") with the press **Open** to the first out-of-date step.
 - **Where Sung starts** (Director, #755): the owner can mark a lyric line or a section `[Lip-sync]` in Song. Those lines start as Sung in every video, and everything else starts as B-roll. The mark is never sung: it's taken out before Suno. In a video, the editor's Sung / B-roll flips win (rule 31). The breakdown's "sung on camera, but the script doesn't ask" Advice only fires where neither the script's mark nor the video's flip asked for it, and never tells an editor to change the lyrics.
 - **A final cut while clips are out of date** (Flow-QA): never blocked and never silent. Final cut offers **Make the cut with what's approved** (free; out-of-date clips go in as they are, and the cut is labelled "Includes 2 out-of-date clips") beside **Update everything after this · N credits**. The download names which clips were out of date.
 - **Flavour at Publish, edge states** (Flow-QA): no product with flavours: the picker isn't shown. One flavour: it's picked by itself, shown as text. Several and none picked: Publish asks "Which flavour for Pitbull 1?" with the flavours as buttons (one press each); never blocked without that choice on the same screen. A product or flavour added after publishing: published versions keep theirs; new videos of them show "New flavour available: Chicken" in Video settings, Advice only.
@@ -90,21 +90,21 @@ flowchart LR
 
 Owner steps on a song script: **Song → Takes → Cast → Plan → Publish** (the names Next-Screens uses in docs/next/screens.md). "Write 2 song directions" is a button inside Song, not a step. Variations are not offered on a song script (they would rewrite the words); to try other lyrics, the owner duplicates the script. **Decided here.**
 
-Editor steps: the same five as a story video (**Breakdown → Assets → Storyboard → Clips → Final cut**).
+Editor steps: the same five as a story video (**Plan → Cast → Storyboard → Clips → Final cut**, item 1b; the song breakdown below is Plan's Shots view, and V3 Assets is the Cast step).
 
-## S1. New script: choosing Song
+## S1. New script: choosing the format (Dialogue, Song or Narrated)
 
 Where: Script Library → **New script**.
 
 | State | What they see | The one press |
 |---|---|---|
-| E | Two choices: **Story** (as today) and **Song** ("Your lyrics, sung word for word over a music video"). | **Song** → a new draft opens on its Song step. |
+| E | Three formats: **Dialogue** (as today's Story: people speak on camera), **Song** ("Your lyrics, sung word for word over a music video") and **Narrated** ("One voice reads your script over B-roll, with music"). The Look is a separate setting (ST1). | **Song** → a new draft opens on its Song step. **Narrated** → it opens on Write, then Narration (N1). |
 | O/Ed | Both roles see it. An editor's song script is their own script: everything paid on it counts against their week (rule 5). | — |
 | P | The two choices stacked, full width. | — |
 | U | Back leaves an untouched draft behind? No: an empty draft is not saved until the first word is typed (as today). | Browser back returns to the Library. |
 | Library | Song scripts carry a **Song** tag in the Library list and a "Song" filter chip. | Tapping one opens it on its first unfinished step. |
 
-Bulk create and reel import still make Story scripts. To learn from a song ad, the owner studies it inside Song (**S3a**): a study informs the directions, it never becomes the lyrics. **Decided here** (Reed's song workflow, #807 item 4).
+Bulk create and reel import still make Dialogue scripts. To learn from a song ad, the owner studies it inside Song (**S3a**): a study informs the directions, it never becomes the lyrics. **Decided here** (Reed's song workflow, #807 item 4).
 
 ## S2. Song: lyrics and style
 
@@ -162,7 +162,7 @@ Reed's pilot needed a song ad's shape before writing his own: its words, its pac
 |---|---|---|
 | E | "Paste a song ad to learn its shape: its words, beat and parts. Free." | **Study it** (free: download, cuts, frames and transcript are the reel import's free prep; the beat is read from the audio on our server). |
 | Q/R | "Studying the song ad…" with a timer. "You can leave this page." | Cancel. |
-| Done | A study card: length, **BPM**, the **sections** (intro, verse, chorus, bridge, outro, each with its times and its lines), the words with their times, and a frame strip, each frame marked with its time. | **Use as a guide** (on by default), or **Remove**. |
+| Done | A study card: length, **BPM**, the **sections** (intro, verse, chorus, bridge, outro, each with its times and its lines; found from where the singing pauses and which lines repeat, and a section whose name is a guess says "guessed"), the words with their times, and a frame strip, each frame marked with its time. | **Use as a guide** (on by default), or **Remove**. |
 | Used as a guide | **Write 2 song directions** follows the study's structure, section lengths and pace (and its BPM goes into the style line as a tempo, in words). The card says: "A guide only: the directions copy its shape, never its words." | **Write 2 song directions** (price as S3). |
 | F | "We couldn't open that reel: [the reason]. Nothing was charged." (private, too long, not a video) | **Try another**. |
 | U | The study stays on the version, collapsed under "Song ad studied", until removed. It never fills the lyrics or style boxes: only **Use this one** on a direction does (rule 19). | — |
@@ -219,9 +219,9 @@ As today's Cast step, with one addition: **the Singer**.
 | U | Changing the Singer after a breakdown preview marks it out of date (S6 S). | — |
 | P | As today. | — |
 
-## S6. Plan: breakdown preview (owner, optional as today)
+## S6. Plan: scene plan, then breakdown preview (owner, optional as today)
 
-Same step as the editor's Breakdown (V2), made by the owner from the preferred take. If the owner skips it, it runs when the editor starts (as today), using the published preferred take.
+The owner's scene plan first (P1: one action per lyric line; it is each new video's starting plan), then the same step as the editor's Breakdown (V2), made from it and the preferred take. If the owner skips it, it runs when the editor starts (as today), using the published preferred take.
 
 | State | What they see | The one press |
 |---|---|---|
@@ -266,7 +266,7 @@ In the video's settings row, shown again as a strip above the shots in Breakdown
 | B | The make button is disabled with the reason; the existing takes stay usable. | **Use this take** on an existing one. |
 | P | The strip is one row (play, "0:31", Change song); the sheet is full screen, takes stacked. | — |
 
-## V2. Breakdown on the song
+## V2. Breakdown on the song (now Plan → Shots, item 1b)
 
 The shots are built from the preferred take's word timings. Each shot covers a stretch of the song, from one word boundary to another (never mid-word), and is marked **Sung** or **B-roll**. Default: every shot is B-roll (Reed: song ads are mostly B-roll; lip-sync is a rare extra). Sung is only where someone flips it. Instrumental stretches get B-roll shots of their own ("Music · 0:12–0:16"). The shots cover the song from its first word to its end with no gaps.
 
@@ -293,7 +293,7 @@ Desktop: the song's waveform across the top, the shots as blocks under it, a pla
 
 Clips follow scenes, not shots (rule 29): consecutive shots in one place and one action become one clip, as today. The song is sliced to fit each clip, never the clip to the song. A clip that holds a Sung shot lip-syncs only that shot's stretch; its other shots in the same clip are picture.
 
-## V3. Assets
+## V3. Assets (now the Cast step, item 1b)
 
 As today. The Singer is a role like any other and needs an approved look (rule 8): Storyboard and Clips stay locked with "Approve every asset first (N left)" and the one press to Assets, exactly as today. Nothing new.
 
@@ -354,25 +354,36 @@ The lip-sync clips were made from the same song, so they match. If the picture c
 | Spoken end line | When set (S2), it's spoken over the song's last seconds with the music lowered under it (free, in the stitch). | — |
 | Lengths | A take longer than its song stretch is trimmed to it; a shorter one holds its last frame to fill it. Never a gap, never silence. A clip with no approved take blocks the stitch as today: "Approve every clip to make the video (N left)." with the press to Clips. | — |
 
-## V6n. Narrated videos: the narrator track underneath (a variant of V6)
+## V6n. Narrated videos: narrator, effects and music (the Narrated format)
 
-Reed's narrated Iron Paws ads (docs/next/song-ad-workflow.md, "Narrated ads", #814) used the song recipe with a narrator: **one narrator track over silent clips**. It's a Story script whose spoken lines are all the narrator's voiceover (no one speaks on camera). It uses the same timing, trim, track-under and fade as a song video. **Decided here:** the track is the script version's, like a song take, so both videos of a pair share the same voice and the same timing.
+Reed's narrated Iron Paws ads (docs/next/song-ad-workflow.md, "Narrated ads" and "v2: the sound") are now a **format** (Reed, 2026-10-29, ops/NEXT.md). One narrator reads the script over B-roll timed to its sentences, each take keeps its own sound effects, and music ducks under the narrator. A **Narrated** script is chosen at New script (S1). Its owner steps are **Write → Narration → Cast → Plan → Publish**, and its editor steps are the usual five. **Decided here:** the narration and its music belong to the script version, like a song take, so both videos of a pair share the voice, the music and the timing.
 
-**N1. Narration (owner, on a Story script; a button on Write, not a step).** Shown when every spoken line is the narrator's (the cast read marks the narrator, as narrated looks do).
+**N1. Narration (owner, a step on a Narrated script).**
 
 | State | What they see | The one press |
 |---|---|---|
-| E | "Narrated: one voice reads the whole script over silent clips." A voice picker (the catalogue's voices, each with a 5-second sample, free) and the pace ("about 3.4 words a second", from the words and the voice). | **Make the narration · N credits** (one paid voice call, catalogue price, rule 2). |
-| Q/R | "Making the narration…" with a timer. | Cancel (before it starts). |
-| Done | The player, its length, and each sentence's start time (measured free, one "line" per sentence, as a take is measured). | **Use this narration** (like Preferred). **Make another** keeps this one until the new one is used. |
+| Locked | "Write the words first" (no words yet). | Goes to Write. |
+| E | "One voice reads the whole script, with music under it." Voice: **Sarah** (ElevenLabs v3); choosing the voice and the music comes later. The pace line ("about 3.4 words a second · about 2:20"). | **Make the narration and music · N credits** (one voice call and one music call, catalogue prices, rule 2). |
+| Q/R | "Making the narration…", then "Making the music…", with a timer. | Cancel (before it starts). |
+| Done | The player with the music under it, its length, and each sentence's start time (measured free, one line per sentence). "Pauses trimmed: 2:26 → 2:19." | **Use this narration** (like Preferred). **Make another** keeps this one until the new one is used. |
+| Trim didn't match | The trimmed narration, read again, didn't match the words letter for letter, so the untrimmed one is kept: "Kept the pauses: trimming would have clipped a word." Advice only. | — |
+| Music failed | The narration is kept: "The music didn't finish. Nothing was charged for it." | **Try the music again**. |
 | Words changed | "Reads older words": it can't be used, and stays playable. | **Make the narration** again. |
 | F | "The narration didn't finish. Nothing was charged." | **Try again**. |
 | B | Past the week: the button says why and is disabled (rule 5). | — |
-| U | Without a narration in use, the script is a plain Story script: its videos are made as today. Nothing blocks. | — |
+| Dialogue line | A spoken line that isn't the narrator's (the Director's narrator check): Advice "This line is spoken on camera, but a Narrated script has one voice. The narrator will read it." | **Edit words**, or keep it. |
 
-**In the video:** the breakdown is timed to the narration's sentences (V2's song clock, with sentences as the lines). Every shot is B-roll: there's no Sung and no lip-sync. Clip prompts ask for no speech. The video can change its narration like V2a (**Change narration**: the version's, or one made in this video), with the same re-flow, Undo and out-of-date marks as a take change.
+**How the narration is made (server, free after the two calls):** pauses are trimmed only on real silence. Any quiet stretch (below −40 dB) longer than 0.25 s is shortened to 0.25 s, and anything with sound in it is never cut. The trimmed narration is then transcribed again and compared letter by letter with the untrimmed one; it is used only if they match. The sentence times come from the trimmed narration. The music is one instrumental bed the length of the narration (Stable Audio 2.5 through Replicate, or a Suno instrumental through KIE), from a prompt the Director writes from the brand and the script.
 
-**Final cut:** V6 steps 1–4 with the narration in place of the song: each take is trimmed to its sentences, the takes are joined, their own sound is dropped, the narration is laid under, and the end fades. The states are as V6, with "Narration: [voice], laid under the whole video" and **Download the narration**.
+**In the video:** the breakdown is timed to the narration's sentences (V2's song clock, with sentences as the lines). Every shot is B-roll: there's no Sung and no lip-sync. Clip prompts ask for the action's own sound effects, with **no speech and no music**. The video can change its narration like V2a (**Change narration**: the version's, or one made in this video), with the same re-flow, Undo and out-of-date marks as a take change.
+
+**Final cut:** V6 steps 1–4, with the sound mixed rather than replaced:
+- each take is trimmed to its sentences, and the takes are joined;
+- **each take's own sound is kept, at about 0.75 under the narration**;
+- the narration sits on top;
+- the music sits at about 0.30 and ducks while the narrator speaks;
+- the whole mix is about −14 LUFS, and the end fades.
+The states are as V6, with "Narration: Sarah · music under it" and **Download the narration**.
 
 **Reusing scenes across a pair** (the pilot reused shots with no dog or face in them in the second video) is held with V3a until Reed answers. Until then, each video makes its own clips.
 
@@ -383,9 +394,11 @@ Reed's narrated Iron Paws ads (docs/next/song-ad-workflow.md, "Narrated ads", #8
 | 1 | A song step: directions (with "adapt my script"), Suno takes, Preferred, each take's length beside its video cost | S1–S5, S7, V1, V2a | Song, Takes, Cast with the Singer, Publish, the video's own song (#748, #750, #759, #775, #781); the directions prompt with From a script and Sounds like (#794); length and video cost on takes (#810, open) | The **S3 route and screen** (no press yet writes directions; the prompt is ready); Suno's input from the Director's song request (#783, open); the **music adapter** (waits on the KIE decision, open question 4) | Next-Server (route, adapter), Next-Screens (S3 screen) |
 | 2 | The song as the breakdown's clock: measured line times, shots land on them, long clips with people split | S6, V2, V2a | Measuring a take (word times on the locked lyrics) | The song breakdown (#799, open: last edge is Sung clips going out of date on a take change); split and join, `n02`, song clip prompts after it. Long clips with people split by rule 29's existing checks | Next-Server |
 | 3 | The song as the only sound in Make video | V6 | Flow written (#796) | Trim each take to its slice, lay the song under, fade (`n02`'s `song_slice`, `final_videos.song_take_id`) | Next-Server, then Next-Screens for V6's screen |
-| 4 | A study of a song ad: transcript, BPM, sections, frames | S3a | The reel import's free prep (download, cuts, frames, transcript) | The study job (BPM, sections) and its card; the directions taking it as a guide, with the no-repeated-lines check | Next-Server (study), Next-Screens (card), Director (directions input) |
+| 4 | A study of a song ad: transcript, BPM, sections, frames | S3a | The reel import's free prep (download, cuts, frames, transcript) | The study job (BPM, sections) and its card; the directions taking it as a guide, with the no-repeated-lines check | Builder-Server-7 (study job), Next-Server (S3 taking it as input), Next-Screens (card), Director (directions input, in its song PR) |
 | 5 | One cast for a pair of videos | V3a | — | **Use this look** at Assets, after Reed's OK on rule 12 | Next-Server, Next-Screens |
-| — | Narrated ads (#814): one narrator track over silent clips | N1, V6n | The timing, trim and stitch come with 2 and 3 | The voice provider (Replicate speech, a free stand-in first) and N1's job; the breakdown and stitch taking a narration where they take a song; reusing scenes, held with V3a | Next-Server (provider, job, timing, stitch), Next-Screens (N1, Change narration), Director (no-speech clip prompts, the narrator check) |
+| — | Narrated format (#814, Reed 2026-10-29): narrator, take effects kept, ducked music, silence-only trims | S1, ST0, N1, V6n | The timing, trim and stitch come with 2 and 3; narrator check and narrated prompts (#828) | `kind = narrated`; voice (ElevenLabs v3 via Replicate) and music (Stable Audio 2.5 via Replicate, or Suno instrumental via KIE), stand-ins first; the silence trim with its letter check; the mix (take sound 0.75, music 0.30 ducked, −14 LUFS); N1 and ST0 screens; scene reuse held with V3a | Next-Server (kind, providers, N1 job, trim, mix), Next-Screens (S1 formats, ST0, N1, Change narration), Director (clip prompts keep effects with no speech or music; the music prompt) |
+| — | Every video: the plan, automatic fixes, the advisory check (Reed 2026-10-29) | 1b (P1–P5), S6 | — | The plan job and the breakdown made from it; the step order, with existing videos planned from their breakdown; the automatic retry and wording fixes; the check job (stand-in first); the plan screen and Advice display; UX-Auditor's review and wireframes | Director (the plan prompt, proven patterns, the check's prompt), Builder-Server-8 (plan job and data, breakdown from plan, P3, the check job, n06), Next-Screens (Plan step, Advice and Review list), UX-Auditor (review, wireframes) |
+| — | Format and Look as two settings (Reed 2026-10-29) | S1, ST0, ST1, VS1 | — | `looks/` registry (House, Disney Pixar, Zack D, Skeleton), `look` on scripts and videos, the pickers in the script header, New script and Video settings, the Looks page | Next-Server (registry, columns), Next-Screens (pickers, Looks page), Director (each look's paragraphs) |
 | 6 | Smaller alarms: "Check the cast" on insert shots, "answer" read as a spoken line, the free clip-prompt fix with nothing to fix | — | — | Prompt and check fixes, live and Next | Director |
 
 Order: 1's S3 route and 2 (#799) first, then 3, then 4, then 5 once Reed says yes.
@@ -409,31 +422,143 @@ What happens to later steps when an earlier one changes. "Out of date" items are
 
 ---
 
-# 2. Style registry (build second)
+# 1b. Every video: the plan, automatic fixes and the advisory check (Reed, 2026-10-29)
 
-**The idea.** A style is a config file, not code. The **House style** (our current look) is the default and stays on. Starpop's styles are added as entries, in Reed's order: **Disney Pixar, Song, Zack D, Skeleton**, then the rest. Each entry is either a **look** (how pictures are drawn: works with any script) or a **format** (it changes the flow: Song, and later voiceover-led ones). An entry is **On** (editors can pick it) only after Reed has approved a sample.
+For every format, look and brand (fomo included). Built and tested on Next first, then brought to live (ops/NEXT.md). What stays with people: **approving the plan, approving the looks (one press), and watching the final video**. Worked examples of a plan: docs/next/ironpaws-vo/plan.py and docs/next/song-pilot/ironpaws-shot-plans.md.
 
-## ST1. Picking a style (on a script)
+## The new step order
 
-Where: the script's header, next to the title ("Style: House ▾"). Story and Song scripts both have it. It defaults to the brand's default style (item 3), else House.
+- **Owner, any format:** the owner's **Plan** step (S6, and the story Plan step) now makes the **scene plan** first. The breakdown preview follows from it. Both stay optional for the owner, as the breakdown preview is today.
+- **Editor:** **Plan → Cast → Storyboard → Clips → Final cut** (five steps; Producer, 2026-10-29).
+  - **Plan** has two views at its top, **Scenes | Shots**. Scenes is the plan (P1). Shots is what was the Breakdown step: every Breakdown flow in this file (V2, V2a, the song clock, Sung/B-roll, split and join, "Made for an older plan") now lives in Shots. Shots is greyed until the plan is approved: "Approve the plan first".
+  - **Cast** is what was the Assets step (V3, the looks to approve). The step says **Cast**; the library stays **Cast & places**, and a library look on a role says "From Cast & places", so the two never read as one place.
+  - Wherever this file says "the Breakdown step", read Plan → Shots; "Assets", read Cast.
+  - **Old links:** `?step=breakdown` opens Plan on Shots, `?step=assets` opens Cast, and bookmarks, notifications and "Needs you" links follow. A link to Shots before the plan is approved opens Scenes, with "Approve the plan first".
+  - **The step's ✓:** Plan is done when the plan is approved and its shots are made.
+- **Existing videos** (made before this ships, on Next and later on live): a video that already has a breakdown gets a plan read from that breakdown, in code and free (one scene per breakdown scene, its lines and its actions as written). The plan reads "Approved · made from this video's breakdown", with a muted line "This video started before plans existed" (UX-Auditor PL3). P1's Advice checks don't run on these plans, and nothing goes out of date. Its Plan step shows ✓, so no existing video is blocked or charged. A video with no breakdown yet opens on Plan.
+
+## P1. The scene plan (Plan step)
+
+**What a plan is.** The script's words, grouped into scenes. The words never change (rule 19).
+- **At the top:**
+  - the **structure**, with where it came from: "From the reference reel" (the reel import or S3a's study), or "Pattern: Problem → Why → Discovery → Proof → Payoff (pet supplement)", a proven pattern for the genre and brand;
+  - the **cast**: the same people and animals in every scene, named once at the top.
+- **Each scene:**
+  - its part of the structure ("Problem");
+  - its **place and time** (one place and one time, rule 29);
+  - the script lines it covers, shown read only;
+  - for **each line**, one vivid, exaggerated action ("He shakes and a fur blizzard fills the room");
+  - **★ product** marks at the key moments (the find, the use, the proof, the end);
+  - who is in it, always from the cast.
 
 | State | What they see | The one press |
 |---|---|---|
-| E | "Style: House" (the default). | Tap → the picker. |
-| L | The picker's cards as grey tiles. | — |
-| Picker | Cards with one sample still each, name, one line ("Soft 3D feature-film look"). House first, then Reed's order. Off entries show **Off** for editors and are greyed: "Not switched on yet". | **Use this style** on a card. |
-| Owner sees Off entries | Owner can pick an Off entry on their own draft to try it, labelled "Off for editors: only you can use it". | **Use this style**, or **Switch on for editors** (only once a sample is approved, ST3). |
-| Publishing on an Off style | Publish says first: "Claymation is off for editors, so they couldn't make this." | **Publish on House instead** (free, Undo), or **Make a sample** (ST3) and switch it on, then publish. |
-| Format entry | "Song" is a format: on a Story script its card says "Song is a kind of script: start a new song script". | **Start a song script** (opens S1 with Song picked). |
-| Narrated look | Zack D and Skeleton are looks with `narrated: yes` in their registry file (so they're pickable on any script) and are narrated: they use the narrator voiceover lines clips already carry ("Voiceover (Biscuit, in English…)", as Iron Paws Pitbull 1 does). Picking one on a script with no narrator line: Advice "This style is narrated: the script has no narrator lines yet." | **Make the narrator a role** (free: the cast read marks the script's voiceover speaker as the narrator), or keep it as a look only. |
-| Format not built | An entry that needs steps we don't have (podcast, whiteboard): "Needs its own steps: not built yet". Not pickable. | — |
-| Change after looks exist | Confirm with the whole price of redoing: "Change to Claymation? 3 roles need a new look, 9 stills and 4 clips go out of date. To finish: about N credits (was M)." Not yet / Change. | **Change**. |
-| B | The estimate updates before the confirm; an editor over budget sees the reason and the picker stays on the current style. | — |
-| P | Cards in one column, sample still full width, the button under each. | — |
-| U | Undo in the toast after a change; changing back is free and the earlier looks come back (they're kept per style). | — |
-| Published | Read only on the script; the video's own style can still be set in Video settings (item 4). | — |
+| E (no plan yet) | "Turn the script into scenes: where each line happens and what we see." The price. If the published version has the owner's approved plan, the video opens on Plan already **Approved**, labelled "From Reed's plan" (free), and the step picker shows "Plan ✓ · Reed's" (PL4); the editor re-approves only after changing it. | **Make the plan · N credits** (one Claude call; the price as every press, rule 22). |
+| Q/R | "Making the plan…" with a timer. "You can leave this page." | Cancel (before it starts). |
+| Ready to check | The structure line, the cast, then one card per scene (place, lines, actions, ★ marks, who's in it). A count: "9 scenes · every line used once · the product in 4". | **Approve the plan · makes the shots · N credits** (the step's one amber: it approves and makes the shots in one press, at the breakdown's price as today). Then Shots opens. |
+| Approved | ✓ on the step. "Approved by Ana · 2 min ago". Each card is still readable and editable (see Editing). | **Next: Breakdown**. |
+| Editing (free) | On a card: **Edit** (type the place, an action, who's in it), **★ / un-★** a line, and **Move this line to the next scene** or **to the previous scene**. **Split here** and **Join with next** keep every line in order. The words themselves are read only, with "The words are the script's: change them in the script" for the owner. Saving is free, with Undo. An approved plan goes back to "Ready to check" when edited. | **Approve the plan**. |
+| Change one scene | **Change this scene…**: a note ("make it funnier, he's a drama queen") rewrites only that scene's actions (one small paid call, price on the button). | **Change · N credits**. |
+| Redo the whole plan | **Make a new plan · N credits**, with an optional note. The current plan is kept under **Earlier plans** (one press brings it back, free). | **Make a new plan**. |
+| Checks (Advice, never a block) | Done in code and free, each with its press: a line used twice or missing (can't happen in code; tested); a scene with two places ("Split here"); the product never shown ("★ a line"); someone not in the cast ("Use the cast" or "Add to cast"); a scene longer than the video model's limit ("Split here"). | The press named. |
+| F | "The plan didn't finish. Nothing was charged." | **Try again**. |
+| X | "Claude won't plan this: [its reason, one line]." With its free repair when there is one (e.g. a claim to soften in the brand notes). Otherwise the editor writes the scenes by hand: **Write it myself** (an empty card per line group, free). | The repair, or **Write it myself**. |
+| B | Editor past the week, or the video past its budget: the paid presses say why and are disabled. Editing, approving, Write it myself and Earlier plans stay free. | — |
+| Owner vs editor | The editor plans their own video. The owner can plan any video, and plans the script in S6 (the start for every new video of that version). A published script's plan is read only on the script (rule 31); each video's plan is that video's own. | — |
+| P (phone) | One scene card per screen width, stacked. The Approve bar is fixed at the bottom. Edit opens full screen. Tapping a line opens a sheet with **Move to scene N−1**, **Move to scene N+1**, **Start a new scene here** and **★ / un-★**: one press each, with Undo (PL1). **Join with next** is in the card's "…". | — |
+| Going back | Opening Plan from a later step is always allowed and read only until **Edit**. Editing an approved plan after the breakdown exists asks first, naming what goes out of date: "Change the plan? The breakdown goes out of date (3 shots, 2 clips after it). Your current final cut stays downloadable." Not yet / Change. | **Change**. |
+| Out of date | The script's words changed after the plan was made (owner, draft only): "Made for older words". The scenes are kept. | **Update the plan · N credits** (keeps the scenes whose lines didn't change), or **Make a new plan**. |
 
-## ST2. What a style changes downstream
+**Song and Narrated.** The lines are the lyric lines or the narration's sentences. Times come later from the song or the narration (V2, V6n). A song plan marks no Sung shots: Sung or B-roll is still set on the Breakdown (V2).
+
+## P2. What the plan changes later
+
+| Step | Effect |
+|---|---|
+| Shots (inside Plan) | Made from the approved plan: its shots follow the scenes, in order, one place and one action each, with the ★ marks carried over as product shots. Same price and states as today. "Made for an older plan" when the plan changes after it (with **Update everything after this**, as today). Editing the shots doesn't change the plan. If the owner's plan came with a published breakdown preview, the shots come from it, free. |
+| Cast (was Assets) | The cast comes from the plan's cast list, so the same people are drawn once and used throughout. The product images are the ★ products. Approving the looks is one press (**Approve all looks**). |
+| Storyboard | Each still is drawn from its scene's action and place, with the product image attached on ★ shots. |
+| Clips | Each clip is one scene's continuous action (rule 29). Its prompt opens from the plan's action. A clip whose scene changed goes "Out of date" as today. |
+| Final cut | Unchanged. |
+| Effects | A plan change marks the breakdown out of date (kept). Stills and clips follow through the breakdown, exactly as a breakdown change does today. |
+
+## P3. Automatic fixes (no press)
+
+| Case | What happens | What they see |
+|---|---|---|
+| A take refused by the video service | It's tried again once on its own, with the refusal's free repair applied (the same rewording the free fix offers today). Free: a refusal is never charged. | On the card: "Making… (tried again on its own: the first try was refused)". After it finishes, a muted line stays: "Tried again once on its own (refused)" (PL9). |
+| "Service busy" or the service didn't answer | It's tried again once on its own, after a short wait. Credits are held once, and returned if both tries fail. | "Making… (tried again on its own: the service was busy)". After, the muted "Tried again once on its own (busy)" stays (PL9). |
+| Both tries fail | Nothing more runs on its own. | As today: "Didn't finish · credits returned" or "Refused", with the free fix and **Make another take**. |
+| A clip-prompt wording flag (a banned word in a picture description, a spoken-line mark, a text-on-screen line) | Fixed in code when the prompt is written. The spoken words are never touched (rule 19). | On the card (not under the collapsed prompt): "Fixed for you: removed 'logo text'." **See the change** and **Undo** (puts the original back, and the flag comes back as Advice) (PL10). |
+| A fix that would change spoken words | Never made on its own. | Advice as today. |
+
+Never automatic: a second retry, a paid redo, a change to the words, a change to an approved item.
+
+## P4. The advisory check (stills and takes)
+
+After each still and each take finishes, a check compares it with the cast's character sheets and the ★ product image. It's paid, a few cents a video (Reed approved), and shown once in Video settings ("Checks: about N credits a video"). **On the test site it runs on the free stand-in until the Producer approves a real test.**
+
+| State | What they see | The one press |
+|---|---|---|
+| Checking | A small "Checking…" under the item. It never blocks: Approve works while it runs. | — |
+| Nothing found | No line: "✓ checked" sits inside the item's status chip (PL5). | — |
+| Advice | A quiet **"2 notes"** chip on the card, never a failure colour; it opens a panel (desktop) or a sheet (phone) (PL6). Inside, one line per finding, each naming what and who: "Mia's face may differ from her sheet", "The outfit changed: the red bandana is missing", "The bag's label isn't readable". Each has a ready-written note. | **Change this…** (opens today's change box with the note filled in, at its usual price), or **Looks fine** (dismisses it; kept in the item's history). |
+| Check failed | "Couldn't check this one." (muted). Nothing charged. | — |
+| Over budget | Checks are skipped. "Not checked: the video is at its budget" shows once in the step's summary line, not on every card (PL7). Nothing blocks. | — |
+| Approve all | Approves everything, flagged or not. The summary says "2 approved with Advice", with links. | — |
+| Owner vs editor | The same for both. The owner sees flagged items in Review too (below). | — |
+| P | The Advice lines sit under the still or take, with the two presses side by side. | — |
+
+It never blocks, never redoes anything on its own, and never changes an approval. Rule 11 is replaced by this on live only once it ships from Next (ops/DECISIONS.md); until then live keeps rule 11.
+
+**Review.** One list of the video's flagged items, opened from the same **"3 items with Advice ▸"** chip in the Storyboard, Clips and Final cut headers. Each item links to its card. On Final cut the list is open by default, above Download (PL8). The step summary line reads "AI check: 3 notes on 2 clips". Watching the final video stays with people.
+
+## P5. Open for Reed
+
+1. **One-press approvals on Storyboard and Clips.** UX-Auditor recommends yes (docs/next/ux-audit.md §7.2): stills and takes that check clean approve on their own, items with Advice wait for a person, and Approve all stays. After Cast there's one priced **Make the video · N** in the cost bar. Rule 21 would become: prompts are shown and changeable before takes, with an optional "Check prompts before takes" setting (default off). Reed's list of what stays with people names the plan, the looks and the final video. Should stills and takes then be approved automatically once checked, leaving Advice items for a person, or keep today's per-item approval with Approve all? This map keeps today's approvals until Reed says. **Needs Reed's OK.**
+2. **Proven patterns.** The Director keeps a short list of structures per genre (pet supplement, app, food…). The plan names the one it used. Reed may want to see the list.
+
+---
+
+# 2. Format and Look (build second)
+
+**Two settings (Reed, 2026-10-29, ops/NEXT.md).**
+- **Format** is how the video is made: **Dialogue**, **Song** or **Narrated**. It's picked at New script (S1) and changes the steps.
+- **Look** is how the pictures are drawn: **House** (the default, our current look), **Disney Pixar**, **Zack D** or **Skeleton**, then the rest in Reed's order.
+- Any format goes with any look. "Song" is no longer in the styles list, and no look is "narrated" any more: narration is the Narrated format.
+
+A look is a config file in a `looks/` folder, not code. A look is **On** (editors can pick it) only after Reed has approved a sample. Below, "style" in ST2 and ST3 means a look.
+
+## ST0. Changing the format (before publishing)
+
+| State | What they see | The one press |
+|---|---|---|
+| E | On a draft the header reads **"Dialogue ▾ · House ▾"**. Format is a picker only for Dialogue ↔ Narrated; a song shows a plain **"Song"** chip. Both are plain text once published (PL11). | Tap the format → Dialogue or Narrated. |
+| Dialogue ↔ Narrated | Same words, different steps. Confirm: "Make this Narrated? One voice will read it; Cast keeps its roles but nobody speaks on camera." Undo. A narration already made is kept for when it comes back. | **Change**. |
+| To or from Song | Not offered: a song's words are lyrics (rules 19 and 31). "To try this as a song, start a song script." | **Start a song script** (opens S1 with Song picked). |
+| Published | Read only. | — |
+| Advice | The Director's narrator check finds every spoken line is one narrator's on a Dialogue script: "This reads as narrated. Make it Narrated?" | **Make it Narrated**, or keep it. |
+
+## ST1. Picking a look (on a script)
+
+Where: the script's header, next to the title ("Look: House ▾"), for every format. It defaults to the brand's default look (item 3), else House.
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "Look: House" (the default). | Tap → the picker. |
+| L | The picker's cards as grey tiles. | — |
+| Picker | Cards with one sample still each, name, one line ("Soft 3D feature-film look"). House first, then Reed's order. Off entries show **Off** for editors and are greyed: "Not switched on yet". | **Use this look** on a card. |
+| Owner sees Off entries | Owner can pick an Off entry on their own draft to try it, labelled "Off for editors: only you can use it". | **Use this look**, or **Switch on for editors** (only once a sample is approved, ST3). |
+| Publishing on an Off look | Publish says first: "Claymation is off for editors, so they couldn't make this." | **Publish on House instead** (free, Undo), or **Make a sample** (ST3) and switch it on, then publish. |
+| Change after looks exist | Confirm with the whole price of redoing: "Change to Claymation? 3 roles need a new look, 9 stills and 4 clips go out of date. To finish: about N credits (was M)." Not yet / Change. | **Change**. |
+| B | The estimate updates before the confirm; an editor over budget sees the reason and the picker stays on the current look. | — |
+| P | Cards in one column, sample still full width, the button under each. | — |
+| U | Undo in the toast after a change; changing back is free and the earlier looks come back (they're kept per look). | — |
+| Published | Read only on the script; the video's own look can still be set in Video settings (item 4, VS1). | — |
+
+Where the pickers show: the script header ("Dialogue ▾ · House ▾", ST0), New script (Format only), Video settings (Look only: a video can't change format), and the Styles page, renamed **Looks** (owner, ST3).
+
+## ST2. What a look changes downstream
 
 | Step | Effect |
 |---|---|
@@ -442,11 +567,11 @@ Where: the script's header, next to the title ("Style: House ▾"). Story and So
 | Clips | Prompts open with the style's motion line. Banned words from the style are repaired in code (free), never a block, and only in the picture descriptions: the script's spoken lines are never touched (rule 19). A banned word inside a spoken line is Advice only. |
 | Refusals | The style's failure/fix list drives the free fix offered on a refused or broken still ("Make another" before rewording, per the entry). |
 
-## ST3. Switching a style on (owner)
+## ST3. Switching a look on (owner, the Looks page)
 
 | State | What they see | The one press |
 |---|---|---|
-| E | On the Styles page (owner): each Off entry has "Make a sample · N credits" (one still and one 5 s clip of the brand's hero: its default cast's first character). | **Make a sample**. |
+| E | On the Looks page (owner): each Off entry has "Make a sample · N credits" (one still and one 5 s clip of the brand's hero: its default cast's first character). | **Make a sample**. |
 | No hero | The brand has no default cast yet: "Who's in the sample?" with the brand's library characters. With none at all, a sample character is described in the style itself. | Pick one, or **Use a sample character**. |
 | R/F/X | As Storyboard and Clips today. | Try again / the free fix. |
 | Sample ready | The still and clip. | **Switch on for editors**, or **Not yet**. |
@@ -513,7 +638,7 @@ The **Video settings** row at the top of every video and on "Make this version" 
 | O/Ed | Editors see credits only. The owner picks for any video; an editor for their videos. | — |
 | P | The row collapses to one line "Settings: House · Auto…"; tapping opens a sheet with the four pickers. | — |
 | U | Undo after a switch. Switching back makes the old takes current again (they were kept). | — |
-| S | Model or style switch: later stills or clips "Out of date". | — |
+| S | Model or look switch: later stills or clips "Out of date". | — |
 | Flavour | Stays changeable after the video starts. The confirm names what changes: "Switch to Chicken? 4 stills and 2 clips that show the bag go out of date. To finish: about N credits (was M)." Not yet / Switch. Kept, with the usual redo; Undo. | **Switch**. |
 | Shape | Stays changeable (locking it would be new behaviour). Everything made is in the old shape, so the confirm gives the whole redo: "Change to 1:1? All 9 stills and 4 clips go out of date. To finish: about N credits (was M)." Over budget or the cap: Switch disabled with the reason. Undo; switching back makes the old ones current again. | **Switch**. |
 | Language (Reed, 2026-10-28) | A video follows its script's language, shown read only in Video settings: "Spanish (from the script)". The language is chosen when the script is written. To make another language, the owner presses **Make a copy in another language** on the script: a new, unpublished, translated script for the owner to review and publish (rule 19 holds: the published words never change). | — |
@@ -578,4 +703,4 @@ The Designer draws it first (on the Screening room direction Reed picked); Reed 
 1. **Music is Suno** (Reed, 2026-10-28; MiniMax dropped). Its price per request comes from the account Reed connects; until then the buttons show the catalogue's price, and the test site runs on the free stand-in (two takes per request, like Suno).
 2. **Lip-sync without a first frame** is the spec's biggest risk. The one paid 15-second test (spec step 0) decides whether Sung shots ship as designed, or fall back to "the Singer sings in B-roll style" (picture only, no lip-sync).
 3. **Song-ad study** (S3a) is in, from Reed's workflow (#807 item 4). **Shared looks for a pair of videos** (V3a) needs Reed's OK on rule 12.
-4. **KIE for Suno.** Reed's workflow names KIE as the first way to reach Suno. `server/app/music.py` today says no unofficial wrapper is used until Suno's own API opens. KIE is a third party that resells Suno: Reed and the Producer decide before the adapter is written. The test site stays on the free stand-in either way.
+4. **KIE for Suno: decided.** Real Suno through KIE is on for the test site with a $5 test budget (Reed, 2026-10-29). The key is in the deploy secrets only, and every real song is logged in ops/SPEND.md.

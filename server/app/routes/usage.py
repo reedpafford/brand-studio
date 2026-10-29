@@ -19,6 +19,7 @@ from app.models.brands import Brand
 from app.models.jobs import ChargeRefund, Job, Usage
 from app.models.projects import Project
 from app.models.script_library import Script
+from app.routes.project_clips import out_of_date
 from app.routes.script_library import ScriptRow
 from app.routes.script_library import _out as library_row
 from app.schemas import UtcTime
@@ -169,6 +170,9 @@ def brands(
         query = query.where(Brand.name.ilike(f"%{q.strip()}%"))
     f = usage.figures(db, owner.workspace_id, usage.period(period))
     rows = sorted((_row(b, f) for b in db.scalars(query)), key=SORTS[sort])
+    # Archived first, so one just archived is never behind "Show more"; the sort holds in each.
+    if archived:
+        rows.sort(key=lambda r: not r.archived)
     start = int(cursor) if cursor and cursor.isdigit() else 0
     page = rows[start : start + limit]
     more = start + limit < len(rows)
@@ -235,6 +239,7 @@ class UsageVideo(BaseModel):
     credits: float
     finished_at: UtcTime | None
     last_activity_at: UtcTime
+    final_out_of_date: bool = False  # done, but its clips changed since: "changes waiting"
 
 
 class UsageVideosOut(BaseModel):
@@ -272,6 +277,7 @@ def brand_videos(
     projects = list(db.scalars(select(Project).where(Project.brand_id == brand_id)))
     spend, guessed, credits, last = usage.project_totals(db, [p.id for p in projects])
     states = usage.video_statuses(db, projects)
+    old = out_of_date(db, projects)  # LW2, read once for the whole list
     videos, people = [], {}
     for p in projects:
         title, script_id, letter = usage.video_title(db, p)
@@ -297,6 +303,7 @@ def brand_videos(
                 credits=float(credits.get(p.id, 0)),
                 finished_at=p.finished_at,
                 last_activity_at=active,
+                final_out_of_date=state == "done" and p.id in old,
             )
         )
     shown = [

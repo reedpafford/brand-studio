@@ -11,8 +11,9 @@ import { lastText, money } from "../usage/parts";
 import { useRail } from "../useMedia";
 import { useProduction, useProductionSummary, type Row, type Sort, type Step } from "./useProduction";
 import { serverTime } from "../time";
+import { linkText } from "../ui";
 
-const STEPS: Record<Step, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
+const STEPS: Record<Step, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
 const SORTS: { id: Sort; label: string }[] = [
   { id: "attention", label: "Needs attention first" },
   { id: "activity", label: "Last activity" },
@@ -116,7 +117,15 @@ export function ProductionPage() {
   };
   const all = summary.data?.in_production;
   const needs = summary.data?.needs_attention ?? 0;
-  const count = summary.data && (filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : `${all} video${all === 1 ? "" : "s"} being made${needs > 0 ? ` · ${needs} need${needs === 1 ? "s" : ""} attention` : ""}`);
+  // Finished videos whose clips changed since are not being made, but they aren't done either (#749 LW2).
+  const waiting = summary.data?.changes_waiting ?? 0;
+  // They are listed, by brand, in Usage (this page is Reed's, and so is Usage).
+  const waitingLink = waiting > 0 && (
+    <Link to="/usage" className={`${linkText} inline-flex min-h-11 items-center sm:min-h-0`}>
+      {waiting} finished video{waiting === 1 ? " has" : "s have"} changes waiting
+    </Link>
+  );
+  const count = summary.data && (filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : [`${all} video${all === 1 ? "" : "s"} being made`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · "));
 
   const brandSelect = (
     <Select label="Brand" value={brand} onChange={(e) => set("brand", e.target.value)}>
@@ -161,7 +170,10 @@ export function ProductionPage() {
       <div>
         <p className="hidden text-xs font-bold uppercase tracking-[0.12em] text-muted lg:block">Studio</p>
         <h1 className="type-page">In production</h1>
-        <p className="text-sm text-muted">{count ?? " "}</p>
+        <p className="text-sm text-muted">
+          {count ?? " "}
+          {count && !filtered && waitingLink && <> · {waitingLink}</>}
+        </p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="relative block min-w-0 flex-1 lg:w-64 lg:flex-none">
