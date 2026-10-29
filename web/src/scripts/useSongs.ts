@@ -17,7 +17,7 @@ export function useSongs(scriptId: number, enabled = true) {
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    refetchInterval: (q) => (q.state.data?.takes.some((t) => BUSY.includes(t.status)) ? 3000 : false),
+    refetchInterval: (q) => (q.state.data?.takes.some((t) => BUSY.includes(t.status) || t.music_status === "making") ? 3000 : false),
   });
 }
 
@@ -42,6 +42,8 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
     },
   });
   const tryAgain = useMutation({ mutationFn: (id: number) => ok(api.POST("/songs/{take_id}/try-again", take(id))), onSuccess: refresh });
+  // A narration's music failed: Try the music again, at music_credits; the narration stays as it is (#912).
+  const musicAgain = useMutation({ mutationFn: (id: number) => ok(api.POST("/songs/{take_id}/music-again", take(id))), onSuccess: refresh });
   const spread = useMutation({ mutationFn: (id: number) => ok(api.POST("/songs/{take_id}/spread-timing", take(id))), onSuccess: refresh });
   const prefer = useMutation({
     mutationFn: (id: number) => ok(api.POST("/songs/{take_id}/preferred", take(id))),
@@ -76,5 +78,5 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
       toast(`${words.noun} ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", take(t.id))).then(refresh));
     },
   });
-  return { make, tryAgain, spread, prefer, trim, remove };
+  return { make, tryAgain, musicAgain, spread, prefer, trim, remove };
 }

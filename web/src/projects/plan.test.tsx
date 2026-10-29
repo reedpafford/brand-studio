@@ -210,7 +210,7 @@ test("a ★ the server couldn't keep (the brand has no product) says so, with a 
   await userEvent.click(await screen.findByRole("button", { name: "More for line 2" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "★ Show the product here" }));
   expect(await screen.findByText(/The ★ wasn't kept: the brand has no product to show yet\./)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Add a product to the brand" })).toHaveAttribute("href", "/b/1/brand?tab=products");
+  expect(screen.getByRole("link", { name: "Add a product or screen to the brand" })).toHaveAttribute("href", "/b/1/brand");
   expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
 });
 
@@ -222,7 +222,7 @@ test("a ★ refused for want of a product (409) shows the server's sentence with
   await userEvent.click(screen.getByRole("menuitem", { name: "★ Show the product here" }));
   expect(await screen.findByText(/This brand has no product or screen to show yet\. Add one to the brand first\./)).toBeInTheDocument();
   expect(screen.getAllByText(/This brand has no product or screen/)).toHaveLength(1);
-  expect(screen.getByRole("link", { name: "Add a product to the brand" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Add a product or screen to the brand" })).toBeInTheDocument();
   expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
 });
 

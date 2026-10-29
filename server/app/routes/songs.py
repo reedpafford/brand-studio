@@ -15,6 +15,7 @@ from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
+from app.prompts import check
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
@@ -72,7 +73,9 @@ class SongsOut(BaseModel):
     keep_lines: int | None  # over the cap: keep the first this-many sung lines to fit
     takes: list[SongTakeOut]
     voice: str = ""  # a Narrated version's narrator ("Sarah"); "" for a song
-    songs_note: str | None = None  # e.g. real songs for this test are used up: stand-ins now
+    # Said in place of the price: "Write the words first…" (a narration with nothing to read,
+    # estimate 0), or real songs for this test are used up (stand-ins now)
+    songs_note: str | None = None
 
 
 class SongPreferredOut(BaseModel):
@@ -173,10 +176,17 @@ def _songs(request: Request, db: Session, user: User, draft: ScriptDraft) -> Son
         video_estimate_credits=float(video),
         keep_lines=keep,
         takes=[_take_out(db, t, draft) for t in song_takes.takes(db, draft)],
-        songs_note=song_takes.BUDGET_USED
-        if song_takes.budget_used(db, request.app.state.settings)
-        else None,
+        songs_note=_note(request, db, draft),
     )
+
+
+def _note(request: Request, db: Session, draft: ScriptDraft) -> str | None:
+    """Said in place of the price: nothing for the narrator to read yet, or real songs used up."""
+    if song_takes.narrated(db, draft) and not check.narration_text(draft.text or ""):
+        return narration.NO_WORDS
+    if song_takes.budget_used(db, request.app.state.settings):
+        return song_takes.BUDGET_USED
+    return None
 
 
 @router.get("/scripts/{script_id}/drafts/{slot}/songs", response_model=SongsOut)

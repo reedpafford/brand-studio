@@ -22,7 +22,8 @@ import { TakesStep } from "./TakesStep";
 import { useSongs } from "./useSongs";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { useScript, usePatchScript } from "./useScript";
-import { FormatChip, LookSetting } from "./Looks";
+import { LookSetting } from "./Looks";
+import { FormatAdvice, FormatSetting } from "./Format";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
@@ -166,7 +167,7 @@ export function ScriptFlowPage() {
         ) : (
           <Badge tone="neutral">{draftNote}</Badge>
         )}
-        <FormatChip kind={s.kind} />
+        <FormatSetting script={s} />
         <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
         {allowance.data && (
           <p className="ml-auto text-sm tabular-nums text-muted">
@@ -205,6 +206,7 @@ export function ScriptFlowPage() {
       {step === "song" && <SongStep script={s} brandId={brandId} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The lyrics you changed are not saved." } : null)} />}
       {step === "takes" && <TakesStep script={s} />}
       {step === "narration" && <NarrationStep script={s} />}
+      {step === "script" && <FormatAdvice script={s} />}
       {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
       {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They stay accepted but are not added to the script. Leaving doesn't add them." } : null)} onEditWords={() => go("script")} />}
       {step === "variations" && <VariationsStep script={s} own={mine} />}

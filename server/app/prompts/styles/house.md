@@ -33,3 +33,6 @@ refused: Soften it (the free fix rewords the picture, never the lines), then Mak
 face: Make another first: the same prompt often lands. If it drifts again, Change this… "keep the face exactly as the sheet".
 outfit: Change this… naming the sheet's key pieces in the shot ("the red beanie, the grey hoodie").
 product: Change this… "the real bag from its image, the label facing the camera and readable".
+
+## sample
+A warm, friendly woman in her thirties with shoulder-length dark hair, in one plain mustard sweater, smiling at a phone in her hand.

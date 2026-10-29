@@ -27,3 +27,6 @@ a layered papercraft look built from cardstock
 
 ## clip
 - Repeat the paper words in the action ("the cardstock sun pivots", "the paper waves slide"), so the texture survives the motion. One move per shot.
+
+## sample
+A layered papercraft man in his thirties with cut-paper curly hair, in one plain yellow shirt, against stacked card hills.

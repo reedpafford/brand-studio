@@ -41,7 +41,7 @@ def blocked(db: Session, frame: StoryboardFrame, newest: BreakdownVersion) -> st
 
 def price(db: Session, project: Project) -> Decimal:
     """Writing the one frame, plus its still."""
-    still = image_job_input(storyboard.image_model(), "", project.aspect_ratio)
+    still = image_job_input(storyboard.image_model(project), "", project.aspect_ratio)
     return estimate(db, project.workspace_id, "write-claude", Decimal(1)) + estimate(
         db, project.workspace_id, "image", Decimal(1), still
     )
