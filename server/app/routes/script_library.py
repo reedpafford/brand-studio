@@ -56,6 +56,8 @@ class ScriptIn(BaseModel):
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
     kind: Literal["story", "song", "narrated"] = "story"  # song: lyrics; narrated: one voice
     look: str | None = None  # how the pictures are drawn (ST1); None: House
+    # VS1: the language it's written in; None: the brand's default language
+    language: Annotated[str, StringConstraints(min_length=2, max_length=10)] | None = None
 
 
 class BulkRow(ScriptIn):
@@ -187,6 +189,7 @@ class ScriptRow(BaseModel):
     title: str
     kind: Literal["story", "song", "narrated"]
     look: str = "house"
+    language: str = "en"  # VS1: its videos follow it (read only there)
     description: str
     reference_id: str | None
     published: bool
@@ -325,6 +328,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         title=script.title,
         kind=script.kind,
         look=script.look,
+        language=script.language,
         description=script.description,
         reference_id=script.reference_id,
         reel_imported=script.reference_breakdown is not None,
@@ -814,6 +818,7 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
         title=f"{source.title} (copy)"[:200],
         kind=source.kind,
         look=source.look,
+        language=source.language,
         description=source.description,
         notes=source.notes,
         reference_id=source.reference_id,

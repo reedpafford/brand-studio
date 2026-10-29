@@ -63,7 +63,7 @@ def test_over_the_video_models_limit_the_nearest_are_kept(app, db, editor, setup
     row, nate, mom = _people(app, db, editor, setup)
     project, bd = db.get(Project, setup["project"]), Breakdown.model_validate(row.data)
     three = clip_prompts.video_model().model_copy(update={"max_reference_images": 3})
-    monkeypatch.setattr(clip_prompts, "video_model", lambda: three)
+    monkeypatch.setattr(clip_prompts, "video_model", lambda project=None: three)
     screen = f"screen:{setup['screen']}"
     done = clip_prompts.with_cast(db, project, _clip(screen), bd)
     assert [r.id for r in done.references] == ["frame:c1", mom, screen]  # Mom speaks

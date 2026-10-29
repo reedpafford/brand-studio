@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets
@@ -60,13 +61,16 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         files[KEYS[kind]].append(file_ids[0])
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
-    model = video_model()
+    model = video_model(project)
     return {
         "step": "clip_take",
         "project_id": project.id,
         "project_clip_id": clip.id,
         "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
         "model": model.id,
+        "made_with": video_settings.made_with(  # VS1: what the take is made with
+            db, project, images, model.id, (clip.song_slice or {}).get("sung_shots")
+        ),
         "brand_id": project.brand_id,
         "fit_images_to": LONG_SIDE[RESOLUTION],
         "exact_file_ids": exact,
@@ -288,7 +292,7 @@ def _with_note(prompt: str, note: str) -> str:
 
 def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
     """What one more take costs, the same estimate `enqueue` charges."""
-    job = {"model": video_model().id, "input": {"resolution": RESOLUTION}}
+    job = {"model": video_model(project).id, "input": {"resolution": RESOLUTION}}
     return estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
 
 
@@ -301,7 +305,8 @@ def save_take(db: Session, job: Job) -> None:
     count = db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == clip.id))
     take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0],
                     prompt=job.input.get("clip_prompt"),
-                    look=db.get(Project, clip.project_id).look)  # fmt: skip
+                    look=db.get(Project, clip.project_id).look,
+                    made_with=job.input.get("made_with") or {})  # fmt: skip
     db.add(take)
     db.flush()
     pick(clip, take)

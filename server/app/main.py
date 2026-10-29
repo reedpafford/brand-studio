@@ -48,6 +48,7 @@ from app.routes import (
     update_after,
     uploads,
     usage,
+    video_settings,
     workspace,
 )
 from app.routes.scripts import MAX_DOC_BYTES
@@ -125,6 +126,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         song_study,
         plan,
         checks,
+        video_settings,
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)
