@@ -379,7 +379,7 @@ Where: the script's header, next to the title ("Style: House ▾"). Story and So
 
 # 3. Brand setup (build third)
 
-One Brand page with sections, each saying where it's used ("Used in: script, stills, clips"). Owner edits; editors read.
+One Brand page with sections, each saying where it's used ("Used in: script, stills, clips"). The new sections (products' description and claim, voice and tone, CTA lines, default cast, music style, default style and language, website import) are owner-only; editors read them. What editors can edit today (logo, colours, screens, Cast & places characters) stays as it is until Reed decides otherwise (behaviour unchanged, per the UX audit).
 
 ## BR1. The Brand page
 
