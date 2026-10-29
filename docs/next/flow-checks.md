@@ -60,9 +60,9 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Narration with no words (#920 + screen) | NarrationStep ignores songs_note: "Make the narration · 0 credits", then refused | Disable the press with songs_note as its reason | #920 at 7e33b1a4 |
+| Stopped banner after the fix (#917 + #921) | A still fails in Update everything after this, then is redrawn by its own press: /update-after still says stopped_at stills, so the banner says Stopped at Storyboard (nothing to do there) and hides Out of date → Open Clips | last_run drops the stop once that step has succeeded again since |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
-| Stopped banner after the fix (#917 + #921) | A still fails in Update everything after this, then is redrawn by its own press: /update-after still says stopped_at stills, so the banner says Stopped at Storyboard (nothing to do there) and hides Out of date → Open Clips | last_run drops the stop once that step has succeeded again since |
 
 ## Walks
 | Date | PR / commit | Flows | Result |
