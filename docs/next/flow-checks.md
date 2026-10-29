@@ -62,8 +62,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Redraw after a look switch (next a627db21; fixed by #962 screen + #967 server, both PASS; closes on merge) | House to Disney Pixar, then Storyboard's "Redraw 1 out-of-date still": no hold shows, and the paid redraw is drawn with no picture of the person | Server: count a locked character with no sheet in the video's look as having no look, so the redraw is refused. Screen: refresh the cast list after a switch, so the cast hold shows |
 | Another editor's video (#964) | The server now refuses every change by a second editor (403), but the screen still shows Approve, Approve all, Make… live on their video | Screens: when the viewer didn't make the video and isn't the owner, one banner says who can change it and the step presses are greyed; merge with #964 |
 | Import from website: Undo (#971) | Undo after a later edit in the brand kit throws that edit away (a colour added after Save is gone; a later logo is replaced) | Undo removes only the colours Save added, and puts the logo back only if it's still the one Save stored |
-| Language test: Undo of Reject (#972) | Reject switches a language off; Undo clears the reject but leaves it off, though it was on | Remember whether it was on when rejected, and Undo puts that back |
-| Real look samples with no key (#970) | Switched on without a Replicate key: the page says "made for real", and every press fails in a lane with no provider | `lane()` and the note use `samples_on(settings)` (switch and key) |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -344,3 +342,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #972 Language tests switch a language on (n14) | 2b25bb54 | FAIL: Undo of Reject leaves the language off. Price shown, owner only, editors limited to On languages; 6/6 |
 | 2026-10-29 | #974 A role's own look drawn in another look holds the still | 4bf38f35 | PASS: refused before any charge; Cast offers Make a look in the video's look; House again without a new look is usable; 33/33. Next: n12 (free switch back after a new look) |
 | 2026-10-29 | #963 (re-check) | aa7e101f | PASS: next merged (with #957), the typed api; holds and Undo unchanged; 80/80 |
+| 2026-10-29 | #972 Language tests (re-walk) | 16a968f8 | PASS: Undo of Reject puts On back; no key makes a stand-in test, never a failure; 9/9 |
+| 2026-10-29 | #970 Real look samples (re-walk) | 05dc97a5 | PASS: no key makes a stand-in sample, never a failed job; the deploy writes the switch only with the key; 11/11 |
