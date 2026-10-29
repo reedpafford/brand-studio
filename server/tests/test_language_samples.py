@@ -66,13 +66,16 @@ def test_a_rejected_sample_keeps_it_off_with_undo_and_test_again(app, db, owner)
 def test_real_tests_on_the_test_site_go_real_until_the_budget(app, db, owner, monkeypatch):
     """Reed, 2026-10-29: with the stand-ins on, only a language's test goes to real Claude,
     and only while it fits the test budget; nothing is sent here."""
+    from app import providers as lanes
     from app.providers import REAL_TESTS, get_providers, tests_on
     from app.settings import Settings
 
+    real = object()  # a stub: a real provider is never built in tests (the proxy adds a key)
+    monkeypatch.setattr(lanes, "_claude", lambda settings: real)
     monkeypatch.setenv("STUDIO_ANTHROPIC_KEY", "test-key")
     assert not tests_on(Settings(fake_providers=True))  # off until switched on
     providers = get_providers(Settings(fake_providers=True, real_language_samples=True))
-    assert providers[REAL_TESTS].paid and not providers["claude"].paid  # the rest: stand-ins
+    assert providers[REAL_TESTS] is real and not providers["claude"].paid  # rest: stand-ins
 
     settings = app.state.settings
     settings.fake_providers, settings.real_language_samples = True, True
