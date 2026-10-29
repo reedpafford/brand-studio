@@ -906,6 +906,8 @@ test("Downloads agrees with the lists: a take from an older look marks the finis
   expect(screen.queryByText("Ready")).toBeNull();
   expect(screen.getByText(/every clip approved/)).toBeInTheDocument(); // still approved
   expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Make another take on Clips, or keep the older look (1 left)");
+  expect(screen.getByText("A clip's take shows an older look from Cast & places. This MP4 still downloads. Making it again is free.")).toBeInTheDocument();
+  expect(screen.queryByText(/Clips changed since/)).toBeNull();
 });
 
 test("a take from the current look shows no Out of date", async () => {
