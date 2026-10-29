@@ -51,7 +51,7 @@ test("New script → Song makes a song draft that opens on its Song step: five s
   expect(screen.getByLabelText("Style")).toHaveAttribute("placeholder", "pop, female lead, 120 BPM, upbeat, modern polished");
 });
 
-test("lyrics: the sung length counts words not tags; over 5,000 characters says how many to cut and keeps the words; Save sends lyrics and style", async () => {
+test("lyrics: the sung length counts words not tags; over 4,960 characters says how many to cut and keeps the words; Save sends lyrics and style", async () => {
   setViewport(1440);
   const empty = song({}, { text: "", style_line: "" });
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()], "PUT /scripts/7/drafts/0": [200, song()] });
@@ -60,10 +60,10 @@ test("lyrics: the sung length counts words not tags; over 5,000 characters says 
   await userEvent.click(box);
   await userEvent.paste("[Verse]\n" + "la ".repeat(25));
   expect(screen.getByText(/About 10 s sung · 25 words/)).toBeInTheDocument();
-  await userEvent.paste("x".repeat(5000));
+  await userEvent.paste("x".repeat(4960));
   expect(screen.getAllByText(/Cut \d+ characters/).length).toBeGreaterThan(0);
   expect(screen.getByRole("button", { name: "Save lyrics" })).toBeDisabled();
-  expect((box as HTMLTextAreaElement).value.length).toBeGreaterThan(5000); // the words stay
+  expect((box as HTMLTextAreaElement).value.length).toBeGreaterThan(4960); // the words stay
   await userEvent.clear(box);
   await userEvent.paste(LYRICS);
   await userEvent.type(screen.getByLabelText("Style"), "pop");
