@@ -309,3 +309,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | 16:35 check-in; #945 87aaad37; #949 ac39f43d | #949 PASS (test setup only). #945 alone is right, but FAIL merged with #934 (open above). Clear to merge: #934, #941+#942, #943, #944, #946, #947, #948, #949. None into main |
 | 2026-10-29 | #945 at b7c66d4d | PASS: the guard keeps #934's owner plan working; merged with #934, 26 tests pass. Open row closed |
 | 2026-10-29 | #946 at eee71958 | PASS: an editor's video count is their own; OR1 rights, delete and Undo re-probed. Note: an editor's delete confirm counts only their items |
+| 2026-10-29 | #952 at 88cc3834 | PASS: VS1's look switch confirm names the roles needing a new look (ST1) |
