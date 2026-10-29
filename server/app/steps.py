@@ -113,6 +113,8 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_takes import save_take
     from app.enhance import save_suggestions
     from app.item_checks import save as save_check
+    from app.look_samples import save_clip as save_sample_clip
+    from app.look_samples import save_still as save_sample_still
     from app.narration_music import save_bed
     from app.narration_music import save_prompt as save_music_prompt
     from app.plans import save as save_plan
@@ -142,6 +144,8 @@ def save_step_result(db: Session, job: Job) -> None:
         "look_fit": save_fit,
         "frame": save_still,
         "item_check": save_check,
+        "look_sample": save_sample_still,
+        "look_sample_clip": save_sample_clip,
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,
         "variations": save_variations,
