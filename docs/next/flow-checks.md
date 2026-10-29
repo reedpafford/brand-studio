@@ -60,7 +60,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | Migration order (#873) | n04 → n06 → n05 on #858 at 7fa31331; #873 n07 must follow n05 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Narration text (#858) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
+| Narration text (#858, fix in #887) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
 | Storyboard cost bar (#881) | Out of date + missing: "Make N stills" hidden while Redraw is in the bar | Show it when outOfDate.length > 0 (secondary) | #881 at adb76baa |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -200,3 +200,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #881 at adb76baa (cost bar: Storyboard) | Playwright 1440 + 390: empty, Approve all, Redraw in bar; vitest projects (317) | FAIL: while Redraw is in the bar, bulk "Make N stills" is hidden (over-budget redraw leaves only per-card presses) |
 | 2026-10-29 | #885 at 3cef0f71 (S3a study link on the stand-ins) | test_song_study + test_reel_import (30); failure state on screen | PASS (walk on the test site once deployed) |
 | 2026-10-29 | #864 at 6e0a4074 (both fixes) | test_kie + 2 budget repros (13); songs + videosong web (33) | PASS |
+| 2026-10-29 | #887 at 350deb53 (narration_text: prose with a direction or "Name:" line) | 9 scripts; test_narrated (8) | PASS (edge for the Director: SCENE headings + one "Iron Paws:" line still drops prose) |
+| 2026-10-29 | #886 at 80f9ec50 (P3: on-screen text out of clip prompts) | reword on 6 prompts; 18 tests | PASS (Director: quoted drawn text "big text \"SALE\"" is kept) |
