@@ -91,7 +91,7 @@ def _models(kind: str) -> list:
     return [m for m in catalogue().values() if m.kind == kind]
 
 
-def _check(db: Session, user: User, project: Project, values: dict) -> dict:
+def check(db: Session, user: User, project: Project, values: dict) -> dict:
     """One setting, valid for this person; returns it as stored (Auto: None)."""
     from app.routes.projects import _check_variants
 
@@ -175,7 +175,7 @@ def _sung(db: Session, project: Project) -> list[str]:
 
 def preview(db: Session, user: User, project: Project, values: dict) -> dict:
     """The confirm: what this one switch costs to finish and what goes out of date."""
-    values = _check(db, user, project, values)
+    values = check(db, user, project, values)
     from app.sheets import roles_needing_look
 
     was = to_finish(db, project)
@@ -233,7 +233,7 @@ def _set_sung(db: Session, project: Project, row: BreakdownVersion, sung: dict[s
         clip.song_slice = slice_of(row.data, clip.clip_id)
 
 
-def _follow_lip_sync(db: Session, project: Project, could: bool) -> int:
+def follow_lip_sync(db: Session, project: Project, could: bool) -> int:
     """After a video-model switch on a song video: Sung shots to B-roll when the new model
     can't lip-sync (remembered), back when it can (unless the editor changed the shot)."""
     row = _newest(db, project) if project.song_take_id else None
@@ -260,7 +260,7 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
     """Switch one setting (refused over the budget or the cap, with the reason); returns the
     settings it replaced, for Undo (the same call with them). Undo puts back what the video
     already had, so it's never refused: each paid press still checks when it spends."""
-    values = _check(db, user, project, values)
+    values = check(db, user, project, values)
     found = preview(db, user, project, values)
     if found["reason"] and not undo:
         raise HTTPException(409, found["reason"])
@@ -268,7 +268,7 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
     could = lip_sync(project)
     for k, v in values.items():
         setattr(project, k, v)
-    _follow_lip_sync(db, project, could)
+    follow_lip_sync(db, project, could)
     db.commit()
     return was
 
