@@ -548,6 +548,9 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
     planned = next((c for c in bd.clips if c.id == clip.clip_id), None)
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
     lines = clip.prompt.strip().splitlines() or [""]
+    if len(lines) > 1 and not AUDIO_LINE.match(lines[0]) and AUDIO_LINE.match(lines[-1]):
+        if lines[0].startswith("Audio: "):  # the opening line grew a phrase (Reed's pilot)
+            lines[0] = lines[-1]
     if AUDIO_LINE.match(lines[0]) and (len(lines) < 2 or lines[-1] != lines[0]):
         if len(lines) > 1 and lines[-1].startswith("Audio: "):  # a different closing line
             lines[-1] = lines[0]  # (Reed's c4): the same as the opening one, never a second
