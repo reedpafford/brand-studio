@@ -115,3 +115,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #778 at ef73d126, #779 at f1e883ee (Next-Layout) | Full browser suite each; price-first slot; shape confirm; small words | Flow PASS (52 passed each); FAIL on the node_modules symlink; VS1 shape gap raised |
 | 2026-10-29 | #783 at b06193d4 (Suno input, one-song retry) | one-song, the 893 style limit, `[Lip-sync]` not sent, earlier API cases | PASS (notes: raw 422, plural wording) |
 | 2026-10-29 | #781 at bcc1c1e7 (V2a screens) | Playwright at 1440 and 390 + song.e2e | FAIL: delete own take refused with a press that doesn't exist; the rest pass |
+| 2026-10-29 | #750 at 837b659b | V2a API cases + delete a take the video made | Cap holds; FAIL: deleting a video's own non-song take gives 409 "Preferred" |
