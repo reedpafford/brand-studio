@@ -79,7 +79,8 @@ def test_a_changed_sheet_refreshes_the_words_and_flags_the_old_still(app, db, ed
 def test_a_changed_place_or_sheet_marks_its_still_and_take_out_of_date(app, db, editor, setup):  # noqa: F811
     """N6 (SV4): a Cast & places picture changed. A still drawn from a place's earlier sheet
     is Out of date, as a person's already was, and a clip whose picked take was made from an
-    earlier sheet says so and isn't approved any more (once; approving it again stays)."""
+    earlier sheet says so and is Out of date ("changes waiting"), still approved: a sheet edit
+    reaches every video, so signed-off work is never unapproved by it. Keep anyway clears it."""
     from app.models.brands import Brand
     from app.models.clips import ClipTake
     from app.models.projects import Project
@@ -133,11 +134,17 @@ def test_a_changed_place_or_sheet_marks_its_still_and_take_out_of_date(app, db, 
     assert (frame.still_stale, frame.approved) == (True, False)
     assert "Advice: Drawn from an older look of Mom, Kitchen. Redraw it to show the new look." in (
         frame.problems)  # fmt: skip
-    assert not clip.approved
-    assert "Advice: Its take was made from an older look of Mom. Make another take to show it." in (
-        clip.problems)  # fmt: skip
-    clip.approved = True  # approved anyway: it stays approved
+    said = "Advice: Its take was made from an older look of Mom. Make another take to show it."
+    assert said in clip.problems
+    assert clip.approved and clip_prompts.take_stale(clip)  # signed off work stays approved
+    from app.routes.project_clips import out_of_date
+
+    project.finished_at = project.created_at
     db.commit()
-    clip_prompts.repair(db, project)
-    db.commit()
-    assert clip.approved
+    assert out_of_date(db, [project]) == {pid}  # its finished video: "changes waiting"
+    (shown,) = editor.get(f"/projects/{pid}/clips").json()
+    assert shown["take_stale"] is True and shown["approved"] is True
+    kept = editor.post(f"/projects/{pid}/clips/{clip.id}/keep", json={"problem": said})
+    assert kept.status_code == 200 and kept.json()["take_stale"] is False  # Keep anyway
+    db.expire_all()
+    assert out_of_date(db, [db.get(Project, pid)]) == set()

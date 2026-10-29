@@ -56,6 +56,14 @@ MODERATED = "The video model refused this prompt: it read it as "  # clip_takes.
 OLDER_TAKE = "Advice: Its take was made from an older look of "
 
 
+def take_stale(row: ProjectClip) -> bool:
+    """Its picked take shows an older sheet (N6), and nobody kept it anyway: "Out of date",
+    and its finished video's "changes waiting" (LW2). Approved work stays approved: a sheet
+    edit reaches every video, finished ones too."""
+    kept = row.kept or []
+    return any(p.startswith(OLDER_TAKE) and p not in kept for p in row.problems or [])
+
+
 def older_take(db: Session, known: dict, row: ProjectClip) -> list[str]:
     """Who or what the clip's picked take was made from an earlier sheet of (N6: a Cast &
     places sheet changed since): its job sent other pictures. [] with no take, or when what
@@ -407,10 +415,8 @@ def repair(db: Session, project: Project) -> int:
             + [p for p in row.problems or [] if p.startswith(LEFT_OUT)]
             + refusal(row.problems, was.prompt, now.prompt)
         )  # what a trim left out stays said
-        if older := older_take(db, known, row):  # flagged once: an approval after it stays
+        if older := older_take(db, known, row):  # said, never unapproved: a sheet edit
             problems.append(f"{OLDER_TAKE}{', '.join(older)}. Make another take to show it.")
-            if not any(p.startswith(OLDER_TAKE) for p in row.problems or []):
-                row.approved = False
         if any(p.lower().startswith("more references than") for p in problems):
             now = repair_shape(_cap(with_cast(db, project, was, bd, known), known), bd)
             kept = {r.id for r in now.references}
