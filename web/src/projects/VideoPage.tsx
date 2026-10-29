@@ -4,7 +4,7 @@ import { ChevronLeft, FileText } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Skeleton, StepPicker } from "../components";
+import { Banner, Button, Skeleton, StepPicker, ViewOnly } from "../components";
 import { useRail } from "../useMedia";
 import { useFreshProject } from "./useFreshProject";
 import { AssetsPane, useAssets } from "./AssetsPane";
@@ -116,6 +116,9 @@ export function VideoPage() {
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used };
   const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
+  // Only its maker or the owner may change a video (the server refuses the rest): anyone else can look, with every press greyed out.
+  const maker = p.created_by_name || "someone else";
+  const lookOnly = !mayManage(p) && !p.archived_at ? `Only ${maker} or the owner can change this video.` : null;
   // Until Assets' own read lands, the step picker, the heading line and Next wait under one skeleton: no counts from an older read.
   const waiting = step === "cast" && assetsLoading;
   const count = (n: number, noun: string, ok: number) => `${n} ${noun}${n === 1 ? "" : "s"} · ${ok} approved`;
@@ -124,7 +127,7 @@ export function VideoPage() {
 
   return (
     // One cost bar at the bottom: the budget (or the editor's week), what finishing costs, and the step's press (audit M1).
-    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} fallback={waiting ? null : (updateAction ?? nextAction)}>
+    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} lookOnly={lookOnly} fallback={waiting ? null : lookOnly ? nextAction : (updateAction ?? nextAction)}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}
@@ -142,7 +145,14 @@ export function VideoPage() {
       </div>
       {video.dialog}
       {/* Every per-video choice in one row (flows VS1); an archived video is read only. Plan has its own song strip, with the player. */}
-      {!p.archived_at && <VideoSettings project={p} finished={finished} song={step !== "plan"} />}
+      {lookOnly && (
+        <Banner tone="info" title={`This is ${p.created_by_name ? `${maker}'s` : "someone else's"} video. You can look, but only ${maker} or the owner can change it.`} />
+      )}
+      {!p.archived_at && (
+        <ViewOnly on={!!lookOnly}>
+          <VideoSettings project={p} finished={finished} song={step !== "plan"} />
+        </ViewOnly>
+      )}
       {p.archived_at && (
         <Banner tone="info" title="Archived" action={mayManage(p) ? <Button variant="secondary" onClick={() => void video.restore(target)}>Restore</Button> : undefined}>
           It's out of the lists. Its clips and downloads are kept. Restore it to keep working.
@@ -170,6 +180,7 @@ export function VideoPage() {
         </Banner>
       )}
       {update.note}
+      <ViewOnly on={!!lookOnly}>
       {step === "plan" && (
         <PlanStep
           project={p as typeof p & { plan_status?: "none" | "ready" | "approved" | null }}
@@ -186,6 +197,7 @@ export function VideoPage() {
       {step === "storyboard" && <StoryboardPane barTaken={!!update.action} hold={hold} castRedraw={p.cast_redraw} ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
       {step === "clips" && <ClipsPane barTaken={!!update.action} hold={hold} ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
+      </ViewOnly>
       {panel && (
         <ScriptPanel
           projectId={id}

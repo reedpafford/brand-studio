@@ -87,3 +87,34 @@ def test_an_editors_own_script_writing_shows_on_their_week_and_no_one_elses(owne
     assert not any("usd" in k or "dollar" in k for k in _keys(out))
     assert owner.get("/usage/mine", params={"brand_id": fomo}).json()["script_credits"] == float(
         db.query(Job).filter(Job.created_by_id == me.id).one().credits)  # fmt: skip
+
+
+def test_an_editors_week_lists_every_charge_its_allowance_counts(owner, editor, db):
+    """QA-3: Mine's week adds up to the week's used, built from the allowance's own query:
+    their video (from a script they wrote), a quick clip, a script's writing and a look made
+    in Cast & places with no video ("A look"), never the owner's."""
+    from app.credits import quick_clip_used
+    from app.models.script_library import ScriptDraft
+
+    me, fomo, _ = _setup(owner, db)
+    them = db.query(User).filter_by(role=Role.editor).one()
+    script = editor.post("/scripts", json={"brand_id": fomo, "title": "Gut"}).json()["id"]
+    draft = db.query(ScriptDraft).filter_by(script_id=script).one()
+    video = Project(workspace_id=them.workspace_id, brand_id=fomo, name="Gut",
+                    created_by_id=them.id, script_draft_id=draft.id)  # fmt: skip
+    db.add(video)
+    db.commit()
+    enqueue(db, them, "video-480p", {}, project=video)
+    enqueue(db, them, "video-480p", {"brand_id": fomo})  # a quick clip
+    enqueue(db, them, "write-claude", {"script_id": script, "step": "script_draft"})
+    enqueue(db, them, "image", {"step": "sheet", "library_item_id": 1, "brand_id": fomo})
+    enqueue(db, me, "video-480p", {"brand_id": fomo})  # the owner's: never on the editor's
+
+    week = editor.get("/usage/mine", params={"brand_id": fomo}).json()["week"]
+    assert week["used"] == float(quick_clip_used(db, them)) > 0
+    assert round(sum(line["credits"] for line in week["lines"]), 3) == round(week["used"], 3)
+    assert {line["label"] for line in week["lines"]} == {"Videos", "Quick clips", "Scripts",
+                                                         "A look"}  # fmt: skip
+    assert week["allowance"] is not None
+    assert not any("usd" in k or "dollar" in k for k in _keys(week))
+    assert owner.get("/usage/mine", params={"brand_id": fomo}).json()["week"]["allowance"] is None

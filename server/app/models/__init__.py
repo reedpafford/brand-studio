@@ -10,6 +10,7 @@ from app.models import (  # noqa: F401
     files,
     folders,
     jobs,
+    languages,
     library,
     looks,
     projects,

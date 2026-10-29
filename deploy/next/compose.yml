@@ -25,7 +25,10 @@ services:
       KIE_API_KEY: ${KIE_API_KEY:-}
   claude-worker:
     image: brand-studio-next-server
-    environment: *next-env
+    environment:
+      <<: *next-env
+      # Real language tests when Reed switches them on (the only worker with the Claude key)
+      BS_WORKER_PROVIDERS: '["claude", "claude-samples"]'
   reel-worker:
     image: brand-studio-next-server
     environment: *next-env

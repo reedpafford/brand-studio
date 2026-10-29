@@ -59,20 +59,44 @@ def _video(db: Session, ws: int, seconds: int, project: Project | None = None) -
 
 
 def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
-    """A version's whole price before it's started: `credits.plan_cost`, with a look for
-    each role not cast yet and no breakdown call when one is saved. A Song version's is its
-    Preferred take's video (the song decides the length), the figure its take cards show.
-    `video`: the video it would make, for its models (Make this version's settings, VS1)."""
+    """A version's whole price before it's started, by the rules its video will cost by
+    (QA-3: 14.73 quoted, its video's to-finish 28.06): `credits.plan_cost` with no breakdown
+    call when one is saved; with neither a saved breakdown nor a target, at least the length
+    the video plans for until its plan exists (PRE_BREAKDOWN_SECONDS); a look for every role
+    that will need one: each not cast yet, each speaker the cast hasn't got yet (it becomes a
+    role), and each cast one with no look in the video's look (as VS1's to-finish). A Song
+    version's video is its Preferred take's (the song decides the length). `video`: the
+    video it would make, for its models and look (Make this version's settings, VS1)."""
     from app import song_takes
+    from app.models.projects import PRE_BREAKDOWN_SECONDS
+    from app.sheets import look_price, roles_needing_look
 
     script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
+    looks = len(roles_needing_look(db, script, video.look if video else None))
+    looks_cost = looks * look_price(db, script.workspace_id)
     if script.kind == "song" and (take := song_takes.preferred(db, draft)):
-        return song_takes.video_credits(db, take, video=video)
+        return song_takes.video_credits(db, take, video=video) + looks_cost
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
-    slot = ScriptCastSlot
-    uncast = select(func.count()).where(slot.script_id == script.id, slot.library_item_id.is_(None))
-    return plan_cost(db, script.workspace_id, seconds, bd, db.scalar(uncast), breakdown=not bd,
-                     video=video)  # fmt: skip
+    if not bd and not draft.target_seconds:
+        seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
+    uncast = db.scalar(
+        select(func.count()).where(
+            ScriptCastSlot.script_id == script.id, ScriptCastSlot.library_item_id.is_(None)
+        )
+    )
+    uncast += len(_new_speakers(db, script, draft))  # fmt: skip
+    return looks_cost + plan_cost(db, script.workspace_id, seconds, bd, uncast,
+                                  breakdown=not bd, video=video)  # fmt: skip
+
+
+def _new_speakers(db: Session, script: Script, draft: ScriptDraft) -> list[str]:
+    """Who speaks in this version with no role yet: making the video adds them as roles."""
+    from app.cast_roles import labels
+    from app.script_cast_read import _speakers
+
+    slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id)).all()
+    return [name for name, versions in _speakers(db, script).items()
+            if draft.slot in versions and not any(labels(name, s.role) for s in slots)]  # fmt: skip
 
 
 def _stages(db: Session, project: Project) -> list[StageOut]:

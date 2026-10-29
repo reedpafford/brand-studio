@@ -1,7 +1,7 @@
 import { AutoFixLine, RetryLine } from "./AutoFixes";
 import { useState, type ReactNode } from "react";
 import { Check, TriangleAlert } from "lucide-react";
-import { Badge, Button } from "../components";
+import { Badge, Button, useViewOnly } from "../components";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Elapsed } from "../clip/History";
@@ -13,6 +13,7 @@ import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { FIX_NOTE, FixedNote, FixThisPrompt, refused } from "./FixClip";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 import { LookTip } from "./LookFix";
+import { ClipVersions } from "./VersionLists";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -87,6 +88,7 @@ export function ClipCard(props: {
   onUndoFix: (before: string) => void;
   undoing: boolean;
 }) {
+  const viewOnly = useViewOnly(); // a video only its maker or the owner may change
   const { clip: c } = props;
   const keep = useKeep(props.projectId, { of: "clip", id: c.id });
   const [editing, setEditing] = useState<string | null>(null);
@@ -190,13 +192,14 @@ export function ClipCard(props: {
         ) : null;
       })()}
       <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${c.clip_id}`} />
+      <ClipVersions projectId={props.projectId} clipRowId={c.id} label={c.clip_id} hold={props.busy || props.fixBusy ? "Wait for this clip's take or prompt being made." : null} versions={c.versions ?? []} />
       {c.takes.length > 0 && (
         <fieldset className="flex flex-wrap items-center gap-3">
           <legend className="sr-only">Takes for clip {c.clip_id}</legend>
           <span className="text-muted">Takes:</span>
           {[...c.takes].reverse().map((t) => (
             <label key={t.id} className="inline-flex min-h-11 items-center gap-1 sm:min-h-0">
-              <input type="radio" name={`takes-${c.id}`} className="size-5 sm:size-4" checked={t.id === c.picked_take_id} onChange={() => props.onPick(t.id)} />
+              <input type="radio" name={`takes-${c.id}`} disabled={viewOnly} className="size-5 sm:size-4" checked={t.id === c.picked_take_id} onChange={() => props.onPick(t.id)} />
               Take {t.number}
             </label>
           ))}
@@ -245,7 +248,7 @@ export function ClipCard(props: {
       )}
       {c.inserts.map((i) => (
         <label key={i.shot_id} className="flex min-h-11 w-full items-start gap-3 sm:min-h-0">
-          <input type="checkbox" role="switch" className="mt-0.5 size-5 shrink-0 sm:size-4" checked={i.use_real_image} onChange={(e) => props.onRealImage(i.shot_id, e.target.checked)} />
+          <input type="checkbox" role="switch" disabled={viewOnly} className="mt-0.5 size-5 shrink-0 sm:size-4" checked={i.use_real_image} onChange={(e) => props.onRealImage(i.shot_id, e.target.checked)} />
           <span>
             Use the real image · {i.name} (shot {i.shot_id})
             <span className="block text-xs text-muted">Free. Shows the real picture at that moment.</span>
@@ -277,7 +280,7 @@ export function ClipCard(props: {
             </Button>
           )}
           {c.approved && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={props.onUnapprove}>
+            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={viewOnly} onClick={props.onUnapprove}>
               Undo approval
             </button>
           )}
@@ -293,7 +296,7 @@ export function ClipCard(props: {
             </Button>
           )}
           {c.takes.length > 0 && note === null && !props.review && (
-            <button className={`${linkText} min-h-11 sm:min-h-9`} onClick={() => setNote("")}>
+            <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} onClick={() => setNote("")}>
               Needs a change
             </button>
           )}
@@ -302,7 +305,7 @@ export function ClipCard(props: {
               Download
             </a>
           )}
-          <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for ${c.clip_id}`} onClick={() => setEditing(c.prompt)}>
+          <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} aria-label={`Edit the prompt for ${c.clip_id}`} onClick={() => setEditing(c.prompt)}>
             {props.review ? "Advanced: edit the prompt" : "Edit prompt"}
           </button>
         </div>

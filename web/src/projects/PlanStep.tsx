@@ -151,7 +151,7 @@ function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene:
         </span>
         {change && (
           <span className="ml-auto flex items-center gap-1">
-            {rewrite && <Button variant="ghost" dense aria-expanded={asked !== null} aria-label={`Change scene ${n}…`} onClick={() => setAsked(asked === null ? "" : null)}>Change this scene…</Button>}
+            {rewrite && <Button variant="ghost" dense reads={false} aria-expanded={asked !== null} aria-label={`Change scene ${n}…`} onClick={() => setAsked(asked === null ? "" : null)}>Change this scene…</Button>}
             <Button variant="ghost" dense icon={Pencil} aria-label={`Edit scene ${n}`} onClick={() => setEditing({ place: scene.place, time: scene.time, part: scene.part, actions: scene.lines.map((l) => l.action) })}>Edit</Button>
             {si < count - 1 && (
               <Menu

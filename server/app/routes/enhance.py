@@ -14,10 +14,12 @@ from app.models.jobs import Job, JobStatus
 from app.models.scripts import Suggestion
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 from app.routes.scripts import ScriptOut, _out, latest, save_version
 
-router = APIRouter(prefix="/projects/{project_id}/script", tags=["scripts"])
+router = APIRouter(
+    prefix="/projects/{project_id}/script", tags=["scripts"], dependencies=[Depends(video_writer)]
+)
 
 
 class SuggestionOut(BaseModel):

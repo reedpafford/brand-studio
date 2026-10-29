@@ -1,6 +1,7 @@
 import { useId, type ButtonHTMLAttributes, type ComponentType, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
 import { creditsLabel, wholeCredits } from "./credits";
+import { useViewOnly } from "./ViewOnly";
 
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string; "aria-hidden"?: boolean }>;
 export type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -36,12 +37,16 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   /** Why the button is disabled, in muted text on the line under it. */
   reason?: string | null;
   icon?: Icon;
+  /** It only shows something, so it stays live on a view-only page. A Button that opens and closes a part of the page
+   *  (aria-expanded, no price) counts as one unless this says false. */
+  reads?: boolean;
   className?: string;
   children?: ReactNode;
 };
 
-export function Button({ variant = "primary", dense, busy, price, upTo, usually, reason, icon: Icon, trailing: Trailing, spread, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
+export function Button({ variant = "primary", dense, busy, price, upTo, usually, reason, icon: Icon, trailing: Trailing, spread, reads, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
   const why = useId();
+  const lookOnly = useViewOnly() && !(reads ?? (rest["aria-expanded"] !== undefined && price === undefined));
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
   const label = children;
   const size = dense && variant !== "primary" ? "min-h-control px-4 lg:min-h-control-dense lg:px-3" : "min-h-control px-4";
@@ -49,7 +54,7 @@ export function Button({ variant = "primary", dense, busy, price, upTo, usually,
   const button = (
     <button
       type={type}
-      disabled={disabled}
+      disabled={disabled || lookOnly}
       aria-busy={waiting || undefined}
       aria-disabled={waiting || undefined}
       onClick={waiting ? (e) => e.preventDefault() : onClick}

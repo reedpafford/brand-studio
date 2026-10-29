@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, object_session
@@ -18,7 +18,34 @@ from app.routes.brands import get_brand
 from app.routes.files import get_file
 from app.schemas import LongText, Name, UtcTime
 
-router = APIRouter(prefix="/library/{kind}", tags=["library"])
+
+def look_writer(
+    request: Request,
+    item_id: int | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """A video's own look is changed only by whoever made the video, or the owner; a script's
+    own look by its author or the owner. Cast & places items keep their own rules."""
+    from app.routes.projects import WRITES, _mine
+
+    item = db.get(LibraryItem, item_id) if item_id is not None else None
+    if request.method not in WRITES or item is None or user.is_owner:
+        return
+    if item.workspace_id != user.workspace_id:
+        return  # not found, said by the route itself
+    if item.owner_project_id:
+        _mine(db, user, item.owner_project_id)
+    elif item.owner_script_id:
+        from app.models.script_library import Script
+
+        script = db.get(Script, item.owner_script_id)
+        if script is not None and script.created_by_id != user.id:
+            raise HTTPException(403, "Only the script's author, or the owner, changes its looks.")
+
+
+router = APIRouter(prefix="/library/{kind}", tags=["library"],
+                   dependencies=[Depends(look_writer)])  # fmt: skip
 
 
 class Outfit(BaseModel):

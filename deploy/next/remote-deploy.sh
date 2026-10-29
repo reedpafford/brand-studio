@@ -3,8 +3,9 @@
 # Brand Studio Next (the test site): its own checkout (~/brand-studio-next, branch next), its own
 # Compose project (brand-studio-next) and deploy/.env. Never touches the live checkout or stack.
 # Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC (keys only when FAKE=false),
-# and KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on), and
-# LOOK_SAMPLES, LOOK_BUDGET (with REPLICATE while real look samples are switched on).
+# KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on), LOOK_SAMPLES,
+# LOOK_BUDGET (with REPLICATE while real look samples are switched on), and LANGUAGE_TESTS,
+# LANGUAGE_BUDGET (with ANTHROPIC while real language tests are switched on).
 set -euo pipefail
 
 main() {
@@ -34,6 +35,8 @@ main() {
   fake=${FAKE:-true}
   samples=false  # real look samples among the stand-ins: switched on, with the Replicate key
   [ "${LOOK_SAMPLES:-false}" = true ] && [ -n "${REPLICATE:-}" ] && samples=true
+  tests=false  # real language tests among the stand-ins: switched on, with the Claude key
+  [ "${LANGUAGE_TESTS:-false}" = true ] && [ -n "${ANTHROPIC:-}" ] && tests=true
   umask 077
   {
     echo "DOMAIN=$domain"
@@ -45,7 +48,7 @@ main() {
       echo "BS_GENERATION_ENABLED=${GENERATION:-false}"
       echo "REPLICATE_API_TOKEN=$REPLICATE"
       echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
-    elif [ -n "${KIE:-}" ] || [ "$samples" = true ]; then  # stand-ins, but real songs or samples
+    elif [ -n "${KIE:-}" ] || [ "$samples" = true ] || [ "$tests" = true ]; then  # stand-ins, but real songs, samples or tests
       echo "BS_FAKE_PROVIDERS=true"
       echo "BS_GENERATION_ENABLED=true"
     else
@@ -63,6 +66,11 @@ main() {
       echo "BS_REAL_LOOK_SAMPLES=true"
       echo "BS_LOOK_SAMPLES_BUDGET_USD=${LOOK_BUDGET:-0}"
       echo "REPLICATE_API_TOKEN=$REPLICATE"
+    fi
+    if [ "$fake" != false ] && [ "$tests" = true ]; then  # language tests, stopped at the budget
+      echo "BS_REAL_LANGUAGE_SAMPLES=true"
+      echo "BS_LANGUAGE_SAMPLES_BUDGET_USD=${LANGUAGE_BUDGET:-0}"
+      echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
     fi
   } > .env.new
   mv .env.new .env

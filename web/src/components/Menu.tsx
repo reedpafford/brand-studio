@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMedia } from "../useMedia";
 import { Sheet } from "./Overlay";
+import { useViewOnly } from "./ViewOnly";
 
 /**
  * A menu opened from a button: a popover on desktop, a bottom sheet on a phone.
@@ -45,7 +46,9 @@ export function Menu({ title, trigger, align = "left", children }: { title: stri
 }
 
 /** One row in a menu: 44px, icon optional, a check when it is the current choice. */
-export function MenuItem({ children, checked, danger, disabled, onClick }: { children: ReactNode; checked?: boolean; danger?: boolean; disabled?: boolean; onClick?: () => void }) {
+export function MenuItem({ children, checked, danger, disabled: off, onClick }: { children: ReactNode; checked?: boolean; danger?: boolean; disabled?: boolean; onClick?: () => void }) {
+  const viewOnly = useViewOnly(); // a view-only video's menus change things
+  const disabled = off || viewOnly;
   return (
     <button
       type="button"

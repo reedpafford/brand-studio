@@ -10,7 +10,7 @@ const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_
 const brands = [{ id: 1, name: "fomo", colours: [] }];
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "Show the buy flow", platform: "TikTok",
-  aspect_ratio: "9:16", format: "Story", cast_ids: [4], reference_file_id: null, estimate_credits: 30, budget_credits: 660, credits_used: 412, budget_pct: 62.4,
+  aspect_ratio: "9:16", format: "Story", cast_ids: [4], reference_file_id: null, estimate_credits: 30, budget_credits: 660, credits_used: 412, budget_pct: 62.4, created_by_id: 2,
 };
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],

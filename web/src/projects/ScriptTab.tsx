@@ -5,7 +5,7 @@ import { DraftsPanel } from "./Drafts";
 import { EnhanceBar, MarkLine, type EnhanceState } from "./Enhance";
 import { useToast } from "../toast";
 import { Pencil, Upload, History as Versions, FileText } from "lucide-react";
-import { Banner, Button, Card, Menu, MenuItem, buttonClass } from "../components";
+import { Banner, Button, Card, Menu, MenuItem, buttonClass, useViewOnly } from "../components";
 import { errorText as errorClass, input } from "../ui";
 import { serverTime } from "../time";
 
@@ -31,6 +31,7 @@ export function useLatestScript(projectId: number) {
 
 /** The script: paste it or upload a document. Every save is a new numbered version. */
 export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0, budget = Infinity }: { projectId: number; enhance: EnhanceState; highlight?: number[]; onLineClick?: (line: number) => void; used?: number; budget?: number }) {
+  const viewOnly = useViewOnly(); // an older video only its maker or the owner may change
   const queryClient = useQueryClient();
   const toast = useToast();
   const path = { project_id: projectId };
@@ -109,10 +110,10 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0
   const viewingOld = viewing !== null && viewing !== current?.version;
   const shown = viewingOld ? old.data : current;
   const uploadButton = (
-    <label className={`${buttonClass("secondary")} cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-accent`}>
+    <label aria-disabled={viewOnly || undefined} className={`${buttonClass("secondary")} ${viewOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer"} focus-within:outline focus-within:outline-2 focus-within:outline-accent`}>
       <Upload size={20} strokeWidth={1.75} aria-hidden />
       {current ? "Upload a new version" : "Upload a file"}
-      <input type="file" accept=".txt,.docx,.pdf" className="sr-only" aria-label="Script file" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
+      <input type="file" accept=".txt,.docx,.pdf" className="sr-only" aria-label="Script file" disabled={viewOnly} onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
     </label>
   );
   const problem = save.error ?? upload.error ?? restore.error;
