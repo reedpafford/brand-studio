@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, change, credits, storyboard
+from app import advice, breakdown, change, credits, redo_frame, storyboard
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db
@@ -60,6 +60,10 @@ class FrameOut(BaseModel):
     softened: dict | None = None  # softened by itself so it can be drawn: {before, after}
     drawing: bool = False  # a still for it is queued or being made (a Change it's included)
     still_credits: int = 0  # one still for it, rounded up (Make still, Redo, Save and redraw)
+    # Out of date because the breakdown changed: Redo this frame · N (written again, then
+    # drawn), or why not ("This clip changed in the breakdown…": Redo storyboard).
+    redo_credits: int | None = None
+    redo_blocked: str | None = None
 
 
 class SoftenOut(BaseModel):
@@ -89,6 +93,12 @@ def _newest_breakdown(db: Session, project: Project) -> BreakdownVersion | None:
     )
 
 
+def _script_moved(db: Session, project: Project) -> bool:
+    """The script changed since the newest breakdown: the breakdown is made again first."""
+    newest, working = _newest_breakdown(db, project), latest(db, project)
+    return bool(newest and working and newest.script_version != working.version)
+
+
 def _stale(db: Session, project: Project, frame: StoryboardFrame) -> bool:
     newest = _newest_breakdown(db, project)
     working = latest(db, project)
@@ -110,7 +120,11 @@ def _out(
 ) -> FrameOut:
     stale = _stale(db, project, frame)
     waiting = _waiting(db, project) if waiting is None else waiting
-    computed = ("stale", "approved", "softened", "change", "drawing", "still_credits")
+    computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
+                "redo_credits", "redo_blocked")  # fmt: skip
+    newest = _newest_breakdown(db, project)
+    redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
+    blocked = redo_frame.blocked(db, frame, newest) if redo else ""
     asked = frame.change or {}
     if asked.get("status") == "changing" and all(j.id != asked.get("job_id") for j in waiting):
         # its rewrite ended without saving (failed, or stopped): never "Changing…" for ever
@@ -122,6 +136,8 @@ def _out(
         change=asked or None,
         drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
         still_credits=storyboard.still_price(db, project),
+        redo_credits=credits.price(redo_frame.price(db, project)) if redo and not blocked else None,
+        redo_blocked=blocked or None,
         softened={"before": asked["before"], "after": asked["after"]}
         if asked.get("softened")
         else None,
@@ -294,6 +310,33 @@ def change_frame(
             409, "This frame was made for an older breakdown. Make the storyboard again first."
         )
     return change.start(db, user, project, frame, body.note)
+
+
+@router.post(
+    "/frames/{frame_id}/redo",
+    response_model=JobOut,
+    status_code=201,
+    dependencies=[Depends(generation_on)],
+)
+def redo_frame_(
+    project_id: int,
+    frame_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Redo this frame (LW3): an out-of-date frame is written again from the new breakdown,
+    then drawn, at the price on its button. The earlier still stays: pick it back to undo."""
+    project, frame = _frame(db, user, project_id, frame_id)
+    newest = _newest_breakdown(db, project)
+    if not _stale(db, project, frame) or _script_moved(db, project):
+        raise HTTPException(409, "This frame isn't waiting for a new breakdown.")
+    if wrong := advice.open_cast(newest):
+        detail = wrong[0].removeprefix(advice.CAST)
+        raise HTTPException(409, f"Put the right cast in each shot first: {detail}.")
+    require_looks(
+        breakdown.would_show(db, project, newest.data), storyboard.assets(db, project), 409
+    )
+    return redo_frame.start(db, user, project, frame, newest)
 
 
 @router.post("/frames/{frame_id}/pick", response_model=FrameOut)
