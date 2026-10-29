@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Mic, RotateCcw, Trash2 } from "lucide-react";
+import { fileUrl } from "../api/upload";
 import { Badge, Banner, Button, Card, EmptyState, Skeleton } from "../components";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
@@ -41,6 +42,24 @@ function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<
       ) : t.file_id !== null && t.seconds !== null ? (
         <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={label} />
       ) : null}
+      {/* The music bed under the narration (#912); where music is switched off it stays "none" and nothing shows. */}
+      {t.status === "ready" && t.music_status === "making" && <p role="status" className="text-sm text-muted">Making the music…<Elapsed /></p>}
+      {t.music_status === "ready" && (
+        <div className="space-y-1">
+          <p className="text-sm text-muted">With music under it.</p>
+          {t.music_file_id != null && <audio controls preload="none" src={fileUrl(t.music_file_id)} aria-label={`The music for ${label}`} className="w-full" />}
+        </div>
+      )}
+      {t.music_status === "failed" && (
+        <div className="space-y-2">
+          <p role="alert" className="text-sm text-warning">{t.music_reason || "The music didn't finish. Nothing was charged for it."} The narration is kept.</p>
+          {!readOnly && (
+            <Button variant="secondary" icon={RotateCcw} price={t.music_credits} busy={a.musicAgain.isPending && a.musicAgain.variables === t.id} onClick={() => a.musicAgain.mutate(t.id)}>
+              Try the music again
+            </Button>
+          )}
+        </div>
+      )}
       {t.untrimmed_seconds != null && length != null && <p className="text-sm text-muted">Pauses trimmed: {clock(t.untrimmed_seconds)} → {clock(length)}</p>}
       {(t.sentences ?? []).length > 0 && (
         <details>
@@ -104,19 +123,22 @@ export function NarrationStep({ script: s }: { script: Script }) {
     );
   const readOnly = s.published;
   const narrations = data.takes as Narration[];
-  const latest = [a.make, a.tryAgain, a.prefer, a.remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
+  const latest = [a.make, a.tryAgain, a.musicAgain, a.prefer, a.remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
   const refused = latest.isError ? latest.error.message : null;
   const making = narrations.some((t) => t.status === "making" || t.status === "timing"); // the server refuses a second one meanwhile
   const used = narrations.find((t) => t.preferred && !t.out_of_date);
   const older = narrations.length > 0 && narrations.every((t) => t.out_of_date);
+  const noWords = !!data.songs_note && !data.estimate_credits;
   const make = (label: string, primary: boolean) => (
-    <Button variant={primary ? "primary" : "secondary"} icon={Mic} price={data.estimate_credits} disabled={stop !== null || making} reason={stop ?? (making ? "One is being made" : null)} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+    // With nothing for the narrator to read, the server sends why (songs_note) and no price (#920): the press says it, greyed.
+    <Button variant={primary ? "primary" : "secondary"} icon={Mic} price={noWords ? undefined : data.estimate_credits} disabled={noWords || stop !== null || making} reason={noWords ? data.songs_note! : stop ?? (making ? "One is being made" : null)} busy={a.make.isPending} onClick={() => a.make.mutate()}>
       {label}
     </Button>
   );
   return (
     <div className="max-w-[720px] space-y-4">
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
+      {data.songs_note && !noWords && <p className="text-sm text-muted">{data.songs_note}</p>}
       {!data.songs_on && <Banner tone="info" title="Narration isn't switched on here.">The words still save. A narration can be made where it's on.</Banner>}
       {narrations.length === 0 ? (
         readOnly ? (
