@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Ellipsis, Music, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Badge, Banner, Button, Card, Dialog, EmptyState, Menu, MenuItem, Skeleton, buttonClass } from "../components";
+import { Badge, Banner, Button, Card, Dialog, EmptyState, Menu, MenuItem, Skeleton, buttonClass, wholeCredits } from "../components";
 import { serverTime } from "../time";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
@@ -31,6 +31,13 @@ function Making() {
   );
 }
 
+/** "· a video of about 40 credits": what this take's length means for a video (flows S4, V2a). */
+export const videoCost = (t: SongTake) => {
+  if (t.video_credits == null) return "";
+  const c = wholeCredits(t.video_credits); // the server's figure can be fractional
+  return ` · a video of about ${c} credit${c === 1 ? "" : "s"}`;
+};
+
 /** One take: its player, its state in words, and the press each state needs (flows S4). */
 /** A failed request is made again for both its takes, so Try again costs a whole request (`requestPrice`). A timing failure that a retry can't fix leads to the other take or to Make 2 more under the cards. */
 function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t: SongTake; a: ReturnType<typeof useSongActions>; requestPrice: number; readOnly: boolean; others: SongTake[]; onDefaultStyle?: () => void }) {
@@ -43,7 +50,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
     <Card className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="type-card">{label}</h3>
-        {t.seconds !== null && <span className="text-sm tabular-nums text-muted">{clock(t.seconds)}</span>}
+        {t.seconds !== null && <span className="text-sm tabular-nums text-muted">{clock(t.seconds)}{videoCost(t)}</span>}
         {t.made_at && <span className="text-sm text-muted">made at {serverTime(t.made_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
         {t.preferred && <Badge tone="accent">Preferred</Badge>}
         {t.out_of_date && <Badge>Sings older words</Badge>}

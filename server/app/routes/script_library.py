@@ -35,7 +35,8 @@ from app.schemas import LongText, UtcTime
 router = APIRouter(prefix="/scripts", tags=["script library"])
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Slot = Annotated[int, Field(ge=0, le=lib.MAX_SLOT)]
-StyleLine = Annotated[str, StringConstraints(strip_whitespace=True, max_length=music.MAX_STYLE)]
+# The length is checked in write_draft, so a long line gets the plain reason (not pydantic's)
+StyleLine = Annotated[str, StringConstraints(strip_whitespace=True, max_length=20_000)]
 
 
 class ScriptIn(BaseModel):
@@ -143,6 +144,9 @@ class VersionOut(VersionSummary):
     song_directions: list[SongDirectionOut] = []  # offered, newest pair first (flows S3)
     directions_estimate_credits: float = 0  # "Write 2 song directions"
     directions_stop: str | None = None  # why that press can't run, in plain words
+    directions_stop_kind: Literal["no_facts", "other"] | None = (
+        None  # no_facts: link the brand page
+    )
     directions_job: DirectionsJob | None = None  # the press in hand (None: idle or done)
     claims_to_check: list[str] = []  # the used direction's claims, until the owner keeps them
 
@@ -208,7 +212,8 @@ def _directions(db: Session, draft: ScriptDraft) -> dict:
         "directions_estimate_credits": float(
             estimate(db, script.workspace_id, "write-claude", Decimal(1))
         ),
-        "directions_stop": sd.stop(db, script, draft),
+        "directions_stop": (stop := sd.stop(db, script, draft)),
+        "directions_stop_kind": stop and ("no_facts" if stop == sd.NOTHING else "other"),
         "directions_job": sd.job_state(db, script, draft),
         "claims_to_check": sd.claims_to_check(draft),
     }
@@ -571,8 +576,10 @@ def write_draft(
     lib.keep_text(db, draft, body.text, "edit", user.id)
     if draft.rewritten:  # the "Was:" marks follow their lines until approval
         draft.rewritten = rewritten.follow(draft.text or "", body.text, draft.rewritten)
-    if script.kind == "song" and len(body.text) > music.MAX_LYRICS:
+    if script.kind == "song" and len(body.text.strip()) > music.MAX_OWN_LYRICS:
         raise HTTPException(422, music.TOO_LONG)
+    if body.style_line and len(body.style_line) > music.MAX_OWN_STYLE:
+        raise HTTPException(422, music.STYLE_TOO_LONG)
     draft.text, draft.target_seconds = body.text, body.target_seconds
     for song_field in ("style_line", "singer", "spoken_end_line"):  # song ads; None: as is
         if (value := getattr(body, song_field)) is not None:

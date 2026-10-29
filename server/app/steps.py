@@ -58,6 +58,7 @@ def save_step_result(db: Session, job: Job) -> None:
     handlers = {
         "enhance": save_suggestions,
         "breakdown": save_breakdown,
+        "song_breakdown": save_breakdown,
         "storyboard": save_frames,
         "improve": save_improved,
         "change": save_changed,

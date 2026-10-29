@@ -52,6 +52,7 @@ export function BrandPieces(props: { all: Piece[]; chosen: Piece[]; max: number;
     <div className={rail ? "space-y-3 rounded-lg border border-border bg-surface p-3" : "space-y-3"}>
       <Tabs label="Brand pieces" value={tab} onChange={(id) => setTab(id as (typeof TABS)[number])} tabs={TABS.map((t) => ({ id: t, label: LABEL[t] }))} />
       {left.length === 0 && <p className="text-sm text-muted">Nothing more here for this brand.</p>}
+      {left.length > 0 && props.chosen.length >= props.max && <p className="text-sm text-muted">A clip takes up to {props.max} pictures. Remove one to add another.</p>}
       <ul className="grid grid-cols-3 gap-2">
         {left.map((p) => (
           <li key={p.key}>

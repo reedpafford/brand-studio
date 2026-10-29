@@ -83,6 +83,7 @@ def test_a_failed_take_says_why_and_try_again_makes_it(app, db, owner, song):
     assert [(t["status"], t["failed_reason"], t["retry_helps"]) for t in takes] == [
         ("failed", music.REFUSED, True)
     ] * 2  # fmt: skip
+    assert takes[0]["retry_credits"] == 1  # a new request
     take = takes[0]
     assert "E005" not in owner.get(f"{song}/songs").text  # the raw reason is owner-only
     _style(owner, song, "pop")  # the words are changed, as the reason says
@@ -113,6 +114,8 @@ def test_the_preferred_take_cant_be_removed_others_can_with_undo(app, db, owner,
 def test_lyrics_past_sunos_limit_are_refused_when_saved(owner, song):
     r = owner.put(song, json={"text": "la " * 1700})
     assert (r.status_code, r.json()["detail"]) == (422, music.TOO_LONG)
+    r = owner.put(song, json={"text": LYRICS, "style_line": "x" * 900})
+    assert (r.status_code, r.json()["detail"]) == (422, music.STYLE_TOO_LONG)
 
 
 def test_a_song_needs_lyrics_and_a_song_script(app, owner, song):
@@ -317,6 +320,28 @@ def test_lyrics_too_long_for_the_cap_say_how_many_lines_to_keep(app, owner, song
     assert body["video_estimate_credits"] > 729 and 0 < body["keep_lines"] < 160
 
 
+def test_a_reply_with_one_song_keeps_it_and_asks_again_free(app, db, owner, song):
+    from app.models.jobs import Job
+
+    _style(owner, song, "pop fake:one-song")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    kept, missing = owner.get(f"{song}/songs").json()["takes"]
+    assert (kept["status"], missing["status"]) == ("ready", "failed")
+    assert missing["failed_reason"] == music.MISSING
+    assert missing["retry_credits"] == 0  # the request was paid for both songs
+    assert owner.post(f"/songs/{missing['id']}/try-again").status_code == 200
+    again = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
+    assert again.credits == 0  # the first request was charged for both songs
+    _work(app, db)
+    takes = owner.get(f"{song}/songs").json()["takes"]
+    assert [t["id"] for t in takes] == [kept["id"], missing["id"]]
+    assert takes[0]["file_id"] == kept["file_id"]  # the song that came stays
+    # Short again on the free retry: the next Try again is charged (one free retry a request)
+    again_missing = owner.get(f"{song}/songs").json()["takes"][1]
+    assert (again_missing["status"], again_missing["retry_credits"]) == ("failed", 1)
+
+
 def test_a_videos_own_take_can_be_removed_unless_its_the_song(app, db, owner, editor, song):
     video = _video(app, db, owner, editor, song)
     editor.post(f"{video}/songs", json={})
@@ -325,3 +350,18 @@ def test_a_videos_own_take_can_be_removed_unless_its_the_song(app, db, owner, ed
     assert editor.delete(f"/songs/{first_own['id']}").status_code == 204  # no dead end
     r = editor.post(f"/songs/{first_own['id']}/preferred")
     assert r.status_code == 409 and "Use in this video" in r.json()["detail"]
+
+
+def test_take_cards_and_the_version_show_one_price(app, db, owner, song):
+    """A take's video price counts the roles not cast yet, as the version's does, and the
+    Song version's price is its Preferred take's video."""
+    _style(owner, song, "pop, female lead, 120 BPM")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    base = song.rsplit("/drafts", 1)[0]
+    alone = owner.get(f"{song}/songs").json()["takes"][0]["video_credits"]
+    owner.post(f"{base}/cast", json={"role": "Singer"})
+    take = owner.get(f"{song}/songs").json()["takes"][0]
+    version = owner.get(base).json()["versions"][0]
+    assert take["video_credits"] > alone
+    assert version["estimate_credits"] == pytest.approx(take["video_credits"])

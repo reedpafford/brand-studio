@@ -4083,6 +4083,7 @@ export interface components {
             unknown_names: {
                 [key: string]: string;
             };
+            song?: components["schemas"]["SongPart"] | null;
         };
         /** BreakdownReview */
         BreakdownReview: {
@@ -6133,11 +6134,34 @@ export interface components {
             /** Made At */
             made_at: string;
         };
+        /** SongPart */
+        SongPart: {
+            /** Take Id */
+            take_id: number;
+            /** Shots */
+            shots: {
+                [key: string]: components["schemas"]["SongShotTime"];
+            };
+        };
         /** SongPreferredOut */
         SongPreferredOut: {
             take: components["schemas"]["SongTakeOut"];
             /** Was Preferred Id */
             was_preferred_id: number | null;
+        };
+        /** SongShotTime */
+        SongShotTime: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Sung */
+            sung: boolean;
+            /**
+             * Guessed
+             * @default false
+             */
+            guessed: boolean;
         };
         /** SongTakeOut */
         SongTakeOut: {
@@ -6154,6 +6178,8 @@ export interface components {
             failed_reason: string | null;
             /** Retry Helps */
             retry_helps: boolean;
+            /** Retry Credits */
+            retry_credits: number;
             /** File Id */
             file_id: number | null;
             /** Seconds */
@@ -6960,6 +6986,8 @@ export interface components {
             directions_estimate_credits: number;
             /** Directions Stop */
             directions_stop?: string | null;
+            /** Directions Stop Kind */
+            directions_stop_kind?: ("no_facts" | "other") | null;
             directions_job?: components["schemas"]["DirectionsJob"] | null;
             /**
              * Claims To Check

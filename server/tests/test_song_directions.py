@@ -62,6 +62,7 @@ def test_undoing_use_leaves_no_claims_to_check(app, db, owner, song):  # noqa: F
 def test_an_approved_version_says_why_before_anything_is_charged(app, db, owner, song):  # noqa: F811
     owner.post(f"{song}/approve")
     assert _version(owner, song)["directions_stop"] == song_directions.APPROVED
+    assert _version(owner, song)["directions_stop_kind"] == "other"
     r = owner.post(f"{song}/directions", json={})
     assert (r.status_code, r.json()["detail"]) == (409, song_directions.APPROVED)
     assert db.query(Job).filter(Job.kind == "write-claude").count() == 0
@@ -94,6 +95,7 @@ def test_nothing_to_go_on_says_what_to_add(app, db, owner):
                                          "kind": "song", "text": ""}).json()  # fmt: skip
     url = f"/scripts/{empty['id']}/drafts/0"
     assert _version(owner, url)["directions_stop"] == song_directions.NOTHING
+    assert _version(owner, url)["directions_stop_kind"] == "no_facts"
     r = owner.post(f"{url}/directions", json={})
     assert (r.status_code, r.json()["detail"]) == (409, song_directions.NOTHING)
 
