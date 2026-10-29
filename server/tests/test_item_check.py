@@ -27,6 +27,12 @@ def test_on_screen_words_are_taken_out_but_never_a_spoken_line_or_the_brands_lab
         AUDIO,
     ]
     assert check.text_on_screen(fixed) == (fixed, [])  # doing it again changes nothing
+    for safe in (
+        "Shot 1 | 0-2 s. Close-up. No captions, no text overlays, no title cards.",
+        "Keep: the kitchen, without any on-screen text.",
+        "Keep: No text on screen.",
+    ):
+        assert check.text_on_screen(safe) == (safe, []), safe
     curly = check.text_on_screen("Shot 1 | 0-2 s. A caption pops up, Mom: “Hi, you.” No one else.")
     assert curly == ("Shot 1 | 0-2 s. Mom: “Hi, you.” No one else.", ["caption"])
 

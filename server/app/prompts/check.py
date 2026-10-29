@@ -1190,7 +1190,8 @@ CLAUSE = re.compile(r"[^,.;!?]+[,.;!?]?\s*")
 def text_on_screen(prompt: str) -> tuple[str, list[str]]:
     """A clip prompt with each ask for on-screen words taken out, and what was taken (P3:
     "Fixed for you: removed 'logo text'"). Only the clause holding it goes; a spoken line in
-    quotes is never touched (rule 19), and neither are the audio lines."""
+    quotes is never touched (rule 19), and neither are the audio lines or a safeguard ("No
+    captions", "without any on-screen text": Flow-QA on #869)."""
     out, removed = [], []
     for line in prompt.splitlines():
         if line.startswith("Audio:") or not TEXT_ON_SCREEN.search(QUOTED.sub("", line)):
@@ -1201,7 +1202,8 @@ def text_on_screen(prompt: str) -> tuple[str, list[str]]:
         head = m.group(0) if (m := SHOT_LINE.match(line)) else ""
         kept, cut = [], False
         for clause in CLAUSE.findall(line[len(head) :]):
-            if (found := TEXT_ON_SCREEN.search(clause)) and "\0" not in clause:
+            asks = [m for m in TEXT_ON_SCREEN.finditer(clause) if not _negated(clause, m)]
+            if (found := next(iter(asks), None)) and "\0" not in clause:
                 removed.append(found.group(0))
                 cut = True
                 continue
