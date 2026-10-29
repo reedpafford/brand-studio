@@ -62,6 +62,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Redraw after a look switch (next a627db21; fixed by #962 screen + #967 server, both PASS; closes on merge) | House to Disney Pixar, then Storyboard's "Redraw 1 out-of-date still": no hold shows, and the paid redraw is drawn with no picture of the person | Server: count a locked character with no sheet in the video's look as having no look, so the redraw is refused. Screen: refresh the cast list after a switch, so the cast hold shows |
 | Another editor's video (#964) | The server now refuses every change by a second editor (403), but the screen still shows Approve, Approve all, Make… live on their video | Screens: when the viewer didn't make the video and isn't the owner, one banner says who can change it and the step presses are greyed; merge with #964 |
 | Import from website: Undo (#971) | Undo after a later edit in the brand kit throws that edit away (a colour added after Save is gone; a later logo is replaced) | Undo removes only the colours Save added, and puts the logo back only if it's still the one Save stored |
+| Language test: Undo of Reject (#972) | Reject switches a language off; Undo clears the reject but leaves it off, though it was on | Remember whether it was on when rejected, and Undo puts that back |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -336,3 +337,7 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #963 Preferred and going back (web, OR3) | 02783aeb | FAIL: two missing holds (breakdown and clip prompt Go back). Undo targets, storyboard hold, owner-only sheets and the maker guard pass; 50/50 |
 | 2026-10-29 | #971 Import from website (server, BR2) | 3611e6ff | FAIL: Undo overwrites later edits. Owner only, free fetch then a 3-credit read only when there's something, fail/empty/nologo words, Save 409 pass; 18/18 |
 | 2026-10-29 | #963 Preferred and going back (web, OR3) | 51631ffd | PASS: breakdown and clip prompt Go back wait with the server's reason while later work is being made; 81/81. Merge after #957 |
+| 2026-10-29 | #969 Look change: the typed call | 0c22968e | PASS: "up to" wording, refusals show; scripts 262/262 |
+| 2026-10-29 | #968 Flavour from the script (n03) | 83c31b43 | PASS: defaults per version, a deleted flavour starts on Auto, Auto via Video settings; 34/34 |
+| 2026-10-29 | #970 Real look samples on the test site | b16138c0 | PASS: own switch and budget, said before the press, stuck lane jobs fail cleanly; 10/10 |
+| 2026-10-29 | #972 Language tests switch a language on (n14) | 2b25bb54 | FAIL: Undo of Reject leaves the language off. Price shown, owner only, editors limited to On languages; 6/6 |
