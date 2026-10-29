@@ -179,7 +179,7 @@ def test_an_editors_change_holds_its_whole_price_on_their_week(app, db, owner, e
     tight = used + float(whole) - 0.01  # the rewrite fits; the rewrite and the still don't
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": tight})
     refused = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
-    assert refused.status_code == 409 and "free credits" in refused.json()["detail"]
+    assert refused.status_code == 409 and "It resets on Monday" in refused.json()["detail"]
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 145})
     before = credits_left(db, ed)
     sent = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
