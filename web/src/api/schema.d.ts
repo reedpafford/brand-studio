@@ -3484,6 +3484,139 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/songs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Songs */
+        get: operations["list_songs_scripts__script_id__drafts__slot__songs_get"];
+        put?: never;
+        /**
+         * Make Songs
+         * @description Make 2 takes (one request) of the version's lyrics in its style line.
+         */
+        post: operations["make_songs_scripts__script_id__drafts__slot__songs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/songs/{take_id}/try-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Try Again */
+        post: operations["try_again_songs__take_id__try_again_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/songs/{take_id}/spread-timing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Spread Timing
+         * @description Timing failed: "Use timing spread evenly" (free).
+         */
+        post: operations["spread_timing_songs__take_id__spread_timing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/songs/{take_id}/trim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trim Take
+         * @description Over the cap: "Use the first 0:55" (to the last section end that fits).
+         */
+        post: operations["trim_take_songs__take_id__trim_post"];
+        /**
+         * Untrim Take
+         * @description Undo: the whole take again.
+         */
+        delete: operations["untrim_take_songs__take_id__trim_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/songs/{take_id}/preferred": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Preferred */
+        post: operations["set_preferred_songs__take_id__preferred_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/songs/{take_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Take */
+        delete: operations["remove_take_songs__take_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/songs/{take_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Take */
+        post: operations["restore_take_songs__take_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -3870,6 +4003,12 @@ export interface components {
              * @default
              */
             text: string;
+            /**
+             * Kind
+             * @default story
+             * @enum {string}
+             */
+            kind: "story" | "song";
             /** Reel Url */
             reel_url?: string | null;
             /** Upload Id */
@@ -3977,6 +4116,12 @@ export interface components {
             text: string;
             /** Target Seconds */
             target_seconds?: number | null;
+            /** Style Line */
+            style_line?: string | null;
+            /** Singer */
+            singer?: string | null;
+            /** Spoken End Line */
+            spoken_end_line?: string | null;
         };
         /** DraftOut */
         DraftOut: {
@@ -5522,6 +5667,11 @@ export interface components {
             brand_id: number;
             /** Title */
             title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "story" | "song";
             /** Description */
             description: string;
             /** Reference Id */
@@ -5749,6 +5899,69 @@ export interface components {
             /** After */
             after: string;
             frame: components["schemas"]["FrameOut"];
+        };
+        /** SongPreferredOut */
+        SongPreferredOut: {
+            take: components["schemas"]["SongTakeOut"];
+            /** Was Preferred Id */
+            was_preferred_id: number | null;
+        };
+        /** SongTakeOut */
+        SongTakeOut: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "making" | "timing" | "ready" | "failed" | "timing_failed";
+            /** Failed Reason */
+            failed_reason: string | null;
+            /** Retry Helps */
+            retry_helps: boolean;
+            /** File Id */
+            file_id: number | null;
+            /** Seconds */
+            seconds: number | null;
+            /** Made At */
+            made_at: string | null;
+            /** Preferred */
+            preferred: boolean;
+            /** In Video */
+            in_video: boolean;
+            /** Out Of Date */
+            out_of_date: boolean;
+            /** Peaks */
+            peaks: number[];
+            /** Advice */
+            advice: string[];
+            /** Timing Guessed */
+            timing_guessed: boolean;
+            /** Refused For */
+            refused_for: ("words" | "style") | null;
+            /** Video Credits */
+            video_credits: number | null;
+            /** Over Cap */
+            over_cap: boolean;
+            /** Fits Until */
+            fits_until: number | null;
+            /** Trim To */
+            trim_to: number | null;
+        };
+        /** SongsOut */
+        SongsOut: {
+            /** Songs On */
+            songs_on: boolean;
+            /** Estimate Credits */
+            estimate_credits: number;
+            /** Video Estimate Credits */
+            video_estimate_credits: number;
+            /** Keep Lines */
+            keep_lines: number | null;
+            /** Takes */
+            takes: components["schemas"]["SongTakeOut"][];
         };
         /** StageOut */
         StageOut: {
@@ -5983,6 +6196,11 @@ export interface components {
             brand_id: number;
             /** Title */
             title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "story" | "song";
             /** Description */
             description: string;
             /** Reference Id */
@@ -6328,6 +6546,12 @@ export interface components {
              * @default
              */
             text: string;
+            /**
+             * Kind
+             * @default story
+             * @enum {string}
+             */
+            kind: "story" | "song";
         };
         /** ScriptOut */
         app__routes__script_library__ScriptOut: {
@@ -6337,6 +6561,11 @@ export interface components {
             brand_id: number;
             /** Title */
             title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "story" | "song";
             /** Description */
             description: string;
             /** Reference Id */
@@ -6444,6 +6673,28 @@ export interface components {
              */
             clips: number;
             planned_by?: components["schemas"]["Person"] | null;
+            /**
+             * Style Line
+             * @default
+             */
+            style_line: string;
+            /**
+             * Singer
+             * @default
+             */
+            singer: string;
+            /**
+             * Spoken End Line
+             * @default
+             */
+            spoken_end_line: string;
+            /**
+             * Song Directions
+             * @default []
+             */
+            song_directions: {
+                [key: string]: unknown;
+            }[];
         };
         /** EstimateOut */
         app__routes__script_preview__EstimateOut: {
@@ -13490,6 +13741,285 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClipIn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_songs_scripts__script_id__drafts__slot__songs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_songs_scripts__script_id__drafts__slot__songs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    try_again_songs__take_id__try_again_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    spread_timing_songs__take_id__spread_timing_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trim_take_songs__take_id__trim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    untrim_take_songs__take_id__trim_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_preferred_songs__take_id__preferred_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongPreferredOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_take_songs__take_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_take_songs__take_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
                 };
             };
             /** @description Validation Error */

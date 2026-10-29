@@ -93,14 +93,33 @@ const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids
 const clip = (o: object) => ({ id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
 const toClips = { ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown] };
 
-test("a clip's prompt is read and marked Looks good (on the server) before its take can be made", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false })]], "POST /projects/9/clips/3/prompt-ok": [200, clip({ prompt_ok: true })] });
+test("a clip's prompt is marked Looks good on the server, by its own button or by Make clip, which then makes the take", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false })]], "POST /projects/9/clips/3/prompt-ok": [200, clip({ prompt_ok: true })], "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 24, project_id: 9 }] });
   open("?step=clips");
   expect(await screen.findByText("Bo sniffs the salmon")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /^Make clip/ })).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 looks good" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/prompt-ok")).toBe(true));
+});
+
+test("Make clip on a prompt not yet marked Looks good marks it and makes the take in one press", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false })]], "POST /projects/9/clips/3/prompt-ok": [200, clip({ prompt_ok: true })], "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 24, project_id: 9 }] });
+  open("?step=clips");
+  const make = await screen.findByRole("button", { name: /^Make clip/ });
+  expect(make).toBeEnabled();
+  await userEvent.click(make);
+  await vi.waitFor(() => expect(calls.map((c) => c.key)).toEqual(expect.arrayContaining(["POST /projects/9/clips/3/prompt-ok", "POST /projects/9/clips/3/generate"])));
+});
+
+test("a Make clip that can't be pressed says why in a plain line under it", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, problems: [clipProblem] })]] });
+  open("?step=clips");
+  const make = await screen.findByRole("button", { name: /^Make clip/ });
+  expect(make).toBeDisabled();
+  expect(make).toHaveAccessibleDescription("Fix the problems above first.");
+  expect(screen.getByText("Fix the problems above first.")).toBeVisible();
 });
 
 test("a prompt already marked Looks good keeps its badge, lets the take be made, and can be undone", async () => {
@@ -421,7 +440,7 @@ test("a take that failed before the prompt was changed no longer reads as failin
   expect(await within(card).findByText("The last take, before your change, failed.")).toBeInTheDocument();
   expect(within(card).queryByText(/couldn't finish this/)).toBeNull();
   expect(within(card).queryByText("Failed · credits returned")).toBeNull();
-  expect(within(card).getByText(/Prompt updated\. Read it, press Looks good, then press Make clip/)).toBeInTheDocument();
+  expect(within(card).getByText(/Prompt updated\. Read it, then press Make clip/)).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Change the prompt · 3 credits" })).toBeInTheDocument(); // no take yet: only the prompt
 });
 
@@ -453,6 +472,28 @@ test("when the newest take failed but others are good, the line says the others 
   expect(await within(card).findByText(/The newest take failed; your other takes are below\./)).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
 });
+
+test("once a clip has a take, Change it shows the full price (rewrite and take), not the rewrite-only price read before", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 19, project_id: 9 }] });
+  const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation()!;
+  let made = false; // the clip's first take, once Make clip is pressed
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    const path = new URL(req.url).pathname;
+    if (req.method === "GET" && path.endsWith("/projects/9/clips")) return json([made ? clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 }) : clip({ prompt_ok: true })]);
+    if (req.method === "GET" && path.endsWith("/clips/3/change")) return json({ credits: made ? 22 : 3 });
+    if (req.method === "GET" && path === "/api/jobs" && made) return json([{ id: 21, kind: "video", step: "clip_take", status: "running", credits: 19, project_id: 9, project_clip_id: 3, created_at: new Date().toISOString() }]); // keeps the clips polled
+    if (req.method === "POST" && path.endsWith("/clips/3/generate")) made = true;
+    return inner(req.clone(), init);
+  }));
+  open("?step=clips");
+  await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
+  expect(await screen.findByRole("button", { name: "Change the prompt · 3 credits" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Make clip/ }));
+  expect(await screen.findByRole("button", { name: "Change it and make a new take · 22 credits" }, { timeout: 9000 })).toBeInTheDocument();
+}, 15000);
 
 test("a clip change that didn't finish says the server's words, keeps the note in the box, and Try again sends it again", async () => {
   setViewport(390);
@@ -1226,7 +1267,7 @@ test("after Change this… on a clip with no take that must be read again, the l
   const change = { note: "Slower", status: "done", before: "a b", after: "a c" };
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false, change })]] });
   open("?step=clips");
-  expect(await screen.findByText("Prompt updated. Read it, press Looks good, then press Make clip.")).toBeInTheDocument();
+  expect(await screen.findByText("Prompt updated. Read it, then press Make clip.")).toBeInTheDocument();
 });
 
 test("no 'Prompt updated' line once a take exists", async () => {
