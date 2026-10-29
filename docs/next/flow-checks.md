@@ -58,9 +58,11 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| Migration order (#858, #862, #873) | n05, n06 and n07 all follow n04 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
+| Migration order (#858, #873) | #862 merged (n06 → n04); #858 n05 still on n04 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Real-song budget (#864) | A stopped real song stops counting, so the budget can be passed; "used up" note not shown on Song step | Count cancelled jobs marked discard; show songs_note above Make 2 takes | #864 at bef43a05 |
+| Narration text (#858) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
+| Final cut song (#882) | Removing the final's take hides "now uses take N"; non-song videos fetch /songs | Show the line without t; enabled: madeWith != null | #882 at a904afb9 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -192,3 +194,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
 | 2026-10-29 | #869 at e1e94cd2 (safeguards stay) | text_on_screen on 6 phrasings; test_item_check | PASS: "No captions…", "without any on-screen text", "No text on screen" unchanged; "bold text", "title card", "captions under her" removed |
 | 2026-10-29 | #864 at bef43a05 (real Suno on the test site, test budget) | test_kie, test_song_takes (33); budget repros; deploy env | FAIL: a video put away mid-song stops counting toward the budget; "used up" note not on screen |
+| 2026-10-29 | #858 at b068ef81 (narrator reads check.narration_text) | narration_text on 8 scripts; 153 narration/song/check tests with fix | FAIL: prose + "CTA:" line → nothing to read ("Write the words first"); one "Name:" prose line drops the rest; n05 still on n04 |
+| 2026-10-29 | #883 at c998d91f (P3 retried, auto_fix.before) | test_clip_takes (14); stored auto_fix rows all carry before | PASS (screen: put "Tried again once on its own" by the newest take) |
+| 2026-10-29 | #882 at a904afb9 (V6 song on Final cut) | code walk; take removal after a switch | FAIL: removing the final's take hides "now uses take N"; non-song videos fetch /songs (409 ×4) |
