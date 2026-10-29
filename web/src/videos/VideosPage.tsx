@@ -1,3 +1,4 @@
+import { ProjectsChip, folderQuery, useFolderFilter } from "../folders/Projects";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Clock, Film, Search } from "lucide-react";
@@ -85,6 +86,7 @@ export function VideosPage() {
   const status = asked === "making" || asked === "done" || asked === "needs_you" ? asked : "";
   const archived = params.get("archived") === "1";
   const mine = !owner || params.get("mine") === "1"; // an editor only ever sees their own
+  const folder = useFolderFilter(); // a project picked in the Projects list (flows OR1)
   const [text, setText] = useState(params.get("q") ?? "");
   const q = useDebounced(text.trim());
   const [sheet, setSheet] = useState(false);
@@ -92,9 +94,9 @@ export function VideosPage() {
 
   const videos = useQuery({
     enabled: me !== undefined,
-    queryKey: ["videos", { brandId, q, mine, status, archived }],
+    queryKey: ["videos", { brandId, q, mine, status, archived, folder }],
     queryFn: async () => {
-      const { data } = await api.GET("/projects", { params: { query: { brand_id: brandId, ...(q ? { q } : {}), ...(mine ? { mine: true } : {}), ...(status ? { status } : {}), ...(archived ? { archived: true } : {}) } } });
+      const { data } = await api.GET("/projects", { params: { query: { brand_id: brandId, ...folderQuery(folder), ...(q ? { q } : {}), ...(mine ? { mine: true } : {}), ...(status ? { status } : {}), ...(archived ? { archived: true } : {}) } } });
       if (!data) throw new Error("load");
       return data;
     },
@@ -175,6 +177,7 @@ export function VideosPage() {
         <p className="type-eyebrow text-muted">{brand?.name}</p>
         <h1 className="type-page">Videos</h1>
       </div>
+      <ProjectsChip brandId={brandId} />
       {filters}
       {videos.isError && (
         <Banner tone="danger" title="Couldn't load your videos. Check your connection." action={<Button variant="secondary" onClick={() => videos.refetch()}>Try again</Button>} />

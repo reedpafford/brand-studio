@@ -2250,7 +2250,8 @@ export interface paths {
         /**
          * Produce
          * @description Start production of an approved version of a published script. Each version makes
-         *     one video, reserved for whoever starts it.
+         *     one video, reserved for whoever starts it, with the settings sent (VS1), each checked by its
+         *     own rules: a look's On/Off, the catalogue's models, the brand's flavours.
          */
         post: operations["produce_scripts__script_id__drafts__slot__produce_post"];
         delete?: never;
@@ -7398,7 +7399,7 @@ export interface components {
         };
         /**
          * SettingIn
-         * @description Exactly one setting. A model's null is Auto.
+         * @description Exactly one setting.
          */
         SettingIn: {
             /** Look */
@@ -8447,6 +8448,24 @@ export interface components {
             /** Song Take Id */
             song_take_id?: number | null;
             narration?: components["schemas"]["NarrationOut"] | null;
+        };
+        /**
+         * VideoSettingsIn
+         * @description The settings a video can be given. A model's null is Auto.
+         */
+        VideoSettingsIn: {
+            /** Look */
+            look?: string | null;
+            /** Video Model */
+            video_model?: string | null;
+            /** Image Model */
+            image_model?: string | null;
+            /** Aspect Ratio */
+            aspect_ratio?: ("9:16" | "1:1" | "16:9" | "4:3" | "3:4" | "21:9") | null;
+            /** Product Variants */
+            product_variants?: {
+                [key: string]: string;
+            } | null;
         };
         /** VideoSongIn */
         VideoSongIn: {
@@ -13641,7 +13660,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VideoSettingsIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

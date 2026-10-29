@@ -104,3 +104,36 @@ test("before the server offers looks, there's no Look control", async () => {
   expect(await screen.findByText("Dialogue")).toBeInTheDocument();
   await vi.waitFor(() => expect(screen.queryByRole("button", { name: /Look:/ })).toBeNull());
 });
+
+const change = (o: object = {}) => ({ roles: ["Mom", "Bo"], to_finish_credits: 12, was_credits: 0, over_budget: false, reason: "", ...o });
+
+test("once roles would need a new look, the change asks first with what it takes to finish; Change saves it", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, story()], "GET /scripts/7/look-change": [200, change()], "PATCH /scripts/7": [200, story({ look: "pixar" })] });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Look: House" }));
+  const picker = await screen.findByRole("dialog", { name: "Look" });
+  await userEvent.click(within(picker).getAllByRole("button", { name: "Use this look" })[0]);
+  const ask = await screen.findByRole("alertdialog", { name: "Change to Disney Pixar?" });
+  expect(ask).toHaveTextContent("2 roles need a new look (Mom, Bo). To finish: about 12 credits (was 0).");
+  expect(calls.some((c) => c.key === "PATCH /scripts/7")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Change" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ look: "pixar" }));
+  expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
+});
+
+test("an editor over the week sees why Change is held back, and Not yet keeps the current look", async () => {
+  setViewport(1440);
+  const reason = "Making those looks would go over this week's credits. It resets on Monday.";
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /looks": [200, looks], "GET /scripts/7": [200, story()], "GET /scripts/7/look-change": [200, change({ over_budget: true, reason })], "PATCH /scripts/7": [200, story({ look: "pixar" })] });
+  open("/b/1/scripts/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Look: House" }));
+  const picker = await screen.findByRole("dialog", { name: "Look" });
+  await userEvent.click(within(picker).getAllByRole("button", { name: "Use this look" })[0]);
+  const ask = await screen.findByRole("alertdialog", { name: "Change to Disney Pixar?" });
+  expect(within(ask).getByRole("button", { name: "Change" })).toBeDisabled();
+  expect(ask).toHaveTextContent(reason);
+  await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(calls.some((c) => c.key === "PATCH /scripts/7")).toBe(false);
+});

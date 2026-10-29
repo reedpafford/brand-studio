@@ -11,6 +11,7 @@ import { applyTheme, getTheme, type Theme } from "../theme";
 import { useMedia } from "../useMedia";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
 import { NewBrand } from "./NewBrand";
+import { ProjectsList } from "../folders/Projects";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
@@ -359,6 +360,12 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
     <nav aria-label="Main" className={`sticky top-topbar h-[calc(100vh-var(--topbar-h))] shrink-0 overflow-y-auto border-r border-border bg-bg p-3 ${wide ? "w-rail" : "w-[72px]"}`}>
       {wide && brand && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">{brand.name}</p>}
       {current && <div className="flex flex-col gap-1">{SECTIONS.map((s) => row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also))}</div>}
+      {current && wide && (
+        <div className="mt-4 border-t border-border pt-2">
+          <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">Projects</p>
+          <ProjectsList brandId={current} />
+        </div>
+      )}
       {owner && (
         <div className="mt-4 border-t border-border pt-2">
           {wide && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">Studio</p>}

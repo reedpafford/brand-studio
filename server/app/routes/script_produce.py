@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app import breakdown, narration, plans, script_preview, song_takes
 from app import script_library as lib
+from app import video_settings as vs
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -24,6 +25,7 @@ from app.routes.jobs import enqueue
 from app.routes.projects import _set_length
 from app.routes.references import for_script as script_reference
 from app.routes.script_library import Slot
+from app.routes.video_settings import VideoSettingsIn
 
 router = APIRouter(prefix="/scripts/{script_id}/drafts/{slot}", tags=["script library"])
 
@@ -41,11 +43,13 @@ def produce(
     script_id: int,
     slot: Slot,
     request: Request,
+    body: VideoSettingsIn | None = None,  # Make this version's Video settings row (VS1)
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     """Start production of an approved version of a published script. Each version makes
-    one video, reserved for whoever starts it."""
+    one video, reserved for whoever starts it, with the settings sent (VS1), each checked by its
+    own rules: a look's On/Off, the catalogue's models, the brand's flavours."""
     script = lib.get_script(db, user, script_id)
     draft = lib.get_draft(db, script, slot)
     if not script.published:
@@ -68,6 +72,8 @@ def produce(
         script_draft_id=draft.id,
         look=script.look,  # the video's own from here on (VS1)
     )
+    for field, value in (body.model_dump(exclude_none=True) if body else {}).items():
+        setattr(project, *vs.check(db, user, project, {field: value}).popitem())
     if script.kind in narration.TIMED and (take := song_takes.preferred(db, draft)):
         project.song_take_id = take.id  # the video's own choice from here on (rule 31)
     _set_length(db, user, project, draft.target_seconds)
@@ -101,6 +107,8 @@ def produce(
                 created_by_id=user.id,
             )
         )
+        db.flush()
+        vs.follow_lip_sync(db, project, could=True)  # a no-lip-sync model: Sung shots to B-roll
         db.commit()
         return ProduceOut(project_id=project.id, breakdown_job_id=None)
     # Every video gets a plan before its shots (flows 1b): the plan call is what this press

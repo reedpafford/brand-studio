@@ -49,14 +49,19 @@ class SettingsOut(BaseModel):
     flavours: dict[str, list[str]]  # product -> its variants
 
 
-class SettingIn(BaseModel):
-    """Exactly one setting. A model's null is Auto."""
+class VideoSettingsIn(BaseModel):
+    """The settings a video can be given. A model's null is Auto."""
 
     look: str | None = None
     video_model: str | None = None
     image_model: str | None = None
     aspect_ratio: Literal["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] | None = None
     product_variants: dict[str, str] | None = None
+
+
+class SettingIn(VideoSettingsIn):
+    """Exactly one setting."""
+
     undo: bool | None = None  # true: Undo, putting back `was` (never refused)
 
 

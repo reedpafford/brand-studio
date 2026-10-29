@@ -9,7 +9,9 @@ from app.settings import get_settings
 
 config = context.config
 if config.config_file_name:
-    fileConfig(config.config_file_name)
+    # Keep the app's loggers on: by default fileConfig turns off every logger that already exists,
+    # so a migration run (in tests, or before the app logs) would silence them.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 url = config.get_main_option("sqlalchemy.url") or get_settings().database_url
 
