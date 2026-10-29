@@ -44,7 +44,7 @@ test("an empty cast offers Find roles in the script at its price, and pressing i
   const calls = fakeServer(base({ "POST /scripts/7/cast/read": [201, { id: 90, kind: "write-claude", status: "queued" }] }));
   open();
   expect(await screen.findByText("Claude can find the roles in your script.")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Find roles in the script · 4 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Find roles in the script · up to 4 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/cast/read")).toBe(true));
 });
 
@@ -60,7 +60,7 @@ test("with roles there is Find roles again, after a confirm", async () => {
   setViewport(1440);
   const calls = fakeServer(base({ "GET /scripts/7/cast": [200, [slot]], "POST /scripts/7/cast/read": [201, { id: 91, kind: "write-claude", status: "queued" }] }));
   open();
-  await userEvent.click((await screen.findAllByRole("button", { name: "Find roles again · 4 credits" })).at(-1)!);
+  await userEvent.click((await screen.findAllByRole("button", { name: "Find roles again · up to 4 credits" })).at(-1)!);
   const dialog = await screen.findByRole("alertdialog", { name: "Find the roles again?" });
   expect(dialog).toHaveTextContent("Locked roles stay locked; roles you added stay.");
   await userEvent.click(within(dialog).getByRole("button", { name: "Find roles" }));
@@ -74,7 +74,7 @@ test("in Lock to a look, a character without a sheet gets Make sheet at its pric
   await userEvent.click(await screen.findByRole("button", { name: "Lock Mia to a look" }));
   const panel = await screen.findByRole("dialog", { name: "Lock Mia to a look" });
   expect(within(panel).getByText("No approved sheet yet")).toBeInTheDocument();
-  await userEvent.click(within(panel).getByRole("button", { name: "Make sheet · 3 credits" }));
+  await userEvent.click(within(panel).getByRole("button", { name: "Make sheet · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ change: "" }));
 });
 
@@ -115,7 +115,7 @@ test("a refused Find roles shows the server's reason alone", async () => {
   setViewport(1440);
   fakeServer(base({ "POST /scripts/7/cast/read": [409, { detail: "The cast is already being read for this script." }] }));
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Find roles in the script · 4 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Find roles in the script · up to 4 credits" }));
   expect(await screen.findByText("The cast is already being read for this script.")).toBeInTheDocument();
   expect(screen.queryByText(/weren't found/)).toBeNull();
 });

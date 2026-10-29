@@ -161,7 +161,7 @@ function Studio({ models }: { models: Model[] }) {
   const footer = (
     <div className="space-y-1">
       <Button
-        price={credits}
+        charge="fixed" price={credits}
         busy={generate.isPending}
         disabled={reason !== null}
         reason={reason}

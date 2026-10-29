@@ -398,7 +398,7 @@ test("the owner makes a character's sheet in another look, then approves it with
   const calls = fakeServer({ ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90 }] });
   renderAt("/b/1/library/characters/5");
   const pixar = await screen.findByLabelText("Disney Pixar sheet");
-  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet · 2 credits/ }));
+  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet · up to 2 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ look_id: "pixar", change: "" }));
   expect(screen.queryByLabelText("House sheet")).toBeNull();
 });

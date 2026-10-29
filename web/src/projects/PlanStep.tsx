@@ -174,7 +174,7 @@ function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene:
           <TextArea label={`What should change in scene ${n}?`} rows={2} maxLength={500} placeholder="Make it funnier: he's a drama queen" value={asked} onChange={(e) => setAsked(e.target.value)} />
           <p className="text-sm text-muted">Its lines stay; only what we see changes. This plan is kept under Earlier plans.</p>
           <div className="flex flex-wrap gap-2">
-            <Button price={rewrite.credits} disabled={!asked.trim() || !!rewrite.stop} reason={!asked.trim() ? "Say what to change in this scene" : rewrite.stop} busy={rewrite.busy} onClick={() => rewrite.run(scene.id, asked.trim(), () => setAsked(null))}>Change this scene</Button>
+            <Button charge="estimate" price={rewrite.credits} disabled={!asked.trim() || !!rewrite.stop} reason={!asked.trim() ? "Say what to change in this scene" : rewrite.stop} busy={rewrite.busy} onClick={() => rewrite.run(scene.id, asked.trim(), () => setAsked(null))}>Change this scene</Button>
             <Button variant="ghost" onClick={() => setAsked(null)}>Cancel</Button>
           </div>
         </div>
@@ -276,7 +276,7 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
   const price = p?.estimate_credits ?? planCredits ?? rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit ?? null;
   // On a script the plan is optional and Next stays the step's amber press, so its presses are secondary there.
   const makeButton = (label: string, primary = !home.script) => (
-    <Button variant={primary ? "primary" : "secondary"} price={price} disabled={!!stop} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
+    <Button variant={primary ? "primary" : "secondary"} charge="estimate" price={price} disabled={!!stop} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
       {label}
     </Button>
   );
@@ -352,7 +352,7 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
           title="Made for older words."
           action={
             canRewrite ? (
-              <Button variant="secondary" price={price} disabled={!!stop} reason={stop} busy={update.isPending} onClick={() => askFirst(() => update.mutate())}>Update the plan</Button>
+              <Button variant="secondary" charge="estimate" price={price} disabled={!!stop} reason={stop} busy={update.isPending} onClick={() => askFirst(() => update.mutate())}>Update the plan</Button>
             ) : (
               makeButton("Make a new plan", false)
             )
@@ -389,7 +389,7 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
         ))}
       </ul>
       {!approved && (
-        <Button variant={home.script ? "secondary" : "primary"} price={home.script ? undefined : (p.approve_credits ?? null)} disabled={!home.script && !!stop} reason={home.script ? null : stop} busy={approve.isPending} onClick={() => approve.mutate()}>
+        <Button variant={home.script ? "secondary" : "primary"} charge="estimate" price={home.script ? undefined : (p.approve_credits ?? null)} disabled={!home.script && !!stop} reason={home.script ? null : stop} busy={approve.isPending} onClick={() => approve.mutate()}>
           {home.script ? "Approve the plan" : "Approve the plan · makes the shots"}
         </Button>
       )}

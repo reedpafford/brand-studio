@@ -127,14 +127,14 @@ const draftJob = (o: object) => ({ id: 70, kind: "write-claude", step: "script_d
 test("with no script, Claude can write drafts from the brief, with the cost shown", async () => {
   const calls = fakeServer({ ...none, "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []], "POST /projects/9/script/draft": [201, draftJob({ status: "queued" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Write drafts · 3 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Write drafts · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/draft")).toBe(true));
 });
 
 test("Write drafts rounds an owner's rate up, never below the charge (2.04 reads 3 credits)", async () => {
   fakeServer({ ...none, "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 2.04 }]], "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
   open();
-  expect(await screen.findByRole("button", { name: "Write drafts · 3 credits" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Write drafts · up to 3 credits" })).toBeInTheDocument();
 });
 
 test("finished drafts show their hook idea and script, and Use this draft makes it the working script", async () => {
@@ -170,7 +170,7 @@ test("a failed draft run says credits came back and offers another go", async ()
 test("over the video's budget an editor's drafts button is off, with the reason", async () => {
   fakeServer({ ...none, "GET /projects/9": [200, { ...project, credits_used: 59, budget_credits: 60 }], "GET /jobs": [200, []], "GET /projects/9/script/drafts": [200, []] });
   open();
-  const write = await screen.findByRole("button", { name: /^Write drafts · 3 credits/ });
+  const write = await screen.findByRole("button", { name: /^Write drafts · up to 3 credits/ });
   expect(write).toBeDisabled();
   expect(write).toHaveAccessibleDescription("That's more than this video's budget.");
 });

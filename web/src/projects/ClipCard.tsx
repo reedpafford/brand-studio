@@ -214,7 +214,7 @@ export function ClipCard(props: {
           <div className="flex gap-2">
             <Button
               dense
-              price={props.cost}
+              charge="fixed" price={props.cost}
               disabled={!!props.stopFor(props.cost) || props.busy || !note.trim()}
               reason={props.busy ? "A take is being made." : props.stopFor(props.cost) ?? (note.trim() ? null : "Say what's wrong first.")}
               onClick={() => {
@@ -291,7 +291,7 @@ export function ClipCard(props: {
           )}
           {/* A prompt only waiting for Prompt OK isn't a reason: the press marks it Prompt OK and makes the take (#751). */}
           {note === null && (
-            <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => { if (props.toRead) props.onLooksGood(); props.onGenerate(); }}>
+            <Button variant="secondary" dense charge="fixed" price={props.cost} disabled={!!why} reason={why} onClick={() => { if (props.toRead) props.onLooksGood(); props.onGenerate(); }}>
               {verb}
             </Button>
           )}

@@ -163,7 +163,7 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
             )}
           </div>
           {writeAll.isError && <Banner title={writeAll.error.message}>Nothing was charged.</Banner>}
-          <Button price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data || stopped} reason={stopped && week.data && estimate.data ? weekStop(week.data, estimate.data.credits) : stopped ? "That's more than the credits you have left this week. It resets on Monday." : undefined} onClick={() => writeAll.mutate()} className="w-full">
+          <Button charge="estimate" price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data || stopped} reason={stopped && week.data && estimate.data ? weekStop(week.data, estimate.data.credits) : stopped ? "That's more than the credits you have left this week. It resets on Monday." : undefined} onClick={() => writeAll.mutate()} className="w-full">
             Write all scripts
           </Button>
           <Button variant="ghost" onClick={onClose} className="w-full">

@@ -38,7 +38,7 @@ test("an Off look offers Make a sample of the brand's hero at its price; House i
   const card = await screen.findByLabelText("Disney Pixar");
   expect(within(card).getByText("Off for editors")).toBeInTheDocument();
   expect(await within(card).findByText(/One still and one 5 s clip of Bo/)).toBeInTheDocument();
-  await userEvent.click(within(card).getByRole("button", { name: /Make a sample · 6 credits/ }));
+  await userEvent.click(within(card).getByRole("button", { name: /Make a sample · up to 6 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /looks/pixar/sample")?.body).toEqual({ brand_id: 1, character_id: 5 }));
   expect(within(screen.getByLabelText("House")).getByText("The house look is always on.")).toBeInTheDocument();
 });
@@ -84,7 +84,7 @@ test("a failed sample says why with Try again; an On look offers Switch off", as
   open();
   const card = await screen.findByLabelText("Disney Pixar");
   expect(await within(card).findByText("The still was refused. Nothing was charged.")).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: /Try again · 6 credits/ })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Try again · up to 6 credits/ })).toBeInTheDocument();
   expect(within(screen.getByLabelText("Zack D")).getByRole("button", { name: "Switch off" })).toBeInTheDocument();
 });
 

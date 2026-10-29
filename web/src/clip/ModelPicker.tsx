@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { Menu, MenuItem, roundUp } from "../components";
+import { creditsText, Menu, MenuItem } from "../components";
 import { fromRate, type Model } from "./logic";
 
 const range = (m: Model) =>
@@ -33,7 +33,7 @@ export function ModelPicker(props: { models: Model[]; value: Model; onChange: (m
             <span className="block py-2">
               <span className="block font-medium">{m.name}</span>
               <span className="block text-sm text-muted">
-                {range(m)} · from {roundUp(fromRate(m), 1)} credits a second
+                {range(m)} · from {creditsText(fromRate(m))} a second
               </span>
             </span>
           </MenuItem>

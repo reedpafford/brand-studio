@@ -70,8 +70,8 @@ export function RoleTextFit({ asset, projectId, stopFor, onDone }: { asset: Asse
   const decline = stopFor(asset.text_check_credits);
   return (
     <div className="w-full space-y-1">
-      <Button variant="ghost" busy={check.isPending} price={asset.text_check_credits} reason={decline} disabled={!!decline} onClick={() => check.mutate()}>
-        Check the description against the look
+      <Button variant="ghost" busy={check.isPending} charge="estimate" price={asset.text_check_credits} reason={decline} disabled={!!decline} onClick={() => check.mutate()}>
+        Check the words against the look
       </Button>
       {error && <p role="alert" className={errorClass}>{error}</p>}
     </div>

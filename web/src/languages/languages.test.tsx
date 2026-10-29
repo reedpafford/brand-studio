@@ -38,7 +38,7 @@ test("an Off language offers Test Spanish at its price for the brand; English is
   open();
   const card = await screen.findByLabelText("Spanish");
   expect(within(card).getByText("Off for editors")).toBeInTheDocument();
-  await userEvent.click(await within(card).findByRole("button", { name: /Test Spanish · 3 credits/ }));
+  await userEvent.click(await within(card).findByRole("button", { name: /Test Spanish · up to 3 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /languages/es/sample")?.body).toEqual({ brand_id: 1 }));
   expect(within(screen.getByLabelText("English")).getByText("English is always on.")).toBeInTheDocument();
 });
@@ -84,7 +84,7 @@ test("a failed test says why with Try again; the test site says first if it's a 
   const card = await screen.findByLabelText("Spanish");
   expect(await within(card).findByText("The test didn't finish. Nothing was charged for it.")).toBeInTheDocument();
   expect(within(card).getByText(note)).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: /Try again · 3 credits/ })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Try again · up to 3 credits/ })).toBeInTheDocument();
 });
 
 test("a card whose test couldn't load says why with Try again", async () => {

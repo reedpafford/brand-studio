@@ -60,7 +60,7 @@ export function CostBarProvider(props: {
   const after = shown?.price != null && !shown.reason ? left - shown.price : null;
   const value = useMemo(() => setAction, []);
   const press = shown && (
-    <Button price={shown.price} upTo={shown.upTo} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
+    <Button price={shown.price} charge={shown.upTo ? "estimate" : "fixed"} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
       {shown.label}
     </Button>
   );

@@ -57,7 +57,7 @@ test("with no breakdown it offers to make one and shows the cost", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "POST /projects/9/breakdown": [201, { id: 8, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
   open();
   expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Make the breakdown · 6 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Make the breakdown · up to 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown")).toBe(true));
   expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
 });
@@ -152,7 +152,7 @@ test("a breakdown made for an older script is flagged and offers a new one", asy
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ script_version: 3, stale: true })] });
   open();
   expect(await screen.findByText("This breakdown was made for older words.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make it again · 6 credits" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make it again · up to 6 credits" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveAccessibleDescription("Make new shots first");
 });
 
@@ -160,7 +160,7 @@ test("Redo asks first when the breakdown was edited, and a failed run says nothi
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ source: "edit" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Redo · 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Redo · up to 6 credits" }));
   expect(confirm).toHaveBeenCalledWith("Replace this breakdown? Your edits are kept in History.");
 });
 
@@ -276,7 +276,7 @@ test("on desktop Next waits, disabled, while edits are unsaved, and says why", a
 test("Redo is a secondary button; Next is the only primary one", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
   open();
-  const redo = await screen.findByRole("button", { name: "Redo · 6 credits" });
+  const redo = await screen.findByRole("button", { name: "Redo · up to 6 credits" });
   expect(redo).not.toHaveClass("bg-accent");
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveClass("bg-accent");
 });
@@ -284,7 +284,7 @@ test("Redo is a secondary button; Next is the only primary one", async () => {
 test("an editor's paid button is off, with the reason, when the call would take the video past its budget; nothing asks Reed", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();
-  const redo = await screen.findByRole("button", { name: "Redo · 6 credits" });
+  const redo = await screen.findByRole("button", { name: "Redo · up to 6 credits" });
   expect(redo).toBeDisabled();
   expect(redo).toHaveAccessibleDescription("That's more than this video's budget.");
   expect(screen.queryByText(/Ask Reed/)).not.toBeInTheDocument();
@@ -293,7 +293,7 @@ test("an editor's paid button is off, with the reason, when the call would take 
 test("Reed past the budget gets the plain button: pressing it is his approval", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();
-  expect(await screen.findByRole("button", { name: "Redo · 6 credits" })).toBeEnabled();
+  expect(await screen.findByRole("button", { name: "Redo · up to 6 credits" })).toBeEnabled();
 });
 
 test("'lines 2 ◂' lights those lines in the script, and a script line lights its shot", async () => {

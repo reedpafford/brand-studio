@@ -240,7 +240,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; own
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
         {!bar && (
-          <Button dense price={writeCost} busy={write.isPending} disabled={!!stopFor(writeCost)} reason={stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
+          <Button dense charge="estimate" price={writeCost} busy={write.isPending} disabled={!!stopFor(writeCost)} reason={stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
             Write clip prompts
           </Button>
         )}
@@ -265,7 +265,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; own
           <Button
             variant={stale.length > 0 ? "secondary" : "primary"} // the rewrite is the step's amber while any clip is stale
             dense
-            price={allCost}
+            charge="fixed" price={allCost}
             busy={generate.isPending}
             disabled={!!makeWhy}
             reason={makeWhy}

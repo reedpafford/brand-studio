@@ -142,7 +142,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
                         {t.refused_for && <p className="text-sm text-muted">The lyrics are final in a video: try again, or use another take.</p>}
                         {/* The lyrics are final in a video: the way on is another take, or this one again when a retry can help. */}
                         {t.retry_helps && (
-                          <Button variant="ghost" icon={RotateCcw} price={t.status === "failed" ? data.estimate_credits : 0} busy={again.isPending && again.variables === t.id} onClick={() => again.mutate(t.id)}>
+                          <Button variant="ghost" icon={RotateCcw} charge="fixed" price={t.retry_credits} busy={again.isPending && again.variables === t.id} onClick={() => again.mutate(t.id)}>
                             Try again
                           </Button>
                         )}
@@ -171,7 +171,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
           </ul>
           {data.songs_note && <p className="text-sm text-muted">{data.songs_note}</p>}
           {data.songs_on && (
-            <Button variant="secondary" icon={Music} price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
+            <Button variant="secondary" icon={Music} charge="fixed" price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
               {W.more}
             </Button>
           )}

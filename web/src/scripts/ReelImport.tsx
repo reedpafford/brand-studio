@@ -160,7 +160,7 @@ export function ReadReelButton({ scriptId, createdById, className }: { scriptId:
   const stop = allowanceStop ?? notEnough(r.estimate);
   return (
     <div className="space-y-2">
-      <Button className={className} busy={read.isPending} disabled={!r.estimate || stop !== null} reason={stop} price={r.estimate?.credits} onClick={() => read.mutate()}>
+      <Button className={className} busy={read.isPending} disabled={!r.estimate || stop !== null} reason={stop} charge="estimate" price={r.estimate?.credits} onClick={() => read.mutate()}>
         {r.status === "failed" ? "Try again" : "Read this reel"}
       </Button>
       {read.isError && <p role="alert" className={errorClass}>{read.error.message}</p>}
@@ -204,7 +204,7 @@ function ReadAgain({ scriptId, createdById, credits, onClose }: { scriptId: numb
         <TextArea label="What did it get wrong? (optional)" rows={4} maxLength={500} placeholder="e.g. shot 3 is the groom, not the priest; the montage starts at 0:17" value={note} onChange={(e) => { setNote(e.target.value); again.reset(); }} />
         <p className="text-sm text-muted">The download and the dialogue are kept. Only the breakdown and the script are made again.</p>
         {again.isError && <p role="alert" className={errorClass}>{again.error.message}</p>}
-        <Button busy={again.isPending} price={credits ?? undefined} icon={RotateCcw} disabled={stop !== null} reason={stop} onClick={() => again.mutate()} className="w-full">
+        <Button busy={again.isPending} charge="estimate" price={credits ?? undefined} icon={RotateCcw} disabled={stop !== null} reason={stop} onClick={() => again.mutate()} className="w-full">
           Read it again
         </Button>
       </div>

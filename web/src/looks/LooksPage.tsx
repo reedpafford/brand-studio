@@ -99,7 +99,7 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
           {s.clip_id && <video controls muted src={fileUrl(s.clip_id)} className="w-full rounded-md" aria-label={`${l.name} sample clip`} />}
           <div className="flex flex-wrap gap-2">
             <Button busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>
-            <Button variant="ghost" busy={make.isPending} price={s.credits} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>Make another sample</Button>
+            <Button variant="ghost" busy={make.isPending} charge="estimate" price={s.credits} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>Make another sample</Button>
           </div>
         </div>
       ) : (
@@ -116,7 +116,7 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
             </Select>
           )}
           {s.test_site && <p className="text-sm text-muted">{s.test_site}</p>}
-          <Button price={s.credits} busy={make.isPending} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>
+          <Button charge="estimate" price={s.credits} busy={make.isPending} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>
             {s.status === "failed" ? "Try again" : "Make a sample"}
           </Button>
         </div>

@@ -4,7 +4,7 @@ import { Bell, Check, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Card, Dialog, EmptyState, roundUp, Skeleton } from "../components";
+import { Banner, Button, Card, creditsText, Dialog, EmptyState, Skeleton } from "../components";
 import { Meter } from "../projects/Meter";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
@@ -35,7 +35,6 @@ function ago(iso: string) {
 }
 
 const whole = (n: number) => Math.round(n * 10) / 10;
-const charge = (n: number) => roundUp(n, 1); // what approving charges: never shown below it
 const dollars = (n: number) => `$${n.toFixed(2)}`;
 
 /** Owner only: one place to decide on everything that's waiting. */
@@ -102,10 +101,10 @@ export function ApprovalsPage() {
   const known = held.heldJobs.every((j) => usd.get(j.id) !== undefined);
   const totalUsd = held.heldJobs.reduce((n, j) => n + (usd.get(j.id) ?? 0), 0);
   const money = known && held.heldJobs.length > 0 ? ` (${dollars(totalUsd)})` : "";
-  const count = `${held.count} waiting${credits > 0 ? ` · ${charge(credits)} credits${money}` : ""}`;
+  const count = `${held.count} waiting${credits > 0 ? ` · ${creditsText(credits)}${money}` : ""}`;
   const all = (
-    <Button disabled={held.count === 0} busy={approveAll.isPending} onClick={() => setAsking(true)}>
-      Approve all{credits > 0 ? ` · ${charge(credits)} credits` : ""}
+    <Button charge="estimate" price={credits > 0 ? credits : undefined} disabled={held.count === 0} busy={approveAll.isPending} onClick={() => setAsking(true)}>
+      Approve all
     </Button>
   );
   return (
@@ -136,7 +135,7 @@ export function ApprovalsPage() {
         </Card>
       )}
       {asking && (
-        <Dialog title={`Approve ${held.count} request${held.count === 1 ? "" : "s"} for ${charge(credits)} credits${money}?`} cancelLabel="Keep them" actionLabel="Approve all" busy={approveAll.isPending} onCancel={() => setAsking(false)} onConfirm={() => approveAll.mutate()}>
+        <Dialog title={`Approve ${held.count} request${held.count === 1 ? "" : "s"} for ${creditsText(credits)}${money}?`} cancelLabel="Keep them" actionLabel="Approve all" busy={approveAll.isPending} onCancel={() => setAsking(false)} onConfirm={() => approveAll.mutate()}>
           Everything waiting starts now.
         </Dialog>
       )}
@@ -222,7 +221,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
         </div>
         {job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>}
         <p className="tabular-nums">
-          {charge(job.credits)} credits{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
+          {creditsText(job.credits)}{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
         </p>
         {!project && !job.step && week && (
           <p className="text-muted tabular-nums">

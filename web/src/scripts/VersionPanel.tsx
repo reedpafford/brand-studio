@@ -121,7 +121,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           {estimate.isError && <p role="alert" className={errorClass}>{estimate.error.message}</p>}
           {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
           {readyToMake ? (
-            <Button price={cost} disabled={held !== null} reason={held} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
+            <Button charge="estimate" price={cost} disabled={held !== null} reason={held} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
               Make this version
             </Button>
           ) : (

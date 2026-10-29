@@ -84,14 +84,14 @@ export function LookSheets({ item }: { item: Item }) {
               </p>
               {failed(l.id) && s.status === "none" && <p role="alert" className={errorClass}>The sheet didn't finish. Nothing was charged.</p>}
               {owner && s.status === "none" && (
-                <Button variant="secondary" dense price={price} busy={make.isPending && make.variables === l.id} onClick={() => make.mutate(l.id)}>
+                <Button variant="secondary" dense charge="estimate" price={price} busy={make.isPending && make.variables === l.id} onClick={() => make.mutate(l.id)}>
                   {failed(l.id) ? "Try again" : <>Make {/^[aeiou]/i.test(l.name) ? "an" : "a"} {l.name} sheet</>}
                 </Button>
               )}
               {owner && s.status === "needs_approval" && (
                 <div className="flex flex-wrap gap-2">
                   <Button dense busy={approve.isPending && approve.variables === l.id} onClick={() => approve.mutate(l.id)}>Approve</Button>
-                  <Button variant="ghost" dense price={price} busy={make.isPending && make.variables === l.id} onClick={() => make.mutate(l.id)}>Redo</Button>
+                  <Button variant="ghost" dense charge="estimate" price={price} busy={make.isPending && make.variables === l.id} onClick={() => make.mutate(l.id)}>Redo</Button>
                 </div>
               )}
               {!owner && s.status === "none" && <p className="text-muted">Only the owner adds a sheet in a look.</p>}

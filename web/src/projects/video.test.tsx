@@ -359,7 +359,7 @@ test("Change this… sits under every still with its price; a note is sent as it
   expect(screen.getByRole("button", { name: /^Change it/ })).toBeDisabled();
   expect(screen.getByText("Say what should change")).toBeInTheDocument();
   await userEvent.type(box, "Bo should look surprised");
-  await userEvent.click(await screen.findByRole("button", { name: "Change it · 4 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Change it · up to 4 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/change")?.body).toEqual({ note: "Bo should look surprised" }));
   await vi.waitFor(() => expect(box).toHaveValue(""));
 });
@@ -376,7 +376,7 @@ test("a note that changes what's said is refused in the server's words, kept in 
   open("?step=storyboard");
   const box = await screen.findByLabelText("Change this… c1");
   await userEvent.type(box, "Make Bo say hello");
-  await userEvent.click(await screen.findByRole("button", { name: "Change it · 4 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Change it · up to 4 credits" }));
   expect(await screen.findByText(/The note changes what's said\. The spoken lines stay exactly as written\. To change the words, edit the script\./)).toBeInTheDocument();
   expect(box).toHaveValue("Make Bo say hello");
 });
@@ -434,7 +434,7 @@ test("Change this… on a clip has the clip's price, and an editor past the budg
   });
   open("?step=clips");
   await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
-  const button = await screen.findByRole("button", { name: "Change it and make a new take · 27 credits" });
+  const button = await screen.findByRole("button", { name: "Change it and make a new take · up to 27 credits" });
   expect(button).toBeDisabled();
   expect(button).toHaveAccessibleDescription("That's more than this video's budget.");
 });
@@ -470,7 +470,7 @@ test("Undo after a clip change goes back to the take that was picked when Change
   }));
   open("?step=clips");
   await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
-  await userEvent.click(await screen.findByRole("button", { name: "Change it and make a new take · 27 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Change it and make a new take · up to 27 credits" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }, { timeout: 9000 }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/takes/1/pick")).toBe(true));
 }, 20000);
@@ -489,7 +489,7 @@ test("a take that failed before the prompt was changed no longer reads as failin
   expect(within(card).queryByText(/couldn't finish this/)).toBeNull();
   expect(within(card).queryByText("Failed · credits returned")).toBeNull();
   expect(within(card).getByText(/Prompt updated\. Read it, then press Make clip/)).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: "Change the prompt · 3 credits" })).toBeInTheDocument(); // no take yet: only the prompt
+  expect(within(card).getByRole("button", { name: "Change the prompt · up to 3 credits" })).toBeInTheDocument(); // no take yet: only the prompt
 });
 
 test("after Reword it to pass (a free fix in code), the refused take reads as before the change", async () => {
@@ -520,7 +520,7 @@ test("when the newest take failed but an earlier take is picked, the clip stays 
   const line = await within(card).findByText(/The newest take didn't work; Take 1 is still picked\./);
   expect(line.closest("p")).toHaveClass("text-muted");
   expect(within(card).queryByText("Didn't finish")).toBeNull();
-  expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Change it and make a new take · up to 22 credits" })).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: /Make another take/ })).toBeEnabled(); // the failed one can be tried again: no dead end
 });
 
@@ -555,9 +555,9 @@ test("once a clip has a take, Change it shows the full price (rewrite and take),
   }));
   open("?step=clips");
   await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
-  expect(await screen.findByRole("button", { name: "Change the prompt · 3 credits" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Change the prompt · up to 3 credits" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /^Make clip/ }));
-  expect(await screen.findByRole("button", { name: "Change it and make a new take · 22 credits" }, { timeout: 9000 })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Change it and make a new take · up to 22 credits" }, { timeout: 9000 })).toBeInTheDocument();
 }, 15000);
 
 test("a clip change that didn't finish says the server's words, keeps the note in the box, and Try again sends it again", async () => {
@@ -572,7 +572,7 @@ test("a clip change that didn't finish says the server's words, keeps the note i
   expect(await screen.findByText("That change didn't finish. Nothing was charged.")).toBeInTheDocument();
   expect(screen.getByLabelText("Change this… c1")).toHaveValue("Slower, warmer light");
   expect(screen.queryByText(/Ask the owner/)).toBeNull();
-  await userEvent.click(await screen.findByRole("button", { name: "Try again · 27 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Try again · up to 27 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/change")?.body).toEqual({ note: "Slower, warmer light" }));
 });
 
@@ -588,7 +588,7 @@ test("Changing… stops when its rewrite job has failed, even while the clip sti
   expect(await screen.findByText("That change didn't finish.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Changing…" })).toBeNull();
   expect(screen.getByLabelText("Change this… c1")).not.toHaveAttribute("readonly");
-  expect(screen.getByRole("button", { name: "Try again · 27 credits" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Try again · up to 27 credits" })).toBeEnabled();
 });
 
 test("Assets waits for its list and the brand's products: no 0 assets, no Not in this video's shots, no flavour reason from a cached earlier list", async () => {
@@ -766,7 +766,7 @@ test("a look approved before the words were checked offers the check at its pric
   open();
   const card = await screen.findByLabelText("Biscuit");
   expect(within(card).queryByRole("note", { name: /Role words/ })).toBeNull();
-  await userEvent.click(within(card).getByRole("button", { name: /^Check the description against the look · 1 credit/ }));
+  await userEvent.click(within(card).getByRole("button", { name: /^Check the words against the look · up to 1 credit/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/check-text")).toBe(true));
 });
 
@@ -1217,7 +1217,7 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
   expect(within(card).queryByLabelText("Change this…")).toBeNull();
-  await userEvent.click(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · 3 credits" }));
+  await userEvent.click(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
 });
 
@@ -1435,7 +1435,7 @@ test("once the free rewrite is used, the clip says so and offers the priced Rewr
   expect(within(card).queryByRole("button", { name: "Fix this clip's prompt" })).toBeNull();
   expect(within(card).getByRole("status")).toHaveTextContent("We couldn't fix this one automatically.");
   expect(within(card).getByRole("status")).not.toHaveTextContent("Try saying");
-  expect(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · 3 credits" })).toBeInTheDocument();
+  expect(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · up to 3 credits" })).toBeInTheDocument();
   expect(within(card).getByLabelText("Change this…")).toBeInTheDocument();
 });
 

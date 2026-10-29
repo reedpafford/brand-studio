@@ -26,7 +26,7 @@ export function RewriteNote({ count, inBar, ...props }: Props & { count: number;
       title={`${count} clip${count === 1 ? " was" : "s were"} made for an older breakdown. Rewrite ${count === 1 ? "its prompt" : "their prompts"} so ${count === 1 ? "it matches" : "they match"}.`}
       action={
         inBar ? undefined : (
-          <Button busy={props.busy} price={price} reason={stop} disabled={!!stop} onClick={props.onRewrite}>
+          <Button busy={props.busy} charge="estimate" price={price} reason={stop} disabled={!!stop} onClick={props.onRewrite}>
             Rewrite clip prompts
           </Button>
         )
@@ -40,7 +40,7 @@ export function RewriteOne({ clipId, ...props }: Props & { clipId: string }) {
   const price = useRewritePrice(props.projectId, clipId);
   const stop = props.stopFor(price);
   return (
-    <Button variant="secondary" icon={Wand2} busy={props.busy} price={price} reason={stop} disabled={!!stop} onClick={props.onRewrite}>
+    <Button variant="secondary" icon={Wand2} busy={props.busy} charge="estimate" price={price} reason={stop} disabled={!!stop} onClick={props.onRewrite}>
       Rewrite this clip&apos;s prompt
     </Button>
   );

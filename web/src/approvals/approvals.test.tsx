@@ -76,7 +76,7 @@ test("Approve all asks with the total in credits and dollars, then approves ever
     "POST /jobs/51/approve": [200, held({ id: 51, status: "queued" })],
   });
   open();
-  const button = await screen.findByRole("button", { name: /^Approve all · 67 credits/ });
+  const button = await screen.findByRole("button", { name: /^Approve all · up to 67 credits/ });
   await userEvent.click(button);
   const ask = await screen.findByRole("alertdialog", { name: /Approve 2 requests for 67 credits \(\$5\.86\)\?/ });
   expect(calls.some((c) => c.key.endsWith("/approve"))).toBe(false);

@@ -64,7 +64,7 @@ test("with no clips it offers to write the clip prompts, with the cost", async (
   const calls = fakeServer({ ...base, "GET /projects/9/clips": [200, []], "POST /projects/9/clips/prompts": [201, { id: 7, kind: "write-claude", step: "clip_prompts", status: "queued", credits: 6, project_id: 9 }] });
   open();
   expect(await screen.findByText("No clips yet.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · 6 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · up to 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
   expect(await screen.findByText("Writing your clip prompts…")).toBeInTheDocument();
 });
@@ -366,7 +366,7 @@ test("a failed prompt run says so, nothing was charged, and the one Write button
   expect(screen.queryByText("Writing your clip prompts…")).toBeNull();
   // One paid button, not two: the banner only says what happened.
   expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);
-  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · 6 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Write clip prompts · up to 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/prompts")).toBe(true));
 });
 

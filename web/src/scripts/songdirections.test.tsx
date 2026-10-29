@@ -39,7 +39,7 @@ test("empty lyrics: Write 2 song directions shows its price and sends the From a
   open();
   await userEvent.type(await screen.findByLabelText("From a script (optional)"), "Bo hated his bowl.");
   await userEvent.type(screen.getByLabelText("Sounds like (optional)"), "a sunny acoustic song");
-  await userEvent.click(screen.getByRole("button", { name: /Write 2 song directions for me · 3 credits/ }));
+  await userEvent.click(screen.getByRole("button", { name: /Write 2 song directions for me · up to 3 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/directions")?.body).toEqual({ source: "Bo hated his bowl.", sounds_like: "a sunny acoustic song" }));
 });
 
@@ -63,7 +63,7 @@ test("two cards: Recommended, the length, Leaves out and Not checked; Use this o
   expect(within(cards).getByText("Leaves out: the vet quote")).toBeInTheDocument();
   expect(within(cards).getByText('Not checked: "vet-approved in 7 days"')).toBeInTheDocument();
   expect(within(cards).getByText(/The style names "Jack Johnson"\. Suno won't take names/)).toBeInTheDocument();
-  expect(within(cards).getByRole("button", { name: /Write 2 more · 3 credits/ })).toBeInTheDocument();
+  expect(within(cards).getByRole("button", { name: /Write 2 more · up to 3 credits/ })).toBeInTheDocument();
   await userEvent.click(within(cards).getAllByRole("button", { name: "Use this one" })[0]);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/directions/11/use")).toBe(true));
   expect(await screen.findByText(/"Clean Bowl" is in\. The lyrics are yours now/)).toBeInTheDocument();
@@ -89,7 +89,7 @@ test("failed and refused say so, nothing charged, with Try again; nothing to go 
   fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_job: { id: 90, status: "failed", reason: "Claude won't write this: it won't promise a health result. Nothing was charged; try again.", started_at: "2026-10-29T03:00:00Z" } })] });
   open();
   expect(await screen.findByText(/Claude won't write this: it won't promise a health result/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Try again · 3 credits/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /Try again · up to 3 credits/ })).toBeEnabled();
 });
 
 test("nothing to go on: the press says why and links to the brand page", async () => {
@@ -156,7 +156,7 @@ test("a failure with no reason from the server still says nothing was charged, w
   fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_job: { id: 90, status: "failed", reason: null, started_at: "2026-10-29T03:00:00Z" } })] });
   open();
   expect(await screen.findByText(/The directions didn't finish\. Nothing was charged\./)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Try again · 3 credits/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /Try again · up to 3 credits/ })).toBeEnabled();
 });
 
 test("any other stop (an approved version) holds whatever is typed, with no brand-page link", async () => {

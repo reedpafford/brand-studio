@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Settings2 } from "lucide-react";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
-import { Badge, Button, Dialog, Panel, roundUp, Skeleton, useToast, wholeCredits } from "../components";
+import { Badge, Button, creditsText, Dialog, Panel, Skeleton, useToast, wholeCredits } from "../components";
 import { useMe } from "../auth/useMe";
 import { LookPicker, useLooks } from "../scripts/Looks";
 import { SongSetting } from "../scripts/VideoSong";
@@ -28,7 +28,7 @@ export function useVideoSettings(projectId: number) {
 export type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; overCap?: boolean; off?: boolean; body: SettingIn };
 export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; choices: Choice[] };
 
-const credits = (x: number) => `${roundUp(x, 2)} credit${x === 1 ? "" : "s"}`; // a rate: never shown below it
+const credits = creditsText; // a rate: one decimal, rounded up (rule 32)
 const perSecond = (x: number) => `${credits(x)} a second`;
 const perStill = (x: number) => `${credits(x)} a still`;
 const n = (k: number, one: string) => `${k} ${one}${k === 1 ? "" : "s"}`;
