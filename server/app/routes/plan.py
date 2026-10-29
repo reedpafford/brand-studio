@@ -150,8 +150,9 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
     from app.storyboard import assets
 
     version = plans.script(db, project)
-    plan = plans.current(db, project)
     job = plans.job_state(db, project)
+    plans.read_again(db, project)  # after the job: a plan saved with it is never missed
+    plan = plans.current(db, project)
     db.commit()  # a plan read from the breakdown, or a plan stopped for taking too long
     if plan is None and job is None:
         return None

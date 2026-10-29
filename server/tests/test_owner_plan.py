@@ -84,3 +84,26 @@ def test_a_preview_made_before_the_plan_never_starts_the_video(app, owner, edito
 
     row = db.query(BreakdownVersion).filter_by(project_id=made["project_id"]).one()
     assert row.data["plan_version"] == 1  # an edit to the video's plan makes it older
+
+
+def test_a_versions_plan_reads_while_made_and_once_landed(app, owner, db, monkeypatch):
+    """#945 with S6: the read-after-the-job re-reads only a video's row; a version's plan (a
+    stand-in, no row) reads fine while its job runs, and when the job lands mid-read."""
+    from app import plans
+
+    base = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
+    url = f"{base}/drafts/0/plan"
+    owner.post(url, json={})
+    running = owner.get(url)
+    assert running.status_code == 200 and running.json()["job"]["status"] == "queued"
+    real = plans.job_state
+
+    def lands_now(db_, project):
+        _write(app, db)  # the worker, in its own session, mid-request
+        return real(db_, project)
+
+    monkeypatch.setattr(plans, "job_state", lands_now)
+    landed = owner.get(url)
+    assert landed.status_code == 200, landed.text
+    monkeypatch.undo()
+    assert owner.get(url).json()["status"] == "ready" and owner.get(url).json()["scenes"]

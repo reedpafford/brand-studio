@@ -321,3 +321,107 @@ def _approved(item: LibraryItem, look: str | None, value: bool) -> None:
         item.sheet_approved = value
     elif sheet := (item.look_sheets or {}).get(look):
         item.look_sheets = {**item.look_sheets, look: {**sheet, "approved": value}}
+
+
+# --- OR3: the Preferred look -----------------------------------------------------------------
+
+OWNER_PREFERRED = "Only the owner picks which sheet Cast & places uses."
+NOT_A_SHEET = "That isn't one of this look's approved sheets."
+
+
+class SheetVersionOut(BaseModel):
+    file_id: int
+    look_id: str  # "house", or the look of an owner's sheet in another look (ST2)
+    made_at: str | None  # when the sheet was drawn (null: its file was purged)
+    preferred: bool  # the one storyboards and clips use now
+
+
+class PreferredIn(BaseModel):
+    file_id: int
+    look_id: str = looks.DEFAULT
+
+
+class PreferredOut(ItemOut):
+    was_file_id: int | None  # the sheet it replaced: Undo is Use this sheet with it
+
+
+def _sheets(db: Session, item: LibraryItem) -> list[SheetVersionOut]:
+    """Every approved sheet the item has had, from its saved versions, newest first."""
+    from sqlalchemy import select
+
+    from app.models.files import StoredFile
+    from app.models.library import LibraryItemVersion
+
+    olds = db.scalars(select(LibraryItemVersion).where(LibraryItemVersion.item_id == item.id)
+                      .order_by(LibraryItemVersion.version.desc()))  # fmt: skip
+    found: dict[tuple[str, int], None] = {}
+    for snap in [_snapshot_of(item), *(v.snapshot for v in olds)]:
+        if snap.get("sheet_approved") and snap.get("sheet_file_id"):
+            found.setdefault((looks.DEFAULT, snap["sheet_file_id"]))
+        for look, sheet in (snap.get("look_sheets") or {}).items():
+            if sheet.get("approved") and sheet.get("file_id"):
+                found.setdefault((look, sheet["file_id"]))
+    now = {(k, v.get("file_id")) for k, v in (item.look_sheets or {}).items() if v.get("approved")}
+    if item.sheet_approved:
+        now.add((looks.DEFAULT, item.sheet_file_id))
+    made = {f.id: f.created_at for f in db.scalars(
+        select(StoredFile).where(StoredFile.id.in_([f for _, f in found])))}  # fmt: skip
+    out = [SheetVersionOut(file_id=f, look_id=look, preferred=(look, f) in now,
+                           made_at=made[f].isoformat() if f in made else None)
+           for look, f in found]  # fmt: skip
+    return sorted(out, key=lambda s: s.made_at or "", reverse=True)
+
+
+def _snapshot_of(item: LibraryItem) -> dict:
+    return {"sheet_file_id": item.sheet_file_id, "sheet_approved": item.sheet_approved,
+            "look_sheets": item.look_sheets or {}}  # fmt: skip
+
+
+def _may_prefer(user: User, item: LibraryItem) -> None:
+    """Rule 12: Cast & places is the owner's; a video's or script's own look follows its own
+    rules (whoever may open it, as for approving its sheet)."""
+    if not own_look(item) and not user.is_owner:
+        raise HTTPException(403, OWNER_PREFERRED)
+
+
+@router.get("/versions", response_model=list[SheetVersionOut])
+def sheet_versions(
+    kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """OR3: the approved sheets, newest first; `preferred` is the one in use for its look."""
+    return _sheets(db, _item(db, user, kind, item_id))
+
+
+@router.post("/preferred", response_model=PreferredOut)
+def use_sheet(
+    kind: Kind,
+    item_id: int,
+    body: PreferredIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Use this sheet (OR3, the Preferred look): an earlier approved sheet is the one in use
+    again, for its look; nothing else of the item changes. Free, never refused over budget.
+    The stills and takes drawn from the other sheet read Out of date (N6, drawn_from_older)
+    and current again when it comes back. Undo is this press with `was_file_id`."""
+    item = _item(db, user, kind, item_id)
+    _may_prefer(user, item)
+    look = _look(user, item, body.look_id)  # another look's sheet: the owner's, as ever
+    if not any(s.file_id == body.file_id and s.look_id == body.look_id
+               for s in _sheets(db, item)):  # fmt: skip
+        raise HTTPException(404, NOT_A_SHEET)
+    was = (
+        item.sheet_file_id
+        if look is None
+        else (item.look_sheets or {}).get(look, {}).get("file_id")
+    )
+    if was == body.file_id:
+        return PreferredOut(**_out(item).model_dump(), was_file_id=None)
+    _save_version(db, user, item)
+    if look is None:
+        item.sheet_file_id, item.sheet_approved, item.look_fit = body.file_id, True, None
+    else:
+        item.look_sheets = {**(item.look_sheets or {}),
+                            look: {"file_id": body.file_id, "approved": True}}  # fmt: skip
+    db.commit()
+    return PreferredOut(**_out(item).model_dump(), was_file_id=was)

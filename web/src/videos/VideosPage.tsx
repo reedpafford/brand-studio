@@ -1,7 +1,7 @@
 import { ProjectsChip, folderQuery, useFolderFilter } from "../folders/Projects";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Clock, Film, Search } from "lucide-react";
+import { Check, ChevronRight, Clock, Film, Search } from "lucide-react";
 import { fileUrl } from "../api/upload";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -173,9 +173,17 @@ export function VideosPage() {
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
-      <div>
-        <p className="type-eyebrow text-muted">{brand?.name}</p>
-        <h1 className="type-page">Videos</h1>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="type-eyebrow text-muted">{brand?.name}</p>
+          <h1 className="type-page">Videos</h1>
+        </div>
+        {!rail && ( // the phone's five tabs have no Media: it opens from here
+          <Link to={`/b/${brandId}/media`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline">
+            Media
+            <ChevronRight size={20} strokeWidth={1.75} aria-hidden />
+          </Link>
+        )}
       </div>
       <ProjectsChip brandId={brandId} />
       {filters}

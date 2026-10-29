@@ -296,3 +296,58 @@ def script_spends(db: Session, brand_id: int) -> dict[int, tuple[Decimal, bool]]
         total, guessed = out.get(script_id, (Decimal(0), False))
         out[script_id] = (total + Decimal(cost or 0), guessed or bool(est))
     return out
+
+
+def _quick(job_input: dict, kind: str) -> bool:
+    return "step" not in job_input and kind.startswith(("video", "image"))
+
+
+def filed(db: Session, brand_id: int, when: Period, made_by: int | None = None,
+          quick_only: bool = False) -> dict:  # fmt: skip
+    """Per project (OR1 folder id; None is No project), in the period: dollars, whether any is
+    an estimate, and credits. Spend follows where each item is filed now, not where it was
+    when it ran: a video's jobs count with the video, a script's own calls (writing it) with
+    the script, a quick clip with itself, and anything else (looks, checks) in No project.
+    `made_by`: only that person's jobs; `quick_only`: only quick clips."""
+    from app.credits import COUNTED
+    from app.models.folders import Folder
+
+    gone = set(db.scalars(select(Folder.id).where(Folder.deleted_at.is_not(None))))
+    live = {}  # kept per kind: one item's folder, read once
+
+    def at(model, item_id):
+        if (model, item_id) not in live:
+            item = db.get(model, item_id) if item_id else None
+            folder = item.folder_id if item else None
+            live[model, item_id] = None if folder in gone else folder
+        return live[model, item_id]
+
+    def where_filed(job: Job):
+        if job.project_id is not None:
+            return at(Project, job.project_id)
+        draft = db.get(ScriptDraft, job.input.get("script_draft_id") or 0)
+        script_id = job.input.get("script_id") or (draft.script_id if draft else None)
+        if script_id:
+            return at(Script, script_id)
+        return at(Job, job.id) if _quick(job.input, job.kind) else None
+
+    out: dict = {}
+
+    def row(job: Job) -> dict | None:
+        if quick_only and (job.project_id is not None or not _quick(job.input, job.kind)):
+            return None
+        blank = {"spend": Decimal(0), "estimated": False, "credits": Decimal(0)}
+        return out.setdefault(where_filed(job), blank)
+
+    mine = [Job.created_by_id == made_by] if made_by is not None else []
+    jobs = select(Job).where(Job.brand_id == brand_id, *when.has(Job.created_at), *mine)
+    for job in db.scalars(jobs):
+        if (found := row(job)) is not None and job.status in COUNTED:
+            found["credits"] += Decimal(job.credits or 0)
+    charged = select(Job, Usage.cost_usd, Usage.estimated).join(Usage, Usage.job_id == Job.id)
+    for job, cost, est in db.execute(charged.where(Job.brand_id == brand_id, *mine,
+                                                   *when.has(Usage.created_at))):  # fmt: skip
+        if (found := row(job)) is not None:
+            found["spend"] += Decimal(cost or 0)
+            found["estimated"] = found["estimated"] or bool(est)
+    return out
