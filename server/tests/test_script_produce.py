@@ -4,7 +4,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from app import credits, prompts
+from app import credits, plans, prompts
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus
@@ -55,11 +55,25 @@ def test_produce_with_the_saved_breakdown_is_free_and_once(owner, editor, db):
     assert library["versions"][0]["project_id"] == pid
 
 
-def test_produce_without_a_saved_breakdown_runs_one(owner, editor, db):
+def test_produce_without_a_saved_breakdown_makes_its_plan(app, owner, editor, db):
+    """flows 1b (Reed): every video gets a plan before its shots. The plan call is what Make
+    this version charges, at the price it shows; a failed plan opens on Plan, never stuck."""
     base, _ = _published(owner, db, target=40)
+    shown = next(r for r in editor.get("/credits/rates").json() if r["kind"] == "write-claude")
     made = editor.post(f"{base}/drafts/0/produce").json()
-    job = db.get(Job, made["breakdown_job_id"])
-    assert job.input["step"] == "breakdown" and job.project_id == made["project_id"]
+    assert made["breakdown_job_id"] is None
+    job = db.get(Job, made["plan_job_id"])
+    assert job.input["step"] == "plan" and job.project_id == made["project_id"]
+    assert job.credits == shown["credits_per_unit"]  # the quote is the charge
+    url = f"/projects/{made['project_id']}/plan"
+    job.status, job.error = JobStatus.failed, ""
+    db.commit()
+    failed = editor.get(url).json()
+    assert (failed["job"]["status"], failed["job"]["reason"]) == ("failed", plans.FAILED)
+    assert editor.post(url, json={}).status_code == 201  # Try again
+    db.query(Job).update({"status": JobStatus.cancelled})
+    db.commit()
+    assert editor.post(f"{url}/by-hand").json()["source"] == "hand"  # or plan it yourself
     project = editor.get(f"/projects/{made['project_id']}").json()
     assert project["planned_seconds"] == 40 and project["budget_credits"] > 80  # Reed's target
 
@@ -184,13 +198,13 @@ def test_produce_uses_the_scripts_own_imported_reel(owner, editor, db):
 
 def test_a_started_version_can_be_released_and_made_again(app, owner, editor, db):
     base, _ = _published(owner, db, target=40)
-    made = editor.post(f"{base}/drafts/0/produce").json()  # its breakdown job is queued
+    made = editor.post(f"{base}/drafts/0/produce").json()  # its plan job is queued
     pid = made["project_id"]
     two, _ = _second_editor(app, owner, db)
     assert two.post(f"/projects/{pid}/release").status_code == 403  # not theirs
     released = editor.post(f"/projects/{pid}/release").json()
     assert released["archived_at"] and released["script_draft_id"] is None
-    assert db.get(Job, made["breakdown_job_id"]).status == "cancelled"  # credits come back
+    assert db.get(Job, made["plan_job_id"]).status == "cancelled"  # credits come back
     assert released["credits_used"] == 0
     assert owner.get(base).json()["versions"][0]["status"] == "approved"  # Ready to make
     again = two.post(f"{base}/drafts/0/produce")
@@ -206,7 +220,7 @@ def test_releasing_never_gives_the_allowance_back(editor, db):
     base = _editors_script(editor)
     made = editor.post(f"{base}/drafts/0/produce").json()
     pid, me = made["project_id"], db.query(User).filter_by(role="editor").one()
-    db.get(Job, made["breakdown_job_id"]).status = JobStatus.succeeded  # credits really spent
+    db.get(Job, made["plan_job_id"]).status = JobStatus.succeeded  # credits really spent
     db.commit()
     spent = credits.quick_clip_used(db, me)
     assert spent > 0

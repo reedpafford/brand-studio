@@ -1,6 +1,6 @@
 """Produce a library version (workflow v2): make its project, once. The project gets the
 version's words as script v1, the script's brand, reel and locked cast, and either the saved
-breakdown preview (free) or a breakdown run now (paid, from the project's budget or, for an
+breakdown preview (free) or its plan made now (paid, from the project's budget or, for an
 editor's own script, their weekly allowance). From there the usual steps run."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import breakdown, narration, script_preview, song_takes
+from app import breakdown, narration, plans, script_preview, song_takes
 from app import script_library as lib
 from app.auth import current_user
 from app.db import get_db
@@ -30,7 +30,8 @@ router = APIRouter(prefix="/scripts/{script_id}/drafts/{slot}", tags=["script li
 
 class ProduceOut(BaseModel):
     project_id: int
-    breakdown_job_id: int | None  # a breakdown being made; null when the saved one was used
+    breakdown_job_id: int | None  # shots being made: an owner's approved plan (S6)
+    plan_job_id: int | None = None  # the plan being made (flows 1b): the usual start
 
 
 @router.post(
@@ -101,18 +102,21 @@ def produce(
         )
         db.commit()
         return ProduceOut(project_id=project.id, breakdown_job_id=None)
-    # One transaction: if the breakdown is declined (allowance or cap), the project and the
-    # reservation go too, so the version stays free to produce.
+    # Every video gets a plan before its shots (flows 1b): the plan call is what this press
+    # charges, and the editor approves it to make the shots. An owner's approved plan (S6) goes
+    # straight to the shots. One transaction: if the call is declined (allowance or cap), the
+    # project and the reservation go too, so the version stays free to produce.
+    shots = bool(project.plan and project.plan.get("approved_at"))
+    data = (
+        breakdown.job_input(db, project, version)
+        if shots
+        else plans.job_input(db, project, version)
+    )
     try:
-        job = enqueue(
-            db,
-            user,
-            "write-claude",
-            breakdown.job_input(db, project, version),
-            project=project,
-            provider="claude",
-        )
+        job = enqueue(db, user, plans.KIND, data, project=project, provider="claude")
     except HTTPException:
         db.rollback()
         raise
-    return ProduceOut(project_id=project.id, breakdown_job_id=job.id)
+    if shots:
+        return ProduceOut(project_id=project.id, breakdown_job_id=job.id)
+    return ProduceOut(project_id=project.id, breakdown_job_id=None, plan_job_id=job.id)
