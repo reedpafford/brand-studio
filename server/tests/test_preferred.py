@@ -68,3 +68,31 @@ def test_a_preferred_still_says_when_and_who_and_its_takes_follow(app, db, edito
     undo = editor.post(f"{url}/frames/{frame.id}/pick", json={"file_id": back["was_file_id"]})
     assert undo.json()["file_id"] == draw.output["file_ids"][0]  # Undo: free, one press
     assert _older(db, row)
+
+
+def test_a_preferred_look_is_an_earlier_approved_sheet_with_undo(db, owner, editor):
+    from app.models.accounts import User
+    from app.models.library import LibraryItem
+    from app.routes.library import _save_version
+    from tests.helpers import with_sheet
+
+    made = {"name": "Mia", "notes": "a girl", "image_file_ids": [upload(owner)]}
+    mia = owner.post("/library/character", json=made).json()["id"]
+    with_sheet(db, mia)
+    first, second = db.get(LibraryItem, mia).sheet_file_id, upload(owner)
+    item, me = db.get(LibraryItem, mia), db.query(User).filter_by(role="owner").one()
+    _save_version(db, me, item)  # a new sheet, approved (as the Approve press does)
+    item.sheet_file_id, item.sheet_approved = second, True
+    db.commit()
+    url = f"/library/character/{mia}/sheet"
+    sheets = owner.get(f"{url}/versions").json()
+    assert {(s["file_id"], s["preferred"]) for s in sheets} == {(second, True), (first, False)}
+    assert all(s["made_at"] and s["look_id"] == "house" for s in sheets)
+
+    assert editor.post(f"{url}/preferred", json={"file_id": first}).status_code == 403  # rule 12
+    assert owner.post(f"{url}/preferred", json={"file_id": 999}).status_code == 404
+    back = owner.post(f"{url}/preferred", json={"file_id": first}).json()
+    assert (back["sheet_file_id"], back["was_file_id"], back["name"]) == (first, second, "Mia")
+    assert back["sheet_status"] == "approved"
+    undo = owner.post(f"{url}/preferred", json={"file_id": back["was_file_id"]}).json()
+    assert undo["sheet_file_id"] == second  # Undo: one press, free
