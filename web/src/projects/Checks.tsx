@@ -106,13 +106,16 @@ export function ReviewChip({ projectId, open: startOpen = false }: { projectId: 
   const [open, setOpen] = useState(startOpen);
   const [params, setParams] = useSearchParams();
   const [going, setGoing] = useState<string | null>(null);
-  // The card is on another step: once that step has drawn it, scroll to it.
+  // The card is on another step: once that step has drawn it, scroll to it and move focus there (keyboard and screen readers follow).
   useEffect(() => {
     if (!going) return;
     let tries = 0;
     const t = setInterval(() => {
-      if (document.querySelector(`[aria-label="${going}"]`) || ++tries > 20) {
+      const card = document.querySelector<HTMLElement>(`[aria-label="${going}"]`);
+      if (card || ++tries > 20) {
         show(going);
+        card?.setAttribute("tabindex", "-1");
+        card?.focus({ preventScroll: true });
         setGoing(null);
       }
     }, 100);
@@ -122,7 +125,7 @@ export function ReviewChip({ projectId, open: startOpen = false }: { projectId: 
   if (items.length === 0) return null;
   const go = (i: Flagged) => {
     const step = i.kind === "still" ? "storyboard" : "clips";
-    if (params.get("step") !== step) setParams({ step });
+    if (params.get("step") !== step) setParams((p) => { p.set("step", step); return p; }); // other params stay
     setGoing(i.kind === "still" ? `Frame ${i.clip_id}` : `Clip ${i.clip_id}`);
   };
   const group = (kind: Flagged["kind"], title: string) => {

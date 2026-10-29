@@ -74,6 +74,7 @@ test("a still with Advice shows a quiet notes chip; Change this… fills the cha
   expect(calls.some((c) => c.key === "POST /projects/9/checks/7/findings/1/dismiss")).toBe(true);
   await userEvent.click(within(notes).getAllByRole("button", { name: "Change this…" })[0]);
   expect(screen.getByLabelText("Change this… c1")).toHaveValue("Make Bo's face match his sheet");
+  await vi.waitFor(() => expect(screen.getByLabelText("Change this… c1")).toHaveFocus());
   expect(screen.queryByLabelText("Notes for clip c1")).toBeNull();
 });
 
@@ -112,7 +113,7 @@ test("the Clips header has the Review chip and the summary line; a row goes to i
   const list = screen.getByLabelText("Review");
   expect(within(list).getByText("Storyboard")).toBeInTheDocument();
   await userEvent.click(within(list).getByRole("button", { name: "Clip c2 · take 2 · 1 note" }));
-  expect(screen.getByLabelText("Clip c2")).toBeInTheDocument();
+  await vi.waitFor(() => expect(screen.getByLabelText("Clip c2")).toHaveFocus());
 });
 
 test("over budget the step says once that checks are paused", async () => {
