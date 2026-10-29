@@ -18,12 +18,16 @@ import json
 import re
 import subprocess  # noqa: S404 - fixed argument lists, never a shell
 import sys
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app import reel, song_timing
@@ -36,7 +40,8 @@ from app.schemas import UtcTime
 
 STEP = "song_study"
 MAX_SECONDS = 240  # Reed's references run 2:30; the reel import's 90 s is for Gemini's copy
-HEAR_TIMEOUT = 600  # a 4-minute song on the CPU model
+LIMIT = 600  # s for a whole study: a 4-minute song's words take a few on the CPU model
+POLL = 0.5  # s between looks at Stop while the words are read
 FRAMES = 16
 FRAME_WIDTH = 360
 PAUSE = 1.5  # s of no singing that ends a group, unless a bar is longer
@@ -50,21 +55,51 @@ PROBLEMS = {
     "bad_file": "it isn't a video we can read (an MP4 or MOV with sound, up to 100 MB)",
     "too_long": "it's longer than 4 minutes",
     "no_words": "we couldn't hear any singing in it",
+    "too_slow": "it took over 10 minutes to study",
 }
 FAILED = "studying it didn't finish"
 BUSY = "A song ad is already being studied here. Wait for it, or cancel it."
 
 
-def hear(path: Path) -> list[dict]:
+class Stopped(Exception):
+    """Stop was pressed while it ran: nothing is kept (the job is already cancelled)."""
+
+
+@dataclass
+class Watch:
+    """Stop and the time limit, looked at between steps and while the words are read."""
+
+    stopped: Callable[[], bool] = lambda: False
+    until: float = float("inf")  # time.monotonic() deadline
+
+    def check(self) -> None:
+        if self.stopped():
+            raise Stopped
+        if time.monotonic() > self.until:
+            raise reel.Refused("too_slow", PROBLEMS["too_slow"])
+
+
+def wait(args: list[str], watch: Watch) -> bytes:
+    """Run a command to its end and return its output, killing it at Stop or the limit."""
+    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as proc:  # noqa: S603
+        while True:
+            try:
+                out, _ = proc.communicate(timeout=POLL)
+                break
+            except subprocess.TimeoutExpired:
+                try:
+                    watch.check()
+                except BaseException:
+                    proc.kill()
+                    raise
+    if proc.returncode != 0:
+        raise RuntimeError(f"Reading the song ad's words failed ({proc.returncode}).")
+    return out
+
+
+def hear(path: Path, watch: Watch) -> list[dict]:
     """Local Whisper, unprompted: [{start, end, text, words: [{word, start, end}]}]."""
-    args = [sys.executable, "-m", "app.whisper", str(path), "--study"]
-    try:
-        done = subprocess.run(args, capture_output=True, timeout=HEAR_TIMEOUT)  # noqa: S603
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("Reading the song ad's words took too long.") from None
-    if done.returncode != 0:
-        raise RuntimeError(f"Reading the song ad's words failed ({done.returncode}).")
-    return json.loads(done.stdout)
+    return json.loads(wait([sys.executable, "-m", "app.whisper", str(path), "--study"], watch))
 
 
 def _norm(text: str) -> str:
@@ -130,10 +165,16 @@ def frames(video: Path, seconds: float, folder: Path) -> list[tuple[Path, float]
     return found
 
 
-def study(video: Path, folder: Path, hear=hear) -> tuple[dict, list[tuple[Path, float]]]:
-    """The study of one video and its frames. Raises reel.Refused with a plain reason."""
+def study(
+    video: Path, folder: Path, hear=hear, watch: Watch | None = None
+) -> tuple[dict, list[tuple[Path, float]]]:
+    """The study of one video and its frames. Raises reel.Refused with a plain reason, and
+    Stopped when Stop is pressed."""
+    watch = watch or Watch()
     seconds = reel.probe(video, MAX_SECONDS)
-    heard = [x for x in hear(video) if x["text"].strip()]
+    watch.check()
+    heard = [x for x in hear(video, watch) if x["text"].strip()]
+    watch.check()
     if not heard:
         raise reel.Refused("no_words", PROBLEMS["no_words"])
     samples = song_timing._samples(video)
@@ -142,7 +183,13 @@ def study(video: Path, folder: Path, hear=hear) -> tuple[dict, list[tuple[Path, 
     words = [w for x in heard for w in x.get("words", [])]
     found = {"seconds": seconds, "bpm": bpm, "lines": lines, "words": words,
              "sections": sections(lines, beat_times, bpm, seconds)}  # fmt: skip
+    watch.check()
     return found, frames(video, seconds, folder)
+
+
+def stop_key(job_id: int) -> str:
+    """A marker in the shared storage that the worker's study looks for (Stop)."""
+    return f"song-study-stop/{job_id}"
 
 
 class StudySection(BaseModel):
@@ -253,6 +300,7 @@ def start(
         db.delete(x)
     job = enqueue(db, user, "song_study", {"step": STEP, "draft_id": draft.id, **job_input},
                   units=0, provider="local")  # fmt: skip
+    job.input = {**job.input, "job_id": job.id}  # its Stop marker (stop_key)
     kept = {k: v for k, v in found.items() if k not in ("attempt", "stale_frames")}
     draft.song_study = {**kept, "attempt": {"job_id": job.id, "source": source, "link": link}}
     db.commit()
@@ -335,3 +383,18 @@ def remove(db: Session, draft: ScriptDraft, back: bool = False) -> None:
         raise HTTPException(409, "A newer study is still running. Cancel it first.")
     draft.song_study = {**found, "removed_at": None if back else utcnow().isoformat()}
     db.commit()
+
+
+def stop(db: Session, storage, draft: ScriptDraft) -> None:
+    """Stop the study in hand, queued or running: nothing is charged and nothing it made is
+    kept; a finished study stays as it was. A running one is cancelled now and told through
+    the shared storage, where the worker looks every POLL seconds."""
+    job = db.get(Job, _attempt(draft).get("job_id") or 0)
+    if job is None or job.status not in WAITING:
+        raise HTTPException(409, "Nothing is being studied here.")
+    running = job.status == JobStatus.running
+    db.execute(update(Job).where(Job.id == job.id, Job.status.in_(WAITING))
+               .values(status=JobStatus.cancelled, finished_at=utcnow()))  # fmt: skip
+    db.commit()
+    if running:
+        storage.put(stop_key(job.id), b"")
