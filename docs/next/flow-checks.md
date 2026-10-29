@@ -242,3 +242,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #886 at 624a68da (text_on_screen_advice on the fixed prompt) | reword on 2 prompts; clip_takes + item_check (18) | PASS |
 | 2026-10-29 | #909 at 04350686 (Make another waits while timing; "Wait for the narration to finish") | vitest scripts + projects (587) | PASS |
 | 2026-10-29 | #912 at 6ba27460 (narration music bed, narrated mix) | code walk; narration + needs_you (18) | FAIL: no off switch for real Stable Audio (only generation_enabled); "Nothing was charged" wrong when the prompt succeeded and the bed failed |
+| 2026-10-29 | #910 at 026f3b51 (merge of next) | brand_setup + brands + migrations (21) | PASS |
