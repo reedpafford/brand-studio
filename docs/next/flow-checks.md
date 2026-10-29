@@ -230,3 +230,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | 10:16 check-in: merged #858 #881 #883 #888 #889 #890 #892 #897 #901 | — | — |
 | 2026-10-29 | #902 at 54d460d9 ("N approved with Advice") | vitest projects (333) | PASS |
 | 2026-10-29 | #896 at c27a69d0 (merge of next) | — | PASS stands |
+| 2026-10-29 | #906 at 813934e2 (M14 part 1: out of date stays viewable, paid presses wait) | code walk; vitest projects (327) | PASS (wording: "redo the out-of-date stills" is cheaper than the whole storyboard) |
