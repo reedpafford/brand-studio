@@ -89,8 +89,8 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           </section>
           {readyToMake && v.estimate_credits > 0 && (
             <p className="text-sm text-muted">
-              {/* One price line: what the press starts with, then the whole video (the button holds the first). */}
-              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the breakdown) · the whole video about ${wholeCredits(v.estimate_credits)}` : `The whole video costs about ${wholeCredits(v.estimate_credits)} credits`}
+              {/* One line that ties the button's price to the whole video's (#749 LW5). */}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the breakdown) · the whole video about ${wholeCredits(v.estimate_credits)} credits` : `Starting is free · the whole video about ${wholeCredits(v.estimate_credits)} credits`}
               {songLength && ` · ${songLength} song`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
