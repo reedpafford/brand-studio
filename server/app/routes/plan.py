@@ -154,9 +154,16 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
     if plan is None and job is None:
         return None
     price = credits.price(plans.price(db, project))
-    stop = credits.fits(db, project, user, plans.price(db, project)) or None
-    if stop:
-        stop = f"Making the plan {stop}"
+    if project.id is None:  # a script version's plan (S6): the editor's own week
+        left = credits.credits_left(db, user)
+        stop = (
+            None
+            if left is None or plans.price(db, project) <= left
+            else ("Making the plan would go over this week's credits. It resets on Monday.")
+        )
+    else:
+        stop = credits.fits(db, project, user, plans.price(db, project)) or None
+        stop = f"Making the plan {stop}" if stop else None
     base = PlanOut(status="ready", source="claude", job=job, estimate_credits=price,
                    approve_credits=price, change_scene_credits=price, stop=stop)  # fmt: skip
     if plan is None:
@@ -297,9 +304,16 @@ def edit(
     """Every edit (place, actions, ★, cast, a line moved, Split here, Join with next) sends
     the whole scene list; free. Undo is the scenes from before, sent back."""
     project, version = _working(db, user, project_id)
+    apply_edit(db, project, version, body)
+    db.commit()
+    return _out(db, user, project)
+
+
+def apply_edit(db: Session, project, version, body: PlanIn) -> None:
+    """A whole-scene-list edit on a video's plan or a script version's (S6)."""
     plan = plans.current(db, project)
     if plan is None:
-        raise HTTPException(404, "This video has no plan yet.")
+        raise HTTPException(404, "There's no plan yet.")
     _one_at_a_time(db, project)  # a plan being made would overwrite the edit (Flow-QA)
     stars = plans.job_input(db, project, version)["stars"]
     if not stars and any(x.star and not x.product for s in body.scenes for x in s.lines):
@@ -315,8 +329,6 @@ def edit(
     cast = body.cast_ids if body.cast_ids is not None else plan.get("cast", [])
     shape = Structure.model_validate(plan.get("structure"))
     plans.edit(project, version, ScenePlan(structure=shape, cast=cast, scenes=scenes))
-    db.commit()
-    return _out(db, user, project)
 
 
 @router.post("/approve", response_model=ApproveOut, dependencies=[Depends(generation_on)])

@@ -17,6 +17,7 @@ from app import (
     merge_roles,
     music,
     narration,
+    plans,
     rewritten,
     song_study,
 )
@@ -161,6 +162,7 @@ class VersionOut(VersionSummary):
     # "Was:" marks until approval: [{line_index (0-based line of text), text, was}]
     rewritten: list[dict] = []
     has_breakdown: bool
+    preview_older_plan: bool = False  # "Made for an older plan. Make the preview again" (S6)
     approved_at: UtcTime | None
     variation_of: str | None = None  # "A": a variation of the original; null for the original
     estimate_credits: float = 0  # to make it, every step included: estimate.version_cost
@@ -297,7 +299,9 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
             for m in draft.rewritten or []
             if m["line_index"] < len(lines)
         ],
-        has_breakdown=draft.breakdown is not None,
+        # a preview made before the owner's plan isn't used, so starting is paid (Flow-QA)
+        has_breakdown=draft.breakdown is not None and plans.preview_follows(draft),
+        preview_older_plan=draft.breakdown is not None and not plans.preview_follows(draft),
         approved_at=draft.approved_at,
         variation_of="A" if draft.slot else None,
         estimate_credits=float(version_cost(db, draft)),
