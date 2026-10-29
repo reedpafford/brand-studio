@@ -140,7 +140,7 @@ def save_ticked(brand_id: int, job_id: int, body: SaveIn, request: Request,
     if now["status"] != "done":
         raise HTTPException(409, "There's nothing to save from this read.")
     found, problems = now["found"], []
-    was = {"colours": list(brand.colours), "logo_file_id": brand.logo_file_id}
+    old_logo = brand.logo_file_id
     added = [c for c in dict.fromkeys(body.colours)
              if c in found["colours"] and c not in brand.colours]  # fmt: skip
     values: dict = {"colours": [*brand.colours, *added]} if added else {}
@@ -170,7 +170,8 @@ def save_ticked(brand_id: int, job_id: int, body: SaveIn, request: Request,
             item.short_description = line
             filled.append([item.id, line])
     fetch.output = {**fetch.output, "saved": True,
-                    "undo": {"was": was, "made": made, "filled": filled}}  # fmt: skip
+                    "undo": {"colours": added, "made": made, "filled": filled,
+                             "logo": [old_logo, values.get("logo_file_id")]}}  # fmt: skip
     db.commit()
     return SaveOut(
         colours_added=len(added),
@@ -184,14 +185,19 @@ def save_ticked(brand_id: int, job_id: int, body: SaveIn, request: Request,
 @router.post("/{job_id}/undo", status_code=204)
 def undo_save(brand_id: int, job_id: int, owner: User = Depends(brand_owner),
               db: Session = Depends(get_db)):  # fmt: skip
-    """Undo Save: the brand's colours and logo as they were, the products it made removed and
-    the descriptions it filled cleared. The read can be saved again."""
+    """Undo Save: the colours it added taken out and its logo replaced by the one before
+    (unless changed since), the products it made removed and the descriptions it filled
+    cleared (unless edited since). The read can be saved again."""
     brand = _brand(db, owner, brand_id)
     fetch = _read(db, brand, job_id)
     undo = (fetch.output or {}).get("undo")
     if not undo:
         raise HTTPException(409, "There's nothing to undo.")
-    brand.colours, brand.logo_file_id = undo["was"]["colours"], undo["was"]["logo_file_id"]
+    # Only what Save did: an edit made since stays (a colour added, a logo changed)
+    brand.colours = [c for c in brand.colours if c not in undo["colours"]]
+    old, stored = undo["logo"]
+    if stored is not None and brand.logo_file_id == stored:
+        brand.logo_file_id = old
     for item_id in undo["made"]:
         if item := db.get(LibraryItem, item_id):
             item.archived = True

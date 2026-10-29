@@ -5,6 +5,7 @@ import pytest
 
 from app import site_read as sr
 from app.models.brands import Brand
+from app.models.files import StoredFile
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
 from app.providers.fake_local import FakeWriter
@@ -66,10 +67,12 @@ def test_a_read_shows_what_it_found_and_saves_only_the_ticked(app, db, owner, si
     assert owner.get(f"{url}/{job_id}").json()["status"] == "saved"
     assert owner.post(f"{url}/{job_id}/save", json={}).status_code == 409  # once
 
+    brand.colours = [*brand.colours, "#111111"]  # an edit after Save stays (Flow-QA)
+    db.commit()
     assert owner.post(f"{url}/{job_id}/undo").status_code == 204
     db.expire_all()
     brand = db.get(Brand, brand_id)
-    assert (brand.colours, brand.logo_file_id) == (["#2299cc"], None)
+    assert (brand.colours, brand.logo_file_id) == (["#2299cc", "#111111"], None)
     assert (
         db.get(LibraryItem, made.id).archived and not db.get(LibraryItem, bag.id).short_description
     )
@@ -109,6 +112,24 @@ def test_a_site_that_cant_be_read_or_has_nothing_is_free(app, db, owner, site, m
     read = db.query(Job).filter(Job.input["step"].as_string() == "site_read").one()
     assert read.credits == 0  # found nothing, so nothing was charged
     assert owner.post(f"{url}/{job_id}/save", json={}).status_code == 409
+
+
+def test_undo_keeps_a_logo_changed_since(app, db, owner, site):
+    brand_id, url = site
+    job_id, _ = _read(app, db, owner, url)
+    owner.post(f"{url}/{job_id}/save", json={"logo": True})
+    brand = db.get(Brand, brand_id)
+    db.refresh(brand)
+    other = StoredFile(workspace_id=1, key="1/other", filename="other.png",
+                       content_type="image/png", size=1, sha256="0")  # fmt: skip
+    db.add(other)
+    db.flush()
+    assert brand.logo_file_id is not None
+    brand.logo_file_id = other.id  # the owner picked another logo since
+    db.commit()
+    owner.post(f"{url}/{job_id}/undo")
+    db.expire_all()
+    assert db.get(Brand, brand_id).logo_file_id == other.id
 
 
 def test_a_logo_that_cant_be_fetched_saves_the_rest(app, db, owner, site):
