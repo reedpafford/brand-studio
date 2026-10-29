@@ -3,6 +3,7 @@
 kind: look
 order: 3
 on: no
+narrated: yes
 image_model: auto
 blurb: A calm narrator explains one surprising thing, in a bright cyan 3D world, as one continuous camera journey.
 

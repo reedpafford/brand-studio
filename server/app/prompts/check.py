@@ -893,11 +893,12 @@ def song_directions(result: SongDirections, brand: str, seconds: int | None = No
 
 
 def song_breakdown(
-    lyrics: str, bd: SongBreakdown, song: dict, *args, written: bool = True, **kwargs
+    lyrics: str, bd: SongBreakdown, song: dict, *args, written: bool = False, **kwargs
 ) -> list[str]:
     """`breakdown(...)`'s checks on the lyrics (tags left out), plus the song's: shots back to
     back over the whole take (a fix: the slices are cut from them), B-roll silent, and edges on
-    beats, inside a section (advice). Only on a breakdown the AI `written`: a Sung shot the
+    beats, inside a section (advice). Only on a breakdown the AI `written` (off unless said, so
+    an edit stays quiet): a Sung shot the
     script didn't ask for (advice); an editor's own Sung flips are theirs (rule 31), and the
     lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's."""
     clean = "\n".join("" if SECTION.match(x) else LIP_SYNC.sub("", x).strip()

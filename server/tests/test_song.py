@@ -52,7 +52,7 @@ def _breakdown(shots, clip_seconds=6):
 
 
 def _check(bd):
-    return check.song_breakdown(LYRICS, bd, SONG, {}, 4, 15)
+    return check.song_breakdown(LYRICS, bd, SONG, {}, 4, 15, written=True)
 
 
 def test_the_worked_directions_pass_their_own_check():
@@ -118,7 +118,7 @@ def test_gaps_and_a_speaking_b_roll_shot_need_a_fix_and_the_rest_is_advice():
     assert (
         "Advice: Shot 1.2 is Sung, but nobody asked for lip-sync there. Make it B-roll?" in problems
     )
-    edited = check.song_breakdown(LYRICS, _breakdown(shots), SONG, {}, 4, 15, written=False)
+    edited = check.song_breakdown(LYRICS, _breakdown(shots), SONG, {}, 4, 15)  # an edit
     assert not [p for p in edited if "nobody asked" in p]  # the editor's own flip (rule 31)
     assert not [p for p in problems if "[Lip-sync]" in p]  # never asks to change the lyrics
 

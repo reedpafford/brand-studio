@@ -3,6 +3,7 @@
 kind: look
 order: 4
 on: no
+narrated: yes
 image_model: auto
 blurb: "What happens if you ___?": one lovable cartoon skeleton climbs Day 1, Day 30, Day 365 under a narrator.
 
