@@ -12,10 +12,20 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, change, clip_prompts, clip_takes, credits, cut_in
+from app import (
+    advice,
+    breakdown,
+    change,
+    clip_prompts,
+    clip_takes,
+    credits,
+    cut_in,
+    item_checks,  # noqa: E402
+)
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db, utcnow
+from app.item_checks import CheckOut
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -56,6 +66,7 @@ class TakeOut(BaseModel):
     number: int
     file_id: int
     created_at: UtcTime  # "made 10:42"
+    check: CheckOut | None = None  # P4: the advisory check on this take (Advice only)
 
 
 class VideoOut(BaseModel):
@@ -129,12 +140,20 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         if getattr(rewrite, "status", None) not in WAITING:  # ended without saving (failed,
             asked = {**asked, "status": "failed", "error": change.UNFINISHED}  # or stopped)
     inserts = [InsertOut(**vars(i), use_real_image=i.on) for i in cut_in.inserts(db, project, row)]
+    takes = _takes(db, row)
+    checks = item_checks.latest(db, "take", [t.id for t in takes])
     return ProjectClipOut(
         inserts=inserts,
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
         takes=[
-            TakeOut(id=t.id, number=t.number, file_id=t.file_id, created_at=t.created_at)
-            for t in _takes(db, row)
+            TakeOut(
+                id=t.id,
+                number=t.number,
+                file_id=t.file_id,
+                created_at=t.created_at,
+                check=item_checks.shown(db, checks.get(t.id)),
+            )  # fmt: skip
+            for t in takes
         ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),

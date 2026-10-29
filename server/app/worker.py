@@ -313,7 +313,37 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
                 data, content_type = fit_image(data, content_type, max_side, file_id in exact)
             urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
         payload["input"] = {**payload.get("input", {}), key: urls}
+    if take := job.input.get("take_frames"):  # the advisory check: the take's frames first
+        stored = _stored(db, storage, job, take["file_id"])
+        frames = [f"data:image/jpeg;base64,{base64.b64encode(f).decode()}"
+                  for f in video_frames(storage.get(stored.key), take["count"])]  # fmt: skip
+        given = payload.get("input", {})
+        payload["input"] = {**given, "reference_images": frames + given.get("reference_images", [])}
     return payload
+
+
+def video_frames(video: bytes, count: int) -> list[bytes]:
+    """`count` JPEG frames spread over a video, first to last (ffmpeg, free)."""
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "take.mp4"
+        src.write_bytes(video)
+        probe = subprocess.run(  # noqa: S603 - fixed arguments; the file is ours
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",  # noqa: S607
+             str(src)], capture_output=True, text=True, timeout=60, check=True)  # fmt: skip
+        length = float(probe.stdout.strip() or 0)
+        out = []
+        for n in range(count):
+            at = min(length * n / max(count - 1, 1), max(length - 0.5, 0))  # never past the end
+            dst = Path(tmp) / f"{n}.jpg"
+            subprocess.run(  # noqa: S603
+                ["ffmpeg", "-v", "error", "-y", "-ss", f"{at:.2f}", "-i", str(src),  # noqa: S607
+                 "-frames:v", "1", "-q:v", "4", str(dst)], timeout=60, check=True)  # fmt: skip
+            out.append(dst.read_bytes())
+        return out
 
 
 def start_next(

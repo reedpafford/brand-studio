@@ -1,0 +1,156 @@
+"""The advisory check on a still or a take (flows.md 1b, P4): after each one finishes, one
+cheap look compares it with the cast's character sheets and, on a ★ shot, the product's
+image. It gives Advice only: it never blocks, never changes an approval and never redoes
+anything. On the test site it runs on the free stand-in until the Producer approves a real
+test (BS_ITEM_CHECKS_PAID)."""
+
+import logging
+from decimal import Decimal
+
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app import prompts
+from app.credits import estimate, fits
+from app.models.accounts import User
+from app.models.breakdowns import BreakdownVersion
+from app.models.checks import ItemCheck
+from app.models.jobs import Job
+from app.models.projects import Project
+from app.prompts import check
+from app.prompts.schemas import ItemCheck as Answer
+from app.settings import get_settings
+
+log = logging.getLogger(__name__)
+FRAMES = 3  # a take is looked at as its first, middle and last frames
+KIND = "check-claude"
+
+
+class FindingOut(BaseModel):
+    index: int  # what Looks fine sends back
+    kind: str  # face, outfit or product
+    text: str  # the card's line: "Mia's face may differ from her sheet"
+    note: str  # the ready "Change this…" note
+
+
+class CheckOut(BaseModel):
+    id: int
+    status: str  # checking, ok, advice, failed or skipped
+    findings: list[FindingOut]  # the ones not dismissed (Looks fine)
+
+
+def on() -> bool:
+    """Checks run on the free stand-in, or for real only once the Producer turns them on."""
+    settings = get_settings()
+    return settings.fake_providers or settings.item_checks_paid
+
+
+def price(db: Session, project: Project) -> Decimal:
+    return estimate(db, project.workspace_id, KIND, Decimal(1), {})
+
+
+def _shot_text(db: Session, breakdown_id: int, shot_ids: list[str]) -> str:
+    data = db.get(BreakdownVersion, breakdown_id).data
+    shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
+    return " ".join(shots[i]["action"] for i in shot_ids if i in shots)
+
+
+def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs: list[str],
+          breakdown_id: int, shot_ids: list[str]) -> ItemCheck | None:  # fmt: skip
+    """After a still or take is saved (in the worker): its check, unless checks are off, it
+    has nobody to compare, or it would go over the video's budget ("skipped", never held)."""
+    from app.storyboard import assets
+
+    project = db.get(Project, job.project_id) if job.project_id else None
+    if not project or not on():
+        return None
+    known = assets(db, project)
+    sheets = [r for r in dict.fromkeys(refs) if r.startswith(("char:", "slot:"))
+              and known.get(r, ("", []))[1]]  # fmt: skip
+    product = next((r for r in refs if r.startswith("prop:") and known.get(r, ("", []))[1]), None)
+    if not sheets and not product:
+        return None
+    row = ItemCheck(project_id=project.id, target=target, target_id=target_id, status="checking")
+    db.add(row)
+    user = db.get(User, job.created_by_id)
+    credits = price(db, project)
+    if not user or fits(db, project, user, credits):
+        row.status = "skipped"  # "Not checked: the video is at its budget."
+        db.flush()
+        return row
+    images = [known[r][1][0] for r in sheets]
+    pair = None
+    if product:
+        images.append(known[product][1][0])
+        pair = (f"product:{product.split(':')[1]}", known[product][0])
+    text = prompts.item_check_input(_shot_text(db, breakdown_id, shot_ids),
+                                    [(r, known[r][0]) for r in sheets], pair,
+                                    frames=FRAMES if target == "take" else 1)  # fmt: skip
+    data = {"step": "item_check", "item_check_id": None, "project_id": project.id,
+            "system": [prompts.system("item_check")], "prompt": text, "effort": "low",
+            "max_tokens": 2000, "fit_images_to": 1024,
+            "ref_ids": sheets + ([pair[0]] if pair else []),
+            "files": {"reference_images": [file_id] * (target == "frame") + images}}  # fmt: skip
+    if target == "take":
+        data["take_frames"] = {"file_id": file_id, "count": FRAMES}  # the worker reads them
+    db.flush()
+    data["item_check_id"] = row.id
+    check_job = Job(workspace_id=project.workspace_id, created_by_id=user.id, kind=KIND,
+                    provider="claude", input=data, project_id=project.id,
+                    brand_id=project.brand_id, credits=credits, status="queued",
+                    approved_by_id=job.approved_by_id)  # fmt: skip
+    db.add(check_job)
+    db.flush()
+    row.job_id = check_job.id
+    return row
+
+
+def queue_safely(db: Session, *args) -> None:
+    """A check never stops a still or a take from being saved."""
+    try:
+        with db.begin_nested():
+            queue(db, *args)
+    except Exception:
+        log.exception("couldn't queue the check for %s %s", args[1], args[2])
+
+
+def save(db: Session, job: Job) -> None:
+    """The check's answer: only findings about a reference it was given."""
+    row = db.get(ItemCheck, job.input.get("item_check_id") or 0)
+    if not row:
+        return
+    answer = check.item_check(Answer.model_validate(job.output), job.input.get("ref_ids", []))
+    row.findings = [{"kind": f.kind, "role": f.who, "text": f.says, "change_note": f.note}
+                    for f in answer.findings]  # fmt: skip
+    row.status = "done"
+
+
+def failed(db: Session, job: Job) -> None:
+    """ "Couldn't check this one." Nothing is charged (a failed job isn't counted)."""
+    row = db.get(ItemCheck, job.input.get("item_check_id") or 0)
+    if row:
+        row.status = "failed"
+
+
+def latest(db: Session, target: str, target_ids: list[int]) -> dict[int, ItemCheck]:
+    rows = db.scalars(select(ItemCheck).where(ItemCheck.target == target,
+                                              ItemCheck.target_id.in_(target_ids))
+                      .order_by(ItemCheck.id))  # fmt: skip
+    return {r.target_id: r for r in rows}  # the newest wins
+
+
+def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
+    if row is None:
+        return None
+    if row.status == "checking" and row.job_id:  # its job ended without an answer
+        job = db.get(Job, row.job_id)
+        if job and job.status in ("failed", "cancelled"):
+            row.status = "failed"
+    gone = {d["index"] for d in row.dismissed or []}
+    findings = [FindingOut(index=i, kind=f["kind"], text=f["text"], note=f["change_note"])
+                for i, f in enumerate(row.findings or []) if i not in gone]  # fmt: skip
+    status = {"checking": "checking", "failed": "failed", "skipped": "skipped"}.get(
+        row.status, "advice" if findings else "ok"
+    )
+    return CheckOut(id=row.id, status=status, findings=findings)

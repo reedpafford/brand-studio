@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # Local runs only: stand-ins for Replicate and Claude (grey pictures, simple answers).
     # Nothing is sent or billed, and Generate works even with generation switched off.
     fake_providers: bool = False
+    # The advisory check on stills and takes (flows 1b, P4) costs real calls: off until the
+    # Producer approves a real test; with the stand-ins on, it always runs (free).
+    item_checks_paid: bool = False
     # Background worker
     worker_poll_seconds: float = 2.0
     # Which providers' jobs this worker takes, e.g. ["local"] for a reel-prep worker; empty: all.

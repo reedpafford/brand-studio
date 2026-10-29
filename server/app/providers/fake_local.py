@@ -469,6 +469,16 @@ class FakeWriter:
         assets = {line.split(" | ")[0] for line in _tag(prompt, "assets").splitlines()}
         return {"clips": [_clip(c, shots, f"frame:{c['id']}" in assets) for c in bd["clips"]]}
 
+    def _item_check(self, prompt):
+        """Stills match their sheets; a take's first character "may differ", so every state
+        of the check (Advice, Looks fine, Change this…) can be walked for free."""
+        who = re.search(r"\b(char|slot):\d+", prompt)
+        if "frames of one take" not in prompt or not who:
+            return {"findings": []}
+        return {"findings": [{"kind": "face", "who": who[0], "says": "Their face may differ "
+                              "from their sheet", "note": "Keep their face exactly as on "
+                              "their sheet."}]}  # fmt: skip
+
     def _look_fit(self, prompt):  # every look fits
         return {"fits": True, "seen": _tag(prompt, "character"), "problem": ""}
 

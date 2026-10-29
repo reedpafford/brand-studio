@@ -6,10 +6,19 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, change, credits, redo_frame, storyboard
+from app import (
+    advice,
+    breakdown,
+    change,
+    credits,
+    item_checks,  # noqa: E402
+    redo_frame,
+    storyboard,
+)
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db
+from app.item_checks import CheckOut
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
@@ -64,6 +73,7 @@ class FrameOut(BaseModel):
     # drawn), or why not ("This clip changed in the breakdown…": Redo storyboard).
     redo_credits: int | None = None
     redo_blocked: str | None = None
+    check: CheckOut | None = None  # P4: the advisory check on its newest still (Advice only)
 
 
 class SoftenOut(BaseModel):
@@ -121,7 +131,7 @@ def _out(
     stale = _stale(db, project, frame)
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
-                "redo_credits", "redo_blocked")  # fmt: skip
+                "redo_credits", "redo_blocked", "check")  # fmt: skip
     newest = _newest_breakdown(db, project)
     redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
     blocked = redo_frame.blocked(db, frame, newest) if redo else ""
@@ -141,6 +151,7 @@ def _out(
         still_credits=storyboard.still_price(db, project),
         redo_credits=credits.price(redo_frame.price(db, project)) if redo and not blocked else None,
         redo_blocked=blocked or None,
+        check=item_checks.shown(db, item_checks.latest(db, "frame", [frame.id]).get(frame.id)),
         softened={"before": asked["before"], "after": asked["after"]}
         if asked.get("softened")
         else None,
