@@ -133,9 +133,32 @@ def test_real_songs_stop_at_the_test_budget(app, db, owner):
     assert owner.get(f"{url}/songs").json()["songs_on"]
     for _ in range(2):
         assert owner.post(f"{url}/songs", json={}).status_code == 201
-    third = owner.post(f"{url}/songs", json={})
-    assert (third.status_code, third.json()["detail"]) == (409, song_takes.BUDGET_USED)
-    assert "$" not in third.json()["detail"]
+    third = owner.post(f"{url}/songs", json={})  # past the budget: free stand-in songs, one press
+    assert third.status_code == 201 and third.json()["songs_note"] == song_takes.BUDGET_USED
+    assert "$" not in third.json()["songs_note"] and "Producer" not in third.json()["songs_note"]
     from app.models.jobs import Job
 
-    assert all(j.input["kie"] for j in db.query(Job).filter(Job.kind == "music"))
+    real = [j.input.get("kie", False) for j in db.query(Job).filter(Job.kind == "music")]
+    assert real == [True, True, False]  # the third is never sent to KIE
+
+
+def test_past_the_budget_a_stand_in_sings_and_kie_hears_nothing():
+    from app.providers.fake_local import FakeSuno
+
+    kie, seen = _kie(lambda r: _ok({"taskId": "t1"}))
+    kie.stand_in = FakeSuno()
+    ref = kie.submit("music", music.job("Iron Paws", "pop"))
+    done = kie.poll(ref)
+    assert done.state == "succeeded" and len(done.files) == 2
+    assert kie.fetch(done.files[0])[1] == "audio/mpeg" and seen == []
+
+
+def test_off_the_test_site_real_songs_past_the_budget_stop_plainly(db):
+    from fastapi import HTTPException
+
+    from app import song_takes
+
+    settings = Settings(kie_suno=True, kie_budget_usd=0.05)
+    with pytest.raises(HTTPException) as no:
+        song_takes.real_songs(db, settings)
+    assert no.value.detail == song_takes.NO_MORE_REAL

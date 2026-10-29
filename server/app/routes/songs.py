@@ -53,6 +53,7 @@ class SongsOut(BaseModel):
     video_estimate_credits: float  # about what a video of these lyrics costs (a guess)
     keep_lines: int | None  # over the cap: keep the first this-many sung lines to fit
     takes: list[SongTakeOut]
+    songs_note: str | None = None  # e.g. real songs for this test are used up: stand-ins now
 
 
 class SongPreferredOut(BaseModel):
@@ -116,6 +117,9 @@ def _songs(request: Request, db: Session, user: User, draft: ScriptDraft) -> Son
         video_estimate_credits=float(video),
         keep_lines=keep,
         takes=[_take_out(db, t, draft) for t in song_takes.takes(db, draft)],
+        songs_note=song_takes.BUDGET_USED
+        if song_takes.budget_used(db, request.app.state.settings)
+        else None,
     )
 
 

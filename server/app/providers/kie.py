@@ -16,6 +16,7 @@ from app.providers import NetworkError, NotStarted, Result
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 RUNNING = ("waiting", "queuing", "generating")
 MODEL, SUNO = "ai-music-api/generate", "V6"
+STAND_IN = "stand-in:"  # a request the free stand-in sings (a ref of its own)
 
 
 class KieSuno:
@@ -23,7 +24,11 @@ class KieSuno:
     paid = True
 
     def __init__(self, base_url: str, key: str, delivery_hosts: tuple[str, ...],
-                 max_download_mb: int = 500, client: httpx.Client | None = None):  # fmt: skip
+                 max_download_mb: int = 500, client: httpx.Client | None = None,
+                 stand_in=None):  # fmt: skip
+        # The test site's free stand-in, for requests that aren't real songs (made before
+        # real songs were on, or once the test budget is used): never sent to KIE.
+        self.stand_in = stand_in
         self.base_url = base_url.rstrip("/")
         self.client = client or httpx.Client(timeout=TIMEOUT)  # never follows redirects itself
         self.delivery_hosts = delivery_hosts
@@ -47,8 +52,10 @@ class KieSuno:
 
     def submit(self, kind: str, input: dict) -> str:
         """`input` is music.job's: {"input": {lyrics, style, exclude_styles, instrumental}}."""
-        if not input.get("kie"):  # queued before real songs were on: never sung for real
-            raise RuntimeError("Not a real-song request; make it again.")
+        if not input.get("kie"):  # not a real-song request: never sung for real
+            if self.stand_in is None:
+                raise RuntimeError("Not a real-song request; make it again.")
+            return STAND_IN + self.stand_in.submit(kind, input)
         song = input["input"]
         title = (sung_lines(song["lyrics"]) or ["Song"])[0][:80]  # Custom mode needs one
         body = {"model": MODEL, "input": {
@@ -59,6 +66,8 @@ class KieSuno:
         return self._call("POST", "/jobs/createTask", json=body)["taskId"]
 
     def poll(self, ref: str) -> Result:
+        if ref.startswith(STAND_IN):
+            return self.stand_in.poll(ref.removeprefix(STAND_IN))
         task = self._call("GET", "/jobs/recordInfo", params={"taskId": ref})
         state = task.get("state")
         if state in RUNNING:
@@ -77,6 +86,8 @@ class KieSuno:
 
     def fetch(self, url: str) -> tuple[bytes, str]:
         """Download one song, stopping past the size cap (redirects aren't followed)."""
+        if url.startswith("fake://") and self.stand_in is not None:
+            return self.stand_in.fetch(url)
         if not self._allowed(url):
             raise RuntimeError(f"Refusing to download from {url!r}.")
         try:

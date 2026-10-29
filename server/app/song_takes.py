@@ -326,21 +326,32 @@ def try_again(db: Session, user: User, take: SongTake, kie: float = 0.0) -> None
     db.commit()
 
 
-BUDGET_USED = "Real songs on the test site have used their test budget. Ask the Producer for more."
+BUDGET_USED = "Real songs for this test are used up, so new takes are free stand-in songs."
+NO_MORE_REAL = "Real songs for this test are used up, so no more can be made here."
 
 
-def real_songs(db: Session, settings) -> bool:
-    """The price a request counts at if it's a real song through KIE (0: not real); 409 once
-    the next one would take the test site's real-song spend past its budget (Reed's test
-    budget). Two presses at the same moment can both pass and go one request over (about
-    $0.10): not worth a lock at a $5 budget."""
+def real_songs(db: Session, settings) -> float:
+    """The price a request counts at if it's a real song through KIE (0: not real). Once the
+    next one would take the test site's real-song spend past its budget (Reed's test budget),
+    it's a free stand-in song instead (the stand-ins are on there; elsewhere a plain 409).
+    Two presses at the same moment can both pass and go one request over (about $0.10): not
+    worth a lock at a $5 budget."""
     if not settings.kie_suno:
         return 0.0
     made = len(_real_jobs(db))
     if (made + 1) * settings.kie_usd_per_request > settings.kie_budget_usd:
         log.warning("Real songs stopped at the test budget after %s requests.", made)
-        raise HTTPException(409, BUDGET_USED)
+        if not settings.fake_providers:
+            raise HTTPException(409, NO_MORE_REAL)
+        return 0.0
     return settings.kie_usd_per_request
+
+
+def budget_used(db: Session, settings) -> bool:
+    """Real songs are on but used up: new takes are stand-in songs (said on the Song step)."""
+    if not settings.kie_suno:
+        return False
+    return (len(_real_jobs(db)) + 1) * settings.kie_usd_per_request > settings.kie_budget_usd
 
 
 def _real_jobs(db: Session) -> list[Job]:
