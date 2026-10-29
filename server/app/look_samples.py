@@ -3,8 +3,10 @@ the look, so the owner can see it before switching it on for editors. The hero i
 brand's default cast's first character; with none, the owner picks one of the brand's
 characters, or the look's own sample character is used (its `## sample` section). One press
 pays for both: the still, then the clip made from it (prepaid). The newest jobs say where it
-is; the files are kept on the look's switch (look_switches.sample_still_id/_clip_id, n07)."""
+is; the files are kept on the look's switch (look_switches.sample_still_id/_clip_id, n07).
+On the test site samples are stand-ins, unless real ones are switched on (`lane`)."""
 
+import logging
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -14,14 +16,17 @@ from sqlalchemy.orm import Session
 from app import looks, prompts
 from app.breakdown import video_model
 from app.clip_takes import KEYS, LONG_SIDE, RESOLUTION
-from app.credits import estimate
+from app.credits import USD_PER_CREDIT, estimate
 from app.images import image_job_input
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.looks import LookSwitch
+from app.providers import REAL_SAMPLES
 from app.storyboard import image_model
+
+log = logging.getLogger(__name__)
 
 STILL, CLIP = "look_sample", "look_sample_clip"
 SECONDS, ASPECT = 5, "9:16"
@@ -31,6 +36,9 @@ NOT_THEIRS = "That character isn't one of this brand's."
 ALREADY = "This look's sample is already being made."
 HOUSE = "House is the default look: it needs no sample."
 NO_STILL = "The sample's still didn't come back. Make a sample to try again."
+REAL_NOTE = "Test site: this sample is made for real."
+USED_UP = ("Test site: the budget for real samples is used up, so this sample will be a "
+           "stand-in (a plain grey picture). Raise the budget to make real ones.")  # fmt: skip
 
 
 def characters(db: Session, brand: Brand) -> list[LibraryItem]:
@@ -121,7 +129,7 @@ def _failed_clip(db: Session, ws: int, look_id: str) -> dict | None:
     if not (job and row and row.sample_still_id) or state(db, ws, look_id)[0] != "failed":
         return None
     if job.input["step"] == CLIP:
-        return {k: v for k, v in job.input.items() if k != "clip_refused"}
+        return {k: v for k, v in job.input.items() if k not in ("clip_refused", "from_still")}
     if job.input.get("clip_refused"):  # refused before it started: from the still's job
         return clip_input(look_id, job.input["brand_id"], row.sample_still_id, job.input["name"])
     return None
@@ -134,21 +142,66 @@ def retry_price(db: Session, ws: int, look_id: str) -> Decimal:
     return price(db, ws)
 
 
-def make(db: Session, owner: User, look_id: str, brand: Brand, character_id: int | None) -> None:
+def lane(db: Session, settings, credits: Decimal) -> str:
+    """Replicate's (real on live, a stand-in on the test site), or the test site's real lane
+    while real samples are on and this press still fits their budget (Reed, 2026-10-29). A
+    real job counts once sent, whatever happens to it after. The switch alone decides here:
+    the key is only the worker's, and the deploy writes the switch only with the key."""
+    if not (settings.fake_providers and settings.real_look_samples):
+        return "replicate"
+    if not _fits(db, settings, credits):
+        log.warning("Real look samples stopped at the test budget: this one is a stand-in.")
+        return "replicate"
+    return REAL_SAMPLES
+
+
+def _fits(db: Session, settings, credits: Decimal) -> bool:
+    """A sample's still counts with the clip it holds (QA-3: two presses before the first
+    still is back both went real); the clip made from it then isn't counted again."""
+    clip = estimate(db, 0, "video", SECONDS, clip_input(looks.DEFAULT, 0, 0, ""))
+    spent = Decimal(0)
+    for j in db.scalars(select(Job).where(Job.provider == REAL_SAMPLES)):
+        if j.status == JobStatus.cancelled and not j.provider_ref:
+            continue  # never sent
+        if j.input["step"] == CLIP and j.input.get("from_still"):
+            continue  # counted with its still
+        spent += j.credits
+        held = j.status in WAITING or j.status == JobStatus.succeeded
+        if j.input["step"] == STILL and held and not (j.input.get("no_still")
+                                                     or j.input.get("clip_refused")):  # fmt: skip
+            spent += clip
+    return (spent + credits) * USD_PER_CREDIT <= Decimal(str(settings.look_samples_budget_usd))
+
+
+def test_site_note(db: Session, settings, ws: int, look_id: str) -> str | None:
+    """Said before the press while real samples are on (the test site): real, or a stand-in
+    because the next one would pass their budget."""
+    if not (settings.fake_providers and settings.real_look_samples):
+        return None
+    if _fits(db, settings, retry_price(db, ws, look_id)):
+        return REAL_NOTE
+    return USED_UP
+
+
+def make(db: Session, owner: User, look_id: str, brand: Brand, character_id: int | None,
+         settings) -> None:  # fmt: skip
     """The still now, checked with the clip's price too (`hold`); the clip follows it. After
     a clip that didn't finish, only the clip again, from the kept still (as Clips' Try again)."""
     from app.routes.jobs import enqueue
 
+    ws = owner.workspace_id
     if look_id == looks.DEFAULT:
         raise HTTPException(409, HOUSE)
-    if state(db, owner.workspace_id, look_id)[0] == "making":
+    if state(db, ws, look_id)[0] == "making":
         raise HTTPException(409, ALREADY)
-    if again := _failed_clip(db, owner.workspace_id, look_id):
-        enqueue(db, owner, "video", again, units=SECONDS, provider="replicate")
+    if again := _failed_clip(db, ws, look_id):
+        on = lane(db, settings, estimate(db, ws, "video", SECONDS, again))
+        enqueue(db, owner, "video", again, units=SECONDS, provider=on)
         return
     job = still_input(db, brand, look_id, character_id)
-    clip = estimate(db, owner.workspace_id, "video", SECONDS, clip_input(look_id, 0, 0, ""))
-    enqueue(db, owner, "image", job, provider="replicate", hold=clip)
+    clip = estimate(db, ws, "video", SECONDS, clip_input(look_id, 0, 0, ""))
+    on = lane(db, settings, estimate(db, ws, "image", Decimal(1), job) + clip)
+    enqueue(db, owner, "image", job, provider=on, hold=clip)
 
 
 def save_still(db: Session, job: Job) -> None:
@@ -169,9 +222,9 @@ def save_still(db: Session, job: Job) -> None:
     owner = db.get(User, job.created_by_id)
     db.commit()  # a refusal of the clip rolls back: never lose the still with it
     try:
-        enqueue(db, owner, "video", clip_input(look_id, job.input["brand_id"], file_ids[0],
-                                                job.input["name"]),
-                units=SECONDS, provider="replicate", prepaid=True)  # fmt: skip
+        clip = clip_input(look_id, job.input["brand_id"], file_ids[0], job.input["name"])
+        enqueue(db, owner, "video", {**clip, "from_still": job.id}, units=SECONDS,
+                provider=job.provider, prepaid=True)  # fmt: skip
     except HTTPException as exc:  # the still stays; Make a sample again makes both
         job.input = {**job.input, "clip_refused": exc.detail}
 
