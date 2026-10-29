@@ -172,3 +172,20 @@ def test_with_real_samples_on_only_a_sample_goes_real_and_no_key_means_a_stand_i
     _work(app, db, ticks=4)
     ready = owner.get(f"/looks/zack-d/sample?brand_id={brand}").json()
     assert ready["status"] == "ready" and ready["clip_id"]  # made, as stand-ins
+
+
+def test_two_presses_before_the_first_still_is_back_never_pass_the_budget(app, db, owner):
+    """QA-3 on #970: a queued still counts with the clip it holds, so a second quick press
+    is a stand-in when both samples together would pass the budget."""
+    from app.providers import REAL_SAMPLES
+
+    settings = app.state.settings
+    settings.fake_providers, settings.real_look_samples = True, True
+    settings.look_samples_budget_usd = 1.0  # one sample is about $0.55
+    brand = _brand(owner)
+    owner.post("/looks/disney-pixar/sample", json={"brand_id": brand})
+    shown = owner.get(f"/looks/zack-d/sample?brand_id={brand}").json()
+    assert shown["test_site"] == look_samples.USED_UP  # said before the second press
+    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    lanes = {j.input["look_id"]: j.provider for j in db.query(Job).all()}
+    assert lanes == {"disney-pixar": REAL_SAMPLES, "zack-d": "replicate"}

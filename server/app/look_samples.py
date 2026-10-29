@@ -129,7 +129,7 @@ def _failed_clip(db: Session, ws: int, look_id: str) -> dict | None:
     if not (job and row and row.sample_still_id) or state(db, ws, look_id)[0] != "failed":
         return None
     if job.input["step"] == CLIP:
-        return {k: v for k, v in job.input.items() if k != "clip_refused"}
+        return {k: v for k, v in job.input.items() if k not in ("clip_refused", "from_still")}
     if job.input.get("clip_refused"):  # refused before it started: from the still's job
         return clip_input(look_id, job.input["brand_id"], row.sample_still_id, job.input["name"])
     return None
@@ -156,8 +156,20 @@ def lane(db: Session, settings, credits: Decimal) -> str:
 
 
 def _fits(db: Session, settings, credits: Decimal) -> bool:
-    jobs = db.scalars(select(Job).where(Job.provider == REAL_SAMPLES))
-    spent = sum(j.credits for j in jobs if j.status != JobStatus.cancelled or j.provider_ref)
+    """A sample's still counts with the clip it holds (QA-3: two presses before the first
+    still is back both went real); the clip made from it then isn't counted again."""
+    clip = estimate(db, 0, "video", SECONDS, clip_input(looks.DEFAULT, 0, 0, ""))
+    spent = Decimal(0)
+    for j in db.scalars(select(Job).where(Job.provider == REAL_SAMPLES)):
+        if j.status == JobStatus.cancelled and not j.provider_ref:
+            continue  # never sent
+        if j.input["step"] == CLIP and j.input.get("from_still"):
+            continue  # counted with its still
+        spent += j.credits
+        held = j.status in WAITING or j.status == JobStatus.succeeded
+        if j.input["step"] == STILL and held and not (j.input.get("no_still")
+                                                     or j.input.get("clip_refused")):  # fmt: skip
+            spent += clip
     return (spent + credits) * USD_PER_CREDIT <= Decimal(str(settings.look_samples_budget_usd))
 
 
@@ -210,9 +222,9 @@ def save_still(db: Session, job: Job) -> None:
     owner = db.get(User, job.created_by_id)
     db.commit()  # a refusal of the clip rolls back: never lose the still with it
     try:
-        enqueue(db, owner, "video", clip_input(look_id, job.input["brand_id"], file_ids[0],
-                                                job.input["name"]),
-                units=SECONDS, provider=job.provider, prepaid=True)  # fmt: skip
+        clip = clip_input(look_id, job.input["brand_id"], file_ids[0], job.input["name"])
+        enqueue(db, owner, "video", {**clip, "from_still": job.id}, units=SECONDS,
+                provider=job.provider, prepaid=True)  # fmt: skip
     except HTTPException as exc:  # the still stays; Make a sample again makes both
         job.input = {**job.input, "clip_refused": exc.detail}
 
