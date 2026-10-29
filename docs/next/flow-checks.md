@@ -62,6 +62,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Narration with no words (#920 + screen) | NarrationStep ignores songs_note: "Make the narration · 0 credits", then refused | Disable the press with songs_note as its reason | #920 at 7e33b1a4 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
+| Stopped banner after the fix (#917 + #921) | A still fails in Update everything after this, then is redrawn by its own press: /update-after still says stopped_at stills, so the banner says Stopped at Storyboard (nothing to do there) and hides Out of date → Open Clips | last_run drops the stop once that step has succeeded again since |
 
 ## Walks
 | Date | PR / commit | Flows | Result |
@@ -262,3 +263,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #920 at 7e33b1a4 (N1: nothing to read → songs_note, price 0) | narration (16) | PASS server (screen must show songs_note as the press reason, else "· 0 credits" then refused) |
 | 2026-10-29 | #898 at e5291fe2 (12:14 check-in) | PASS: a ★ with no brand product shows #893's 409 sentence once, with Add a product (Products tab, editors too); no toast, nothing saved; older-server fallback says the ★ wasn't kept. Follow-up: clear the ★ line on a non-409 error so a later refusal isn't hidden. #909, #912, #913, #915, #917 left the open list. #854 CI running |
 | 2026-10-29 | #918 at f7a1d745 (next merged in) | PASS: the merge only touched imports; look words, narration and storyboard tests 26 passed |
+| 2026-10-29 | #921 at 4af7948b; #918 at 574cb4c2 | #921 PASS for its own presses (Updating…, done, over budget, one press in the bar, Stopped at {step}); flow FAIL on #917's stop that outlives its fix (open below). #918 PASS (next merged in only) |
