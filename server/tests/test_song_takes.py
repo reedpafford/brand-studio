@@ -374,3 +374,34 @@ def test_take_cards_and_the_version_show_one_price(app, db, owner, song):
     version = owner.get(base).json()["versions"][0]
     assert take["video_credits"] > alone
     assert version["estimate_credits"] == pytest.approx(take["video_credits"])
+
+
+def test_a_song_videos_shots_and_clips_last_as_long_as_the_song(app, db, owner, editor, song):
+    """V2, V6: the song is the clock. Next-Layout saw "1 clip · 14 s" for a 0:24 song (the
+    plan counted spoken words). Each shot now lasts its time in the song, each clip its
+    shots' span rounded up, the clips cover the whole song, and the bar prices those."""
+    import math
+
+    from sqlalchemy import select
+
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.projects import Project
+
+    video = _video(app, db, owner, editor, song)
+    pid = int(video.rsplit("/", 1)[1])
+    row = db.scalars(select(BreakdownVersion).where(BreakdownVersion.project_id == pid)
+                     .order_by(BreakdownVersion.id.desc())).first()  # fmt: skip
+    times, end = row.data["song"]["shots"], 0.0
+    for shot in (s for sc in row.data["scenes"] for s in sc["shots"]):
+        t = times[shot["id"]]
+        assert shot["seconds"] == pytest.approx(t["end"] - t["start"], abs=0.01)
+        end = max(end, t["end"])
+    spans = []
+    for clip in row.data["clips"]:
+        mine = [times[s] for s in clip["shot_ids"]]
+        span = max(t["end"] for t in mine) - min(t["start"] for t in mine)
+        assert clip["seconds"] == math.ceil(span - 0.01)  # rounded up, never short
+        spans.append(clip["seconds"])
+    assert sum(spans) >= end and db.get(Project, pid).breakdown_seconds == sum(spans)
+    stages = {s["stage"]: s for s in editor.get(f"{video}/estimate").json()["stages"]}
+    assert stages["clips"]["credits"] == pytest.approx(sum(spans))  # 1 credit a second

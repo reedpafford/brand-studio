@@ -287,7 +287,6 @@ def save(
     """Save the editor's edited breakdown for the working script (a new row)."""
     project, version = _working(db, user, project_id)
     body, landed = breakdown.land(db, project, body)  # never blocks on who's in a shot
-    breakdown.record_length(project, body)
     row = BreakdownVersion(
         project_id=project.id,
         script_version=version.version,
@@ -297,6 +296,8 @@ def save(
         created_by_id=user.id,
     )
     db.add(row)
+    db.flush()  # a song video's lengths are the song's (song_breakdown.fit, on insert)
+    breakdown.record_length(project, Breakdown.model_validate(row.data))
     db.commit()
     clip_prompts.follow(db, project, user)  # stale clip prompts are rewritten, within budget
     return _out(row, version.version)
