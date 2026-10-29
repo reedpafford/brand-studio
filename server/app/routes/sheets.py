@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app import prompts
+from app import looks, prompts
 from app.auth import current_user
 from app.catalogue import get_model
 from app.credits import estimate, own_script
@@ -36,6 +36,23 @@ ASPECT = {Kind.character: "9:16", Kind.place: "16:9"}  # a tall turnaround / a w
 class SheetIn(BaseModel):
     model_id: Literal["nano-banana-pro", "nano-banana-2.1"] = SHEET_MODEL
     change: str = Field("", max_length=500)  # Redo: "What should change?" (optional)
+    look_id: str = "house"  # ST2: the owner's "{look} sheet" on a Cast & places item
+
+
+OWNER_LOOKS = "Only the owner adds a sheet in another look to Cast & places."
+OWN_LOOK = "This look is this video's own: it's drawn in the video's look already."
+
+
+def _look(user: User, item: LibraryItem, look_id: str) -> str | None:
+    """None for House; else the look whose sheet this is (owner only, Cast & places only)."""
+    if look_id == looks.DEFAULT:
+        return None
+    looks.get(look_id)
+    if not user.is_owner:
+        raise HTTPException(403, OWNER_LOOKS)
+    if own_look(item):
+        raise HTTPException(409, OWN_LOOK)
+    return look_id
 
 
 def _item(db: Session, user: User, kind: Kind, item_id: int) -> LibraryItem:
@@ -55,9 +72,11 @@ def make_sheet(
     """Queue a sheet (a paid image job). It is drawn from the source photo when there is one
     (attached as image 1), else from the notes; a redo also attaches the last sheet."""
     item = _item(db, user, kind, item_id)
-    if not item.notes.strip() and not item.source_photo_file_id:
+    look = _look(user, item, body.look_id)
+    house = look and item.sheet_approved  # another look starts from the House sheet (ST2)
+    if not item.notes.strip() and not item.source_photo_file_id and not house:
         raise HTTPException(422, "Describe it first (the notes), or add a photo.")
-    status = sheet_status(item)
+    status = sheet_status(item, look)
     if status == "drawing":
         raise HTTPException(409, "A sheet is being made.")
     if status == "waiting_for_owner":
@@ -88,30 +107,37 @@ def queue_sheet(
     is refused with the reason. The automatic redo spends from that hold (prepaid) and is
     checked but never redone again."""
     kind = item.kind
-    from_photo = bool(item.source_photo_file_id)
-    redo = bool(body.change.strip()) and item.sheet_file_id is not None
+    look = None if body.look_id == looks.DEFAULT else body.look_id  # the owner's look sheet
+    # In another look, the approved House sheet is the person when there's no photo (ST2)
+    house = item.sheet_file_id if look and item.sheet_approved else None
+    photo = item.source_photo_file_id or house
+    from_photo = bool(photo)
+    style = look or (item.sheet_look if own_look(item) else looks.DEFAULT)
+    last = ((item.look_sheets or {}).get(look) or {}).get("file_id") if look else item.sheet_file_id
+    redo = bool(body.change.strip()) and last is not None
     # A note that reworks the face, age or build of a video's or script's own look is drawn
     # fresh from its description and the note: the old sheet won over the note (QA-Live 6).
     fresh = (redo and own_look(item) and bool(IDENTITY.search(body.change))
              and not KEEPS.search(body.change))  # unsure: keep the sheet  # fmt: skip
-    refs = [item.source_photo_file_id] if from_photo else []
-    refs += [item.sheet_file_id] if redo and not fresh else []
+    refs = [photo] if from_photo else []
+    refs += [last] if redo and not fresh else []
     notes = f"{item.notes.rstrip('. ')}. {body.change.strip()}" if fresh else item.notes
     prompt = prompts.sheet_prompt(
         str(kind), notes, from_photo=from_photo, change=body.change if redo and not fresh else "",
-        role=role_for(db, item),
+        role=role_for(db, item), style_id=style,
     )  # fmt: skip
     job = image_job_input(
         get_model(body.model_id), prompt, ASPECT[kind], objects=refs, resolution=RESOLUTION
     )
     project = db.get(Project, item.owner_project_id) if item.owner_project_id else None
     sheet = estimate(db, item.workspace_id, "image", Decimal(1), job)
-    check = check_price(db, item.workspace_id) if is_checked(item) else Decimal(0)
+    check = check_price(db, item.workspace_id) if is_checked(item) and not look else Decimal(0)
     changed = redo or fit_redo
-    after = worst(sheet, check, is_checked(item), changed) - sheet - check  # redo + its check
+    checked = is_checked(item) and not look  # a look sheet is the owner's: never redone by itself
+    after = worst(sheet, check, checked, changed) - sheet - check  # redo + its check
     # auto_made: Assets made it by itself; its check and redo say so too ("Made 3 looks · 7")
     data = {**job, "step": "sheet", "library_item_id": item.id, "changed": changed,
-            "after_check": str(after), "auto_made": auto}  # fmt: skip
+            "after_check": str(after), "auto_made": auto, "sheet_look_id": look}  # fmt: skip
     _on_week(db, project, user, data, check + after)
     return enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db, user, "image", data, project=project, provider="replicate",
@@ -171,6 +197,10 @@ def save_sheet(db: Session, job: Job) -> None:
         return
     user = db.get(User, job.created_by_id)
     _save_version(db, user, item)
+    if look := job.input.get("sheet_look_id"):  # the owner's sheet in another look (ST2)
+        item.look_sheets = {**(item.look_sheets or {}), look: {"file_id": file_ids[0],
+                                                               "approved": False}}  # fmt: skip
+        return
     item.sheet_file_id, item.sheet_approved, item.look_fit = file_ids[0], False, None
     if is_checked(item):
         after = Decimal(job.input.get("after_check", "0"))
@@ -252,24 +282,41 @@ def save_fit(db: Session, job: Job) -> None:
 
 @router.post("/approve", response_model=ItemOut)
 def approve(
-    kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+    kind: Kind,
+    item_id: int,
+    look_id: str = "house",
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
-    """✓ Approve the sheet: from now on it is what storyboards and clips use."""
+    """✓ Approve the sheet: from now on it is what storyboards and clips use (in its look)."""
     item = _item(db, user, kind, item_id)
-    if sheet_status(item) != "needs_approval":
+    look = _look(user, item, look_id)
+    if sheet_status(item, look) != "needs_approval":
         raise HTTPException(409, "There's no new sheet to approve.")
     _save_version(db, user, item)
-    item.sheet_approved = True
+    _approved(item, look, True)
     db.commit()
     return _out(item)
 
 
 @router.delete("/approve", response_model=ItemOut)
 def unapprove(
-    kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+    kind: Kind,
+    item_id: int,
+    look_id: str = "house",
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
     item = _item(db, user, kind, item_id)
+    look = _look(user, item, look_id)
     _save_version(db, user, item)
-    item.sheet_approved = False
+    _approved(item, look, False)
     db.commit()
     return _out(item)
+
+
+def _approved(item: LibraryItem, look: str | None, value: bool) -> None:
+    if look is None:
+        item.sheet_approved = value
+    elif sheet := (item.look_sheets or {}).get(look):
+        item.look_sheets = {**item.look_sheets, look: {**sheet, "approved": value}}

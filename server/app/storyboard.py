@@ -25,7 +25,7 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
-from app.sheets import require_cast_sheets, require_looks, require_sheet, usable_files
+from app.sheets import require_cast_sheets, require_looks, require_sheet, sheet_for
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
@@ -75,17 +75,21 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
         parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)
-        if item.kind == Kind.character and usable_files(item):  # rule 10: the sheet wins
+        files = sheet_for(db, project, item)  # in the video's look (ST2)
+        if item.kind == Kind.character and files:  # rule 10: the sheet wins
             them = "; ".join(f"plays {short(s.role)}" for s in roles.get(item.id, []))
             parts = (key, item.kind, item.name, them, SHEET_SETS)
-        out[key] = (" | ".join(x for x in parts if x), usable_files(item))
+        out[key] = (" | ".join(x for x in parts if x), files)
     for slot in video_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
         # A locked role uses the sheet it was locked with, even if its look has a newer sheet
         # waiting for approval (Reed's live test: "Mogging BF" read as not approved).
-        locked = (
+        locked = (  # in House; another look reads the look's own sheet (ST2)
             [slot.sheet_file_id]
-            if item_id and slot.library_item_id and slot.sheet_file_id
+            if item_id
+            and slot.library_item_id
+            and slot.sheet_file_id
+            and (project.look or "house") == "house"
             else None
         )
         if f"char:{item_id}" in out:  # the look's own line: its notes win (Reed: used as is)
@@ -95,7 +99,7 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         item = db.get(LibraryItem, item_id) if item_id else None
         look = "" if item else " (no look yet)"
         line = f"slot:{slot.id} | character | {slot.role} | {slot.description}{look}"
-        out[f"slot:{slot.id}"] = (line, locked or (usable_files(item) if item else []))
+        out[f"slot:{slot.id}"] = (line, locked or (sheet_for(db, project, item) if item else []))
     brand = db.get(Brand, project.brand_id)
     for s in project_screens(db, project):
         product = "product" in s.tags  # e.g. the Iron Paws bag: shown as a product, no face
