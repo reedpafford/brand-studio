@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
+import { creditsLabel } from "../components";
 import { Sheet } from "../projects/Sheet";
 import { btnPrimary, btnSecondary, errorText as errorClass, input } from "../ui";
 
@@ -68,7 +69,7 @@ export function ImproveDialog(props: { body: Body; onUse: (prompt: string) => vo
       </fieldset>
       <button className={`${btnPrimary} min-h-11 w-full sm:min-h-9`} disabled={working || !props.body.prompt.trim()} onClick={() => start.mutate()}>
         {working ? "Writing…" : ready || failed ? "Improve again" : "Improve"}
-        {cost !== undefined && !working ? ` · ${Math.round(cost)} credits` : ""}
+        {cost !== undefined && !working ? ` · ${creditsLabel(cost)}` : ""}
       </button>
       {start.isError && <p role="alert" className={errorClass}>{start.error.message}</p>}
       {failed && <p role="alert" className={errorClass}>{r.error || "That did not work."} Credits returned.</p>}

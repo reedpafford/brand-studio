@@ -82,7 +82,7 @@ class FrameOut(BaseModel):
     look_fix: str | None = None
     drawing: bool = False  # a still for it is queued or being made (a Change it's included)
     still_credits: int = 0  # one still for it, rounded up (Make still, Redo, Save and redraw)
-    # The same, not rounded: a total of N stills is N × this, rounded up once (price sweep)
+    # The same, not rounded (storyboard.still_credits): N stills are N × this, rounded once
     still_exact_credits: float = 0
     # Out of date because the breakdown changed: Redo this frame · N (written again, then
     # drawn), or why not ("This clip changed in the breakdown…": Redo storyboard).
@@ -170,7 +170,9 @@ def _out(
         change=asked or None,
         drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
         still_credits=storyboard.still_price(db, project),
-        still_exact_credits=float(storyboard.still_exact(db, project)),
+        still_exact_credits=float(
+            storyboard.still_credits(db, project.workspace_id, storyboard.image_model(project))
+        ),
         redo_credits=credits.price(redo_frame.price(db, project)) if redo and not blocked else None,
         redo_blocked=blocked or None,
         check=item_checks.shown(db, item_checks.latest(db, "frame", [frame.id]).get(frame.id)),

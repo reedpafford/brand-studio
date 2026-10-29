@@ -252,6 +252,8 @@ As today. The price includes the song's Sung clips; the song is already paid.
 | Ready | "Make this version · free" (breakdown saved) or "· N credits". Under it: "About N credits to make · 0:31 song". | **Make this version** → Breakdown. |
 | B | "That's more than this week's N free credits…" (own script) or the video budget reason. | — |
 | Taken | "{name} is making this version." | — |
+| Settings | The Video settings row (VS1) with the version's defaults: the script's look, Auto models, 9:16, the version's own flavours (a flavour the brand has since deleted shows as **Auto**). A pick only moves the price line, "Starting costs 3 · the whole video about **N** credits"; there's no Undo because nothing is saved until the press, which sends only what was picked (#985). Phone: one line, "Settings: 9:16 · Auto · …", opening a sheet. | **Make this version**. |
+| The quote | N is what the video will cost by its own rules (#986): at least the 15 s a video plans for when the script has no saved plan or target; a look for each role not cast yet, each speaker with no role yet, and each cast role with no look in the chosen look. The version card shows the same N. | — |
 
 ## V2a. The song in this video (in the Video settings row)
 
@@ -708,6 +710,7 @@ One page with every still, sheet, take, song and final video. Filters: brand, pr
 ## OR4. Cost log
 
 Usage adds per-project and per-video rows: dollars for the owner (spend follows where each item is filed now; a script's own writing counts in its project). Editors get their own credits page: their videos, their quick clips and their own scripts' writing, in credits only, never another person's.
+- **This week** (#983): the editor's page lists every charge their weekly allowance counts, in lines that add up to it: Videos, Quick clips, Scripts, each other kind by its plain label ("A look", "Checking a look"), and "Paid ahead, not run yet". The owner has no weekly limit, so no allowance line.
 
 ---
 

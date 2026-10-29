@@ -26,7 +26,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n09 | Video settings (VS1): `projects.video_model`, `projects.image_model`, `projects.sung_flipped`, `storyboard_frames.made_with`, `clip_takes.made_with`, `scripts.language`, below | Builder-Server-7 | #925 |
 | n10 | Per-look sheets (ST2): `library_items.look_sheets`, `library_items.sheet_look`, `projects.look_copies`, below | Next-Server | #930 |
 | n11 | Projects (OR1): new `folders`, `folder_id` on `scripts`, `projects` and `jobs`, below | Next-Server | #946 |
-| n12 | A role's own look per look: `projects.own_looks` JSON `{slot_id: {look: item_id}}`, so switching back to a look reuses its own look (ST2) | Next-Server | — |
+| n12 | A role's own look per look: `projects.own_looks` JSON `{slot_id: {look: item_id}}`, so switching back to a look reuses its own look (ST2) | Next-Server | #979 |
 | n13 | Preferred and going back (OR3): `projects.storyboard_history`, `project_clips.prompt_history`, below | Builder-Server-8 | #957 |
 | n14 | Languages (LG1): new `language_switches` {workspace_id, language_id, on, sample, switched_by_id, switched_at}, one per workspace and language | Switch-On | #972 |
 
@@ -47,8 +47,9 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 8 | n10 | #930 | n09 | On `next` |
 | 9 | n11 | #946 | n10 | On `next` |
 | 10 | n13 | #957 | n11 | On `next` (20d1df59) |
-| 11 | n03 | #968 | n13 | Open: its turn |
-| — | n12, n14 | own_looks; #972 | next's head when each merges | Open (they re-point to the head of their turn) |
+| 11 | n03 | #968 | n13 | On `next` (e1517285) |
+| 12 | n12 | #979 | n03 | On `next` (d76cdfd6) |
+| 13 | n14 | #972 | n12 | On `next` (dfc43b33) |
 
 ## 1. Song ads
 

@@ -3,9 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { Clapperboard } from "lucide-react";
 import { afterEach, expect, test, vi } from "vitest";
-import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, MediaCard, Select, Sheet, SidePanel, Skeleton, StepPicker, Tabs, TextArea, ToastProvider, creditsLabel, useToast, wholeCredits, type Step } from ".";
+import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, MediaCard, Select, Sheet, SidePanel, Skeleton, StepPicker, Tabs, TextArea, ToastProvider, creditsLabel, roundUp, useToast, wholeCredits, type Step } from ".";
 
 afterEach(() => vi.useRealTimers());
+
+test("a price with decimals rounds up at its places, never below the charge", () => {
+  expect(roundUp(2.44, 1)).toBe(2.5);
+  expect(roundUp(2.4, 1)).toBe(2.4);
+  expect(roundUp(0.331, 2)).toBe(0.34);
+  expect(roundUp(1.5, 2)).toBe(1.5);
+});
 
 test("prices are whole credits, rounded up, and zero is free", () => {
   expect(wholeCredits(67.5)).toBe(68);
@@ -341,4 +348,36 @@ test("a price not known yet holds its place with a grey slot, and the press wait
   expect(b).toHaveAccessibleName("Change it · price loading");
   await userEvent.click(b);
   expect(press).not.toHaveBeenCalled();
+});
+
+function Stacked() {
+  const [panel, setPanel] = useState(false);
+  const [list, setList] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setPanel(true)}>Open the panel</Button>
+      {panel && (
+        <SidePanel title="Make this version" onClose={() => setPanel(false)}>
+          <Button onClick={() => setList(true)}>Shape</Button>
+          {list && (
+            <Sheet title="Shape" onClose={() => setList(false)}>
+              <Button>9:16</Button>
+            </Sheet>
+          )}
+        </SidePanel>
+      )}
+    </>
+  );
+}
+
+test("Escape closes only the top overlay: a list opened over a panel goes, the panel stays (QA-3)", async () => {
+  render(<Stacked />);
+  await userEvent.click(screen.getByRole("button", { name: "Open the panel" }));
+  await userEvent.click(screen.getByRole("button", { name: "Shape" }));
+  expect(screen.getByRole("dialog", { name: "Shape" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog", { name: "Shape" })).toBeNull();
+  expect(screen.getByRole("dialog", { name: "Make this version" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
