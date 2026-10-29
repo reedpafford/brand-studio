@@ -4,7 +4,7 @@ look back re-casts the role to the one it already has in that look, free. Filled
 made before this from each role's own look and the look it was drawn in.
 
 Revision ID: n12
-Revises: n11
+Revises: n03
 """
 
 import json
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "n12"
-down_revision = "n11"
+down_revision = "n03"
 branch_labels = None
 depends_on = None
 
