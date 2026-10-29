@@ -24,8 +24,15 @@ for (const width of [1440, 390]) {
     const eli = await join("Eli");
     await eli.goto(`/b/${brandId}/videos/${id}?step=plan`);
     await expect(eli.getByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toBeVisible();
-    const live = await eli.evaluate(() => [...document.querySelectorAll("fieldset button")].filter((b) => !b.matches(":disabled")).map((b) => b.textContent));
-    expect(live).toEqual([]);
+    await expect(eli.getByRole("button", { name: /^Make the plan/ })).toBeDisabled();
+    // No press that changes the video is live; reads (the steps, Show script, Show all) are.
+    const changes = await eli.evaluate(() =>
+      [...document.querySelectorAll("main button")]
+        .filter((b) => !(b as HTMLButtonElement).disabled)
+        .map((b) => b.textContent?.trim() || b.getAttribute("aria-label") || "")
+        .filter((n) => /^(Make|Approve|Redraw|Draw|Edit|Save|Switch|Use|Delete|Remove|Change|Add|Undo|Write|Keep|Fix|Update|Pick|Rewrite|Merge|Restore)\b/.test(n)),
+    );
+    expect(changes).toEqual([]);
     await eli.getByRole("button", { name: "Show script" }).click(); // reading is looking
     await expect(eli.getByRole("dialog")).toBeVisible();
 

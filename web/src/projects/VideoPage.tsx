@@ -4,7 +4,7 @@ import { ChevronLeft, FileText } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Skeleton, StepPicker } from "../components";
+import { Banner, Button, Skeleton, StepPicker, ViewOnly } from "../components";
 import { useRail } from "../useMedia";
 import { useFreshProject } from "./useFreshProject";
 import { AssetsPane, useAssets } from "./AssetsPane";
@@ -18,7 +18,6 @@ import { DownloadsPane } from "./DownloadsPane";
 
 import { WaitingBadge } from "./Meter";
 import { CostBarProvider, type CostAction } from "./CostBar";
-import { ViewOnly } from "./ViewOnly";
 import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";

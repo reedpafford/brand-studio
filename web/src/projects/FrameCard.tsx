@@ -7,7 +7,7 @@ import { Sheet } from "./Sheet";
 import { blockerNames, SheetWarning, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
-import { Badge, Button, creditsLabel } from "../components";
+import { Badge, Button, creditsLabel, useViewOnly } from "../components";
 import { RotateCcw } from "lucide-react";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
@@ -47,6 +47,7 @@ export function FrameCard(props: {
   onUndoSoften: (before: string) => void;
   onOpen: () => void;
 }) {
+  const viewOnly = useViewOnly(); // a video only its maker or the owner may change
   const { frame: f } = props;
   const keep = useKeep(props.projectId, { of: "frame", id: f.id });
   const [editing, setEditing] = useState<string | null>(null);
@@ -186,7 +187,7 @@ export function FrameCard(props: {
                 </Button>
               </>
             )}
-            <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>
+            <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>
               {props.oneStep ? "Advanced: edit the prompt" : "Edit prompt"}
             </button>
           </div>

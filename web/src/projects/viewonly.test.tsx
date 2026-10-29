@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
@@ -53,8 +54,10 @@ function open(step: string) {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-/** Every press inside the greyed-out parts of the page. */
-const presses = () => [...document.querySelectorAll("fieldset")].flatMap((f) => within(f as HTMLElement).queryAllByRole("button"));
+// A press that changes the video starts with one of these words; reads (Show all, See the change, the steps, the script) don't.
+const CHANGES = /^(Make|Approve|Redraw|Draw|Edit|Save|Switch|Use|Delete|Remove|Change|Add|Undo|Write|Keep|Fix|Update|Pick|Unapprove|Rewrite|Soften|Try|Start|Merge|Read|Restore)\b/;
+const live = () => within(screen.getByRole("main")).queryAllByRole("button").filter((b) => !(b as HTMLButtonElement).disabled);
+const presses = () => within(screen.getByRole("main")).queryAllByRole("button");
 
 for (const [step, ready] of [
   ["plan", () => screen.findByRole("heading", { name: "Plan", level: 2 })],
@@ -63,16 +66,16 @@ for (const [step, ready] of [
   ["clips", () => screen.findByRole("heading", { name: "Clips", level: 2 })],
   ["downloads", () => screen.findByRole("link", { name: /Download MP4/ })],
 ] as const) {
-  test(`at ${step}, an editor on someone else's video can look: one banner, every press greyed out, the steps and downloads still open`, async () => {
+  test(`at ${step}, an editor on someone else's video can look: one banner, every changing press greyed out, reads still live`, async () => {
     setViewport(1440);
     fakeServer(base);
     open(step);
     await ready();
-    expect(screen.getByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toBeInTheDocument();
-    for (const f of document.querySelectorAll("fieldset")) expect(f).not.toHaveTextContent("This is Sam"); // one banner, not one per card
-    await vi.waitFor(() => expect(presses().length).toBeGreaterThan(0));
-    for (const b of presses()) expect(b).toBeDisabled();
-    for (const b of within(screen.getByRole("list", { name: "Steps" })).getAllByRole("button")) expect(b).not.toHaveAttribute("aria-disabled", "true"); // moving between steps is looking
+    expect(screen.getAllByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toHaveLength(1); // one banner, not one per card
+    await vi.waitFor(() => expect(presses().length).toBeGreaterThan(3));
+    expect(live().map((b) => b.textContent?.trim() || b.getAttribute("aria-label")).filter((n) => CHANGES.test(n ?? ""))).toEqual([]);
+    for (const f of within(screen.getByRole("main")).queryAllByRole("textbox")) expect(f.matches("[readonly], :disabled")).toBe(true);
+    for (const b of within(screen.getByRole("list", { name: "Steps" })).getAllByRole("button")) expect(b).toBeEnabled(); // moving between steps is looking
     expect(screen.getByRole("button", { name: "Show script" })).toBeEnabled();
     const bar = screen.getByRole("region", { name: "Cost" });
     for (const b of within(bar).queryAllByRole("button").filter((b) => !/^Next:/.test(b.textContent ?? ""))) {
@@ -89,5 +92,19 @@ test("the owner and the video's maker get no banner and live presses", async () 
   open("storyboard");
   await screen.findByLabelText("Frame c1");
   expect(screen.queryByText(/This is Sam's video/)).toBeNull();
-  expect(presses().some((b) => !b.matches(":disabled"))).toBe(true);
+  await vi.waitFor(() => expect(live().some((b) => CHANGES.test(b.textContent?.trim() ?? ""))).toBe(true));
+});
+
+test("on an approved plan a second editor can still switch between Shots and Scenes to read it (Flow-QA on #977)", async () => {
+  setViewport(1440);
+  const scenes = [{ id: "s1", part: "Problem", place: "Kitchen", time: "Morning", cast_ids: [], lines: [{ n: 1, text: "Bo eats.", action: "He sniffs.", star: false }] }];
+  fakeServer({
+    ...base,
+    "GET /projects/9": [200, { ...project, plan_status: "approved" }],
+    "GET /projects/9/plan": [200, { status: "approved", approved_by: { id: 3, name: "Sam" }, approved_at: "2026-10-28T10:00:00Z", source: "claude", structure: { label: "Problem → Payoff", from: "pattern" }, cast: [], scenes, summary: "1 scene", advice: [], job: null, estimate_credits: 6, approve_credits: 6, stop: null }],
+  });
+  open("plan");
+  await userEvent.click(await screen.findByRole("tab", { name: "Scenes" }));
+  expect(await screen.findByRole("tab", { name: "Scenes", selected: true })).toBeInTheDocument();
+  expect(screen.getByText("Bo eats.")).toBeInTheDocument();
 });
