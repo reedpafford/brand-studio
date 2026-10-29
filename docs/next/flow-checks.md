@@ -357,3 +357,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #985 Make this version's settings row (web, VS1 + V1) | f8c1088f (+ next) | PASS: picks move the price line and go with the press; over the limit held with the reason; flavours and Auto as the server; 277/277, e2e 19/19 |
 | 2026-10-29 | #983 Cost log: an editor's week adds up to its allowance | 641c3d42 (+ next) | PASS; 30/30 |
 | 2026-10-29 | #970 (re-check) | 0556c9d3 | PASS: next merged only |
+| 2026-10-29 | #972 (re-check) | 0f6d29dd (+ next) | PASS: next merged, n14 after n12; language, language-sample and migration tests 14/14 |
