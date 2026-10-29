@@ -275,9 +275,9 @@ def with_cast(
     want = [one_logo(pics, s) for s in _screens(bd, clip.clip_id)]
     # The real product the clip's words show (a Change it note's too), as if its shots listed
     # it, making room if it must (Reed's #32 c9: an invented "Iron Paws" bag on a shelf).
-    product = shown_product(
-        db, project, _words(bd, clip, note), known, [*want, *(r.id for r in new)]
-    )
+    shown = {*want, *(r.id for r in new if r.id.startswith("screen:"))}  # the clip keeps to 3
+    have = [*want, *(r.id for r in new)]
+    product = shown_product(db, project, _words(bd, clip, note), known, have, shown)
     limit = video_model().max_reference_images
     if product and limit and len(new) >= limit:
         drop = weakest([r.id for r in new], known)

@@ -306,14 +306,19 @@ def is_product(known: dict, ref: str) -> bool:
     return " | product | " in known.get(ref, ("", []))[0]
 
 
-def shown_product(db: Session, project: Project, text: str, known: dict, have) -> str | None:
+def shown_product(
+    db: Session, project: Project, text: str, known: dict, have, screens: set[str]
+) -> str | None:
     """The real product a shot's words show ("an Iron Paws bag on a shelf", Reed's #32 c9: it
     was drawn invented), as if the breakdown listed it: the video's flavour, or the one
-    named; only one of the video's own pictures, and none when a product is attached."""
+    named; only one of the video's own pictures, none when a product is attached, and never
+    a clip's fourth screen (`screens`: its clip's; "keep the 3" blocks)."""
     from app.breakdown import products_of
 
     products = products_of(db, project)
     if any(is_product(known, r) or r in {p["id"] for p in products} for r in have):
+        return None
+    if len(screens) >= 3:
         return None
     found = check.product_shown(text, db.get(Brand, project.brand_id).name, products)
     return found if found in known else None
@@ -370,7 +375,10 @@ def with_cast(
     # The shot's screens too, after everything else, while there's room (the Director, #556),
     # and the real product its words show (a Change it note's too), making room if it must.
     words = f"{shot.action} {shot.camera} {frame.prompt} {note}"
-    product = shown_product(db, project, words, known, [*shot.screen_ids, *new])
+    clip = next((c for c in bd.clips if frame.shot_id in c.shot_ids), None)
+    shown = {x for sc in bd.scenes for s in sc.shots if clip and s.id in clip.shot_ids
+             for x in s.screen_ids}  # fmt: skip
+    product = shown_product(db, project, words, known, [*shot.screen_ids, *new], shown)
     if product and m.max_reference_images and len(new) >= m.max_reference_images:
         new = weakest(new, known)
     wanted = [*([product] if product else []), *shot.screen_ids]  # the product first
