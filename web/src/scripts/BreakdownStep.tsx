@@ -8,6 +8,7 @@ import { useBrandPieces } from "../clip/BrandPieces";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Card, Dialog, Menu, MenuItem, Skeleton, Tabs, useToast, wholeCredits } from "../components";
 import { BreakdownView } from "../projects/BreakdownView";
+import { Scenes } from "../projects/PlanStep";
 import { refName } from "../projects/names";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
@@ -30,13 +31,29 @@ export function BreakdownStep({ script, brandId, readOnly }: { script: Script; b
         onChange={(id) => setSlot(Number(id))}
         tabs={versions.map((v) => ({ id: String(v.slot), label: `${LETTER[v.slot] ?? v.slot + 1}${v.has_breakdown ? " · Planned" : ""}` }))}
       />
-      <Plan key={at.slot} script={script} slot={at.slot} brandId={brandId} readOnly={readOnly} />
+      <Views key={at.slot} script={script} slot={at.slot} brandId={brandId} readOnly={readOnly} />
+    </div>
+  );
+}
+
+/** S6: the owner's scene plan first (each new video's start once approved), then the shots preview made from it. Both are
+ *  optional: Shots can be made without a plan, as before. A published version shows its shots only (read only, rule 31). */
+function Views({ script, slot, brandId, readOnly }: { script: Script; slot: number; brandId: number; readOnly: boolean }) {
+  const v = script.versions.find((x) => x.slot === slot);
+  const [view, setView] = useState<"scenes" | "shots">(v?.has_breakdown || v?.preview_older_plan ? "shots" : "scenes");
+  const shots = <Plan script={script} slot={slot} brandId={brandId} readOnly={readOnly} onPlan={() => setView("scenes")} />;
+  if (readOnly) return shots;
+  const home = { base: `/scripts/${script.id}/drafts/${slot}/plan`, key: ["draft-plan", script.id, slot], refresh: [["script-lib", script.id]], script: true };
+  return (
+    <div className="space-y-4">
+      <Tabs label="Plan views" value={view} onChange={(id) => setView(id as "scenes" | "shots")} tabs={[{ id: "scenes", label: "Scenes" }, { id: "shots", label: "Shots" }]} />
+      {view === "scenes" ? <Scenes home={home} onApproved={() => setView("shots")} /> : shots}
     </div>
   );
 }
 
 
-function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: number; brandId: number; readOnly: boolean }) {
+function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slot: number; brandId: number; readOnly: boolean; onPlan?: () => void }) {
   const scriptId = script.id;
   const letter = LETTER[slot] ?? String(slot + 1);
   const queryClient = useQueryClient();
@@ -104,6 +121,7 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
   const failed = started !== null && !running && !p?.breakdown; // pressed, finished, and nothing came of it
   const roles = new Map((cast.data ?? []).map((c) => [`slot:${c.id}`, c.role]));
   const planned = !!p?.breakdown;
+  const older = !!script.versions.find((v) => v.slot === slot)?.preview_older_plan; // S6: made before the owner's plan
   // A run that just finished (the server stops saying "running") brings the new plan and the picker's tick in.
   const wasRunning = p?.running ?? false;
   useEffect(() => {
@@ -155,6 +173,12 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
         {!failed && (
           <Card className="space-y-3">
             <p>Plan the shots now, or let it happen when an editor starts this version.</p>
+            {onPlan && (
+              <p className="text-sm text-muted">
+                They follow the scene plan once it's approved.{" "}
+                <button type="button" className="underline" onClick={onPlan}>See the scenes</button>
+              </p>
+            )}
             <p className="text-sm text-muted">Sees the length, scenes and shots, and lets you edit them.</p>
             {!readOnly && button}
           </Card>
@@ -198,6 +222,11 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
             </Menu>
           )}
         </div>
+      )}
+      {older && !readOnly && (
+        <Banner tone="warning" title="Made for an older plan." action={<Button variant="secondary" icon={RotateCcw} price={price} busy={run.isPending} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => run.mutate()}>Make the preview again</Button>}>
+          The scene plan changed after these shots were made, so a new video makes its own shots from the plan. Make the preview again to start videos from it.
+        </Banner>
       )}
       {remove.error && <p role="alert" className={errorClass}>{remove.error.message}</p>}
       {run.error && <p role="alert" className={errorClass}>{run.error.message}</p>}
