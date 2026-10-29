@@ -311,3 +311,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #946 at eee71958 | PASS: an editor's video count is their own; OR1 rights, delete and Undo re-probed. Note: an editor's delete confirm counts only their items |
 | 2026-10-29 | #952 at 88cc3834 | PASS: VS1's look switch confirm names the roles needing a new look (ST1) |
 | 2026-10-29 | #945 a0752c67; #941 58b94d73 (both with #934 in) | #945 PASS (read_again covers the version's stand-in). #941 PASS: all four produce paths priced right (no plan → plan job; preview → free; owner plan → shots; older preview → fresh shots) |
+| 2026-10-29 | #954 at 60cabd90 (OR2 Media, server) | PASS: empty list, items with Open in {step} and Download, editor sees only what they can already open, deleted video flagged, filters. Note: sheets have no made_by |
