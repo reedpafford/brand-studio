@@ -259,10 +259,11 @@ function cardState(kind, price) {
     default: return null;
   }
 }
-function costbar({ used = 412, budget = 660, finish = "about 140", press = "", amber = "", go = "", disabled = false, why = "", toast = "" }) {
+function costbar({ used = 412, budget = 660, finish = "about 140", press = "", amber = "", go = "", disabled = false, why = "", toast = "", meter = true }) {
+  if (!amber && !press) return "";
   const pct = Math.round((used / budget) * 100);
   const week = S.who === "editor" && S.screen.match(/^(write|cast|plan|publish|song|songtakes)$/);
-  const left = week ? `<div class="meter"><div class="meta">This week: 40 of 145 credits</div><div class="bar"><i style="width:28%"></i></div></div>`
+  const left = !meter ? "" : week ? `<div class="meter"><div class="meta">This week: 40 of 145 credits</div><div class="bar"><i style="width:28%"></i></div></div>`
     : `<div class="meter"><div class="meta price">${used} / ${budget} credits · ${pct}%</div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div></div>`;
   const over = S.st === "over" && S.who === "editor" && /^v-/.test(S.screen);
   const dis = disabled || (over && /·/.test(amber));
@@ -296,19 +297,88 @@ def("videos", "Videos (editor home)", () => {
 /* Scripts library */
 def("scripts", "Scripts library", () => {
   const owner = S.who === "owner";
-  const v = (l, s, k, go) => `<button class="chip" style="cursor:pointer" data-go="${go}">${l} · ${s}</button>`;
-  const card = (t, meta, vs, extra = "") => `<div class="card stack"><div class="hrow"><h3>${t}</h3>${extra}<span class="spacer"></span>${more(t)}</div><p class="meta">${meta}</p><div class="hrow">${vs}</div></div>`;
+  const vrow = (l, st, k, wait, go) => `<button class="nav" style="min-height:44px;color:var(--text)" data-go="${go}"><b style="width:18px">${l}</b>${badge(st, k)}<span class="meta" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${wait}</span><span class="meta">▸</span></button>`;
+  const card = (t, pub, meta, rows) => `<div class="card stack"><div class="vrow" style="align-items:flex-start">${media("")}<div class="stack" style="margin:0;flex:1;min-width:0"><div class="hrow"><h3>${t}</h3>${pub}<span class="spacer"></span>${more(t)}</div><p class="meta">${meta}</p></div></div><div class="list" style="gap:2px">${rows}</div></div>`;
   return {
     main: `<div class="stack-lg">
-      <div class="hrow"><h1>Scripts</h1><span class="spacer"></span>${owner ? btn("Import a reel", { dense: true, go: "write" }) + btn("Bulk create", { dense: true, toast: "Bulk create: many reel links or files at once, total price first." }) : ""}<button class="btn dense" data-toast="Filters: status, length, reference, versions left, project.">Filters</button></div>
-      ${owner ? `<section class="stack"><p class="eyebrow">Your drafts</p>${card("Iron Paws: Bowl licker", "Draft · only you can see it · Write", v("A", "Writing", "", "write"), badge("Story"))}${card("Pitbull song", "Draft · Takes made · Cast", v("A", "Writing", "", "song"), badge("Song", "check"))}</section>` : ""}
-      <section class="stack"><p class="eyebrow">Ready to make</p>
-        ${card("The altar reel", "fomo · 54 s · from a reel · 1 version left", v("A", "Final cut · Mary", "", "v-final") + v("B", "Clips · Kel", "", "v-clips") + v("C", "Ready to make", "", "version"), badge("Story"))}
-        ${card("Pitbull 1", "Iron Paws · 30 s · Peanut butter", v("A", "Ready to make", "", "version"), badge("Story"))}
+      <div class="hrow"><h1>Scripts</h1><span class="spacer"></span><button class="btn dense" data-toast="Filters: Draft, Published, Ready to make, In production, Final cut · length · reference (this brand's only) · project. The sheet ends with 'Show 3 scripts'.">Filters</button></div>
+      ${owner ? `<section class="stack"><p class="eyebrow">Your drafts</p>${card("Iron Paws: Bowl licker", badge("Draft"), "Iron Paws · Reed, 2 h ago · about 30 s", vrow("A", "Writing", "", "Write · words not approved yet", "write"))}${card("Pitbull song", badge("Draft") + " " + badge("Song", "check"), "Iron Paws · Reed, today · 2 song takes", vrow("A", "Writing", "", "Cast · next", "song"))}</section>` : ""}
+      <section class="stack"><p class="eyebrow">Published</p>
+        ${card("The altar reel", badge("Published", "ok"), "fomo · Reed, 2 days ago · from a reel · about 54 s",
+          vrow("A", "✓ Final cut", "ok", owner ? "Mary · 71 credits" : "Mary", "v-final") + vrow("B", "Clips · 2 to check", "check", (owner ? "Kel" : "you") + " · 62% of budget", "v-clips") + vrow("C", "Ready to make", "", "about 86 credits", "version"))}
+        ${card("Pitbull 1", badge("Published", "ok"), "Iron Paws · Reed, yesterday · about 30 s · Peanut butter", vrow("A", "Ready to make", "", "about 40 credits", "version"))}
       </section></div>`,
-    bar: costbar({ used: 40, budget: 145, finish: "", amber: owner ? "New script" : "Make version C of The altar reel", go: owner ? "write" : "version", toast: owner ? "New script: Story or Song? (S1)" : "" }),
+    bar: costbar({ meter: false, used: 40, budget: 145, finish: "", amber: owner ? "New ▾" : "Make version C of The altar reel", go: owner ? "" : "version", toast: owner ? "New: Story script · Song script · Import a reel · Bulk create" : "" }),
   };
 });
+
+/* Quick clip */
+def("clip", "Quick clip + History", () => {
+  const owner = S.who === "owner";
+  const row = (st, k, txt, meta, act) => `<div class="card vrow" style="align-items:flex-start">${media("")}<div class="stack" style="margin:0;flex:1;min-width:0"><div class="hrow">${badge(st, k)}<span class="spacer"></span>${more("clip")}</div><p class="line">${txt}</p><p class="meta">${meta}</p>${act || ""}</div></div>`;
+  return {
+    main: `<div class="stack-lg"><div class="hrow"><h1>Quick clip</h1></div>
+      <div class="card stack"><p class="meta">Model: Seedance 2.5 · 480p</p><div class="box tall">A pitbull licks the bowl clean, close-up, slow push in.</div>
+        <div class="hrow"><span class="chip">9:16</span><span class="chip">8 s</span><span class="chip">480p</span>${btn("Improve prompt", { dense: true, ghost: true, price: "1 credit", toast: "Improved, with before/after and Undo." })}</div></div>
+      <div class="hrow"><h2>History</h2><span class="spacer"></span>${owner ? '<span class="seg"><button aria-pressed="true">Mine</button><button>Everyone\'s</button></span>' : ""}<button class="btn dense" data-toast="Show: Ready · Making · Didn't finish · Removed">Show</button></div>
+      ${S.st === "wait" ? row("Making… 0:42", "", "A pitbull chases a ball across the dog park.", "Iron Paws · you · just now · 5 s") : ""}
+      ${row("Ready", "ok", "Pitbull drops the ball at the owner's feet, wide shot.", "Iron Paws · you · today 14:02 · 5 s · 5 credits", `<div class="hrow">${btn("Download", { dense: true })}</div>`)}
+      ${row("Didn't finish", "bad", "The dog jumps into a bubble bath.", "Iron Paws · you · today 13:40 · nothing charged", `<div class="hrow">${btn("Try again", { dense: true, price: "5 credits" })}</div>`)}
+      ${row("Cancelled", "", "Close-up of the bag on the kitchen counter.", "Iron Paws · you · yesterday · nothing charged")}
+      <p class="meta">Only your clips in Iron Paws.${owner ? " Switch to Everyone's to see the team's." : ""}</p></div>`,
+    bar: (() => { const over = S.st === "over" && !owner; return `<div class="costbar"><div class="meter"><div class="meta">This week: ${over ? "145" : "27"} of 145 credits</div><div class="bar"><i style="width:${over ? 100 : 19}%"></i></div></div><div class="go"><button class="btn amber ${S.view === "phone" ? "full" : ""}" ${over ? "disabled" : ""} data-toast="Clip queued. It shows in History.">Generate · 8 credits</button>${over ? '<span class="why">You\'ve used this week\'s 145 credits. It resets on Monday.</span>' : ""}</div></div>`; })(),
+  };
+});
+
+/* Cast & places */
+def("library", "Cast & places", () => {
+  const c = (n, st, k, meta) => `<div class="card stack">${media("sheet")}<div class="hrow"><h3>${n}</h3><span class="spacer"></span>${more(n)}</div><div class="hrow">${badge(st, k)}</div><p class="meta">${meta}</p></div>`;
+  return {
+    main: `<div class="stack-lg"><div class="hrow"><h1>Cast &amp; places</h1></div>
+      <p class="meta">Reed's reusable characters and places for Iron Paws. Looks made for a video stay with that video.</p>
+      <div class="tabsx" role="tablist"><button class="tabx" role="tab" aria-selected="true">Characters 3</button><button class="tabx" role="tab" aria-selected="false">Places 2</button><button class="tabx" role="tab" aria-selected="false">Props 0</button></div>
+      <div class="grid">${c("Bruno", "Ready", "ok", "In 4 videos · changed Oct 29")}${c("Dana", "Needs a sheet", "warn", "Not in any video yet")}${c("Sunny kitchen", "Sheet to approve", "check", "Place · in 2 videos")}</div>
+      <div class="banner"><span class="t meta">Archived (1): Old mascot</span>${btn("Show", { dense: true, ghost: true, toast: "Archived characters (1). Unarchive is a plain button; Delete forever is red and asks first." })}</div></div>`,
+    bar: costbar({ meter: false, finish: "", amber: "New character", toast: "New character: name, notes, a photo; the house-style sheet is made next, price first." }),
+  };
+});
+
+/* Brand */
+def("brand", "Brand (setup checklist)", () => {
+  const item = (ok, t, why) => `<div class="hrow" style="min-height:36px">${ok ? badge("✓", "ok") : badge("To do", "warn")}<b>${t}</b><span class="meta">${why}</span></div>`;
+  return {
+    main: `<div class="stack-lg"><div class="hrow"><h1>Iron Paws</h1><span class="spacer"></span>${more("brand")}</div>
+      <div class="card stack"><div class="hrow"><h2>3 of 7 set up</h2><span class="spacer"></span><div class="meter" style="min-width:140px"><div class="bar"><i style="width:43%"></i></div></div></div>
+        ${item(true, "Name", "")}${item(false, "Logo", "used on CTA screens and phone shots")}${item(false, "Colours", "tint the brand's screens")}${item(false, "How we sound", "used in every script")}${item(true, "Products", "1 product · Chicken, Peanut butter")}${item(true, "Screens and pictures", "2 · used in brand moments")}${item(false, "End line", 'the default CTA, e.g. "Get Iron Paws through the link in my bio."')}</div>
+      <div class="tabsx" role="tablist"><button class="tabx" role="tab" aria-selected="true">Look and voice</button><button class="tabx" role="tab" aria-selected="false">Products 1</button><button class="tabx" role="tab" aria-selected="false">Screens and pictures 2</button></div>
+      <div class="grid"><div class="card stack"><h3>Logo</h3>${media("upload", "r169")}</div><div class="card stack"><h3>End line</h3><div class="box">Get Iron Paws through the link in my bio.</div></div></div></div>`,
+    bar: costbar({ meter: false, finish: "", amber: "Add the logo", toast: "Upload the logo (PNG with a clear background is best)." }),
+  };
+});
+
+/* Studio: In production, Usage, Team */
+def("production", "In production (owner)", () => {
+  const row = (t, step, k, meta) => `<div class="card vrow">${media("")}<div class="stack" style="margin:0;flex:1;min-width:0"><h3>${t}</h3><div class="hrow">${badge(step, k)}</div><p class="meta">${meta}</p></div></div>`;
+  return {
+    main: `<div class="stack-lg"><div class="hrow"><h1>In production</h1><span class="spacer"></span><button class="btn dense" data-toast="Filters: brand, editor, needs attention.">Filters</button></div><p class="meta">Every brand · 3 videos being made</p>
+      <div class="list">${row("The altar reel · B", "Clips · 2 to check", "check", "fomo · Kel · 4 min ago · 412 credits ($42.35) of a 660-credit budget")}${row("Itchy paws at night · A", "Assets · 1 look to approve", "check", "Iron Paws · Maya · 1 h ago · 5 credits ($0.51) of a 56-credit budget")}${row("Gym bro · B", "Finished · changes waiting", "warn", "fomo · Sam · 2 days ago · nothing for 2 days")}</div></div>`,
+    bar: costbar({ finish: "", amber: "" }),
+  };
+});
+def("usage", "Usage (owner)", () => ({
+  main: `<div class="stack-lg"><div class="hrow"><h1>Usage</h1><span class="spacer"></span><span class="seg"><button aria-pressed="true">This week</button><button>Month</button><button>All time</button></span></div>
+    <div class="grid">${[["Spent", "512 credits · $52.63"], ["Finished", "3 videos"], ["Per finished video", "about 71 credits · $7.30"], ["In progress", "4 videos"]].map(([a, b]) => `<div class="card stack"><p class="meta">${a}</p><h2>${b}</h2></div>`).join("")}</div>
+    <div class="tabsx" role="tablist"><button class="tabx" role="tab" aria-selected="true">Brands</button><button class="tabx" role="tab" aria-selected="false">Every charge</button></div>
+    <div class="list">${[["fomo", "430 credits · $44.20 · 2 finished · 1 in progress"], ["Iron Paws", "82 credits · $8.43 · 1 finished · 2 in progress"], ["Night Owl Coffee", "Nothing yet · set up 3 of 7"]].map(([a, b]) => `<div class="card hrow"><span class="dot"></span><b>${a}</b><span class="meta" style="flex:1">${b}</span><span class="meta">▸</span></div>`).join("")}</div></div>`,
+  bar: costbar({ finish: "", amber: "" }),
+}));
+def("team", "Team (owner)", () => ({
+  main: `<div class="stack-lg"><div class="hrow"><h1>Team</h1></div>
+    <section class="stack"><h2>People</h2><div class="list">${[["Reed", "Owner", ""], ["Maya", "Editor", "This week: 27 of 145 credits"], ["Sam", "Editor", "This week: 145 of 145 · stopped until Monday"]].map(([n, r, w]) => `<div class="card hrow"><span class="avatar">${n[0]}</span><b>${n}</b>${badge(r)}<span class="meta" style="flex:1">${w}</span>${more(n)}</div>`).join("")}</div></section>
+    <section class="stack"><h2>Waiting invites</h2><div class="card hrow"><b>jo@example.com</b><span class="meta" style="flex:1">Editor · expires Nov 5</span>${btn("Copy a new link", { dense: true })}${btn("Cancel invite", { dense: true, ghost: true })}</div></section>
+    <section class="stack"><h2>Credit limits</h2><div class="card stack"><p><b>Weekly allowance per editor</b> · 145 credits (≈ $14.91)</p><p class="meta">Credits each editor can spend on their own scripts and quick clips each week. Resets on Monday.</p><p><b>Most one video can cost</b> · 729 credits (≈ $74.94), for everyone</p></div></section></div>`,
+  bar: costbar({ meter: false, finish: "", amber: "Invite someone", toast: "Invite: email and role. An editor makes videos from published scripts and their own." }),
+}));
 
 /* Version card (the handoff) */
 def("version", "Make this version (the handoff)", () => ({
@@ -517,8 +587,8 @@ def("states", "State words (reference)", () => ({
 
 /* ---------- frame ---------- */
 const NAV = [["videos", "Videos"], ["scripts", "Scripts"], ["clip", "Quick clip"], ["library", "Cast & places"], ["brand", "Brand"]];
-const STUDIO = [["approvals", "Approvals", 2], ["production", "In production"], ["usage", "Usage"], ["team", "Team"]];
-const section = (id) => (id.startsWith("v-") || id === "videos" ? "videos" : ["scripts", "write", "cast", "plan", "publish", "song", "songtakes", "version"].includes(id) ? "scripts" : id);
+const STUDIO = [["production", "In production"], ["usage", "Usage"], ["team", "Team"]];
+const section = (id) => (["production", "usage", "team"].includes(id) ? id : id.startsWith("v-") || id === "videos" ? "videos" : ["scripts", "write", "cast", "plan", "publish", "song", "songtakes", "version"].includes(id) ? "scripts" : id);
 
 function render() {
   document.documentElement.dataset.theme = S.theme;
@@ -530,17 +600,21 @@ function render() {
   const scr = (screens[S.screen] || screens.videos)();
   const sec = section(S.screen);
   const inVideo = S.screen.startsWith("v-");
-  const toast = S.toast ? `<div class="toast" role="status"><span>${esc(S.toast)}</span><button class="btn ghost dense" data-close>OK</button></div>` : "";
+  const brandRow = (c, n, w) => `<button class="nav" style="color:var(--text)" data-close><span class="dot" style="background:${c}"></span><b style="flex:1">${n}</b><span class="meta">${w}</span></button>`;
+  const menu = S.menu === "brands" ? `<div class="toast" style="top:${S.view === "phone" ? 60 : 60}px;bottom:auto;left:${S.view === "phone" ? "50%" : "16px"};transform:${S.view === "phone" ? "translateX(-50%)" : "none"};flex-direction:column;align-items:stretch;min-width:300px;gap:2px" role="dialog" aria-label="Brands">
+      <p class="eyebrow" style="padding:4px 10px">Brands</p>${brandRow("#f4a940", "fomo ✓", S.who === "owner" ? "2 need you · 3 being made" : "1 needs you")}${brandRow("#5bd08a", "Iron Paws", S.who === "owner" ? "1 needs you" : "—")}${brandRow("#8ab4ff", "Night Owl Coffee", "set up 3 of 7")}
+      ${S.who === "owner" ? '<button class="nav" data-close data-go="brand">+ New brand</button>' : '<p class="meta" style="padding:6px 10px">Brands are added by the owner.</p>'}</div>` : "";
+  const toast = (S.toast ? `<div class="toast" role="status"><span>${esc(S.toast)}</span><button class="btn ghost dense" data-close>OK</button></div>` : "") + menu;
   if (S.view === "desk") {
-    const rail = `<nav class="rail ${inVideo ? "slim" : ""}" aria-label="Main">${inVideo ? "" : '<p class="eyebrow">fomo</p>'}${NAV.map(([id, l]) => `<button class="nav" ${sec === id ? 'aria-current="page"' : ""} data-go="${id === "clip" || id === "library" || id === "brand" ? "" : id}" ${id === "clip" || id === "library" || id === "brand" ? `data-toast="${l}: unchanged pages (see the audit)."` : ""} title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}
-      ${S.who === "owner" ? `<p class="eyebrow">${inVideo ? "" : "Studio"}</p>${STUDIO.map(([id, l, n]) => `<button class="nav" data-toast="${l}: owner page, cross-brand (unchanged, see the audit)." title="${l}"><span class="ico"></span>${inVideo ? "" : l}${n && !inVideo ? `<span class="count">${n}</span>` : ""}</button>`).join("")}` : ""}</nav>`;
-    app.innerHTML = `<header class="topbar"><button class="switch" data-toast="Brands: fomo, Iron Paws${S.who === "owner" ? ", + New brand" : ""}"><span class="dot"></span>fomo ▾</button><span class="spacer"></span>${S.who === "owner" ? `<button class="btn dense" data-toast="Approvals: 2 waiting (dollars show here, for Reed only).">Approvals <span class="count" style="margin-left:6px">2</span></button>` : ""}<span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span></header>
+    const rail = `<nav class="rail ${inVideo ? "slim" : ""}" aria-label="Main">${inVideo ? "" : '<p class="eyebrow">fomo</p>'}${NAV.map(([id, l]) => `<button class="nav" ${sec === id ? 'aria-current="page"' : ""} data-go="${id}" title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}
+      ${S.who === "owner" ? `<p class="eyebrow">${inVideo ? "" : "Studio"}</p>${STUDIO.map(([id, l]) => `<button class="nav" ${S.screen === id ? 'aria-current="page"' : ""} data-go="${id}" title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}${inVideo ? "" : '<p class="meta" style="padding:6px 10px">Approvals is hidden while nothing waits.</p>'}` : ""}</nav>`;
+    app.innerHTML = `<header class="topbar"><button class="switch" data-menu="brands"><span class="dot"></span>${["production", "usage", "team"].includes(S.screen) ? "All brands" : "fomo"} ▾</button><span class="spacer"></span><span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span></header>
       <div class="row">${rail}<div class="main"><div class="row" style="min-height:0"><main class="work">${scr.main}</main>${scr.side ? `<aside class="side" aria-label="Script and media"><div class="body">${scr.side}</div></aside>` : ""}</div>${scr.bar}</div></div>${toast}`;
   } else {
     const back = inVideo ? `<button class="btn ghost dense" data-go="videos">‹ Videos</button><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${S.kind === "song" ? "Pitbull song · A" : "The altar reel · B"}</b>${more("video")}`
-      : `<button class="switch" style="flex:1" data-toast="Brands: fomo, Iron Paws"><span class="dot"></span>fomo ▾</button>${S.who === "owner" ? `<button class="more" aria-label="Approvals, 2 waiting" data-toast="Approvals: 2 waiting.">🔔</button>` : ""}<span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span>`;
+      : `<button class="switch" style="flex:1" data-menu="brands"><span class="dot"></span>${["production", "usage", "team"].includes(S.screen) ? "All brands" : "fomo"} ▾</button><span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span>`;
     app.innerHTML = `<div class="phead">${back}</div><main class="work">${scr.main}</main>${scr.bar}
-      <nav class="ptabs" aria-label="Tabs">${NAV.map(([id, l]) => `<button class="ptab" ${sec === id ? 'aria-current="page"' : ""} ${["videos", "scripts"].includes(id) ? `data-go="${id}"` : `data-toast="${l}: unchanged page."`}><span class="ico"></span>${l === "Cast & places" ? "Cast" : l === "Quick clip" ? "Quick" : l}</button>`).join("")}</nav>${toast}`;
+      <nav class="ptabs" aria-label="Tabs">${NAV.map(([id, l]) => `<button class="ptab" ${sec === id ? 'aria-current="page"' : ""} data-go="${id}"><span class="ico"></span>${l === "Cast & places" ? "Cast" : l === "Quick clip" ? "Quick" : l}</button>`).join("")}</nav>${toast}`;
   }
   try { localStorage.setItem("bs-wire", JSON.stringify({ view: S.view, who: S.who, st: S.st, theme: S.theme, screen: S.screen, kind: S.kind, side: S.side, prompts: S.prompts })); } catch (e) {}
 }
@@ -549,7 +623,8 @@ document.addEventListener("click", (e) => {
   const t = e.target.closest("button, a");
   if (!t) return;
   if (t.matches("[data-set]")) { S[t.dataset.set] = t.dataset.v; S.toast = null; return render(); }
-  if (t.matches("[data-close]")) { S.toast = null; return render(); }
+  if (t.matches("[data-menu]")) { S.menu = S.menu ? null : t.dataset.menu; S.toast = null; return render(); }
+  if (t.matches("[data-close]")) { S.toast = null; S.menu = null; if (!t.dataset.go) return render(); }
   if (t.matches("[data-side]")) { S.side = t.dataset.side; return render(); }
   if (t.matches("[data-phase]")) { S.prompts = t.dataset.phase; return render(); }
   e.preventDefault();
@@ -560,7 +635,7 @@ document.addEventListener("click", (e) => {
     if (S.screen === "song" || S.screen === "songtakes") S.kind = "song";
     if (S.screen === "write") S.kind = "story";
     if (S.screen === "v-clips" && t.dataset.toast && /Prompt OK for all/.test(t.textContent)) S.prompts = "takes";
-    S.toast = t.dataset.toast || null;
+    S.toast = t.dataset.toast || null; S.menu = null;
     document.getElementById("app").scrollIntoView({ block: "nearest" });
     return render();
   }
