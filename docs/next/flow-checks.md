@@ -146,4 +146,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #819 at 00c4f96b | Name removal on 9 inputs (lowercase, leftovers), length note at minute edges, test_song (18) | PASS; note: a one-word song title ("Happy") also drops that word from the style. Wiring waits on #818 |
 | 2026-10-29 | #818 at 6d9f12f9 | Same 6 API checks + the PR's tests (12) | Both fails fixed; FAIL on wording: approved says "Duplicate it", but Duplicate shows only once published (the way on is Undo approval) |
 | 2026-10-29 | #825 at 6e0ca043 (Usage: archived first) | Sort before paging; test_usage (7), storyboard vitest (42); no node_modules link | PASS |
+| 2026-10-29 | #826 at 75d7016b (V2: song times, Sung/B-roll, Timing guessed on shot rows) | vitest 499, tsc, Playwright auth+song (7) | PASS; notes: Needs timing / Timing guessed get their press when Snap lands; a sub-second shot reads 0:03–0:03 |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
