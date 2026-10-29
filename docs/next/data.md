@@ -49,7 +49,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 10 | n13 | #957 | n11 | On `next` (20d1df59) |
 | 11 | n03 | #968 | n13 | On `next` (e1517285) |
 | 12 | n12 | #979 | n03 | On `next` (d76cdfd6) |
-| 13 | n14 | #972 | n12 | Open: next's head (re-pointed again if another migration lands first) |
+| 13 | n14 | #972 | n12 | On `next` (dfc43b33) |
 
 ## 1. Song ads
 
