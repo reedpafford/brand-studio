@@ -30,6 +30,7 @@ SCHEMAS = {
     "song_clip_prompts": schemas.ClipPrompts,
     "narrated_breakdown": schemas.SongBreakdown,  # flows V6n: the narration is the clock
     "narrated_clip_prompts": schemas.ClipPrompts,
+    "item_check": schemas.ItemCheck,  # flows P4: the advisory check on a still or a take
     "narration_music": schemas.NarrationMusic,  # flows N1: the bed under the narrator
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
@@ -39,7 +40,11 @@ EXTENDS = {
     "narrated_breakdown": "breakdown",
     "narrated_clip_prompts": "clip_prompts",
 }
-NO_RULES = {"look_fit", "narration_music"}  # not a script writer: the rules would only add tokens
+NO_RULES = {
+    "look_fit",
+    "narration_music",
+    "item_check",
+}  # not script writers: the rules would only add tokens
 
 
 # A style's extra guidance, by the steps it's added to (styles/*.md); its look sections fill
@@ -524,6 +529,31 @@ def look_fit_input(description: str, role: str = "", role_text: str | None = Non
         lines.append(f'<role_text name="{escape(role, quote=True)}">{escape(role_text.strip())}'
                      "</role_text>")  # fmt: skip
     return "\n".join(lines)
+
+
+def item_check_input(
+    shot: str,
+    sheets: list[tuple[str, str]],
+    product: tuple[str, str] | None = None,
+    frames: int = 0,
+) -> str:
+    """The user message for item_check; the images go before it, in this order: the item (a
+    still, or a take's `frames` in order), each sheet in `sheets` ((id, "Mia: ...")), then the
+    product's image when the shot shows it ((id, "Iron Paws peanut butter bag")).
+    `shot` is what the item should show (its action and who's in it)."""
+    seen = (
+        f"Images 1–{frames} are frames of one take, in order"
+        if frames > 1
+        else "Image 1 is the still"
+    )
+    n, refs = max(frames, 1), []
+    for ref_id, what in sheets:
+        n += 1
+        refs.append(f'<sheet image="{n}" id="{ref_id}">{what.strip()}</sheet>')
+    if product:
+        refs.append(f'<product image="{n + 1}" id="{product[0]}">{product[1].strip()}</product>')
+    return (f"<item>{seen}.</item>\n<shot>{shot.strip()}</shot>\n"
+            "<references>\n" + "\n".join(refs) + "\n</references>")  # fmt: skip
 
 
 def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:
