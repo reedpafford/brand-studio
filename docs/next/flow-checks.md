@@ -52,10 +52,11 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
 | V2 (to walk) | `song_breakdown(written=False)` by default now; walk the editor's flip/split/join route when it lands | — | #755 at 691a5eb5 |
-| Repo | `web/node_modules` committed as a symlink to a local path (`node_modules/` in .gitignore misses symlinks) | `git rm --cached`; ignore `node_modules` | #771 at 1b48be60, #773 at b3afd16f, #777 at e52817cd |
+| Repo | `web/node_modules` committed as a symlink to a local path (`node_modules/` in .gitignore misses symlinks) | `git rm --cached`; ignore `node_modules` | #771, #773, #777, #778, #779 (still on all five) |
 | Clips, Storyboard "Change this…" (live today) | "Changing…" can spin for good when the change has no job id or its job is never picked up: no timer, no Stop (audit G8, Blocker) | A timer, then "didn't finish" + Try again | #774 audit |
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
+| VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Next-Lead decides; then server or flows.md | #778 at ef73d126 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -109,3 +110,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #777 at e52817cd (Final cut, Approvals words, back link) | Full browser suite; old links; no Ask the owner; no dollars; #751 kept | Flow PASS (52 passed); FAIL on the committed node_modules symlink |
 | 2026-10-29 | #755 at 691a5eb5 (re-pass for the Producer) | Flow checks + no screen promises the unwired song checks (searched next, #759, #775) | PASS |
 | 2026-10-29 | #748 at 6a97f0f, #750 at df64b78 | 15 API walk cases incl. trim → prefer → untrim → publish; full server suite | PASS (743 passed); cap bypass closed |
+| 2026-10-29 | #778 at ef73d126, #779 at f1e883ee (Next-Layout) | Full browser suite each; price-first slot; shape confirm; small words | Flow PASS (52 passed each); FAIL on the node_modules symlink; VS1 shape gap raised |
