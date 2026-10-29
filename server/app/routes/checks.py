@@ -31,6 +31,7 @@ class ReviewOut(BaseModel):
     on: bool  # checks run (the stand-in on the test site, or approved for real)
     credits_per_check: int  # one check, rounded up
     check_credits_per_video: int  # Video settings: "Checks: about N credits a video"
+    paused: bool = False  # a current still or picked take was skipped at the budget (PL7)
     items: list[FlaggedOut]  # the current stills and takes with Advice not yet Looks fine
 
 
@@ -43,14 +44,16 @@ def review(project_id: int, user: User = Depends(current_user), db: Session = De
     rows = list(db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)))
     picked = {r.picked_take_id: r for r in rows if r.picked_take_id}
     takes = list(db.scalars(select(ClipTake).where(ClipTake.id.in_(picked))))
-    items = []
+    items, paused = [], False
     seen = item_checks.latest(db, "frame", [f.id for f in frames])
+    paused |= any(r.status == "skipped" for r in seen.values())
     for f in frames:
         if (out := item_checks.shown(db, seen.get(f.id))) and out.findings:
             label, n = f"Still {f.shot_id}", len(out.findings)
             items.append(FlaggedOut(kind="still", id=f.id, clip_id=f.clip_id, label=label,
                                     findings=n))  # fmt: skip
     seen = item_checks.latest(db, "take", [t.id for t in takes])
+    paused |= any(r.status == "skipped" for r in seen.values())
     for t in takes:
         if (out := item_checks.shown(db, seen.get(t.id))) and out.findings:
             clip = picked[t.id].clip_id
@@ -59,7 +62,8 @@ def review(project_id: int, user: User = Depends(current_user), db: Session = De
                                     findings=len(out.findings)))  # fmt: skip
     db.commit()  # a check whose job ended without an answer now reads "failed"
     each, whole = item_checks.price(db, project), item_checks.per_video(db, project)
-    return ReviewOut(on=item_checks.on(), items=items, credits_per_check=credits.price(each),
+    return ReviewOut(on=item_checks.on(), items=items, paused=paused,
+                     credits_per_check=credits.price(each),
                      check_credits_per_video=credits.price(whole) if whole else 0)  # fmt: skip
 
 
