@@ -38,6 +38,11 @@ REFUSED = (
     "The music service wouldn't sing these lyrics: it read some words as unsafe. Change those "
     "words, then press Try again. Nothing was charged."
 )
+# In a video the lyrics are final (rule 31), so the way out is another try or take.
+REFUSED_IN_VIDEO = (
+    "The music service wouldn't sing these lyrics: it read some words as unsafe. Press Try "
+    "again, or use another take. Nothing was charged."
+)
 QUOTED = 80  # characters of the style line a message repeats
 COPYRIGHT = (
     "The music service wouldn't use this style line: it may name a real artist or song "
