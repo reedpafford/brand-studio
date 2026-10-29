@@ -3661,6 +3661,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/directions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Directions
+         * @description Write 2 song directions (one paid Claude call); a press again writes 2 more.
+         */
+        post: operations["write_directions_scripts__script_id__drafts__slot__directions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/directions/{direction_id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Direction
+         * @description Its lyrics and style line become the version's (Undo: PUT the was_ values back).
+         */
+        post: operations["use_direction_scripts__script_id__drafts__slot__directions__direction_id__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/claims/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Claims
+         * @description The owner vouches for the used direction's claims ("Keep it").
+         */
+        post: operations["keep_claims_scripts__script_id__drafts__slot__claims_keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/directions/{direction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Direction */
+        delete: operations["remove_direction_scripts__script_id__drafts__slot__directions__direction_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/directions/{direction_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Direction
+         * @description Undo a remove.
+         */
+        post: operations["restore_direction_scripts__script_id__drafts__slot__directions__direction_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -4153,6 +4250,42 @@ export interface components {
              * @default []
              */
             skip_screen_ids: number[];
+        };
+        /** DirectionUsed */
+        DirectionUsed: {
+            /** Was Text */
+            was_text: string;
+            /** Was Style Line */
+            was_style_line: string;
+        };
+        /** DirectionsIn */
+        DirectionsIn: {
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Sounds Like
+             * @default
+             */
+            sounds_like: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** DirectionsJob */
+        DirectionsJob: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+            /** Reason */
+            reason: string | null;
+            /** Started At */
+            started_at: string | null;
         };
         /** DraftIn */
         DraftIn: {
@@ -5951,6 +6084,55 @@ export interface components {
             after: string;
             frame: components["schemas"]["FrameOut"];
         };
+        /** SongDirectionOut */
+        SongDirectionOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Concept */
+            concept: string;
+            /** Lyrics */
+            lyrics: string;
+            /** Style Line */
+            style_line: string;
+            /** Visual Concept */
+            visual_concept: string;
+            /** Recommended */
+            recommended: boolean;
+            /**
+             * Left Out
+             * @default []
+             */
+            left_out: string[];
+            /**
+             * Unchecked Claims
+             * @default []
+             */
+            unchecked_claims: string[];
+            /**
+             * Length Note
+             * @default
+             */
+            length_note: string;
+            /**
+             * Style Names
+             * @default []
+             */
+            style_names: string[];
+            /**
+             * Advice
+             * @default []
+             */
+            advice: string[];
+            /**
+             * Used
+             * @default false
+             */
+            used: boolean;
+            /** Made At */
+            made_at: string;
+        };
         /** SongPreferredOut */
         SongPreferredOut: {
             take: components["schemas"]["SongTakeOut"];
@@ -6770,9 +6952,20 @@ export interface components {
              * Song Directions
              * @default []
              */
-            song_directions: {
-                [key: string]: unknown;
-            }[];
+            song_directions: components["schemas"]["SongDirectionOut"][];
+            /**
+             * Directions Estimate Credits
+             * @default 0
+             */
+            directions_estimate_credits: number;
+            /** Directions Stop */
+            directions_stop?: string | null;
+            directions_job?: components["schemas"]["DirectionsJob"] | null;
+            /**
+             * Claims To Check
+             * @default []
+             */
+            claims_to_check: string[];
         };
         /** EstimateOut */
         app__routes__script_preview__EstimateOut: {
@@ -14196,6 +14389,167 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VideoSongOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_directions_scripts__script_id__drafts__slot__directions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectionsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_direction_scripts__script_id__drafts__slot__directions__direction_id__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+                direction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectionUsed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_claims_scripts__script_id__drafts__slot__claims_keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_direction_scripts__script_id__drafts__slot__directions__direction_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+                direction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_direction_scripts__script_id__drafts__slot__directions__direction_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+                direction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

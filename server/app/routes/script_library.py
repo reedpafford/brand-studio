@@ -1,6 +1,7 @@
 """The Script Library (workflow v2): scripts owned by a brand, each with up to three versions
 (the original in slot 0 and up to two variations). Rules: `app/script_library.py`."""
 
+from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -87,6 +88,30 @@ class Person(BaseModel):
     name: str
 
 
+class SongDirectionOut(BaseModel):
+    id: str
+    title: str
+    concept: str
+    lyrics: str
+    style_line: str
+    visual_concept: str
+    recommended: bool
+    left_out: list[str] = []  # adapting a script: what this direction leaves out
+    unchecked_claims: list[str] = []
+    length_note: str = ""  # "75 sung words: a song of about 0:31–0:38."
+    style_names: list[str] = []  # a name from "sounds like" still in the style line
+    advice: list[str] = []  # the Director's check (never blocks)
+    used: bool = False  # Use was pressed on it
+    made_at: str
+
+
+class DirectionsJob(BaseModel):
+    id: int
+    status: str  # queued | running | failed
+    reason: str | None  # plain words, when it failed
+    started_at: UtcTime | None
+
+
 class VersionSummary(BaseModel):
     slot: int
     status: str  # draft | approved | in_production | clips_ready | failed | done
@@ -115,7 +140,11 @@ class VersionOut(VersionSummary):
     style_line: str = ""  # a song's music style
     singer: str = ""  # the cast role seen singing ("": nobody on camera)
     spoken_end_line: str = ""
-    song_directions: list[dict] = []  # the song directions offered (Director's fields)
+    song_directions: list[SongDirectionOut] = []  # offered, newest pair first (flows S3)
+    directions_estimate_credits: float = 0  # "Write 2 song directions"
+    directions_stop: str | None = None  # why that press can't run, in plain words
+    directions_job: DirectionsJob | None = None  # the press in hand (None: idle or done)
+    claims_to_check: list[str] = []  # the used direction's claims, until the owner keeps them
 
 
 class ReelRow(BaseModel):
@@ -166,6 +195,25 @@ def _person(db: Session, user_id: int | None) -> Person | None:
     return Person(id=user.id, name=user.name) if user else None
 
 
+def _directions(db: Session, draft: ScriptDraft) -> dict:
+    """A Song version's song directions and the press that writes them (flows S3)."""
+    from app import song_directions as sd
+    from app.credits import estimate
+
+    script = db.get(Script, draft.script_id)
+    if script.kind != "song":
+        return {}
+    return {
+        "song_directions": sd.shown(draft),
+        "directions_estimate_credits": float(
+            estimate(db, script.workspace_id, "write-claude", Decimal(1))
+        ),
+        "directions_stop": sd.stop(script, draft),
+        "directions_job": sd.job_state(db, script, draft),
+        "claims_to_check": sd.claims_to_check(draft),
+    }
+
+
 def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | VersionOut:
     status, project_id = lib.version_status(db, draft)
     base = dict(
@@ -202,7 +250,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         style_line=draft.style_line,
         singer=draft.singer,
         spoken_end_line=draft.spoken_end_line,
-        song_directions=draft.song_directions or [],
+        **_directions(db, draft),
     )
 
 

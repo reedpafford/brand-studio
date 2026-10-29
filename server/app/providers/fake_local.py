@@ -369,6 +369,30 @@ class FakeWriter:
         scene = {"id": 1, "heading": "INT. TEST — DAY", "look": "Plain grey.", "shots": shots}
         return {"hook": "Local test breakdown.", "scenes": [scene], "clips": clips}
 
+    def _song_directions(self, prompt):
+        """Two plain directions; adapting a <source>, its lines become the first one's lyrics
+        and the second leaves its last line out."""
+        source = [ln.split("| ", 1)[-1] for ln in _tag(prompt, "source").splitlines() if ln]
+        lines = source or ["Wake up hungry, bowl is bright", "Iron Paws, it feels so right"]
+
+        def song(rows):
+            return "[Verse 1]\n" + "\n".join(rows)
+
+        return {
+            "directions": [
+                {"title": "Local song A", "concept": "A practice song.", "lyrics": song(lines),
+                 "style_line": "indie pop, warm female lead, 104 BPM, playful",
+                 "visual_concept": "Plain test B-roll.", "left_out": [],
+                 "unchecked_claims": []},
+                {"title": "Local song B", "concept": "A shorter practice song.",
+                 "lyrics": song(lines[:-1] or lines), "style_line": "folk, male lead, 90 BPM",
+                 "visual_concept": "Plain test B-roll.",
+                 "left_out": [lines[-1]] if len(lines) > 1 else [],
+                 "unchecked_claims": ["It feels so right"]},
+            ],
+            "recommended": 1,
+        }  # fmt: skip
+
     def _storyboard(self, prompt):
         bd = json.loads(_tag(prompt, "breakdown") or "{}")
         shots = {s["id"]: s for scene in bd.get("scenes", []) for s in scene["shots"]}

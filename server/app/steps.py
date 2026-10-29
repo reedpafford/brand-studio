@@ -50,6 +50,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.script_cast_read import save_cast_slots
     from app.script_variations import save_variations
     from app.script_write import save_written
+    from app.song_directions import save as save_directions
     from app.song_takes import save_take as save_song
     from app.song_takes import save_timing
     from app.storyboard import save_frames, save_still
@@ -71,6 +72,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "reel_prepare": save_prepared,
         "reel_watch": save_watch,
         "song_take": save_song,
+        "song_directions": save_directions,
         "song_timing": save_timing,
     }
     handler = handlers.get(job.input.get("step", ""))
