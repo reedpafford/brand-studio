@@ -1,7 +1,9 @@
 """Song-ad workflow, run by hand against the live app (the recipe in docs/next/song-ad-workflow.md).
 
-Every paid step needs Reed's OK on a budget first, and every paid call goes in ops/SPEND.md.
-Sign-in comes from BS_QA_EMAIL / BS_QA_PASSWORD; the Suno key from KIE_API_KEY. Never print either.
+PAID CALLS: every run that calls KIE (`song`) or makes anything on the live site (looks, stills, prompts, takes)
+costs money. Before it: Reed's OK on a cap. After it: a row in ops/SPEND.md (PR to main).
+Keys and sign-in come only from the environment (BS_QA_EMAIL, BS_QA_PASSWORD, KIE_API_KEY) and are never printed,
+logged, committed or put in chat. `ref`, `measure`, `retime`, `review` and `cut` are free.
 
   python song_ad.py ref <ad-library-id> <dir>          free: fetch a Meta ad, transcribe it, BPM, frame sheet
   python song_ad.py song <request.json> <dir>          paid (KIE, about $0.06): 2 Suno takes for locked lyrics

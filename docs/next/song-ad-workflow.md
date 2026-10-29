@@ -8,6 +8,8 @@ This is the exact recipe behind "That's My Gut Breaking Down" and "Same Gut, Thr
 
 The pilot log, with every problem hit along the way, is in `docs/next/song-pilot-notes.md`. The worked example (directions, shot plans, the exact Suno requests and app scripts) is in `docs/next/song-pilot/`.
 
+> **Paid calls.** Every run that calls KIE (the song) or makes anything on the live site (looks, stills, clip prompts, takes) costs money. It needs Reed's OK on a cap first and a row in `ops/SPEND.md` after (PR to main). Keys and sign-in come only from the environment and are never printed, logged, committed or put in chat.
+
 ## The recipe
 
 | # | Step | Who | Cost | Gate |
