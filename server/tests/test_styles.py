@@ -18,8 +18,10 @@ def test_reeds_order_and_only_house_starts_on():
         assert prompts.style(own_flow)["kind"] == "format"
     for on_story in ("zack-d", "skeleton"):  # pickable on a story script (flows Q4)
         assert prompts.style(on_story)["kind"] == "look"
-    narrated = [s["id"] for s in prompts.styles() if s["narrated"]]
-    assert narrated == ["zack-d", "skeleton"]  # ST1 offers "Make the narrator a role"
+    # no look is narrated any more: narration is the Narrated format (Reed, 2026-10-29)
+    assert all("narrated" not in s for s in prompts.styles())
+    assert not any("narrated:" in (HERE / "styles" / f"{s['id']}.md").read_text()
+                   for s in prompts.styles())  # fmt: skip
     assert [s["id"] for s in prompts.styles() if s["on"]] == ["house"]
     for s in prompts.styles():
         assert s["kind"] in ("look", "format") and s["blurb"], s["id"]

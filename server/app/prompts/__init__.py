@@ -64,7 +64,7 @@ TOKEN = re.compile(r"\{\{(\w+)\}\}")
 @cache
 def styles() -> list[dict]:
     """The style registry, in Reed's order: one styles/<id>.md each (Reed, 2026-10-28). Each is
-    {id, name, kind ("look" or "format"), order, on, narrated, image_model, blurb, sections}.
+    {id, name, kind ("look" or "format"), order, on, image_model, blurb, sections}.
     `on` is only the starting switch (House alone); the server keeps Reed's own."""
     out = []
     for path in (HERE / "styles").glob("*.md"):
@@ -76,7 +76,6 @@ def styles() -> list[dict]:
             "kind": meta["kind"],
             "order": int(meta["order"]),
             "on": meta["on"] == "yes",
-            "narrated": meta.get("narrated") == "yes",  # ST1: "Make the narrator a role"
             "image_model": meta["image_model"],
             "blurb": meta["blurb"],
             "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},

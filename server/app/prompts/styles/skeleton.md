@@ -3,9 +3,8 @@
 kind: look
 order: 4
 on: no
-narrated: yes
 image_model: auto
-blurb: "What happens if you ___?": one lovable cartoon skeleton climbs Day 1, Day 30, Day 365 under a narrator.
+blurb: "What happens if you ___?": one lovable cartoon skeleton climbs Day 1, Day 30, Day 365.
 
 ## sheet_look
 Cinematic 3D animated render. A skeleton character (the description says so) is a full anatomical skeleton with natural adult human proportions, tall and lanky, smooth ivory-cream bones with realistic bone detail (not toy-smooth, not chibi, not scary), and large expressive cartoon eyes with white sclera and dark pupils set in the eye sockets: an emotive, lovable face; it wears nothing unless the description dresses it, and then wears that one outfit with the skull and hands still showing. Anyone else is a stylised 3D cartoon human whose body and face follow their age: an adult has an adult's height, build and face, never a child's. One fixed look, identical in every view.
@@ -28,14 +27,14 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 - Describe the body gently and dry: bones and glow, never wounds or anything gory.
 
 ## clip
-- A narrator voiceover carries the video; no one on screen speaks. Each shot shows what the line says at that moment.
+- Each shot shows what the line says at that moment. When the video is narrated, the narrator's voiceover carries it and no one on screen speaks.
 - One move and one camera move per shot; each change of rung or place has a transition (a push through, a whip pan, the light moving on).
 
 ## breakdown
-- One voiceover line is one shot is one rung of the ladder; never two ideas in a shot. The skeleton is in every shot's `character_ids`.
+- One line is one shot is one rung of the ladder; never two ideas in a shot. The skeleton is in every shot's `character_ids`.
 
 ## script
 - Open on a curiosity-gap question: "What happens if you ___ every day?", "What if you NEVER ___?", "How long can you ___?". Then 5 to 7 escalating rungs, each one line: by time (Day 1, Day 30, Day 365), by amount (1, 5, 25) or by stage. Then the payoff, a triumph (transformed, unstoppable) or a catastrophe for not using it, with the end line.
 - Second person, present tense, short punchy sentences, one concrete physical picture per line, each rung more intense than the last. Say what physically happens; never corporate words ("revolutionary", "seamless").
-- The narrator is the only voice: the script is a voiceover.
-- This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (the editor can make the narrator a role).
+- In a Narrated script the narrator is the only voice; in a Dialogue one, the skeleton speaks its own rungs.
+- This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (to have one voice read it all, the editor makes the script Narrated).
