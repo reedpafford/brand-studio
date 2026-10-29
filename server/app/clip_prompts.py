@@ -354,7 +354,7 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
         if c in pics and pics[c][1]:
             continue
         if not any(_same(pics, c, r.id) for r in clip.references):
-            problems.append(f"{_name(pics, c)} has no approved look yet. Approve one in Assets.")
+            problems.append(f"{_name(pics, c)} has no approved look yet. Approve one in Cast.")
     frame = db.scalar(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id,
                       StoryboardFrame.clip_id == clip.clip_id, StoryboardFrame.file_id.is_not(None))
                       .order_by(StoryboardFrame.id))  # fmt: skip  # the one `assets` attaches

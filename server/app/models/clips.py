@@ -30,6 +30,9 @@ class ProjectClip(Entity, Base):
     free_fix_used: Mapped[bool] = mapped_column(default=False)
     # P3: wording fixed in code ({before, after, fixed: [what], undone}); Undo puts `before` back
     auto_fix: Mapped[dict | None] = mapped_column(JSON)
+    # Song ads: {start, end, sung_shots} of the video's song this clip covers, from its
+    # breakdown row (song_breakdown.slice_of); None for a story video
+    song_slice: Mapped[dict | None] = mapped_column(JSON)
 
 
 @event.listens_for(ProjectClip.prompt, "set")
@@ -58,4 +61,5 @@ class FinalVideo(Entity, Base):
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
     take_ids: Mapped[list[int]] = mapped_column(JSON)
     cut_ins: Mapped[list[str]] = mapped_column(JSON, default=list)  # "c1/1.2" for each one used
+    song_take_id: Mapped[int | None] = mapped_column(ForeignKey("song_takes.id"))  # laid under
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))

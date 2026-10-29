@@ -3703,6 +3703,149 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/directions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Directions
+         * @description Write 2 song directions (one paid Claude call); a press again writes 2 more.
+         */
+        post: operations["write_directions_scripts__script_id__drafts__slot__directions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/directions/{direction_id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Direction
+         * @description Its lyrics and style line become the version's (Undo: PUT the was_ values back).
+         */
+        post: operations["use_direction_scripts__script_id__drafts__slot__directions__direction_id__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/claims/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Claims
+         * @description The owner vouches for the used direction's claims ("Keep it").
+         */
+        post: operations["keep_claims_scripts__script_id__drafts__slot__claims_keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/directions/{direction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Direction */
+        delete: operations["remove_direction_scripts__script_id__drafts__slot__directions__direction_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/directions/{direction_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Direction
+         * @description Undo a remove.
+         */
+        post: operations["restore_direction_scripts__script_id__drafts__slot__directions__direction_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/song-study": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Study Song Ad
+         * @description Study a song ad from a reel link or an uploaded video (free). It replaces the version's
+         *     study once it saves (a failed one leaves it); 409 while one is being studied.
+         */
+        post: operations["study_song_ad_scripts__script_id__drafts__slot__song_study_post"];
+        /**
+         * Remove Study
+         * @description Remove the study (Undo: …/song-study/restore).
+         */
+        delete: operations["remove_study_scripts__script_id__drafts__slot__song_study_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Use As Guide
+         * @description Use as a guide (on by default): the song directions follow its shape, never its words.
+         */
+        patch: operations["use_as_guide_scripts__script_id__drafts__slot__song_study_patch"];
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/song-study/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Study */
+        post: operations["restore_study_scripts__script_id__drafts__slot__song_study_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -3830,6 +3973,13 @@ export interface components {
         Body_replace_with_upload_scripts__script_id__import_upload_post: {
             /** File */
             file: string;
+        };
+        /** Body_study_song_ad_scripts__script_id__drafts__slot__song_study_post */
+        Body_study_song_ad_scripts__script_id__drafts__slot__song_study_post: {
+            /** Url */
+            url?: string | null;
+            /** File */
+            file?: string | null;
         };
         /** Body_upload_files_post */
         Body_upload_files_post: {
@@ -4204,6 +4354,42 @@ export interface components {
              */
             skip_screen_ids: number[];
         };
+        /** DirectionUsed */
+        DirectionUsed: {
+            /** Was Text */
+            was_text: string;
+            /** Was Style Line */
+            was_style_line: string;
+        };
+        /** DirectionsIn */
+        DirectionsIn: {
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Sounds Like
+             * @default
+             */
+            sounds_like: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** DirectionsJob */
+        DirectionsJob: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+            /** Reason */
+            reason: string | null;
+            /** Started At */
+            started_at: string | null;
+        };
         /** DraftIn */
         DraftIn: {
             /** Text */
@@ -4395,6 +4581,11 @@ export interface components {
             redo_credits?: number | null;
             /** Redo Blocked */
             redo_blocked?: string | null;
+        };
+        /** GuideIn */
+        GuideIn: {
+            /** Use As Guide */
+            use_as_guide: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -6032,6 +6223,55 @@ export interface components {
             after: string;
             frame: components["schemas"]["FrameOut"];
         };
+        /** SongDirectionOut */
+        SongDirectionOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Concept */
+            concept: string;
+            /** Lyrics */
+            lyrics: string;
+            /** Style Line */
+            style_line: string;
+            /** Visual Concept */
+            visual_concept: string;
+            /** Recommended */
+            recommended: boolean;
+            /**
+             * Left Out
+             * @default []
+             */
+            left_out: string[];
+            /**
+             * Unchecked Claims
+             * @default []
+             */
+            unchecked_claims: string[];
+            /**
+             * Length Note
+             * @default
+             */
+            length_note: string;
+            /**
+             * Style Names
+             * @default []
+             */
+            style_names: string[];
+            /**
+             * Advice
+             * @default []
+             */
+            advice: string[];
+            /**
+             * Used
+             * @default false
+             */
+            used: boolean;
+            /** Made At */
+            made_at: string;
+        };
         /** SongPart */
         SongPart: {
             /** Take Id */
@@ -6060,6 +6300,64 @@ export interface components {
              * @default false
              */
             guessed: boolean;
+        };
+        /**
+         * SongStudyOut
+         * @description The version's study. With no finished study, the status and its fields are the newest
+         *     attempt's; with one, it shows (done) and a newer attempt still running or failed is in
+         *     `attempt` (Flow-QA: a failed re-study never takes the good one away).
+         */
+        SongStudyOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "studying" | "done" | "failed";
+            job?: components["schemas"]["StudyJob"] | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "link" | "upload";
+            /** Link */
+            link?: string | null;
+            /** Seconds */
+            seconds?: number | null;
+            /** Bpm */
+            bpm?: number | null;
+            /**
+             * Sections
+             * @default []
+             */
+            sections: components["schemas"]["StudySection"][];
+            /**
+             * Lines
+             * @default []
+             */
+            lines: components["schemas"]["StudyLine"][];
+            /**
+             * Words
+             * @default []
+             */
+            words: components["schemas"]["StudyWord"][];
+            /**
+             * Frames
+             * @default []
+             */
+            frames: components["schemas"]["StudyFrame"][];
+            /**
+             * Use As Guide
+             * @default false
+             */
+            use_as_guide: boolean;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /** Problem Code */
+            problem_code?: string | null;
+            attempt?: components["schemas"]["StudyAttempt"] | null;
         };
         /** SongTakeOut */
         SongTakeOut: {
@@ -6138,6 +6436,85 @@ export interface components {
              * @default false
              */
             per_shot: boolean;
+        };
+        /**
+         * StudyAttempt
+         * @description A newer study that hasn't replaced the one shown: still running, or failed.
+         */
+        StudyAttempt: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "studying" | "failed";
+            job?: components["schemas"]["StudyJob"] | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "link" | "upload";
+            /** Link */
+            link?: string | null;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /** Problem Code */
+            problem_code?: string | null;
+        };
+        /** StudyFrame */
+        StudyFrame: {
+            /** File Id */
+            file_id: number;
+            /** T */
+            t: number;
+        };
+        /** StudyJob */
+        StudyJob: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "failed";
+            /** Started At */
+            started_at: string | null;
+        };
+        /** StudyLine */
+        StudyLine: {
+            /** Text */
+            text: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+        };
+        /** StudySection */
+        StudySection: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "Intro" | "Verse" | "Chorus" | "Bridge" | "Outro";
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Lines */
+            lines: string[];
+            /** Guessed */
+            guessed: boolean;
+        };
+        /** StudyWord */
+        StudyWord: {
+            /** Word */
+            word: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
         };
         /** SuggestionOut */
         SuggestionOut: {
@@ -6557,6 +6934,8 @@ export interface components {
             take_ids: number[];
             /** Out Of Date */
             out_of_date: boolean;
+            /** Song Take Id */
+            song_take_id?: number | null;
         };
         /** VideoSongIn */
         VideoSongIn: {
@@ -6886,9 +7265,23 @@ export interface components {
              * Song Directions
              * @default []
              */
-            song_directions: {
-                [key: string]: unknown;
-            }[];
+            song_directions: components["schemas"]["SongDirectionOut"][];
+            /**
+             * Directions Estimate Credits
+             * @default 0
+             */
+            directions_estimate_credits: number;
+            /** Directions Stop */
+            directions_stop?: string | null;
+            /** Directions Stop Kind */
+            directions_stop_kind?: ("no_facts" | "other") | null;
+            directions_job?: components["schemas"]["DirectionsJob"] | null;
+            /**
+             * Claims To Check
+             * @default []
+             */
+            claims_to_check: string[];
+            song_study?: components["schemas"]["SongStudyOut"] | null;
         };
         /** EstimateOut */
         app__routes__script_preview__EstimateOut: {
@@ -14376,6 +14769,297 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VideoSongOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_directions_scripts__script_id__drafts__slot__directions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectionsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_direction_scripts__script_id__drafts__slot__directions__direction_id__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+                direction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectionUsed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_claims_scripts__script_id__drafts__slot__claims_keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_direction_scripts__script_id__drafts__slot__directions__direction_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+                direction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_direction_scripts__script_id__drafts__slot__directions__direction_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+                direction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    study_song_ad_scripts__script_id__drafts__slot__song_study_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_study_song_ad_scripts__script_id__drafts__slot__song_study_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_study_scripts__script_id__drafts__slot__song_study_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_as_guide_scripts__script_id__drafts__slot__song_study_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuideIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_study_scripts__script_id__drafts__slot__song_study_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

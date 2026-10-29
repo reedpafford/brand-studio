@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { emptyBrand, signIn } from "./helpers";
 
-// The new video page (Breakdown · Assets · Storyboard · Clips · Downloads) on the free stand-ins.
+// The new video page (Breakdown · Assets · Storyboard · Clips · Final cut) on the free stand-ins.
 const SCRIPT = [
   "SCENE 1 - KITCHEN",
   "Max stares at the empty bowl.",
@@ -34,7 +34,7 @@ for (const width of [1440, 390]) {
 
     await page.goto(`/b/${brandId}/videos/${id}`);
     await expect(
-      page.getByRole("heading", { name: "Breakdown", level: 2, exact: true }),
+      page.getByRole("heading", { name: "Plan", level: 2, exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: /Make the breakdown/ }).click();
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
@@ -47,9 +47,9 @@ for (const width of [1440, 390]) {
         await route.fallback();
       });
     }
-    await page.getByRole("button", { name: "Next: Assets" }).click();
+    await page.getByRole("button", { name: "Next: Cast" }).click();
     await expect(
-      page.getByRole("heading", { name: "Assets", level: 2 }),
+      page.getByRole("heading", { name: "Cast", level: 2 }),
     ).toBeVisible();
     if (width === 390) {
       await expect(page.getByText("Loading assets…")).toHaveCount(1); // said once
@@ -67,6 +67,13 @@ for (const width of [1440, 390]) {
       page.getByRole("button", { name: "Next: Storyboard" }),
     ).toBeEnabled();
     if (width === 390) {
+      // The cost bar is taller than one button: the space kept for it (and toasts above it) is its real height.
+      const bar = await page.evaluate(() => {
+        const region = document.querySelector('[aria-label="Cost"]')?.parentElement?.parentElement as HTMLElement | null;
+        return { kept: getComputedStyle(document.documentElement).getPropertyValue("--actionbar-h").trim(), real: region?.offsetHeight ?? 0 };
+      });
+      expect(bar.real).toBeGreaterThan(0);
+      expect(bar.kept).toBe(`${bar.real}px`);
       // An approved look the role's words contradict (Reed's Biscuit): the words to update fit a phone.
       await page.route(`**/api/projects/${id}/assets`, (route) =>
         route.fulfill({
@@ -120,7 +127,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
-    await page.getByRole("button", { name: "Next: Assets" }).click();
+    await page.getByRole("button", { name: "Next: Cast" }).click();
     await page.getByRole("button", { name: "Next: Storyboard" }).click();
 
     // One press writes the frames and draws every still.
@@ -170,7 +177,7 @@ for (const width of [1440, 390]) {
       page.getByRole("button", { name: "Approve take" }).first(),
     ).toBeVisible({ timeout: 90_000 });
     await page.getByRole("button", { name: "Approve take" }).first().click();
-    await page.getByRole("button", { name: /Next: Downloads/ }).click();
+    await page.getByRole("button", { name: /Next: Final cut/ }).click();
     // The whole video is put together by itself.
     await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible({
       timeout: 60_000,

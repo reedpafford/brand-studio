@@ -83,7 +83,7 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
   await ed.waitForTimeout(3000);
   await state(ed, `${tag} breakdown`);
   if (await btn(ed, /^Make shots|^Make the breakdown|^Make breakdown/).count()) await clickWhenOn(ed, /^Make shots|^Make the breakdown|^Make breakdown/, 10_000);
-  if (!(await next(ed, /^Next: Assets/, `${tag} breakdown`, 90_000))) return;
+  if (!(await next(ed, /^Next: Cast/, `${tag} breakdown`, 90_000))) return;
   // Assets: looks are made by themselves, then approved
   await state(ed, `${tag} assets`);
   for (let i = 0; i < 8; i++) {
@@ -124,8 +124,8 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
     else await block(ed, `${tag} clips`, "no way to approve takes");
   }
   await ed.waitForTimeout(2000);
-  if (!(await next(ed, /^Next: Downloads/, `${tag} clips`, 60_000))) return;
-  // Downloads / final video
+  if (!(await next(ed, /^Next: Final cut/, `${tag} clips`, 60_000))) return;
+  // Final cut
   await state(ed, `${tag} downloads`);
   // The whole video is put together by itself once every clip is approved; Make the video is only there when it isn't yet.
   if (await btn(ed, /^Make the video/).isEnabled().catch(() => false)) await btn(ed, /^Make the video/).click();

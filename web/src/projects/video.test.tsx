@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
@@ -35,7 +35,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
 };
 
-function open(query = "?step=assets") {
+function open(query = "?step=cast") {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[`/b/1/videos/9${query}`]}>
@@ -52,8 +52,8 @@ test("the five steps, and Storyboard waits until every asset is approved", async
   fakeServer(base);
   open();
   const steps = await screen.findByRole("list", { name: "Steps" });
-  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d/, ""))).toEqual(["Breakdown", "Assets", "Storyboard", "Clips", "Downloads"]);
-  expect(within(steps).getByRole("button", { name: "Storyboard" })).toHaveAccessibleDescription(/Approve every asset first \(1 left\)/);
+  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d/, ""))).toEqual(["Plan", "Cast", "Storyboard", "Clips", "Final cut"]);
+  expect(within(steps).getByRole("button", { name: "Storyboard" })).toHaveAccessibleDescription(/Approve the cast first \(1 left\)/);
   expect(screen.getByRole("button", { name: /Next: Storyboard/ })).toBeDisabled();
 });
 
@@ -184,12 +184,15 @@ test("one-press Make storyboard is off for an editor when the writing plus the s
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, created_at: `2026-10-26T10:4${number}:00` });
 const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)], picked_take_id: 2 });
 
-test("Downloads: the zip, the picked take and the older take each download", async () => {
+test("Final cut: Download MP4 is the one amber; the zip, the picked take and the older take each download", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
   const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
   expect(zip).toHaveAttribute("href", "/api/projects/9/clips.zip");
+  expect(zip.className).not.toContain("bg-accent ");
+  expect(screen.getByRole("link", { name: "Download MP4" }).className).toContain("bg-accent ");
+  expect(screen.getByText("Final cut ready")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Download clip 1 (bo-tries-salmon-b-clip-1.mp4)" })).toHaveAttribute("href", expect.stringContaining("/files/52"));
   expect(screen.getByText("Older takes (1)")).toBeInTheDocument();
   expect(screen.getByText(/Take 1 · made \d{1,2}:41/)).toBeInTheDocument();
@@ -226,7 +229,7 @@ test("after a breakdown edit, Clips already made stays open (out of date), not s
   expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
 });
 
-test("Downloads puts the clips together by itself the first time, for free", async () => {
+test("Final cut puts the clips together by itself the first time, for free", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/video": [201, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
@@ -244,16 +247,17 @@ test("a video made from a library version opens on the new page", async () => {
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  expect(await screen.findByRole("heading", { name: "Breakdown", level: 2 })).toBeInTheDocument();
-  expect(screen.getByRole("list", { name: "Steps" })).toHaveTextContent("Downloads");
+  expect(await screen.findByRole("heading", { name: "Plan", level: 2 })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Steps" })).toHaveTextContent("Final cut");
 });
 
-test("on a phone the zip button sits in the action bar", async () => {
+test("on a phone Download MP4 sits in the action bar", async () => {
   setViewport(390);
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
-  const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
-  expect(zip.closest(".border-t.text-center")).not.toBeNull();
+  const mp4 = await screen.findByRole("link", { name: "Download MP4" });
+  expect(mp4.closest(".border-t.text-center")).not.toBeNull();
+  expect(screen.getByRole("link", { name: "Download all clips (.zip)" }).closest(".border-t.text-center")).toBeNull();
   expect(screen.getByText("Made from: Clip 1 Take 2")).toBeInTheDocument();
 });
 
@@ -305,11 +309,11 @@ test("Assets gets its tick only once it has been opened, not before (#749 LW9)",
   open("?step=breakdown");
   // The step picker waits under a skeleton while Assets loads (#773), so each look finds the list afresh.
   const steps = () => screen.findByRole("list", { name: "Steps" });
-  const tick = async () => within(await steps()).getByRole("button", { name: "Assets" }).querySelector(".text-success");
-  await vi.waitFor(async () => expect(within(await steps()).getByRole("button", { name: "Assets" })).toBeEnabled());
+  const tick = async () => within(await steps()).getByRole("button", { name: "Cast" }).querySelector(".text-success");
+  await vi.waitFor(async () => expect(within(await steps()).getByRole("button", { name: "Cast" })).toBeEnabled());
   expect(await tick()).toBeNull();
-  await userEvent.click(within(await steps()).getByRole("button", { name: "Assets" }));
-  await userEvent.click(await within(await steps()).findByRole("button", { name: "Breakdown" }));
+  await userEvent.click(within(await steps()).getByRole("button", { name: "Cast" }));
+  await userEvent.click(await within(await steps()).findByRole("button", { name: "Plan" }));
   await vi.waitFor(async () => expect(await tick()).not.toBeNull());
 });
 
@@ -336,7 +340,7 @@ test("Assets shows where each one is used, the role's description, and the produ
   const screens = screen.getByLabelText("App screens");
   expect(within(screens).getByText("fomo Home")).toBeInTheDocument();
   expect(within(screens).queryByRole("button")).toBeNull(); // nothing to approve
-  expect(screen.getByText("3 assets · 2 approved")).toBeInTheDocument();
+  expect(screen.getByText("3 in the cast · 2 approved")).toBeInTheDocument();
 });
 
 const still = (o: object = {}) => ({ ...frame, approved: false, earlier: [], change: null, ...o });
@@ -610,7 +614,7 @@ test("Assets waits for its list and the brand's products: no 0 assets, no Not in
   client.setQueryData(["assets", 9], [asset({ ref: "slot:3", slot_id: 3, role: "Biscuit", shots: 0 })]);
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/b/1/videos/9?step=assets"]}>
+      <MemoryRouter initialEntries={["/b/1/videos/9?step=cast"]}>
         <App />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -622,7 +626,7 @@ test("Assets waits for its list and the brand's products: no 0 assets, no Not in
   expect(screen.queryByText(/^0 assets/)).toBeNull();
   expect(screen.queryByText(/flavour first/)).toBeNull();
   release();
-  expect(await screen.findByText("1 asset · 1 approved")).toBeInTheDocument();
+  expect(await screen.findByText("1 in the cast · 1 approved")).toBeInTheDocument();
   expect(screen.queryByText(/Not in this video's shots/)).toBeNull();
   expect(screen.queryByText("Loading assets…")).toBeNull();
 });
@@ -638,9 +642,9 @@ test("if the Assets list can't be read again on opening the step, Next doesn't w
     return inner(req.clone(), init);
   }));
   open("");
-  await userEvent.click(await screen.findByRole("button", { name: "Next: Assets" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Next: Cast" }));
   await vi.waitFor(() => expect(reads).toBeGreaterThan(1));
-  await vi.waitFor(() => expect(screen.getByText("1 asset · 0 approved")).toBeInTheDocument(), { timeout: 8000 });
+  await vi.waitFor(() => expect(screen.getByText("1 in the cast · 0 approved")).toBeInTheDocument(), { timeout: 8000 });
 }, 15000);
 
 test("after Approve, the Assets list read again keeps its counts: no Loading assets… flash", async () => {
@@ -654,10 +658,10 @@ test("after Approve, the Assets list read again keeps its counts: no Loading ass
     return inner(req.clone(), init);
   }));
   open();
-  expect(await screen.findByText("1 asset · 0 approved")).toBeInTheDocument();
+  expect(await screen.findByText("1 in the cast · 0 approved")).toBeInTheDocument();
   await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
   await vi.waitFor(() => expect(reads).toBeGreaterThan(2));
-  expect(screen.getByText("1 asset · 0 approved")).toBeInTheDocument();
+  expect(screen.getByText("1 in the cast · 0 approved")).toBeInTheDocument();
   expect(screen.queryByText("Loading assets…")).toBeNull();
 });
 
@@ -827,7 +831,7 @@ test("a problem line never shows a raw id: the character's name stands in, the c
   const list = await screen.findByLabelText("Problems for c1");
   expect(list).toHaveTextContent("Clip c1: Bo is in the clip but its sheet isn't attached");
   expect(list).not.toHaveTextContent(/char:|slot:/);
-  expect(within(list).getByRole("link", { name: "Approve a look in Assets" })).toHaveAttribute("href", "/b/1/videos/9?step=assets");
+  expect(within(list).getByRole("link", { name: "Approve a look in Cast" })).toHaveAttribute("href", "/b/1/videos/9?step=cast");
   const advice = screen.getByLabelText("Advice for c1");
   expect(advice).not.toHaveTextContent(/char:/);
   await userEvent.click(within(advice).getByText(/Advice \(/)); // open it
@@ -1133,12 +1137,12 @@ test("when Undo of Approve all fails, it says why", async () => {
   expect(await screen.findByText("That look changed since. Undo it on its card.")).toBeInTheDocument();
 });
 
-test("a locked step says Breakdown, the name this page uses, when problems in it are in the way", async () => {
+test("a locked step says Plan, where the shots now live, when problems in it are in the way", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, { ...breakdown, problems: ["c1: the shot has no action", "c2: the shot has no setting"] }] });
   open("?step=breakdown");
   const steps = await screen.findByRole("list", { name: "Steps" });
-  expect(within(steps).getByRole("button", { name: "Assets" })).toHaveAccessibleDescription("Fix the 2 problems in Breakdown first");
+  expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Fix the 2 problems in Plan first");
 });
 
 const gone = asset({ ref: "slot:3", slot_id: 3, library_item_id: 77, name: "", role: "Nate", sheet_status: "none", library_deleted: true, look_credits: 4, look_usual_credits: 2 });
@@ -1353,6 +1357,14 @@ test("the credits meter follows the video's jobs: when one finishes, the project
   expect(await screen.findByText(/^13 \/ 24 credits/, {}, { timeout: 8000 })).toBeInTheDocument();
 }, 20000);
 
+test("the video's back link says where it goes: this brand's videos", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/scripts?view=videos");
+  expect(screen.queryByRole("button", { name: /^Brand: |Choose a brand/ })).toBeNull(); // no brand bar inside a video on a phone
+});
+
 test("Storyboard's counts are said once, in the step heading's line", async () => {
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, []] });
   open("?step=storyboard");
@@ -1372,4 +1384,34 @@ test("changing the shape after stills exist asks in the app, says the stills kee
   await userEvent.click(screen.getByRole("button", { name: "1:1" }));
   await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Change the shape · free" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toEqual({ aspect_ratio: "1:1" }));
+});
+
+function Where() {
+  return <span data-testid="where">{useLocation().search}</span>;
+}
+
+test("old addresses keep working: ?step=breakdown opens Plan on its Shots view, ?step=assets opens Cast", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, []] });
+  for (const [from, to, heading] of [["?step=breakdown", "?step=plan&view=shots", "Plan"], ["?step=assets", "?step=cast", "Cast"]]) {
+    const { unmount } = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[`/b/1/videos/9${from}`]}>
+          <App />
+          <Where />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole("heading", { name: heading, level: 2 })).toBeInTheDocument();
+    expect(screen.getByTestId("where")).toHaveTextContent(to);
+    unmount();
+  }
+});
+
+test("a look from the library says it comes from Cast & places, so the Cast step and the library never read as one", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ready: true, locked: true, sheet_status: "approved" })]] });
+  open("?step=assets");
+  expect(await screen.findByRole("heading", { name: "Cast", level: 2 })).toBeInTheDocument();
+  expect(await screen.findByText("From Cast & places")).toBeInTheDocument();
 });

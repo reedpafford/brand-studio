@@ -51,6 +51,8 @@ test("a published song script: Make this version opens a video whose Breakdown h
   await page.getByRole("button", { name: /Make this version/ }).click();
   await expect(page.getByRole("button", { name: "Change song" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Song: Take \d · \d:\d\d/)).toBeVisible();
+  // Each shot shows its stretch of the song and Sung or B-roll (flows V2).
+  await expect(page.getByText(/^(Sung|B-roll|Needs timing)$/).first()).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Change song" }).click();
   await expect(page.getByRole("dialog", { name: "Change song" }).getByText("In this video", { exact: true })).toBeVisible();
 });

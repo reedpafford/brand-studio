@@ -55,7 +55,10 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
 
   return (
     <main className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
-      <h1 className={pageTitle}>Library</h1>
+      <div>
+        <h1 className={pageTitle}>Cast & places</h1>
+        <p className="text-sm text-muted">The studio's reusable characters and places. Looks made for a video stay with that video.</p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         {Object.entries(KINDS).map(([s, k]) => (
           <NavLink key={s} to={`/b/${brandId}/library/${s}`} className={tab}>

@@ -232,6 +232,8 @@ export function AssetCard({
               <Badge tone={status.tone}>{status.text}</Badge>
             )}
             {using && <Badge>{asset.only_here === "script" ? "This script only" : "This video only"}</Badge>}
+            {/* The step is Cast; the library is Cast & places. A look from the library says where it lives, so the two never read as one. */}
+            {asset.kind === "character" && id != null && !own && !deleted && <Badge>From Cast &amp; places</Badge>}
           </div>
           {deleted && <p className="text-sm text-muted">The character this role used was deleted from Cast &amp; places.</p>}
           {sameAs}

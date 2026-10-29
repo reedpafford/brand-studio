@@ -135,7 +135,7 @@ test("One brand's Videos: a row per video with who, status in words, the whole v
   expect(await screen.findByRole("tab", { name: "Scripts 12" })).toBeInTheDocument();
   const done = (await screen.findByRole("link", { name: "Bo tries salmon · B" })).closest("tr")!;
   expect(within(done).getByText("Sam")).toBeInTheDocument();
-  expect(within(done).getByText("Video done")).toBeInTheDocument();
+  expect(within(done).getByText("Finished")).toBeInTheDocument();
   expect(within(done).getByText("$11.80")).toBeInTheDocument();
   expect(within(done).getByText("134")).toBeInTheDocument();
   expect(screen.getByText("(earlier way)")).toBeInTheDocument();
@@ -153,7 +153,7 @@ test("One brand's Scripts tab: author, version chips that open what the library 
   expect(within(script).getByText("Reed")).toBeInTheDocument();
   expect(within(script).getByText("1 left")).toBeInTheDocument();
   expect(within(script).getByText("$19.40")).toBeInTheDocument();
-  expect(within(script).getByLabelText("Version A, video done").closest("a")).toHaveAttribute("href", "/b/1/projects/31");
+  expect(within(script).getByLabelText("Version A, finished").closest("a")).toHaveAttribute("href", "/b/1/projects/31");
   expect(within(script).getByLabelText("Version B, in production by Sam")).toBeInTheDocument();
   expect(within(script).getByLabelText("Version C, ready to make").closest("a")).toHaveAttribute("href", "/b/1/scripts?make=7.2");
 });
@@ -183,14 +183,14 @@ test("Usage cards say '1 version left' and '1 script' in the singular, and a bra
   expect(card.querySelector("span[aria-hidden].bg-faint")).not.toBeNull();
 });
 
-test("a finished video whose clips changed since says Finished · changes waiting in Usage, not Video done (#749 LW2)", async () => {
+test("a finished video whose clips changed since says Finished · changes waiting in Usage, not plain Finished (#749 LW2)", async () => {
   setViewport(390);
   fakeServer(brandBase({ "GET /usage/brands/1/videos": [200, { total: 2, next_cursor: null, people: [], items: [video({ title: "Bo tries salmon · B", status: "done", finished_at: "2026-10-24T10:00:00Z", final_out_of_date: true }), video({ project_id: 33, title: "Bo tries cod · C", status: "done", finished_at: "2026-10-24T10:00:00Z", final_out_of_date: false })] }] }));
   open("/usage/brands/1");
   const changed = await screen.findByRole("link", { name: /Bo tries salmon · B/ });
   expect(within(changed).getByText("Finished · changes waiting")).toBeInTheDocument();
-  expect(within(changed).queryByText("Video done")).toBeNull();
-  expect(within(screen.getByRole("link", { name: /Bo tries cod · C/ })).getByText("Video done")).toBeInTheDocument();
+  expect(within(changed).queryByText("Finished")).toBeNull();
+  expect(within(screen.getByRole("link", { name: /Bo tries cod · C/ })).getByText("Finished")).toBeInTheDocument();
 });
 
 test("a video title doesn't double its letter when the server already put it there", async () => {

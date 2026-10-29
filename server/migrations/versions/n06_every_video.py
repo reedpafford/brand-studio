@@ -4,14 +4,14 @@ advisory check on stills and takes (P4). A video made before this has no plan st
 read from its breakdown when asked (app code), so nothing is blocked.
 
 Revision ID: n06
-Revises: n01
+Revises: n04
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n06"
-down_revision = "n01"  # the head on `next` when the PR opens (data.md's merge order)
+down_revision = "n04"  # the head on `next` now; n05 once #858 is in (data.md merge order)
 branch_labels = None
 depends_on = None
 
