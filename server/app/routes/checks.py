@@ -30,6 +30,7 @@ class FlaggedOut(BaseModel):
 class ReviewOut(BaseModel):
     on: bool  # checks run (the stand-in on the test site, or approved for real)
     credits_per_check: int  # one check, rounded up
+    check_credits_per_video: int  # Video settings: "Checks: about N credits a video"
     items: list[FlaggedOut]  # the current stills and takes with Advice not yet Looks fine
 
 
@@ -57,8 +58,9 @@ def review(project_id: int, user: User = Depends(current_user), db: Session = De
                                     label=f"Clip {clip} · take {t.number}",
                                     findings=len(out.findings)))  # fmt: skip
     db.commit()  # a check whose job ended without an answer now reads "failed"
-    return ReviewOut(on=item_checks.on(), items=items,
-                     credits_per_check=credits.price(item_checks.price(db, project)))  # fmt: skip
+    each, whole = item_checks.price(db, project), item_checks.per_video(db, project)
+    return ReviewOut(on=item_checks.on(), items=items, credits_per_check=credits.price(each),
+                     check_credits_per_video=credits.price(whole) if whole else 0)  # fmt: skip
 
 
 @router.post("/{check_id}/findings/{index}/dismiss", response_model=CheckOut)

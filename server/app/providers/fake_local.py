@@ -478,10 +478,10 @@ class FakeWriter:
         return {"clips": [_clip(c, shots, f"frame:{c['id']}" in assets) for c in bd["clips"]]}
 
     def _item_check(self, prompt):
-        """Stills match their sheets; a take's first character "may differ", so every state
-        of the check (Advice, Looks fine, Change this…) can be walked for free."""
+        """The first character sheet "may differ" on every check (so Advice, Looks fine and
+        Change this… can all be walked for free); an item with only a product matches."""
         who = re.search(r"\b(char|slot):\d+", prompt)
-        if "frames of one take" not in prompt or not who:
+        if not who:
             return {"findings": []}
         return {"findings": [{"kind": "face", "who": who[0], "says": "Their face may differ "
                               "from their sheet", "note": "Keep their face exactly as on "

@@ -3944,6 +3944,23 @@ export interface components {
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
         };
+        /**
+         * ApproveAllChecked
+         * @description Stills and takes: also how many of those approved carry the check's Advice (P4).
+         */
+        ApproveAllChecked: {
+            /** Approved */
+            approved: number[];
+            /** Skipped */
+            skipped: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Approved With Advice
+             * @default 0
+             */
+            approved_with_advice: number;
+        };
         /** ApproveAllOut */
         ApproveAllOut: {
             /** Approved */
@@ -5920,6 +5937,8 @@ export interface components {
             on: boolean;
             /** Credits Per Check */
             credits_per_check: number;
+            /** Check Credits Per Video */
+            check_credits_per_video: number;
             /** Items */
             items: components["schemas"]["FlaggedOut"][];
         };
@@ -12971,7 +12990,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApproveAllOut"];
+                    "application/json": components["schemas"]["ApproveAllChecked"];
                 };
             };
             /** @description Validation Error */
@@ -13507,7 +13526,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApproveAllOut"];
+                    "application/json": components["schemas"]["ApproveAllChecked"];
                 };
             };
             /** @description Validation Error */

@@ -398,7 +398,7 @@ def approve(
     return _out(db, project, frame)
 
 
-@router.post("/approve-all", response_model=advice.ApproveAllOut)
+@router.post("/approve-all", response_model=advice.ApproveAllChecked)
 def approve_all(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Approve all (Reed, 2026-10-26): every frame with a still and nothing to fix; the
     others are listed with why. Undo takes back exactly these."""
@@ -420,8 +420,10 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
             continue
         frame.approved, frame.redrawn, frame.change = True, False, None
         approved.append(frame.id)
+    flagged = item_checks.with_advice(db, "frame", approved)
     db.commit()
-    return advice.ApproveAllOut(approved=approved, skipped=skipped)
+    return advice.ApproveAllChecked(approved=approved, skipped=skipped,
+                                    approved_with_advice=flagged)  # fmt: skip
 
 
 @router.post("/approve-all/undo", response_model=list[FrameOut])

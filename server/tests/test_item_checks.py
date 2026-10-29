@@ -34,9 +34,12 @@ def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setu
     (take,) = editor.get(clips).json()[0]["takes"]
     assert take["check"]["status"] == "checking"  # never blocks: Approve works meanwhile
     assert editor.post(f"{clips}/{clip['id']}/approve").json()["approved"] is True
+    editor.delete(f"{clips}/{clip['id']}/approve")
     _check(app, db)
     job = db.query(Job).filter(Job.kind == "check-claude").one()
     assert len(job.input["files"]["reference_images"]) == 1  # Mom's sheet; frames come first
+    assert job.input["take_frames"]["count"] == 1  # key_takes: one frame keeps it to cents
+    assert editor.post(f"{clips}/approve-all").json()["approved_with_advice"] == 1
     (shown,) = editor.get(clips).json()
     check = shown["takes"][0]["check"]
     assert check["status"] == "advice" and shown["approved"] is True  # approval untouched
@@ -47,13 +50,14 @@ def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setu
     review = editor.get(url).json()
     assert [(i["kind"], i["label"]) for i in review["items"]] == [("take", "Clip c1 · take 1")]
     assert review["on"] is True and review["credits_per_check"] == 1
+    assert review["check_credits_per_video"] == 1  # one speaking clip: 0.2, rounded up
     fine = editor.post(f"{url}/{check['id']}/findings/0/dismiss").json()
     assert (fine["status"], fine["findings"]) == ("ok", [])
     assert db.get(ItemCheck, check["id"]).dismissed[0]["index"] == 0  # kept in its history
     assert editor.get(url).json()["items"] == []
 
 
-def test_a_still_that_matches_says_so(app, db, editor, setup):  # noqa: F811
+def test_stills_are_checked_only_when_the_scope_is_everything(app, db, editor, setup, monkeypatch):  # noqa: F811, E501
     mom = editor.post("/library/character",
                       json={"name": "Mom", "image_file_ids": [upload(editor)]}).json()  # fmt: skip
     with_sheet(db, mom["id"])
@@ -63,13 +67,22 @@ def test_a_still_that_matches_says_so(app, db, editor, setup):  # noqa: F811
     editor.post(url, json={})
     _run(app, db, FakeClaude(_frames(f"char:{mom['id']}", f"screen:{setup['screen']}")))
     frame = editor.get(url).json()[0]
-    editor.post(f"{url}/frames/{frame['id']}/render")
-    client = httpx.Client(transport=httpx.MockTransport(FakeNanoBanana()))
-    for _ in range(2):
-        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage,
-                 only={"replicate"})  # fmt: skip
-    _check(app, db)
-    assert editor.get(url).json()[0]["check"]["status"] == "ok"  # "Checked · matches the sheets"
+
+    def draw():
+        editor.post(f"{url}/frames/{frame['id']}/render")
+        client = httpx.Client(transport=httpx.MockTransport(FakeNanoBanana()))
+        for _ in range(2):
+            run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage,
+                     only={"replicate"})  # fmt: skip
+        _check(app, db)
+
+    draw()
+    assert editor.get(url).json()[0]["check"] is None  # key_takes: stills aren't checked
+    monkeypatch.setattr("app.item_checks.scope", lambda: "everything")
+    draw()
+    assert editor.get(url).json()[0]["check"]["status"] == "advice"
+    review = editor.get(f"/projects/{setup['project']}/checks").json()
+    assert review["check_credits_per_video"] == 1  # a still and a take for its one clip: 0.4
 
 
 def test_over_budget_is_skipped_and_a_failed_check_is_free(app, db, editor, setup, clip):  # noqa: F811

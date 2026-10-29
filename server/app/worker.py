@@ -337,7 +337,7 @@ def video_frames(video: bytes, count: int) -> list[bytes]:
         length = float(probe.stdout.strip() or 0)
         out = []
         for n in range(count):
-            at = min(length * n / max(count - 1, 1), max(length - 0.5, 0))  # never past the end
+            at = length / 2 if count == 1 else min(length * n / (count - 1), max(length - 0.5, 0))
             dst = Path(tmp) / f"{n}.jpg"
             subprocess.run(  # noqa: S603
                 ["ffmpeg", "-v", "error", "-y", "-ss", f"{at:.2f}", "-i", str(src),  # noqa: S607

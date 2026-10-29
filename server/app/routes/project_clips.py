@@ -458,7 +458,7 @@ def approve(
     return _out(db, row, _newest_breakdown(db, project))
 
 
-@router.post("/clips/approve-all", response_model=advice.ApproveAllOut)
+@router.post("/clips/approve-all", response_model=advice.ApproveAllChecked)
 def approve_all(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Approve all (Reed, 2026-10-26): every clip with a picked take, made for the newest
     breakdown and with nothing to fix; the others are listed with why. Undo takes back
@@ -480,8 +480,11 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
             continue
         row.approved, row.change = True, None
         approved.append(row.id)
+    picked = [r.picked_take_id for r in _clips(db, project.id) if r.id in approved]
+    flagged = item_checks.with_advice(db, "take", picked)
     db.commit()
-    return advice.ApproveAllOut(approved=approved, skipped=skipped)
+    return advice.ApproveAllChecked(approved=approved, skipped=skipped,
+                                    approved_with_advice=flagged)  # fmt: skip
 
 
 @router.post("/clips/approve-all/undo", response_model=list[ProjectClipOut])

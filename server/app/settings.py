@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -61,6 +62,10 @@ class Settings(BaseSettings):
     # The advisory check on stills and takes (flows 1b, P4) costs real calls: off until the
     # Producer approves a real test; with the stand-ins on, it always runs (free).
     item_checks_paid: bool = False
+    # Which items are checked (Producer, 2026-10-29, to fit "a few cents a video"):
+    # key_takes (default): takes of ★-product or speaking clips, one frame each; all_takes:
+    # every take, one frame; everything: stills too, and three frames a take.
+    item_check_scope: Literal["key_takes", "all_takes", "everything"] = "key_takes"
     # Background worker
     worker_poll_seconds: float = 2.0
     # Which providers' jobs this worker takes, e.g. ["local"] for a reel-prep worker; empty: all.

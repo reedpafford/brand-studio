@@ -23,7 +23,6 @@ from app.prompts.schemas import ItemCheck as Answer
 from app.settings import get_settings
 
 log = logging.getLogger(__name__)
-FRAMES = 3  # a take is looked at as its first, middle and last frames
 KIND = "check-claude"
 
 
@@ -50,10 +49,48 @@ def price(db: Session, project: Project) -> Decimal:
     return estimate(db, project.workspace_id, KIND, Decimal(1), {})
 
 
-def _shot_text(db: Session, breakdown_id: int, shot_ids: list[str]) -> str:
+def scope() -> str:
+    return get_settings().item_check_scope
+
+
+def _shots(db: Session, breakdown_id: int) -> dict[str, dict]:
     data = db.get(BreakdownVersion, breakdown_id).data
-    shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
-    return " ".join(shots[i]["action"] for i in shot_ids if i in shots)
+    return {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
+
+
+def _products(db: Session, project: Project) -> set[str]:
+    """The brand's products as picture ids: product screens (the bag) and props."""
+    from app.enhance import project_screens
+
+    return {f"screen:{s.id}" for s in project_screens(db, project) if s.product
+            or "product" in (s.tags or [])}  # fmt: skip
+
+
+def key(db: Session, project: Project, shots: list[dict], refs: list[str]) -> bool:
+    """A ★-product or speaking item: the ones checked by default (key_takes)."""
+    products = _products(db, project)
+    shown = {x for s in shots for x in s.get("screen_ids", [])} | set(refs)
+    return (
+        any(s.get("line") for s in shots)
+        or bool(shown & products)
+        or any(r.startswith("prop:") for r in refs)
+    )
+
+
+def per_video(db: Session, project: Project) -> Decimal:
+    """About what the checks cost on this video, at the scope in force: one take a clip (and
+    one still a clip with `everything`), from its newest breakdown."""
+    row = db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
+                    .order_by(BreakdownVersion.id.desc()).limit(1))  # fmt: skip
+    if row is None or not on():
+        return Decimal(0)
+    shots = _shots(db, row.id)
+    clips = [[shots[i] for i in c["shot_ids"] if i in shots] for c in row.data.get("clips", [])]
+    if scope() == "key_takes":
+        count = sum(key(db, project, c, []) for c in clips)
+    else:
+        count = len(clips) * (2 if scope() == "everything" else 1)
+    return price(db, project) * count
 
 
 def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs: list[str],
@@ -63,14 +100,20 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
     from app.storyboard import assets
 
     project = db.get(Project, job.project_id) if job.project_id else None
-    if not project or not on():
+    if not project or not on() or (target == "frame" and scope() != "everything"):
+        return None
+    shots = [s for i, s in _shots(db, breakdown_id).items() if i in shot_ids]
+    if scope() == "key_takes" and not key(db, project, shots, refs):
         return None
     known = assets(db, project)
     sheets = [r for r in dict.fromkeys(refs) if r.startswith(("char:", "slot:"))
               and known.get(r, ("", []))[1]]  # fmt: skip
-    product = next((r for r in refs if r.startswith("prop:") and known.get(r, ("", []))[1]), None)
+    products = _products(db, project)
+    product = next((r for r in refs if (r.startswith("prop:") or r in products)
+                    and known.get(r, ("", []))[1]), None)  # fmt: skip
     if not sheets and not product:
         return None
+    frames = 3 if scope() == "everything" else 1  # a take as one frame keeps it to cents
     row = ItemCheck(project_id=project.id, target=target, target_id=target_id, status="checking")
     db.add(row)
     user = db.get(User, job.created_by_id)
@@ -84,16 +127,16 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
     if product:
         images.append(known[product][1][0])
         pair = (f"product:{product.split(':')[1]}", known[product][0])
-    text = prompts.item_check_input(_shot_text(db, breakdown_id, shot_ids),
+    text = prompts.item_check_input(" ".join(s["action"] for s in shots),
                                     [(r, known[r][0]) for r in sheets], pair,
-                                    frames=FRAMES if target == "take" else 1)  # fmt: skip
+                                    frames=frames if target == "take" else 1)  # fmt: skip
     data = {"step": "item_check", "item_check_id": None, "project_id": project.id,
             "system": [prompts.system("item_check")], "prompt": text, "effort": "low",
             "max_tokens": 2000, "fit_images_to": 1024,
             "ref_ids": sheets + ([pair[0]] if pair else []),
             "files": {"reference_images": [file_id] * (target == "frame") + images}}  # fmt: skip
     if target == "take":
-        data["take_frames"] = {"file_id": file_id, "count": FRAMES}  # the worker reads them
+        data["take_frames"] = {"file_id": file_id, "count": frames}  # the worker reads them
     db.flush()
     data["item_check_id"] = row.id
     check_job = Job(workspace_id=project.workspace_id, created_by_id=user.id, kind=KIND,
@@ -154,3 +197,9 @@ def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
         row.status, "advice" if findings else "ok"
     )
     return CheckOut(id=row.id, status=status, findings=findings)
+
+
+def with_advice(db: Session, target: str, ids: list[int]) -> int:
+    """How many of these items' newest checks still have Advice ("2 approved with Advice")."""
+    rows = latest(db, target, ids).values()
+    return sum(1 for r in rows if (out := shown(db, r)) and out.findings)
