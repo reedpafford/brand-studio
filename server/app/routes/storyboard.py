@@ -126,9 +126,12 @@ def _out(
     redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
     blocked = redo_frame.blocked(db, frame, newest) if redo else ""
     asked = frame.change or {}
-    if asked.get("status") == "changing" and all(j.id != asked.get("job_id") for j in waiting):
-        # its rewrite ended without saving (failed, or stopped): never "Changing…" for ever
-        asked = {**asked, "status": "failed", "error": change.UNFINISHED}
+    on_way = {asked.get("job_id"), asked.get("made_job_id")}  # the rewrite, then its still
+    if asked.get("status") == "changing" and all(j.id not in on_way for j in waiting):
+        # it ended without saving (failed, or stopped): never "Changing…" for ever
+        drawn = asked.get("made_job_id")
+        said = redo_frame.STILL_UNFINISHED if drawn else change.UNFINISHED
+        asked = {**asked, "status": "failed", "error": said}
     return FrameOut(
         **{f: getattr(frame, f) for f in FrameOut.model_fields if f not in computed},
         approved=frame.approved and not stale,

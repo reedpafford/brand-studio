@@ -38,12 +38,40 @@ def test_an_out_of_date_frame_is_written_again_then_drawn(app, db, editor, setup
     db.expire_all()
     row = db.get(StoryboardFrame, frame.id)
     assert row.breakdown_id != old and "Mom, from the new plan." in row.prompt
-    assert row.change["status"] == "done" and row.change["note"] == "Redo this frame"
+    assert row.change["status"] == "changing" and row.change["note"] == "Redo this frame"
     assert row.file_id == still  # the earlier still stays until the new one lands
     draw = next(j for j in db.query(Job).all() if j.input.get("frame_id") == frame.id)
     assert draw.status == "queued" and draw.input["was_prompt"] != row.prompt  # Undo: pick it
+    assert row.change["made_job_id"] == draw.id
     (shown,) = editor.get(url).json()
     assert shown["stale"] is False and shown["redo_credits"] is None
+    assert (shown["change"]["status"], shown["drawing"]) == ("changing", True)  # still coming
+
+    from app.storyboard import save_still
+    from tests.conftest import upload
+
+    draw.status, draw.output = "succeeded", {"file_ids": [upload(editor)]}
+    save_still(db, draw)  # the new still lands: now it's done, the earlier one kept for Undo
+    db.commit()
+    (shown,) = editor.get(url).json()
+    assert shown["change"]["status"] == "done" and shown["earlier"][-1]["file_id"] == still
+
+
+def test_a_redo_whose_still_fails_says_so(app, db, editor, setup):  # noqa: F811
+    from app.redo_frame import STILL_UNFINISHED
+
+    url, frame = _frame(app, db, editor, setup)
+    _new_breakdown(app, db, editor, setup)
+    editor.post(f"{url}/frames/{frame.id}/redo")
+    redone = {"frames": [{"clip_id": "c1", "shot_id": "1.1", "prompt": "Mom, again.",
+                          "reference_ids": list(frame.reference_ids)}]}  # fmt: skip
+    _run(app, db, FakeClaude(redone))
+    db.expire_all()
+    draw = next(j for j in db.query(Job).all() if j.input.get("frame_id") == frame.id)
+    draw.status = "failed"  # the still didn't finish
+    db.commit()
+    (shown,) = editor.get(url).json()
+    assert (shown["change"]["status"], shown["change"]["error"]) == ("failed", STILL_UNFINISHED)
 
 
 def test_a_frame_whose_clip_changed_redoes_the_storyboard(app, db, editor, setup):  # noqa: F811
